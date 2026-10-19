@@ -25,6 +25,7 @@ LANDED_FEATURE_WORDS = [
     "projects",
     "assignees",
     "tasks",
+    "workflow",
     "priorities",
     "labels",
     "due_dates",

@@ -19,11 +19,13 @@ from domain import (
     TaskEditOutcome,
     TaskFields,
     TaskLabelOutcome,
+    TaskStatus,
     TrackerState,
     add_assignee,
     add_task,
     add_task_comment,
     add_task_label,
+    allowed_moves,
     create_project,
     edit_task,
     find_project,
@@ -32,6 +34,7 @@ from domain import (
     list_assignees,
     list_project_tasks,
     list_projects,
+    move_task,
     remove_assignee,
     remove_task_label,
     set_operator_name,
@@ -167,6 +170,20 @@ class Tracker:
         new_state, task = add_task_comment(self._state, task_id, text, self._clock.now())
         self._save_then_publish(new_state)
         return task
+
+    def move_task(self, task_id: int, status: str) -> Task:
+        """Move the task to the status. A refusal or a saver failure propagates; the state stays.
+
+        The domain checks the move against the state held now, never against what a page showed.
+        The accepted move is saved before it becomes current. Returns the moved task.
+        """
+        new_state, task = move_task(self._state, task_id, status)
+        self._save_then_publish(new_state)
+        return task
+
+    def allowed_moves(self, status: TaskStatus) -> tuple[TaskStatus, ...]:
+        """The statuses a task in `status` may move to, in the order `domain` gives."""
+        return allowed_moves(status)
 
     def task_edit_context(self, task_id: int) -> TaskEditContext | None:
         """What the task's edit form is built from, or None when no task has this identity."""

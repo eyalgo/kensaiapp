@@ -62,6 +62,7 @@ from domain.tasks import (
     task_edit_context,
 )
 from domain.text import LONG_TEXT_MAX, SHORT_TEXT_MAX
+from domain.workflow import MoveNotAllowed, allowed_moves, move_task
 
 __all__ = [
     "DEFAULT_PRIORITY",
@@ -81,6 +82,7 @@ __all__ = [
     "InvalidPriority",
     "InvalidTaskStatus",
     "LabelNotCarried",
+    "MoveNotAllowed",
     "NameInUse",
     "OperatorNameNotSet",
     "OperatorNameOutcome",
@@ -104,6 +106,7 @@ __all__ = [
     "add_task",
     "add_task_comment",
     "add_task_label",
+    "allowed_moves",
     "check_assignee_names",
     "check_comment_text",
     "check_label",
@@ -121,6 +124,7 @@ __all__ = [
     "list_assignees",
     "list_project_tasks",
     "list_projects",
+    "move_task",
     "parse_calendar_date",
     "parse_priority",
     "remove_assignee",

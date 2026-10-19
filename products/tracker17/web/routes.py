@@ -28,13 +28,16 @@ from application import (
     EmptyLabel,
     InvalidDueDate,
     InvalidPriority,
+    InvalidTaskStatus,
     LabelNotCarried,
+    MoveNotAllowed,
     NameInUse,
     OperatorNameNotSet,
     Project,
     ProjectNotFound,
     TaskFields,
     TaskNotFound,
+    TaskStatus,
     TextField,
     TextTooLong,
     Tracker,
@@ -63,6 +66,7 @@ ADD_TASK_PATTERN = re.compile(r"/projects/([0-9]+)/tasks")
 ADD_LABEL_PATTERN = re.compile(r"/tasks/([0-9]+)/labels")
 REMOVE_LABEL_PATTERN = re.compile(r"/tasks/([0-9]+)/labels/remove")
 ADD_COMMENT_PATTERN = re.compile(r"/tasks/([0-9]+)/comments")
+MOVE_PATTERN = re.compile(r"/tasks/([0-9]+)/move")
 SHOWN_PREFIX = "shown_"
 TASK_FIELDS = ("title", "priority", "assignee", "due_date")
 EDIT_FAILED = "save"
@@ -102,6 +106,7 @@ ROUTES = (
     Route("POST", "/tasks/[0-9]+/labels", SUBMISSION),
     Route("POST", "/tasks/[0-9]+/labels/remove", SUBMISSION),
     Route("POST", "/tasks/[0-9]+/comments", SUBMISSION),
+    Route("POST", "/tasks/[0-9]+/move", SUBMISSION),
     Route("GET", "/style.css", PAGE),
 )
 
@@ -233,6 +238,9 @@ class Site:
         add_comment = ADD_COMMENT_PATTERN.fullmatch(path)
         if add_comment:
             return self._add_comment(add_comment.group(1), form)
+        move = MOVE_PATTERN.fullmatch(path)
+        if move:
+            return self._move_task(move.group(1), form)
         actions = {
             "/projects": self._create,
             "/assignees": self._add_assignee,
@@ -291,8 +299,27 @@ class Site:
                 label_area=self._label_area(query),
                 comment_area=self._comment_area(query),
                 operator_name=self._tracker.operator_name(),
+                allowed_moves=self._tracker.allowed_moves,
+                move_outcome=self._move_outcome(query),
             )
         )
+
+    @staticmethod
+    def _move_outcome(query: Mapping[str, list[str]]) -> pages.MoveOutcome:
+        """The move outcome from the address: the first of the refusal, failure and completion keys
+        present, read with the closed vocabularies. Unknown words, and a task identity that is no
+        place, give no outcome (the page then shows only a task the outcome is about)."""
+        identity = _position(_first(query, "move_task"))
+        if identity is None:
+            return pages.MoveOutcome()
+        if "move_refused" in query:
+            refusal = _closed(pages.MoveRefusal, _first(query, "move_refused"))
+            return pages.MoveOutcome(identity, refusal=refusal)
+        if "move_failed" in query:
+            return pages.MoveOutcome(
+                identity, failed=_closed(TaskStatus, _first(query, "move_failed"))
+            )
+        return pages.MoveOutcome(identity, moved=_closed(TaskStatus, _first(query, "moved")))
 
     @staticmethod
     def _edit_form(query: Mapping[str, list[str]]) -> pages.TaskEditForm | None:
@@ -357,6 +384,8 @@ class Site:
             self._tracker.assignees(),
             form=self._task_form(query),
             created="created" in query,
+            allowed_moves=self._tracker.allowed_moves,
+            move_outcome=self._move_outcome(query),
         )
 
     @staticmethod
@@ -598,6 +627,48 @@ class Site:
             f" {preposition} '{task.title}'" if task is not None else ""
         )
         return f"The tracker couldn't {action} {subject}, and nothing was changed."
+
+    def _move_task(self, digits: str, form: Mapping[str, list[str]]) -> Response:
+        """Move the task to the status the form names and answer at the place the button was on.
+
+        The status goes to the tracker as sent, whatever it is; the place word only says which of
+        two addresses the answer goes to (QC-38). A refusal is mapped to its code by type.
+        """
+        identity = self._identity(digits)
+        if identity is None:
+            return Site._html(pages.task_not_found_page(), HTTPStatus.NOT_FOUND)
+        task_address = f"/tasks/{identity}"
+        task = self._tracker.task(identity)
+        if task is None:
+            return self._redirect(task_address)
+        status = _first(form, "status")
+        place = (
+            f"/projects/{task.project_id}"
+            if _first(form, "place") == pages.MOVE_PLACE_LIST
+            else task_address
+        )
+        about = {"move_task": str(identity)}
+
+        def move() -> Response:
+            try:
+                moved = self._tracker.move_task(identity, status)
+            except TaskNotFound:
+                return self._redirect(task_address)
+            except MoveNotAllowed:
+                return self._redirect(
+                    place, move_refused=pages.MoveRefusal.NOT_ALLOWED.value, **about
+                )
+            except InvalidTaskStatus:
+                return self._redirect(
+                    place, move_refused=pages.MoveRefusal.NOT_A_STATUS.value, **about
+                )
+            return self._redirect(place, moved=moved.status.value, **about)
+
+        return self._guarded(
+            f"The tracker couldn't move '{task.title}' to {status}, and nothing was changed.",
+            move,
+            lambda: self._redirect(place, move_failed=status, **about),
+        )
 
     def _add_comment(self, digits: str, form: Mapping[str, list[str]]) -> Response:
         """Add the typed text as a comment; the saved name and the instant are the tracker's.

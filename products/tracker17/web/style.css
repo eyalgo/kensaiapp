@@ -225,6 +225,34 @@ button:hover {
   background: var(--primary-deep);
 }
 
+/* A status move on a task row or on the task page: row-control tall (28px, clearing the 24px
+   target floor), the surface fill, the control type, and the secondary button's 1px muted edge. */
+button.move-button {
+  height: 28px;
+  min-width: 24px;
+  padding: 0 12px;
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--ink-muted);
+  border-radius: 4px;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  line-height: 1.2;
+}
+
+button.move-button:hover {
+  background: var(--surface-sunk);
+  color: var(--ink);
+}
+
+/* The moves in one cell, or in the status area, sit side by side with 8px between them. */
+.moves {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
 /* A refusal or a failure: red pencil margin mark on a late tint. */
 .reason {
   margin: 0 0 4px;

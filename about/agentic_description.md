@@ -26,7 +26,9 @@ writes its words. The developer writes the code, each test before the code it ch
 senior engineer proves the code does what the change intends. An auditor reviews the spec, the
 design, the plan, the words and the code, each in a run of its own. The PM seals the change by
 merging it into `main`. Each step is a separate run.
-[How a change moves](../README.md#how-a-change-moves) has the diagram and the table.
+[How a change moves](../README.md#how-a-change-moves) has the diagram and the table, and
+[One change, from request to patch](../README.md#one-change-from-request-to-patch) walks the files
+one sealed change left.
 
 ## A workflow, not an agent choosing its path
 
@@ -66,7 +68,7 @@ KensaiApp splits that across two hands. Above the single change, models do the b
 Principal PM cuts the product's documents into seeds, and the PM cuts a picked seed into stations.
 After each sealed change, the PM's refine writes the next moves as a table, with rows such as: close
 the station, retire the seed, pick, cut, or the next change
-([From requirements to a product](../README.md#from-requirements-to-a-product)).
+([From requirements to a product](architecture.md#from-requirements-to-a-product)).
 
 A program, `core/tools/build_idea.py`, then runs that table as a queue. Each row's kind maps to one
 launcher in the program's own table, and a kind it does not know is refused before anything starts.
@@ -98,7 +100,7 @@ loader, the instance's overlay for that role and the cross-role contract before 
 hook, `read_first_guard.py`, refuses every call that is not a read until the run has read them.
 
 A delegated agent is the one exception: it carries no role, and its brief is the whole assignment
-([Delegating work](../README.md#delegating-work)).
+([Delegating work](operations.md#delegating-work)).
 
 ## Spec-driven development
 
@@ -110,7 +112,7 @@ and spec-as-source, where the human edits only the spec
 
 KensaiApp writes specs at two levels. For the product, a documents chain writes the PRD, the SRS,
 the SDD and the other documents before the first change
-([Product documents chains](../README.md#product-documents-chains)). They are kept, and the chain
+([Product documents chains](architecture.md#product-documents-chains)). They are kept, and the chain
 runs again before each change, so a later change is built against them. That is closest to what
 Böckeler calls spec-anchored. For each change, the product owner writes a spec, and the design and
 the plan follow before any code. A project whose card sets `Definition: none` has no product
@@ -157,12 +159,12 @@ KensaiApp's runs do not stop to ask you a question. A run that cannot settle som
 an open question beside the document it was writing. An answering run, `companion-self-answer`,
 then decides each item it is allowed to decide. An item only you may settle stays open, with the
 answer it would have given
-([How a document's open questions get answered](../README.md#how-a-documents-open-questions-get-answered)).
+([How a document's open questions get answered](architecture.md#how-a-documents-open-questions-get-answered)).
 
 A walk does stop, and waits for you, on an act only you can do, such as pushing a branch. The pane
-from `/kensaiapp-panel` shows what it needs ([See where things stand](../README.md#see-where-things-stand)),
+from `/kensaiapp-panel` shows what it needs ([See where things stand](operations.md#see-where-things-stand)),
 and a notifier you set up can message you when a chain starts and ends
-([Notifications](../README.md#notifications)). Some decisions are yours by rule: ratifying a skill,
+([Notifications](operations.md#notifications)). Some decisions are yours by rule: ratifying a skill,
 and approving a fix packet before a fixer applies it.
 
 Where an AI decision and a mechanical rule conflict, the rule wins, and the AI says so rather than
@@ -174,7 +176,7 @@ Claude Code's hooks are commands that "execute automatically at specific points 
 lifecycle". A hook that runs before a tool call can block it ([Hooks](https://code.claude.com/docs/en/hooks)).
 
 KensaiApp's hooks, its commit check and its launchers are listed in
-[Rules the system enforces](../README.md#rules-the-system-enforces). Two more rules sit in the
+[Rules the system enforces](architecture.md#rules-the-system-enforces). Two more rules sit in the
 launchers:
 
 - A launched Claude run uses Claude Code's auto permission mode. In that mode a classifier model
@@ -193,10 +195,10 @@ for example easy questions to a smaller model
 
 KensaiApp does not route at run time. The choice is declared ahead of time, by the work. Each skill
 names the model and the effort it runs at, in one file per provider, and a role's agent carries no
-model ([Each skill runs at its own model and effort](../README.md#each-skill-runs-at-its-own-model-and-effort)).
+model ([Each skill runs at its own model and effort](operations.md#each-skill-runs-at-its-own-model-and-effort)).
 A run with no skill behind it, such as a delegated agent, takes one of four tiers, chosen by where
 the judgment in the work lives (`core/doctrine/governance/model_assignment.md`). Which provider each
-step runs on is set in one file per instance ([Choosing a provider](../README.md#choosing-a-provider)).
+step runs on is set in one file per instance ([Choosing a provider](operations.md#choosing-a-provider)).
 
 ## Context engineering
 
@@ -208,7 +210,7 @@ In KensaiApp, hooks set the start of every session and every subagent, because a
 no context from its parent. They inject the path of the shared core, an index of which rule governs
 which task, and an index of where each kind of file lives. They also inject the rules that bind
 without being looked up, and the rules for replying to you
-([How a session talks to you](../README.md#how-a-session-talks-to-you)).
+([How a session talks to you](operations.md#how-a-session-talks-to-you)).
 Each index is read from its source file when the hook runs, so it cannot drift from it.
 
 The developer's run, which can be long, is given a context cap. Past it, a hook tells the run to finish the task it is on, commit, and stop. The program then
@@ -225,7 +227,7 @@ and description are loaded at start, its full instructions when it is relevant, 
 only as needed ([Equipping agents for the real world with Agent Skills](https://www.anthropic.com/engineering/equipping-agents-for-the-real-world-with-agent-skills)).
 
 KensaiApp applies the same idea at three levels. A session sees only the skill groups you give it
-([Loading skills and agents](../README.md#loading-skills-and-agents)). Each instance's `AGENTS.md`
+([Loading skills and agents](operations.md#loading-skills-and-agents)). Each instance's `AGENTS.md`
 loads in every session and carries short stubs of the rules; the full rule files are read when a
 task calls for them (`core/doctrine/README.md`). Inside a skill, the three loading levels above are
 the ones its own guide to writing skills sets out (`skills/interactive/.claude/skills/skill-creator/SKILL.md`).
@@ -285,7 +287,7 @@ from its state file and from what is on disk.
 
 ## Evals and self-improvement
 
-This part is experimental, as the README says.
+This part is experimental, as the architecture overview says.
 
 Anthropic defines an eval as "a test for an AI system": "give an AI an input, then apply grading
 logic to its output to measure success". Its graders can be code, a model or a person
@@ -310,7 +312,7 @@ Claude Code can export its usage through OpenTelemetry: metrics such as tokens a
 such as each API request ([Monitoring](https://code.claude.com/docs/en/monitoring-usage)).
 
 KensaiApp ships a receiver for that export and sends a run's telemetry only to a loopback address
-([Telemetry](../README.md#telemetry)). A launcher can tag each run with its provider, model and effort.
+([Telemetry](operations.md#telemetry)). A launcher can tag each run with its provider, model and effort.
 `core/tools/run_provenance.py` reads those back by run ID, from "what landed, not what the launcher
 meant to send". A run whose records carry no provider, or two values for one field, gets a refusal
 rather than a guess.
@@ -323,7 +325,7 @@ A git worktree is one of "multiple working trees attached to the same repository
 Each change gets its own branch and worktree, made by `core/tools/create_change_worktree.py`, which
 checks every repository it will touch before it changes any of them. A product's tests run where its
 CI runs: a Podman container, a macOS virtual machine, or your own Mac when the product has no CI or
-you ask for it ([Testing in isolation](../README.md#testing-in-isolation)).
+you ask for it ([Testing in isolation](operations.md#testing-in-isolation)).
 
 The agents themselves run on your machine, not in a container. The shared core holds a contract for
 running autonomous sessions in a Docker sandbox, which binds a run that skips permission checks
@@ -332,8 +334,8 @@ running autonomous sessions in a Docker sandbox, which binds a run that skips pe
 ## Shared core across instances
 
 A satellite is an instance with no core of its own, which reads its host's
-([One mechanism, several instances](../README.md#one-mechanism-several-instances)). It runs the
+([One mechanism, several instances](architecture.md#one-mechanism-several-instances)). It runs the
 host's hooks and reads the host's skills, so an edit in the host is seen at once. The one copy it keeps is its hook settings file, written from the host's and brought
 level again by `core/tools/link_satellite.py`. A finding about the host's core is written in the
 satellite's own `docs/findings/`, and nothing carries it to the host automatically
-([Findings](../README.md#findings)).
+([Findings](operations.md#findings)).

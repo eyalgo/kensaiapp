@@ -39,8 +39,8 @@ their core from it. An instance that carries its own core is its own host.
 
 A satellite is an instance with no `core/` folder of its own. It reads its host's core, through the
 `CORE` line in its `.env` file. A change to the host's core reaches every satellite as soon as it
-lands. A satellite may sit anywhere on the machine. The README's section
-[More than one instance](../README.md#more-than-one-instance) shows how to stand one up.
+lands. A satellite may sit anywhere on the machine. The operations guide's section
+[More than one instance](operations.md#more-than-one-instance) shows how to stand one up.
 
 ## Core
 
@@ -71,7 +71,7 @@ reaches it.
 
 ## Bearing
 
-Bearing is the English word the README gives an instance's Michi: the one or more long-term
+Bearing is the English word the architecture overview gives an instance's Michi: the one or more long-term
 directions the instance steers by and never finishes.
 
 ## Way
@@ -114,7 +114,7 @@ journey. Each project's Agari is chosen so that reaching it advances the instanc
 A role is one part of the work, as in a software team: the PM, the architect, the developer and
 others. Every run works as one role. A role's posture is written once, in the core, and an instance
 can lay an overlay over it. Most roles also answer to a message prefix, such as `pm:`, or `ppm:` for
-the Principal PM. The README's section [Asking a specific role](../README.md#asking-a-specific-role)
+the Principal PM. The operations guide's section [Asking a specific role](operations.md#asking-a-specific-role)
 shows how.
 
 ## Overlay
@@ -141,8 +141,8 @@ belongs to a group: it sits at `skills/<group>/.claude/skills/<skill>/`.
 A skill group is one folder under `skills/` that holds the skills and agents of one role or one
 purpose, such as `skills/pm` or `skills/interactive`. A session sees a group only after you name it
 with `/add-dir`, or with `--add-dir` when Claude Code starts. A launcher grants a run the group of
-the skill it starts. The README's section
-[Loading skills and agents](../README.md#loading-skills-and-agents) shows both ways.
+the skill it starts. The operations guide's section
+[Loading skills and agents](operations.md#loading-skills-and-agents) shows both ways.
 
 ## Agent
 
@@ -168,8 +168,8 @@ Each direction file holds how products look or sound where nothing narrower deci
 
 The journey is how a project gets from its documents to its Agari. It has three parts, each with a
 Japanese name: the seedbed of ideas, Nemawashi; the station being walked now, Shukuba; and the
-changes that build it, Tobiishi. The README's section
-[From requirements to a product](../README.md#from-requirements-to-a-product) shows the loop, and
+changes that build it, Tobiishi. The architecture overview's section
+[From requirements to a product](architecture.md#from-requirements-to-a-product) shows the loop, and
 the last two sections of this page tell it step by step and set each step beside its nearest term
 elsewhere.
 
@@ -221,7 +221,7 @@ request to sealed on `main`. A station may take several. Each change has its own
 ## Change
 
 A change is one Tobiishi: one unit of work, from its change request to sealed on `main`. The
-README's journey diagram labels it CHANGE, and `chain-change` walks it.
+architecture overview's journey diagram labels it CHANGE, and `chain-change` walks it.
 
 ## Change request
 
@@ -532,7 +532,7 @@ places one for each unit the SDD names, as a plain copy with no model involved.
 A launcher is a script you run from a shell, outside a Claude Code session, at
 `core/launchers/<name>/launcher.sh`. Most start their work as background runs and return at once.
 `core/launchers/skill/launcher.sh` starts any single skill that has a `launcher.md` beside its
-`SKILL.md`. The README's section [Using launchers](../README.md#using-launchers) lists them.
+`SKILL.md`. The operations guide's section [Using launchers](operations.md#using-launchers) lists them.
 
 ## Chain
 
@@ -669,7 +669,7 @@ A provider is the service a run's model comes from: `claude`, `codex`, `gemini`,
 `hf` is a Claude run aimed at Hugging Face's router, and `ollama` runs on your own local Ollama
 models. `.providers.toml` at the instance root names the provider for each document, step and queue
 row. `--provider`, or an exported `KENSAIAPP_AGENT_PROVIDER`, forces one provider for a whole walk.
-The README's section [Choosing a provider](../README.md#choosing-a-provider) has the rules.
+The operations guide's section [Choosing a provider](operations.md#choosing-a-provider) has the rules.
 
 ## Intelligence
 

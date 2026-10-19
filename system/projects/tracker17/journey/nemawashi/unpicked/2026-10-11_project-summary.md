@@ -17,7 +17,7 @@ Cut from `products/tracker17/docs/SDD.md` § 6 S-6, slug `project-summary` ("Aft
 - [ ] summary-page — the Tasks and Summary links, with the project page's title taking its view (`Alpha: Tasks - tracker17`, CONTENT.md page titles), the summary's counts and per-assignee rows, and the empty-project invitation
 - [ ] linked-counts — each status, priority and overdue count links to the filtered list, with AC-14's summary test, AC-13's agreement and the timed run
 
-2026-10-11, shukuba-refine after `tracker17` unit `add-and-list-tasks`: `summary-page` gains the project page's title with its view. That unit's spec handed the title to the Tasks and Summary links. CONTENT.md's page-title rule names the view where a page has views (`products/tracker17/docs/CONTENT.md:L354-L357`), and today the title is the bare project name (`products/tracker17/web/pages.py:L541`).
+2026-10-11, shukuba-refine after `tracker17` unit `add-and-list-tasks`: `summary-page` gains the project page's title with its view. That unit's spec handed the title to the Tasks and Summary links. CONTENT.md's page-title rule names the view where a page has views (`products/tracker17/docs/CONTENT.md:L354-L357`), and today the title is the bare project name (`products/tracker17/web/pages.py:L630`).
 
 ## Relation to existing work
 

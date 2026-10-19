@@ -275,6 +275,7 @@ SAMPLE_ADDRESS = {
     "/tasks/[0-9]+/labels": "/tasks/1/labels",
     "/tasks/[0-9]+/labels/remove": "/tasks/1/labels/remove",
     "/tasks/[0-9]+/comments": "/tasks/1/comments",
+    "/tasks/[0-9]+/move": "/tasks/1/move",
     "/style.css": "/style.css",
 }
 SUBMITTED_BODY = {
@@ -287,6 +288,7 @@ SUBMITTED_BODY = {
     "/tasks/1/labels": b"label=bug",
     "/tasks/1/labels/remove": b"label=ui",
     "/tasks/1/comments": b"text=Looks+good",
+    "/tasks/1/move": b"status=in-progress&place=list",
 }
 AUDIT_OPERATOR_NAME = "Lee"
 

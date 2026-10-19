@@ -10,7 +10,7 @@ that shows its reason.
 from __future__ import annotations
 
 import html
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
@@ -26,6 +26,7 @@ from application import (
     TaskEditContext,
     TaskFields,
     TaskRow,
+    TaskStatus,
     TextField,
 )
 
@@ -160,6 +161,47 @@ class CommentArea:
     added_position: int | None = None
 
 
+class MoveRefusal(Enum):
+    """The two refusals a move gets, valued by the code an address carries (design § 3 C, D-6)."""
+
+    NOT_ALLOWED = "not-allowed"
+    NOT_A_STATUS = "not-a-status"
+
+
+@dataclass(frozen=True)
+class MoveOutcome:
+    """What a press of a move last had, as plain values; it decides no rule.
+
+    `task_id` is the task the press was about. At most one of `refusal`, `failed` and `moved` is
+    set: the refusal's code, the status a failed move named, or the status the task moved to. A
+    task that is not on the page shown, or an outcome with none of the three, is no outcome.
+    """
+
+    task_id: int | None = None
+    refusal: MoveRefusal | None = None
+    failed: TaskStatus | None = None
+    moved: TaskStatus | None = None
+
+
+class _MoveKind(Enum):
+    """Which of the three lines a move outcome shows."""
+
+    MOVED = "moved"
+    REFUSED = "refused"
+    FAILED = "failed"
+
+
+AllowedMoves = Callable[[TaskStatus], tuple[TaskStatus, ...]]
+
+
+def _no_moves(status: TaskStatus) -> tuple[TaskStatus, ...]:
+    return ()
+
+
+MOVE_PLACE_LIST = "list"
+MOVE_PLACE_TASK = "task"
+
+
 class _CommentOutcome(Enum):
     """What the comment area has to say, and so which element its line describes."""
 
@@ -242,6 +284,9 @@ _COMMENT_REASON_ID = "comment-reason"
 _COMMENT_FAILURE_ID = "comment-failure"
 _COMMENT_ADDED_LINE_ID = "comment-added-line"
 _ADD_COMMENT_ID = "add-comment"
+_MOVE_LINE_ID = "move-line"
+_STATUS_ID = "status"
+_TASK_STATUS_ID = "task-status"
 _EDIT_REASON_IDS = {
     TaskEditRefusal.BLANK_TITLE: "edit-title-reason",
     TaskEditRefusal.TOO_LONG: "edit-title-reason",
@@ -555,36 +600,118 @@ def _due_date_cell(row: TaskRow) -> str:
     return f"{shown}{marker}"
 
 
-def _task_row(position: int, row: TaskRow) -> str:
+_WITHHELD_MOVES = (TaskStatus.CANCELLED,)
+
+
+def _move_forms(task: Task, place: str, allowed: tuple[TaskStatus, ...]) -> str:
+    """One form and one button per move the page offers: the allowed ones in the order given,
+    less the moves this slice withholds (D-10). Which moves are allowed is not decided here."""
+    offered = [move for move in allowed if move not in _WITHHELD_MOVES]
+    title = _escape(task.title)
+    forms = "".join(
+        f'<form method="post" action="/tasks/{task.id}/move">'
+        f'<input type="hidden" name="status" value="{move.value}">'
+        f'<input type="hidden" name="place" value="{place}">'
+        f'<button type="submit" class="move-button" '
+        f"aria-label=\"Move '{title}' to {move.value}\">{move.value}</button>"
+        "</form>"
+        for move in offered
+    )
+    return f'<div class="moves">{forms}</div>' if forms else ""
+
+
+_REFUSAL_TAILS = {
+    TaskStatus.TODO: "The moves shown are the ones you can press.",
+    TaskStatus.IN_PROGRESS: "The moves shown are the ones you can press.",
+    TaskStatus.DONE: "A task in done can't be moved.",
+    TaskStatus.CANCELLED: "A task in cancelled can't be moved.",
+}
+
+
+def _move_line(outcome: MoveOutcome | None, task: Task) -> tuple[_MoveKind, str] | None:
+    """The one line a move outcome shows for this task, or None when it is not about the task.
+
+    A refusal is chosen before a failure and a failure before a completion. The title is the one
+    the state holds now; the status is the one the address names.
+    """
+    if outcome is None or outcome.task_id != task.id:
+        return None
+    title = _escape(task.title)
+    if outcome.refusal is not None:
+        status = task.status.value
+        line = (
+            f"The status of '{title}' is {status}, which doesn't allow the move you pressed. "
+            f"{_REFUSAL_TAILS[task.status]}"
+        )
+        return _MoveKind.REFUSED, line
+    if outcome.failed is not None:
+        line = (
+            f"The tracker couldn't move '{title}' to {outcome.failed.value}, and nothing was "
+            "changed. Try again."
+        )
+        return _MoveKind.FAILED, line
+    if outcome.moved is not None:
+        return _MoveKind.MOVED, f"You moved '{title}' to {outcome.moved.value}."
+    return None
+
+
+def _move_line_block(line: tuple[_MoveKind, str] | None) -> str:
+    if line is None:
+        return ""
+    kind, text = line
+    css = "outcome" if kind is _MoveKind.MOVED else "reason"
+    return f'<p class="{css}" id="{_MOVE_LINE_ID}">{text}</p>\n'
+
+
+def _status_word(task: Task, line: tuple[_MoveKind, str] | None, tag: str, attributes: str) -> str:
+    """The task's status in words, in an element of its own. On a landing it is the one element
+    that takes focus: not a control, so it carries `tabindex="-1"`, and the line describes it."""
+    if line is not None:
+        attributes += f' tabindex="-1" autofocus aria-describedby="{_MOVE_LINE_ID}"'
+    return f"<{tag}{attributes}>{task.status.value}</{tag}>"
+
+
+def _task_row(
+    position: int,
+    row: TaskRow,
+    allowed: AllowedMoves,
+    line: tuple[_MoveKind, str] | None,
+) -> str:
     task = row.task
     title = _escape(task.title)
     labels = ", ".join(_escape(label) for label in task.labels) or "none"
     assignee = _escape(task.assignee) if task.assignee is not None else "unassigned"
+    status = _status_word(task, line, "span", ' class="status-word"') if line else task.status.value
+    moves = _move_forms(task, MOVE_PLACE_LIST, allowed(task.status))
     return (
         "<tr>"
         f'<td><a class="pre-wrap" href="/tasks/{task.id}" '
         f'aria-label="{title}, number {position} on the task list">{title}</a></td>'
-        f"<td>{task.status.value}</td>"
+        f"<td>{status}</td>"
         f"<td>{task.priority.value}</td>"
         f'<td class="pre-wrap">{assignee}</td>'
         f'<td class="pre-wrap">{labels}</td>'
         f"<td>{_due_date_cell(row)}</td>"
+        f"<td>{moves}{_move_line_block(line)}</td>"
         "</tr>\n"
     )
 
 
-_TASK_COLUMNS = ("Title", "Status", "Priority", "Assignee", "Labels", "Due date")
+_TASK_COLUMNS = ("Title", "Status", "Priority", "Assignee", "Labels", "Due date", "Moves")
 
 
-def _task_list(rows: Sequence[TaskRow]) -> str:
-    """The six-column table in the order given, or the first-task invitation when there is none."""
+def _task_list(rows: Sequence[TaskRow], allowed: AllowedMoves, outcome: MoveOutcome | None) -> str:
+    """The seven-column table in the order given, or the first-task invitation when there is none."""
     if not rows:
         return (
             '<p class="no-tasks">This project has no tasks yet. '
             "Give the first task a title and press Add.</p>\n"
         )
     headers = "".join(f'<th scope="col">{name}</th>' for name in _TASK_COLUMNS)
-    body = "".join(_task_row(position, row) for position, row in enumerate(rows, start=1))
+    body = "".join(
+        _task_row(position, row, allowed, _move_line(outcome, row.task))
+        for position, row in enumerate(rows, start=1)
+    )
     return (
         '<table class="task-list">\n'
         f"<thead><tr>{headers}</tr></thead>\n"
@@ -601,12 +728,18 @@ def project_page(
     priority_choices: Sequence[str] = PRIORITY_CHOICES,
     form: TaskForm | None = None,
     created: bool = False,
+    allowed_moves: AllowedMoves = _no_moves,
+    move_outcome: MoveOutcome | None = None,
 ) -> str:
     """One project's page: its add-task form, and its tasks in the order and with the overdue
     flags handed in. With `created`, it opens on its heading and the created line.
 
-    Deciding no order and no overdue state, it shows the rows exactly as given.
+    Deciding no order and no overdue state, it shows the rows exactly as given. Each row offers the
+    moves `allowed_moves` gives for its status. A `move_outcome` about one of the rows takes
+    precedence over every other outcome: the page then shows only its line, and its focus.
     """
+    if any(_move_line(move_outcome, row.task) is not None for row in rows):
+        created, form = False, None
     heading_attributes = ' tabindex="-1"'
     created_line = ""
     if created:
@@ -625,7 +758,7 @@ def project_page(
         f"{created_line}"
         f"{description}"
         f"{_add_task_form(project, assignees, priority_choices, form or TaskForm())}"
-        f"{_task_list(rows)}"
+        f"{_task_list(rows, allowed_moves, move_outcome)}"
     )
     return _document(f"{project.name} - tracker17", body)
 
@@ -1031,6 +1164,22 @@ def _comment_section(
     )
 
 
+def _status_section(
+    task: Task, allowed: tuple[TaskStatus, ...], line: tuple[_MoveKind, str] | None
+) -> str:
+    """The status area: its heading, the status in words, the moves the page offers and, after a
+    press, the one line beside them."""
+    word = _status_word(task, line, "p", f' class="status-word" id="{_TASK_STATUS_ID}"')
+    return (
+        f'<section id="{_STATUS_ID}" class="sheet">\n'
+        "<h2>Status</h2>\n"
+        f"{word}\n"
+        f"{_move_forms(task, MOVE_PLACE_TASK, allowed)}"
+        f"{_move_line_block(line)}"
+        "</section>\n"
+    )
+
+
 def task_page(
     context: TaskEditContext,
     *,
@@ -1040,6 +1189,8 @@ def task_page(
     label_area: LabelArea | None = None,
     comment_area: CommentArea | None = None,
     operator_name: str | None = None,
+    allowed_moves: AllowedMoves = _no_moves,
+    move_outcome: MoveOutcome | None = None,
 ) -> str:
     """One task: its title, its project as text, the form that edits its four fields, its labels
     and its comments.
@@ -1050,9 +1201,14 @@ def task_page(
     outcome in `label_area` is the page's one outcome: it takes precedence, and the edit form's own
     outcomes are then not shown, so exactly one element takes focus. A comment outcome in
     `comment_area` takes precedence over all of them. `operator_name` is the name saved now, with
-    None while none is: it decides whether the comments area shows its no-name notice.
+    None while none is: it decides whether the comments area shows its no-name notice. The status
+    area offers the moves `allowed_moves` gives for the saved status; a `move_outcome` about this
+    task takes precedence over every other outcome, and the status word takes the one focus.
     """
     task = context.task
+    move_line = _move_line(move_outcome, task)
+    if move_line is not None:
+        form, added, saved, label_area, comment_area = None, False, False, None, None
     comment_area = comment_area or CommentArea()
     comment_outcome = _comment_outcome(comment_area, task)
     if comment_outcome is not None:
@@ -1084,6 +1240,7 @@ def task_page(
         f'<dt>Project</dt><dd class="pre-wrap">{_escape(context.project.name)}</dd>\n'
         "</dl>\n"
         f"{_edit_form(context, form)}"
+        f"{_status_section(task, allowed_moves(task.status), move_line)}"
         f"{_label_section(task, label_area, label_outcome)}"
         f"{_comment_section(task, comment_area, operator_name, comment_outcome)}"
     )

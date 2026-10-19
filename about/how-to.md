@@ -1,13 +1,13 @@
 # How to
 
 This guide is the step-by-step reference behind the [README](../README.md). The README says what
-KensaiApp is, how it is organised and how to start. Each entry here says what to do at one step, and
+KensaiApp is and how to start; the [architecture overview](architecture.md) says how it is organised. Each entry here says what to do at one step, and
 where KensaiApp's own files say more.
 
 Every command runs from the instance root. A skill lives under `skills/<group>/` of the host, the
 instance whose core yours reads; an instance that carries its own core is its own host. In a
-satellite, read every `core/` path in this file as `$CORE`, as the README's section
-[More than one instance](../README.md#more-than-one-instance) shows.
+satellite, read every `core/` path in this file as `$CORE`, as the operations guide's section
+[More than one instance](operations.md#more-than-one-instance) shows.
 
 ## How to install what KensaiApp uses
 
@@ -21,7 +21,7 @@ with 3.11 or 3.12, stopping a walk fails. On anything older, the launchers stop 
 Python and put it first on your `PATH`.
 
 A clone needs no `.env`: the first session finds the `core/` folder beside it. A `.env` is for a
-satellite, as the README's section [More than one instance](../README.md#more-than-one-instance)
+satellite, as the operations guide's section [More than one instance](operations.md#more-than-one-instance)
 shows.
 
 Some parts need more:
@@ -35,17 +35,17 @@ Some parts need more:
 | The `ollama` provider | An Ollama server, at `http://localhost:11434` or at the address in `KENSAIAPP_OLLAMA_URL` |
 | The `hf` provider | A line `HF_TOKEN=<your token>` in `~/.env`, in your home folder |
 
-Where tests run is in the README's section [Testing in isolation](../README.md#testing-in-isolation).
+Where tests run is in the operations guide's section [Testing in isolation](operations.md#testing-in-isolation).
 
 ## How to ask a role for help
 
-Start your message with a role's prefix, as the README's section
-[Asking a specific role](../README.md#asking-a-specific-role) says. Every prefix your instance
+Start your message with a role's prefix, as the operations guide's section
+[Asking a specific role](operations.md#asking-a-specific-role) says. Every prefix your instance
 accepts is listed in the section [Loader map](../AGENTS.md#loader-map) of its `AGENTS.md`.
 
 ## How to give a session a group of skills
 
-The README's section [Loading skills and agents](../README.md#loading-skills-and-agents) shows both
+The operations guide's section [Loading skills and agents](operations.md#loading-skills-and-agents) shows both
 ways. A run that `core/launchers/skill/launcher.sh` starts is given its skill's group by the
 launcher, so you add a group only in a session you work in yourself.
 
@@ -85,8 +85,8 @@ The full steps are in `core/doctrine/setup/setting_up_a_project.md`.
 
 ## How to stop a walk, and start it again
 
-The launchers that walk a project are in the README's section
-[The chain launchers](../README.md#the-chain-launchers). `chain-product`, `chain-agari`, `chain-change`,
+The launchers that walk a project are in the architecture overview's section
+[The chain launchers](architecture.md#the-chain-launchers). `chain-product`, `chain-agari`, `chain-change`,
 `build-idea` and `chain-development` each take `--stop` in place of their other options, and the two
 you use most stop in different ways:
 
@@ -103,9 +103,9 @@ stopped starts over.
 ## How to walk a project's journey
 
 Running one of the loop's launchers again is usually enough. The moves the journey is made of, and
-who makes each one, are in the README's section
-[From requirements to a product](../README.md#from-requirements-to-a-product), and their names in
-[The Japanese names](../README.md#the-japanese-names). How far each industry term matches is in
+who makes each one, are in the architecture overview's section
+[From requirements to a product](architecture.md#from-requirements-to-a-product), and their names in
+[The Japanese names](architecture.md#the-japanese-names). How far each industry term matches is in
 the glossary's section
 [The journey in industry, ticketing and Jira terms](glossary.md#the-journey-in-industry-ticketing-and-jira-terms).
 The full steps are in the section "How we work" of `core/docs/michi_agari.md`.
@@ -126,7 +126,7 @@ core/launchers/skill/launcher.sh shukuba-refine <project>
 
 ## How to hand work to an agent
 
-The README's section [Delegating work](../README.md#delegating-work) shows how to start one and how
+The operations guide's section [Delegating work](operations.md#delegating-work) shows how to start one and how
 the model is picked. The agent writes its report of the run, `delegate-report.md`, where its brief
 says. The skill is not for work a launcher already does, such as building a change, or for work
 small enough to do in the session itself.
@@ -138,14 +138,14 @@ model is in the section "Runs with no standing slot" of
 
 ## How to see where things stand
 
-The pane and the journey page are in the README's section
-[See where things stand](../README.md#see-where-things-stand). Typing `/kensaiapp-panel` again reads
+The pane and the journey page are in the operations guide's section
+[See where things stand](operations.md#see-where-things-stand). Typing `/kensaiapp-panel` again reads
 the chains afresh. `python3 core/tools/journey_status.py --repo .` writes its page to
 `system/logs/journey_status.html` unless `--out` names another path.
 
 ## How to tell why a run stopped, and what to do
 
-The README's section [When a run stops, it says why](../README.md#when-a-run-stops-it-says-why)
+The operations guide's section [When a run stops, it says why](operations.md#when-a-run-stops-it-says-why)
 gives the rule: settle the cause, then run the same launcher again. A chain that writes a project's
 documents also says what to do next. Each kind of stop is below.
 
@@ -219,8 +219,8 @@ on-disk transport" of `core/doctrine/flow/step_outcome_contract.md`.
 
 ## How to choose the provider
 
-The file and the flag are in the README's section
-[Choosing a provider](../README.md#choosing-a-provider). Three things it leaves out:
+The file and the flag are in the operations guide's section
+[Choosing a provider](operations.md#choosing-a-provider). Three things it leaves out:
 
 - An exported `KENSAIAPP_AGENT_PROVIDER` forces one provider the same way `--provider` does, and the
   flag wins over it.
@@ -234,8 +234,8 @@ The rules for each entry are in the opening comments of `.providers.toml.example
 
 ## How to set a skill's intelligence
 
-What a skill's intelligence is, and the file it is set in, are in the README's section
-[Each skill runs at its own model and effort](../README.md#each-skill-runs-at-its-own-model-and-effort).
+What a skill's intelligence is, and the file it is set in, are in the operations guide's section
+[Each skill runs at its own model and effort](operations.md#each-skill-runs-at-its-own-model-and-effort).
 A skill that has an `intelligence/` folder but no file in it for the provider you launch on is
 refused, naming the missing file. The rules are in
 `core/doctrine/governance/skill_intelligence.md`.
@@ -244,7 +244,7 @@ refused, naming the missing file. The rules are in
 
 ### How to create an instance
 
-The README's section [More than one instance](../README.md#more-than-one-instance) shows the script
+The operations guide's section [More than one instance](operations.md#more-than-one-instance) shows the script
 that stands one up. The steps after it, in order:
 
 1. `core/tools/spawn_satellite.py` stands the satellite up. It also files a setup seed in the new
@@ -261,8 +261,8 @@ role's domain and the writing bar. The full steps, in order, are in the section 
 
 ### How to answer what a run left open
 
-How a chain answers a document's questions itself, and what it leaves for you, is in the README's
-section [How a document's open questions get answered](../README.md#how-a-documents-open-questions-get-answered).
+How a chain answers a document's questions itself, and what it leaves for you, is in the architecture overview's
+section [How a document's open questions get answered](architecture.md#how-a-documents-open-questions-get-answered).
 What is left sits in a file beside the document, named like `PRD_open_issues.md`. To answer it:
 
 1. Add the group: `/add-dir skills/interactive`.
@@ -274,8 +274,8 @@ entry "How to tell why a run stopped, and what to do" says.
 
 ### How to set the instance's experience
 
-The two skills, and how to start each, are in the README's section
-[The instance's experience](../README.md#the-instances-experience). What they write is two pairs of
+The two skills, and how to start each, are in the architecture overview's section
+[The instance's experience](architecture.md#the-instances-experience). What they write is two pairs of
 files in `system/experience/`: `visual_restrictions.md` and `visual_direction.md`, then
 `voice_restrictions.md` and `voice_direction.md`. The visual half runs first, because the verbal
 half reads what the visual half marked in `visual_voice_contract.md`. `experience-visual` needs
@@ -295,8 +295,8 @@ in the section "The three rules" of `core/doctrine/setup/setting_up_an_instance.
 
 ### How to get a message when a run finishes
 
-What `KENSAIAPP_NOTIFIER` is and what sends a message are in the README's section
-[Notifications](../README.md#notifications). Set the variable in your shell's profile, so the
+What `KENSAIAPP_NOTIFIER` is and what sends a message are in the operations guide's section
+[Notifications](operations.md#notifications). Set the variable in your shell's profile, so the
 launchers you start and the Claude Code sessions you open from that shell both see it. A session
 started outside a shell, such as one in the desktop app, has not been tested and may not see it.
 Setting up the notifier is done by hand for now.
@@ -327,8 +327,8 @@ https://core.telegram.org/bots/api.
 
 ### How to check whether something can be improved
 
-What a finding is, and where it is written, are in the README's section
-[Findings](../README.md#findings). After a seed is retired, ask Claude in your instance what was
+What a finding is, and where it is written, are in the operations guide's section
+[Findings](operations.md#findings). After a seed is retired, ask Claude in your instance what was
 written to `docs/findings/` while it was walked. Each finding names the part of KensaiApp it
 concerns.
 

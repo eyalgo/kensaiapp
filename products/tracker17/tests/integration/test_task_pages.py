@@ -165,8 +165,9 @@ def test_the_form_with_no_assignee_offers_only_unassigned_and_a_people_link(tmp_
     assert the_add_form(with_people).find_all("a") == []
 
 
-def test_project_list_shows_every_own_task_in_six_columns(tmp_path: Path) -> None:
-    """CP-126 to CP-129: title link, status, priority, assignee, labels and date; no limit."""
+def test_project_list_shows_every_own_task_in_seven_columns(tmp_path: Path) -> None:
+    """CP-126 to CP-129 and CP-297: title link, status, priority, assignee, labels, date and moves;
+    no limit."""
     location = tmp_path / "data"
     first = restore_task(
         1,
@@ -197,14 +198,17 @@ def test_project_list_shows_every_own_task_in_six_columns(tmp_path: Path) -> Non
     root = parse(page(get(Site(tracker, HOST), "/projects/1")))
     (table,) = root.find_all("table")
     headers = [th.text() for th in table.find_all("th")]
-    assert headers == ["Title", "Status", "Priority", "Assignee", "Labels", "Due date"]
+    assert headers == ["Title", "Status", "Priority", "Assignee", "Labels", "Due date", "Moves"]
     rows = list_rows(root)
-    assert len(rows) == 122 and all(len(cells) == 6 for cells in rows)
-    values = [[cell.text() for cell in cells] for cells in rows[:2]]
+    assert len(rows) == 122 and all(len(cells) == 7 for cells in rows)
+    values = [[cell.text() for cell in cells[:6]] for cells in rows[:2]]
     assert values[0][:4] == [" Spaced ", "in-progress", "high", "Gone"]
     assert "ops" in values[0][4] and "urgent" in values[0][4]
     assert values[0][5].startswith("2026-10-20")
     assert values[1] == ["Spaced", "todo", "low", "unassigned", "none", "none"]
+    assert [b.text() for b in rows[0][6].find_all("button")] == ["done", "todo"]
+    assert [b.text() for b in rows[1][6].find_all("button")] == ["in-progress"]
+    assert rows[2][6].text() == "" and rows[2][6].find_all("button") == []
     (link,) = rows[0][0].find_all("a")
     assert link.attrs["href"] == "/tasks/1" and link.text() == " Spaced "
     assert link.attrs["aria-label"] == " Spaced , number 1 on the task list"
@@ -309,6 +313,7 @@ def test_task_page_shows_the_four_fields_in_the_one_authorized_form(tmp_path: Pa
         assert form.attrs["method"] == "post" and form.attrs["action"].startswith("/tasks/")
         assert [f.attrs["action"] for f in shown_main.find_all("form")] == [
             form.attrs["action"],
+            f"{form.attrs['action']}/move",
             f"{form.attrs['action']}/labels",
             f"{form.attrs['action']}/comments",
         ]
@@ -316,7 +321,7 @@ def test_task_page_shows_the_four_fields_in_the_one_authorized_form(tmp_path: Pa
         for tag in ("script", "table"):
             assert shown.find_all(tag) == [], tag
         text = shown_main.text().lower()
-        for absent in ("status", "todo", "overdue", "delete"):
+        for absent in ("overdue", "delete"):
             assert absent not in text, absent
         # CP-274: the one link the main area admits is the no-name notice's link to People.
         assert [a.attrs["href"] for a in shown_main.find_all("a")] == ["/people"]
@@ -412,8 +417,10 @@ def test_task_page_opens_edit_form_from_saved_values(tmp_path: Path) -> None:
         root = parse(shown_page)
         form = edit_form(root)
         assert form.attrs["action"] == f"/tasks/{index}" and form.attrs["method"] == "post"
+        moves = {"todo": 1, "in-progress": 2, "done": 0, "cancelled": 0}[status]
         assert [f.attrs["action"] for f in root.find_all("form")] == [
             f"/tasks/{index}",
+            *[f"/tasks/{index}/move"] * moves,
             f"/tasks/{index}/labels",
             f"/tasks/{index}/comments",
         ]

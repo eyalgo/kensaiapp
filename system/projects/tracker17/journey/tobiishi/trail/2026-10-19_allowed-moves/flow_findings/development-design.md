@@ -1,0 +1,10 @@
+# Flow Findings — development-design  (audited 2026-10-19)
+
+Findings for this step's output only, produced by the `development-audit` skill.
+Change-local findings live here; skill-general findings are also raised as kaizen items.
+
+- **[non-blocking · change-local · coverage]** Outcome-precedence test covers fewer outcomes than the design's rule states. Where: `change_design.md §3 Sub-job C, "The landing place"` vs `§5 P7`. The rule says a move outcome beats `created`, the add-task form's, the edit form's, the label area's and the comment area's outcomes; P7 names only `created`, a label outcome and a comment outcome. The add-task form's and the edit form's outcomes have no test row. Direction: extend P7, or narrow the rule.
+- **[non-blocking · change-local · coverage]** Spec CP-313's docstring requirement (FR-18/FR-19, every taking-part module, every checking test module) has no row in §5 or in the Example/rule coverage table. Where: `change_design.md §3 Sub-job A "Scope"`, `§5`. The design states it in scope text only, and E1 covers only the pointer list. Direction: say which check holds it, or record that none does.
+- **[non-blocking · change-local · divergence record]** Hand-off count is wrong. Where: `change_design.md §3 Sub-job C "Scope"`. It says "the four existing tests … (§5, rows E3 to E7, except E1 and E2)", but E3–E7 are five tests, and R-2 and §5 list seven existing tests in all. Direction: correct to five, so the plan does not under-assign a test.
+
+Checked and clean: classification copied verbatim (feature / changing); the spec divergences (CP-315 set aside, CP-318 widened to seven tests, CP-316 read as QC-13, the file fence) are each recorded with reason in § Architect Review Notes and `deferred_decisions.md`; the allowed-move order is realized by construction (a literal table, not enum order); the atomic-landing edges are stated as properties and do not name a downstream role or its granularity; the records the change makes false (QC-48, TS-5) are listed. ADR/NFDR cross-check done against the QC review table.
