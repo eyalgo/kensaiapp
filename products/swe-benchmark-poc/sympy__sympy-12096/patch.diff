@@ -1,0 +1,187 @@
+diff --git a/sympy/core/function.py b/sympy/core/function.py
+index 1b8005e1d..e02b685de 100644
+--- a/sympy/core/function.py
++++ b/sympy/core/function.py
+@@ -497,6 +497,35 @@ def is_commutative(self):
+         else:
+             return False
+ 
++    def _evalf_implementation_result(self, result, prec):
++        """Evaluate what an implementation returned, when it is not a literal.
++
++        ``result`` is a number written as an expression (``g(2)**2``, ``pi**2``,
++        ``2*I``) when the evaluator can reduce it at binary precision ``prec``.
++        Returns that number, built as ``EvalfMixin.evalf`` builds its own, or
++        ``None`` when ``result`` is not a number (a free symbol, an undefined
++        function, ``zoo``, ``nan``) or is not a SymPy object or a Python number.
++        An exception other than the three types below propagates.
++        """
++        from mpmath.libmp import fnan
++        from sympy.core.compatibility import SYMPY_INTS
++        # Gate on type before sympifying: a str would be parsed into an expression.
++        if not isinstance(result, (Basic, float, complex) + tuple(SYMPY_INTS)):
++            return
++        # Not Basic.is_number: at base it is True for u(2)**2 and for zoo, which the
++        # module-level evaluator rejects with NotImplementedError.
++        from sympy.core.evalf import evalf
++        try:
++            re, im, re_acc, im_acc = evalf(sympify(result), prec, {})
++        except (NotImplementedError, AttributeError, TypeError, ValueError):
++            return
++        if fnan in (re, im):
++            return
++        re = Float._new(re, max(min(prec, re_acc), 1)) if re else S.Zero
++        if im:
++            return re + Float._new(im, max(min(prec, im_acc), 1))*S.ImaginaryUnit
++        return re
++
+     def _eval_evalf(self, prec):
+         # Lookup mpmath function based on name
+         fname = self.func.__name__
+@@ -507,9 +536,13 @@ def _eval_evalf(self, prec):
+             func = getattr(mpmath, fname)
+         except (AttributeError, KeyError):
+             try:
+-                return Float(self._imp_(*self.args), prec)
++                result = self._imp_(*self.args)
+             except (AttributeError, TypeError, ValueError):
+                 return
++            try:
++                return Float(result, prec)
++            except (AttributeError, TypeError, ValueError):
++                return self._evalf_implementation_result(result, prec)
+ 
+         # Convert all args to mpf or mpc
+         # Convert the arguments to *higher* precision than requested for the
+diff --git a/sympy/core/tests/test_evalf.py b/sympy/core/tests/test_evalf.py
+index 1d63f9ea9..c7eb04750 100644
+--- a/sympy/core/tests/test_evalf.py
++++ b/sympy/core/tests/test_evalf.py
+@@ -1,12 +1,16 @@
++import math
++from contextlib import contextmanager
++
+ from sympy import (Abs, Add, atan, ceiling, cos, E, Eq, exp,
+     factorial, fibonacci, floor, Function, GoldenRatio, I, Integral,
+-    integrate, log, Mul, N, oo, pi, Pow, product, Product,
+-    Rational, S, Sum, sin, sqrt, sstr, sympify, Symbol, Max, nfloat)
++    integrate, log, Mul, N, nan, oo, pi, Pow, product, Product,
++    Rational, S, Sum, sin, sqrt, sstr, sympify, Symbol, Max, nfloat, zoo)
+ from sympy.core.evalf import (complex_accuracy, PrecisionExhausted,
+     scaled_zero, get_integer_part, as_mpmath)
+ from mpmath import inf, ninf
+ from mpmath.libmp.libmpf import from_float
+ from sympy.core.compatibility import long, range
++from sympy.utilities.lambdify import implemented_function
+ from sympy.utilities.pytest import raises, XFAIL
+ 
+ from sympy.abc import n, x, y
+@@ -328,6 +332,108 @@ def test_implemented_function_evalf():
+     del f._imp_     # XXX: due to caching _imp_ would influence all other tests
+ 
+ 
++@contextmanager
++def _implemented(*implementations):
++    """Yield one implemented function per ``(name, implementation)`` pair.
++
++    Each ``_imp_`` is removed on exit, even when an assertion fails: applications
++    are cached and compare equal by name, so an ``_imp_`` left on a name would
++    leak into every other test that builds ``Function("<name>")``.
++    """
++    funcs = []
++    try:
++        for name, implementation in implementations:
++            funcs.append(implemented_function(name, implementation))
++        yield funcs
++    finally:
++        for func in funcs:
++            del func._imp_
++
++
++def test_implemented_function_evalf_composition():
++    with _implemented(("f", lambda x: x**2), ("g", lambda x: 2*x),
++                      ("s", lambda x: math.sqrt(x))) as (f, g, s):
++        assert str(f(2).evalf()) == "4.00000000000000"
++        assert str(g(2).evalf()) == "4.00000000000000"
++        assert str(f(g(2)).evalf()) == "16.0000000000000"
++        assert str(g(f(2)).evalf()) == "8.00000000000000"
++        assert str(f(g(f(2))).evalf()) == "64.0000000000000"
++        assert str(f(g(2)).evalf(50)) == (
++            "16.000000000000000000000000000000000000000000000000")
++        assert str(N(f(g(2)))) == "16.0000000000000"
++        assert str(f(g(2)).n(30)) == "16.0000000000000000000000000000"
++        assert str((f(g(2)) + 1).evalf()) == "17.0000000000000"
++        assert str(f(g(x)).evalf(subs={x: 2})) == "16.0000000000000"
++        # creating or printing an application does not evaluate it
++        assert str(f(g(2))) == "f(g(2))"
++        # a failing inner application leaves the rest of the sum to evaluate
++        assert str((f(s(-1)) + 1).evalf()) == "f(s(-1)) + 1.0"
++
++
++def test_implemented_function_evalf_numeric_return():
++    with _implemented(("f", lambda x: x**2), ("g", lambda x: 2*x),
++                      ("h", lambda x: sin(x)), ("c", lambda x: x*I),
++                      ("pc", lambda x: 1j), ("p", lambda x: math.pi),
++                      ("s", lambda x: math.sqrt(x)), ("k", lambda x: x/3),
++                      ) as (f, g, h, c, pc, p, s, k):
++        assert str(f(pi).evalf()) == "9.86960440108936"
++        assert str(h(1).evalf()) == "0.841470984807897"
++        h30 = "0.841470984807896506652502321630"
++        assert str(h(1).evalf(30)) == str(sin(1).evalf(30)) == h30
++        fh30 = "0.708073418273571193498784114750"
++        assert str(f(h(1)).evalf(30)) == str((sin(1)**2).evalf(30)) == fh30
++        assert str(c(2).evalf()) == "2.0*I"
++        assert str(f(c(2)).evalf()) == "-4.00000000000000"
++        assert str(pc(2).evalf()) == "1.0*I"
++        # returns that convert today print as they did
++        assert str(f(2).evalf(50)) == (
++            "4.0000000000000000000000000000000000000000000000000")
++        assert str(p(2).evalf(50)) == (
++            "3.1415926535897931159979634685441851615905761718750")
++        assert str(k(2).evalf(30)) == "0.666666666666666666666666666667"
++        assert str(f(Rational(1, 3)).evalf(30)) == (
++            "0.111111111111111111111111111111")
++        assert str(s(g(2)).evalf()) == "2.00000000000000"
++    with _implemented(("F", lambda x: oo), ("g", lambda x: 2*x)) as (F, g):
++        assert str(F(2).evalf()) == "inf"
++        # an infinite return reached through the evaluator, not the literal path
++        assert str(g(F(2)).evalf()) == "inf"
++    with _implemented(("F", lambda x: -oo), ("g", lambda x: 2*x)) as (F, g):
++        assert str(F(2).evalf()) == "-inf"
++        assert str(g(F(2)).evalf()) == "-inf"
++
++
++def test_implemented_function_evalf_not_a_number():
++    u = Function("u")
++    with _implemented(("f", lambda x: x**2), ("g", lambda x: 2*x),
++                      ("w", lambda x: x + Symbol("y")),
++                      ("s", lambda x: math.sqrt(x)),
++                      ("z", lambda x: int(x) // 0),
++                      ("ty", lambda x: int(x) + "a"),
++                      ("at", lambda x: x.no_such_attribute),
++                      ) as (f, g, w, s, z, ty, at):
++        for unevaluated in [f(x), f(g(x)), f(u(2)), w(2)]:
++            assert unevaluated.evalf() == unevaluated
++        assert str((f(g(x)) + 1).evalf()) == "f(g(x)) + 1.0"
++        # an implementation raising ValueError, TypeError or AttributeError
++        # means "not a number", as the outer application or an inner one
++        for failing in [s, ty, at]:
++            assert failing(-1).evalf() == failing(-1)
++            assert f(failing(-1)).evalf() == f(failing(-1))
++        assert str((f(ty(2)) + 1).evalf()) == "f(ty(2)) + 1.0"
++        # any other exception propagates, wherever evalf reaches it
++        raises(ZeroDivisionError, lambda: z(2).evalf())
++        raises(ZeroDivisionError, lambda: f(z(2)).evalf())
++        raises(ZeroDivisionError, lambda: (z(2) + 1).evalf())
++        raises(ZeroDivisionError, lambda: (f(z(2)) + 1).evalf())
++        raises(ZeroDivisionError, lambda: f(g(z(2))).evalf())
++    for value in [zoo, nan, "pi**2", [2], None]:
++        with _implemented(("F", lambda x, value=value: value)) as (F,):
++            assert F(2).evalf() == F(2)
++    with _implemented(("F", lambda x: "2")) as (F,):
++        assert str(F(2).evalf()) == "2.00000000000000"
++
++
+ def test_evaluate_false():
+     for no in [0, False]:
+         assert Add(3, 2, evaluate=no).is_Add

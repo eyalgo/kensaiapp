@@ -1,0 +1,43 @@
+{
+  "skill_name": "skill-evals",
+  "evals": [
+    {
+      "id": 1,
+      "name": "run-note-formatter-evals",
+      "prompt": "Run evals on the note-formatter skill at ~/.claude/skills/skill-evals/evals/dummy-skill",
+      "expected_output": "A complete eval run: both with_skill and without_skill agents spawned, grading done, benchmark.json produced",
+      "assertions": [
+        {
+          "name": "transcript-exists",
+          "description": "transcript.md exists and is non-empty",
+          "tier": "structural"
+        },
+        {
+          "name": "parallel-agents-spawned",
+          "description": "Transcript shows with_skill and without_skill agents were spawned in the same turn (not sequentially) for each eval case",
+          "tier": "nuanced"
+        },
+        {
+          "name": "tiered-grading",
+          "description": "Transcript shows two graders were spawned per run — one structural (Haiku) and one nuanced (Sonnet) — and their results were merged into grading.json",
+          "tier": "nuanced"
+        },
+        {
+          "name": "benchmark-produced",
+          "description": "Transcript shows aggregate_benchmark.py was run and produced benchmark.json and benchmark.md",
+          "tier": "nuanced"
+        },
+        {
+          "name": "eval-metadata-written",
+          "description": "Transcript shows eval_metadata.json was written for each eval case before the runs completed",
+          "tier": "nuanced"
+        },
+        {
+          "name": "viewer-launched",
+          "description": "Transcript shows the eval viewer (generate_review.py) was launched in the background",
+          "tier": "nuanced"
+        }
+      ]
+    }
+  ]
+}

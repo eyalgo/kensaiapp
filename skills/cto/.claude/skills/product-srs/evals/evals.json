@@ -1,0 +1,133 @@
+{
+  "skill_name": "product-srs",
+  "executor": {
+    "model": "fable"
+  },
+  "evals": [
+    {
+      "id": 1,
+      "name": "draft-and-surface-two-bucket",
+      "prompt": "You are the CTO. Author the SRS for the mailmate project. Its binding is at skills/cto/.claude/skills/product-srs/evals/inputs/mailmate/project.md — read it, resolve its Product path, and read the whole product input under it: the Settled docs/PRD.md and its docs/trail/prd/cycle-1.md. Draft the SRS best-effort and surface whatever you can't settle.",
+      "assertions": [
+        {
+          "name": "two-bucket-companion",
+          "description": "A companion file named exactly SRS_open_issues.md is produced (separate from SRS.md) and contains exactly the two SRS bucket labels 'Open issues' and 'Choices to confirm' — and NOT a 'Directives' bucket (Directives is the PRD's companion contract, not the SRS's). The filename and the two-bucket set must both match: a companion under any other name (e.g. trail/srs/cycle-1.md), or one carrying a third bucket, does NOT satisfy this. A baseline agent typically writes a single SRS or improvises a differently-named companion, and when it does improvise one it tends to copy the PRD's three-bucket shape (including Directives).",
+          "tier": "structural"
+        },
+        {
+          "name": "confirm-or-override-slot",
+          "description": "Inside the produced SRS_open_issues.md, each 'Choices to confirm' item carries the skill's named per-choice sign-off slot — the literal phrase 'Confirm or override' (or 'Confirm-or-override') appears at least once as an item slot label within that file. The slot must live in SRS_open_issues.md specifically, not merely somewhere in the output. This is the skill's companion contract; a baseline agent improvises ad-hoc phrasings ('Confirm?', 'Your call:', 'Recommendation only') and does not emit this named slot inside a file named SRS_open_issues.md.",
+          "tier": "structural"
+        },
+        {
+          "name": "requirements-typed-and-traced",
+          "description": "The produced SRS.md states requirements as typed IDs traced to the PRD: at least three 'FR-' identifiers are present AND at least one requirement carries an inline PRD-trace tag of the form '(traces to: PRD'. The literal '(traces to: PRD' token must appear on a requirement — a prose sentence saying a requirement 'comes from the PRD', or a separate traceability matrix, does NOT satisfy this. A capable baseline numbers requirements FR-1/FR-2 and may build a traceability table but does not emit the inline '(traces to: PRD …)' trace-tag convention on the requirements themselves.",
+          "tier": "structural"
+        },
+        {
+          "name": "status-draft",
+          "description": "The produced SRS.md carries a 'Status:' line whose value is 'Draft' — unresolved items remain, and the skill leaves 'Locked' to ratification, which is not its act. The literal 'Draft' must be the value on that line: a produced SRS with no Status line at all, or one stamped 'Locked' / 'Final' / 'Settled' / 'Complete', does NOT satisfy this. A baseline agent writes an SRS with no status header, or invents its own status vocabulary.",
+          "tier": "structural"
+        },
+        {
+          "name": "scope-names-the-terminus",
+          "description": "The produced SRS.md's Scope section names the declared terminus it is scoped against — the content of the project's agari.md, which sits beside project.md in the binding folder. Satisfied when the Scope section identifies what mailmate's terminus declares done (a paying support team running a full billing cycle: auto-triage and claim working, per-seat Stripe billing renewing once, the 90-day purge running on real data) and/or names what that terminus deliberately places outside done (the adoption/retention numbers, growth past the first team). The reference must be in the SRS's Scope section specifically, not merely a passing mention elsewhere. The prompt never names agari.md and does not say a terminus exists, so a baseline agent scopes against the PRD alone and produces a Scope section with no terminus in it at all.",
+          "tier": "structural"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "name": "invented-nfr-routing",
+      "prompt": "You are the CTO. Author the SRS for the trimly project. Its binding is at skills/cto/.claude/skills/product-srs/evals/inputs/trimly/project.md — read it, resolve its Product path, and read the whole product input under it (the Settled docs/PRD.md and its docs/trail/prd/cycle-1.md). The PRD states a launch-scale figure but sets no latency or availability numbers — handle the quality bars the way the process dictates.",
+      "assertions": [
+        {
+          "name": "owner-taste-nfr-as-choice",
+          "description": "The redirect-latency and/or availability bar — which the PRD (goal G4) states only qualitatively ('feels instant', 'dependable') with no number — is surfaced specifically as an item in the 'Choices to confirm' bucket of the produced SRS_open_issues.md, carrying the skill's per-choice sign-off slot ('Confirm or override' / 'Confirm-or-override'). Routing the bar to a generic 'Open issues' / 'OI-n' bucket, or hedging it inline with ad-hoc prose ('Recommendation only', 'not locked'), WITHOUT placing it in a named 'Choices to confirm' item carrying the confirm-or-override slot, does NOT satisfy this — the owner-taste NFR must ride the two-bucket companion's choices-to-confirm contract. A baseline agent surfaces the bar (e.g. to an 'OI-1' open-issue) but emits neither the 'Choices to confirm' bucket nor the 'Confirm or override' slot.",
+          "tier": "structural"
+        },
+        {
+          "name": "no-bare-invented-bar",
+          "description": "Any specific availability percentage (e.g. '99.9%') or redirect-latency millisecond figure that appears in the produced SRS.md is bound to the skill's provenance structure — it either rides as a 'choice to confirm' item in SRS_open_issues.md (marked pending, not settled) or carries a numbered Review Note (RN-n) in the SRS.md's '## SRS Review Notes' section recording its basis. A figure stated inline as a settled/ratified NFR, or hedged only with ad-hoc prose and no '## SRS Review Notes' RN-n entry and no choices-to-confirm slot, does NOT satisfy this. A baseline states or hedges the bar with ad-hoc wording and emits no '## SRS Review Notes' RN-n trail.",
+          "tier": "structural"
+        },
+        {
+          "name": "derivable-nfr-with-basis",
+          "description": "The throughput/scalability NFR that IS derivable from a PRD fact — the PRD's stated ~200,000 redirects/day (goal G3) — is stated as a settled NFR in the produced SRS.md WITH its derivation recorded in the skill's basis structure: a numbered Review Note (RN-n) under the '## SRS Review Notes' section, OR an inline '(traces to: PRD' tag on the NFR referencing the ~200,000/day figure (or a per-second rate derived from it). An NFR that references the 200,000/day figure only in body prose — with no '## SRS Review Notes' RN-n entry and no '(traces to: PRD' tag — does NOT satisfy this. This distinguishes the derivable route (state with recorded basis) from the owner-taste route (surface as choice). A baseline states no scale NFR, or states one with no '## SRS Review Notes' review-note trail and no '(traces to: PRD' tag.",
+          "tier": "structural"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "name": "reentry-fold-and-delete",
+      "prompt": "You are the CTO. Continue the SRS for the trimly-reentry project. Its binding is at skills/cto/.claude/skills/product-srs/evals/inputs/trimly-reentry/project.md; under its Product path there is an existing SRS.md (Version 1) and an SRS_open_issues.md the owner has answered inline. Fold their answers in and keep going.",
+      "assertions": [
+        {
+          "name": "answers-folded",
+          "description": "The produced SRS.md folds in the owner's answered values from SRS_open_issues.md: it keeps the confirmed redirect-latency target (p95 < 100 ms), changes availability to the overridden value (99.5% monthly, replacing the drafted 99.9%), and resolves the link-lifetime contradiction in favor of never-expire (dropping the 12-month auto-purge). A baseline that never applied the specific overrides would still show 99.9% availability or leave the contradiction unresolved.",
+          "tier": "structural"
+        },
+        {
+          "name": "answered-companion-retired-to-trail",
+          "description": "The answered companion is retired WHOLE to the trail: a file docs/trail/srs/cycle-1.md is produced holding the owner's answered SRS_open_issues.md copied byte-for-byte. The companion's DISAPPEARANCE is not asserted here — 'companion-cleared-when-clean' owns that alone, so a missing trail and a broken done signal are two distinguishable reds rather than one. Checked mechanically against the harvested run, never by walking outputs/ (nothing reads outputs/ recursively): (a) run_delta.json's 'created' list contains a path ending 'trail/srs/cycle-1.md'; (b) the trail file at outputs/product/<...>/trail/srs/cycle-1.md is byte-identical to the pristine companion at outputs/reference/<...>/docs/SRS_open_issues.md. One precondition on (b), stated so a grader does not misread a red: harvest populates outputs/reference/ only for files the run MODIFIED or DELETED, so the pristine companion is available to compare against only once it has left docs/. A run that wrote the trail but kept the companion therefore fails this assertion too — correctly, but for a compound reason; read it alongside 'companion-cleared-when-clean' to tell the two apart. That byte-identity is what makes 'retired WHOLE' checkable without reaching outside outputs/, and it is the whole point — a summary, a paraphrase, or a re-formatted digest of the owner's answers fails. NO cycle-numbering rule is asserted here: this fixture ships no docs/trail/srs/, so cycle-1 is the unconditional answer and a hardcoded 'cycle-1' is indistinguishable from a correct max-based numbering — testing that rule needs its own pre-seeded fixture and case. Baseline discrimination, stated rather than papered over: the fixture ships docs/trail/prd/cycle-1.md, so the trail pattern is visible in the input and a strong baseline may mirror it.",
+          "tier": "structural"
+        },
+        {
+          "name": "companion-cleared-when-clean",
+          "description": "With every companion item answered, the answered SRS_open_issues.md is gone from the product docs after the run — its absence is the skill's done signal. Checked mechanically: run_delta.json's 'deleted' list contains a path ending 'docs/SRS_open_issues.md'. This assertion checks the DISAPPEARANCE ONLY; the trail requirement belongs to 'answered-companion-retired-to-trail' alone. Deliberately disjoint from it: bundled, a missing trail and a broken done signal would be a single red line and indistinguishable; split, this one staying green while the trail assertion is red says exactly 'the done signal works, the trail does not'. A baseline that folds answers would typically leave the companion in place, or leave an emptied one behind, rather than treating its absence as the completion signal.",
+          "tier": "structural"
+        },
+        {
+          "name": "owner-provenance-in-review-notes",
+          "description": "The folded owner values are recorded in the produced SRS.md's '## SRS Review Notes' section as the owner's confirmed answers — a numbered Review Note (RN-n) references the availability override to 99.5% and/or the never-expire resolution as an owner-confirmed answer, capturing durable provenance before the companion is dropped. A baseline folds the values but does not record owner-answer provenance in a review-notes trail (so, once the companion is gone, the provenance would be lost).",
+          "tier": "structural"
+        },
+        {
+          "name": "review-notes-cite-the-trail",
+          "description": "An owner-answer citation must resolve to a file a cold reader can still open after the run — the companion is cleared at the close, so a citation pointing at it dead-ends. Scoped to the citations THIS RUN adds: the Review Notes recording the owner answers folded in this round (the confirmed p95 < 100 ms redirect target, the 99.5% availability override, the never-expire resolution). Each such note's citation must name the trail path (a path ending 'trail/srs/cycle-1.md'), not the companion the run just cleared. A run-added citation of the form 'open-issues 2.2' or 'SRS_open_issues.md §1.1' with no trail path fails. Pre-existing settled Review Notes carried forward from Version 1 are EXEMPT and must NOT be counted against this: the fixture's Version-1 SRS already carries '(open-issues 2.1, 2.2)' inside settled RN-2, and the skill's stability rule requires settled content to be reproduced exactly on a re-run — so a compliant run preserves that citation verbatim, and an 'every citation' quantifier would fail a correct run. Checked against the produced SRS at outputs/product/<...>/docs/SRS.md. A baseline cites nothing, or cites the companion.",
+          "tier": "structural"
+        },
+        {
+          "name": "status-settled",
+          "description": "The produced SRS.md carries a 'Status:' line whose value is 'Settled' — this run resolved every companion item and ends with no open-issues file on disk, which is the template's done value. The literal 'Settled' must be the value on that line: a produced SRS still stamped 'Draft', stamped 'Locked' (ratification is the owner's act, not the skill's), carrying no Status line at all, or inventing a value outside the template's 'Draft | Settled | Locked' vocabulary, does NOT satisfy this. A baseline agent leaves the status at 'Draft' after folding, or writes no status header.",
+          "tier": "structural"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "name": "prd-critique-surface-not-halt",
+      "prompt": "You are the CTO. Author the SRS for the trimly project. Its binding is at skills/cto/.claude/skills/product-srs/evals/inputs/trimly/project.md — read it, resolve its Product path, and read the whole product input under it (the Settled docs/PRD.md and its docs/trail/prd/cycle-1.md).",
+      "assertions": [
+        {
+          "name": "contradiction-caught",
+          "description": "The PRD's internal contradiction — feature F5 says links 'never expire' while section 5 says inactive links are 'automatically purged' after 12 months — is recorded in the skill's named provenance structure, with BOTH sides of the conflict named together: either a numbered Review Note (RN-n) in the produced SRS.md's '## SRS Review Notes' section, OR an item in the produced two-bucket SRS_open_issues.md. Naming the conflict only in body prose (a 'Divergences' paragraph, or an inline note inside a requirement) WITHOUT a '## SRS Review Notes' RN-n entry and WITHOUT an SRS_open_issues.md item does NOT satisfy this. A baseline catches the contradiction but records it as ad-hoc prose, emitting no '## SRS Review Notes' RN-n and no SRS_open_issues.md companion.",
+          "tier": "structural"
+        },
+        {
+          "name": "srs-produced-not-halted",
+          "description": "An SRS.md file is produced — the skill resolved-or-surfaced the PRD contradiction and kept going rather than halting on the PRD flaw. The presence of a produced SRS.md is the not-halted signal.",
+          "tier": "structural"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "name": "posture-halt-outside-cto",
+      "prompt": "Can you write me an SRS for a web app I'm building?",
+      "assertions": [
+        {
+          "name": "no-srs-file",
+          "description": "No SRS.md file is produced. The skill halts on the CTO-posture check and writes no SRS. A capable baseline agent given this prompt would write an SRS.md file — so the absence of one is the halt signal.",
+          "tier": "structural"
+        },
+        {
+          "name": "no-companion-file",
+          "description": "No SRS_open_issues.md companion file is produced either — the skill stops at the posture check before authoring anything. For a posture-halt case, the absence of any product artifact is the correct, expected signal.",
+          "tier": "structural"
+        }
+      ]
+    }
+  ]
+}

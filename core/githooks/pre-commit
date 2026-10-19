@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# pre-commit — git-native hook shim. Git invokes this before every ordinary
+# commit (not a --no-ff merge; git invokes pre-merge-commit for that, and no
+# hook is registered there — see core/doctrine/setup/kensaiapp_structure.md
+# § Git-native hooks).
+#
+# Version: 1.2.0 — restore pre-commit behavior before core-path enforcement
+# Version: 1.1.0 — enable provider-neutral unattended execution with Codex
+# Version: 1.0.0
+#
+# Self-locates core from its own path rather than reading a CORE env var or
+# `.env`: a human's or Codex's plain `git commit` carries neither, and
+# KENSAIAPP_CORE_RESOLVED is a model-context injection from resolve_core.py,
+# not a shell variable a git subprocess inherits. Because setup wires
+# `core.hooksPath` to "<resolved-core>/githooks", this hook is invoked *from*
+# core, so its own directory *is* the resolved core — self-location is exact.
+#
+# Resolves the committing repo separately: three satellites route their
+# core.hooksPath to this host's core/githooks, so the hook runs from this
+# core while git commits in theirs. Conflating the two roots would scan this
+# repo's tree and pass every satellite commit.
+#
+# Performs no checking itself: execs the written-forward checker against the
+# committing repo, and exits with its status.
+set -euo pipefail
+
+core="$(cd "$(dirname "$0")/.." && pwd)"
+repo="$(git rev-parse --show-toplevel)"
+exec "$core/tools/written_forward.py" --staged --repo "$repo"

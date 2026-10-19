@@ -1,0 +1,16 @@
+[workspace]
+# A glob, not a list. `<CORE>/doctrine/engineering/languages/rust/layout.md` § A multi-crate
+# product requires it by name: "a member is added by creating a directory and the root manifest
+# needs no edit … Placing members at the repository root instead makes `members` a hand-maintained
+# list, and a crate added without the matching list edit builds locally and is invisible to
+# `cargo test --workspace`." A product whose SDD § 3 names more than one crate is the ordinary case,
+# and a literal naming this frame's own crate silently excluded every other one.
+members = ["crates/*"]
+resolver = "3"
+
+[workspace.lints.rust]
+# unsafe is refused by default: none of the other quality gates can see its misuse — the
+# formatter formats it, the linter accepts it, and the type checker accepts it by definition.
+# A crate that genuinely needs it (a foreign-function binding is the ordinary case) records why
+# in its own docs/adr/ and relaxes this level in its own manifest.
+unsafe_code = "forbid"

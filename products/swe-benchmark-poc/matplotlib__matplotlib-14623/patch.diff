@@ -1,0 +1,414 @@
+diff --git a/lib/matplotlib/axes/_base.py b/lib/matplotlib/axes/_base.py
+index da2dea6f5..56e530488 100644
+--- a/lib/matplotlib/axes/_base.py
++++ b/lib/matplotlib/axes/_base.py
+@@ -115,6 +115,21 @@ def _process_plot_format(fmt):
+     return linestyle, marker, color
+ 
+ 
++def _keep_limit_order(requested_first: float, requested_second: float,
++                      first: float, second: float) -> "tuple[float, float]":
++    """
++    Return ``(first, second)`` in the order of the requested pair.
++
++    A major locator's ``nonsingular`` may sort the pair it is given (the log
++    and logit locators do), which would drop an inversion the caller asked
++    for.  Only the direction is compared, never the locator, so locators that
++    already keep the order are left alone.
++    """
++    if (requested_first > requested_second) != (first > second):
++        first, second = second, first
++    return first, second
++
++
+ class _process_plot_var_args(object):
+     """
+     Process variable length arguments to the plot command, so that
+@@ -3264,7 +3279,10 @@ class _AxesBase(martist.Artist):
+             cbook._warn_external(
+                 f"Attempting to set identical left == right == {left} results "
+                 f"in singular transformations; automatically expanding.")
++        requested_left, requested_right = left, right
+         left, right = self.xaxis.get_major_locator().nonsingular(left, right)
++        left, right = _keep_limit_order(
++            requested_left, requested_right, left, right)
+         left, right = self.xaxis.limit_range_for_scale(left, right)
+ 
+         self.viewLim.intervalx = (left, right)
+@@ -3644,7 +3662,10 @@ class _AxesBase(martist.Artist):
+                 f"Attempting to set identical bottom == top == {bottom} "
+                 f"results in singular transformations; automatically "
+                 f"expanding.")
++        requested_bottom, requested_top = bottom, top
+         bottom, top = self.yaxis.get_major_locator().nonsingular(bottom, top)
++        bottom, top = _keep_limit_order(
++            requested_bottom, requested_top, bottom, top)
+         bottom, top = self.yaxis.limit_range_for_scale(bottom, top)
+ 
+         self.viewLim.intervaly = (bottom, top)
+diff --git a/lib/matplotlib/tests/test_axes.py b/lib/matplotlib/tests/test_axes.py
+index 06ff5aca4..867b5eef6 100644
+--- a/lib/matplotlib/tests/test_axes.py
++++ b/lib/matplotlib/tests/test_axes.py
+@@ -6404,3 +6404,361 @@ def test_bar_errbar_zorder():
+             assert capline.zorder > bar.zorder
+         for barlinecol in barlinecols:
+             assert barlinecol.zorder > bar.zorder
++
++
++@pytest.fixture
++def default_y_margin():
++    # The test style has no margins; the values below assume the default 5%.
++    with rc_context({"axes.autolimit_mode": "data", "axes.ymargin": 0.05}):
++        yield
++
++
++def _nonpositive_limit_warning(limit, axis):
++    # The text the change must leave as it is (issue 14623, CP-11).
++    return (f"Attempted to set non-positive {limit} {axis}lim on a "
++            f"log-scaled axis.\nInvalid limit will be ignored.")
++
++
++def _warning_texts(record):
++    return [str(warning.message) for warning in record]
++
++
++@pytest.mark.parametrize("scale", ["linear", "log"])
++def test_set_ylim_descending_on_log_and_linear(scale):
++    # Issue 14623: reversed limits must invert the axis on a log scale too.
++    y = np.linspace(1000e2, 1, 100)
++    x = np.exp(-np.linspace(0, 1, y.size))
++    fig, ax = plt.subplots()
++    ax.plot(x, y)
++    ax.set_yscale(scale)
++    ax.set_ylim(y.max(), y.min())
++    assert ax.get_ylim() == (y.max(), y.min())
++    assert ax.yaxis_inverted()
++    plt.close(fig)
++
++
++@pytest.mark.parametrize("call", [
++    lambda ax: ax.set_ylim(100, 1),
++    lambda ax: ax.set_ylim((100, 1)),
++    lambda ax: ax.set_ylim(bottom=100, top=1),
++    lambda ax: ax.set_ylim(ymin=100, ymax=1),
++], ids=["positional", "tuple", "bottom_top", "ymin_ymax"])
++def test_set_ylim_descending_argument_forms_on_log(call):
++    fig, ax = plt.subplots()
++    ax.set_yscale("log")
++    ax.plot([1, 100])
++    assert call(ax) == (100, 1)
++    assert ax.get_ylim() == (100.0, 1.0)
++    assert ax.yaxis_inverted()
++    plt.close(fig)
++
++
++def test_set_ylim_descending_log_no_data_and_base_2():
++    fig, ax = plt.subplots()
++    ax.set_yscale("log")
++    ax.set_ylim(100, 1)
++    assert ax.get_ylim() == (100.0, 1.0)
++    assert ax.yaxis_inverted()
++    plt.close(fig)
++
++    fig, ax = plt.subplots()
++    ax.set_yscale("log", basey=2)
++    ax.set_ylim(64, 2)
++    assert ax.get_ylim() == (64.0, 2.0)
++    assert ax.yaxis_inverted()
++    plt.close(fig)
++
++
++def test_set_ylim_descending_on_functionlog_and_logit():
++    fig, ax = plt.subplots()
++    ax.set_yscale("functionlog", functions=(lambda v: v, lambda v: v))
++    ax.plot([1, 100])
++    ax.set_ylim(100, 1)
++    assert ax.get_ylim() == (100.0, 1.0)
++    assert ax.yaxis_inverted()
++    plt.close(fig)
++
++    fig, ax = plt.subplots()
++    ax.set_yscale("logit")
++    ax.plot([0.2, 0.8])
++    ax.set_ylim(0.9, 0.1)
++    assert ax.get_ylim() == (0.9, 0.1)
++    assert ax.yaxis_inverted()
++    plt.close(fig)
++
++
++def test_set_ylim_one_limit_keeps_resolved_order():
++    fig, ax = plt.subplots()
++    ax.set_yscale("log")
++    ax.plot([1, 100])
++    ax.set_ylim(100, 1)
++    ax.set_ylim(top=10)
++    assert ax.get_ylim() == (100.0, 10.0)
++    assert ax.yaxis_inverted()
++
++    ax.set_ylim(1, 100)
++    ax.set_ylim(top=0.5)
++    assert ax.get_ylim() == (1.0, 0.5)
++    assert ax.yaxis_inverted()
++
++    ax.set_ylim(100, 1)
++    ax.set_ylim(1, 100)
++    assert ax.get_ylim() == (1.0, 100.0)
++    assert not ax.yaxis_inverted()
++    plt.close(fig)
++
++
++def test_set_ylim_nonpositive_log_limit_warns_and_keeps_order(
++        default_y_margin):
++    fig, ax = plt.subplots()
++    ax.set_yscale("log")
++    ax.plot([1, 100])
++    ax.set_ylim(1, 100)
++    with pytest.warns(UserWarning) as record:
++        ax.set_ylim(1000, -1)
++    assert _nonpositive_limit_warning("top", "y") in _warning_texts(record)
++    assert ax.get_ylim() == (1000.0, 100.0)
++    assert ax.yaxis_inverted()
++    plt.close(fig)
++
++    fig, ax = plt.subplots()
++    ax.set_yscale("log")
++    ax.plot([1, 10, 100])
++    assert ax.get_ylim() == pytest.approx((0.79, 125.89), rel=1e-2)
++    with pytest.warns(UserWarning) as record:
++        ax.set_ylim(50, 0)
++    assert _nonpositive_limit_warning("top", "y") in _warning_texts(record)
++    assert ax.get_ylim() == pytest.approx((50.0, 125.89), rel=1e-2)
++    assert not ax.yaxis_inverted()
++    plt.close(fig)
++
++    fig, ax = plt.subplots()
++    ax.set_yscale("log")
++    ax.plot([1, 10, 100])
++    with pytest.warns(UserWarning) as record:
++        ax.set_ylim(-1, 1)
++    assert _nonpositive_limit_warning("bottom", "y") in _warning_texts(record)
++    assert ax.get_ylim() == pytest.approx((0.79, 1.0), rel=1e-2)
++    assert not ax.yaxis_inverted()
++    plt.close(fig)
++
++
++def test_set_ylim_equal_limits_on_log_unchanged():
++    fig, ax = plt.subplots()
++    ax.set_yscale("log")
++    ax.plot([1, 100])
++    ax.set_ylim(1, 100)
++    with pytest.warns(UserWarning) as record:
++        ax.set_ylim(10, 10)
++    assert ("Attempting to set identical bottom == top == 10 results in "
++            "singular transformations; automatically expanding."
++            in _warning_texts(record))
++    assert ax.get_ylim() == (1.0, 100.0)
++    assert not ax.yaxis_inverted()
++    plt.close(fig)
++
++
++def test_set_ybound_honours_inversion_on_log():
++    fig, ax = plt.subplots()
++    ax.set_yscale("log")
++    ax.plot([1, 100])
++    ax.invert_yaxis()
++    ax.set_ybound(1, 100)
++    assert ax.get_ylim() == (100.0, 1.0)
++    assert ax.yaxis_inverted()
++    plt.close(fig)
++
++    fig, ax = plt.subplots()
++    ax.set_yscale("log")
++    ax.plot([1, 100])
++    ax.set_ybound(100, 1)
++    assert ax.get_ylim() == (1.0, 100.0)
++    assert not ax.yaxis_inverted()
++    plt.close(fig)
++
++
++def test_autoscale_inverted_axis_on_log_and_logit(default_y_margin):
++    fig, ax = plt.subplots()
++    ax.set_yscale("log")
++    ax.invert_yaxis()
++    ax.plot([0, 1, 2], [1, 10, 100])
++    assert ax.get_ylim() == pytest.approx((125.89, 0.79), rel=1e-2)
++    assert ax.yaxis_inverted()
++    plt.close(fig)
++
++    fig, ax = plt.subplots()
++    ax.set_yscale("logit")
++    ax.invert_yaxis()
++    ax.plot([0, 1, 2], [0.2, 0.3, 0.8])
++    assert ax.get_ylim() == pytest.approx((0.821, 0.178), rel=1e-2)
++    assert ax.yaxis_inverted()
++    plt.close(fig)
++
++
++def test_set_ylim_descending_on_shared_log_axes():
++    fig, (ax1, ax2) = plt.subplots(2, sharey=True)
++    ax1.set_yscale("log")
++    ax1.plot([1, 100])
++    ax1.set_ylim(100, 1)
++    assert ax1.get_ylim() == (100.0, 1.0)
++    assert ax2.get_ylim() == (100.0, 1.0)
++    assert ax1.yaxis_inverted()
++    assert ax2.yaxis_inverted()
++    plt.close(fig)
++
++
++def test_set_ylim_other_cases_unchanged():
++    fig, ax = plt.subplots()
++    ax.set_yscale("log")
++    ax.plot([1, 100])
++    ax.set_ylim(1, 100)
++    assert ax.get_ylim() == (1.0, 100.0)
++    assert not ax.yaxis_inverted()
++
++    ax.set_ylim(100, 1)
++    fig.canvas.draw()
++    assert ax.get_ylim() == (100.0, 1.0)
++    assert ax.yaxis_inverted()
++
++    ax.set_yscale("linear")
++    assert ax.get_ylim() == (100.0, 1.0)
++    assert ax.yaxis_inverted()
++    plt.close(fig)
++
++    for scale, kwargs in [("symlog", {}), ("linear", {}),
++                          ("function", {"functions": (np.sqrt, np.square)})]:
++        fig, ax = plt.subplots()
++        ax.set_yscale(scale, **kwargs)
++        ax.plot([1, 100])
++        ax.set_ylim(100, 1)
++        assert ax.get_ylim() == (100.0, 1.0)
++        assert ax.yaxis_inverted()
++        plt.close(fig)
++
++    fig, ax = plt.subplots()
++    ax.plot([1, 100])
++    ax.set_ylim(100, 1)
++    ax.set_yscale("log")
++    assert ax.get_ylim() == (100.0, 1.0)
++    assert ax.yaxis_inverted()
++    plt.close(fig)
++
++
++def test_set_ylim_ascending_on_functionlog_and_logit_unchanged():
++    # CP-15: an ascending pair on a covered scale ends with today's values.
++    fig, ax = plt.subplots()
++    ax.set_yscale("functionlog", functions=(lambda v: v, lambda v: v))
++    ax.plot([1, 100])
++    assert ax.set_ylim(1, 100) == (1, 100)
++    assert ax.get_ylim() == (1.0, 100.0)
++    assert not ax.yaxis_inverted()
++    plt.close(fig)
++
++    fig, ax = plt.subplots()
++    ax.set_yscale("logit")
++    ax.plot([0.2, 0.8])
++    assert ax.set_ylim(0.1, 0.9) == (0.1, 0.9)
++    assert ax.get_ylim() == (0.1, 0.9)
++    assert not ax.yaxis_inverted()
++    plt.close(fig)
++
++
++def test_set_ylim_descending_on_logit_with_no_data():
++    # Only the order is asserted: the values are the locator's initial range.
++    fig, ax = plt.subplots()
++    ax.set_yscale("logit")
++    ax.set_ylim(0.9, 0.1)
++    bottom, top = ax.get_ylim()
++    assert bottom > top
++    assert ax.yaxis_inverted()
++    plt.close(fig)
++
++
++@pytest.mark.parametrize("call", [
++    lambda ax: ax.set_xlim(100, 1),
++    lambda ax: ax.set_xlim((100, 1)),
++    lambda ax: ax.set_xlim(left=100, right=1),
++    lambda ax: ax.set_xlim(xmin=100, xmax=1),
++], ids=["positional", "tuple", "left_right", "xmin_xmax"])
++def test_set_xlim_descending_argument_forms_on_log(call):
++    fig, ax = plt.subplots()
++    ax.set_xscale("log")
++    ax.plot([1, 100], [1, 2])
++    assert call(ax) == (100, 1)
++    assert ax.get_xlim() == (100.0, 1.0)
++    assert ax.xaxis_inverted()
++    plt.close(fig)
++
++
++def test_set_xlim_descending_on_functionlog_and_logit():
++    fig, ax = plt.subplots()
++    ax.set_xscale("functionlog", functions=(lambda v: v, lambda v: v))
++    ax.plot([1, 100], [1, 2])
++    ax.set_xlim(100, 1)
++    assert ax.get_xlim() == (100.0, 1.0)
++    assert ax.xaxis_inverted()
++    plt.close(fig)
++
++    fig, ax = plt.subplots()
++    ax.set_xscale("logit")
++    ax.plot([0.2, 0.8], [1, 2])
++    ax.set_xlim(0.9, 0.1)
++    assert ax.get_xlim() == (0.9, 0.1)
++    assert ax.xaxis_inverted()
++    plt.close(fig)
++
++
++def test_set_xbound_honours_inversion_on_log():
++    fig, ax = plt.subplots()
++    ax.set_xscale("log")
++    ax.plot([1, 100], [1, 2])
++    ax.invert_xaxis()
++    ax.set_xbound(1, 100)
++    assert ax.get_xlim() == (100.0, 1.0)
++    assert ax.xaxis_inverted()
++    plt.close(fig)
++
++    fig, ax = plt.subplots()
++    ax.set_xscale("log")
++    ax.plot([1, 100], [1, 2])
++    ax.set_xbound(100, 1)
++    assert ax.get_xlim() == (1.0, 100.0)
++    assert not ax.xaxis_inverted()
++    plt.close(fig)
++
++
++def test_set_xlim_ascending_on_log_unchanged():
++    fig, ax = plt.subplots()
++    ax.set_xscale("log")
++    ax.plot([1, 100], [1, 2])
++    assert ax.set_xlim(1, 100) == (1, 100)
++    assert ax.get_xlim() == (1.0, 100.0)
++    assert not ax.xaxis_inverted()
++    plt.close(fig)
++
++
++def test_set_xlim_nonpositive_log_limit_warns_and_keeps_order():
++    fig, ax = plt.subplots()
++    ax.set_xscale("log")
++    ax.plot([1, 100], [1, 2])
++    ax.set_xlim(1, 100)
++    with pytest.warns(UserWarning) as record:
++        assert ax.set_xlim(1000, -1) == (1000, 100)
++    assert _nonpositive_limit_warning("right", "x") in _warning_texts(record)
++    assert ax.get_xlim() == (1000.0, 100.0)
++    assert ax.xaxis_inverted()
++
++    # The passed pair is descending; the resolved one, (50, 200), is not.
++    ax.set_xlim(1, 200)
++    with pytest.warns(UserWarning) as record:
++        ax.set_xlim(50, 0)
++    assert _nonpositive_limit_warning("right", "x") in _warning_texts(record)
++    assert ax.get_xlim() == (50.0, 200.0)
++    assert not ax.xaxis_inverted()
++
++    with pytest.warns(UserWarning) as record:
++        ax.set_xlim(-1, 10)
++    assert _nonpositive_limit_warning("left", "x") in _warning_texts(record)
++    assert ax.get_xlim() == (50.0, 10.0)
++    assert ax.xaxis_inverted()
++    plt.close(fig)

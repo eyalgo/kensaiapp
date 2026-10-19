@@ -1,0 +1,148 @@
+{
+  "skill_name": "product-architecture",
+  "executor": {
+    "model": "fable"
+  },
+  "evals": [
+    {
+      "id": 1,
+      "name": "fresh-log-index-and-constraint-set",
+      "prompt": "You are the Principal Architect. Record the architecture decisions and bind the quality constraints for the sealbox project. Its binding is at skills/principal-architect/.claude/skills/product-architecture/evals/inputs/sealbox/project.md — read it, resolve its Product path, and read the product input under it: docs/SRS.md, docs/SDD.md and docs/fdr.md. Derive both records best-effort and surface whatever you can't settle.",
+      "assertions": [
+        {
+          "name": "many-records-not-one-file",
+          "description": "The decision log lands as SEPARATE record files under docs/adr/, not as one document. Checked mechanically against run_delta.json's 'created' list: at least two paths match 'docs/adr/NNNN-slug.md' (four digits, a hyphen, a kebab-case slug, e.g. 'docs/adr/0001-one-process-modular-monolith.md'), and the numbering starts at 0001. A single produced 'docs/adr.md', 'docs/ADR.md', or 'docs/adr/adr.md' holding several decisions does NOT satisfy this, however well written. Cardinality guard: sealbox's SDD carries two § 2 shape tables and three § 9 trade-offs, so at least two decisions clearing the three gates are available in the input — exactly one record file is a red, and a fixture with only one weighed decision would be excluded from this assertion. A baseline agent writes one 'adr.md' with a heading per decision, which is the common practitioner form.",
+          "tier": "structural"
+        },
+        {
+          "name": "index-projects-every-record",
+          "description": "A 'docs/adr/README.md' index is produced beside the records and lists every one of them: the count of rows naming an 'ADR-' number in that file equals the number of produced 'docs/adr/NNNN-slug.md' files, and each row carries the record's status ('Accepted' or 'Proposed'). A produced record with no row, or a row naming a record file that does not exist, fails. Cardinality guard: at least one record must exist for this to be gradeable. A baseline that writes a single adr.md produces no index at all; one that does write several files typically leaves the directory unindexed, since a directory listing already shows the filenames.",
+          "tier": "structural"
+        },
+        {
+          "name": "alternatives-ruled-out-in-every-record",
+          "description": "EVERY produced record file under docs/adr/ (excluding README.md) contains the literal heading '## Alternatives ruled out', and under it at least one named option with the reason it lost — e.g. '- **An object store beside the binary** — lost on C-1: it is a second service on a host the customer supervises'. An empty section, or one whose only content is 'we picked it' / 'none considered', does NOT satisfy this. Cardinality guard: at least one record must exist; the assertion is over all of them, so one record missing the heading is a red even if the others carry it. A baseline follows Nygard's four-section form — Status, Context, Decision, Consequences — where the alternatives are optional and usually end up as a sentence inside Context.",
+          "tier": "structural"
+        },
+        {
+          "name": "constraint-entries-carry-all-three-tails",
+          "description": "In the produced docs/nfdr.md, at least three obligations are stated as an entry carrying ALL THREE of: a typed ID matching '**QC-<n>:**'; a 'verified by:' tail naming a command, a test layer, or a named review gate; and an inline trace tag of the form '(traces to: …)' naming an upstream fact (an SRS NFR/DR/C item, an 'SDD § n' section, an 'ADR-NNNN' record, or a doctrine default). All three must ride the SAME entry — a document with QC- IDs but no trace tags, or with a separate traceability table instead of inline tags, does NOT satisfy this. Cardinality guard: fewer than three such entries is a red; sealbox's SRS carries six NFRs, three DRs and three constraints, so at least three traceable obligations are available in the input. A baseline writes a non-functional-requirements document with prose bullets or 'NFR-1'-style numbering, no verification tail, and no inline trace tag.",
+          "tier": "structural"
+        },
+        {
+          "name": "verification-map-projects-the-machine-checks",
+          "description": "The produced docs/nfdr.md carries a verification-map section (a heading containing the literal 'Verification map') holding a markdown table with at least one row, and every 'QC-' id appearing in that table also exists as an entry above it. The map is a projection, so a row naming a QC id that no entry defines is a red. Cardinality guard: at least one entry in the document must name a command or a test layer in its 'verified by:' tail for a row to be owed; if no entry does, this assertion is not gradeable and the run should have argued each class-2 downgrade instead. A baseline produces a constraints document with no executable projection at all — it has no reason to invent one table that repeats another section.",
+          "tier": "structural"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "name": "silent-decision-and-record-provenance",
+      "prompt": "You are the Principal Architect. sealbox's foundation step needs its decision log written. Its binding is at skills/principal-architect/.claude/skills/product-architecture/evals/inputs/sealbox/project.md — read it, resolve its Product path, and read the settled SRS and SDD and the FDR beside them. Write the log, and the constraint set that follows from it.",
+      "assertions": [
+        {
+          "name": "silent-renderer-decision-recorded-as-reconstructed",
+          "description": "One produced record covers the decision to run the PDF renderer INSIDE the request process — visible in the SDD's § 3 parts table ('render/ … in the request process') and in § 4 CN-3 ('the renderer runs inside the request process, bounded to 256 MB and 5 s'), and argued in NONE of the three surfaces the SDD offers. Read that precisely: § 2's runtime-shape table weighs how many PROCESSES ship and rejects a three-service split, which leaves entirely open whether flattening runs inline in the request or in an isolated child process the same binary forks — the isolation trade-off is weighed in no § 2 row, in no § 9 trade-off (TO-1 is storage, TO-2 is server-rendered pages, TO-3 is the audit fold), and in no SDD Review Note. Because it was decided silently, the record's '## Traces to' section must say the record is RECONSTRUCTED — the literal 'reconstruct' (as 'reconstructed' or 'reconstruction') appears in that record — and name the design fact it was read off (SDD § 3 and/or § 4 CN-3). A record that covers the in-process renderer but presents a confident rationale as though someone argued it, with no reconstruction marker, does NOT satisfy this. A baseline records only the decisions the SDD explicitly argues (its § 2 rows and § 9 trade-offs) and never marks provenance at all.",
+          "tier": "structural"
+        },
+        {
+          "name": "traces-to-names-an-openable-locator",
+          "description": "EVERY produced record file under docs/adr/ (excluding README.md) contains a '## Traces to' section whose body names at least one openable locator — a literal 'SDD §', 'SRS §', 'FDR ', a 'docs/…' path, or an upstream item id such as 'NFR-1', 'DR-3', 'C-2', 'TO-1' or 'CN-3'. A description in prose ('derived from the architecture discussion', 'follows from the overall design') with no locator does NOT satisfy this. Cardinality guard: at least one record must exist. A baseline's records carry Nygard's four sections and no provenance section at all, so there is nothing to open.",
+          "tier": "structural"
+        },
+        {
+          "name": "records-bind-by-qc-pointer",
+          "description": "At least one produced record carries a '## Binds' section naming the constraint entries derived from it by their QC anchor (e.g. 'QC-1, QC-2') or the literal 'none', AND every QC id named there exists as an entry in the produced docs/nfdr.md — the pair is navigable in both directions by pointer. A '## Binds' section that restates the entry's obligation text instead of naming its id, or that names a QC id no entry defines, does NOT satisfy this. Cardinality guard: at least one record and one QC entry must exist; a log in which every record legitimately binds nothing passes on the literal 'none'. A baseline emits no Binds section — it is this house's field, not the published ADR form's — and connects the two documents, if at all, by repeating the constraint's wording.",
+          "tier": "structural"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "name": "upstream-silence-routed-and-draft-input-read",
+      "prompt": "You are the Principal Architect. Bind sealbox's quality constraints and record the decisions behind them. Its binding is at skills/principal-architect/.claude/skills/product-architecture/evals/inputs/sealbox/project.md — read it, resolve its Product path, and read the product input under it. Some of what the constraint set needs is not settled in the upstream documents; handle those the way the process dictates.",
+      "assertions": [
+        {
+          "name": "observability-gap-routed-not-invented",
+          "description": "sealbox's SRS states NO observability requirement (§ 4 carries 4.1 Performance, 4.3 Security & Privacy and 4.4 Scalability, and no observability subsection). The run must not answer that silently. Satisfied when EITHER (a) the produced docs/architecture_open_issues.md carries an item about the missing observability floor whose text names the literal 'SRS' as the document that should state it, OR (b) an observability entry in the produced docs/nfdr.md carries an inline trace tag citing a NAMED doctrine default (a path such as 'core/doctrine/engineering/…' or a named doctrine file), which is the 'a floor exists, apply it and cite it' route. NOT satisfied by an observability obligation stated inline as settled with no trace tag and no companion item — that is an invented requirement, and it is the specific failure this case exists to catch. A baseline writes a confident observability section (structured logs, metrics, alerting thresholds) traced to nothing and raises no question about it.",
+          "tier": "structural"
+        },
+        {
+          "name": "companion-carries-both-exact-slot-labels",
+          "description": "What the run cannot settle goes into a COMPANION FILE named exactly 'architecture_open_issues.md' beside the records — not into questions asked inline in nfdr.md, and not into an 'Open Questions' section of either record. That file must contain BOTH exact slot labels: the literal '**Answer:**' and the literal '**Confirm or override:**' (the template's 'Confirm-or-override' spelling also counts). Both are owed on this fixture because it presents both kinds of gap: an unanswerable one (the SRS states no observability floor) and a draftable one (SRS DR-2 fixes no default retention term and the SRS cycle-1 trail asks the constraint set to propose one, which is a drafted call the owner confirms or overrides). An improvised slot ('TBD', 'Confirm?', 'Your call:'), or the right slots inside a differently-named file, does NOT satisfy this. A baseline either asks its questions in chat, or appends an ad-hoc 'Open questions' list to the document it just wrote.",
+          "tier": "structural"
+        },
+        {
+          "name": "availability-declared-not-applicable-with-reason",
+          "description": "The produced docs/nfdr.md carries an Availability & reliability section that is PRESENT and declared not applicable WITH its reason — the literal 'not applicable' (any capitalisation) appears under that heading, together with the reason: the customer deploys and operates sealbox and the vendor commits no uptime target (SRS § 7 C-2 / the FDR's PD-4 / OOS-2). A silently omitted section — no availability heading anywhere in the document — does NOT satisfy this, and neither does an invented SLO (e.g. '99.9% monthly') for a product whose vendor operates nothing. Paired positive check, so an empty document cannot pass on absence alone: the same document must still carry at least one QC- entry in another section. A baseline either drops the section without a word or fills it with a stock availability target.",
+          "tier": "structural"
+        },
+        {
+          "name": "draft-fdr-read-and-its-status-recorded",
+          "description": "sealbox's docs/fdr.md carries 'Status: Draft'. The run reads it and RECORDS the status it read rather than halting or demanding it be settled first, in the one fixed place the stack mandates: the produced docs/nfdr.md carries a header line beginning with the literal '**Inputs read:**' that names FDR together with the literal 'Draft'. The line names every input it read, not only the unsettled ones, so 'SRS Settled · SDD Settled · FDR Draft' passes and a line naming only FDR does too, but a document with no such line does NOT — a status recorded in free prose elsewhere was the pre-2026-08-30 state this literal replaced, and a completion reporter parses this line. Paired positive check: at least one produced entry or record must actually trace to the FDR (the literal 'FDR' in a trace tag or a '## Traces to' body), so a header line alone, over records that ignore the FDR, does not pass. NOT satisfied by a halt, by a note asking the owner to settle the FDR first, or by a companion item raising the Draft status as an open issue. A baseline reads the FDR and never records the status of any input — the status of a source is not something a normal run thinks to preserve, and it certainly does not invent this header line.",
+          "tier": "structural"
+        },
+        {
+          "name": "constraint-set-status-draft",
+          "description": "The produced docs/nfdr.md carries a 'Status:' line whose value is 'Draft' — this run ends with a companion on disk, so the constraint set is not done. The literal 'Draft' must be the value on that line: no Status line at all, or one stamped 'Locked' (ratification is the owner's act and the skill never writes it), 'Final', 'Complete', or 'Settled' while an open-issues file remains, does NOT satisfy this. A baseline writes a constraints document with no status header, or invents its own status vocabulary.",
+          "tier": "structural"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "name": "reentry-fold-trail-and-append-only",
+      "prompt": "You are the Principal Architect. Continue the architecture records for the sealbox-reentry project. Its binding is at skills/principal-architect/.claude/skills/product-architecture/evals/inputs/sealbox-reentry/project.md; under its Product path there is an existing docs/adr/ log, a docs/nfdr.md at Version 1, and a docs/architecture_open_issues.md the owner has answered inline. Fold their answers in and keep going.",
+      "assertions": [
+        {
+          "name": "owner-answers-folded",
+          "description": "The produced docs/nfdr.md carries the owner's answered values from architecture_open_issues.md: (a) the retention entry QC-9 states the OVERRIDDEN term — the literal '3 years' — and no longer ships '7 years' as the reference default; and (b) the observability section now carries an obligation matching the owner's answer, recognisable by the literal 'stderr' (their words: one structured JSON line to stderr per send, signature, render failure and erasure). A run that folded nothing would still read '7 years' at QC-9 and still say the observability section is open. Note: this is a continuation case — the answers are in the input, so a strong baseline may also apply them; it is kept as a with-skill reliability guard, not as evidence of lift.",
+          "tier": "structural"
+        },
+        {
+          "name": "answered-companion-retired-whole-to-trail",
+          "description": "The answered companion is retired WHOLE to the trail: a file 'docs/trail/architecture/cycle-1.md' is produced holding the owner's answered architecture_open_issues.md copied byte-for-byte. Checked mechanically against the harvested run, never by walking outputs/ recursively: (a) run_delta.json's 'created' list contains a path ending 'trail/architecture/cycle-1.md'; (b) that file under outputs/product/ is byte-identical to the pristine companion at outputs/reference/<...>/docs/architecture_open_issues.md. One precondition, stated so a grader does not misread a red: harvest populates outputs/reference/ only for files the run MODIFIED or DELETED, so the pristine companion is available to compare against only once it has left docs/ — a run that wrote the trail but kept the companion therefore fails this assertion too, correctly but for a compound reason; read it alongside 'companion-cleared-when-clean' to tell the two apart. Byte-identity is the point: a summary, a paraphrase or a re-formatted digest of the owner's answers fails. NO cycle-numbering rule is asserted here: this fixture ships docs/trail/srs/cycle-1.md but no docs/trail/architecture/, so cycle-1 is the unconditional answer and a hardcoded 'cycle-1' is indistinguishable from correct max-based numbering. Baseline discrimination, stated rather than papered over: the fixture's docs/trail/srs/cycle-1.md makes the trail pattern visible in the input, so a strong baseline may mirror it.",
+          "tier": "structural"
+        },
+        {
+          "name": "companion-cleared-when-clean",
+          "description": "With every companion slot answered, the answered architecture_open_issues.md is GONE from the product docs after the run — its absence is the skill's done signal. Checked mechanically: run_delta.json's 'deleted' list contains a path ending 'docs/architecture_open_issues.md'. This assertion checks the DISAPPEARANCE ONLY; the trail requirement belongs to 'answered-companion-retired-whole-to-trail' alone. Deliberately disjoint: bundled, a missing trail and a broken done signal would be one red and indistinguishable; split, this one green while the trail one is red says exactly 'the done signal works, the trail does not'. An emptied-but-present companion does NOT satisfy this — an empty companion reads as OPEN and inverts the signal. A baseline that folds the answers typically leaves the file in place, or blanks it.",
+          "tier": "structural"
+        },
+        {
+          "name": "accepted-records-not-rewritten",
+          "description": "The three pre-existing records — docs/adr/0001-one-process-modular-monolith.md, 0002-document-bytes-live-in-postgresql.md and 0003-envelope-state-is-folded-from-audit-events.md, all at 'Status: Accepted' — are not rewritten by this run. Checked against run_delta.json: its 'modified' list contains NO path matching 'docs/adr/0001-', 'docs/adr/0002-' or 'docs/adr/0003-'. docs/adr/README.md IS allowed in 'modified' — the index is a projection and is regenerated. Paired positive check, so a run that did nothing at all cannot pass on absence: 'modified' must contain a path ending 'docs/nfdr.md', i.e. the run really did fold something. Note: none of the owner's three answers reverses an accepted decision, so no supersession is owed here and a Status-line edit would itself be wrong. Note: this is a continuation case — a baseline may also leave the records alone, so read it as a with-skill reliability guard on the append-only rule rather than as evidence of lift.",
+          "tier": "structural"
+        },
+        {
+          "name": "status-settled",
+          "description": "The produced docs/nfdr.md carries a 'Status:' line whose value is 'Settled' — this run resolved every companion item and ends with no open-issues file on disk, which is the template's done value. The literal 'Settled' must be the value on that line: still 'Draft' after a clean close, stamped 'Locked' (the owner's stamp, never the skill's), no Status line at all, or a value outside the template's 'Draft | Settled | Locked' vocabulary, does NOT satisfy this. A baseline leaves the status at Draft after folding, or drops the header.",
+          "tier": "structural"
+        },
+        {
+          "name": "version-bumped-with-authorization-note",
+          "description": "The constraint set revises in place UNDER PROVENANCE: the produced docs/nfdr.md's 'Version:' line carries a number greater than 1 (the fixture ships Version 1), AND its NFDR Review Notes section carries a numbered note (RN-n) naming the owner's answer as the authorization for the change — recognisable by naming the retention override and/or the observability answer as an owner-confirmed answer, e.g. 'RN-5: QC-9 moves from 7 years to 3 — the owner overrode the draft in cycle-1'. A bumped version with no note naming the authorization, or a note with no version bump, does NOT satisfy this. A baseline edits the document in place, leaves the Version line as it found it, and records no authorization — after which the companion is gone and the reason the number changed exists nowhere.",
+          "tier": "structural"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "name": "posture-halt-outside-principal-architect",
+      "prompt": "Can you write up some architecture decision records and a set of quality constraints for a service I'm building?",
+      "assertions": [
+        {
+          "name": "no-decision-records",
+          "description": "No decision record is produced — no docs/adr/ directory, no NNNN-slug.md file, and no adr.md. The skill halts on the Principal Architect posture check and writes nothing. A capable baseline agent given this prompt writes ADRs, so the absence of any record is the halt signal. Note: this is a behavioural-restraint assertion; unlike the authoring cases, the correct output here is no product artifact at all.",
+          "tier": "structural"
+        },
+        {
+          "name": "no-constraint-set",
+          "description": "No nfdr.md and no architecture_open_issues.md are produced either — the skill stops at the posture check before authoring anything, so it never reaches the point of parking an unsettled item in a companion. For a posture-halt case the absence of every product artifact is the correct, expected signal, and a produced companion would mean the run started work it was not entitled to start.",
+          "tier": "structural"
+        }
+      ]
+    }
+  ]
+}

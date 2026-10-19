@@ -1,0 +1,82 @@
+[
+  {
+    "query": "product-owner: for the todo project — add tags to tasks",
+    "should_trigger": true
+  },
+  {
+    "query": "run development-specs, change: tasks should show creation date",
+    "should_trigger": true
+  },
+  {
+    "query": "we need to update the spec — when a task is deleted, archive it instead",
+    "should_trigger": true
+  },
+  {
+    "query": "development-specs for my project: add a notes field to tasks",
+    "should_trigger": true
+  },
+  {
+    "query": "the spec needs to reflect that tasks can be paused, not just blocked",
+    "should_trigger": true
+  },
+  {
+    "query": "product owner: change how task status transitions work — DONE should be reversible",
+    "should_trigger": true
+  },
+  {
+    "query": "add priority levels to tasks, the project is todo",
+    "should_trigger": true
+  },
+  {
+    "query": "the kanban project's change request: tasks need a due date",
+    "should_trigger": true
+  },
+  {
+    "query": "update the spec for task assignment — one user per task max",
+    "should_trigger": true
+  },
+  {
+    "query": "the project already has specs, I want to add a comment count field to tasks",
+    "should_trigger": true
+  },
+  {
+    "query": "write specs for my new task manager app",
+    "should_trigger": false
+  },
+  {
+    "query": "help me design the architecture for the task tracker",
+    "should_trigger": false
+  },
+  {
+    "query": "run writing-specs for this project",
+    "should_trigger": false
+  },
+  {
+    "query": "I want to start a new project — build me a kanban board",
+    "should_trigger": false
+  },
+  {
+    "query": "review the current change_spec.md and tell me what's missing",
+    "should_trigger": false
+  },
+  {
+    "query": "we need to update the ADR — changing our storage from SQL to Mongo",
+    "should_trigger": false
+  },
+  {
+    "query": "write acceptance tests for the task tracker",
+    "should_trigger": false
+  },
+  {
+    "query": "what's the difference between development-specs and writing-specs?",
+    "should_trigger": false
+  },
+  {
+    "query": "product-owner: review the architecture doc",
+    "should_trigger": false
+  },
+  {
+    "query": "I want to add 5 new features: tags, due dates, comments, reminders, and attachments",
+    "should_trigger": false
+  }
+]

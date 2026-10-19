@@ -1,0 +1,10 @@
+[package]
+name = "__PROJECT__"
+edition = "2024"
+
+[lints]
+workspace = true
+
+[dependencies]
+thiserror = "2.0.20"
+anyhow = "1.0.104"

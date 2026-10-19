@@ -1,0 +1,210 @@
+diff --git a/src/_pytest/logging.py b/src/_pytest/logging.py
+index a4f4214..1b401d8 100644
+--- a/src/_pytest/logging.py
++++ b/src/_pytest/logging.py
+@@ -341,6 +341,12 @@ class LogCaptureHandler(logging_StreamHandler):
+         self.records.append(record)
+         super().emit(record)
+ 
++    def clear(self) -> None:
++        # Empty the current list in place: it is also the list stored for the
++        # running phase, so `get_records()` keeps following `records`.
++        self.records.clear()
++        self.stream = StringIO()
++
+     def reset(self) -> None:
+         self.records = []
+         self.stream = StringIO()
+@@ -440,7 +446,7 @@ class LogCaptureFixture:
+ 
+     def clear(self) -> None:
+         """Reset the list of log records and the captured log text."""
+-        self.handler.reset()
++        self.handler.clear()
+ 
+     def set_level(self, level: Union[int, str], logger: Optional[str] = None) -> None:
+         """Set the level of a logger for the duration of a test.
+diff --git a/testing/logging/test_fixture.py b/testing/logging/test_fixture.py
+index bcb20de..cafe37c 100644
+--- a/testing/logging/test_fixture.py
++++ b/testing/logging/test_fixture.py
+@@ -308,3 +308,179 @@ def test_log_report_captures_according_to_config_option_upon_failure(
+         ["*Print message*", "*INFO log message*", "*WARNING log message*"]
+     )
+     assert result.ret == 1
++
++
++def _messages(records):
++    return [record.getMessage() for record in records]
++
++
++def test_get_records_equals_records_after_clear(caplog):
++    caplog.set_level(logging.INFO)
++
++    def verify_consistency() -> None:
++        assert caplog.get_records("call") == caplog.records
++
++    verify_consistency()
++    logging.warning("test")
++    verify_consistency()
++    assert _messages(caplog.get_records("call")) == ["test"]
++    caplog.clear()
++    verify_consistency()
++    assert _messages(caplog.get_records("call")) == []
++
++
++def test_clear_in_empty_phase_then_log(caplog):
++    caplog.set_level(logging.INFO)
++
++    caplog.clear()
++    assert caplog.get_records("call") == caplog.records == []
++
++    logger.info("c1")
++    assert caplog.get_records("call") == caplog.records
++    assert _messages(caplog.get_records("call")) == ["c1"]
++
++
++def test_get_records_tracks_records_across_several_clears(caplog):
++    caplog.set_level(logging.INFO)
++
++    def verify(expected_messages) -> None:
++        assert caplog.get_records("call") == caplog.records
++        assert _messages(caplog.get_records("call")) == expected_messages
++
++    logger.info("c1")
++    verify(["c1"])
++    caplog.clear()
++    verify([])
++    logger.info("c2")
++    verify(["c2"])
++    caplog.clear()
++    verify([])
++    logger.info("c3")
++    verify(["c3"])
++
++
++def test_clear_empties_records_tuples_messages_text(caplog):
++    caplog.set_level(logging.INFO)
++
++    def verify_everything_empty() -> None:
++        assert caplog.records == []
++        assert caplog.record_tuples == []
++        assert caplog.messages == []
++        assert caplog.text == ""
++
++    logger.info("c1")
++    caplog.clear()
++    verify_everything_empty()
++
++    logger.info("c2")
++    assert caplog.messages == ["c2"]
++    assert caplog.record_tuples == [(logger.name, logging.INFO, "c2")]
++    assert "c2" in caplog.text
++    assert "c1" not in caplog.text
++
++    caplog.clear()
++    verify_everything_empty()
++
++
++def test_clear_leaves_not_started_phase_empty(caplog):
++    caplog.set_level(logging.INFO)
++
++    logger.info("c1")
++    caplog.clear()
++    assert caplog.get_records("teardown") == []
++
++
++@pytest.fixture
++def clearing_during_setup(caplog):
++    caplog.set_level(logging.INFO)
++    logger.info("s1")
++    caplog.clear()
++    logger.info("s2")
++    yield
++    assert _messages(caplog.get_records("setup")) == ["s2"]
++
++
++def test_setup_clear_is_seen_from_later_phases(caplog, clearing_during_setup):
++    assert _messages(caplog.get_records("setup")) == ["s2"]
++
++
++@pytest.fixture
++def logging_during_setup_without_clear(caplog):
++    caplog.set_level(logging.INFO)
++    logger.info("s1")
++    yield
++    assert _messages(caplog.get_records("call")) == ["c2"]
++    assert _messages(caplog.get_records("setup")) == ["s1"]
++
++
++def test_call_clear_leaves_setup_records_and_is_seen_in_teardown(
++    caplog, logging_during_setup_without_clear
++):
++    logger.info("c1")
++    caplog.clear()
++    logger.info("c2")
++    assert _messages(caplog.get_records("setup")) == ["s1"]
++
++
++def _verify_phase_follows_records(caplog, when, expected_messages) -> None:
++    assert caplog.get_records(when) == caplog.records
++    assert _messages(caplog.get_records(when)) == expected_messages
++
++
++@pytest.fixture
++def clearing_and_checking_during_setup(caplog):
++    caplog.set_level(logging.INFO)
++    logger.info("s1")
++    _verify_phase_follows_records(caplog, "setup", ["s1"])
++    caplog.clear()
++    _verify_phase_follows_records(caplog, "setup", [])
++    logger.info("s2")
++    _verify_phase_follows_records(caplog, "setup", ["s2"])
++    yield
++
++
++def test_get_records_equals_records_after_clear_during_setup(
++    clearing_and_checking_during_setup,
++):
++    pass
++
++
++@pytest.fixture
++def clearing_and_checking_during_teardown(caplog):
++    caplog.set_level(logging.INFO)
++    yield
++    logger.info("t1")
++    _verify_phase_follows_records(caplog, "teardown", ["t1"])
++    caplog.clear()
++    _verify_phase_follows_records(caplog, "teardown", [])
++    logger.info("t2")
++    _verify_phase_follows_records(caplog, "teardown", ["t2"])
++
++
++def test_get_records_equals_records_after_clear_during_teardown(
++    clearing_and_checking_during_teardown,
++):
++    pass
++
++
++def test_report_section_keeps_records_logged_before_clear(
++    pytester: Pytester,
++) -> None:
++    pytester.makepyfile(
++        """
++        import logging
++
++        def test_that_fails(caplog):
++            caplog.set_level(logging.INFO)
++            logging.info("before-clear")
++            caplog.clear()
++            logging.info("after-clear")
++            assert False
++    """
++    )
++
++    result = pytester.runpytest()
++    result.stdout.fnmatch_lines(
++        ["*Captured log call*", "*before-clear*", "*after-clear*"]
++    )
++    assert result.ret == 1

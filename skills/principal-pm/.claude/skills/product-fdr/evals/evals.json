@@ -1,0 +1,26 @@
+[
+  {
+    "eval_id": 0,
+    "eval_name": "detailed-kata",
+    "prompt": "product-owner: I need a spec for a string calculator kata. It takes a string of comma- or newline-separated numbers and returns their sum. Empty string returns 0. Support custom delimiters via `//[delim]\\n` syntax. Negative numbers throw an exception listing all negatives.",
+    "assertions": []
+  },
+  {
+    "eval_id": 1,
+    "eval_name": "vague-csv-parser",
+    "prompt": "product-owner: write a spec for a user CSV parser that validates and transforms rows",
+    "assertions": []
+  },
+  {
+    "eval_id": 2,
+    "eval_name": "bloom-filter",
+    "prompt": "product-owner: write a spec for a Bloom filter implementation with configurable false-positive rate",
+    "assertions": []
+  },
+  {
+    "eval_id": 3,
+    "eval_name": "task-tracker",
+    "prompt": "product-owner: Build a task tracker for a small team. Support projects, tasks, assignees, status workflow, priorities, labels, due dates, comments, filtering, sorting, and project summaries. Include meaningful automated tests.",
+    "assertions": []
+  }
+]

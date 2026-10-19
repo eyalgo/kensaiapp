@@ -1,0 +1,72 @@
+{
+  "skill_name": "skill-creator",
+  "evals": [
+    {
+      "id": 1,
+      "name": "create-competitive-intel",
+      "prompt": "Create a new skill called 'competitive-intel' for product managers who need to research and understand their competitive landscape. Save all skill output files to the outputs directory (treat it as the skill root). Do NOT create files under ~/.claude/skills/.",
+      "expected_output": "A complete skill creation workflow producing a valid SKILL.md with proper frontmatter, README.md, and optionally evals",
+      "assertions": [
+        { "text": "SKILL.md exists in the output directory with valid frontmatter (at minimum name, description, and license: MIT)", "tier": "structural" },
+        { "text": "Every file named in SKILL.md's Reference Files section or README's file structure tree exists in the output directory", "tier": "structural" },
+        { "text": "Trigger guidance (when to use, invocation contexts) appears in the SKILL.md frontmatter (in the description or when_to_use field), not in a standalone body section — the SKILL.md body has no 'When to Use' or 'When to invoke' heading", "tier": "nuanced" },
+        { "text": "Mode routing explicitly connects an intake dimension (audience, scope, goal) to output format choices — the routing connection is stated; not defined as free-standing scope variant descriptions", "tier": "nuanced" },
+        { "text": "Every output template (whether defined in SKILL.md directly or in a referenced file such as references/output-templates.md) includes a named `##` section for missing or unavailable data (e.g., '## Intelligence Gaps', '## Data Gaps', '## What We Don't Know') — the skill accounts for incomplete information in every template, not only as inline prose or as a table column", "tier": "nuanced" }
+      ]
+    },
+    {
+      "id": 2,
+      "name": "improve-brainstorming",
+      "prompt": "Improve the existing 'brainstorming' skill at ~/.claude/skills/skill-creator/evals/dummy-brainstorming/SKILL.md. The skill folder also contains an evals/ directory with evaluation data you may find useful. Save your improved version to the outputs directory. Do NOT overwrite the original skill at ~/.claude/skills/skill-creator/evals/dummy-brainstorming/.",
+      "expected_output": "An improvement cycle for the brainstorming skill with identified weaknesses and optimized skill content",
+      "assertions": [
+        { "text": "The agent reads ~/.claude/skills/skill-creator/evals/dummy-brainstorming/SKILL.md before making changes", "tier": "structural" },
+        { "text": "An improved SKILL.md exists in the output directory", "tier": "structural" },
+        { "text": "The improved SKILL.md frontmatter description field differs from the original skill's frontmatter description — the trigger mechanism is updated, not left word-for-word identical", "tier": "nuanced" },
+        { "text": "The agent reads trigger-eval.json and identifies specific labeled queries that the original skill description fails to trigger on — not generic domain observations", "tier": "nuanced" },
+        { "text": "The improved SKILL.md description covers non-technical brainstorming cases from trigger-eval.json (e.g. naming, positioning, employee engagement, hackathon themes) that the original description would miss", "tier": "nuanced" },
+        { "text": "The transcript includes a before/after comparison with specific original phrases quoted alongside specific improved phrases — not category-level labels only", "tier": "nuanced" },
+        { "text": "The improved SKILL.md body does NOT contain a standalone `## When to Use` or equivalent trigger guidance section — trigger guidance from the original body section has been moved to the frontmatter description or when_to_use field", "tier": "nuanced" },
+        { "text": "The improved SKILL.md frontmatter includes a `metadata:` map with at least version, category, and risk fields", "tier": "nuanced" }
+      ]
+    },
+    {
+      "id": 3,
+      "name": "create-with-evals",
+      "prompt": "Create a simple 'standup-writer' skill that drafts concise stand-up updates from bullet notes. Set up 2-3 test cases for it. Save all output files to the outputs directory (treat it as the skill root). Do NOT create files under ~/.claude/skills/.",
+      "expected_output": "A complete skill creation workflow producing SKILL.md and evals/evals.json with test prompts presented to the user before finalizing",
+      "assertions": [
+        { "text": "SKILL.md exists in the output directory with valid frontmatter (at minimum name, description, and license: MIT)", "tier": "structural" },
+        { "text": "evals/evals.json exists in the output directory with at least 2 eval entries", "tier": "structural" },
+        { "text": "Each eval entry in evals.json has a prompt that reads like a realistic user request — not an abstract description of what the test should cover", "tier": "nuanced" },
+        { "text": "A proposed-evals.md or equivalent review artifact exists in the output directory and was written before evals.json — the skill does not write evals.json without first producing a reviewable proposal", "tier": "nuanced" },
+        { "text": "SKILL.md frontmatter includes a `metadata:` map with at least version, category, and risk fields", "tier": "nuanced" },
+        { "text": "SKILL.md body has no standalone `## When to Use` or `## When to invoke` heading — trigger guidance is in the frontmatter description or when_to_use field", "tier": "nuanced" }
+      ]
+    },
+    {
+      "id": 4,
+      "name": "create-simple-no-readme",
+      "prompt": "Create a simple 'timezone-converter' skill that converts times between timezones. Single output format, no test cases needed. Save all skill output files to the outputs directory (treat it as the skill root). Do NOT create files under ~/.claude/skills/.",
+      "expected_output": "A minimal skill with SKILL.md and no README.md — simple skills don't need one. Metadata lives in SKILL.md frontmatter.",
+      "assertions": [
+        { "text": "SKILL.md exists in the output directory with valid frontmatter (at minimum name and description)", "tier": "structural" },
+        { "text": "README.md does NOT exist in the output directory — this is a simple skill and does not meet the complexity threshold", "tier": "structural" },
+        { "text": "SKILL.md frontmatter includes a `metadata:` map with at least version, category, and risk fields", "tier": "nuanced" }
+      ]
+    },
+    {
+      "id": 5,
+      "name": "create-complex-with-readme",
+      "prompt": "Create a 'release-notes-generator' skill that generates release notes in two modes: a technical format for developers and a concise user-facing format for changelogs. Include an agents/ folder with a drafting agent and set up 2 test cases. Save all skill output files to the outputs directory (treat it as the skill root). Do NOT create files under ~/.claude/skills/.",
+      "expected_output": "A complex skill with SKILL.md, README.md (no metadata table), agents/, and evals/evals.json. Metadata lives in SKILL.md frontmatter metadata: map.",
+      "assertions": [
+        { "text": "README.md exists in the output directory", "tier": "structural" },
+        { "text": "SKILL.md exists in the output directory with valid frontmatter (at minimum name and description)", "tier": "structural" },
+        { "text": "README.md does NOT contain a `## Metadata` heading or metadata table — metadata belongs in SKILL.md frontmatter, not README.md", "tier": "nuanced" },
+        { "text": "SKILL.md frontmatter includes a `metadata:` map with at least version, category, and risk fields", "tier": "nuanced" },
+        { "text": "README.md has a `## When to Use` section written for a human reader", "tier": "nuanced" }
+      ]
+    }
+  ]
+}

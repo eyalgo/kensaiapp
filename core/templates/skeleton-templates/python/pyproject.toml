@@ -1,0 +1,29 @@
+[project]
+name = "__PROJECT__"
+version = "0.0.0"
+requires-python = ">=3.13"
+
+# The tools this file configures below, so they run from the product's own environment rather than
+# from whatever the host happens to have. Floors, not pins: a frame is copied into products that
+# outlive any exact version. `uv run <tool>` resolves these; `uvx <tool>` deliberately does not, and
+# reaches past both this group and `requires-python`.
+[dependency-groups]
+dev = [
+    "mypy>=2.3",
+    "pytest>=9.0",
+    "ruff>=0.16",
+]
+
+[tool.ruff]
+line-length = 100
+indent-width = 4
+target-version = "py313"
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.mypy]
+python_version = "3.13"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

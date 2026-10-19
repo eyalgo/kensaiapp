@@ -1,0 +1,130 @@
+{
+  "skill_name": "refactor-for-optimize",
+  "evals": [
+    {
+      "id": 1,
+      "name": "list-to-set-membership",
+      "prompt": "This function filters orders to only those from valid customers. Tests pass, but it gets very slow when the customer list is large. Optimize it.\n\ndef get_valid_orders(orders, valid_customer_ids):\n    result = []\n    for order in orders:\n        if order.customer_id in valid_customer_ids:\n            result.append(order)\n    return result",
+      "assertions": [
+        {
+          "name": "set_used_for_lookup",
+          "description": "The output converts valid_customer_ids to a set (or uses set()) before the loop so that the membership check is O(1) instead of O(n)",
+          "tier": "structural"
+        },
+        {
+          "name": "loop_structure_preserved",
+          "description": "The filtering logic (checking order.customer_id membership and appending to result) is preserved — only the type used for the lookup changes",
+          "tier": "structural"
+        },
+        {
+          "name": "function_signature_unchanged",
+          "description": "The function signature get_valid_orders(orders, valid_customer_ids) is not modified",
+          "tier": "structural"
+        },
+        {
+          "name": "complexity_explained",
+          "description": "The output contains 'O(1)' or 'O(n²)' in text explaining the optimization — showing the complexity gain was explicitly named (e.g., 'O(1) lookup', 'O(n²) to O(n)')",
+          "tier": "structural"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "name": "string-concat-and-regex-recompile",
+      "prompt": "The report builder is slow when processing large logs. Tests pass. Optimize it.\n\nimport re\n\ndef build_error_report(log_lines):\n    report = \"\"\n    for line in log_lines:\n        if re.search(r'ERROR|CRITICAL', line):\n            report += f\"[FLAGGED] {line}\\n\"\n    return report",
+      "assertions": [
+        {
+          "name": "string_concat_replaced_with_join",
+          "description": "String concatenation in the loop (report += ...) is replaced with collecting lines into a list and joining at the end with ''.join()",
+          "tier": "structural"
+        },
+        {
+          "name": "regex_compiled_at_module_level",
+          "description": "The regex pattern is compiled once outside the function using re.compile() and the compiled pattern is reused inside the function instead of calling re.search with a raw string on every iteration",
+          "tier": "structural"
+        },
+        {
+          "name": "output_format_unchanged",
+          "description": "The output format '[FLAGGED] {line}\\n' is preserved — the function still produces the same string for the same input",
+          "tier": "structural"
+        },
+        {
+          "name": "both_issues_fixed",
+          "description": "The output fixes both performance issues — string concatenation (presence of .join()) AND regex recompile (presence of re.compile() outside the function) — not just one",
+          "tier": "structural"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "name": "redundant-computation-hoisted",
+      "prompt": "This price scanner checks each tick against a threshold derived from historical data. The historical average is expensive to compute and the tests show it's correct, but the function is too slow for real-time use. Optimize it.\n\ndef scan_ticks(ticks, price_history):\n    alerts = []\n    for tick in ticks:\n        avg = sum(price_history) / len(price_history)\n        if tick.price > avg * 1.05:\n            alerts.append(tick)\n    return alerts",
+      "assertions": [
+        {
+          "name": "avg_computed_before_loop",
+          "description": "The avg computation (sum(price_history) / len(price_history)) is moved outside the for loop and assigned to a variable before the loop starts",
+          "tier": "structural"
+        },
+        {
+          "name": "threshold_formula_unchanged",
+          "description": "The threshold comparison (tick.price > avg * 1.05) is preserved exactly — the multiplier and comparison operator are not changed",
+          "tier": "structural"
+        },
+        {
+          "name": "function_signature_unchanged",
+          "description": "The function signature scan_ticks(ticks, price_history) is not modified",
+          "tier": "structural"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "name": "optimize-helper-body-not-existence",
+      "prompt": "This eligibility check is called on every tick in the hot path and shows up in profiling. Tests pass. Optimize it.\n\n# Already refactored — _is_eligible is shared by 3 callers across the codebase\n\ndef _is_eligible(user):\n    return user.status == 'active' and user.tier in ['gold', 'silver', 'platinum']\n\ndef get_eligible_users(users):\n    return [u for u in users if _is_eligible(u)]",
+      "assertions": [
+        {
+          "name": "helper_function_still_exists",
+          "description": "_is_eligible remains a named function in the output — it is NOT inlined into get_eligible_users or removed",
+          "tier": "structural"
+        },
+        {
+          "name": "list_changed_to_set_inside_helper",
+          "description": "The list ['gold', 'silver', 'platinum'] inside _is_eligible is changed to a set or frozenset — the fix is applied inside the helper body, not at the call site",
+          "tier": "structural"
+        },
+        {
+          "name": "get_eligible_users_still_calls_helper",
+          "description": "The list comprehension in get_eligible_users still calls _is_eligible(u) — the call is not replaced with an inlined condition",
+          "tier": "structural"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "name": "hoist-shared-call-not-inline-logic",
+      "prompt": "Profiling shows _compute_baseline is being called inside tight loops. Tests pass. Optimize both functions.\n\n# Already refactored — _compute_baseline is the shared source of truth used\n# by flag_outliers and flag_spikes. Do not duplicate its logic.\n\ndef _compute_baseline(prices):\n    return sum(prices) / len(prices) if prices else 0.0\n\ndef flag_outliers(ticks, prices):\n    flagged = []\n    for tick in ticks:\n        threshold = _compute_baseline(prices)\n        if abs(tick.price - threshold) > threshold * 0.1:\n            flagged.append(tick)\n    return flagged\n\ndef flag_spikes(ticks, prices):\n    spikes = []\n    for tick in ticks:\n        baseline = _compute_baseline(prices)\n        if tick.price > baseline * 1.2:\n            spikes.append(tick)\n    return spikes",
+      "assertions": [
+        {
+          "name": "baseline_hoisted_in_flag_outliers",
+          "description": "In flag_outliers, _compute_baseline(prices) is called once before the loop and assigned to a variable — it is not called inside the loop body",
+          "tier": "structural"
+        },
+        {
+          "name": "baseline_hoisted_in_flag_spikes",
+          "description": "In flag_spikes, _compute_baseline(prices) is called once before the loop and assigned to a variable — it is not called inside the loop body",
+          "tier": "structural"
+        },
+        {
+          "name": "compute_baseline_function_unchanged",
+          "description": "_compute_baseline still exists as a function with its original logic (sum/len/empty guard) intact — it is not modified, removed, or merged into the callers",
+          "tier": "structural"
+        },
+        {
+          "name": "no_inline_sum_len_in_callers",
+          "description": "Neither flag_outliers nor flag_spikes contains sum(prices) / len(prices), statistics.mean(prices), or any other manual mean computation inline — the arithmetic stays exclusively in _compute_baseline and is not duplicated into either caller",
+          "tier": "structural"
+        }
+      ]
+    }
+  ]
+}

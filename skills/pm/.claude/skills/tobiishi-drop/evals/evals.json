@@ -1,0 +1,25 @@
+{
+  "skill_name": "tobiishi-drop",
+  "evals": [
+    {
+      "id": 1,
+      "name": "developer-session-is-halted-by-the-posture-gate",
+      "prompt": "developer: invoke the tobiishi-drop skill for the product-development project, change key no-such-change, reason \"subject gone upstream\".",
+      "expected_output": "The run halts at once, says the posture is wrong, names both ways in (a pm: session, the pm subagent), and runs no drop.py command and changes nothing.",
+      "assertions": [
+        {
+          "name": "halts-and-says-posture-is-wrong",
+          "description": "The output states that the skill is PM only and that this session is not one, and does not proceed to any step."
+        },
+        {
+          "name": "names-both-ways-in",
+          "description": "The output names both a pm: session and the pm subagent as the ways in."
+        },
+        {
+          "name": "changes-nothing",
+          "description": "No drop.py check, apply or close was run, and git status shows no change."
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,161 @@
+diff --git a/astropy/modeling/separable.py b/astropy/modeling/separable.py
+index a308e272..45bea360 100644
+--- a/astropy/modeling/separable.py
++++ b/astropy/modeling/separable.py
+@@ -242,7 +242,7 @@ def _cstack(left, right):
+         cright = _coord_matrix(right, 'right', noutp)
+     else:
+         cright = np.zeros((noutp, right.shape[1]))
+-        cright[-right.shape[0]:, -right.shape[1]:] = 1
++        cright[-right.shape[0]:, -right.shape[1]:] = right
+ 
+     return np.hstack([cleft, cright])
+ 
+diff --git a/astropy/modeling/tests/test_separable.py b/astropy/modeling/tests/test_separable.py
+index 8dfe5c86..dfcfd109 100644
+--- a/astropy/modeling/tests/test_separable.py
++++ b/astropy/modeling/tests/test_separable.py
+@@ -9,6 +9,7 @@ import numpy as np
+ from numpy.testing import assert_allclose
+ 
+ from astropy.modeling import custom_model, models
++from astropy.modeling import Model
+ from astropy.modeling.models import Mapping
+ from astropy.modeling.separable import (_coord_matrix, is_separable, _cdot,
+                                         _cstack, _arith_oper, separability_matrix)
+@@ -148,3 +149,135 @@ def test_custom_model_separable():
+ 
+     assert not model_c().separable
+     assert np.all(separability_matrix(model_c()) == [True, True])
++
++
++class CustomMatrixModel(Model):
++    """One input, one output, not separable, but its own hook says the output is independent."""
++
++    n_inputs = 1
++    n_outputs = 1
++    _separable = False
++
++    def evaluate(self, x):
++        return x
++
++    def _calculate_separability_matrix(self):
++        return np.array([[0]])
++
++
++custom = CustomMatrixModel()
++cm = models.Linear1D(10) & models.Linear1D(5)
++TAN = models.Pix2Sky_TAN()
++IDENTITY_2 = models.Identity(2)
++
++
++def _matrix(rows):
++    return np.array(rows, dtype=bool)
++
++
++def _identity_matrix(size):
++    return np.identity(size, dtype=bool)
++
++
++def _assert_separability(model, expected_matrix, expected_is_separable):
++    np.testing.assert_array_equal(separability_matrix(model), expected_matrix)
++    np.testing.assert_array_equal(is_separable(model), expected_is_separable)
++
++
++def test_nested_right_and_issue_model():
++    expected = _matrix([[1, 1, 0, 0],
++                        [1, 1, 0, 0],
++                        [0, 0, 1, 0],
++                        [0, 0, 0, 1]])
++    _assert_separability(TAN & cm, expected, _matrix([0, 0, 1, 1]))
++    assert not separability_matrix(TAN & cm)[:2, 2:].any()
++    assert not separability_matrix(TAN & cm)[2:, :2].any()
++
++
++def test_nested_right_deep_and_compound_left():
++    _assert_separability(sh1 & (sh2 & (scl1 & scl2)), _identity_matrix(4), np.ones(4, dtype=bool))
++    _assert_separability((sh1 & sh2) & (scl1 & scl2), _identity_matrix(4), np.ones(4, dtype=bool))
++
++
++def test_nested_right_rotation():
++    expected = _matrix([[1, 1, 0, 0],
++                        [1, 1, 0, 0],
++                        [0, 0, 1, 0],
++                        [0, 0, 0, 1]])
++    _assert_separability(rot & (sh1 & sh2), expected, _matrix([0, 0, 1, 1]))
++
++
++def test_right_hand_custom_matrix():
++    _assert_separability(sh1 & custom, _matrix([[1, 0], [0, 0]]), _matrix([1, 0]))
++    _assert_separability(custom & sh1, _matrix([[0, 0], [0, 1]]), _matrix([0, 1]))
++    np.testing.assert_array_equal(separability_matrix(custom), _matrix([[0]]))
++
++
++def test_nested_and_inside_pipeline():
++    nested = Mapping((0, 1, 0, 1)) | (rot & (sh1 & sh2))
++    flat = Mapping((0, 1, 0, 1)) | (rot & sh1 & sh2)
++    expected = _matrix([[1, 1], [1, 1], [1, 0], [0, 1]])
++    _assert_separability(nested, expected, _matrix([0, 0, 1, 1]))
++    _assert_separability(flat, expected, _matrix([0, 0, 1, 1]))
++    np.testing.assert_array_equal(separability_matrix(nested), separability_matrix(flat))
++    np.testing.assert_array_equal(is_separable(nested), is_separable(flat))
++
++    nested = (sh1 & sh2 & sh1) | (scl1 & (scl2 & scl1))
++    flat = (sh1 & sh2 & sh1) | (scl1 & scl2 & scl1)
++    _assert_separability(nested, _identity_matrix(3), np.ones(3, dtype=bool))
++    _assert_separability(flat, _identity_matrix(3), np.ones(3, dtype=bool))
++    np.testing.assert_array_equal(separability_matrix(nested), separability_matrix(flat))
++    np.testing.assert_array_equal(is_separable(nested), is_separable(flat))
++
++
++def test_simple_multi_input_right_operand_reads_as_on_the_left():
++    right = sh1 & IDENTITY_2
++    mirror = IDENTITY_2 & sh1
++    _assert_separability(right, _identity_matrix(3), np.ones(3, dtype=bool))
++    np.testing.assert_array_equal(separability_matrix(right), separability_matrix(mirror))
++    np.testing.assert_array_equal(is_separable(right), is_separable(mirror))
++
++    _assert_separability(sh1 & (IDENTITY_2 & sh2), _identity_matrix(4), np.ones(4, dtype=bool))
++    _assert_separability((sh1 & IDENTITY_2) & sh2, _identity_matrix(4), np.ones(4, dtype=bool))
++
++
++def test_cstack_keeps_right_array_values():
++    result = _cstack(np.identity(2), np.identity(2))
++    np.testing.assert_array_equal(result, np.identity(4))
++
++
++def test_cstack_non_square_right_array():
++    result = _cstack(np.identity(2), np.array([[1, 0], [0, 1], [1, 1]]))
++    expected = np.array([[1, 0, 0, 0],
++                         [0, 1, 0, 0],
++                         [0, 0, 1, 0],
++                         [0, 0, 0, 1],
++                         [0, 0, 1, 1]])
++    np.testing.assert_array_equal(result, expected)
++
++
++def test_right_operand_guards():
++    _assert_separability(cm & TAN,
++                         _matrix([[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 1], [0, 0, 1, 1]]),
++                         _matrix([1, 1, 0, 0]))
++    np.testing.assert_array_equal(separability_matrix(sh1 & (rot | rot)),
++                                  _matrix([[1, 0, 0], [0, 1, 1], [0, 1, 1]]))
++    np.testing.assert_array_equal(separability_matrix(sh1 & (sh2 | scl1)),
++                                  _matrix([[1, 0], [0, 1]]))
++    flat_tan = TAN & models.Linear1D(10) & models.Linear1D(5)
++    np.testing.assert_array_equal(separability_matrix(flat_tan),
++                                  _matrix([[1, 1, 0, 0], [1, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]))
++    np.testing.assert_array_equal(separability_matrix(sh1 & rot),
++                                  _matrix([[1, 0, 0], [0, 1, 1], [0, 1, 1]]))
++    _assert_separability(sh1 & map3, _matrix([[1, 0], [0, 1], [0, 1]]), _matrix([1, 1, 1]))
++    _assert_separability(map3, _matrix([[1], [1]]), _matrix([0, 0]))
++
++
++def test_right_hand_pipeline_operand_reads_as_on_the_left():
++    pipeline = (sh1 & sh2) | (scl1 & scl2)
++    right = sh1 & pipeline
++    mirror = pipeline & sh1
++    _assert_separability(right, _identity_matrix(3), np.ones(3, dtype=bool))
++    _assert_separability(mirror, _identity_matrix(3), np.ones(3, dtype=bool))
++    np.testing.assert_array_equal(separability_matrix(right)[1:, 1:],
++                                  separability_matrix(mirror)[:2, :2])

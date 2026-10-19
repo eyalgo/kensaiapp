@@ -1,0 +1,351 @@
+/* The one stylesheet every page links. Every value is docs/DESIGN.md's: colours from its colors
+   table, sizes in rem at the 16px root, spacing from its 4px scale. Nothing is fetched. */
+
+:root {
+  color-scheme: light;
+  accent-color: #23674A;
+  --primary: #23674A;
+  --primary-deep: #1A523A;
+  --paper: #EDF1EC;
+  --surface: #FBFCFA;
+  --surface-sunk: #DDE4DD;
+  --ink: #18211C;
+  --ink-muted: #4F5C54;
+  --late: #AE2530;
+  --late-tint: #FAE8E7;
+  --done-tint: #E1EEE5;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0 auto;
+  max-width: 1180px;
+  padding: 24px;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: system-ui, sans-serif;
+  font-size: 1rem;
+  font-weight: 400;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+html {
+  background: var(--paper);
+}
+
+/* Header: product name on the left, the links after it, a 1px muted line under. */
+.site-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  padding: 16px;
+  border-bottom: 1px solid var(--ink-muted);
+  font-size: 1.125rem;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.site-header nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+}
+
+.site-header nav a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  line-height: 1.2;
+}
+
+a {
+  color: var(--primary);
+}
+
+h1 {
+  margin: 24px 0 16px;
+  padding: 0 16px;
+  font-size: 1.5rem;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+/* Names and descriptions show surrounding spaces and the line breaks the operator typed. */
+.pre-wrap {
+  white-space: pre-wrap;
+}
+
+/* A sheet: square, white, no border, no shadow. */
+main > ul,
+main > p,
+main > form,
+main > .sheet,
+main > table,
+main > dl {
+  margin: 0 0 16px;
+  padding: 24px;
+  background: var(--surface);
+  border-radius: 0;
+}
+
+.project-list,
+.assignee-list {
+  list-style: none;
+  margin: 0 0 16px;
+  padding: 0;
+}
+
+/* A section heading: the sheet's own title, and a focus target after a remove. */
+h2 {
+  margin: 0 0 16px;
+  font-size: 1.125rem;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--ink);
+}
+
+.project-list li + li,
+.assignee-list li + li {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--surface-sunk);
+}
+
+/* An assignee row: the name takes the spare width and wraps, the Remove keeps its size. */
+.assignee-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+}
+
+.assignee-name {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+
+.assignee-list .reason {
+  flex-basis: 100%;
+}
+
+.remove-form {
+  margin: 0;
+}
+
+.project-name {
+  font-size: 1rem;
+}
+
+.description {
+  margin: 4px 0 0;
+  color: var(--ink-muted);
+  font-size: 0.875rem;
+  line-height: 1.4;
+}
+
+main > p.description {
+  margin-top: 0;
+}
+
+/* The form: one column, labels above fields, at most 560px wide. */
+.create-form {
+  max-width: 560px;
+}
+
+.field {
+  margin-bottom: 16px;
+}
+
+label {
+  display: block;
+  padding: 4px 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+input,
+select,
+textarea,
+button {
+  font-family: system-ui, sans-serif;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  line-height: 1.2;
+  border-radius: 4px;
+}
+
+input[type="text"],
+input[type="date"],
+select,
+textarea {
+  display: block;
+  width: 100%;
+  padding: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--ink-muted);
+}
+
+input[type="text"],
+input[type="date"],
+select {
+  height: 36px;
+}
+
+textarea {
+  resize: vertical;
+}
+
+/* A field hint sits under its label, above the field. */
+.note {
+  margin: 0 0 4px;
+  color: var(--ink-muted);
+  font-size: 0.875rem;
+  line-height: 1.4;
+}
+
+button {
+  height: 36px;
+  padding: 0 16px;
+  background: var(--primary);
+  color: var(--surface);
+  border: 1px solid var(--primary);
+  cursor: pointer;
+}
+
+button:hover {
+  background: var(--primary-deep);
+}
+
+/* A refusal or a failure: red pencil margin mark on a late tint. */
+.reason {
+  margin: 0 0 4px;
+  padding: 12px;
+  background: var(--late-tint);
+  border-left: 3px solid var(--late);
+  color: var(--ink);
+}
+
+/* A confirmation: the green margin mark on a done tint. */
+main > p.created,
+main > p.added,
+main > p.saved,
+.sheet > p.outcome {
+  padding: 12px;
+  background: var(--done-tint);
+  border-left: 3px solid var(--primary);
+}
+
+.sheet > p.outcome {
+  margin: 0 0 16px;
+}
+
+.sheet > .empty {
+  padding: 0 0 16px;
+}
+
+.empty,
+.no-tasks {
+  padding: 40px;
+}
+
+/* Focus: a 2px primary ring 2px outside, on a control, a link, or the heading or name
+   focus lands on. */
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+button:focus-visible,
+h1:focus,
+h2:focus,
+.assignee-name:focus,
+.comment-list li:focus {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* The task list: a plain table on a sheet, header cells set apart by weight. */
+main > table {
+  width: calc(100% - 0px);
+  border-collapse: collapse;
+  background: var(--surface);
+}
+
+.task-list th,
+.task-list td {
+  padding: 8px 16px;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--surface-sunk);
+}
+
+.task-list th {
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+/* The overdue word: the late colour on its tint, beside the date. */
+.overdue {
+  padding: 0 4px;
+  background: var(--late-tint);
+  color: var(--late);
+  font-weight: 600;
+}
+
+/* A task's page: the project, labelled, under the heading. */
+.task-facts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 8px 24px;
+}
+
+.task-facts dt {
+  font-weight: 600;
+}
+
+.task-facts dd {
+  margin: 0;
+}
+
+select:focus-visible,
+input[type="date"]:focus-visible,
+form:focus {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* A task's comments: one flat list, each comment's author and time above its text, a 1px line
+   between one comment and the next. */
+.comment-list {
+  list-style: none;
+  margin: 0 0 16px;
+  padding: 0;
+}
+
+.comment-list li + li {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--surface-sunk);
+}
+
+.comment-meta {
+  margin: 0 0 4px;
+  color: var(--ink-muted);
+  font-size: 0.875rem;
+  line-height: 1.4;
+}
+
+.comment-text {
+  margin: 0;
+}
+
+.sheet > .notice {
+  margin: 0 0 16px;
+}

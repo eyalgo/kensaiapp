@@ -1,0 +1,26 @@
+
+# Added by the product-skeleton launcher — what the Python toolchain generates
+__pycache__/
+*.py[codz]
+*$py.class
+.Python
+build/
+dist/
+*.egg-info/
+MANIFEST
+.coverage
+.coverage.*
+coverage.xml
+.hypothesis/
+.pytest_cache/
+.env
+.venv
+env/
+venv/
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.ruff_cache/
+
+# The saved data the tracker writes while it runs (SDD § 4 SD-6)
+data/

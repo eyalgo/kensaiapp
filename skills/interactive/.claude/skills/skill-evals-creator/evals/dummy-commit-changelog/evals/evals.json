@@ -1,0 +1,44 @@
+{
+  "skill_name": "commit-changelog",
+  "evals": [
+    {
+      "id": 1,
+      "name": "mixed-commits",
+      "prompt": "Generate changelog from these commits: abc1234 feat: add user search, def5678 fix: resolve null pointer on login, ghi9012 chore: update dependencies",
+      "assertions": [
+        {
+          "name": "file-exists",
+          "description": "CHANGELOG.md exists in the output directory",
+          "tier": "structural"
+        },
+        {
+          "name": "all_sections_present",
+          "description": "Output CHANGELOG.md contains all four sections: Breaking Changes, New Features, Bug Fixes, and Other",
+          "tier": "structural"
+        },
+        {
+          "name": "entries-use-hash-format",
+          "description": "Each commit entry starts with a backtick-wrapped short hash followed by a colon — e.g., '`abc1234`: subject'",
+          "tier": "structural"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "name": "fixes-only",
+      "prompt": "Generate changelog: fix: resolve memory leak in worker, fix: handle empty response from API, fix: correct date formatting in reports",
+      "assertions": [
+        {
+          "name": "file-exists",
+          "description": "CHANGELOG.md exists in the output directory",
+          "tier": "structural"
+        },
+        {
+          "name": "entries-use-hash-format",
+          "description": "Each commit entry starts with a backtick-wrapped short hash — e.g., '`abc1234`: subject'",
+          "tier": "structural"
+        }
+      ]
+    }
+  ]
+}

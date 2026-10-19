@@ -1,0 +1,7 @@
+{
+  "version": 1,
+  "substance": [
+    "skills/content-manager/.claude/skills/product-content/SKILL.md",
+    "skills/content-manager/.claude/skills/product-content/prompts/rich.md"
+  ]
+}

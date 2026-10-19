@@ -1,0 +1,153 @@
+{
+  "skill_name": "product-uxd",
+  "executor": {
+    "model": "fable"
+  },
+  "evals": [
+    {
+      "id": 1,
+      "name": "first-authoring-two-bucket",
+      "prompt": "You are the CDO. Author the UXD for the mailmate project. Its binding is at skills/cdo/.claude/skills/product-uxd/evals/inputs/mailmate/project.md — read it, resolve its Product path, and read the whole product input under it: the Settled docs/PRD.md and its docs/trail/prd/cycle-1.md. Draft the UXD best-effort and surface whatever you can't settle.",
+      "assertions": [
+        {
+          "name": "two-bucket-companion",
+          "description": "A companion file named exactly UXD_open_issues.md is produced (separate from UXD.md) and contains exactly the two UXD bucket labels 'Open issues' and 'Choices to confirm' — and NOT a 'Directives' bucket (Directives is the PRD's companion contract, not the UXD's). The filename and the two-bucket set must both match: a companion under any other name (e.g. trail/uxd/cycle-1.md, open_questions.md), or one carrying a third bucket, does NOT satisfy this. A baseline agent typically writes a single UX spec with an inline 'Open Questions' list, or improvises a differently-named companion, and when it does improvise one it tends to copy the PRD's three-bucket shape (including Directives).",
+          "tier": "structural"
+        },
+        {
+          "name": "confirm-or-override-slot",
+          "description": "Inside the produced UXD_open_issues.md, each 'Choices to confirm' item carries the skill's named per-choice sign-off slot — the literal phrase 'Confirm or override' (or 'Confirm-or-override') appears at least once as an item slot label within that file. The slot must live in UXD_open_issues.md specifically, not merely somewhere in the output. This is the skill's companion contract; a baseline agent improvises ad-hoc phrasings ('Confirm?', 'Your call:', 'Recommendation only', 'TBD with owner') and does not emit this named slot inside a file named UXD_open_issues.md.",
+          "tier": "structural"
+        },
+        {
+          "name": "entries-typed-and-traced",
+          "description": "The produced UXD.md states its entries as typed UX identifiers traced inline to the PRD: at least three identifiers matching the skill's scheme are present (any of 'UX-U', 'UX-F', 'UX-S', 'UX-I', 'UX-A' followed by a number) AND at least one entry carries an inline PRD-trace tag containing the literal token '(→ PRD'. Both halves are required. The '(→ PRD' token must appear on an entry: a prose sentence saying an entry 'comes from the PRD', or a standalone traceability table whose cells name PRD sections with no inline tag anywhere, does NOT satisfy this. A capable baseline numbers things (F1/F2, 'Screen 1') and may build a traceability table, but does not emit the UX-typed ID scheme together with the inline '(→ PRD …)' trace tag on the entries themselves.",
+          "tier": "structural"
+        },
+        {
+          "name": "status-draft",
+          "description": "The produced UXD.md carries a 'Status:' line whose value is 'Draft' — unresolved items remain, and the skill leaves 'Locked' to ratification, which is not its act. The literal 'Draft' must be the value on that line: a produced UXD with no Status line at all, or one stamped 'Locked' / 'Final' / 'Settled' / 'Complete' / 'v1', does NOT satisfy this. A baseline agent writes a UX spec with no status header, or invents its own status vocabulary.",
+          "tier": "structural"
+        },
+        {
+          "name": "scope-names-the-terminus",
+          "description": "The produced UXD.md's 'Out of Scope' section names the declared terminus it is scoped against — the content of the project's agari.md, which sits beside project.md in the binding folder. Satisfied when Out of Scope identifies what mailmate's terminus declares done (one paying SMB support team running its whole support day inside the product for a full billing cycle — auto-triage and claim working, per-seat Stripe billing renewing once, the 90-day purge running on real data) and/or names what that terminus deliberately places outside done (the adoption and retention numbers, seat-count growth beyond the first team). The reference must be in the Out of Scope section specifically, not merely a passing mention elsewhere. The prompt never names agari.md and does not say a terminus exists, so a baseline agent scopes against the PRD alone and produces an out-of-scope list with no terminus in it at all.",
+          "tier": "structural"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "name": "design-read-dials-and-states",
+      "prompt": "You are the CDO. Author the UXD for the trimly project. Its binding is at skills/cdo/.claude/skills/product-uxd/evals/inputs/trimly/project.md — read it, resolve its Product path, and read the whole product input under it (the Settled docs/PRD.md and its docs/trail/prd/cycle-1.md).",
+      "assertions": [
+        {
+          "name": "design-read-one-liner",
+          "description": "The produced UXD.md opens its derivation with the skill's named Design Read one-liner: the literal phrase 'Reading this as' appears, followed by a product kind and an audience (e.g. 'Reading this as: a campaign-operations tool for small marketing teams, with a plain, dense language, leaning toward a utility-dashboard aesthetic'). The literal 'Reading this as' token is required — an introductory overview paragraph, an 'Executive summary', or a 'Product context' section that conveys the same content in other words does NOT satisfy this. A capable baseline writes an intro paragraph about the product; it does not emit this named one-liner formula.",
+          "tier": "structural"
+        },
+        {
+          "name": "three-dials-with-basis",
+          "description": "The produced UXD.md carries the skill's four named design dials — the literal tokens 'VARIANCE', 'MOTION', 'DENSITY', and 'TYPOGRAPHY' must all four be present — each with a value on a 1-10 scale and reasoning drawn from a PRD fact (e.g. DENSITY set high citing the PRD's 2,000 active links per workspace). Guard for the inapplicable case, and it covers all four alike: a dial marked 'n/a' WITH a stated one-line reason counts as satisfied for that dial, since the skill requires n/a-with-reason rather than an invented number for a dial with no meaning on the product's surface. TYPOGRAPHY is satisfied by the lean alone (a 1-10 value on conventional-to-characterful with its PRD reasoning); a named typeface, type scale, or hierarchy is DESIGN's and does not satisfy it. A dial name present with a bare number and no reasoning does not satisfy it. A capable baseline may discuss information density or visual tone in prose, but does not emit these four named dials as scored values with per-dial PRD reasoning.",
+          "tier": "structural"
+        },
+        {
+          "name": "four-state-screen-inventory",
+          "description": "The produced UXD.md carries a screen inventory in which EVERY screen row states all four of the skill's named states — 'Empty', 'Loading', 'Error', and 'Success' — with at least three screen rows present (trimly's surface has five: link list, link detail/analytics, create link, members, billing, so the three-row floor cannot be met degenerately by a one-screen document). Guard: a single state marked 'n/a' WITH a one-line reason on a row counts as stated for that row, since a state that cannot arise on that surface is a stated finding rather than an omission. A screen list with prose descriptions, or a table that gives empty and error states for some screens and not others, does NOT satisfy this. A capable baseline lists screens and often mentions an empty state or two; it does not carry all four named states across every row.",
+          "tier": "structural"
+        },
+        {
+          "name": "direction-without-token-values",
+          "description": "The produced UXD.md's Design-System Direction section does two things together: (a) it names exactly one design-system package or one aesthetic family the product is built from (e.g. 'Radix Themes', 'Material 3', or 'built from primitives with a thin in-house layer'), AND (b) it states experience-level constraints the design language must satisfy (e.g. 'the accent must clear WCAG 2.1 AA on the chart surfaces', 'tabular numerals, since the product is columns of figures'), AND (c) it contains NO token values — no hex colour (e.g. '#2563EB'), no type-scale or spacing measurement (e.g. '16px base', '1.25 scale', '8px spacing unit'), no named radius value. Token values live only in DESIGN.md; naming one here creates a second copy that drifts. All three parts are required — this is deliberately not an absence-only check, so a section that omits token values by saying nothing at all fails on (a) and (b). A capable baseline asked for a UX design specification reliably produces a palette with hex values and a type scale, so (c) is where it fails.",
+          "tier": "structural"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "name": "taste-routing-and-prd-critique",
+      "prompt": "You are the CDO. Author the UXD for the trimly project. Its binding is at skills/cdo/.claude/skills/product-uxd/evals/inputs/trimly/project.md — read it, resolve its Product path, and read the whole product input under it (the Settled docs/PRD.md and its docs/trail/prd/cycle-1.md). The PRD describes the product's behaviour but never states a house style or how the product should feel to move through — handle the calls it does not make the way the process dictates.",
+      "assertions": [
+        {
+          "name": "owner-taste-routes-to-choice",
+          "description": "At least one of the two owner-taste calls the PRD gives no basis for — the design-system / aesthetic direction (the PRD names no house style anywhere) or the MOTION dial value (the PRD states no motion intent) — is surfaced specifically as an item in the 'Choices to confirm' bucket of the produced UXD_open_issues.md, carrying the skill's per-choice sign-off slot ('Confirm or override' / 'Confirm-or-override'). Routing such a call to a generic 'Open issues' bucket, or hedging it inline in the UXD with ad-hoc prose ('this is a suggestion', 'not locked', 'to be validated'), WITHOUT placing it in a named 'Choices to confirm' item carrying the confirm-or-override slot, does NOT satisfy this — a taste call must ride the two-bucket companion's choices-to-confirm contract, drafted into the UXD and listed for sign-off. A capable baseline picks an aesthetic confidently and states it as settled, or hedges it in prose; it emits neither the 'Choices to confirm' bucket nor the 'Confirm or override' slot.",
+          "tier": "structural"
+        },
+        {
+          "name": "added-or-changed-relation-note",
+          "description": "The produced UXD.md carries a '## UXD Review Notes' section holding at least one numbered note (RN-1, RN-2, …) that marks its relation to the PRD with the skill's literal relation vocabulary — the word 'added' or 'changed' appearing as the note's relation marker (e.g. '**RN-1:** *(added)* the accessibility bar is stated at WCAG 2.1 AA — because the PRD names none'). Both the '## UXD Review Notes' heading and an RN-n note carrying 'added' or 'changed' are required. A design rationale paragraph, a 'Design decisions' list, or numbered notes with no added/changed relation marker does NOT satisfy this. A capable baseline writes design rationale in prose and emits neither the named review-notes section nor the relation vocabulary.",
+          "tier": "structural"
+        },
+        {
+          "name": "contradiction-caught",
+          "description": "The PRD's internal contradiction — feature F5 says links 'never expire' while section 5 says inactive links are 'automatically purged' after 12 months — is recorded in one of the skill's named provenance structures with BOTH sides of the conflict named together: either a numbered Review Note (RN-n) in the produced UXD.md's '## UXD Review Notes' section, OR an item in the produced UXD_open_issues.md. Naming the conflict only in body prose (an aside inside a screen row, a 'Notes' paragraph) WITHOUT a '## UXD Review Notes' RN-n entry and WITHOUT a UXD_open_issues.md item does NOT satisfy this. A baseline may notice the contradiction but records it as ad-hoc prose, emitting no RN-n and no companion file.",
+          "tier": "structural"
+        },
+        {
+          "name": "uxd-produced-not-halted",
+          "description": "A UXD.md file is produced — the skill surfaced the PRD contradiction and kept going rather than halting on the PRD flaw. The presence of a produced UXD.md is the not-halted signal. Note: a capable baseline also satisfies this assertion, since a baseline given this prompt writes a document regardless. It is a regression guard on the skill's never-halt-on-a-PRD-problem rule, not a discriminator, and it should be read alongside 'contradiction-caught' — the pair distinguishes 'caught and kept going' from 'caught and stopped'.",
+          "tier": "structural"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "name": "reentry-fold-and-close",
+      "prompt": "You are the CDO. Continue the UXD for the trimly-reentry project. Its binding is at skills/cdo/.claude/skills/product-uxd/evals/inputs/trimly-reentry/project.md; under its Product path there is an existing UXD.md (Version 1) and a UXD_open_issues.md the owner has answered inline. Fold their answers in and keep going.",
+      "assertions": [
+        {
+          "name": "overrides-folded",
+          "description": "The produced UXD.md applies both of the owner's overrides from the answered companion: the MOTION dial reads 2 (the owner overrode the drafted 4), and the Design-System Direction names 'Radix Themes' as the official package (the owner overrode the drafted 'built from primitives' / thin in-house layer). Both must hold. A produced UXD still showing MOTION 4, or still directing built-from-primitives, does NOT satisfy this. A baseline that never applied the specific overrides would carry the Version-1 values forward unchanged.",
+          "tier": "structural"
+        },
+        {
+          "name": "contradiction-answer-propagated",
+          "description": "The owner's answer to open issue 1.1 — links never expire, drop the 12-month auto-purge, no inactive or purge-pending state anywhere — is propagated into the produced UXD.md's screen inventory: the Version-1 'Inactive — purges soon' badge on the link-list row is gone, and permanence is stated instead (e.g. the link-list row or a flow states that a link keeps resolving indefinitely / never expires). Both halves are required — the badge removed AND permanence stated — so a run that silently deleted the badge without saying what now holds does not pass. This is scoped to propagation into the entry itself, deliberately separate from 'owner-provenance-in-review-notes': the skill's fold rule requires the changed entry to carry the change, not only a note about it. A baseline that folds prose-level answers typically edits a note and leaves the screen row's badge standing.",
+          "tier": "structural"
+        },
+        {
+          "name": "answered-companion-retired-to-trail",
+          "description": "The answered companion is retired WHOLE to the trail: a file docs/trail/uxd/cycle-1.md is produced holding the owner's answered UXD_open_issues.md copied byte-for-byte. The companion's DISAPPEARANCE is not asserted here — 'companion-cleared-when-clean' owns that alone, so a missing trail and a broken done signal are two distinguishable reds rather than one. Checked mechanically against the harvested run, never by walking outputs/ (nothing reads outputs/ recursively): (a) run_delta.json's 'created' list contains a path ending 'trail/uxd/cycle-1.md'; (b) the trail file at outputs/product/<...>/trail/uxd/cycle-1.md is byte-identical to the pristine companion at outputs/reference/<...>/docs/UXD_open_issues.md. One precondition on (b), stated so a grader does not misread a red: harvest populates outputs/reference/ only for files the run MODIFIED or DELETED, so the pristine companion is available to compare against only once it has left docs/. A run that wrote the trail but kept the companion therefore fails this assertion too — correctly, but for a compound reason; read it alongside 'companion-cleared-when-clean' to tell the two apart. That byte-identity is what makes 'retired WHOLE' checkable without reaching outside outputs/, and it is the whole point — a summary, a paraphrase, or a re-formatted digest of the owner's answers fails. NO cycle-numbering rule is asserted here: this fixture ships no docs/trail/uxd/, so cycle-1 is the unconditional answer and a hardcoded 'cycle-1' is indistinguishable from a correct max-based numbering — testing that rule needs its own pre-seeded fixture and case. Baseline discrimination, stated rather than papered over: the fixture ships docs/trail/prd/cycle-1.md, so the trail pattern is visible in the input and a strong baseline may mirror it.",
+          "tier": "structural"
+        },
+        {
+          "name": "companion-cleared-when-clean",
+          "description": "With every companion item answered, the answered UXD_open_issues.md is gone from the product docs after the run — its absence is the skill's done signal. Checked mechanically: run_delta.json's 'deleted' list contains a path ending 'docs/UXD_open_issues.md'. This assertion checks the DISAPPEARANCE ONLY; the trail requirement belongs to 'answered-companion-retired-to-trail' alone. Deliberately disjoint from it: bundled, a missing trail and a broken done signal would be a single red line and indistinguishable; split, this one staying green while the trail assertion is red says exactly 'the done signal works, the trail does not'. A baseline that folds answers would typically leave the companion in place, or leave an emptied one behind, rather than treating its absence as the completion signal.",
+          "tier": "structural"
+        },
+        {
+          "name": "owner-provenance-in-review-notes",
+          "description": "The folded owner values are recorded in the produced UXD.md's '## UXD Review Notes' section as the owner's confirmed answers — a numbered Review Note (RN-n) references the MOTION override to 2, the Radix Themes direction override, and/or the never-expire resolution as an owner-confirmed answer, capturing durable provenance before the companion is dropped. At least one such owner-answer note is required. A baseline folds the values but does not record owner-answer provenance in a review-notes trail (so, once the companion is gone, the provenance would be lost).",
+          "tier": "structural"
+        },
+        {
+          "name": "review-notes-cite-the-trail",
+          "description": "An owner-answer citation must resolve to a file a cold reader can still open after the run — the companion is cleared at the close, so a citation pointing at it dead-ends. Scoped to the citations THIS RUN adds: the Review Notes recording the owner answers folded in this round (the MOTION override to 2, the Radix Themes direction override, the never-expire resolution). Each such note's citation must name the trail path (a path ending 'trail/uxd/cycle-1.md'), not the companion the run just cleared. A run-added citation of the form 'open-issues 2.1' or 'UXD_open_issues.md §1.1' with no trail path fails. Pre-existing settled Review Notes carried forward from Version 1 are EXEMPT and must NOT be counted against this: the fixture's Version-1 UXD carries RN-1 to RN-3 citing PRD sections, and the skill's stability rule requires settled content to be reproduced exactly on a re-run — so a compliant run preserves those verbatim, and an 'every citation' quantifier would fail a correct run. Checked against the produced UXD at outputs/product/<...>/docs/UXD.md. A baseline cites nothing, or cites the companion.",
+          "tier": "structural"
+        },
+        {
+          "name": "status-settled",
+          "description": "The produced UXD.md carries a 'Status:' line whose value is 'Settled' — this run resolved every companion item and ends with no open-issues file on disk, which is the template's done value. The literal 'Settled' must be the value on that line: a produced UXD still stamped 'Draft', stamped 'Locked' (ratification is the owner's act, not the skill's), carrying no Status line at all, or inventing a value outside the template's 'Draft | Settled | Locked' vocabulary, does NOT satisfy this. A baseline agent leaves the status at 'Draft' after folding, or writes no status header.",
+          "tier": "structural"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "name": "posture-halt-outside-cdo",
+      "prompt": "Can you write me a UX design spec for a web app I'm building?",
+      "assertions": [
+        {
+          "name": "no-uxd-file",
+          "description": "No UXD.md file is produced. The skill halts on the CDO-posture check and writes no UXD. A capable baseline agent given this prompt would write a UX spec file — so the absence of one is the halt signal.",
+          "tier": "structural"
+        },
+        {
+          "name": "no-companion-file",
+          "description": "No UXD_open_issues.md companion file is produced either — the skill stops at the posture check before authoring anything. For a posture-halt case, the absence of any product artifact is the correct, expected signal.",
+          "tier": "structural"
+        }
+      ]
+    }
+  ]
+}

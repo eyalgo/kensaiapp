@@ -1,0 +1,78 @@
+[
+  {
+    "query": "invoke an agent to rebuild product-srs against the ratified sibling",
+    "should_trigger": true
+  },
+  {
+    "query": "I want to research how other teams version their PRDs — report back when you know",
+    "should_trigger": true
+  },
+  {
+    "query": "i want an agent to create a plan for a later implementation run",
+    "should_trigger": true
+  },
+  {
+    "query": "go through every skill in .claude/skills and find the ones with no README, while i grab lunch",
+    "should_trigger": true
+  },
+  {
+    "query": "can you spin something up to look into why the eval baseline dropped between iteration-9 and 12?",
+    "should_trigger": true
+  },
+  {
+    "query": "have something draft a migration plan for moving the launchers to core/launchers/",
+    "should_trigger": true
+  },
+  {
+    "query": "look into whether the broker's API supports bracket orders and write it up somewhere",
+    "should_trigger": true
+  },
+  {
+    "query": "i need a deep dive on how claude code handles MCP server auth. take your time, im afk",
+    "should_trigger": true
+  },
+  {
+    "query": "delegate the fixture cleanup across both eval stacks to someone",
+    "should_trigger": true
+  },
+  {
+    "query": "kick off a background job to audit the commit trailers on the last 200 commits",
+    "should_trigger": true
+  },
+  {
+    "query": "run the cold-read chain on product-srs",
+    "should_trigger": false
+  },
+  {
+    "query": "which agent types do we have available?",
+    "should_trigger": false
+  },
+  {
+    "query": "the agent's report said the sibling was untouched — verify that",
+    "should_trigger": false
+  },
+  {
+    "query": "fix the typo in srs_template.md line 8",
+    "should_trigger": false
+  },
+  {
+    "query": "what does commit_builder do with --rm exactly?",
+    "should_trigger": false
+  },
+  {
+    "query": "run skill-evals on product-srs",
+    "should_trigger": false
+  },
+  {
+    "query": "agent-invoke needs a README — add one",
+    "should_trigger": false
+  },
+  {
+    "query": "read core/doctrine/kaizen/skills.md and summarise the escape hatch section for me",
+    "should_trigger": false
+  },
+  {
+    "query": "/development for the new status vocabulary change",
+    "should_trigger": false
+  }
+]

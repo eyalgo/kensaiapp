@@ -1,0 +1,44 @@
+{
+  "skill_name": "standup-formatter",
+  "evals": [
+    {
+      "id": 1,
+      "name": "basic-standup",
+      "prompt": "Format my standup: Done - reviewed PR #42 for auth module, fixed the null pointer in user service. Next - write unit tests for payment handler. Blocked - waiting for design sign-off on the new dashboard.",
+      "assertions": [
+        {
+          "name": "file-exists",
+          "description": "standup.md exists in the output directory",
+          "tier": "structural"
+        },
+        {
+          "name": "has-blocked-section",
+          "description": "Output contains a **Blocked:** section (bold header with colon)",
+          "tier": "structural"
+        },
+        {
+          "name": "done-items-use-past-tense",
+          "description": "Done section bullets start with a past-tense action verb — 'Reviewed', 'Fixed', 'Shipped', etc. — not present tense or infinitive form",
+          "tier": "nuanced"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "name": "no-blockers",
+      "prompt": "Write my standup: Yesterday I shipped the feature flag UI and merged the cache invalidation fix. Today I'm starting the GraphQL migration. No blockers.",
+      "assertions": [
+        {
+          "name": "file-exists",
+          "description": "standup.md exists in the output directory",
+          "tier": "structural"
+        },
+        {
+          "name": "blocked-is-na",
+          "description": "The **Blocked:** section is present and contains 'N/A' — the section is never omitted even when no blockers exist",
+          "tier": "structural"
+        }
+      ]
+    }
+  ]
+}

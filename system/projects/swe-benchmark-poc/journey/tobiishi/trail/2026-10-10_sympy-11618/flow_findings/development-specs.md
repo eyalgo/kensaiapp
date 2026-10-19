@@ -1,0 +1,10 @@
+# Flow Findings — development-specs  (audited 2026-10-10)
+
+Findings for this step's output only, produced by the `development-audit` skill.
+Change-local findings live here; skill-general findings are also raised as kaizen items.
+
+Lenses 3 (classification copied verbatim: bug / changing), 4 (each Gap 1–6 carries its reason), 5, 6, 7 (`## Verified Claims` present; each claim about what a command decides carries the command, tree and result, and the probe ran rather than being derived from reading) and 8 (Gap 5 leaves test placement to development-design) found nothing. `docs/fdr.md` is absent (Definition: none), so the cross-check ran against the request and the issue; no finding is raised for that.
+
+- **[non-blocking · change-local · altitude]** The rationale names an implementation route. Gap 3 says "Turning the argument into a `Point` first" and Gap 4 says "a fix that wraps the argument in `Point`". The Verified Claims probe row also describes replacing `Point.distance` in memory. Where: `change_spec.md §Locked Answers` (Gap 3, Gap 4), `§Verified Claims` (probe row). The rules themselves are output-observable. The reasons can be stated by the observable result (a `Float` argument must not become a rational; `5` must not return a number), which leaves the design free. The probe row already disclaims being a design.
+- **[non-blocking · change-local · coverage]** CP-9 says "for any pair of lengths", but no Example uses a `Point2D` or `Point3D` receiver or argument with a length mismatch, for example `Point2D(2,0).distance(Point3D(1,0,2))`. Those subclasses are the ones a fix keyed on the class could miss. CP-11 covers same-length subclasses only. Where: `change_spec.md §Examples`. A downstream test row for the mixed-class pair is not forced by the spec.
+- **[non-blocking · change-local · evidence]** The Terms line states `len(p)` "is also `p.ambient_dimension`", and the Verified Claims do not run that. No rule depends on it today. Where: `change_spec.md §Change Summary` (Terms). It is a stated fact about the product that is neither verified nor needed. Verify it or drop it.

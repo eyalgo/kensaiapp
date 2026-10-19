@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# commit-msg — git-native hook shim. Git invokes this on every commit-creating
+# operation (an ordinary commit and a --no-ff merge) with the path to the
+# commit-message file as $1.
+#
+# Version: 1.0.0
+#
+# Self-locates core from its own path rather than reading a CORE env var or
+# `.env`: a human's or Codex's plain `git commit` carries neither, and
+# KENSAIAPP_CORE_RESOLVED is a model-context injection from resolve_core.py,
+# not a shell variable a git subprocess inherits. Because setup wires
+# `core.hooksPath` to "<resolved-core>/githooks", this hook is invoked *from*
+# core, so its own directory *is* the resolved core — self-location is exact.
+#
+# Performs no checking itself: execs the pure checker with git's message-file
+# argument and exits with the checker's exit code.
+set -euo pipefail
+
+core="$(cd "$(dirname "$0")/.." && pwd)"
+exec "$core/tools/verify_commit_msg.py" "$1"

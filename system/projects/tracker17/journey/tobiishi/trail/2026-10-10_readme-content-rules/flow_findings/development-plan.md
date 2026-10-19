@@ -1,0 +1,12 @@
+# Flow Findings — development-plan  (audited 2026-10-11)
+
+Findings for this step's output only (`tl_instruction.md`), produced by the `development-audit` skill.
+Change-local findings live here; skill-general findings are also raised as kaizen items.
+
+- **[blocking · change-local · contract-realized]** The plan's gate requires `pytest tests/e2e/` to exit 0 (Verification gate; C8), while the same plan records that the baseline is red on a port held by PID 86069 and refuses a `Red at baseline:` allowance. Where: `tl_instruction.md` § TL Review Notes "End-to-end prerequisite", § Verification gate, C8. A gate known at planning time to fail before any edit cannot be met by Task 1. The implementation run then halted `preserving-baseline-red` (`halt_report.md` § Outcome). The plan named the unmet prerequisite but gave the implementer no way past it: no allowance, no precondition step, no instruction for a blocked baseline. Direction: decide before implementation how a baseline held red by the environment is handled.
+- **[non-blocking · change-local · divergence-record]** The spec said the baseline had 1 e2e failure (`change_spec.md` § Verified Claims, 11 passed 1 failed). The plan reports no e2e count and says no e2e result is claimed. The halt run then saw 2 failed, 10 passed (`halt_report.md` § Completed baseline execution). The plan does not record that its own e2e baseline differs from the spec's. Where: `tl_instruction.md` § TL Review Notes "Baseline evidence". Direction: the plan should record its own e2e observation, or say it did not take one.
+- **[non-blocking · change-local · contract-realized]** C1 (sentence length ≤ 20 words across the span) is a hand-count with no runnable command, whereas C2 and C7 give exact commands. The plan says a Python check was run at review (67 sentences, only line 23 over) but does not carry it. Where: `tl_instruction.md` § Invariant gate C1. The implementer must re-derive the counting procedure, so before and after counts may not be comparable. Direction: carry the counting check as an exact command.
+
+Lenses 3 (Category/Behaviour copied verbatim: bug / preserving), 8 (the plan leaves wording to implementation and enacts nothing for its successors) and 1 (every spec invariant maps to C1–C8) found nothing.
+Lens 4: the added compile/ruff/mypy gates are recorded with their reason in TL Review Notes.
+Lenses 7, 9 and 10 do not apply to this step.

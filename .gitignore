@@ -1,0 +1,116 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[codz]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py.cover
+.hypothesis/
+.pytest_cache/
+cover/
+# Runtime guardrail probes must not enter a concurrently created source pin.
+core/*/_pytest_guardrails_wiring_probe/
+
+# Translations
+*.mo
+*.pot
+
+# Environments
+.env
+.envrc
+.providers.toml
+.venv
+env/
+venv
+ENV/
+env.bak/
+venv.bak/
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre type checker
+.pyre/
+
+# pytype static type analyzer
+.pytype/
+
+# Ruff
+.ruff_cache/
+
+# pdm
+.pdm-python
+.pdm-build/
+
+# pixi
+.pixi
+__pypackages__/
+
+# Cursor
+.cursorignore
+.cursorindexingignore
+
+# Claude Code local settings (track .claude/ normally; ignore only machine-local overrides)
+.claude/settings.local.json
+
+# Change-pipeline worktrees — <repo>/.worktrees/<key>, created by create_change_worktree.py on the chain path and under ad-hoc-plan, is a nested
+# checkout that carries its own branch; the work is committed there, never through this tree
+.worktrees/
+
+# Skill eval run-history lives out-of-repo (preservation home: ~/projects/kensaiapp-eval-history/)
+.claude/skills/*/evals/workspace/
+skills/*/.claude/skills/*/evals/workspace/
+
+# Runtime run-output: chain logs, watcher logs, outcome-signalling json — ephemeral, never committed
+system/logs/
+
+.DS_Store
+*.log
+*.zip
+
+# Provider tool state written into the instance root — regenerated, never committed,
+# and an untracked folder here refuses shukuba-open (its scripts/open.py clean-tree check)
+.codex/
+.agents/

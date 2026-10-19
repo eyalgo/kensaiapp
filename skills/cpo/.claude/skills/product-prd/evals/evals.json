@@ -1,0 +1,103 @@
+{
+  "skill_name": "product-prd",
+  "executor": {
+    "model": "fable"
+  },
+  "evals": [
+    {
+      "id": 1,
+      "name": "draft-and-surface-not-interview",
+      "prompt": "You are the CPO. Author the PRD for the mailmate project. Its binding is at skills/cpo/.claude/skills/product-prd/evals/inputs/mailmate/project.md — read it, resolve its Product path, and read the product request under it. Draft what you can and surface whatever you can't settle.",
+      "assertions": [
+        {
+          "name": "three-bucket-companion",
+          "description": "A companion file PRD_open_issues.md is produced (separate from PRD.md) and contains all three bucket labels: 'Open issues', 'Choices to confirm', and 'Directives'. All three must be present. A baseline agent typically writes a single PRD and does not split out a three-bucket companion file.",
+          "tier": "structural"
+        },
+        {
+          "name": "status-draft",
+          "description": "The produced PRD.md has a 'Status:' line reading 'Draft' (unresolved items remain) — not 'Settled' or 'Locked'.",
+          "tier": "structural"
+        },
+        {
+          "name": "confirm-or-override-slot",
+          "description": "Each 'Choices to confirm' item in the produced PRD_open_issues.md carries the skill's named per-choice slot label 'Confirm or override:' — the literal phrase 'Confirm or override' appears at least once as an item slot. This is the skill's companion contract; a baseline agent improvises ad-hoc confirmation phrasings (e.g. 'Confirm?', 'Your call:') and does not emit this named slot.",
+          "tier": "structural"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "name": "reentry-trails-answered-cycle",
+      "prompt": "You are the CPO. Continue the PRD for the mailmate project. Its binding is at skills/cpo/.claude/skills/product-prd/evals/inputs/mailmate-reentry/project.md; under its Product path the owner has answered the open issues inline in PRD_open_issues.md. Fold their answers in and keep going.",
+      "assertions": [
+        {
+          "name": "trails-cycle-1",
+          "description": "A file trail/prd/cycle-1.md is produced, holding the owner's answered companion copied whole (the first trail cycle is cycle-1). A baseline agent folding answers would not preserve the answered file to a numbered trail cycle.",
+          "tier": "structural"
+        },
+        {
+          "name": "answers-folded",
+          "description": "The produced PRD.md folds in the owner's answers from the answered companion: it states the target segment as SMB support teams (2-10 seats) and a data-retention story of purging thread content roughly 90 days after a thread closes. A baseline agent, which never saw the answered companion, would not carry these specific resolved values.",
+          "tier": "structural"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "name": "directive-gate-confirm-not-perform",
+      "prompt": "You are the CPO. Author the PRD for the mailmate project (binding at skills/cpo/.claude/skills/product-prd/evals/inputs/mailmate/project.md). The product request flags an enterprise SLA whose numbers only the infra vendor's account rep can provide — handle that the way the process dictates.",
+      "assertions": [
+        {
+          "name": "surfaced-as-gate",
+          "description": "The enterprise-SLA item is surfaced as a directive / gate — the produced companion (Directives bucket) or the PRD's Gates section names the action, who performs it (the infra vendor's account rep / owner), and what it gates. A baseline agent would either invent SLA numbers or omit the gap.",
+          "tier": "structural"
+        },
+        {
+          "name": "no-fabricated-numbers",
+          "description": "The produced PRD.md does not state specific SLA figures (e.g. '99.9% uptime' or a numeric response-time) as settled fact for the unpublished values — the unknown external number is surfaced, not fabricated.",
+          "tier": "structural"
+        },
+        {
+          "name": "gate-lifecycle-performed-field",
+          "description": "The surfaced enterprise-SLA directive in the produced PRD_open_issues.md carries the skill's gate-lifecycle marker — a 'Performed?' field recording the action as not-yet-done (the confirm-not-perform behavior). The literal 'Performed?' slot is present on the directive. A baseline agent names the directive and who actions it but omits this lifecycle field; it does not track performed-status.",
+          "tier": "structural"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "name": "tag-external-source-with-locator",
+      "prompt": "You are the CPO. Author the PRD for the mailmate project (binding at skills/cpo/.claude/skills/product-prd/evals/inputs/mailmate/project.md). It relies on Stripe for billing — reflect what Stripe actually supports.",
+      "assertions": [
+        {
+          "name": "external-tag-format",
+          "description": "A claim in the produced PRD.md that rests on the external Stripe source carries the tag form 'verified (external):' followed by a locator (a URL or a named source), not a bare 'verified'. This 'verified (external)' convention is the skill's tag contract; a baseline agent does not use it.",
+          "tier": "structural"
+        },
+        {
+          "name": "product-fact-in-body-not-working",
+          "description": "The produced PRD.md states the Stripe billing capability as a product fact in the body (what the product requires of billing), while the source locator rides on the tag — the body does not recite the check's working (read-date, sample counts, API-mechanism detail).",
+          "tier": "structural"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "name": "posture-halt-outside-cpo",
+      "prompt": "Can you write me a PRD for an email-triage app I'm thinking about?",
+      "assertions": [
+        {
+          "name": "no-prd-file",
+          "description": "No PRD.md file is produced anywhere in the run's outputs — neither in the product root nor beside it. An agent given this prompt has no resolved Product path and may write PRD.md at the outputs root; a PRD written anywhere in the outputs tree counts as produced, so check the tree itself, not only run_delta.json (which watches the product root alone). The skill halts on the CPO-posture check and writes no PRD. A capable baseline agent given this prompt would write a PRD.md file somewhere — so the absence of one anywhere in the outputs tree is the halt signal.",
+          "tier": "structural"
+        },
+        {
+          "name": "no-companion-file",
+          "description": "No PRD_open_issues.md companion file is produced anywhere in the run's outputs either — the skill stops at the posture check before authoring anything. For a posture-halt case, the absence of any authored artifact anywhere in the outputs tree is the correct, expected signal; a file written outside the product root still counts as authored.",
+          "tier": "structural"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,286 @@
+diff --git a/requests/models.py b/requests/models.py
+index 9926045..fdb01e9 100644
+--- a/requests/models.py
++++ b/requests/models.py
+@@ -386,6 +386,14 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):
+         self.body = body
+ 
+     def prepare_content_length(self, body):
++        if self.method in ("GET", "HEAD") and body is None:
++            # A bodiless GET or HEAD carries no Content-Length. The header
++            # mapping keeps each spelling as its own key and deletes one per
++            # call, so delete until none is left.
++            while "Content-Length" in self.headers:
++                del self.headers["Content-Length"]
++            return
++
+         self.headers['Content-Length'] = '0'
+         if hasattr(body, 'seek') and hasattr(body, 'tell'):
+             body.seek(0, 2)
+diff --git a/test_requests.py b/test_requests.py
+index c974e98..74a19c6 100644
+--- a/test_requests.py
++++ b/test_requests.py
+@@ -5,11 +5,14 @@
+ 
+ import json
+ import os
++import tempfile
+ import unittest
+ 
+ import requests
++from requests.adapters import BaseAdapter
+ from requests.auth import HTTPDigestAuth
+ from requests.compat import str
++from requests.models import Response
+ 
+ try:
+     import StringIO
+@@ -22,6 +25,53 @@ def httpbin(*suffix):
+     """Returns url for HTTPBIN resource."""
+     return HTTPBIN + '/'.join(suffix)
+ 
++BODILESS_URL = "http://example.invalid/"
++
++
++class _NoOpRaw(object):
++    """Stands in for a urllib3 response: resolve_redirects releases it."""
++
++    def release_conn(self):
++        pass
++
++
++class RecordingAdapter(BaseAdapter):
++    """Records each prepared request handed to send and answers from a script.
++
++    Nothing here opens a connection. ``script`` is a list of
++    ``(status_code, headers)`` pairs, used one per request in order; once it
++    is spent every request is answered ``200``.
++    """
++
++    def __init__(self, script=None):
++        super(RecordingAdapter, self).__init__()
++        self.sent = []
++        self._script = list(script or [])
++
++    def send(self, request, **kwargs):
++        self.sent.append(request)
++        status_code, headers = self._script.pop(0) if self._script else (200, {})
++        response = Response()
++        response.status_code = status_code
++        response.headers.update(headers)
++        response.url = request.url
++        response.request = request
++        response._content = b""
++        response.raw = _NoOpRaw()
++        return response
++
++    def close(self):
++        pass
++
++
++def recording_session(script=None):
++    """Returns a Session whose http:// transport is a RecordingAdapter."""
++    session = requests.Session()
++    adapter = RecordingAdapter(script)
++    session.mount("http://", adapter)
++    return session, adapter
++
++
+ class RequestsTestCase(unittest.TestCase):
+ 
+     _multiprocess_can_split_ = True
+@@ -280,5 +330,193 @@ class RequestsTestCase(unittest.TestCase):
+         self.assertEqual(r.links['next']['rel'], 'next')
+ 
+ 
++    def assertNoContentLength(self, prepared):
++        """No spelling of Content-Length is present on the prepared request."""
++        spellings = [name for name in prepared.headers
++                     if name.lower() == "content-length"]
++        self.assertEqual(spellings, [])
++        self.assertFalse("Content-Length" in prepared.headers)
++
++    def test_get_without_body_has_no_content_length(self):
++        for method in ("GET", "get"):
++            prepared = requests.Request(method, BODILESS_URL).prepare()
++            self.assertEqual(prepared.method, "GET")
++            self.assertNoContentLength(prepared)
++
++    def test_session_get_without_body_has_no_content_length(self):
++        session, adapter = recording_session()
++        session.get(BODILESS_URL)
++        (sent,) = adapter.sent
++        self.assertTrue(sent.body is None)
++        self.assertNoContentLength(sent)
++
++    def test_head_without_body_has_no_content_length(self):
++        session, adapter = recording_session()
++        session.head(BODILESS_URL)
++        (sent,) = adapter.sent
++        self.assertEqual(sent.method, "HEAD")
++        self.assertNoContentLength(sent)
++        for method in ("HEAD", "head"):
++            prepared = requests.Request(method, BODILESS_URL).prepare()
++            self.assertEqual(prepared.method, "HEAD")
++            self.assertNoContentLength(prepared)
++
++    def test_get_with_empty_data_has_no_content_length(self):
++        for data in ("", {}, None):
++            session, adapter = recording_session()
++            session.get(BODILESS_URL, data=data)
++            (sent,) = adapter.sent
++            self.assertTrue(sent.body is None)
++            self.assertNoContentLength(sent)
++
++    def test_caller_supplied_content_length_is_dropped_on_bodiless_get(self):
++        session, adapter = recording_session()
++        session.get(BODILESS_URL, headers={"Content-Length": "7"})
++        (sent,) = adapter.sent
++        self.assertNoContentLength(sent)
++
++        one_spelling = requests.Request(
++            "GET", BODILESS_URL, headers={"content-length": "7"}).prepare()
++        self.assertNoContentLength(one_spelling)
++
++        # The mapping stores each spelling as its own key, so one delete
++        # would leave the other behind.
++        two_spellings = requests.Request(
++            "GET", BODILESS_URL,
++            headers={"Content-Length": "7", "content-length": "8"}).prepare()
++        self.assertNoContentLength(two_spellings)
++
++    def test_bodiless_get_with_auth_has_no_content_length(self):
++        session, adapter = recording_session()
++        session.get(BODILESS_URL, auth=("u", "p"))
++        (sent,) = adapter.sent
++        self.assertNoContentLength(sent)
++        self.assertTrue("Authorization" in sent.headers)
++
++        session, adapter = recording_session()
++        session.head(BODILESS_URL, auth=("u", "p"))
++        (sent,) = adapter.sent
++        self.assertNoContentLength(sent)
++
++        session, adapter = recording_session()
++        session.get(BODILESS_URL, auth=HTTPDigestAuth("u", "p"))
++        (sent,) = adapter.sent
++        self.assertNoContentLength(sent)
++
++    def test_followed_get_after_post_redirect_has_no_content_length(self):
++        session, adapter = recording_session([(302, {"location": "/next"})])
++        session.post(BODILESS_URL, data="hello", allow_redirects=True)
++        first, followed = adapter.sent
++        self.assertEqual(first.method, "POST")
++        self.assertEqual(first.headers["Content-Length"], "5")
++        self.assertEqual(followed.method, "GET")
++        self.assertTrue(followed.body is None)
++        self.assertNoContentLength(followed)
++
++    def test_followed_request_after_redirect_has_no_content_length(self):
++        session, adapter = recording_session([(301, {"location": "/next"})])
++        session.get(BODILESS_URL, allow_redirects=True)
++        first, followed = adapter.sent
++        self.assertEqual(followed.method, "GET")
++        self.assertNoContentLength(first)
++        self.assertNoContentLength(followed)
++
++        session, adapter = recording_session([(302, {"location": "/next"})])
++        session.head(BODILESS_URL, allow_redirects=True)
++        first, followed = adapter.sent
++        self.assertEqual(followed.method, "HEAD")
++        self.assertNoContentLength(first)
++        self.assertNoContentLength(followed)
++
++    def test_followed_get_drops_caller_supplied_content_length(self):
++        session, adapter = recording_session([(302, {"location": "/next"})])
++        session.get(BODILESS_URL, headers={"Content-Length": "7"},
++                    allow_redirects=True)
++        first, followed = adapter.sent
++        self.assertNoContentLength(first)
++        self.assertNoContentLength(followed)
++
++    def test_bodiless_get_and_head_gain_no_transfer_encoding(self):
++        # CP-13: nothing about Transfer-Encoding changes. A bodiless GET or
++        # HEAD carries none today, so dropping Content-Length must not
++        # bring in a chunked encoding in its place.
++        session, adapter = recording_session()
++        session.get(BODILESS_URL)
++        session.head(BODILESS_URL)
++        session.get(BODILESS_URL, auth=("u", "p"))
++        prepared = [requests.Request("GET", BODILESS_URL).prepare()]
++        for request in adapter.sent + prepared:
++            self.assertFalse("Transfer-Encoding" in request.headers)
++
++        session, adapter = recording_session([(302, {"location": "/next"})])
++        session.post(BODILESS_URL, data="hello", allow_redirects=True)
++        for request in adapter.sent:
++            self.assertFalse("Transfer-Encoding" in request.headers)
++
++
++    def test_get_with_body_keeps_content_length(self):
++        session, adapter = recording_session()
++        session.get(BODILESS_URL, data="x")
++        (sent,) = adapter.sent
++        self.assertEqual(sent.headers["Content-Length"], "1")
++
++        session, adapter = recording_session()
++        session.get(BODILESS_URL, data={"a": "b"})
++        (sent,) = adapter.sent
++        self.assertEqual(sent.headers["Content-Length"], "3")
++        self.assertEqual(sent.headers["Content-Type"],
++                         "application/x-www-form-urlencoded")
++
++        session, adapter = recording_session()
++        session.get(BODILESS_URL, files={"f": b"ab"})
++        (sent,) = adapter.sent
++        self.assertEqual(sent.headers["Content-Length"], str(len(sent.body)))
++
++    def test_get_with_file_object_keeps_content_length(self):
++        for content, expected in ((b"", "0"), (b"abc", "3")):
++            with tempfile.TemporaryFile() as body:
++                body.write(content)
++                body.seek(0)
++                session, adapter = recording_session()
++                session.get(BODILESS_URL, data=body)
++                (sent,) = adapter.sent
++                self.assertEqual(sent.headers["Content-Length"], expected)
++
++    def test_get_with_empty_sequence_body_keeps_content_length_zero(self):
++        for data in ([], ()):
++            session, adapter = recording_session()
++            session.get(BODILESS_URL, data=data)
++            (sent,) = adapter.sent
++            self.assertEqual(sent.headers["Content-Length"], "0")
++
++        prepared = requests.Request("GET", BODILESS_URL, data=None).prepare()
++        self.assertEqual(prepared.body, [])
++        self.assertEqual(prepared.headers["Content-Length"], "0")
++
++        # prepare_auth recomputes the header, and an empty list is not None.
++        session, adapter = recording_session()
++        session.get(BODILESS_URL, data=[], auth=("u", "p"))
++        (sent,) = adapter.sent
++        self.assertEqual(sent.headers["Content-Length"], "0")
++
++    def test_bodiless_non_get_head_keeps_content_length_zero(self):
++        for verb in ("post", "put", "patch", "delete", "options"):
++            session, adapter = recording_session()
++            getattr(session, verb)(BODILESS_URL)
++            (sent,) = adapter.sent
++            self.assertEqual(sent.method, verb.upper())
++            self.assertEqual(sent.headers["Content-Length"], "0")
++
++        prepared = requests.Request("PURGE", BODILESS_URL).prepare()
++        self.assertEqual(prepared.headers["Content-Length"], "0")
++
++    def test_bodiless_post_with_auth_keeps_content_length_zero(self):
++        session, adapter = recording_session()
++        session.post(BODILESS_URL, auth=("u", "p"))
++        (sent,) = adapter.sent
++        self.assertTrue("Authorization" in sent.headers)
++        self.assertEqual(sent.headers["Content-Length"], "0")
++
++
+ if __name__ == '__main__':
+     unittest.main()

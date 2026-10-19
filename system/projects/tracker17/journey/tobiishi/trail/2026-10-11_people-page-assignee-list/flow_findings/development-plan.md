@@ -1,0 +1,11 @@
+# Flow Findings — development-plan  (audited 2026-10-11)
+
+Findings for this step's output only, produced by the `development-audit` skill.
+Change-local findings live here; skill-general findings are also raised as kaizen items.
+
+Audited `tl_instruction.md` against `change_design.md` (§§ 2–5, T1–T18) and `change_spec.md` (CP-80 to CP-105, E1–E26). Header `Category: feature` / `Behaviour: changing` copied verbatim (lens 3 clean). Atomic-landing edges (assignees.py + trace declaration; saved shape + exact-key test; header + navigation assertions) each sit inside one task (Tasks 1, 3, 4). Divergences from the design (task split, enum-typed presentation codes, gate reconciliation vs CP-104, trace built incrementally, added QC-53 coverage) are each recorded in `## TL Review Notes` with a reason (lens 4 clean). Each task states properties and defers implementation ("Infer from failing tests"); no design constraint is enacted or dropped (lens 8 clean). Lenses 7, 9, 10 do not apply to this step.
+
+- **[non-blocking · change-local · coverage]** Design T12 asks for failed add/remove "on empty and populated state as applicable"; Task 5's `test_failed_assignee_actions_keep_state_and_report_plain_failure` names only a populated list and "pre-existing saved bytes". A failed add on an empty list (retained field, Add focus) is a rule-implied edge with no named case. Where: `tl_instruction.md` Task 5 §Behaviours to verify. Name the empty-list starting state in the case, as Task 2's query test does.
+- **[non-blocking · change-local · step-specific contract]** Tasks 1–4 gate only on the two pytest commands and `compileall`; `ruff format --check`, `ruff check`, `mypy` and `timed_run.py` first appear in Task 5's gate, so a format/lint/type break from Tasks 1–4 surfaces only at the last task, away from the commit that caused it. Where: `tl_instruction.md` Tasks 1–4 §Verification gate vs Task 5 §Verification gate. Consider whether the earlier gates should carry the static checks the final one does.
+
+Note (not a finding): the TL's recorded gate limitation (no Playwright, socket-bind permission errors) means Tasks 1–4's e2e gate cannot pass in the planning environment; the plan states this and forbids skipping, so it is declared, not hidden.

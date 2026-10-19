@@ -1,0 +1,39 @@
+{
+  "skill_name": "copytrader-suitability-reviewer",
+  "evals": [
+    {
+      "id": 1,
+      "name": "clearly-not-suitable-high-risk",
+      "prompt": "Review this trader for copy suitability: Username: TurboTrader99 | Risk score: 9/10 | 12-month gain: +34% | Max drawdown: 41% | Months active: 8",
+      "assertions": [
+        {
+          "name": "result_is_not_suitable",
+          "description": "Output contains 'NOT_SUITABLE' for TurboTrader99",
+          "tier": "structural"
+        },
+        {
+          "name": "reason_names_disqualifying_factor",
+          "description": "Output reason references either the risk score ('9', 'risk score') or the short track record ('8 months', 'months active', 'track record')",
+          "tier": "structural"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "name": "suitable-borderline-risk",
+      "prompt": "Review this trader for copy suitability: Username: SteadyGrowth22 | Risk score: 5/10 | 12-month gain: +11% | Max drawdown: 8% | Months active: 24",
+      "assertions": [
+        {
+          "name": "result_is_suitable",
+          "description": "Output contains 'SUITABLE' for SteadyGrowth22",
+          "tier": "structural"
+        },
+        {
+          "name": "prioritization_is_sound",
+          "description": "The reason given demonstrates sound prioritization of the trader's risk-return factors",
+          "tier": "nuanced"
+        }
+      ]
+    }
+  ]
+}

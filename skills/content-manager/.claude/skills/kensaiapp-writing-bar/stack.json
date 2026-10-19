@@ -1,0 +1,7 @@
+{
+  "version": 1,
+  "substance": [
+    "skills/content-manager/.claude/skills/kensaiapp-writing-bar/SKILL.md",
+    "skills/content-manager/.claude/skills/kensaiapp-writing-bar/prompts/rich.md"
+  ]
+}

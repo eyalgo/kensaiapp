@@ -1,0 +1,77 @@
+{
+  "skill_name": "development-implementation",
+  "evals": [
+    {
+      "id": 1,
+      "name": "unfinished-inherited-work",
+      "prompt": "Use development-implementation in a read-only decision check. Do not execute commands, launch a run or edit files. Given this developer-stage state, explain the concrete next actions and required exit evidence: The specification replaces a route response and requires a negative authorization assertion. Tasks 1 and 2 have landing commits. Task 3 has partial code, no new route tests, and old tests for the replaced behavior. An inherited implementation-complete marker defers task 3 because its replacement tests are unfinished. The environment works.",
+      "assertions": [
+        {
+          "name": "contract-directed-action",
+          "description": "The answer directs writing Task 3 route tests, replacing only superseded assertions, repairing the implementation and running the full task gate; it does not defer on these facts. A passing answer says to implement the missing negative authorization assertion and verify it, rather than merely list it in review notes.",
+          "tier": "nuanced",
+          "nuanced_justification": "Mentioning a test or repair verb cannot distinguish actually finishing required proof from proposing it for another run; assess the action and its justification together."
+        },
+        {
+          "name": "exit-evidence",
+          "description": "The answer requires a new closing marker superseding the inherited one, with Task 3 removed from Deferred only after complete verification.",
+          "tier": "structural"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "name": "missing-assertion-behind-green",
+      "prompt": "Use development-implementation in a read-only decision check. Do not execute commands, launch a run or edit files. Given this developer-stage state, explain the concrete next actions and required exit evidence: All written tests pass and a plain task commit claims completion. The instruction requires rejecting an unknown identifier, but the test never asserts this. The implementation can be edited and verified locally.",
+      "assertions": [
+        {
+          "name": "contract-directed-action",
+          "description": "The answer reopens the task and adds the unknown-identifier assertion, repairing code if necessary; a passing answer treats the green suite as insufficient proof of the missing requirement.",
+          "tier": "nuanced",
+          "nuanced_justification": "Mentioning a test or repair verb cannot distinguish actually finishing required proof from proposing it for another run; assess the action and its justification together."
+        },
+        {
+          "name": "exit-evidence",
+          "description": "The answer retains the earlier commit, records its unmet requirement and correction, and allows the already-green lane when the added assertion passes without manufacturing a red.",
+          "tier": "structural"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "name": "permission-denied-after-request",
+      "prompt": "Use development-implementation in a read-only decision check. Do not execute commands, launch a run or edit files. Given this developer-stage state, explain the concrete next actions and required exit evidence: Task 1 is complete. Task 2 requires an integration operation. The runner denied it, the developer requested approval and approval was denied. There is no permitted equivalent environment. The specified failing case is already committed.",
+      "assertions": [
+        {
+          "name": "contract-directed-action",
+          "description": "The answer defers Task 2 with the denied operation, approval request and result as evidence; it continues independent tasks. A passing answer names the permission needed and keeps the failing case.",
+          "tier": "nuanced",
+          "nuanced_justification": "Mentioning a test or repair verb cannot distinguish actually finishing required proof from proposing it for another run; assess the action and its justification together."
+        },
+        {
+          "name": "exit-evidence",
+          "description": "The answer calls for Deferred and actual Suite/Failing records rather than fabricating a pass; it does not propose bypassing the denied permission. Note: a capable baseline may also respect the denial.",
+          "tier": "structural"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "name": "preserving-relocation-regression",
+      "prompt": "Use development-implementation in a read-only decision check. Do not execute commands, launch a run or edit files. Given this developer-stage state, explain the concrete next actions and required exit evidence: During a Behaviour: preserving relocation, a previously green characterization test turns red because it reaches an internal import path. The task did not list it as Red at baseline.",
+      "assertions": [
+        {
+          "name": "contract-directed-action",
+          "description": "The answer halts for reclassification and records the affected test and import-path change. A passing answer surfaces the preserving classification conflict instead of changing the characterization expectation.",
+          "tier": "nuanced",
+          "nuanced_justification": "Mentioning a test or repair verb cannot distinguish actually finishing required proof from proposing it for another run; assess the action and its justification together."
+        },
+        {
+          "name": "exit-evidence",
+          "description": "The answer requires halt_report.md and no new implementation-complete marker; it keeps the failing evidence. Note: a capable baseline may also refuse to weaken tests.",
+          "tier": "structural"
+        }
+      ]
+    }
+  ]
+}

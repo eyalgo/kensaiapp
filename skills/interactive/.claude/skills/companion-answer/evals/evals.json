@@ -1,0 +1,192 @@
+{
+  "skill_name": "companion-answer",
+  "executor": {
+    "model": "opus"
+  },
+  "evals": [
+    {
+      "id": 1,
+      "name": "answers-land-in-owner-slots-only",
+      "prompt": "Let's go over the open questions on the berth charter. The harbour tree is at skills/interactive/.claude/skills/companion-answer/evals/inputs/harbourlight — treat that directory as the repo root, every path resolves under it, and nothing outside it is yours to write. It is not a git repository, so do not run git or the commit builder; when you reach the commit step, write out the exact builder call you would have made instead. Here are my answers. On how long a vessel may sit: 21 days, counted from the last movement recorded in the berth log — long enough that a winter lay-up doesn't trip it. On the duty officer logging overnight arrivals: confirm.",
+      "assertions": [
+        {
+          "name": "both-owner-slots-filled-in-the-live-companion",
+          "description": "run_delta.json's 'modified' list contains 'harbourlight/system/standards/berth_charter_open_issues.md'. In outputs/product/harbourlight/system/standards/berth_charter_open_issues.md, item 1.1's '**Answer:**' no longer reads the placeholder '<the owner fills this in>' and carries the owner's substance — both the number 21 and the berth log must appear in it, e.g. '21 days, counted from the last movement recorded in the berth log' would pass. Item 2.1's '**Confirm or override:**' no longer reads its '<\"confirm\", or \"override:' placeholder and reads as a confirmation — 'confirm' or 'confirmed' would pass. Fails if either slot is still at its placeholder, or if the file is absent from 'modified'. Path note: run_delta.json and outputs/product/ are rooted at the staged product root, which holds every fixture tree, so entries there carry the fixture directory as their first segment. A path the run itself writes in its own commit is repo-relative and carries no such prefix.",
+          "tier": "structural"
+        },
+        {
+          "name": "the-copy-under-the-project-is-left-alone",
+          "description": "'harbourlight/system/projects/quayside/docs/imported_charters/berth_charter_open_issues.md' appears in NONE of run_delta.json's 'created', 'modified' or 'deleted' lists. That file is companion-shaped and reads almost identically to the live one, and it is excluded twice over: it is buried three levels under a project card rather than sitting one level deep in a document home, and its header names 'system/standards/berth_charter.md' — a path it does not sit in — so it is a reference copy nothing will ever fold in. Paired with the positive half above: the live companion at system/standards/ must be in 'modified', so a run that wrote nothing at all fails both. Fails if the copy is touched, whether instead of or as well as the live file. Path note: run_delta.json and outputs/product/ are rooted at the staged product root, which holds every fixture tree, so entries there carry the fixture directory as their first segment. A path the run itself writes in its own commit is repo-relative and carries no such prefix.",
+          "tier": "structural"
+        },
+        {
+          "name": "the-charter-itself-is-not-written",
+          "description": "'harbourlight/system/standards/berth_charter.md' appears in NONE of run_delta.json's 'created', 'modified' or 'deleted' lists. The owner's answers reach the charter on the producing skill's next run, not on this one — a run that helpfully sets § 3's idle period to 21 days has written a document that is not its to write. Paired with the positive half in the first assertion, so an empty run cannot pass on this alone. Path note: run_delta.json and outputs/product/ are rooted at the staged product root, which holds every fixture tree, so entries there carry the fixture directory as their first segment. A path the run itself writes in its own commit is repo-relative and carries no such prefix.",
+          "tier": "structural"
+        },
+        {
+          "name": "section-3-is-recognised-as-another-actors",
+          "description": "In outputs/product/harbourlight/system/standards/berth_charter_open_issues.md, item 3.1's '**Resolution:**' still reads its placeholder '<the Harbourmaster fills this on the next write pass>' — unchanged. That item carries no owner slot ('**Answer:**' or '**Confirm or override:**'), so it is not the owner's to answer, and the run has to work that out from the slot label rather than from a section count. The response must also say so: it names item 3.1 or the § 3 heading and states that it is for the producing role rather than the owner, e.g. 'item 3.1 is the Harbourmaster's to resolve on its next pass, so I left it' would pass. Fails if the Resolution slot was written into, or if the response never accounts for the item. Path note: run_delta.json and outputs/product/ are rooted at the staged product root, which holds every fixture tree, so entries there carry the fixture directory as their first segment. A path the run itself writes in its own commit is repo-relative and carries no such prefix.",
+          "tier": "nuanced"
+        },
+        {
+          "name": "commit-stated-before-the-re-run-and-no-launcher-invented",
+          "description": "The response contains a commit_builder.py call that stages exactly one path, 'system/standards/berth_charter_open_issues.md', via a single --add, and passes '--skill companion-answer'. It appears BEFORE the re-run is named, in reading order. The re-run names 'berth-charter' (the skill the companion's own header says re-runs it) and does NOT present a launcher path such as '<CORE>/launchers/berth-charter/launcher.sh' as though it existed — no such launcher does. A response reporting that no launcher was found and naming the skill and the posture to run it in would pass, as would one that names only the skill. Fails if a launcher path is offered for berth-charter, if the builder call stages the charter or the copy as well, or if the re-run is named with no commit stated at all.",
+          "tier": "nuanced"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "name": "asks-the-first-item-and-writes-nothing-unanswered",
+      "prompt": "Walk me through the open items on the berth charter, one at a time — I want to think about each before I answer. The tree is at skills/interactive/.claude/skills/companion-answer/evals/inputs/harbourlight; treat that directory as the repo root and nothing outside it is yours to write. It is not a git repository, so do not run git or the commit builder.",
+      "assertions": [
+        {
+          "name": "nothing-is-written-and-the-question-is-put",
+          "description": "run_delta.json's 'created', 'modified' and 'deleted' lists are all empty — the owner has answered nothing, so there is nothing to write, and a slot filled here is an answer invented on their behalf. The positive half that this must be paired with: the response puts item 1.1 to the owner as a question about how long a vessel may hold a berth without moving, in plain language, and stops there awaiting the answer. Fails if any file was written, and equally if nothing was written and no question was asked — an empty output tree is not a pass on its own.",
+          "tier": "nuanced"
+        },
+        {
+          "name": "one-item-at-a-time-not-the-whole-file",
+          "description": "The response puts item 1.1 and does not also put item 2.1 (the duty officer / overnight arrival logging choice) as a question in the same turn. Asking one and naming the remaining count is fine — 'that's the first of two things I need from you' would pass; asking both, or listing every item with its slot for the owner to fill, fails. Cardinality guard: a companion with only one owner item passes automatically, but this fixture has two.",
+          "tier": "nuanced"
+        },
+        {
+          "name": "the-question-carries-the-items-own-context-and-a-stated-lean",
+          "description": "The turn that puts item 1.1 includes what the item itself records — that § 3 of the charter depends on the number, and that the bylaw, the berth agreements and the tariff were searched without finding one (at least one of those three sources must be named) — and then either offers the skill's own view with a reason attached, or states plainly that it has no basis to lean. Both are passes; a bare restatement of the question with neither the item's context nor a position is the failure. e.g. 'the bylaw defers to the harbour's own posted limit, so there is nothing to inherit — I'd lean to a period long enough to cover a winter lay-up, but that is a judgement about your traffic, not something the files settle' would pass.",
+          "tier": "nuanced"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "name": "no-live-companion-and-the-search-is-shown",
+      "prompt": "Anything still open on the mooring standard? If so let's go through it. The tree is at skills/interactive/.claude/skills/companion-answer/evals/inputs/northgate — treat that directory as the repo root and nothing outside it is yours to write. It is not a git repository, so do not run git or the commit builder.",
+      "assertions": [
+        {
+          "name": "nothing-open-is-reported-and-nothing-is-written",
+          "description": "run_delta.json's 'created', 'modified' and 'deleted' lists are all empty, AND the response states that nothing is open — that no live companion exists beside system/standards/mooring_standard.md, and that its absence is what a settled document looks like. The positive half is required precisely because an empty output tree is also what a crashed or never-invoked run leaves: 'no file was written' alone cannot fail. Fails if a companion was created — with nothing to walk, no item can turn out to belong to another document, so this run opens none — or if the response reports the absence without stating that the standard is therefore settled.",
+          "tier": "nuanced"
+        },
+        {
+          "name": "the-search-is-stated-not-just-its-result",
+          "description": "The response says where it looked, not only what it concluded: it names the document homes it globbed — at least the instance's own document folders (system/*/) and the product docs/ form — and reports that they returned no companion. A run that says only 'there are no open issues' fails, because an empty result and a broken search are indistinguishable from the outside and the shown search is what separates them. e.g. 'nothing under system/*/ or docs/ — the standard has no companion beside it, which is what settled looks like' would pass. If the response mentions 'archive/rounds/mooring_standard_open_issues.md' at all it must be as excluded or already-answered; presenting it as an open companion fails.",
+          "tier": "nuanced"
+        },
+        {
+          "name": "the-archived-round-is-not-walked-or-overwritten",
+          "description": "'northgate/archive/rounds/mooring_standard_open_issues.md' appears in none of run_delta.json's lists, and if outputs/product carries it at all its two slots are byte-identical to the fixture — the annual/equinox answer under 1.1 and 'confirm' under 2.1 both intact. That file is already answered, so a run that treats it as live fails visibly either way: it walks a question the owner closed, or it writes over their words. Fails on any modification, and on a response that puts item 1.1 to the owner as though it were open. Path note: run_delta.json and outputs/product/ are rooted at the staged product root, which holds every fixture tree, so entries there carry the fixture directory as their first segment. A path the run itself writes in its own commit is repo-relative and carries no such prefix.",
+          "tier": "nuanced"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "name": "header-names-no-skill-so-it-asks-rather-than-inventing",
+      "prompt": "Let's clear the open items on the ledger standard. It's at skills/interactive/.claude/skills/companion-answer/evals/inputs/ledgerworks — treat that directory as the repo root and nothing outside it is yours to write. It is not a git repository, so do not run git or the commit builder; write out the builder call you would have made instead. My answers: a correcting entry can be posted against a closed period for 30 days after the close, and after that it goes to the next open period with a note pointing back. And on keying the close to the Registrar's signature: confirm.",
+      "assertions": [
+        {
+          "name": "answers-written-despite-the-unusual-header",
+          "description": "run_delta.json's 'modified' list contains 'ledgerworks/docs/LEDGER_open_issues.md'. In outputs/product/ledgerworks/docs/LEDGER_open_issues.md, item 1.1's '**Answer:**' carries the owner's substance — both '30' and a reference to the next open period must appear — and item 2.1's '**Confirm or override:**' reads as a confirmation ('confirm' or 'confirmed' would pass). This companion's header names its document by bare filename ('Companion to `LEDGER.md`') rather than by path, so the liveness test has to fall back to the sibling check; a run that rejects it as not-live fails this case. Path note: run_delta.json and outputs/product/ are rooted at the staged product root, which holds every fixture tree, so entries there carry the fixture directory as their first segment. A path the run itself writes in its own commit is repo-relative and carries no such prefix.",
+          "tier": "structural"
+        },
+        {
+          "name": "no-skill-name-is-invented-for-the-re-run",
+          "description": "This header backticks no skill to re-run — it describes a two-role loop in prose. The response must not present any backticked skill name as the thing to re-run, and must not present a '<CORE>/launchers/...' path for one. Instead it carries what the header does say: both role names, 'Auditor' and 'Registrar', appear in the response, along with the state the file records ('awaiting-owner', or that it is now the writing role's move), and it asks the owner who moves next rather than deciding. e.g. 'the header names an Auditor write pass and a Registrar review pass but no skill to invoke — the State line says awaiting-owner, so with your answers in it is the Auditor's move; who runs that?' would pass. Fails if a plausible-looking skill name or launcher path is offered.",
+          "tier": "nuanced"
+        },
+        {
+          "name": "the-standard-itself-and-the-round-header-are-untouched",
+          "description": "'ledgerworks/docs/LEDGER.md' appears in none of run_delta.json's 'created', 'modified' or 'deleted' lists, and in outputs/product/ledgerworks/docs/LEDGER_open_issues.md the two header lines '**Round:** 2' and '**State:** awaiting-owner' are unchanged. Both are the producing loop's bookkeeping, not the answerer's: advancing the Round or flipping the State here would tell the next pass that a write it never made has happened. Paired with the positive half in the first assertion, so a run that wrote nothing cannot pass on this. Path note: run_delta.json and outputs/product/ are rooted at the staged product root, which holds every fixture tree, so entries there carry the fixture directory as their first segment. A path the run itself writes in its own commit is repo-relative and carries no such prefix.",
+          "tier": "structural"
+        },
+        {
+          "name": "commit-still-stated-before-anything-else",
+          "description": "The response contains a commit_builder.py call staging exactly one path, 'docs/LEDGER_open_issues.md', via a single --add, and it appears before the question about who moves next. Commit-first is the one hazard this loop actually has: the run that closes a round removes the companion, and git refuses to remove a file carrying uncommitted edits, so an uncommitted answer strands the round. Fails if no builder call is stated, if it stages docs/LEDGER.md as well, or if the hand-off question is put with the answers left uncommitted.",
+          "tier": "nuanced"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "name": "two-live-companions-so-it-asks-which",
+      "prompt": "Let's go over the open issues — the tree is at skills/interactive/.claude/skills/companion-answer/evals/inputs/twinfields. Treat that directory as the repo root and nothing outside it is yours to write. It is not a git repository, so do not run git or the commit builder.",
+      "assertions": [
+        {
+          "name": "both-are-listed-with-the-document-each-belongs-to",
+          "description": "The response names both 'quay_rules_open_issues.md' and 'tide_tables_open_issues.md', and pairs each with the document it is a companion to ('quay_rules.md' / the quay rules, and 'tide_tables.md' / the tide tables standard). Listing only one, or listing two filenames without saying what each is about, fails — the owner is being asked to choose and needs to know what they are choosing between.",
+          "tier": "nuanced"
+        },
+        {
+          "name": "it-asks-rather-than-picking-and-writes-nothing",
+          "description": "run_delta.json's 'created', 'modified' and 'deleted' lists are all empty, AND the response ends in a question asking which of the two to walk. Neither companion is started, and the two are not merged into one walk: each has its own producing skill and its own commit, so a run that answers items from both in one pass fails even if every answer is right. The paired positive is the question itself — an empty output tree with no question is a run that did nothing. Note: a capable model without the skill may also stop and ask when handed two candidates, so this assertion is weaker as a discriminator than as a regression guard.",
+          "tier": "nuanced"
+        },
+        {
+          "name": "no-item-is-put-to-the-owner-before-the-choice",
+          "description": "The response does not put either companion's item 1.1 to the owner as a question to answer — neither the lighting level for night working nor the departure-from-prediction tolerance is asked. Naming a document's subject while listing the candidates is fine ('the quay rules companion has an open question about night lighting' would pass); asking the owner to answer it before they have chosen which file is being walked fails, because the answer would have nowhere settled to go.",
+          "tier": "nuanced"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "name": "an-item-belonging-to-another-document-opens-that-documents-companion",
+      "prompt": "Let's go through the open items on the Stonebridge crossing rules. The tree is at skills/interactive/.claude/skills/companion-answer/evals/inputs/stonebridge — treat that directory as the repo root, its core/ is the instance core, every path resolves under it, and nothing outside it is yours to write. It is not a git repository, so do not run git or the commit builder; when you reach a commit step, write out the exact builder call you would have made instead. Answering both up front so you don't have to wait on me: on the headroom item — you're right that it's the survey's to fix, so yes, go ahead and open the survey's companion for it; the datum should be chart datum, and the survey should say so where it states the 4.2 m. On the tow item: confirm.",
+      "assertions": [
+        {
+          "name": "the-survey-companion-is-created-from-its-own-template",
+          "tier": "structural",
+          "description": "run_delta.json's 'created' list contains 'stonebridge/system/standards/river_survey_open_issues.md'. In outputs/product/stonebridge/system/standards/river_survey_open_issues.md the header carries 'Companion to `system/standards/river_survey.md`' and 're-run `river-survey`' — proving the template was resolved by its own pointer and not by grabbing the sibling: core/templates/crossing-templates/ holds two templates, and the other one names crossing_rules.md and re-runs `crossing-rules`. Fails if the created file carries the crossing-rules header, if it was written freehand with no 'Companion to' line, or if no file was created at all. Path note: run_delta.json and outputs/product/ are rooted at the staged product root, which holds every fixture tree, so entries there carry the fixture directory as their first segment. A path the run itself writes in its own commit is repo-relative and carries no such prefix."
+        },
+        {
+          "name": "the-created-companion-carries-a-real-item-and-says-no-producing-run-wrote-it",
+          "tier": "structural",
+          "description": "In outputs/product/stonebridge/system/standards/river_survey_open_issues.md: (a) at least one '###' item is present and its text names the datum question — 'datum' must appear — so the file is not an empty shell instantiated from the template's placeholders; and (b) a blockquote or bolded line states that no `river-survey` run wrote this file, e.g. 'This companion was not written by a `river-survey` run' or 'opened by the owner, not by a `river-survey` run', and names where the item came from (the crossing rules companion, its item 1.1, or crossing_rules_open_issues.md). Both halves are required: a file with the provenance note and only template placeholders fails, and so does one with a real item and no provenance."
+        },
+        {
+          "name": "the-survey-itself-is-not-written",
+          "tier": "structural",
+          "description": "'stonebridge/system/standards/river_survey.md' appears in NONE of run_delta.json's 'created', 'modified' or 'deleted' lists — a run that helpfully writes 'measured from chart datum' into section 3 has written a document that is not its to write; the owner's answer reaches the survey on `river-survey`'s next run. Paired with the positive half in the first assertion, so a run that wrote nothing at all cannot pass on this. Path note: run_delta.json and outputs/product/ are rooted at the staged product root, which holds every fixture tree, so entries there carry the fixture directory as their first segment. A path the run itself writes in its own commit is repo-relative and carries no such prefix."
+        },
+        {
+          "name": "the-walked-slot-is-answered-and-names-the-new-file",
+          "tier": "structural",
+          "description": "run_delta.json's 'modified' list contains 'stonebridge/system/standards/crossing_rules_open_issues.md', and in outputs/product/stonebridge/system/standards/crossing_rules_open_issues.md item 1.1's '**Answer:**' slot is no longer at its '<the owner fills this in>' placeholder: it carries the owner's substance (chart datum) AND names the file now carrying the change — 'river_survey_open_issues.md' must appear in that slot. Item 2.1's '**Confirm or override:**' reads as a confirmation ('confirm' or 'confirmed' passes). Fails if the slot is left at its placeholder, or if it carries the answer without pointing at the opened companion. Path note: run_delta.json and outputs/product/ are rooted at the staged product root, which holds every fixture tree, so entries there carry the fixture directory as their first segment. A path the run itself writes in its own commit is repo-relative and carries no such prefix."
+        },
+        {
+          "name": "the-new-companion-is-committed-before-the-walked-one",
+          "tier": "structural",
+          "description": "The response contains two commit_builder.py calls, and the one staging the survey companion ('river_survey_open_issues.md') appears BEFORE the one staging the walked companion ('crossing_rules_open_issues.md') in reading order. The order is the behaviour under test: the walked answer says the change is carried elsewhere and the producing skill folds that answer and drops the item, so a survey companion that is not committed by then loses the change. Fails if only one builder call is stated, if the two paths are staged in a single call, or if the walked companion's call comes first."
+        },
+        {
+          "name": "both-re-runs-are-named-and-neither-is-given-a-launcher-path",
+          "tier": "structural",
+          "description": "The response names BOTH producing skills as owing a run — 'crossing-rules' (the walked document's) and 'river-survey' (the document whose companion was opened) — and presents no launcher path for either, since no launcher exists for an invented skill. A response that reports no launcher was found and names the skill and the posture to run it in passes, as does one naming only the skills. Fails if only one of the two is named, or if a path such as '<CORE>/launchers/river-survey/launcher.sh' is offered as though it existed."
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "name": "consent-is-withheld-so-no-companion-is-opened",
+      "prompt": "Walk me through the open items on the Stonebridge crossing rules, one at a time — I want to think about each before I answer. The tree is at skills/interactive/.claude/skills/companion-answer/evals/inputs/stonebridge; treat that directory as the repo root, its core/ is the instance core, and nothing outside it is yours to write. It is not a git repository, so do not run git or the commit builder.",
+      "assertions": [
+        {
+          "name": "it-names-the-survey-and-asks-before-opening-anything",
+          "tier": "structural",
+          "description": "The response puts item 1.1 to the owner and states that the fix belongs to the survey — 'river_survey.md' or 'the river survey' must appear — and ASKS whether to open that document's companion, rather than reporting that it has done so. A question mark or an explicit request for the owner's go-ahead on that point is required. Fails if the response routes the item silently, if it never mentions the survey at all, or if it presents the survey's companion as already opened."
+        },
+        {
+          "name": "nothing-is-written-while-the-owner-has-not-answered",
+          "tier": "structural",
+          "description": "run_delta.json's 'created', 'modified' and 'deleted' lists are all empty. The owner has answered nothing and consented to nothing, so a survey companion opened here is one they never sanctioned, and a slot filled here is an answer invented on their behalf. The positive half this must be paired with is the first assertion: the question about item 1.1 and the survey has to have been asked. An empty output tree with no question asked fails both. Note: a capable baseline may also write nothing on this input; the discriminating half is naming the survey as the document that owes the fix. Path note: run_delta.json and outputs/product/ are rooted at the staged product root, which holds every fixture tree, so entries there carry the fixture directory as their first segment. A path the run itself writes in its own commit is repo-relative and carries no such prefix."
+        },
+        {
+          "name": "one-item-per-turn-still-holds",
+          "tier": "structural",
+          "description": "The response puts item 1.1 and does not also put item 2.1 (the vessel-under-tow calling choice) as a question in the same turn. Asking one and naming the remaining count is fine — 'that's the first of two' would pass; asking both, or listing every item with its slot for the owner to fill, fails. Cardinality guard: a companion with only one owner item passes automatically, but this fixture has two."
+        }
+      ]
+    }
+  ]
+}

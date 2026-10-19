@@ -1,0 +1,99 @@
+diff --git a/sympy/geometry/point.py b/sympy/geometry/point.py
+index 593048464..3e1e74685 100644
+--- a/sympy/geometry/point.py
++++ b/sympy/geometry/point.py
+@@ -266,8 +266,16 @@ def distance(self, p):
+         sqrt(x**2 + y**2)
+ 
+         """
+-        return sqrt(sum([(a - b)**2 for a, b in zip(
+-            self.args, p.args if isinstance(p, Point) else p)]))
++        # Read the argument once, before measuring it: a non-iterable raises
++        # TypeError here, and a one-shot iterator has no len().
++        own = self.args
++        other = p.args if isinstance(p, Point) else tuple(p)
++        missing = len(other) - len(own)
++        if missing > 0:
++            own = own + (S.Zero,)*missing
++        elif missing < 0:
++            other = other + (S.Zero,)*-missing
++        return sqrt(sum([(a - b)**2 for a, b in zip(own, other)]))
+ 
+     def taxicab_distance(self, p):
+         """The Taxicab Distance from self to point p.
+diff --git a/sympy/geometry/tests/test_point.py b/sympy/geometry/tests/test_point.py
+index c7b2d30f1..aff43faef 100644
+--- a/sympy/geometry/tests/test_point.py
++++ b/sympy/geometry/tests/test_point.py
+@@ -1,6 +1,7 @@
+ from __future__ import division
+ 
+-from sympy import I, Rational, Symbol, pi, sqrt
++from sympy import Float, I, Rational, Symbol, pi, sqrt
++from sympy.abc import x, y, z
+ from sympy.geometry import Line, Point, Point2D, Point3D, Line3D
+ from sympy.geometry.entity import rotate, scale, translate
+ from sympy.matrices import Matrix
+@@ -236,6 +237,62 @@ def test_Point2D():
+     assert p2.distance(p3) == sqrt(17)/2
+ 
+ 
++def test_distance_unchanged_cases():
++    # Pins what Point.distance returns for points of the same length and for
++    # an argument that is not a sequence, so padding the shorter point cannot
++    # move them. A dropped coordinate that is 0 adds nothing to the distance.
++    assert Point(1, 0).distance(Point(1, 0, 0)) == 0
++
++    assert Point(1, 1).distance(Point(4, 5)) == 5
++    assert Point(x, y).distance(Point(0, 0)) == sqrt(x**2 + y**2)
++    assert Point3D(1, 1, 1).distance(Point3D(0, 0, 0)) == sqrt(3)
++    assert Point(1, 2, 3, 4).distance(Point(0, 0, 0, 0)) == sqrt(30)
++
++    # A plain sequence of floats keeps a Float result; the same numbers as a
++    # Point would be rationalized, so the argument must not become a Point.
++    # The type is what tells the two apart: Float(0.5) == Rational(1, 2) here.
++    from_sequence = Point(2, 0).distance((1.5, 0))
++    assert isinstance(from_sequence, Float)
++    assert from_sequence == Float(0.5)
++
++    # A one-shot iterator has no len() and still works.
++    from_iterator = Point(2, 0).distance(iter((1.5, 0)))
++    assert isinstance(from_iterator, Float)
++    assert from_iterator == Float(0.5)
++
++    raises(TypeError, lambda: Point(2, 0).distance(5))
++    raises(TypeError, lambda: Point(2, 0).distance(Line((0, 0), (1, 1))))
++
++
++def test_distance_pads_shorter_point():
++    # A coordinate the shorter of the two lacks counts as 0, whichever of the
++    # two is shorter and whatever the lengths.
++    assert Point(2, 0).distance(Point(1, 0, 2)) == sqrt(5)
++    assert Point(1, 0, 2).distance(Point(2, 0)) == sqrt(5)
++    assert Point(0, 0).distance(Point(1, 1, 1, 1)) == 2
++    assert Point(1, 1, 1, 1).distance(Point(0, 0)) == 2
++    assert Point(x, y).distance(Point(0, 0, z)) == sqrt(x**2 + y**2 + z**2)
++
++    # The same holds when the argument is a plain sequence.
++    assert Point(2, 0).distance((1, 0, 2)) == sqrt(5)
++    assert Point(2, 0).distance([1, 0, 2]) == sqrt(5)
++    assert Point(1, 0, 2).distance((2, 0)) == sqrt(5)
++
++    # A Float in the sequence keeps a Float result. The expected value is a
++    # Float built the same way, so the test does not depend on how it prints.
++    with_float = Point(2, 0).distance((1.5, 0, 2))
++    assert isinstance(with_float, Float)
++    assert with_float == sqrt(Float(4.25))
++    # The same when the sequence is the shorter of the two and is the one
++    # padded: padding it must not turn it into a Point, which rationalizes.
++    padded_float = Point(1, 0, 2).distance((2.5, 0))
++    assert isinstance(padded_float, Float)
++    assert padded_float == sqrt(Float(6.25))
++
++    # The empty sequence is the shortest case: it pads to the origin.
++    assert Point(2, 0).distance(()) == 2
++
++
+ def test_issue_9214():
+     p1 = Point3D(4, -2, 6)
+     p2 = Point3D(1, 2, 3)

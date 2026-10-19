@@ -1,0 +1,74 @@
+[
+  {
+    "query": "Mode 1 — TDD. Intent: a skill that generates daily standup summaries from a list of tasks and blockers. Triggers on 'standup', 'daily summary'. What eval cases should I write for this?",
+    "should_trigger": true
+  },
+  {
+    "query": "I need eval cases for my new code-review skill. Here's the intent: it reads a git diff and outputs inline review comments grouped by severity.",
+    "should_trigger": true
+  },
+  {
+    "query": "skill-creator is delegating to you. Mode 1. Intent: a skill that formats Python code using black and isort. Triggers on 'format my code', 'run black'.",
+    "should_trigger": true
+  },
+  {
+    "query": "The writing-plans skill needs an evals.json — SKILL.md is at ~/.claude/skills/writing-plans/SKILL.md. Create eval cases from it.",
+    "should_trigger": false
+  },
+  {
+    "query": "Before I write the SKILL.md, I want to lock what success looks like. The skill should help Claude write conventional commit messages from a git diff.",
+    "should_trigger": true
+  },
+  {
+    "query": "evals.json for skill-creator is stale — the SKILL.md changed significantly. Mode 2. Update the eval cases to match the new skill behavior.",
+    "should_trigger": false
+  },
+  {
+    "query": "Write behavior evals for the proposal-interview skill. Use its existing SKILL.md at ~/.claude/skills/proposal-interview/ as source of truth.",
+    "should_trigger": false
+  },
+  {
+    "query": "I have a new skill idea but no SKILL.md yet. The skill converts meeting transcripts into action items. What test cases would prove it works?",
+    "should_trigger": true
+  },
+  {
+    "query": "Run the evals for the brainstorming skill — iteration 3. Use the existing evals.json.",
+    "should_trigger": false
+  },
+  {
+    "query": "Start an eval run on writing-architecture-and-design. I want to see how iteration 17 performs.",
+    "should_trigger": false
+  },
+  {
+    "query": "I want to create a new skill that summarizes meeting notes. Help me write the SKILL.md.",
+    "should_trigger": false
+  },
+  {
+    "query": "The skill-creator SKILL.md interview step is too verbose. Let's trim it down and rewrite the step 1 flow.",
+    "should_trigger": false
+  },
+  {
+    "query": "Run the trigger optimization loop for the deep-research skill — it's not triggering reliably enough.",
+    "should_trigger": false
+  },
+  {
+    "query": "Look at the benchmark.json from the last eval run and explain what failed.",
+    "should_trigger": false
+  },
+  {
+    "query": "The without-skill arm outscored with-skill on case 3 in the last run. What went wrong?",
+    "should_trigger": false
+  },
+  {
+    "query": "Write a SKILL.md for a new skill that helps Claude do security code reviews.",
+    "should_trigger": false
+  },
+  {
+    "query": "Open the grading.json from iteration 2 and summarize the nuanced grader failures.",
+    "should_trigger": false
+  },
+  {
+    "query": "Add the proposal-interview skill to bundles.json and update the README skills table.",
+    "should_trigger": false
+  }
+]

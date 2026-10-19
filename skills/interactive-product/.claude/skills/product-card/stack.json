@@ -1,0 +1,7 @@
+{
+  "version": 1,
+  "substance": [
+    "skills/interactive-product/.claude/skills/product-card/SKILL.md",
+    "skills/interactive-product/.claude/skills/product-card/prompts/rich.md"
+  ]
+}

@@ -1,0 +1,12 @@
+# Flow Findings — development-plan  (audited 2026-10-11)
+
+Findings for this step's output only, produced by the `development-audit` skill.
+Change-local findings live here; skill-general findings are also raised as kaizen items.
+
+Audited: `tl_instruction.md` against `change_design.md` and `change_spec.md`. The product has no `docs/`, so the adr / nfdr / fdr / SDD cross-checks were skipped, as the skill allows. Lenses 7, 9 and 10 do not apply to this step. Lenses 2, 3 and 4 found nothing: the Category and Behaviour lines are copied verbatim, the Task 1 / Task 2 split is logged with its reason, and the `Dependencies:` lines state use only.
+
+- **[non-blocking · change-local · step-specific contract]** The plan did not run the card's `Test command:`, which the development-plan Step 2 gate row says to run once. Where: `tl_instruction.md §TL Review Notes`, "Gate command taken from the spec's check". The skip is recorded with its reason, so lens 4 holds. The reason is the spec's run at base. The plan's own check that the command runs something under the plan's tree was still owed, and the plan wrote that gate into two tasks. Direction: run it once, or state why the spec's run is enough.
+- **[non-blocking · change-local · coverage / contract-by-construction]** The trailing-whitespace edge is dropped on a claim that was reasoned, not run. Where: `tl_instruction.md §TL Review Notes`, "Behaviour kept, not added", and Task 2 §Held by review. The plan says a docutils role cannot end in whitespace, so no test is added. CP-11's byte-identity against a second whitespace strip is then held by review alone, and every test passes under either construction. The input is not probed, for example an escaped space or a non-breaking space before the closing backquote. Direction: probe once with the card's interpreter, then either add a case or record the probe as the evidence for the claim.
+- **[non-blocking · change-local · step-specific contract]** Task 2's gate states a past-tense fact that no run has yet made true: "Both Task 2 tests failed on the unchanged tree." Where: `tl_instruction.md` Task 2 §Verification gate. The plan has no run behind it, and the Task 1 criterion says "75 passed plus the one new test" with no skipped count, so the gate pins a count that moves. Direction: state the red as a property the developer's red phase will show, and state the passed and skipped counts the way the spec's claim does.
+
+No blocking findings.

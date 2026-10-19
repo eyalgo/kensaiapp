@@ -1,0 +1,11 @@
+# Flow Findings — development-plan  (audited 2026-10-11)
+
+Findings for this step's output only, produced by the `development-audit` skill.
+Change-local findings live here; skill-general findings are also raised as kaizen items.
+
+Checked: `tl_instruction.md` against `change_design.md` §§ 4–5 and `change_spec.md`. Lenses 1–6 and 8 walked; lenses 7, 9 and 10 do not apply to this step. `docs/adr`, `nfdr.md`, `fdr.md` are absent (Definition: none), so that cross-check was skipped without a finding. The import claim in *TL Review Notes* ("Imports pinned") was checked against the product's base test file: `Value` and `IntegerField` are already imported, `Aggregate`, `Case`, `Q`, `When` are not. It holds.
+
+- **[non-blocking · change-local · contract-realized]** The third *Held by review* bullet says "Rows 3 and 8 fence the rendering and the value" of a non-distinct aggregate. Row 8 (`Count('age', distinct=True)` == 8) fences the *distinct* column result. No row asserts the non-distinct bound value stays `''`; row 3 fences only the rendered text. Where: `tl_instruction.md §Task 1 › Held by review`. The reading-the-diff hold stands, but the stated test cover overstates what the rows pin. Direction: name row 3 alone, or say the value is held by review.
+- **[non-blocking · change-local · divergence-record]** The behaviour list carries no row numbers, yet *Held by review*, the gate's pass criteria ("red rows (1, 2, 4, 5, 6, 7, 9)") and the design's fences all refer to rows by number. The numbering is recoverable only by counting bullets against design §5. Where: `tl_instruction.md §Behaviours to verify`, `§Verification gate`. A reader holding only the instruction can mis-map a row. Direction: number the bullets or name the tests in the gate line.
+
+No coverage, altitude, classification or enacted/dropped-constraint findings: every design row 1–9 maps to a named test with its assertions; CP-12's SQLite fallback, the NULL-not-counted edge and the default and per-group forms are all present; `Category: bug` / `Behaviour: changing` match the design verbatim; the two review reaches (PostgreSQL `ArrayAgg`/`StringAgg`, a user template with its own space) are stated as properties with their reason.

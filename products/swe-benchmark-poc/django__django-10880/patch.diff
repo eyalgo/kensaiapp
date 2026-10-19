@@ -1,0 +1,110 @@
+diff --git a/django/db/models/aggregates.py b/django/db/models/aggregates.py
+index ac0b62d0..ea88c54b 100644
+--- a/django/db/models/aggregates.py
++++ b/django/db/models/aggregates.py
+@@ -68,7 +68,7 @@ class Aggregate(Func):
+         return []
+ 
+     def as_sql(self, compiler, connection, **extra_context):
+-        extra_context['distinct'] = 'DISTINCT' if self.distinct else ''
++        extra_context['distinct'] = 'DISTINCT ' if self.distinct else ''
+         if self.filter:
+             if connection.features.supports_aggregate_filter_clause:
+                 filter_sql, filter_params = self.filter.as_sql(compiler, connection)
+diff --git a/tests/aggregation/tests.py b/tests/aggregation/tests.py
+index 8cac90f0..dce62b46 100644
+--- a/tests/aggregation/tests.py
++++ b/tests/aggregation/tests.py
+@@ -5,8 +5,8 @@ from decimal import Decimal
+ from django.core.exceptions import FieldError
+ from django.db import connection
+ from django.db.models import (
+-    Avg, Count, DecimalField, DurationField, F, FloatField, Func, IntegerField,
+-    Max, Min, Sum, Value,
++    Aggregate, Avg, Case, Count, DecimalField, DurationField, F, FloatField,
++    Func, IntegerField, Max, Min, Q, Sum, Value, When,
+ )
+ from django.test import TestCase
+ from django.test.utils import Approximate, CaptureQueriesContext
+@@ -1107,3 +1107,81 @@ class AggregateTestCase(TestCase):
+             Book.objects.aggregate(is_book=True)
+         with self.assertRaisesMessage(TypeError, msg % ', '.join([str(FloatField()), 'True'])):
+             Book.objects.aggregate(FloatField(), Avg('price'), is_book=True)
++
++    def test_distinct_count_over_case_renders_space_after_distinct(self):
++        qs = Author.objects.annotate(
++            n=Count(Case(When(age__lte=30, then='age')), distinct=True),
++        )
++        self.assertIn('COUNT(DISTINCT CASE WHEN', str(qs.query))
++
++    def test_distinct_count_over_column_renders_space_after_distinct(self):
++        qs = Author.objects.annotate(n=Count('age', distinct=True))
++        self.assertIn('COUNT(DISTINCT "aggregation_author"."age")', str(qs.query))
++
++    def test_non_distinct_count_renders_unchanged(self):
++        qs = Author.objects.annotate(n=Count('age'))
++        self.assertIn('COUNT("aggregation_author"."age")', str(qs.query))
++        qs = Author.objects.annotate(n=Count(Case(When(age__lte=30, then='age'))))
++        self.assertIn('COUNT(CASE WHEN', str(qs.query))
++
++    def test_distinct_count_over_case_returns_distinct_value(self):
++        case = Case(When(age__lte=30, then='age'))
++        self.assertEqual(
++            Author.objects.aggregate(n=Count(case, distinct=True)), {'n': 2},
++        )
++        # Without distinct the repeated age counts twice, so dropping DISTINCT
++        # would change the result. NULL branches are not counted either way.
++        self.assertEqual(Author.objects.aggregate(n=Count(case)), {'n': 3})
++
++    def test_distinct_count_over_case_with_default(self):
++        case = Case(
++            When(age__lte=30, then=Value(1)), default=Value(0),
++            output_field=IntegerField(),
++        )
++        self.assertEqual(
++            Author.objects.aggregate(n=Count(case, distinct=True)), {'n': 2},
++        )
++
++    def test_distinct_count_over_case_with_several_whens(self):
++        case = Case(
++            When(age__lte=29, then='age'),
++            When(age__gte=50, then='age'),
++        )
++        # Ages 29, 29, 25 and 57 match: three distinct values among four.
++        self.assertEqual(
++            Author.objects.aggregate(n=Count(case, distinct=True)), {'n': 3},
++        )
++        self.assertEqual(Author.objects.aggregate(n=Count(case)), {'n': 4})
++
++    def test_distinct_count_over_case_per_group(self):
++        qs = Author.objects.annotate(
++            n=Count(Case(When(age__lte=30, then='age')), distinct=True),
++        )
++        expected = {author.name: 1 for author in (self.a4, self.a6, self.a7)}
++        expected.update({
++            author.name: 0
++            for author in (self.a1, self.a2, self.a3, self.a5, self.a8, self.a9)
++        })
++        self.assertEqual({author.name: author.n for author in qs}, expected)
++
++    def test_distinct_count_with_filter_on_backend_without_filter_clause(self):
++        # SQLite has no FILTER clause, so the filter is rendered as a CASE WHEN.
++        result = Author.objects.aggregate(
++            n=Count('age', distinct=True, filter=Q(age__lte=30)),
++        )
++        self.assertEqual(result, {'n': 2})
++
++    def test_distinct_count_over_column_unchanged(self):
++        self.assertEqual(
++            Author.objects.aggregate(n=Count('age', distinct=True)), {'n': 8},
++        )
++
++    def test_distinct_aggregate_subclass_over_case(self):
++        class DistinctCount(Aggregate):
++            function = 'COUNT'
++            allow_distinct = True
++
++        expression = DistinctCount(Case(When(age__lte=30, then='age')), distinct=True)
++        self.assertEqual(Author.objects.aggregate(n=expression), {'n': 2})
++        qs = Author.objects.annotate(n=expression)
++        self.assertIn('COUNT(DISTINCT CASE WHEN', str(qs.query))

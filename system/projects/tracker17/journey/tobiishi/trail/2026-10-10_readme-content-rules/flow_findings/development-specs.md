@@ -1,0 +1,10 @@
+# Flow Findings — development-specs  (audited 2026-10-11)
+
+Findings for this step's output only, produced by the `development-audit` skill.
+Change-local findings live here; skill-general findings are also raised as kaizen items.
+
+Lenses 2, 3, 5, 8: clean. Header `Category: bug` / `Behaviour: preserving` matches `change_request.md` verbatim. I re-ran the 67-sentence check on the baseline README (`5dfc3343e`): 67 sentences, only line 23 over 20 words. The grep returns only line 81. Both reproduce the Verified Claims.
+
+- **[blocking · change-local · coverage / divergence-record]** The spec makes `pytest tests/e2e/` exiting 0 an invariant, and its own Verified Claims record that baseline as red (1 failed: port 8017 already in use). Nothing says how the red is to be treated, so the contradiction is carried forward unresolved. Where: `change_spec.md §Invariants (Test continuity)` vs `§Verified Claims`. The implementation then halted `preserving-baseline-red` for lack of a `Red at baseline:` allowance (`halt_report.md §Outcome`). Direction: state the red as a property the successor is bound by (the failure is environmental and is listed as accepted at baseline), or state that the invariant is conditional on the environment. Do not prescribe a task or plan.
+- **[non-blocking · change-local · evidence]** The recorded e2e result (1 failed, 11 passed) differs from what the implementation's baseline later saw (2 failed, 10 passed, `halt_report.md §Completed baseline execution`). The spec ran the suite once and does not say the failure set is unstable. Where: `change_spec.md §Verified Claims` (e2e rows). Direction: a red baseline claim should record whether the failing set is stable, or name the cause of each failure.
+- **[non-blocking · skill-general · divergence-record]** A preserving spec that finds a red baseline has no stated place to record "red at baseline, accepted" for the Developer. The spec treated it as prose in Verified Claims, and the run halted. → kaizen `preserving-spec-red-baseline-disposition`.

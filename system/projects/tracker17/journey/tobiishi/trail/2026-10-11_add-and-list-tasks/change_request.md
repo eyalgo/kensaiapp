@@ -1,0 +1,21 @@
+# Change request — 2026-10-11_add-and-list-tasks
+
+*Opened from station `2026-10-11_add-and-list-tasks` (item 2 of `tracker17 · nemawashi · 2026-10-07_tasks-in-a-project`). First change unit of that station; the station's reached-when 1 to 7 are all this one capability, so it is expected to be the only one.*
+
+---
+
+**Request:** Let the operator put tasks in a project and see them. Run from `products/tracker17/` under `python3 main.py`. The project's page gains an add-task form: a title, a priority with `medium` chosen, an assignee control offering the names on the People list plus none, and an optional due date picked from a date picker. A project with no tasks shows an invitation to add a first task. Adding a task lands on that task's own page, which here only shows the task's title, priority, assignee and due date and changes nothing. Adding with only a title saves the task as `medium`, unassigned, undated, status `todo`. A blank title is refused on the project page where it was entered, with the typed text kept and the saved data unchanged (SRS FR-15; UXD UX-I3). The project's list shows one row per task with its title, status, priority, assignee or "unassigned", labels and due date, earliest due date first and undated last; the labels column shows what a task carries, which is none yet. An open task due before today shows the word "Overdue" beside its due date and a task due today does not (SRS FR-15, FR-24 to FR-26, AC-13 first two cases; SDD § 6 S-2; UXD UX-F3, UX-F5, UX-S4, UX-A4). A task is saved in the form every later slice acts on, so this change fixes it, following the SDD. The rules live in new `domain/tasks.py`, `domain/priorities.py` and `domain/due_dates.py`; the web and application parts call them (SDD § 4 TS-3). Every string comes from the product's content record, none invented in code.
+
+Tests ship with it: unit tests for the three domain modules; integration tests through the real server for the form with `medium` chosen and the assignee choices, the first-task invitation, add with all four fields, add with a title only, the blank-title refusal, the list columns, the due-date order and the "Overdue" marking with today's date set by the test. `pytest products/tracker17/tests/` and `pytest products/tracker17/tests/e2e/` each exit 0 (run on a `git archive HEAD` copy that is `git init`-ed, since the repository-ignore test needs a git repo), and `python3 products/tracker17/tests/timed_run.py` still exits 0.
+
+**Must not be weakened or added:** `domain/labels.py` is not created and no label can be added or removed. The task page changes nothing: no edit form, and no left-the-list assignee rules (SDD § 4 RT-7, SRS AC-19). No status move, delete, filter, sort control, summary or comment is added. The saved form of the People list must not change, and no existing test is weakened to fit.
+
+**Left to later stations of the seed:** changing a task's fields and its assignee rules (item 3, `edit-task-fields`); labels (item 4, `task-labels`); the 1,000-task timed run (item 5, `timed-run`); status moves (`tracker17 · nemawashi · 2026-10-07_status-moves`); comments (`tracker17 · nemawashi · 2026-10-07_comment-on-a-task`).
+
+**Sizing:** the acceptance boundary is one operator capability, a project holding tasks the operator can add and read back (SRS FR-15, FR-24 to FR-26; SDD § 6 S-2 item 2; station reached-when 1 to 7). The form, the refusal, the task page that confirms an add, the ordered list and the overdue mark are one operation's input, error path and read-back, and the saved task form they share is what keeps them in one merge (`pm_right_size.md` § *Right-size to one honest merge*). It adds three small domain modules with their page parts and fits one development flow. Changing a task, labels, the timed run, status and comments are different operations with their own acceptance, held by later stations.
+
+**Category:** feature
+**Behaviour:** changing
+**Classified because:** the station's reached-when 2 to 6 say the project page gains an add-task form, a task page and a due-ordered list with "Overdue", none of which exist today (`ls products/tracker17/domain` lists `__init__.py assignees.py projects.py refusals.py state.py text.py`), so new behaviour and new public pages are added to the contract.
+
+**Sealed:** 2026-10-11 — accepted; merged to `main` via `--no-ff`.

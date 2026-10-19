@@ -1,0 +1,347 @@
+diff --git a/sklearn/linear_model/ridge.py b/sklearn/linear_model/ridge.py
+index 911c74a..61ca141 100644
+--- a/sklearn/linear_model/ridge.py
++++ b/sklearn/linear_model/ridge.py
+@@ -1301,14 +1301,23 @@ class RidgeClassifierCV(LinearClassifierMixin, _BaseRidgeCV):
+         weights inversely proportional to class frequencies in the input data
+         as ``n_samples / (n_classes * np.bincount(y))``
+ 
++    store_cv_values : boolean, default=False
++        Flag indicating if the cross-validation values corresponding to
++        each alpha should be stored in the ``cv_values_`` attribute (see
++        below). This flag is only compatible with ``cv=None`` (i.e. using
++        Generalized Cross-Validation). With any other ``cv``, ``fit``
++        raises a ``ValueError``.
++
+     Attributes
+     ----------
+-    cv_values_ : array, shape = [n_samples, n_alphas] or \
+-    shape = [n_samples, n_responses, n_alphas], optional
+-        Cross-validation values for each alpha (if `store_cv_values=True` and
+-    `cv=None`). After `fit()` has been called, this attribute will contain \
+-    the mean squared errors (by default) or the values of the \
+-    `{loss,score}_func` function (if provided in the constructor).
++    cv_values_ : array, shape = (n_samples, n_targets, n_alphas), optional
++        Cross-validation values for each alpha, stored by ``fit`` only when
++        ``store_cv_values=True`` and ``cv=None``. ``n_targets`` is 1 when
++        ``y`` has one or two classes, the number of classes when it has
++        more than two, and the number of columns of a multilabel indicator
++        ``y``. With ``scoring=None``, the values are the squared
++        Leave-One-Out errors, and ``alpha_`` is the alpha whose values have
++        the lowest mean (the first such alpha in ``alphas`` on a tie).
+ 
+     coef_ : array, shape = [n_features] or [n_targets, n_features]
+         Weight vector(s).
+@@ -1333,10 +1342,11 @@ class RidgeClassifierCV(LinearClassifierMixin, _BaseRidgeCV):
+     advantage of the multi-variate response support in Ridge.
+     """
+     def __init__(self, alphas=(0.1, 1.0, 10.0), fit_intercept=True,
+-                 normalize=False, scoring=None, cv=None, class_weight=None):
++                 normalize=False, scoring=None, cv=None, class_weight=None,
++                 store_cv_values=False):
+         super(RidgeClassifierCV, self).__init__(
+             alphas=alphas, fit_intercept=fit_intercept, normalize=normalize,
+-            scoring=scoring, cv=cv)
++            scoring=scoring, cv=cv, store_cv_values=store_cv_values)
+         self.class_weight = class_weight
+ 
+     def fit(self, X, y, sample_weight=None):
+diff --git a/sklearn/linear_model/tests/test_ridge.py b/sklearn/linear_model/tests/test_ridge.py
+index ee44da5..e5ecada 100644
+--- a/sklearn/linear_model/tests/test_ridge.py
++++ b/sklearn/linear_model/tests/test_ridge.py
+@@ -1,4 +1,8 @@
++import inspect
++import re
++
+ import numpy as np
++import pytest
+ import scipy.sparse as sp
+ from scipy import linalg
+ from itertools import product
+@@ -15,6 +19,7 @@ from sklearn.utils.testing import ignore_warnings
+ from sklearn.utils.testing import assert_warns
+ 
+ from sklearn import datasets
++from sklearn.base import clone
+ from sklearn.metrics import mean_squared_error
+ from sklearn.metrics import make_scorer
+ from sklearn.metrics import get_scorer
+@@ -860,3 +865,277 @@ def test_dtype_match_cholesky():
+     assert ridge_32.predict(X_32).dtype == X_32.dtype
+     assert ridge_64.predict(X_64).dtype == X_64.dtype
+     assert_almost_equal(ridge_32.coef_, ridge_64.coef_, decimal=5)
++
++
++# RidgeClassifierCV and store_cv_values
++
++_CV_VALUES_X = np.array([[-1, -1], [-1, 0], [-0.8, -1], [1, 1], [1, 0]])
++_CV_VALUES_ALPHAS = [0.1, 1.0, 10.0]
++_RANDOM_ALPHAS = np.array([0.1, 1.0, 10.0, 100.0, 1000.0])
++
++
++def _random_problem(n_samples=40, n_features=6, seed=0):
++    return np.random.RandomState(seed).randn(n_samples, n_features)
++
++
++def _fit_storing_cv_values(X, y, alphas, **params):
++    classifier = RidgeClassifierCV(alphas=alphas, store_cv_values=True,
++                                   **params)
++    return classifier.fit(X, y)
++
++
++def _assert_cv_values_shape(classifier, expected_shape):
++    assert classifier.cv_values_.ndim == 3
++    assert classifier.cv_values_.shape == expected_shape
++
++
++def test_ridgeclassifiercv_accepts_store_cv_values():
++    RidgeClassifierCV(store_cv_values=True)
++    RidgeClassifierCV(store_cv_values=True, cv=2)
++
++
++def test_ridgeclassifiercv_positional_args_keep_meaning():
++    classifier = RidgeClassifierCV([0.1, 1.0], True, False, None, None,
++                                   "balanced")
++    assert classifier.class_weight == "balanced"
++    assert classifier.store_cv_values is False
++
++
++def test_ridgeclassifiercv_signature_keeps_existing_parameters():
++    parameters = inspect.signature(RidgeClassifierCV.__init__).parameters
++    assert [(name, parameter.default)
++            for name, parameter in parameters.items()
++            if name != "self"] == [
++        ("alphas", (0.1, 1.0, 10.0)), ("fit_intercept", True),
++        ("normalize", False), ("scoring", None), ("cv", None),
++        ("class_weight", None), ("store_cv_values", False)]
++
++
++def test_ridgeclassifiercv_get_params_has_store_cv_values():
++    params = RidgeClassifierCV().get_params()
++    assert sorted(params) == ["alphas", "class_weight", "cv",
++                              "fit_intercept", "normalize", "scoring",
++                              "store_cv_values"]
++    assert params["store_cv_values"] is False
++
++
++def test_ridgeclassifiercv_clone_keeps_store_cv_values():
++    cloned = clone(RidgeClassifierCV(store_cv_values=True))
++    assert cloned.get_params()["store_cv_values"] is True
++
++
++def test_ridgeclassifiercv_set_params_store_cv_values():
++    classifier = RidgeClassifierCV().set_params(store_cv_values=True)
++    assert classifier.store_cv_values is True
++
++
++def test_store_cv_values_set_after_construction_reaches_fit():
++    y = [1, 1, 1, -1, -1]
++    set_later = RidgeClassifierCV(alphas=_CV_VALUES_ALPHAS).set_params(
++        store_cv_values=True)
++    cloned = clone(RidgeClassifierCV(alphas=_CV_VALUES_ALPHAS,
++                                     store_cv_values=True))
++    for classifier in (set_later, cloned):
++        classifier.fit(_CV_VALUES_X, y)
++        _assert_cv_values_shape(classifier, (5, 1, 3))
++
++    unset_later = RidgeClassifierCV(alphas=_CV_VALUES_ALPHAS,
++                                    store_cv_values=True).set_params(
++        store_cv_values=False)
++    unset_later.fit(_CV_VALUES_X, y)
++    assert not hasattr(unset_later, "cv_values_")
++
++
++def test_cv_values_shape_two_class_int():
++    classifier = _fit_storing_cv_values(
++        _CV_VALUES_X, [1, 1, 1, -1, -1], _CV_VALUES_ALPHAS)
++    _assert_cv_values_shape(classifier, (5, 1, 3))
++
++
++def test_cv_values_shape_two_class_string():
++    classifier = _fit_storing_cv_values(
++        _CV_VALUES_X, ["a", "b", "a", "b", "b"], _CV_VALUES_ALPHAS)
++    _assert_cv_values_shape(classifier, (5, 1, 3))
++
++
++def test_cv_values_shape_three_class():
++    classifier = _fit_storing_cv_values(
++        _CV_VALUES_X, [0, 1, 2, 0, 1], _CV_VALUES_ALPHAS)
++    _assert_cv_values_shape(classifier, (5, 3, 3))
++
++
++def test_cv_values_shape_indicator_matrix():
++    indicator = np.array([[1, -1, -1], [-1, 1, -1], [-1, -1, 1],
++                          [1, -1, -1], [-1, 1, -1]])
++    classifier = _fit_storing_cv_values(
++        _CV_VALUES_X, indicator, _CV_VALUES_ALPHAS)
++    _assert_cv_values_shape(classifier, (5, 3, 3))
++
++
++def test_cv_values_shape_one_class():
++    classifier = _fit_storing_cv_values(
++        _random_problem(), np.ones(40), _RANDOM_ALPHAS)
++    _assert_cv_values_shape(classifier, (40, 1, 5))
++
++
++def test_cv_values_shape_single_column_y():
++    y = (np.arange(40) % 3).reshape(-1, 1)
++    classifier = _fit_storing_cv_values(
++        _random_problem(), y, _RANDOM_ALPHAS)
++    _assert_cv_values_shape(classifier, (40, 3, 5))
++
++
++def test_cv_values_shape_four_class():
++    classifier = _fit_storing_cv_values(
++        _random_problem(), np.arange(40) % 4, _RANDOM_ALPHAS)
++    _assert_cv_values_shape(classifier, (40, 4, 5))
++
++
++def test_cv_values_shape_multilabel():
++    _, y = make_multilabel_classification(n_samples=40, n_features=6,
++                                          n_classes=2, random_state=0)
++    classifier = _fit_storing_cv_values(
++        _random_problem(), y, _RANDOM_ALPHAS)
++    _assert_cv_values_shape(classifier, (40, 2, 5))
++
++
++def test_cv_values_shape_unchanged_by_options():
++    X = _random_problem()
++    y = np.arange(40) % 2
++    sample_weight = np.random.RandomState(1).uniform(0.5, 2.0, 40)
++    for params, fit_params in [
++            ({"class_weight": "balanced"}, {}),
++            ({"normalize": True}, {}),
++            ({}, {"sample_weight": sample_weight}),
++            ({"scoring": "neg_mean_squared_error"}, {})]:
++        classifier = RidgeClassifierCV(
++            alphas=_RANDOM_ALPHAS, store_cv_values=True, **params)
++        classifier.fit(X, y, **fit_params)
++        _assert_cv_values_shape(classifier, (40, 1, 5))
++
++
++def _issue_problem():
++    rng = np.random.RandomState(0)
++    return rng.randn(100, 30), rng.normal(size=100)
++
++
++def test_issue_call_two_class_y_stores_values():
++    X, y = _issue_problem()
++    classifier = RidgeClassifierCV(alphas=np.arange(0.1, 1000, 0.1),
++                                   normalize=True, store_cv_values=True)
++    classifier.fit(X, y > 0)
++    _assert_cv_values_shape(classifier, (100, 1, 9999))
++
++
++def test_issue_call_continuous_y_still_rejected_at_fit():
++    X, y = _issue_problem()
++    classifier = RidgeClassifierCV(alphas=np.arange(0.1, 1000, 0.1),
++                                   normalize=True, store_cv_values=True)
++    with pytest.raises(ValueError, match="Unknown label type"):
++        classifier.fit(X, y)
++
++
++def test_alpha_is_argmin_of_mean_cv_values():
++    _, multilabel_y = make_multilabel_classification(
++        n_samples=40, n_features=6, n_classes=2, random_state=0)
++    X = _random_problem()
++    for y in (np.arange(40) % 2, np.arange(40) % 4, multilabel_y):
++        classifier = _fit_storing_cv_values(X, y, _RANDOM_ALPHAS)
++        mean_per_alpha = classifier.cv_values_.mean(axis=(0, 1))
++        assert classifier.alpha_ == _RANDOM_ALPHAS[np.argmin(mean_per_alpha)]
++
++
++def _assert_same_model(stored, default, datasets):
++    assert stored.alpha_ == default.alpha_
++    assert_array_equal(stored.coef_, default.coef_)
++    assert_array_equal(stored.intercept_, default.intercept_)
++    assert_array_equal(stored.classes_, default.classes_)
++    for data in datasets:
++        assert_array_equal(stored.predict(data), default.predict(data))
++        assert_array_equal(stored.decision_function(data),
++                           default.decision_function(data))
++
++
++def test_storing_cv_values_does_not_change_model():
++    X = _random_problem()
++    X_other = _random_problem(n_samples=7, seed=2)
++    y = np.arange(40) % 2
++    sample_weight = np.random.RandomState(1).uniform(0.5, 2.0, 40)
++    for fit_params in ({}, {"sample_weight": sample_weight}):
++        stored = RidgeClassifierCV(alphas=_RANDOM_ALPHAS,
++                                   store_cv_values=True)
++        default = RidgeClassifierCV(alphas=_RANDOM_ALPHAS)
++        stored.fit(X, y, **fit_params)
++        default.fit(X, y, **fit_params)
++        _assert_same_model(stored, default, (X, X_other))
++
++
++def test_storing_cv_values_does_not_change_multi_target_model():
++    _, multilabel_y = make_multilabel_classification(
++        n_samples=40, n_features=6, n_classes=2, random_state=0)
++    X = _random_problem()
++    X_other = _random_problem(n_samples=7, seed=2)
++    for y in (np.arange(40) % 4, multilabel_y):
++        stored = _fit_storing_cv_values(X, y, _RANDOM_ALPHAS)
++        default = RidgeClassifierCV(alphas=_RANDOM_ALPHAS).fit(X, y)
++        _assert_same_model(stored, default, (X, X_other))
++
++
++def test_no_cv_values_by_default():
++    classifier = RidgeClassifierCV(alphas=_CV_VALUES_ALPHAS)
++    classifier.fit(_CV_VALUES_X, [1, 1, 1, -1, -1])
++    assert not hasattr(classifier, "cv_values_")
++
++
++def test_no_cv_values_with_cv_set():
++    X = np.vstack([_CV_VALUES_X, _CV_VALUES_X])
++    y = [1, 1, 1, -1, -1] * 2
++    classifier = RidgeClassifierCV(alphas=_CV_VALUES_ALPHAS, cv=2)
++    classifier.fit(X, y)
++    assert hasattr(classifier, "alpha_")
++    assert not hasattr(classifier, "cv_values_")
++
++
++def test_no_cv_values_when_store_cv_values_false():
++    X = np.vstack([_CV_VALUES_X, _CV_VALUES_X])
++    y = [1, 1, 1, -1, -1] * 2
++    for cv in (None, 2):
++        classifier = RidgeClassifierCV(alphas=_CV_VALUES_ALPHAS, cv=cv,
++                                       store_cv_values=False)
++        classifier.fit(X, y)
++        assert hasattr(classifier, "alpha_")
++        assert not hasattr(classifier, "cv_values_")
++
++
++def test_store_cv_values_with_cv_refused_at_fit():
++    X = np.vstack([_CV_VALUES_X, _CV_VALUES_X])
++    y = [1, 1, 1, -1, -1] * 2
++    classifier = RidgeClassifierCV(alphas=_CV_VALUES_ALPHAS,
++                                   store_cv_values=True, cv=2)
++    with pytest.raises(ValueError) as error:
++        classifier.fit(X, y)
++    # "cv" as a word of its own: the substring alone is always inside
++    # "store_cv_values", so it would not show that cv is named.
++    assert re.search(r"\bcv\b", str(error.value))
++    assert "store_cv_values" in str(error.value)
++
++
++def test_ridgeclassifiercv_docstring_documents_store_cv_values():
++    doc = inspect.cleandoc(RidgeClassifierCV.__doc__)
++    parameters = doc.split("Parameters\n----------\n")[1].split(
++        "Attributes\n----------\n")[0]
++    attributes = doc.split("Attributes\n----------\n")[1].split(
++        "\n\n")[0]
++    assert any(line.startswith("store_cv_values")
++               for line in parameters.splitlines())
++    assert "n_targets" in attributes
++
++    store_cv_values_entry = [entry for entry in parameters.split("\n\n")
++                             if entry.startswith("store_cv_values")][0]
++    entry_header = store_cv_values_entry.splitlines()[0]
++    assert "bool" in entry_header
++    assert "False" in entry_header
++    assert "cv=None" in store_cv_values_entry
++    assert re.search(r"n_samples,\s*n_targets,\s*n_alphas",
++                     attributes.splitlines()[0])
++    assert not re.search(r"n_samples,\s*n_alphas", attributes)

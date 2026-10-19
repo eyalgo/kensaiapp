@@ -1,0 +1,213 @@
+{
+  "skill_name": "kensaiapp-writing-bar",
+  "executor": {
+    "model": "opus"
+  },
+  "evals": [
+    {
+      "id": 1,
+      "name": "bar-is-the-output-for-an-ordinary-instance",
+      "prompt": "You are the Content Manager. Settle the writing bar for the instance at skills/content-manager/.claude/skills/kensaiapp-writing-bar/evals/inputs/northbay — the bar every document authored there is held to. Treat that directory as the instance repo root: every instance-relative path resolves under it, and nothing outside it is yours to write.",
+      "assertions": [
+        {
+          "name": "writing-bar-written-in-the-template-shape",
+          "description": "A writing bar file 'northbay/system/doctrine/writing_bar.md' appears in run_delta.json's 'created' list, and it carries the writing bar template's named literals: the headings '## 0. Where this sits' and '## 1. The bar', plus a 'Status:' line and a 'Version:' line. The bar is this run's output rather than a call it makes — an ordinary internal instance whose grounds are modest still gets one, and a run that ends with no writing bar file fails this case. A baseline writes a house style guide with its own headings and no Status/Version lines. It was produced in one pass, without first asking the owner a clarifying question - this skill is non-interactive and puts what it cannot settle in the companion instead. Note: the one-pass half may also pass without the skill, for a prompt as complete as this one.",
+          "tier": "structural"
+        },
+        {
+          "name": "bar-states-the-parts-northbay-holds-nothing-particular-on",
+          "description": "Section '1. The bar' covers the parts a bar states rather than only the ones northbay's own files hand it. Two must both be present. (i) Who the reader is, named: a colleague on the five-person team, with the repo open, who can ask the author — e.g. 'read by one of the four other people on the team, who has the repo open beside them and can ask' would pass. (ii) How the binding words bind: a rule fixing what the binding words mean in this instance — e.g. \"'must' is a requirement; 'should' is a requirement with a named exception beside it; 'may' is permission\" would pass. Nothing in northbay's kensaiapp.md, system/michi.md or system/doctrine/kensaiapp_doctrine.md says anything about binding words, so that part is exactly the one a run drops when it only writes back what the fixture handed it; the skill requires the plain general answer instead of a silence. Fails if either part is missing.",
+          "tier": "structural"
+        },
+        {
+          "name": "section-0-points-at-the-authoring-prompt-and-claims-nothing-about-it",
+          "description": "Section '0. Where this sits' says in one line what this document is - the bar for every document kensaiapp authors in northbay - and points at the authoring prompt for the two things that file owns and this one does not: the literal path '<CORE>/../skills/content-manager/.claude/skills/kensaiapp-writing-bar/prompts/rich.md' or 'skills/content-manager/.claude/skills/kensaiapp-writing-bar/prompts/rich.md' appears in the bar. It makes no claim about what that file says. e.g. 'This is the bar for every document kensaiapp authors in northbay. How wide that runs, and what a writing bar reaches and does not reach, belong to `<CORE>/../skills/content-manager/.claude/skills/kensaiapp-writing-bar/prompts/rich.md`. Read them there. This document neither restates them nor changes them.' would pass. A sentence that goes on to summarise the prompt's contents fails, e.g. 'the prompt asks for plain language' or 'the prompt states which documents a bar reaches'. A writing bar that names no owning file at all also fails; a baseline names none.",
+          "tier": "structural"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "name": "bar-traces-to-the-instances-own-grounds",
+      "prompt": "You are the Content Manager. Settle the writing bar for the instance at skills/content-manager/.claude/skills/kensaiapp-writing-bar/evals/inputs/deepwell — the bar every document authored there is held to. Treat that directory as the instance repo root: every instance-relative path resolves under it, and nothing outside it is yours to write.",
+      "assertions": [
+        {
+          "name": "writing-bar-written-in-the-template-shape",
+          "description": "A writing bar file 'deepwell/system/doctrine/writing_bar.md' appears in run_delta.json's 'created' list, and it carries the writing bar template's named literals: the headings '## 0. Where this sits' and '## 1. The bar', plus a 'Status:' line and a 'Version:' line. A baseline writes a house style guide with its own headings and no Status/Version lines. It was produced in one pass, without first asking the owner a clarifying question - this skill is non-interactive and puts what it cannot settle in the companion instead. Note: a capable baseline may also produce output without asking, for a prompt as complete as this one.",
+          "tier": "structural"
+        },
+        {
+          "name": "a-rule-is-traced-to-deepwells-own-evidence-and-the-ground-is-recorded",
+          "description": "At least one rule in section '1. The bar' is tied to deepwell's own evidence, and the document names that evidence - either inline beside the rule in § 1, or as an entry under the heading '## 3. Review notes', which is where a rule's ground is recorded. What counts as naming the evidence is one of the literal strings 'system/michi.md', 'system/doctrine/kensaiapp_doctrine.md' or 'kensaiapp.md', or deepwell's own reader named in the document - a referee or a stranger re-running the work from the deposited package alone, with nobody to ask. Two forms pass. Inline: 'a reported number names the deposited script that produces it, in the same sentence (system/doctrine/kensaiapp_doctrine.md: every reported number is reproducible from the deposited artifacts)'. In § 3 Review notes: '- **§ 1, where a number comes from** - system/doctrine/kensaiapp_doctrine.md, the journal's replication policy'. A bar of generic writing advice with no such trace ('write clearly', 'be concise', 'use short sentences') fails, and so does one whose rules trace to nothing deepwell holds. One traced rule is enough - a writing bar stating a single grounded rule passes.",
+          "tier": "structural"
+        },
+        {
+          "name": "companion-puts-the-runs-own-calls-up-for-confirmation",
+          "description": "A companion 'deepwell/system/doctrine/writing_bar_open_issues.md' appears in run_delta.json's 'created' list and carries the companion template's named literals: the heading '## 2. Choices to confirm' and, under it, an item with the slot labels 'Written into the writing bar:', 'Grounds:' and 'Confirm or override:'. What reaches the owner is what the run decided on its own authority, not the bar wholesale - so an item asking whether deepwell should have a bar at all, or one presenting the bar as a proposal awaiting permission to be written, fails. A baseline improvises its own headings and confirmation phrasings ('Sound good?', 'Let me know') and emits none of these named slots. The companion is also where this skill puts what it cannot settle instead of asking, so its presence is the check that the run produced output in one pass rather than stopping to ask a clarifying question first.",
+          "tier": "structural"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "name": "portable-rule-lands-in-the-bar-and-is-raised-for-every-instance",
+      "prompt": "You are the Content Manager. Settle the writing bar for the instance at skills/content-manager/.claude/skills/kensaiapp-writing-bar/evals/inputs/saltmarsh — treat that directory as the instance repo root, and nothing outside it is yours to write. Read the owner's note at owner_brief.md before you decide anything.",
+      "assertions": [
+        {
+          "name": "writing-bar-written-and-carries-the-owners-rule",
+          "description": "A writing bar file 'saltmarsh/system/doctrine/writing_bar.md' appears in run_delta.json's 'created' list, and its section '1. The bar' carries the rule the owner asked for - a document that states a time states its timezone (or UTC offset) in the same breath. e.g. 'a document that states a time states its timezone with it, in the same sentence: 02:00 UTC, never 02:00' would pass. The run does not end without a document because the rule looked portable, and the owner playing down how much needs writing down here is not a decision this run defers to: a run that writes no writing bar fails, and so does one that writes only a companion routing the rule elsewhere.",
+          "tier": "structural"
+        },
+        {
+          "name": "every-instance-candidacy-raised-in-the-companion",
+          "description": "The companion 'saltmarsh/system/doctrine/writing_bar_open_issues.md' raises that same timezone rule under the heading '## 2. Choices to confirm' as a rule that belongs to every kensaiapp instance rather than to saltmarsh alone - the item says so in as many words, and leaves the call to the owner. e.g. 'the timezone rule is written into § 1 above because saltmarsh needs it now; it is also a rule every kensaiapp instance would want, since every one of them has this the moment two people are in different places - whether it is written down once for all of them is yours' would pass, and so would 'raised here because this reads as a rule for every instance, not only saltmarsh's'. Naming a destination file is not required and no such file is asserted. Fails if the companion never raises the rule beyond saltmarsh, and fails if it raises it for every instance INSTEAD of writing it into saltmarsh's bar - the two are not alternatives. Note: a capable baseline reading the owner's note may also observe that the rule is general; what it does not do is write the rule into a bar AND list it under a section literally named 'Choices to confirm' in a companion file.",
+          "tier": "structural"
+        },
+        {
+          "name": "bar-is-more-than-the-owners-one-rule",
+          "description": "Section '1. The bar' names saltmarsh's own reader - the engineer on the rota, taking a handover across two continents and expected to finish the job without waking anyone (kensaiapp.md, and the Ways 'alone-at-3am' and 'clean-handover' in system/michi.md) - and states at least one rule that is neither the owner's timezone rule nor a restatement of it. e.g. 'a step that genuinely needs a second person says so at the top of the runbook, not three steps in' would pass. A file whose whole content is the timezone rule fails: nothing sits underneath this document, so the bar is stated whole rather than as the one thing the owner asked to add. A bar stating exactly one non-timezone rule passes - the check is that the file is not the timezone rule alone.",
+          "tier": "structural"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "name": "halts-on-a-placeholder-identity",
+      "prompt": "You are the Content Manager. Settle the writing bar for the instance at skills/content-manager/.claude/skills/kensaiapp-writing-bar/evals/inputs/tidepool — the bar every document authored there is held to. Treat that directory as the instance repo root: every instance-relative path resolves under it, and nothing outside it is yours to write.",
+      "assertions": [
+        {
+          "name": "nothing-written-neither-bar-nor-companion",
+          "description": "Nothing is authored: run_delta.json's 'created', 'modified' and 'deleted' lists contain no path ending in 'system/doctrine/writing_bar.md', none ending in 'system/doctrine/writing_bar_open_issues.md', and none under 'system/doctrine/trail/writing_bar/'; and no such file exists as this run's output anywhere under the run's staged product or the outputs tree (a file written outside the instance root still counts as produced). tidepool's kensaiapp.md § 'What this is about' is still the unfilled template sentence and its system/michi.md is still the setup PLACEHOLDER block, so there is no settled bearing to derive a bar from and the run stops before writing. A near-empty stamp under either name fails as squarely as a full document. This absence is not checked alone: the assertion below checks the positive report that must accompany it. Note: every case is staged with the whole inputs tree, so a same-named file from another fixture sitting in the staged tree is not this run's output - read run_delta.json and outputs/, never a walk of the staged inputs.",
+          "tier": "structural"
+        },
+        {
+          "name": "halt-names-the-placeholder-file-and-what-has-to-land-first",
+          "description": "The run's transcript records that it stopped because the instance's identity or its 道 Michi is still an unfilled placeholder, names the file it found - 'kensaiapp.md' (its 'What this is about' section) or 'system/michi.md' - and names what has to land first: the 'kensaiapp-michi' skill, or step 2 of instance setup. e.g. 'system/michi.md still carries the setup PLACEHOLDER block and kensaiapp.md § What this is about is the unfilled template sentence, so there is nothing settled for a bar to answer to - step 2 (kensaiapp-michi) has to land first' passes, and so does 'halting: kensaiapp.md § What this is about is still the placeholder; run kensaiapp-michi before this'. Stopping for a different reason ('I could not find an instance there', 'not enough information') fails, and so does producing nothing while saying nothing about the placeholder. NUANCED JUSTIFICATION: structural was tried and rejected because a halt writes no output file at all - there is no artifact for a pattern check to read. The only record is transcript.md, which the structural grader is instructed not to read, so this check must run on the nuanced side.",
+          "tier": "nuanced"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "name": "reentry-folds-the-override-and-numbers-the-cycle",
+      "prompt": "You are the Content Manager. Continue the writing bar for the instance at skills/content-manager/.claude/skills/kensaiapp-writing-bar/evals/inputs/millrace — treat that directory as the instance repo root, and nothing outside it is yours to write. The owner has answered the open issues inline in system/doctrine/writing_bar_open_issues.md. Fold their answers in and keep going.",
+      "assertions": [
+        {
+          "name": "trail-cycle-2-holds-the-answered-companion-whole",
+          "description": "The run created 'millrace/system/doctrine/trail/writing_bar/cycle-2.md' - cycle-2, not cycle-1, because cycle numbering is one higher than the highest cycle already on disk and cycle-1.md is already there. cycle-1.md appears in neither the 'modified' nor the 'deleted' list of run_delta.json. cycle-2.md holds the owner's answered companion copied whole, which is checkable against outputs/reference/: it contains the owner's own override wording, including the phrase 'the vendor's duty engineer', and it still contains the unanswered item about spelling out abbreviations. A baseline folding answers does not preserve the answered file to a numbered trail cycle at all.",
+          "tier": "structural"
+        },
+        {
+          "name": "answered-item-dropped-unanswered-item-kept-and-no-slot-left-filled",
+          "description": "Three things about the rewritten companion at 'millrace/system/doctrine/writing_bar_open_issues.md', and all three must hold. (i) The item the owner answered is gone: the heading 'A document here is read by a colleague with the repo open, and the bar turns on that' no longer appears, and no item restates it with the owner's answer beside it. (ii) The unanswered item about spelling out an abbreviation on first use survives, under the heading '## 1. Open issues', with its 'Answer:' slot still empty. (iii) No slot anywhere in the file is filled: every line ending in 'Answer:' or 'Confirm or override:' is followed by nothing, so a filled slot in a surviving companion is always the owner's writing and never this run's. The owner's override text ('override: the reader has moved and the bar has to move with it...') must not sit in a slot in the rewritten companion, though it must appear in the trail cycle. A companion that dropped everything fails, one that kept the answered item fails, and one that carries the run's own text back into an answer slot fails.",
+          "tier": "structural"
+        },
+        {
+          "name": "bar-revised-in-place-for-the-reader-the-owner-named",
+          "description": "'millrace/system/doctrine/writing_bar.md' appears in run_delta.json's 'modified' list - modified, and in neither 'created' nor 'deleted': the bar is already on disk and this round revises it in place rather than replacing or removing it. Its section '1. The bar' is now written for the reader the owner named - the vendor's duty engineer, who acts on the document with no access to the repo and no way to ask a question first - in place of the colleague-with-the-repo-open reader the file currently names. Its 'Status:' line reads 'Draft', not 'Settled' or 'Locked': the companion survives this round with the abbreviation item still unanswered, and the Status line follows the companion's presence rather than a tally of answers. Its 'Version:' line names a number higher than the 1 on disk.",
+          "tier": "structural"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "name": "never-removes-a-writing-bar",
+      "prompt": "You are the Content Manager. Settle the writing bar for the instance at skills/content-manager/.claude/skills/kensaiapp-writing-bar/evals/inputs/harbourgate — treat that directory as the instance repo root, and nothing outside it is yours to write. I have been rereading the bar we already have, and I do not think it earns its place: it says what core's bar already says, only in our words. Take it out and let core's bar bind again.",
+      "assertions": [
+        {
+          "name": "existing-bar-neither-removed-nor-emptied",
+          "description": "The writing bar already on disk survives this run: 'harbourgate/system/doctrine/writing_bar.md' (path relative to the run's staged product root) does NOT appear in run_delta.json's 'deleted' list, the file still exists in the run's tree, and it still carries its '## 0. Where this sits' and '## 1. The bar' headings with the rules it states (say it the way you would to the person next to you; the conclusion first; no shorthand; two short sentences beat one long one). A file cut down to a stub recording that core's bar was chosen fails as squarely as a deletion - it is the same removal with a file left behind. Revising, rewording or extending the bar is not a failure here; losing it is. A capable baseline told to take the file out deletes or empties it, which is the discriminating signal.",
+          "tier": "structural"
+        },
+        {
+          "name": "removal-handed-back-as-the-owners-act-with-what-it-would-cost",
+          "description": "A companion 'harbourgate/system/doctrine/writing_bar_open_issues.md' appears in run_delta.json's 'created' list, carries one of the two named section headings ('## 1. Open issues' or '## 2. Choices to confirm'), and hands the removal back as the owner's own act rather than performing it - saying both that no run makes this call on its own reasoning and what the removal would cost: nothing sits underneath this file, so taking it out leaves every document authored in harbourgate with no bar at all. e.g. 'removing this file is yours alone - nothing sits underneath it, so taking it out leaves every document authored here with no bar at all, and no run makes that call on its own reasoning. I have left the file where it is and put the decision here' would pass, and so would 'this is your call, not mine, and it is worth knowing there is no bar underneath to fall back on'. Fails if the companion reports the file as removed, proposes that this run remove it, or takes the request up while saying nothing about who decides. A baseline told to take a file out takes it out and writes no companion at all.",
+          "tier": "structural"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "name": "posture-halt-outside-content-manager",
+      "prompt": "Can you write down the standard our documents are held to for the repo at skills/content-manager/.claude/skills/kensaiapp-writing-bar/evals/inputs/northbay? Treat that directory as the repo root - I do not want anything written outside it.",
+      "assertions": [
+        {
+          "name": "nothing-authored",
+          "description": "Neither 'system/doctrine/writing_bar.md' nor 'system/doctrine/writing_bar_open_issues.md' appears in run_delta.json's 'created' list, and neither exists anywhere under the run's staged tree or the outputs tree as this run's output - a file written outside the instance root still counts as authored. The skill halts on its Content Manager posture check and writes nothing, which is the correct outcome for this prompt. Note: a capable baseline given this prompt normally writes a standards document somewhere, so the absence is the discriminating signal - but a baseline that happens to answer in prose without writing a file would also satisfy this assertion.",
+          "tier": "structural"
+        },
+        {
+          "name": "halt-names-the-content-manager-posture",
+          "description": "The run's transcript records that it stopped because the run is not in Content Manager posture, and names the way in - the 'content-manager:' session prefix or the 'content-manager' subagent. e.g. 'kensaiapp-writing-bar requires Content Manager posture. Switch? (Open a session with the content-manager: prefix, or run the content-manager subagent.)' passes. Stopping for a different reason ('I could not find an instance there', 'not enough information') fails, and so does producing nothing while saying nothing about posture. NUANCED JUSTIFICATION: structural was tried and rejected because a halt writes no output file at all - there is no artifact for a pattern check to read. The only record is transcript.md, which the structural grader is instructed not to read, so this check must run on the nuanced side.",
+          "tier": "nuanced"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "name": "confirm-slot-answer-drops-and-the-residue-re-enters",
+      "prompt": "You are the Content Manager. Continue the writing bar for the instance at skills/content-manager/.claude/skills/kensaiapp-writing-bar/evals/inputs/fernhollow — treat that directory as the instance repo root, and nothing outside it is yours to write. I have been through system/doctrine/writing_bar_open_issues.md and filled it in, and the file is committed. Fold what I said in and keep going.",
+      "assertions": [
+        {
+          "name": "companion-consumed-on-a-confirm-slot-and-numbered-cycle-4",
+          "description": "The run created 'fernhollow/system/doctrine/trail/writing_bar/cycle-4.md'. Two things are being checked at once. (i) The companion was consumed at all: its only filled slots are labelled 'Confirm or override:' and the file contains no 'Answer:' slot anywhere, so a run that fires only on a slot literally named 'Answer' reads it as untouched, writes no trail cycle, and fails. (ii) The number is cycle-4 - one higher than the highest cycle on disk (cycle-1.md and cycle-3.md are both there, with cycle-2 long since removed by hand), not cycle-3 (which would overwrite a record) and not cycle-2 (the count plus one). cycle-1.md and cycle-3.md appear in neither the 'modified' nor the 'deleted' list of run_delta.json. cycle-4.md holds the answered companion copied whole, checkable against outputs/reference/: it contains the owner's own override wording, including the phrase 'at 3am', and both the 2.1 item about where a number comes from and the 2.2 deliberately-absent item about document length.",
+          "tier": "structural"
+        },
+        {
+          "name": "answered-item-drops-and-the-residue-re-enters-with-an-empty-slot",
+          "description": "The rewritten companion 'fernhollow/system/doctrine/writing_bar_open_issues.md' appears in run_delta.json's 'modified' list, and all three hold. (i) The two items the owner answered are gone: neither the 2.1 item about every document that names a number stating where the number came from, nor the 2.2 deliberately-absent item about document length, survives with the owner's answer beside it. (ii) At least one item in the file raises what the owner's override left open - which documents the rule reaches beyond a release record, or what counts as a number being 'acted on' - in the run's own words rather than as the owner's question read back at them. e.g. an item headed 'Which documents other than a release record does the source-naming rule reach?' would pass. (iii) Every slot in the file is empty: no line ending in 'Confirm or override:' or 'Answer:' is followed by text, and in particular the owner's override ('override: not every document...') sits in no slot here - it belongs to the trail cycle now. A companion that keeps the answered item fails; a companion deleted outright fails, because the override left the rule's reach open and that residue is still unresolved; a companion whose fresh item arrives with the answer already filled in fails.",
+          "tier": "structural"
+        },
+        {
+          "name": "bar-narrowed-to-what-the-owner-actually-settled",
+          "description": "'fernhollow/system/doctrine/writing_bar.md' appears in run_delta.json's 'modified' list - modified, and in neither 'created' nor 'deleted'. Its section '1. The bar' no longer states the source-naming rule as binding every document: it is now tied to the release record, the one case the owner settled - e.g. 'a release record states where each number in it came from, in the same sentence: the script that produced it or the record it was read off' would pass, and so would any wording that names the release record as the rule's reach. A bar still reading 'every document that names a number' fails, because the owner overrode exactly that. Its 'Status:' line reads 'Draft', not 'Settled' or 'Locked' - the companion survives this round carrying the residue. Its 'Version:' line names a number higher than the 3 on disk.",
+          "tier": "structural"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "name": "unanswered-companion-is-not-consumed",
+      "prompt": "You are the Content Manager. Pick the writing bar back up for the instance at skills/content-manager/.claude/skills/kensaiapp-writing-bar/evals/inputs/quarryside — treat that directory as the instance repo root, and nothing outside it is yours to write. Take it as far as it goes and tell me where it stands.",
+      "assertions": [
+        {
+          "name": "no-trail-cycle-written-for-an-untouched-companion",
+          "description": "No new trail cycle is produced: run_delta.json's 'created' list contains no path under 'quarryside/system/doctrine/trail/writing_bar/', and the cycle-1.md already there appears in neither 'modified' nor 'deleted'. The companion on disk has both of its slots empty - the '1.1' item's 'Answer:' slot and the '2.1' item's 'Confirm or override:' slot - so there is nothing to fold and nothing to retire, and a companion with no slot filled is not consumed. A run that copies the unanswered companion to 'cycle-2.md' fails: the trail is a record of the owner's answers, and this round has none.",
+          "tier": "structural"
+        },
+        {
+          "name": "the-loop-files-are-left-exactly-as-intake-found-them",
+          "description": "Neither 'quarryside/system/doctrine/writing_bar.md' nor 'quarryside/system/doctrine/writing_bar_open_issues.md' appears in any of run_delta.json's 'created', 'modified' or 'deleted' lists. A re-run is a fold rather than a re-authoring, and this round folded no answer and changed no document, so it touches no disk at all. The failing shapes are the ones a capable model reaches for: rewriting the bar to improve it, bumping its 'Version:' line with nothing folded, restating the open items in a freshly written companion, or flipping the 'Status:' line. A baseline handed a bar and a companion typically edits one of them, which is the discriminating signal here.",
+          "tier": "structural"
+        },
+        {
+          "name": "reports-open-and-names-what-is-still-unanswered",
+          "description": "The run reports the loop status OPEN, names both items still awaiting the owner - the abbreviation question under '## 1. Open issues' and the scheduled-job-and-hand-run-twin confirmation under '## 2. Choices to confirm' - and names the next move as the owner's: answer inline in system/doctrine/writing_bar_open_issues.md, commit, and re-run kensaiapp-writing-bar. e.g. 'OPEN - 1 open issue and 1 choice to confirm, both in system/doctrine/writing_bar_open_issues.md; answer them inline, commit, and re-run' would pass. Reporting the round as done, settled, or complete fails, and so does a report that changed nothing without saying what is still outstanding. This is the positive half of the two absence checks above: without it, a run that did nothing at all and said nothing would pass them both. NUANCED JUSTIFICATION: structural was tried and rejected because the correct behaviour here writes no file - the delta is empty by design, so there is no artifact for a pattern check to read. The only record is transcript.md, which the structural grader is instructed not to read, so this check must run on the nuanced side.",
+          "tier": "nuanced"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "name": "closing-round-settles-the-bar-and-removes-the-companion",
+      "prompt": "You are the Content Manager. Finish the writing bar for the instance at skills/content-manager/.claude/skills/kensaiapp-writing-bar/evals/inputs/windlass — treat that directory as the instance repo root, and nothing outside it is yours to write. I have answered every item in system/doctrine/writing_bar_open_issues.md inline and committed the file, so my answers are already in git. Fold them in and close the round.",
+      "assertions": [
+        {
+          "name": "companion-removed-and-retired-whole-to-cycle-3",
+          "description": "Both halves hold. (i) 'windlass/system/doctrine/writing_bar_open_issues.md' appears in run_delta.json's 'deleted' list - its removal is the done signal, and a run that leaves it on disk has not closed the round. (ii) The run created 'windlass/system/doctrine/trail/writing_bar/cycle-3.md' - cycle-3, because cycle-1.md and cycle-2.md are both already there - and it holds the answered companion copied whole, checkable against outputs/reference/: it contains the owner's own answer wording, including the phrase 'the duty engineer' and the sentence about a personal name being wrong within seven days, and it contains the confirmed 2.1 item about naming the commit a release was built from. A run that deletes the companion without writing the trail cycle fails: the trail is the only surviving record of the owner's words, and the removal destroys the original.",
+          "tier": "structural"
+        },
+        {
+          "name": "bar-carries-settled-so-nothing-disagrees-with-the-absent-companion",
+          "description": "'windlass/system/doctrine/writing_bar.md' appears in run_delta.json's 'modified' list, its 'Status:' line reads exactly 'Settled', and its 'Version:' line names a number higher than the 3 on disk. The Status line follows the companion being gone at the end of this run, so a bar left untouched at 'Draft' beside a removed companion is the exact disagreement this checks for, and it fails - as does a bar the run stamped 'Locked', which is the owner's ratification and never the run's. Note on scope: an eval run builds no commit, so whether the bar was passed to the builder is not observable here; what is checked is the state the run leaves on disk, which is what staging the bar on every commit-building run exists to keep true.",
+          "tier": "structural"
+        },
+        {
+          "name": "the-owners-last-answer-is-in-the-bar-not-only-in-the-trail",
+          "description": "Section '1. The bar' of 'windlass/system/doctrine/writing_bar.md' now carries the rule the owner settled in item 1.1: a document names the role rather than the person - e.g. 'a document names the role that acts, never the individual: the duty engineer, not a first name' would pass. A bar that closes the round without folding that answer fails, and so does one that files the answer only in the trail cycle: the trail is a record, not the place a rule binds from. The rest of the bar is reproduced rather than re-authored, so the four rules already there - the reader, how a document opens, sentence length, and the commit-not-'latest' rule - are all still present.",
+          "tier": "structural"
+        }
+      ]
+    }
+  ]
+}

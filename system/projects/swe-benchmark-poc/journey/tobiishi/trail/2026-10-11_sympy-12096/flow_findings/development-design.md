@@ -1,0 +1,15 @@
+# Flow Findings — development-design  (audited 2026-10-11)
+
+Findings for this step's output only, produced by the `development-audit` skill.
+Change-local findings live here; skill-general findings are also raised as kaizen items.
+
+Read `change_design.md` against `change_spec.md`. No `docs/adr/`, `nfdr.md`, `fdr.md` or `SDD.md` exists for this product (`Definition: none`), so those cross-checks were skipped and no finding is raised for them.
+
+- **[non-blocking · change-local · divergence record / coverage]** A free-symbol return that calls itself now raises `RecursionError`, and the design rules that out of the rules' reach. Where: `change_design.md §Architect Review Notes`, "Self-referential implementations are not guarded". The note says the spec "says nothing" about an implementation whose return holds its own application (`F` returning `F(x)`). CP-11 does speak to it: a return holding a free symbol is "not a number" and stays unevaluated "as it does today", and today such an application is unevaluated. After this design it recurses until Python's limit. The note files the crash under CP-12's second clause, "as it would for any implementation that does not terminate". But this implementation does terminate today, and CP-12 covers exceptions the implementation raises, not recursion the new path creates. So this is a stated change from today that the spec never made, and no test pins it. The note's reason, that a guard would be new logic no rule asks for, assumes CP-11 does not ask for one. Direction: either send the case back to development-specs as a Gap-4-style decision, or record why CP-11 is read as not covering it and pin the outcome in `test_implemented_function_evalf_not_a_number`.
+- **[non-blocking · change-local · coverage]** The type gate has no case on its accept side for a Python `int` return, and none for a numeric Python `float` that reaches the new path. Where: `change_design.md §5 Test Additions`, `§4 Code Strategy`. The gate is "a SymPy object, or a Python `int`/`float`/`complex`", and CP-9 names all three. The tests cover SymPy returns, `complex` (`pc`) and a `float` that converts today (`p`). The `str`/`list`/`None` side is tested. An `int` or `float` return that fails `Float(r, prec)` and still reaches the new path is not exercised. Direction: low risk, since the literal path handles ordinary `int`/`float`. Record it as an accepted gap, or add one row.
+
+Clean on the remaining lenses:
+- **Classification (3):** `Category: bug` and `Behaviour: changing` are copied verbatim from the spec.
+- **Contract realized (5):** CP-13 and CP-9's agreement with `r.evalf(n)` are both realized by construction. The literal path is kept first, and the value is built with `EvalfMixin.evalf`'s own normalisation. Both reasons are recorded.
+- **Handed-down constraint (8):** the cache-hazard and red-at-base properties are stated, not enacted. Spec Gap 6, the test-file choice delegated to this step, is answered.
+- **Step contract (6):** one change, one method, and no §3 with its reason given in (d).

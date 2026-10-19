@@ -1,0 +1,22 @@
+# Flow Findings — development-specs  (audited 2026-10-12)
+
+Findings for this step's output only, produced by the `development-audit` skill.
+Change-local findings live here; skill-general findings are also raised as kaizen items.
+
+Read against: `change_request.md`, `docs/SDD.md` § 4 RT-10 and § 6 S-3, `docs/fdr.md` R-71 to R-75. The spec's cited test lines were spot-checked in the tree. Header `Category: feature` / `Behaviour: changing` is copied verbatim from the request (lens 3 clean). `## Verified Claims` is present and the probe, whitespace and blank-set claims were run (lens 7 mostly clean; see the one finding). The Gap 18 timed-run divergence is recorded with its reason (lens 4 clean for that item).
+
+- **[non-blocking · change-local · evidence-that-could-fail]** CP-261 states what the existing cross-site check decides (`cross-site` and `same-site` refused; anything not `same-origin` refused, no mark included) with no row in `## Verified Claims`. Where: `change_spec.md §Rules CP-261`, `§Verified Claims`. The behaviour exists (`web/routes.py:55-56`, `:201`), but the spec never shows it was run or read, and its "today" wording is a verdict on a checker. Add a run-not-read row, as CP-259 and CP-256 have.
+- **[non-blocking · change-local · coverage]** Rules with no named test in CP-267 to CP-272, with the Examples table naming a scenario for each. Where: `change_spec.md §Rules CP-251, CP-250, CP-262, CP-255`, `§Tests`.
+  - CP-251: the author is the name saved when the add is applied, not when the page loaded; it covers a rename in another tab and a name saved in another tab.
+  - CP-250: reload and back/forward add nothing again.
+  - CP-262: keyboard-only add.
+  - CP-255: the refusal's focus placement and the reason as the field's accessible description (CP-268 asserts only "the reason shown").
+  - CP-243: a line break showing as a line break (the third e2e case covers only `<`, `&`, `"`).
+
+  Design should map them. The spec chose to enumerate tests and left these out, so the floor is not met.
+- **[non-blocking · change-local · altitude]** CP-241 keys "oldest first" to insertion order, "realized as the order they were added", and says the shown time may disagree. Where: `change_spec.md §Rules CP-241`, `§Locked Answers Gap 2`. Lens 2 names insertion order as the hidden property to avoid. It is recorded and traced to SDD § 3, but the request and FDR R-73 say "oldest first" by the shown time. The rule should state the output-observable ordering and leave the mechanism to design.
+- **[non-blocking · change-local · altitude]** Mechanism sits in the rules, not only in the rationale. Where: `change_spec.md §Rules CP-245` ("written from the one place in `domain`"), `CP-264` (`main.py:39-48`), `CP-266` (refusal types mapped by type, never by message; the opening docstring's content; the pointer test). The request names only `domain/comments.py` and the domain/application/web split. The rest is design or plan content, and a PO-altitude spec states the property and leaves the shape.
+- **[non-blocking · change-local · handed-down-constraint]** The spec enacts decisions the Developer owns, down to line numbers and fixture values of existing tests. Where: `change_spec.md §Rules CP-274` (lines 180/182, 185, 265, 566 and the six tests, `SAMPLE_ADDRESS`, "author changes from `""` to a non-blank name"), `CP-271`, `CP-275`. Lens 8 names "the shape of a test" and "the member names of a set". The property, that no existing assertion is weakened and the listed tests still pass, is already stated. The line-level edits belong to the plan and the implementation.
+- **[non-blocking · change-local · divergence-record]** CP-273 and Gap 18 pull the comment-add timing into this change, against the request's "the timed run is not extended: `tests/timed_run.py` and its test stay byte-identical" and its "Left to later stations: the 1,000 × 20 timed run". Where: `change_spec.md §Rules CP-273`, `§Locked Answers Gap 18`. The divergence is recorded with reasons (NFDR QC-48, SDD § 4 TS-5, SRS NFR-1) and SDD § 6 S-3 itself ends with the timed-run command. The spec nonetheless overrides an explicit must-not of its input and the request's sizing paragraph, which calls the timed run "a different responsibility". The PM's `shukuba-refine` should confirm, since the request owner's constraint was not honoured.
+
+Clean on: lens 1 for the Examples table rows; lens 3; lens 5; lens 6; lens 9 and 10 (not applicable to this step).

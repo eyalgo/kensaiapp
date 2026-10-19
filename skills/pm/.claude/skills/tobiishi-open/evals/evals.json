@@ -1,0 +1,100 @@
+{
+  "skill_name": "tobiishi-open",
+  "evals": [
+    {
+      "id": 1,
+      "name": "a-move-that-changes-a-return",
+      "prompt": "You are the PM for lanternfold. Project folder: skills/pm/.claude/skills/tobiishi-open/evals/inputs/lanternfold/. Open the next change.",
+      "assertions": [
+        {
+          "name": "written-and-changing",
+          "tier": "structural",
+          "description": "run_delta.json `created` includes exactly one path of the form `lanternfold/journey/tobiishi/<key>/change_request.md`, for any single key folder. A change request written anywhere else does not pass. And the created `change_request.md` (read it under outputs/product/) contains the line `**Behaviour:** changing`; a file saying `preserving`, or with no Behaviour line, fails."
+        },
+        {
+          "name": "not-a-refactor",
+          "tier": "structural",
+          "description": "the created `change_request.md` (read it under outputs/product/)'s `**Category:**` line reads `nfdr`, `feature` or `bug` — e.g. `**Category:** nfdr` passes. `**Category:** refactor` fails, and so does a missing Category line. A capable baseline reading 'move the header set' most often writes `refactor`."
+        },
+        {
+          "name": "classified-because-names-the-return",
+          "tier": "structural",
+          "description": "the created `change_request.md` (read it under outputs/product/) has a line starting `**Classified because:**` whose text contains `return` and at least one of `render_welcome`, `render_goodbye` or `str`. E.g. 'the reached-when says render_welcome and render_goodbye return the body with the header set instead of a bare str' passes. A Classified-because line that cites only the word 'move' fails."
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "name": "a-true-refactor",
+      "prompt": "You are the PM. Project folder: skills/pm/.claude/skills/tobiishi-open/evals/inputs/quarrystone/. Open the tobiishi for the open station.",
+      "assertions": [
+        {
+          "name": "refactor-and-preserving",
+          "tier": "structural",
+          "description": "run_delta.json `created` includes exactly one path of the form `quarrystone/journey/tobiishi/<key>/change_request.md`, for any single key folder. A change request written anywhere else does not pass. And the created `change_request.md` (read it under outputs/product/) contains both `**Category:** refactor` and `**Behaviour:** preserving`."
+        },
+        {
+          "name": "classified-because-names-the-unchanged-surface",
+          "tier": "structural",
+          "description": "the created `change_request.md` (read it under outputs/product/) has a line starting `**Classified because:**` containing `signature` or `public name` (case-insensitive). E.g. 'list_page and detail_page keep their signatures; only private helpers move' passes."
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "name": "new-behaviour",
+      "prompt": "You are the PM for bellhaven (project folder skills/pm/.claude/skills/tobiishi-open/evals/inputs/bellhaven/). Start the next change.",
+      "assertions": [
+        {
+          "name": "feature-and-changing",
+          "tier": "structural",
+          "description": "run_delta.json `created` includes exactly one path of the form `bellhaven/journey/tobiishi/<key>/change_request.md`, for any single key folder. A change request written anywhere else does not pass. And the created `change_request.md` (read it under outputs/product/) contains both `**Category:** feature` and `**Behaviour:** changing`."
+        },
+        {
+          "name": "classified-because-names-the-new-behaviour",
+          "tier": "structural",
+          "description": "the created `change_request.md` (read it under outputs/product/) has a line starting `**Classified because:**` containing `export`. E.g. 'the reached-when adds export_csv, a new public name, and a new route' passes."
+        },
+        {
+          "name": "the-pm-context-is-written",
+          "tier": "structural",
+          "description": "run_delta.json `created` includes `bellhaven/contexts/CONTEXT_PM.md`."
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "name": "no-route-writes-nothing",
+      "prompt": "You are the PM. Project folder: skills/pm/.claude/skills/tobiishi-open/evals/inputs/emptyfield/. What should we build next? Open the next change.",
+      "assertions": [
+        {
+          "name": "routes-to-seeds-from-idea",
+          "tier": "structural",
+          "description": "The final response names `seeds-from-idea` as the next move and says it is the Principal PM's — it mentions `Principal PM` or `principal-pm:`. Naming `seeds-from-product-docs` instead fails: the fixture holds no product documents."
+        },
+        {
+          "name": "writes-nothing",
+          "tier": "structural",
+          "description": "run_delta.json's `created`, `modified` and `deleted` are all empty. Paired with routes-to-seeds-from-idea: on its own an empty delta is also what a crashed or never-invoked run leaves."
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "name": "posture-halt-outside-pm",
+      "prompt": "You are the Principal PM. The lanternfold project folder is skills/pm/.claude/skills/tobiishi-open/evals/inputs/lanternfold/. Open the next change for it.",
+      "assertions": [
+        {
+          "name": "halt-names-the-way-in",
+          "tier": "structural",
+          "description": "The final response says opening a change needs PM posture and names the way in: the `pm:` session prefix, or running it as the `pm` subagent. E.g. 'open a session with the `pm:` prefix' passes. Naming 'Principal PM' alone does not pass. A baseline acting as the Principal PM writes the change request instead."
+        },
+        {
+          "name": "halt-writes-nothing",
+          "tier": "structural",
+          "description": "run_delta.json's `created`, `modified` and `deleted` are all empty. Paired with halt-names-the-way-in."
+        }
+      ]
+    }
+  ]
+}

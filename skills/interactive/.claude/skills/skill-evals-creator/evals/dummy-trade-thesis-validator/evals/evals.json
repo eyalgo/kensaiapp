@@ -1,0 +1,39 @@
+{
+  "skill_name": "trade-thesis-validator",
+  "evals": [
+    {
+      "id": 1,
+      "name": "well-formed-mr-thesis",
+      "prompt": "Validate this trade journal entry: Ticker: SAP.DE | Strategy: [MR] | Thesis: RSI_14 dropped to 32, stock is 4% above its 52w low. Price has mean-reverted after a 3-week selloff. Target +8%, stop -5%.",
+      "assertions": [
+        {
+          "name": "result_is_valid",
+          "description": "Output contains 'VALID' for the SAP.DE entry",
+          "tier": "structural"
+        },
+        {
+          "name": "thesis_not_flagged_incomplete",
+          "description": "The skill output does not label the thesis entry as 'incomplete' or 'invalid' — the review does not use the word 'missing' to describe absent fields",
+          "tier": "structural"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "name": "well-formed-mom-thesis",
+      "prompt": "Validate: Ticker: ASML.AS | Strategy: [MOM] | Thesis: Price is above SMA_20 (SMA_20 = 812, current = 847). RSI_14 at 58 — momentum building. SMA_20 > SMA_50 confirmed. Targeting RSI > 75 exit.",
+      "assertions": [
+        {
+          "name": "result_is_valid",
+          "description": "Output contains 'VALID' for the ASML.AS entry",
+          "tier": "structural"
+        },
+        {
+          "name": "strategy_tag_acknowledged",
+          "description": "Output references the [MOM] strategy tag",
+          "tier": "structural"
+        }
+      ]
+    }
+  ]
+}

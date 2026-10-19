@@ -1,0 +1,39 @@
+{
+  "skill_name": "meeting-notes",
+  "evals": [
+    {
+      "id": 1,
+      "name": "decisions-only",
+      "prompt": "Format these meeting notes — Q3 planning: We decided to drop the legacy API by Sep 30, owner Sarah. Also agreed to move daily standups to 9am, owner Marcus. No action items, no other topics.",
+      "assertions": [
+        {
+          "name": "file-exists",
+          "description": "meeting-YYYY-MM-DD.md file exists in the output directory",
+          "tier": "structural"
+        },
+        {
+          "name": "decisions-have-owner-and-deadline",
+          "description": "Each decision entry includes an @mention owner and a deadline date in YYYY-MM-DD format",
+          "tier": "structural"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "name": "action-items",
+      "prompt": "Meeting notes — sprint kickoff: Action items: Alex to set up CI pipeline by Friday. Jordan to review security audit findings by Thursday. No decisions were formalized yet.",
+      "assertions": [
+        {
+          "name": "file-exists",
+          "description": "meeting-YYYY-MM-DD.md file exists in the output directory",
+          "tier": "structural"
+        },
+        {
+          "name": "action-items-use-checkbox",
+          "description": "Action item entries use checkbox format: each starts with '[ ]'",
+          "tier": "structural"
+        }
+      ]
+    }
+  ]
+}

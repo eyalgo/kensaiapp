@@ -1,0 +1,7 @@
+{
+  "version": 1,
+  "substance": [
+    "skills/cpo/.claude/skills/product-prd/SKILL.md",
+    "skills/cpo/.claude/skills/product-prd/prompts/rich.md"
+  ]
+}

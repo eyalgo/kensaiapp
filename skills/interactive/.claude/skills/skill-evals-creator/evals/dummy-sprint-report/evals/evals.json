@@ -1,0 +1,44 @@
+{
+  "skill_name": "sprint-report",
+  "evals": [
+    {
+      "id": 1,
+      "name": "basic-sprint",
+      "prompt": "Generate a sprint report: Sprint 14. Completed: user auth (5pts), fix login redirect (3pts), add pagination (2pts). Carried over: payment integration (8pts) — waiting on external API.",
+      "assertions": [
+        {
+          "name": "file-exists",
+          "description": "report.md exists in the output directory",
+          "tier": "structural"
+        },
+        {
+          "name": "stories_are_well_formatted",
+          "description": "Completed story entries are formatted in a clear, informative way that communicates effort and work done to stakeholders",
+          "tier": "nuanced"
+        },
+        {
+          "name": "summary-line-present",
+          "description": "Output contains a line starting with 'Completed:' that lists story count and total points",
+          "tier": "structural"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "name": "no-carryover",
+      "prompt": "Sprint 15 report: finished everything. Completed stories: add dark mode (3pts), fix performance regression (5pts), update docs (1pt). Nothing carried over.",
+      "assertions": [
+        {
+          "name": "file-exists",
+          "description": "report.md exists in the output directory",
+          "tier": "structural"
+        },
+        {
+          "name": "no-carryover-section",
+          "description": "Output does not contain a 'Carried Over' section when nothing was carried over",
+          "tier": "structural"
+        }
+      ]
+    }
+  ]
+}

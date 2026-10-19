@@ -1,0 +1,9 @@
+# Flow Findings — development-implementation  (audited 2026-10-11)
+
+Findings for this step's output only, produced by the `development-audit` skill.
+Change-local findings live here; skill-general findings are also raised as kaizen items.
+
+- **[non-blocking · change-local · evidence-that-could-have-failed]** The `quality_gates.md` line says "bore on nothing this change wrote or ran; no Python source changed", but the run ran the card's suite gate. Where: closing commit `439add9e2`, `Language resolution:` block. `quality_gates.md` § Suite governs exactly that command: "a red test is a failed gate, and a suite that does not run is a failed gate", with pytest exit `5` for no tests collected. The run's own record (`224 passed`, 224 collected in `tl_instruction.md` TL Review Notes) satisfies it, but the line should have quoted the clause and cited the gate run instead of declaring it irrelevant.
+- **[non-blocking · change-local · evidence-that-could-have-failed]** The `toolchain.md:12` quote stops at the first clause, and the line says the clause "bore on the commands run only". Where: same block. The run used `pytest` from the card's `Test command:`, so the quote is right and the verdict holds. The only gap is that the packet's own statement that the suite runs on whatever pytest is on the machine (`toolchain.md:55-58`) isn't cited. Low weight.
+
+Checked and clean: resolved language (Python) matches `project.md` `Languages:`; six concerns each have their own line; the Step 1b block is present with both counts (0 and 0), and each of V-1 to V-9 asserts what `tl_instruction.md` lists; the single task lands no multi-rule entry point. Lens 9 skipped in substance: the change adds no logic, only README text at the S-1 artifact. The diff (`ded01918d`) shows two hunks inside § Running the tests, and the README strings match `change_text.md` per the code-integrity report. Lenses 1–6, 8 and 10: no findings.

@@ -1,0 +1,12 @@
+# Flow Findings — development-design  (audited 2026-10-11)
+
+Findings for this step's output only, produced by the `development-audit` skill.
+Change-local findings live here; skill-general findings are also raised as kaizen items.
+
+Audited: `change_design.md`, against `change_spec.md` and the product source (`requests/models.py`). No `adr/`, `nfdr.md`, `fdr.md` or `SDD.md` exists, so those cross-checks and lens 9 were skipped, as the skill directs.
+
+- **[non-blocking · change-local · coverage]** The one case that makes the design's removal necessary for CP-12 has no test row. Where: `change_design.md §5` rows 7–8 against `§Architect Review Notes` (drift note). The drift note finds that a followed `GET` receives a carried `Content-Length` only when the *caller* passed one in `headers` on the original request. §4 and Review Note (b) justify removal-not-omission by that case. Rows 7 and 8 script redirects with no caller-supplied header, so a skip-the-default implementation would pass them. Row 5 covers the caller header with no redirect. Direction: a redirect row whose original request carries a caller `Content-Length`.
+- **[non-blocking · change-local · coverage]** A rule-implied edge is declared covered by two rows that never meet. Where: `change_design.md §5` "Rule-implied edges", bullet 2 (a bodiless `POST` given auth). It says "covered by rows 6 and 12 together". Row 6 is `GET`/`HEAD` with auth, and row 12 is `POST` and the others with no auth. No row prepares a non-`GET`/`HEAD` request with auth, which is the `prepare_auth` recompute path with the predicate false. Direction: give the edge a row or drop the claim.
+- **[non-blocking · change-local · contract-realized]** The "Covered by row 11" claim for a generator body is not borne out. Where: `change_design.md §5`, "Rule-implied edges", bullet 1. Row 11 tests `[]`, `()` and `Request(data=None)`, none of which is a generator. The reason for not pinning the generator's value is recorded and sound. The "covered" wording reads as if CP-13's generator clause were tested, and it is not. Direction: say the clause is deliberately untested.
+
+Checked and clean: lens 3 (`bug` / `changing` copied from the spec), lens 4 (the drift in the spec's redirect claim and the CP-14 set-vs-fence tension are both recorded with reasons), lens 6 (the sub-jobs omission is justified, one change, `Publishes text: no`), lens 8 (nothing enacted for a successor; the code-strategy hints are the design's own).

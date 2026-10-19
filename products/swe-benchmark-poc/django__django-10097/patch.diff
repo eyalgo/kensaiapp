@@ -1,0 +1,111 @@
+diff --git a/django/core/validators.py b/django/core/validators.py
+index 92394a7..e1ba5b4 100644
+--- a/django/core/validators.py
++++ b/django/core/validators.py
+@@ -94,7 +94,7 @@ class URLValidator(RegexValidator):
+ 
+     regex = _lazy_re_compile(
+         r'^(?:[a-z0-9\.\-\+]*)://'  # scheme is validated separately
+-        r'(?:\S+(?::\S*)?@)?'  # user:pass authentication
++        r'(?:(?:[^\s:@/?#]+(?::[^\s:@/?#]*)?|:[^\s:@/?#]*)@)?'  # user:pass authentication
+         r'(?:' + ipv4_re + '|' + ipv6_re + '|' + host_re + ')'
+         r'(?::\d{2,5})?'  # port
+         r'(?:[/?#][^\s]*)?'  # resource path
+diff --git a/tests/validators/invalid_urls.txt b/tests/validators/invalid_urls.txt
+index 04a0b5f..a1086c9 100644
+--- a/tests/validators/invalid_urls.txt
++++ b/tests/validators/invalid_urls.txt
+@@ -57,3 +57,19 @@ http://example.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.
+ http://example.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+ http://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaa
+ https://test.[com
++http://-.~_!$&'()*+,;=:%40:80%2f::::::@example.com
++http://foo/bar@example.com
++http://foo?bar@example.com
++http://foo#bar@example.com
++http://foo:b:ar@example.com
++http://f@oo:bar@example.com
++http://foo@bar@example.com
++http://foo:bar@baz@example.com
++http://foo:bar/baz@example.com
++http://user:pa?ss@example.com
++ftp://foo/bar@example.com
++http://us er@example.com
++http://@example.com
++http://foo:b:ar@例子.测试
++http://foo@bar@例子.测试
++http://foo/bar@例子.测试
+diff --git a/tests/validators/tests.py b/tests/validators/tests.py
+index da3db59..99ebc46 100644
+--- a/tests/validators/tests.py
++++ b/tests/validators/tests.py
+@@ -304,6 +304,7 @@ with open(create_path('valid_urls.txt'), encoding='utf8') as f:
+ with open(create_path('invalid_urls.txt'), encoding='utf8') as f:
+     for url in f:
+         TEST_DATA.append((URLValidator(), url.strip(), ValidationError))
++        TEST_DATA.append((URLValidator(), url.strip() + '?m=foo@example.com', ValidationError))
+ 
+ 
+ def create_simple_test_method(validator, expected, value, num):
+@@ -368,6 +369,30 @@ class TestSimpleValidators(SimpleTestCase):
+         with self.assertRaisesMessage(ValidationError, '"djangoproject.com" has more than 16 characters.'):
+             v('djangoproject.com')
+ 
++    def test_url_validator_rejection_has_code_and_message(self):
++        for url in (
++            'http://foo/bar@example.com',
++            'http://foo:b:ar@example.com',
++            'https://test.[com?m=foo@example.com',
++        ):
++            with self.subTest(url=url):
++                with self.assertRaises(ValidationError) as cm:
++                    URLValidator()(url)
++                self.assertEqual(cm.exception.code, 'invalid')
++                self.assertEqual(cm.exception.messages, ['Enter a valid URL.'])
++
++    def test_url_validator_rejects_user_information_for_every_scheme(self):
++        for validator, url in (
++            (URLValidator(), 'ftps://foo/bar@example.com'),
++            (URLValidator(EXTENDED_SCHEMES), 'git+ssh://foo/bar@github.com/example/hg-git.git'),
++            (URLValidator(EXTENDED_SCHEMES), 'git+ssh://git:pa:ss@github.com/example/hg-git.git'),
++            (URLValidator(EXTENDED_SCHEMES), 'git+ssh://git@git@github.com/example/hg-git.git'),
++        ):
++            with self.subTest(url=url):
++                with self.assertRaises(ValidationError) as cm:
++                    validator(url)
++                self.assertEqual(cm.exception.code, 'invalid')
++
+ 
+ test_counter = 0
+ for validator, value, expected in TEST_DATA:
+diff --git a/tests/validators/valid_urls.txt b/tests/validators/valid_urls.txt
+index 4bc8c03..86af1d7 100644
+--- a/tests/validators/valid_urls.txt
++++ b/tests/validators/valid_urls.txt
+@@ -48,7 +48,7 @@ http://foo.bar/?q=Test%20URL-encoded%20stuff
+ http://مثال.إختبار
+ http://例子.测试
+ http://उदाहरण.परीक्षा
+-http://-.~_!$&'()*+,;=:%40:80%2f::::::@example.com
++http://-.~_!$&'()*+,;=:%40%3A80%2f%3A%3A%3A%3A%3A%3A@example.com
+ http://xn--7sbb4ac0ad0be6cf.xn--p1ai
+ http://1337.net
+ http://a.b-c.de
+@@ -71,3 +71,17 @@ http://dashintld.c-m
+ http://multipledashintld.a-b-c
+ http://evenmoredashintld.a---c
+ http://dashinpunytld.xn---c
++http://example.com/?m=foo@example.com
++http://example.com?m=foo@example.com
++http://example.com#foo@bar
++http://userid:password@example.com?m=foo@example.com
++http://foo%2Fbar@example.com
++http://foo:b%3Aar@example.com
++http://foo%40bar@example.com
++http://usér:päss@example.com
++http://[user]@example.com
++http://:@example.com
++http://:pass@example.com
++http://user:@example.com
++http://foo:b%3aar@example.com
++http://user:pass@例子.测试

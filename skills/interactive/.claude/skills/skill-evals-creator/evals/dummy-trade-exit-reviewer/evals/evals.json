@@ -1,0 +1,39 @@
+{
+  "skill_name": "trade-exit-reviewer",
+  "evals": [
+    {
+      "id": 1,
+      "name": "valid-mr-exit-at-target",
+      "prompt": "Review this exit: Position BAYN.DE [MR]. Entry price 28.40. Current price 30.72 (+8.2%). Holding period: 18 days. RSI_14: 51.",
+      "assertions": [
+        {
+          "name": "result_is_valid_exit",
+          "description": "Output contains 'VALID EXIT' for the BAYN.DE position",
+          "tier": "structural"
+        },
+        {
+          "name": "exit_judgment_sound",
+          "description": "The exit review demonstrates sound judgment about whether the mechanical exit conditions were genuinely triggered, appropriately identifying the +8% target as the valid condition",
+          "tier": "nuanced"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "name": "valid-mom-exit-rsi-triggered",
+      "prompt": "Review exit: Position DTE.DE [MOM]. Entry price 21.10. Current price 23.45. RSI_14: 78. Holding period: 9 days. Price above SMA_20.",
+      "assertions": [
+        {
+          "name": "result_is_valid_exit",
+          "description": "Output contains 'VALID EXIT' for the DTE.DE position",
+          "tier": "structural"
+        },
+        {
+          "name": "rsi_condition_named",
+          "description": "Output names RSI as the triggered condition — output contains 'RSI' near the condition statement",
+          "tier": "structural"
+        }
+      ]
+    }
+  ]
+}

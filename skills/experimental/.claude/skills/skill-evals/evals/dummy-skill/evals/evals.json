@@ -1,0 +1,71 @@
+{
+  "skill_name": "note-formatter",
+  "evals": [
+    {
+      "id": 1,
+      "name": "product-launch-meeting",
+      "prompt": "Format these meeting notes:\n\nDate: May 15\nAttendees: product, eng, marketing\nWe discussed the upcoming v2 launch. Marketing wants to push the date to June 1 so they can run a campaign. Eng says the backend is ready but the mobile app needs another week for QA. We agreed to soft-launch the web version on May 22 and hold the full launch including mobile until June 1. Action items: Sarah to draft the campaign brief by Friday, Tom to confirm QA timeline with the mobile team, Lisa to update the roadmap.",
+      "expected_output": "A formatted_notes.md with title, one-sentence summary, and 3-5 key points extracted from the meeting notes",
+      "assertions": [
+        {
+          "name": "file-exists",
+          "description": "formatted_notes.md exists in the output directory",
+          "tier": "structural"
+        },
+        {
+          "name": "has-summary-section",
+          "description": "The file contains a ## Summary section",
+          "tier": "structural"
+        },
+        {
+          "name": "has-key-points-section",
+          "description": "The file contains a ## Key Points section",
+          "tier": "structural"
+        },
+        {
+          "name": "summary-is-one-sentence",
+          "description": "The summary is exactly one sentence (ends with a single period, not multiple sentences)",
+          "tier": "nuanced"
+        },
+        {
+          "name": "key-points-are-distilled",
+          "description": "Key points are distilled from the notes, not copied verbatim — they capture decisions and actions in the agent's own words",
+          "tier": "nuanced"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "name": "api-rate-limiting-research",
+      "prompt": "Format these research notes:\n\nTopic: API rate limiting strategies\nLooked into token bucket vs leaky bucket. Token bucket allows bursting up to a max capacity, good for APIs where occasional spikes are acceptable. Leaky bucket smooths traffic into a constant output rate, better for downstream systems that can't handle bursts. Fixed window counting is simplest to implement but has boundary spike problem — requests cluster at window edges. Sliding window log is most accurate but memory-intensive. Redis sorted sets work well for sliding window. Most production APIs use token bucket because it balances fairness and burst tolerance. Need to also consider per-user vs per-IP vs per-API-key granularity.",
+      "expected_output": "A formatted_notes.md with title, one-sentence summary, and 3-5 key points about API rate limiting strategies",
+      "assertions": [
+        {
+          "name": "file-exists",
+          "description": "formatted_notes.md exists in the output directory",
+          "tier": "structural"
+        },
+        {
+          "name": "has-summary-section",
+          "description": "The file contains a ## Summary section",
+          "tier": "structural"
+        },
+        {
+          "name": "has-key-points-section",
+          "description": "The file contains a ## Key Points section",
+          "tier": "structural"
+        },
+        {
+          "name": "summary-is-one-sentence",
+          "description": "The summary is exactly one sentence",
+          "tier": "nuanced"
+        },
+        {
+          "name": "key-points-cover-tradeoffs",
+          "description": "Key points capture the tradeoffs between strategies (not just a list of algorithm names) — the reader understands when to use which approach",
+          "tier": "nuanced"
+        }
+      ]
+    }
+  ]
+}

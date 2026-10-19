@@ -1,0 +1,155 @@
+{
+  "skill_name": "shukuba-refine",
+  "evals": [
+    {
+      "id": 1,
+      "name": "posture-halt-outside-pm",
+      "prompt": "You are the Principal PM. The tidewell change unit `local-time-in-alerts` was sealed this morning; the project folder is skills/pm/.claude/skills/shukuba-refine/evals/inputs/tidewell/. Review the sealed unit and refine the route after the seal: read what it left, and bring the seeds and stations into line with it.",
+      "assertions": [
+        {
+          "name": "halt-names-the-way-in",
+          "description": "The run's transcript or final response says the review needs PM posture and names the way in: the `pm:` session prefix, or running it as the `pm` subagent. E.g. 'open a session with the `pm:` prefix' or 'run it as the pm subagent' passes. Naming 'Principal PM' or 'PPM' alone does not pass. A baseline acting as the Principal PM carries out the review instead and names neither.",
+          "tier": "structural"
+        },
+        {
+          "name": "halt-writes-nothing",
+          "description": "run_delta.json lists no created, modified or deleted path, and no file named `*_report.md` or `*_recommendations.md` exists anywhere under outputs/ (check the tree itself, not only run_delta.json). Paired with halt-names-the-way-in: on its own, an empty delta is also what a crashed or never-invoked run leaves.",
+          "tier": "structural"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "name": "the-run-that-moves-nothing",
+      "prompt": "You are the PM. The tidewell change unit `local-time-in-alerts` was sealed this morning. Project folder: skills/pm/.claude/skills/shukuba-refine/evals/inputs/tidewell/. Review the sealed unit and refine the route after the seal.",
+      "assertions": [
+        {
+          "name": "both-files-land-in-the-seed-folder",
+          "description": "run_delta.json `created` includes both `tidewell/journey/nemawashi/alerts-reach-the-harbour/local-time-in-alerts_report.md` and `tidewell/journey/nemawashi/alerts-reach-the-harbour/local-time-in-alerts_recommendations.md`, at exactly those paths. A report written into outputs/, or under any other name, does not pass.",
+          "tier": "structural"
+        },
+        {
+          "name": "nothing-to-recommend",
+          "description": "The created `local-time-in-alerts_recommendations.md` contains the line `Nothing to recommend.` and no numbered recommendation heading (no line starting `### 1.`).",
+          "tier": "structural"
+        },
+        {
+          "name": "the-seed-becomes-a-folder",
+          "description": "run_delta.json `created` includes `tidewell/journey/nemawashi/alerts-reach-the-harbour/seed.md` and `deleted` includes `tidewell/journey/nemawashi/alerts-reach-the-harbour.md`. The `- [x]` and `- [ ]` checklist lines of outputs/product/…/seed.md are identical to those of outputs/reference/tidewell/journey/nemawashi/alerts-reach-the-harbour.md.",
+          "tier": "structural"
+        },
+        {
+          "name": "the-route-is-not-moved",
+          "description": "No path under `tidewell/journey/shukuba/`, `tidewell/journey/nemawashi/unpicked/`, `tidewell/docs/` or `tidewell/src/` appears in run_delta.json's created, modified or deleted. Paired with every-seed-was-considered and both-files-land-in-the-seed-folder: on its own this absence is what a run that did nothing leaves.",
+          "tier": "structural"
+        },
+        {
+          "name": "every-seed-was-considered",
+          "description": "The created report's `## Considered, not moved` section names each of `alerts-reach-the-harbour`, `tide-data-from-a-second-source` and `listed-in-the-harbour-app-store`, each with a reason on its row.",
+          "tier": "structural"
+        },
+        {
+          "name": "absent-inputs-are-stated",
+          "description": "The created report's `## Read` table marks the deferred-decisions row and the developer's-closing-commit row as absent: the word `absent` appears on each of those two rows. The fixture holds no `deferred_decisions.md`, and no commit names the unit's key.",
+          "tier": "structural"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "name": "an-owned-deferral-became-unowned",
+      "prompt": "You are the PM. On ferrule the unit `cancel-endpoint-lands` just sealed; the project folder is skills/pm/.claude/skills/shukuba-refine/evals/inputs/ferrule/. Read what it left (the audits, the integrity report, any deferred decisions) and bring the route back into line with it.",
+      "assertions": [
+        {
+          "name": "the-deferral-is-carried-by-the-route",
+          "description": "Take the seed after the run: `ferrule/journey/nemawashi/pickups-end-to-end/seed.md` if run_delta.json lists it as created, otherwise `ferrule/journey/nemawashi/pickups-end-to-end.md` if listed as modified. It has an unticked `- [ ]` checklist line that mentions the booking-fee refund (the word `refund`). outputs/reference/ferrule/journey/nemawashi/pickups-end-to-end.md has no unticked line mentioning it. The `customer-cancels-from-the-app` line amended to carry the refund passes; a new unticked line carrying it also passes.",
+          "tier": "structural"
+        },
+        {
+          "name": "ticked-lines-untouched",
+          "description": "The three `- [x]` lines of the seed after the run (the same file as in the-deferral-is-carried-by-the-route) are byte-identical to the three `- [x]` lines in outputs/reference/ferrule/journey/nemawashi/pickups-end-to-end.md.",
+          "tier": "structural"
+        },
+        {
+          "name": "no-code-fix-no-new-seed",
+          "description": "No path under `ferrule/src/` or `ferrule/journey/nemawashi/unpicked/` appears in run_delta.json's created, modified or deleted. Paired with the-deferral-is-carried-by-the-route: on its own this absence is what a run that did nothing leaves.",
+          "tier": "structural"
+        },
+        {
+          "name": "the-move-cites-the-finding",
+          "description": "The created `ferrule/journey/nemawashi/pickups-end-to-end/cancel-endpoint-lands_report.md` has a `## Moves` table row whose move reads 'modify a seed' (any case), and whose source names `flow_findings/development-specs.md`.",
+          "tier": "structural"
+        },
+        {
+          "name": "no-clarifying-question",
+          "description": "The run acts and writes its files without first stopping to ask a clarifying question: run_delta.json's created list is not empty, and the transcript does not end on a question to the user. Note: this assertion may also pass without the skill for a fully specified input.",
+          "tier": "structural"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "name": "a-gap-raised-as-a-companion-item",
+      "prompt": "You are the PM. quillmark's unit `word-count-on-submit` has landed; the project folder is skills/pm/.claude/skills/shukuba-refine/evals/inputs/quillmark/. Review the sealed unit and refine the route after the seal.",
+      "assertions": [
+        {
+          "name": "the-srs-gains-a-companion",
+          "description": "run_delta.json `created` includes `quillmark/docs/SRS_open_issues.md`. It has a section whose heading contains `Raised from downstream`, and an item in that section names `FR-2` and `front_matter.py`.",
+          "tier": "structural"
+        },
+        {
+          "name": "the-srs-is-not-edited",
+          "description": "`quillmark/docs/SRS.md` appears in neither modified nor deleted in run_delta.json. Paired with the-srs-gains-a-companion: the document is left as it stands, and the change reaches it through its companion.",
+          "tier": "structural"
+        },
+        {
+          "name": "not-a-seed-not-a-recommendation",
+          "description": "No path under `quillmark/journey/nemawashi/unpicked/` appears in run_delta.json's created list, and the created `quillmark/journey/nemawashi/submissions-are-accepted/word-count-on-submit_recommendations.md` contains the line `Nothing to recommend.`",
+          "tier": "structural"
+        },
+        {
+          "name": "the-item-is-tracked-by-its-seed",
+          "description": "The item under `Raised from downstream` in the created SRS_open_issues.md has a `Tracked by` line naming the seed `submissions-are-accepted` by a path containing `journey/nemawashi/`. The folder form `…/journey/nemawashi/submissions-are-accepted/seed.md` passes, as does the folder itself (`…/submissions-are-accepted/`) and the flat `…/journey/nemawashi/submissions-are-accepted.md`, since a pointer into a converted seed still resolves. A `Tracked by` line that names a report, a station or a unit, or no `Tracked by` line at all, fails.",
+          "tier": "structural"
+        },
+        {
+          "name": "the-item-names-no-unit",
+          "description": "The item under `Raised from downstream` in the created SRS_open_issues.md does not contain the unit key `word-count-on-submit` anywhere: not in its reason, its fields or its Tracked by line. Paired with the-item-is-tracked-by-its-seed, which checks what the item does point at, and with the-report-records-the-companion, which checks that the report is where the unit is cited.",
+          "tier": "structural"
+        },
+        {
+          "name": "the-report-records-the-companion",
+          "description": "The created `quillmark/journey/nemawashi/submissions-are-accepted/word-count-on-submit_report.md` has a `## Moves` table row whose move names a companion item (e.g. 'raise a companion item' or 'companion item on the SRS'), on `docs/SRS_open_issues.md`.",
+          "tier": "structural"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "name": "the-no-move-pick",
+      "prompt": "You are the PM. brackenway's unit `closures-on-the-map` is sealed. Project folder: skills/pm/.claude/skills/shukuba-refine/evals/inputs/brackenway/. Go through what it left and the whole seedbed the way we did after the last seal, and pick the seed you think is best to walk next.",
+      "assertions": [
+        {
+          "name": "the-active-seed-stays-at-the-root",
+          "description": "run_delta.json `created` includes `brackenway/journey/nemawashi/the-trail-map-goes-live/seed.md`, at the seedbed root and not under `unpicked/`, together with `closures-on-the-map_report.md` and `closures-on-the-map_recommendations.md` in that same folder.",
+          "tier": "structural"
+        },
+        {
+          "name": "nothing-is-unpicked-or-opened",
+          "description": "No path under `brackenway/journey/nemawashi/unpicked/` appears in run_delta.json's created, modified or deleted, and no file is created directly under `brackenway/journey/shukuba/`. Paired with the-active-seed-stays-at-the-root and every-pool-seed-is-considered: on its own this absence is what a run that did nothing leaves.",
+          "tier": "structural"
+        },
+        {
+          "name": "every-pool-seed-is-considered",
+          "description": "The created report's `## Considered, not moved` section names each of `the-trail-map-goes-live`, `project-setup`, `every-edge-of-the-map-path`, `store-listing` and `offline-maps-described`.",
+          "tier": "structural"
+        },
+        {
+          "name": "the-finished-seed-goes-to-the-ppm",
+          "description": "The created `closures-on-the-map_recommendations.md` has an entry that names `project-setup` and whose kind reads `a seed to retire`.",
+          "tier": "structural"
+        }
+      ]
+    }
+  ]
+}

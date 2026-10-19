@@ -1,0 +1,92 @@
+# The provider each launch goes to: every chain launch, every instance skill launcher's launch,
+# and every launch of the three kaizen tool scripts (launch-apply-packet, launch-audit,
+# launch-fix-author) — one entry per launch source.
+#
+# An instance reads these entries from .providers.toml at its own root, and from no other file.
+# .providers.toml is untracked. It is made from the tracked .providers.toml.example with
+#
+#     cp .providers.toml.example .providers.toml
+#
+# run at the instance root, and it is edited there. The example is never read in its place: in an
+# instance with no .providers.toml, every unforced launch is refused, naming the file and that
+# command.
+#
+# Read by <CORE>/tools/providers.py, and only by it; chain.py, chain_development.py and
+# build_idea.py hold no provider of their own, and neither does a launcher under
+# <CORE>/launchers/. An unforced launch takes its provider from .providers.toml as the file
+# stands at the moment of that launch, so an edit reaches the next launch, including the next
+# launch of a walk that is already running.
+#
+# --provider <name> on an engine (or KENSAIAPP_AGENT_PROVIDER exported to its launcher) forces
+# every launch onto that provider, and then .providers.toml is not read at all. Seven launchers
+# accept that force: the five chain launchers (chain-product, chain-agari, chain-change,
+# chain-development, build-idea), skill and companion-self-answer. The other eight never read it:
+# cold-read, launch-eval-fix, launch-skill-evals, product-card, seeds-from-idea and the three
+# kaizen tool scripts.
+#
+# An entry an engine or launcher needs and .providers.toml lacks is refused by name, never
+# defaulted; so is a value that is not a known provider (claude, codex, gemini, hf, ollama) and a file
+# that is not valid TOML. An entry nobody asks for is ignored. Keys are case-sensitive, and the
+# table is part of the name: the `design` step is steps.design, the DESIGN document is
+# documents.DESIGN.
+
+# The product chain's documents — a document's producer, its answer step and a round it is owed.
+# The SDD row governs the SDD's producer launch, its answer step and a round owed through another
+# launcher.
+[documents]
+PRD = "claude"
+Agari = "claude"
+SRS = "claude"
+UXD = "claude"
+DESIGN = "claude"
+CONTENT = "claude"
+SDD = "claude"
+FDR = "claude"
+ADR = "claude"
+NFDR = "claude"
+
+# The development and change walks' steps — one entry governs a step in both walks.
+[steps]
+station = "claude"
+change = "claude"
+specs = "claude"
+design = "claude"
+plan = "claude"
+content = "claude"
+implementation = "claude"
+code-integrity = "claude"
+audit = "claude"
+seal = "claude"
+refine = "claude"
+
+# build-idea's skill rows, by kind name. A row that starts a chain has no entry: it is handed
+# the queue's force alone, and the chain it starts reads this file for its own launches.
+[build-idea]
+"close the reached station" = "claude"
+"readme-status" = "claude"
+"pick a seed" = "claude"
+"cut the route" = "claude"
+"retire a seed" = "claude"
+"refine a seed" = "claude"
+"cut from the product's documents" = "claude"
+
+# The product chain's launch for an owed item whose path names no document.
+[owed-items]
+no-document = "claude"
+
+# The instance skill launchers under core/launchers/, keyed by the launcher's folder name, and the
+# three kaizen scripts under core/tools/, keyed by the script's name without `.sh`. The eight that
+# run only on Claude (cold-read, launch-eval-fix, launch-skill-evals, product-card,
+# seeds-from-idea, launch-apply-packet, launch-audit, launch-fix-author) refuse an entry naming
+# anything else.
+[launchers]
+skill = "claude"
+companion-self-answer = "claude"
+cold-read = "claude"
+launch-eval-fix = "claude"
+launch-skill-evals = "claude"
+product-card = "claude"
+seeds-from-idea = "claude"
+launch-apply-packet = "claude"
+launch-audit = "claude"
+launch-fix-author = "claude"

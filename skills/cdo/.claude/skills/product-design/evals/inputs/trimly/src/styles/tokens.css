@@ -1,0 +1,53 @@
+/* trimly — the one stylesheet the product ships today. Custom properties are the de facto
+   token set; component rules below use them. */
+
+:root {
+  /* palette */
+  --color-ink: #111827;
+  --color-paper: #FFFFFF;
+  --color-brand: #2563EB;
+  --color-brand-hover: #1D4ED8;
+  --color-positive: #15803D;
+  --color-negative: #B91C1C;
+  --color-border: #E5E7EB;
+  --color-muted: #6B7280;
+
+  /* type — body sizes only; nothing above 14px is defined anywhere in the source */
+  --font-sans: "Inter", system-ui, sans-serif;
+  --text-body: 14px;
+  --text-small: 12px;
+
+  /* shape — one radius, used everywhere */
+  --radius: 6px;
+}
+
+body {
+  font-family: var(--font-sans);
+  font-size: var(--text-body);
+  color: var(--color-ink);
+  background: var(--color-paper);
+}
+
+.button-primary {
+  background: var(--color-brand);
+  color: #ffffff;
+  border-radius: var(--radius);
+  padding: 8px 16px;
+}
+.button-primary:hover {
+  background: var(--color-brand-hover);
+}
+
+.table-row {
+  border-bottom: 1px solid var(--color-border);
+  padding: 8px 12px;
+}
+.table-row .meta {
+  color: var(--color-muted);
+  font-size: var(--text-small);
+}
+
+.badge-positive { color: var(--color-positive); }
+.badge-negative { color: var(--color-negative); }
+
+/* spacing today is ad hoc: 4, 8, 12, 16, 24 appear across the codebase; no scale variable set */

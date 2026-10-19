@@ -1,0 +1,14 @@
+# Change request — 2026-10-08_setup-instructions
+
+---
+
+**Request:** Write the setup instructions a reader follows alone, and make the tracker's one unreadable-data message point to them. `products/tracker17/README.md` gains the six UX-S1 sections in order (prerequisites, the commands from a fresh copy to the tracker in the browser, what the start prints and the address to open, where the saved data is kept, "Starting the tracker again", "Setting saved data aside") and a section on making the virtual environment, installing the test dependencies and running `pytest tests/` and `pytest tests/e2e/`. The prerequisites say Python 3.11 or later with the command that shows the version and what to do when it is lower; macOS and Linux, checked on macOS only, Windows not supported; and a network connection needed once, only to set up the test suite. "Starting the tracker again" and "Setting saved data aside" are spelled exactly as `docs/CONTENT.md` has them. The README's Status stops saying no code exists and says what runs now, naming `python3 main.py`; the sentence it gives for what the start prints matches what the start prints. In `main.py` the unreadable-data message gains its closing sentence, `See Setting saved data aside in the setup instructions.`, and a test pins that sentence and the README heading together, so it fails if either changes alone. A reader following only the README from a fresh copy reaches the Projects page in no more than three commands, with no account, key or sign-up; that is checked by running the README's commands in order in a disposable copy.
+
+What must not be weakened: the start prints and serves what it does now, and the closing sentence is the only change to `main.py`; the start that cannot read its saved data still stops with one plain message and writes nothing to `data/`; the unreadable-data page and the second-tracker refusal are not added; the product's `docs/` definition documents are not edited (a conflict between them and the README is raised, not resolved); the README keeps its "How it's built" and "The documents" content as it stands.
+
+**Sizing:** the acceptance boundary is the station's reached-when 1 to 7 (SDD § 6 S-1, *Artifact*): one reader capability, following the written setup alone to the Projects page. The README, its Status, and the pointer sentence with the test that pins them are one capability, since each is checked against the others; they are one honest merge and one flow, so the station takes this single change.
+**Category:** feature
+**Behaviour:** changing
+**Classified because:** the station's reached-when 1 to 3 add a new document a reader acts on (the setup sections) and 4 adds a closing sentence to what the start prints on unreadable data, which is what a public message returns.
+
+**Sealed:** 2026-10-08 — accepted; merged to `main` via `--no-ff`.

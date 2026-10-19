@@ -1,0 +1,124 @@
+{
+  "skill_name": "skill-evals-creator",
+  "evals": [
+    {
+      "id": 1,
+      "name": "mode-2-update-existing-evals",
+      "prompt": "Mode 2. Skill at skills/interactive/.claude/skills/skill-evals-creator/evals/dummy-skill-with-evals/. Both SKILL.md and evals/evals.json exist. We want to add eval coverage for the new **Wins:** section added to the skill.",
+      "assertions": [
+        {
+          "name": "update_is_additive",
+          "description": "Output evals.json preserves all existing eval cases from the input evals.json \u2014 original case IDs, case names, case prompts, and assertion names are not removed, renamed, or deleted. Permitted modifications to existing assertions: (1) adding justification to a nuanced assertion that was missing one, either as a dedicated sibling field (e.g. nuanced_justification) or by appending justification text to the description; (2) converting an assertion's tier from 'nuanced' to 'structural' where the assertion description is mechanically verifiable. Adding new cases is permitted. Removing existing cases, renaming assertion names, or replacing assertion descriptions with substantively different text fails.",
+          "tier": "structural"
+        },
+        {
+          "name": "wins_assertion_is_concrete",
+          "description": "Output evals.json assertions that check for the **Wins:** section explicitly state the matching rule AND provide at least one concrete example of what passes \u2014 e.g., listing specific phrasings like 'Onboarding completion jumped from 42% to 78%' or 'Onboarding rate improved significantly'. Assertions that reference source data without anchoring the equivalence boundary with concrete acceptable phrasings are insufficient; a grader must not need to guess what paraphrase would pass. Requires judgment \u2014 whether the described phrasing boundaries are concrete enough to anchor a grader cannot be reliably captured by a text pattern.",
+          "tier": "nuanced"
+        },
+        {
+          "name": "nuanced_assertions_have_justification",
+          "description": "Any assertion in the output evals.json with tier='nuanced' must be justified \u2014 either in a dedicated sibling field (e.g. nuanced_justification) OR by a phrase such as 'requires judgment' or 'cannot be reliably captured by a text pattern' embedded directly in the description field. Field name is not prescribed; any clear justification in any location passes. If no nuanced assertions are present, this passes automatically.",
+          "tier": "structural"
+        },
+        {
+          "name": "wins_cardinality_assertion_has_guard",
+          "description": "Output evals.json assertions that check the count of wins items include a guard condition (e.g., 'when wins are present', 'if the section is included') to avoid failing standups where the Wins section is correctly omitted.",
+          "tier": "structural"
+        },
+        {
+          "name": "wins_section_not_na",
+          "description": "When the output evals.json includes a case whose expected output contains a **Wins:** section, the associated assertions must verify that the Wins body is NOT 'N/A', 'n/a', or a bare placeholder \u2014 the SKILL.md explicitly forbids N/A for Wins. An assertion that only checks '**Wins:**' appears in the output would pass even if the agent writes '**Wins:** N/A', which is a skill violation. If no Wins-present case is included in the output, this assertion passes automatically.",
+          "tier": "structural"
+        },
+        {
+          "name": "wins_section_bounded",
+          "description": "When the output evals.json includes assertions about the **Wins:** section, at least one assertion must enforce a bullet count limit \u2014 checking that no more than 2 bullet items appear in the Wins section, or that only a single notable achievement is listed. A model that dumps all Done items into the Wins section would produce 3+ bullets; this assertion detects that anti-pattern. If no Wins-related assertions are present, this passes automatically.",
+          "tier": "structural"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "name": "catch-bug-vacuous-assertion",
+      "prompt": "Mode 2. Skill path: skills/interactive/.claude/skills/skill-evals-creator/evals/dummy-trade-thesis-validator/. SKILL.md and evals/evals.json exist. Add eval coverage for a trade thesis that names the strategy correctly as [MR] but provides no specific indicator values \u2014 just says 'stock looks oversold and is near a low' without RSI or SMA numbers.",
+      "assertions": [
+        {
+          "name": "new_coverage_added",
+          "description": "Output evals.json contains a new case (beyond the two existing cases) for a thesis with strategy tag but no indicator values. The new case prompt mentions [MR] and a thesis that lacks specific numbers.",
+          "tier": "structural"
+        },
+        {
+          "name": "vacuous_assertion_replaced_with_positive_check",
+          "description": "Output evals.json for the 'well-formed-mr-thesis' case (id 1) contains at least one assertion that checks for the PRESENCE of indicator values in the review output \u2014 the assertion description includes 'RSI', 'SMA', '52w', or a specific percentage threshold. An output that retains only the original 'thesis_not_flagged_incomplete' absence-of-word assertion and adds no positive indicator check fails this assertion.",
+          "tier": "structural"
+        },
+        {
+          "name": "update_is_additive",
+          "description": "Output evals.json preserves both existing cases \u2014 'well-formed-mr-thesis' (id 1) and 'well-formed-mom-thesis' (id 2) remain present. Existing cases are not removed.",
+          "tier": "structural"
+        },
+        {
+          "name": "nuanced_assertions_have_justification",
+          "description": "Any assertion in the output evals.json with tier='nuanced' must be justified \u2014 either in a dedicated sibling field OR by a phrase such as 'requires judgment' or 'cannot be reliably captured by a text pattern' embedded in the description field. If no nuanced assertions are present, this passes automatically.",
+          "tier": "structural"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "name": "nuanced-justification-explains-structural",
+      "prompt": "Mode 2. Skill path: skills/interactive/.claude/skills/skill-evals-creator/evals/dummy-copytrader-suitability-reviewer/. SKILL.md and evals/evals.json exist. Add eval coverage for a trader who is NOT_SUITABLE due to negative 12-month returns despite a low risk score of 3.",
+      "assertions": [
+        {
+          "name": "new_coverage_added",
+          "description": "Output evals.json contains a new case (beyond the two existing cases) for a NOT_SUITABLE trader whose disqualifying factor is negative returns, not risk score. The new case prompt includes a risk score ≤ 4 and a negative or zero 12-month gain.",
+          "tier": "structural"
+        },
+        {
+          "name": "nuanced_justification_explains_structural_attempt",
+          "description": "The `prioritization_is_sound` assertion in case id 2 of the output evals.json has a justification — in any field — that explains why structural tier was considered and rejected. A passing justification names what structural approach was tried and why it falls short (e.g., 'threshold checks on individual metrics cannot verify whether the cited factor is the most decision-relevant one'). A justification of only 'requires judgment' or 'cannot be reliably captured by a text pattern' with no explanation of the structural attempt fails. Requires judgment — whether the explanation sufficiently describes a structural attempt cannot be reliably captured by a text pattern.",
+          "tier": "nuanced",
+          "nuanced_justification": "Whether an explanation 'sufficiently describes a structural attempt' depends on the quality and specificity of the reasoning, which no text pattern can reliably verify."
+        },
+        {
+          "name": "update_is_additive",
+          "description": "Output evals.json preserves both existing cases — 'clearly-not-suitable-high-risk' (id 1) and 'suitable-borderline-risk' (id 2) remain present with their core structure intact.",
+          "tier": "structural"
+        },
+        {
+          "name": "nuanced_assertions_have_justification",
+          "description": "Any assertion in the output evals.json with tier='nuanced' must be justified — either in a dedicated sibling field OR by a phrase such as 'requires judgment' or 'cannot be reliably captured by a text pattern' embedded in the description field. If no nuanced assertions are present, this passes automatically.",
+          "tier": "structural"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "name": "proactive-structural-conversion",
+      "prompt": "Mode 2. Skill path: skills/interactive/.claude/skills/skill-evals-creator/evals/dummy-trade-exit-reviewer/. SKILL.md and evals/evals.json exist. Add eval coverage for a MOM position that was exited manually \u2014 RSI was 62, price was above SMA_20, only 8 days into a 15-day max horizon. No mechanical exit condition was triggered.",
+      "assertions": [
+        {
+          "name": "new_coverage_added",
+          "description": "Output evals.json contains a new case for a MOM position with a premature exit where no mechanical condition was triggered. The new case prompt references RSI around 62 and a short holding period, and the expected output includes 'PREMATURE EXIT' or equivalent.",
+          "tier": "structural"
+        },
+        {
+          "name": "nuanced_converted_to_structural",
+          "description": "Output evals.json does NOT contain any assertion with tier='nuanced' for case id 1 ('valid-mr-exit-at-target'). The original 'exit_judgment_sound' nuanced assertion has been replaced with a structural assertion whose description references a specific exit condition \u2014 contains at least one of: '+8%', 'target', 'RSI', 'SMA_20', 'horizon', 'stop loss'. An output that preserves tier='nuanced' for the first case fails.",
+          "tier": "structural"
+        },
+        {
+          "name": "update_is_additive",
+          "description": "Output evals.json preserves both existing cases \u2014 'valid-mr-exit-at-target' (id 1) and 'valid-mom-exit-rsi-triggered' (id 2) remain present with their core structure intact.",
+          "tier": "structural"
+        },
+        {
+          "name": "nuanced_assertions_have_justification",
+          "description": "Any assertion in the output evals.json with tier='nuanced' must be justified \u2014 either in a dedicated sibling field OR by a phrase such as 'requires judgment' or 'cannot be reliably captured by a text pattern' embedded in the description field. If no nuanced assertions are present, this passes automatically.",
+          "tier": "structural"
+        }
+      ]
+    }
+  ]
+}

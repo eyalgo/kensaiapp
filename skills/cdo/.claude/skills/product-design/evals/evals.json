@@ -1,0 +1,133 @@
+{
+  "skill_name": "product-design",
+  "executor": {
+    "model": "fable"
+  },
+  "evals": [
+    {
+      "id": 1,
+      "name": "first-authoring-evidence-grounded",
+      "prompt": "You are the CDO. Author the design language for the trimly project. Its binding is at skills/cdo/.claude/skills/product-design/evals/inputs/trimly/project.md — read it, resolve its Product path, and read the whole product input under it: the docs (the Settled PRD.md and UXD.md, and the trail/uxd) and the product's own source under src/. Draft DESIGN.md best-effort and surface whatever you can't ground.",
+      "assertions": [
+        {
+          "name": "three-bucket-companion-contract",
+          "description": "A companion file named exactly DESIGN_open_issues.md is produced (separate from DESIGN.md) and contains the two bucket labels 'Open issues' and 'Choices to confirm', with each choices item carrying the literal per-item sign-off slot 'Confirm or override' (or 'Confirm-or-override'). The filename and the bucket labels must both match: a companion under any other name (open_questions.md, DESIGN_notes.md), or an inline 'Open Questions' list inside DESIGN.md, does NOT satisfy this. A capable baseline writes a design doc with inline questions or improvises a differently-named companion with ad-hoc slot phrasings ('TBD', 'Your call:').",
+          "tier": "structural"
+        },
+        {
+          "name": "format-frontmatter-and-canonical-order",
+          "description": "The produced DESIGN.md opens with YAML frontmatter carrying a 'name:' entry and a 'colors:' map that includes 'primary', and its body '##' sections appear in the format's canonical order — Overview, Colors, Typography, Layout, Elevation & Depth, Shapes, Components, Do's and Don'ts (aliases allowed: 'Brand & Style' for Overview, 'Layout & Spacing' for Layout, 'Elevation' for Elevation & Depth; the instance's extra sections after Do's and Don'ts are fine) — and NO '## Themes' heading exists anywhere (modes belong in the Colors prose; a Themes section is the known wrong reading of the format). All three parts required: frontmatter tokens, canonical order, no Themes. A capable baseline writes a free-form design doc (often with a Theme/Modes section) and does not emit the format's token frontmatter with the eight sections in canonical order.",
+          "tier": "structural"
+        },
+        {
+          "name": "values-cite-the-source",
+          "description": "At least one drafted value's grounding names the product's own source file by path: the literal 'src/styles/tokens.css' (or at minimum 'tokens.css') appears in the produced DESIGN.md's 'DESIGN Review Notes' section (an RN-n note) or in a companion item's 'Grounds' line, attached to a value it grounds (e.g. the palette, the 6px radius, or the 14px body size). A document whose values match the source but never cite it does NOT satisfy this — the citation is the evidence discipline being graded. A capable baseline may read the CSS and reuse its values but presents them without file-path grounds.",
+          "tier": "structural"
+        },
+        {
+          "name": "token-references-used-and-resolve",
+          "description": "The produced DESIGN.md uses the format's token-reference idiom and uses it correctly: at least one '{...}' reference (e.g. '{colors.primary}') appears in the body prose or the components map, AND every '{...}' reference in the file names a token path actually defined in the frontmatter (a reference to an undefined token is 'broken-ref', the format's one hard error). Both halves required — a document with no '{path}' references at all fails the first half, so this is not an absence-only check. A capable baseline names colors in prose ('the primary blue') and does not emit resolving {path} references.",
+          "tier": "structural"
+        },
+        {
+          "name": "component-colour-pairs-defined",
+          "description": "The frontmatter 'components' map defines at least one component carrying BOTH 'backgroundColor' and 'textColor' (the format's contrast check fires only on component colour pairs — a component with only one of the two is never contrast-checked, so a UXD accessibility bar can silently go unverified; the fixture's UXD requires AA on table surfaces). A components map with typography/rounded entries but no colour pair, or no components map at all, does NOT satisfy this. A capable baseline rarely produces a components token map, and when it lists components it does so in prose.",
+          "tier": "structural"
+        },
+        {
+          "name": "status-draft",
+          "description": "The produced DESIGN.md carries a 'Status:' line whose value is 'Draft' — the fixture's source defines nothing above the 14px body size, so the heading scale cannot be grounded and something must remain with the owner. The literal 'Draft' must be the value on that line: no Status line at all, or 'Final' / 'Complete' / 'Settled' / 'v1', does NOT satisfy this. A capable baseline writes a design doc with no status header or ships it as finished.",
+          "tier": "structural"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "name": "greenfield-taste-routing",
+      "prompt": "You are the CDO. Author the design language for the briefbox project. Its binding is at skills/cdo/.claude/skills/product-design/evals/inputs/briefbox/project.md — read it, resolve its Product path, and read the whole product input under it (the Settled docs/PRD.md and docs/UXD.md).",
+      "assertions": [
+        {
+          "name": "taste-routes-to-choices",
+          "description": "The produced DESIGN_open_issues.md carries at least 3 items under the 'Choices to confirm' bucket, each item with a 'Grounds' line and a 'Confirm or override' (or 'Confirm-or-override') slot, and at least one Grounds line plainly admits there is no evidence behind the drafted value — e.g. 'none: taste call, drafted to keep the system coherent', 'no source exists', or 'greenfield — nothing to observe' would each pass; a Grounds line citing the UXD's constraints for a value the constraints do not determine also counts as admitting the value itself is a call. The fixture is greenfield (no source, no brand assets), so nearly every token is a taste call — that is what makes 3 a floor rather than a stretch. A capable baseline picks a palette and type scale confidently and presents them as settled, emitting neither the bucket, nor Grounds, nor the sign-off slot.",
+          "tier": "structural"
+        },
+        {
+          "name": "declared-omission-in-both-places",
+          "description": "A category that genuinely does not apply is declared rather than left silently absent, in BOTH places the contract puts it: the produced DESIGN.md's frontmatter carries an 'omitted:' entry naming at least one of colors/typography/rounded/spacing/components with a reason, AND the produced DESIGN_open_issues.md holds that category with a 'Confirm or override' (or 'Confirm-or-override') slot — an omission is a product decision to confirm, not the CDO's to make alone. Where in the companion it appears does not matter; that it reaches the owner as a confirmable item does. The fixture states there is no second surface and no component package, and a component contract requires two or more surfaces, so 'components' is the category the input determines — but any honestly-reasoned category passes. Both halves required. A capable baseline neither uses the format's 'omitted:' key nor surfaces an omission for confirmation.",
+          "tier": "structural"
+        },
+        {
+          "name": "status-draft-companion-present",
+          "description": "The produced DESIGN.md carries a 'Status:' line whose value is 'Draft' AND the companion DESIGN_open_issues.md exists after the run — with no evidence base and no brand assets, a greenfield design language is the CDO's own design, and its load-bearing calls await the owner's sign-off before it is settled, so a run that ships the document as finished has signed off on its own behalf. Both halves required. Note: a capable baseline may also produce some open-questions text, but it typically ships the document as complete with no status vocabulary and no separate companion file.",
+          "tier": "structural"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "name": "reentry-fold-and-close",
+      "prompt": "You are the CDO. Continue the design language for the trimly-reentry project. Its binding is at skills/cdo/.claude/skills/product-design/evals/inputs/trimly-reentry/project.md; under its Product path there is an existing DESIGN.md (Version 1) and a DESIGN_open_issues.md the owner has answered inline. Fold their answers in and keep going.",
+      "assertions": [
+        {
+          "name": "overrides-folded",
+          "description": "The produced DESIGN.md applies both of the owner's answers from the answered companion: (a) the interaction colour is the owner's override — 'primary' reads '#0F766E' (with the hover moved off '#1D4ED8', e.g. to '#115E59'), and '#2563EB' is no longer the primary value; and (b) the typography map carries the two answered heading levels above body — a ~24px semibold headline level and an ~18px title level (names may vary: headline/title, headline-lg/title-md, h1/h2). Both halves required. A produced DESIGN.md still carrying #2563EB as primary, or still holding only the two body sizes, does NOT satisfy this.",
+          "tier": "structural"
+        },
+        {
+          "name": "answered-companion-retired-to-trail",
+          "description": "The answered companion is retired WHOLE to the trail: a file docs/trail/design/cycle-1.md is produced holding the owner's answered DESIGN_open_issues.md copied byte-for-byte. The companion's DISAPPEARANCE is not asserted here — 'companion-cleared-when-clean' owns that alone, so a missing trail and a broken done signal are two distinguishable reds rather than one. Checked mechanically against the harvested run: (a) run_delta.json's 'created' list contains a path ending 'trail/design/cycle-1.md'; (b) the trail file under outputs/product/.../trail/design/cycle-1.md is byte-identical to the pristine companion at outputs/reference/.../docs/DESIGN_open_issues.md. One precondition on (b), stated so a grader does not misread a red: harvest populates outputs/reference/ only for files the run MODIFIED or DELETED, so the pristine companion is available to compare against only once it has left docs/; a run that wrote the trail but kept the companion therefore fails this assertion too — correctly, but for a compound reason. That byte-identity is the point: a summary, a paraphrase, or a re-formatted digest of the owner's answers fails. NO cycle-numbering rule is asserted (the fixture ships no docs/trail/design/, so cycle-1 is the unconditional answer). Baseline discrimination, stated rather than papered over: the fixture ships docs/trail/uxd/cycle-1.md, so the trail pattern is visible in the input and a strong baseline may mirror it.",
+          "tier": "structural"
+        },
+        {
+          "name": "companion-cleared-when-clean",
+          "description": "With every companion item answered, the answered DESIGN_open_issues.md is gone from the product docs after the run — its absence is the skill's done signal. Checked mechanically: run_delta.json's 'deleted' list contains a path ending 'docs/DESIGN_open_issues.md'. This assertion checks the DISAPPEARANCE ONLY; the trail requirement belongs to 'answered-companion-retired-to-trail' alone. Deliberately disjoint: bundled, a missing trail and a broken done signal would be a single indistinguishable red; split, this one staying green while the trail assertion is red says exactly 'the done signal works, the trail does not'. A baseline that folds answers typically leaves the companion in place, or leaves an emptied one behind.",
+          "tier": "structural"
+        },
+        {
+          "name": "owner-provenance-cites-the-trail",
+          "description": "A Review Note added THIS ROUND in the produced DESIGN.md's 'DESIGN Review Notes' section records at least one of the owner's answers as an owner answer — the teal override (#0F766E) and/or the heading-scale answer — and its citation names the trail path (a path ending 'trail/design/cycle-1.md'), not the companion the run just cleared: the companion is deleted at the close, so a citation pointing at DESIGN_open_issues.md dead-ends for a cold reader. Pre-existing notes are EXEMPT and must NOT be counted against this: the Version-1 DESIGN.md carries RN-1 and RN-2 citing src/styles/tokens.css, and settled content is reproduced on a re-run — an 'every citation names the trail' quantifier would fail a correct run. A baseline folds the values without recording owner-answer provenance, or cites the companion.",
+          "tier": "structural"
+        },
+        {
+          "name": "status-settled",
+          "description": "The produced DESIGN.md carries a 'Status:' line whose value is 'Settled' — this run resolved every companion item and ends with no open-issues file on disk, which is the template's done value. The literal 'Settled' must be the value on that line: still 'Draft', stamped 'Locked' (ratification is the owner's act, not the skill's), no Status line, or a value outside the template's 'Draft | Settled | Locked' vocabulary, does NOT satisfy this. A baseline leaves the status at 'Draft' after folding, or writes no status header.",
+          "tier": "structural"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "name": "missing-uxd-halt",
+      "prompt": "You are the CDO. Author the design language for the lumen project. Its binding is at skills/cdo/.claude/skills/product-design/evals/inputs/lumen/project.md — read it, resolve its Product path, and read the whole product input under it.",
+      "assertions": [
+        {
+          "name": "no-design-file",
+          "description": "No DESIGN.md file is produced. The fixture has a Settled PRD but no UXD, and the design language is authored off the UXD's direction call — so the run halts at intake reporting the missing primary input rather than deriving a design language from the PRD alone. A capable baseline given this prompt writes a design doc from the PRD — which is exactly the ungrounded document the halt exists to prevent — so the absence of one is the halt signal. Note: this is a behavioral-restraint assertion; a baseline never satisfies it on this fixture, which is what makes it discriminate.",
+          "tier": "structural"
+        },
+        {
+          "name": "no-companion-file",
+          "description": "No DESIGN_open_issues.md companion is produced either — the halt precedes authoring, so nothing of the loop's file set appears. For a halt case the absence of any product artifact is the correct, expected signal; a run that 'helpfully' records the missing UXD as an open issue inside a companion it created has not halted.",
+          "tier": "structural"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "name": "posture-halt-outside-cdo",
+      "prompt": "Can you put together a design system doc with color and typography tokens for a web app I'm building?",
+      "assertions": [
+        {
+          "name": "no-design-file",
+          "description": "No DESIGN.md file is produced. The skill halts on the CDO-posture check and writes no design language. A capable baseline agent given this prompt would write a design-tokens document — so the absence of one is the halt signal.",
+          "tier": "structural"
+        },
+        {
+          "name": "no-companion-file",
+          "description": "No DESIGN_open_issues.md companion file is produced either — the skill stops at the posture check before authoring anything. For a posture-halt case, the absence of any product artifact is the correct, expected signal.",
+          "tier": "structural"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+# Flow Findings — development-plan  (audited 2026-10-12)
+
+Findings for this step's output only, produced by the `development-audit` skill.
+Change-local findings live here; skill-general findings are also raised as kaizen items.
+
+Audited: `tl_instruction.md` against `change_design.md` and `change_spec.md`. Lenses 1-6 and 8 were walked in full. Lens 7 is `development-specs` and `development-implementation` only, and lenses 9 and 10 are implementation and content only, so none of them applies to a plan. Checked and clean:
+- **Coverage:** every CP-182–CP-210 rule and every design § 5 row T1–T18 maps to a task and a named behaviour. This includes the rule-implied edges: remove-last, missing task for Remove, empty saved collection, valid-before-invalid, failed saver per action, forged flags, and the CR LF normalization case the TL added.
+- **Classification:** `feature` / `changing` copied verbatim from the spec and design.
+- **Divergence record:** the departures are recorded with reasons in `## TL Review Notes`. They are the C split, the hint adaptation, enum typing, the CP-191 reconciliation, forged-outcome precedence, the added CR/LF behaviour, and the scaffold resolution of the atomic edge.
+- **Handed-down constraints:** the design's atomic-landing edges are honoured in Task 1 and the TL notes. The design stated them as properties and the plan made the cut.
+
+- **[non-blocking · change-local · step-specific contract]** The per-task verification gate is `pytest products/tracker17/tests/`. The TL's own gate evidence says this command first ended `5 failed, 675 passed, 16 errors` on `PermissionError: [Errno 1] Operation not permitted` for socket bind, and went green only when "approved for loopback listener access". The gates for Tasks 1–5 do not say loopback access is a precondition, and no gate tells the Developer that socket-bind errors are an environment fault and not a red result. Where: `tl_instruction.md §TL Review Notes (Gate evidence)` against each `#### Verification gate`. Task 1's gate asks that "all previously passing tests remain green", so a Developer in the same sandbox cannot tell its own failures from the environment's. Direction: state the loopback precondition in the gate, or in one gate-wide line.
+- **[non-blocking · change-local · step-specific contract]** Task 5's committed-copy block is fenced as `sh` but uses `set -o pipefail`, which is not POSIX `sh` (it fails under `dash`). The CP-210 gate therefore depends on which shell the Developer pastes it into. Where: `tl_instruction.md §Task 5, second fenced block`. Direction: fence it as `bash`, or drop the pipefail line, since the block pipes only `git archive | tar`.

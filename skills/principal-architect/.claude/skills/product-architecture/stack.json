@@ -1,0 +1,7 @@
+{
+  "version": 1,
+  "substance": [
+    "skills/principal-architect/.claude/skills/product-architecture/SKILL.md",
+    "skills/principal-architect/.claude/skills/product-architecture/prompts/rich.md"
+  ]
+}

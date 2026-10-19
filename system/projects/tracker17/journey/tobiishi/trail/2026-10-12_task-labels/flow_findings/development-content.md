@@ -1,0 +1,10 @@
+# Flow Findings — development-content  (audited 2026-10-12)
+
+Findings for this step's output only, produced by the `development-audit` skill.
+Change-local findings live here; skill-general findings are also raised as kaizen items.
+
+Checked: every string in `change_text.md` against `products/tracker17/docs/CONTENT.md` (Version 9) § Terminology *Banned in anything a person sees*, § Grammar and mechanics, § Message patterns and § Accessibility of text, and against `system/doctrine/writing_bar.md` (it bans no product word). No banned word, banned punctuation, over-long sentence or non-contracted negative in any string. The places in `change_design.md` line 6 (`Publishes text:`) each have a block, and no block names a place the line does not. Each string is whole, names no identifier or file, and claims nothing `change_spec.md` or `docs/SDD.md` RT-8 does not establish ("the same line shows on every reload" is RT-8's own).
+
+- **[non-blocking · change-local · lens 4 divergence record]** The stale-remove refusal departs from CONTENT.md's refusal formula ("then one action") and is recorded with its reason, so it is not a silent resolution. Where: `change_text.md` § Wording decisions and § Findings for the Content Manager. No finding on the string; noted so the PM reads the open standard gap.
+- **[non-blocking · change-local · writing bar §1.2 rules 3, 6]** The prose names `CP-188`, `CP-190` and "the corpus" without saying that CP ids are `change_spec.md` rules or that "the corpus" is `products/tracker17/docs/CONTENT.md`. Where: `change_text.md` § Wording decisions. A cold reader cannot decode either; name the file once.
+- **[non-blocking · change-local · lens 8 enacted]** The rationale says a shorter terminal form exists "so the Developer never fills `{title}` with nothing". That names a downstream role and states its working method rather than the property. Where: `change_text.md` § Wording decisions, "The terminal lines name the task". Direction: state that the shorter form is for a failure before the title is read, and stop.

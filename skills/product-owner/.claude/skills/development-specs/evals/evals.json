@@ -1,0 +1,161 @@
+{
+  "skill_name": "development-specs",
+  "evals": [
+    {
+      "id": 1,
+      "name": "halt-missing-project",
+      "prompt": "You are a product owner. Run development-specs for the project `nonexistent-project` with the change request: \"Add tags to tasks.\"",
+      "assertions": [
+        {
+          "name": "halt-report-created",
+          "description": "A halt_report.md file was created.",
+          "tier": "structural"
+        },
+        {
+          "name": "no-change-spec",
+          "description": "No change_spec.md was created. Read together with halt-report-created above: the run must have produced the halt artifact, not merely have written nothing.",
+          "tier": "structural"
+        },
+        {
+          "name": "correct-halt-reason",
+          "description": "halt_report.md contains the string 'missing-project-context' — the skill's halt reason when the project's project.md cannot be found.",
+          "tier": "structural"
+        },
+        {
+          "name": "halt-names-the-resolution-path",
+          "description": "halt_report.md names where the skill looked: it contains both 'system/projects/' and 'project.md'. A generic 'project not found' or 'missing files' message fails, because the skill resolves the product from system/projects/<project>/project.md and the halt report is what tells its caller which file was absent.",
+          "tier": "structural"
+        },
+        {
+          "name": "no-questions-asked",
+          "description": "The skill did not ask the user any clarifying questions; it halted immediately without prompting for the project location. Note: a capable baseline model may also halt without asking when given a project name that resolves to nothing.",
+          "tier": "nuanced",
+          "nuanced_justification": "Structural tier tried: checking for '?' in output or directive phrasing like 'Please provide'. Rejected because a model could prompt the user via statements ('To proceed, the path to project.md is needed') without question marks. Whether the output contains a user-directed prompt for more information requires reading intent."
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "name": "halt-no-project-named",
+      "prompt": "You are a product owner. Run development-specs with the change request: \"Tasks should be able to have more than one assignee.\"",
+      "assertions": [
+        {
+          "name": "halt-report-created",
+          "description": "A halt_report.md file was created.",
+          "tier": "structural"
+        },
+        {
+          "name": "correct-halt-reason",
+          "description": "halt_report.md contains the string 'missing-project-context' — the skill's halt reason when no project name is supplied.",
+          "tier": "structural"
+        },
+        {
+          "name": "no-change-spec",
+          "description": "No change_spec.md was created. Read together with halt-report-created above: the run must have produced the halt artifact, not merely have written nothing.",
+          "tier": "structural"
+        },
+        {
+          "name": "halts-instead-of-drafting-from-the-request",
+          "description": "halt_report.md names the missing input — the project name, or the project.md the skill resolves from it — and carries no drafted specification of the multiple-assignee change: no rules, no examples and no locked answers for it. Example of passing: a halt report whose body is 'No project name was supplied, so system/projects/<project>/project.md could not be resolved.' Example of failing: a halt report that names the missing project and then specifies the assignees field, the add and remove commands and their error handling anyway. Note: a capable baseline model given this request will normally draft a specification rather than refuse, so this assertion discriminates.",
+          "tier": "nuanced",
+          "nuanced_justification": "Structural tier tried: checking halt_report.md for the absence of '## Rules' and '## Examples'. Rejected because drafted content does not need those headers to be present — a halt report can specify the change in running prose under 'Finding' and satisfy the header check. Whether a body specifies the change or names what is missing requires semantic judgment."
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "name": "halt-outside-product-owner-posture",
+      "prompt": "Can you run development-specs for the project `nonexistent-project`? The change request is: \"When a task moves to DONE, record the timestamp of when it happened.\"",
+      "assertions": [
+        {
+          "name": "no-change-spec",
+          "description": "No change_spec.md was created.",
+          "tier": "structural"
+        },
+        {
+          "name": "no-halt-report",
+          "description": "No halt_report.md was created. The posture refusal is not a halt report: the skill's Input section tells it to stop immediately and say the refusal, so this run leaves no halt artifact. This assertion is also what separates the posture gate from the missing-project halt, which does write halt_report.md.",
+          "tier": "structural"
+        },
+        {
+          "name": "posture-refusal-named",
+          "description": "The run refused to proceed because it was not invoked in product-owner posture, and said so — naming product-owner (or 'product owner') as the posture the skill requires. It did not specify the completion-timestamp change. Example of passing: 'development-specs requires product-owner posture. Switch? (Open a new session with the product-owner: prefix.)' Example of failing: a refusal that cites the unresolvable project name instead of the posture, or a run that specifies the change. Note: a capable baseline model given this request will normally specify the change, so refusing on posture grounds is the skill's behaviour rather than the baseline's.",
+          "tier": "nuanced",
+          "nuanced_justification": "Structural tier tried: checking the run's output for the string 'product-owner'. Rejected because the posture refusal is spoken rather than written to a file, so the only place it lands is the transcript, which the structural grader does not read; and because the same string appears in a run that merely repeats the prompt's framing. Whether the run refused, and refused on posture grounds rather than on the unresolvable project name, requires reading the transcript and its intent."
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "name": "repair-one-established-workflow",
+      "prompt": "You are evaluating only the pre-draft sizing decision of development-specs, not running the pipeline. Read core/prompts/pm_right_size.md and apply it to the following complete intake. Return JSON with verdict (continue or multiple-changes), acceptance_boundary, source, mapping and reason. Do not write product files or ask questions. Existing contract C1 defines the folder-browsing workflow: choosing a folder yields cancellation, failure with retry, or a tree; all read failures write one private diagnostic and tree reads run off the UI thread with delivery on it. The workflow is implemented. Request: finish C1 by adding missing failed-open diagnostics, proving retry from failure into failure stays in the same window, and proving expansion-read thread delivery. Each can be implemented and tested separately; all fit one normal development flow.",
+      "assertions": [
+        {
+          "name": "sizing-verdict",
+          "description": "The returned JSON verdict equals 'continue'.",
+          "tier": "structural"
+        },
+        {
+          "name": "contract-boundary-reason",
+          "description": "The decision keeps the three obligations together under the existing folder-browsing workflow; it does not promote diagnostics, retry tests or thread tests into separate capabilities. A verdict without a boundary and mapping fails.",
+          "tier": "nuanced",
+          "nuanced_justification": "A keyword such as C1 also appears in an incorrect split; checking the relationship between the capability and its obligations needs semantic judgment."
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "name": "new-capability-with-proof",
+      "prompt": "You are evaluating only the pre-draft sizing decision of development-specs, not running the pipeline. Read core/prompts/pm_right_size.md and apply it to the following complete intake. Return JSON with verdict (continue or multiple-changes), acceptance_boundary, source, mapping and reason. Do not write product files or ask questions. No formal FDR exists. Request: let a user export the selected list as CSV. Include escaping commas and quotes, permission-denied feedback, a diagnostic for failed writes, and tests for all these paths. This fits one development flow.",
+      "assertions": [
+        {
+          "name": "sizing-verdict",
+          "description": "The returned JSON verdict equals 'continue'.",
+          "tier": "structural"
+        },
+        {
+          "name": "contract-boundary-reason",
+          "description": "The decision derives CSV export from the request and keeps error handling and tests with it despite the absence of an FDR. A verdict without a boundary and mapping fails.",
+          "tier": "nuanced",
+          "nuanced_justification": "A keyword such as CSV also appears in an incorrect split; checking the relationship between the capability and its obligations needs semantic judgment."
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "name": "separate-capabilities-under-shared-title",
+      "prompt": "You are evaluating only the pre-draft sizing decision of development-specs, not running the pipeline. Read core/prompts/pm_right_size.md and apply it to the following complete intake. Return JSON with verdict (continue or multiple-changes), acceptance_boundary, source, mapping and reason. Do not write product files or ask questions. Request title: finish the account screen reliability gaps. Contract A1 governs password reset; B1 governs monthly invoice downloads. Request: repair the expired reset-link path and add missing invoice download authorization tests. Both fit one development flow and share the account screen. Neither contract relies on the other.",
+      "assertions": [
+        {
+          "name": "sizing-verdict",
+          "description": "The returned JSON verdict equals 'multiple-changes'.",
+          "tier": "structural"
+        },
+        {
+          "name": "contract-boundary-reason",
+          "description": "The finding identifies password reset and invoice downloads as distinct capabilities under A1 and B1, rather than splitting because tests are independent. A verdict without a boundary and mapping fails.",
+          "tier": "nuanced",
+          "nuanced_justification": "A keyword such as A1 also appears in an incorrect split; checking the relationship between the capability and its obligations needs semantic judgment."
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "name": "one-capability-too-large",
+      "prompt": "You are evaluating only the pre-draft sizing decision of development-specs, not running the pipeline. Read core/prompts/pm_right_size.md and apply it to the following complete intake. Return JSON with verdict (continue or multiple-changes), acceptance_boundary, source, mapping and reason. Do not write product files or ask questions. Request: migrate the complete archive import capability from an obsolete engine to a new one. Its contract covers local files and remote archive streaming. Local import can be delivered and accepted independently while remote import keeps using the existing engine. The requested replacement requires an unavailable remote streaming protocol from another team, due next quarter; local import can ship now. Size the next change without dropping required local-import integrity and error tests.",
+      "assertions": [
+        {
+          "name": "sizing-verdict",
+          "description": "The returned JSON verdict equals 'multiple-changes'.",
+          "tier": "structural"
+        },
+        {
+          "name": "contract-boundary-reason",
+          "description": "The decision identifies the unavailable streaming protocol as the delivery obstacle and scopes a complete local-import increment with its proof, rather than one change per test. A verdict without a boundary and mapping fails.",
+          "tier": "nuanced",
+          "nuanced_justification": "A keyword such as local also appears in an incorrect split; checking the relationship between the capability and its obligations needs semantic judgment."
+        }
+      ]
+    }
+  ]
+}
