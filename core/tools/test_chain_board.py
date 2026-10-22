@@ -9,6 +9,7 @@ dict and records what it was asked. Every project, instance and station name her
 from __future__ import annotations
 
 import json
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -17,7 +18,7 @@ import chain_board
 from walk_stop import LaunchState
 
 STARTED = "2026-03-01T10:00:00+00:00"
-ROW_KEYS = {"launcher", "project", "seed", "station", "walk", "step", "status", "reason",
+ROW_KEYS = {"launcher", "project", "seed", "station", "walk", "key", "step", "status", "reason",
             "started_at"}
 
 
@@ -31,6 +32,19 @@ class FakeLaunches:
     def __call__(self, identity: str) -> LaunchState:
         self.asked.append(identity)
         return self.states[identity]
+
+
+class FakeOpenings:
+    """The history the reader is handed: per project, change key to the station it was opened
+    for. Records which projects it was asked about."""
+
+    def __init__(self, stations: dict[str, str] | None = None) -> None:
+        self.stations = dict(stations or {})
+        self.asked: list[str] = []
+
+    def __call__(self, root: Path, project: str) -> dict[str, str]:
+        self.asked.append(project)
+        return dict(self.stations)
 
 
 def make_instance(base: Path, name: str) -> Path:
@@ -64,11 +78,11 @@ def one_launch(identity: str) -> dict:
 
 
 def waiting_rows(root: Path, launches: FakeLaunches | None = None) -> list[chain_board.Row]:
-    return chain_board.read_board(root, launches or FakeLaunches()).waiting
+    return chain_board.read_board(root, launches or FakeLaunches(), FakeOpenings()).waiting
 
 
 def running_rows(root: Path, launches: FakeLaunches | None = None) -> list[chain_board.Row]:
-    return chain_board.read_board(root, launches or FakeLaunches()).running
+    return chain_board.read_board(root, launches or FakeLaunches(), FakeOpenings()).running
 
 
 def write_station(root: Path, project: str, folder: str, station: str, heading: str) -> None:
@@ -87,8 +101,8 @@ def test_reading_one_instance_returns_no_row_of_another(tmp_path):
                 build_idea_walk("beta-proj", ended="halted", ended_reason="stuck"))
     write_state(beta, "chain-change-beta-proj-state.json", development_walk("beta-proj"))
 
-    first = chain_board.read_board(alpha, FakeLaunches())
-    second = chain_board.read_board(beta, FakeLaunches())
+    first = chain_board.read_board(alpha, FakeLaunches(), FakeOpenings())
+    second = chain_board.read_board(beta, FakeLaunches(), FakeOpenings())
 
     assert [row.project for row in first.waiting + first.running] == ["alpha-proj", "alpha-proj"]
     assert [row.project for row in second.waiting + second.running] == ["beta-proj", "beta-proj"]
@@ -105,7 +119,7 @@ def test_every_quiet_end_lands_in_neither_list(tmp_path, builder, end):
     root = make_instance(tmp_path, "inst")
     write_state(root, "walk-state.json", builder(ended=end, ended_reason="over"))
 
-    board = chain_board.read_board(root, FakeLaunches())
+    board = chain_board.read_board(root, FakeLaunches(), FakeOpenings())
 
     assert (board.waiting, board.running) == ([], [])
 
@@ -119,7 +133,7 @@ def test_every_other_end_waits_on_the_owner(tmp_path, builder, end):
     root = make_instance(tmp_path, "inst")
     write_state(root, "walk-state.json", builder(ended=end, ended_reason=f"the reason for {end}"))
 
-    board = chain_board.read_board(root, FakeLaunches())
+    board = chain_board.read_board(root, FakeLaunches(), FakeOpenings())
 
     assert board.running == []
     assert [(row.status, row.reason) for row in board.waiting] == [(end, f"the reason for {end}")]
@@ -142,7 +156,7 @@ def test_a_walk_whose_launches_are_all_gone_waits_with_status_gone(tmp_path):
     launches = FakeLaunches({"/logs/a.identity.json": LaunchState.GONE,
                              "/logs/b.identity.json": LaunchState.GONE})
 
-    board = chain_board.read_board(root, launches)
+    board = chain_board.read_board(root, launches, FakeOpenings())
 
     assert [row.status for row in board.waiting] == [LaunchState.GONE.value]
     assert board.running == []
@@ -156,7 +170,7 @@ def test_a_walk_with_a_live_launch_is_running(tmp_path):
     launches = FakeLaunches({"/logs/a.identity.json": LaunchState.LIVE,
                              "/logs/b.identity.json": LaunchState.GONE})
 
-    board = chain_board.read_board(root, launches)
+    board = chain_board.read_board(root, launches, FakeOpenings())
 
     assert board.waiting == []
     assert [(row.status, row.reason) for row in board.running] == [("", "")]
@@ -168,7 +182,7 @@ def test_a_walk_with_an_unrecorded_launch_is_running(tmp_path):
                 development_walk(pending={"design": one_launch("/logs/a.identity.json")}))
     launches = FakeLaunches({"/logs/a.identity.json": LaunchState.UNRECORDED})
 
-    board = chain_board.read_board(root, launches)
+    board = chain_board.read_board(root, launches, FakeOpenings())
 
     assert (len(board.waiting), len(board.running)) == (0, 1)
 
@@ -177,7 +191,7 @@ def test_a_walk_waiting_on_no_launch_is_running(tmp_path):
     root = make_instance(tmp_path, "inst")
     write_state(root, "walk-state.json", development_walk(pending={}))
 
-    board = chain_board.read_board(root, FakeLaunches())
+    board = chain_board.read_board(root, FakeLaunches(), FakeOpenings())
 
     assert (len(board.waiting), len(board.running)) == (0, 1)
 
@@ -187,7 +201,7 @@ def test_a_launch_with_no_identity_is_unrecorded_and_never_asked_about(tmp_path)
     write_state(root, "walk-state.json", development_walk(pending={"design": {"step": "design"}}))
     launches = FakeLaunches()
 
-    board = chain_board.read_board(root, launches)
+    board = chain_board.read_board(root, launches, FakeOpenings())
 
     assert launches.asked == []
     assert (len(board.waiting), len(board.running)) == (0, 1)
@@ -199,7 +213,7 @@ def test_a_chain_walk_with_a_single_pending_launch_is_judged_by_it(tmp_path):
     write_state(root, "walk-state.json", product_walk(pending=pending))
     launches = FakeLaunches({"/logs/solo.identity.json": LaunchState.GONE})
 
-    board = chain_board.read_board(root, launches)
+    board = chain_board.read_board(root, launches, FakeOpenings())
 
     assert launches.asked == ["/logs/solo.identity.json"]
     assert [row.status for row in board.waiting] == ["gone"]
@@ -487,7 +501,7 @@ def test_an_owner_owed_build_idea_a_later_chain_hands_back_to_is_in_neither_list
     write_state(root, "b-state.json", development_walk(
         on_end=HANDS_BACK, started_at="2026-03-01T11:00:00+00:00"))
 
-    board = chain_board.read_board(root, FakeLaunches())
+    board = chain_board.read_board(root, FakeLaunches(), FakeOpenings())
 
     assert board.waiting == []
     assert [row.launcher for row in board.running] == ["chain-change"]
@@ -585,7 +599,7 @@ def test_a_halted_change_walk_a_later_development_walk_took_up_is_in_neither_lis
     write_state(root, "chain-development-widgets-state.json", development_walk(
         chain_name="development", key=CHANGE, ended="sealed", started_at=LATER))
 
-    board = chain_board.read_board(root, FakeLaunches())
+    board = chain_board.read_board(root, FakeLaunches(), FakeOpenings())
 
     assert (board.waiting, board.running) == ([], [])
 
@@ -597,7 +611,7 @@ def test_the_later_walk_is_the_row_while_it_runs(tmp_path):
     write_state(root, "chain-development-widgets-state.json",
                 development_walk(chain_name="development", key=CHANGE, started_at=LATER))
 
-    board = chain_board.read_board(root, FakeLaunches())
+    board = chain_board.read_board(root, FakeLaunches(), FakeOpenings())
 
     assert board.waiting == []
     assert [row.launcher for row in board.running] == ["chain-development"]
@@ -619,7 +633,7 @@ def test_a_halted_change_walk_over_a_sealed_or_dropped_unit_is_in_neither_list(t
         started_at=LATER))
     close_change(root, "widgets", folder, CHANGE)
 
-    board = chain_board.read_board(root, FakeLaunches())
+    board = chain_board.read_board(root, FakeLaunches(), FakeOpenings())
 
     assert (board.waiting, board.running) == ([], [])
 
@@ -696,7 +710,7 @@ def test_a_development_walk_halted_before_its_change_existed_is_moved_past_by_a_
                 development_walk(ended="halted", ended_reason=KEYLESS_HALT))
     write_state(root, "later-state.json", later(started_at=LATER))
 
-    board = chain_board.read_board(root, FakeLaunches())
+    board = chain_board.read_board(root, FakeLaunches(), FakeOpenings())
 
     assert board.waiting == []
     assert len(board.running) == 1
@@ -760,7 +774,7 @@ def test_a_stopped_definition_walk_a_later_walk_on_its_project_moved_past_is_in_
                 product_walk(ended=end, ended_reason="the launched run produced nothing"))
     write_state(root, "later-state.json", later(started_at=LATER))
 
-    board = chain_board.read_board(root, FakeLaunches())
+    board = chain_board.read_board(root, FakeLaunches(), FakeOpenings())
 
     assert board.waiting == []
     assert len(board.running) == 1
@@ -824,7 +838,7 @@ def test_a_skill_run_that_is_not_live_is_in_neither_list(tmp_path, state):
     write_skill_run(root, "skill-shukuba-refine@widgets.run.json")
     launches = FakeLaunches({"/logs/run.identity.json": state})
 
-    board = chain_board.read_board(root, launches)
+    board = chain_board.read_board(root, launches, FakeOpenings())
 
     assert (board.waiting, board.running) == ([], [])
 
@@ -835,7 +849,7 @@ def test_a_skill_run_record_naming_no_identity_is_skipped_and_never_asked_about(
     (root / "system" / "logs" / "skill-broken.run.json").write_text("{not json")
     launches = FakeLaunches()
 
-    board = chain_board.read_board(root, launches)
+    board = chain_board.read_board(root, launches, FakeOpenings())
 
     assert (board.running, launches.asked) == ([], [])
 
@@ -901,6 +915,38 @@ def test_an_md_path_outside_the_instance_reads_as_its_name_in_words(tmp_path):
     assert row.reason == "see a far note"
 
 
+def test_a_path_inside_a_project_reads_from_below_the_project_folder(tmp_path):
+    root = make_instance(tmp_path, "inst")
+    tobiishi = root / "system" / "projects" / "widgets" / "journey" / "tobiishi"
+    write_state(root, "walk-state.json", build_idea_walk(
+        ended="halted", ended_reason=f"no folder under {tobiishi} after the run ended"))
+
+    (row,) = waiting_rows(root)
+
+    assert row.reason == "no folder under journey/tobiishi after the run ended"
+
+
+def test_a_path_inside_the_instance_reads_from_its_root(tmp_path):
+    root = make_instance(tmp_path, "inst")
+    write_state(root, "walk-state.json", build_idea_walk(
+        ended="halted", ended_reason=f"missing {root / 'system' / 'logs' / 'run.log'}"))
+
+    (row,) = waiting_rows(root)
+
+    assert row.reason == "missing system/logs/run.log"
+
+
+def test_the_instance_path_inside_a_longer_path_is_left_whole(tmp_path):
+    root = make_instance(tmp_path, "inst")
+    elsewhere = f"/b{root}/system/logs/run.log"
+    write_state(root, "walk-state.json", build_idea_walk(
+        ended="halted", ended_reason=f"missing {elsewhere}"))
+
+    (row,) = waiting_rows(root)
+
+    assert row.reason == f"missing {elsewhere}"
+
+
 def test_running_rows_are_newest_first_too(tmp_path):
     root = make_instance(tmp_path, "inst")
     write_state(root, "a-state.json",
@@ -930,7 +976,8 @@ def test_a_fresh_clone_with_no_logs_is_an_instance_with_nothing_to_show(tmp_path
 
     assert chain_board.find_instance_root(clone / "sub") == clone
     assert chain_board.main([str(clone)]) == 0
-    assert json.loads(capsys.readouterr().out) == {"instance": "clone", "waiting": [], "running": []}
+    assert json.loads(capsys.readouterr().out) == {"instance": "clone", "waiting": [], "running": [],
+                                                    "routes": []}
 
 
 def test_a_folder_in_no_instance_has_no_instance(tmp_path, capsys):
@@ -939,7 +986,8 @@ def test_a_folder_in_no_instance_has_no_instance(tmp_path, capsys):
 
     assert chain_board.find_instance_root(nowhere) is None
     assert chain_board.main([str(nowhere)]) == 0
-    assert json.loads(capsys.readouterr().out) == {"instance": None, "waiting": [], "running": []}
+    assert json.loads(capsys.readouterr().out) == {"instance": None, "waiting": [], "running": [],
+                                                    "routes": []}
 
 
 def test_unreadable_and_foreign_files_are_skipped(tmp_path):
@@ -950,7 +998,7 @@ def test_unreadable_and_foreign_files_are_skipped(tmp_path):
     (logs / "held-state.json.lock").write_text(json.dumps(build_idea_walk(ended="halted")))
     write_state(root, "foreign-state.json", {"project": "widgets", "ended": "halted"})
 
-    board = chain_board.read_board(root, FakeLaunches())
+    board = chain_board.read_board(root, FakeLaunches(), FakeOpenings())
 
     assert (board.waiting, board.running) == ([], [])
 
@@ -967,3 +1015,356 @@ def test_the_cli_prints_the_board_as_json(tmp_path, capsys):
     assert printed["instance"] == "inst"
     assert [set(row) for row in printed["waiting"] + printed["running"]] == [ROW_KEYS, ROW_KEYS]
     assert (len(printed["waiting"]), len(printed["running"])) == (1, 1)
+    assert printed["routes"] == []
+
+
+# --- the route: the active seed's checklist, each station with its walks ------------------------
+
+
+ROUTE_SEED = """# 根回し Nemawashi seed — widgets everywhere
+
+## Stations
+
+- [x] the-first-widget — a widget exists
+- [ ] the-widgets-ship — the widgets reach a person
+  - [ ] 2↳. **a-nested-step** — one step inside it
+- [ ] the-widgets-sing — they make a sound
+"""
+
+
+def write_route(root: Path, project: str = "widgets", seed_text: str = ROUTE_SEED,
+                open_station: str | None = "2026-03-02_the-widgets-ship.md") -> Path:
+    journey = root / "system" / "projects" / project / "journey"
+    (journey / "nemawashi").mkdir(parents=True, exist_ok=True)
+    seed = journey / "nemawashi" / "2026-03-01_widgets-everywhere.md"
+    seed.write_text(seed_text)
+    if open_station:
+        write_station(root, project, "", open_station, "the widgets ship")
+    return journey
+
+
+def write_unit(journey: Path, folder: str, key: str) -> None:
+    where = journey / "tobiishi" / folder / key
+    where.mkdir(parents=True)
+    (where / "change_request.md").write_text(f"# Change request — {key}\n")
+
+
+
+
+def board_with_route(root: Path, openings: FakeOpenings | None = None) -> chain_board.Board:
+    write_state(root, "chain-change-widgets-state.json",
+                development_walk(key="2026-03-03_ship-one"))
+    return chain_board.read_board(root, FakeLaunches(), openings or FakeOpenings())
+
+
+def test_a_route_reads_the_seed_checklist_as_reached_current_and_ahead(tmp_path):
+    root = make_instance(tmp_path, "inst")
+    write_route(root)
+
+    [route] = board_with_route(root).routes
+
+    assert (route.project, route.seed) == ("widgets", "widgets everywhere")
+    assert [(stop.name, stop.state.value, stop.depth) for stop in route.stations] == [
+        ("the-first-widget", "reached", 0),
+        ("the-widgets-ship", "current", 0),
+        ("2↳. a-nested-step", "ahead", 1),
+        ("the-widgets-sing", "ahead", 0),
+    ]
+
+
+def test_each_station_carries_its_walks_in_key_order_wherever_they_sit(tmp_path):
+    root = make_instance(tmp_path, "inst")
+    journey = write_route(root)
+    write_unit(journey, "", "2026-03-03_ship-one")
+    write_unit(journey, "trail", "2026-03-02_ship-zero")
+    write_unit(journey, "drop", "2026-03-02_ship-tried")
+    write_unit(journey, "trail", "2026-03-01_made-the-first")
+    openings = FakeOpenings({"2026-03-03_ship-one": "2026-03-02_the-widgets-ship",
+                             "2026-03-02_ship-zero": "2026-03-02_the-widgets-ship",
+                             "2026-03-02_ship-tried": "2026-03-02_the-widgets-ship",
+                             "2026-03-01_made-the-first": "2026-03-01_the-first-widget"})
+
+    stations = board_with_route(root, openings).routes[0].stations
+
+    current = next(stop for stop in stations if stop.state is chain_board.StopState.CURRENT)
+    assert [(walk.name, walk.key, walk.state) for walk in current.walks] == [
+        ("ship-tried", "2026-03-02_ship-tried", "dropped"),
+        ("ship-zero", "2026-03-02_ship-zero", "sealed"),
+        ("ship-one", "2026-03-03_ship-one", "open"),
+    ]
+    reached = next(stop for stop in stations if stop.name == "the-first-widget")
+    assert [(walk.key, walk.state) for walk in reached.walks] == [("2026-03-01_made-the-first", "sealed")]
+    assert all(stop.walks == [] for stop in stations if stop not in (current, reached))
+    assert openings.asked == ["widgets"]
+
+
+def test_an_open_unit_the_history_does_not_link_is_the_open_stations(tmp_path):
+    """A unit opened by hand carries `Agari:`, not `Shukuba:`, on its opening commit."""
+    root = make_instance(tmp_path, "inst")
+    journey = write_route(root)
+    write_unit(journey, "", "2026-03-03_ship-one")
+
+    stations = board_with_route(root).routes[0].stations
+
+    current = next(stop for stop in stations if stop.state is chain_board.StopState.CURRENT)
+    assert [(walk.key, walk.state) for walk in current.walks] == [("2026-03-03_ship-one", "open")]
+
+
+def test_a_closed_unit_the_history_does_not_link_is_under_no_station(tmp_path):
+    root = make_instance(tmp_path, "inst")
+    journey = write_route(root)
+    write_unit(journey, "trail", "2026-03-01_by-hand")
+    write_unit(journey, "drop", "2026-03-01_by-hand-too")
+
+    stations = board_with_route(root).routes[0].stations
+
+    assert all(stop.walks == [] for stop in stations)
+
+
+def test_an_open_unit_linked_to_another_station_is_that_stations_not_the_open_ones(tmp_path):
+    root = make_instance(tmp_path, "inst")
+    journey = write_route(root)
+    write_unit(journey, "", "2026-03-03_elsewhere")
+
+    stations = board_with_route(
+        root, FakeOpenings({"2026-03-03_elsewhere": "2026-03-01_the-first-widget"})).routes[0].stations
+
+    assert [(stop.name, [walk.key for walk in stop.walks]) for stop in stations if stop.walks] == [
+        ("the-first-widget", ["2026-03-03_elsewhere"])]
+
+
+def test_a_closed_station_keeps_its_walks_after_it_closes(tmp_path):
+    """A run can still be on the walk once its station is closed: build-idea's after-close steps."""
+    root = make_instance(tmp_path, "inst")
+    journey = write_route(root, open_station=None)
+    write_station(root, "widgets", "trail", "2026-03-02_the-widgets-ship.md", "the widgets ship")
+    write_unit(journey, "trail", "2026-03-03_ship-one")
+
+    stations = board_with_route(
+        root, FakeOpenings({"2026-03-03_ship-one": "2026-03-02_the-widgets-ship"})).routes[0].stations
+
+    ship = next(stop for stop in stations if stop.name == "the-widgets-ship")
+    assert [(walk.key, walk.state) for walk in ship.walks] == [("2026-03-03_ship-one", "sealed")]
+
+
+def test_a_parked_station_keeps_its_walks(tmp_path):
+    root = make_instance(tmp_path, "inst")
+    journey = write_route(root, open_station=None)
+    write_station(root, "widgets", "parked", "2026-03-02_the-widgets-ship.md", "the widgets ship")
+    write_unit(journey, "drop", "2026-03-03_ship-tried")
+
+    stations = board_with_route(
+        root, FakeOpenings({"2026-03-03_ship-tried": "2026-03-02_the-widgets-ship"})).routes[0].stations
+
+    ship = next(stop for stop in stations if stop.name == "the-widgets-ship")
+    assert (ship.state.value, [walk.state for walk in ship.walks]) == ("parked", ["dropped"])
+
+
+def test_a_walk_of_an_earlier_station_with_the_same_slug_is_not_the_current_stations(tmp_path):
+    """A dated trailer names one station: an earlier station cut under the same slug is another."""
+    root = make_instance(tmp_path, "inst")
+    journey = write_route(root)
+    write_unit(journey, "trail", "2026-01-05_an-older-ship")
+
+    stations = board_with_route(
+        root, FakeOpenings({"2026-01-05_an-older-ship": "2026-01-04_the-widgets-ship"})).routes[0].stations
+
+    assert all(stop.walks == [] for stop in stations)
+
+
+def test_a_walk_sits_under_one_item_when_the_checklist_names_its_station_twice(tmp_path):
+    root = make_instance(tmp_path, "inst")
+    twice = ROUTE_SEED + "- [ ] the-first-widget — named again\n"
+    journey = write_route(root, seed_text=twice)
+    write_unit(journey, "trail", "2026-03-01_made-the-first")
+
+    stations = board_with_route(
+        root, FakeOpenings({"2026-03-01_made-the-first": "2026-03-01_the-first-widget"})).routes[0].stations
+
+    assert [(stop.name, len(stop.walks)) for stop in stations if stop.name == "the-first-widget"] == [
+        ("the-first-widget", 1), ("the-first-widget", 0)]
+
+
+def test_with_no_station_open_an_unlinked_open_unit_is_under_no_station(tmp_path):
+    root = make_instance(tmp_path, "inst")
+    journey = write_route(root, open_station=None)
+    write_unit(journey, "", "2026-03-03_by-hand")
+
+    stations = board_with_route(root).routes[0].stations
+
+    assert all(stop.walks == [] for stop in stations)
+
+
+def test_a_trailer_naming_the_bare_slug_links_by_the_slug(tmp_path):
+    """Before 2026-09-14 a `Shukuba:` trailer named the station's slug, not its dated stem."""
+    root = make_instance(tmp_path, "inst")
+    journey = write_route(root)
+    write_unit(journey, "trail", "2026-03-02_an-old-unit")
+
+    stations = board_with_route(
+        root, FakeOpenings({"2026-03-02_an-old-unit": "the-widgets-ship"})).routes[0].stations
+
+    current = next(stop for stop in stations if stop.state is chain_board.StopState.CURRENT)
+    assert [walk.key for walk in current.walks] == ["2026-03-02_an-old-unit"]
+
+
+def test_two_open_stations_leave_nothing_current(tmp_path):
+    root = make_instance(tmp_path, "inst")
+    write_route(root)
+    write_station(root, "widgets", "", "2026-03-05_a-second-open-one.md", "a second open one")
+
+    stations = board_with_route(root).routes[0].stations
+
+    assert [stop.state.value for stop in stations] == ["reached", "ahead", "ahead", "ahead"]
+
+
+def test_with_no_open_station_nothing_is_current(tmp_path):
+    root = make_instance(tmp_path, "inst")
+    write_route(root, open_station=None)
+
+    stations = board_with_route(root).routes[0].stations
+
+    assert [stop.state.value for stop in stations] == ["reached", "ahead", "ahead", "ahead"]
+
+
+def test_an_open_station_the_checklist_does_not_name_is_added_last_as_current(tmp_path):
+    root = make_instance(tmp_path, "inst")
+    write_route(root, open_station="2026-03-04_an-unplanned-stop.md")
+
+    stations = board_with_route(root).routes[0].stations
+
+    assert [(stop.name, stop.state.value) for stop in stations][-1] == (
+        "an-unplanned-stop", "current")
+    assert [stop.state.value for stop in stations[:-1]] == ["reached", "ahead", "ahead", "ahead"]
+
+
+def test_a_numbered_bold_item_is_current_for_its_station(tmp_path):
+    root = make_instance(tmp_path, "inst")
+    write_route(root, seed_text="# seed — define it\n\n- [ ] 1. **product-prd** — the PRD\n",
+                open_station="2026-03-02_product-prd.md")
+
+    [stop] = board_with_route(root).routes[0].stations
+
+    assert (stop.name, stop.state.value) == ("1. product-prd", "current")
+
+
+def test_the_route_is_read_again_on_every_read(tmp_path):
+    root = make_instance(tmp_path, "inst")
+    write_route(root)
+    board_with_route(root)
+    write_route(root, seed_text=ROUTE_SEED.replace(
+        "- [ ] the-widgets-sing — they make a sound\n",
+        "- [ ] the-widgets-dance — a re-cut stop\n- [ ] the-widgets-sing — they make a sound\n"))
+
+    stations = chain_board.read_board(root, FakeLaunches(), FakeOpenings()).routes[0].stations
+
+    assert [stop.name for stop in stations][-2:] == ["the-widgets-dance", "the-widgets-sing"]
+
+
+@pytest.mark.parametrize("seeds", [0, 2])
+def test_a_seedbed_root_without_exactly_one_seed_has_no_route(tmp_path, seeds):
+    root = make_instance(tmp_path, "inst")
+    nemawashi = root / "system" / "projects" / "widgets" / "journey" / "nemawashi"
+    nemawashi.mkdir(parents=True)
+    for number in range(seeds):
+        (nemawashi / f"2026-03-0{number + 1}_seed.md").write_text(ROUTE_SEED)
+
+    assert board_with_route(root).routes == []
+
+
+def test_only_a_project_a_row_names_gets_a_route(tmp_path):
+    root = make_instance(tmp_path, "inst")
+    write_route(root, project="widgets")
+    write_route(root, project="gadgets")
+    openings = FakeOpenings()
+
+    board = board_with_route(root, openings)
+
+    assert [route.project for route in board.routes] == ["widgets"]
+    assert openings.asked == ["widgets"]
+
+
+def test_a_row_carries_its_change_key(tmp_path):
+    root = make_instance(tmp_path, "inst")
+
+    [row] = board_with_route(root).running
+
+    assert row.key == "2026-03-03_ship-one"
+
+
+def test_the_cli_prints_each_route(tmp_path, capsys):
+    root = make_instance(tmp_path, "inst")
+    write_route(root)
+    write_state(root, "chain-change-widgets-state.json", development_walk())
+
+    chain_board.main([str(root)])
+
+    [route] = json.loads(capsys.readouterr().out)["routes"]
+    assert route["seed"] == "widgets everywhere"
+    assert route["stations"][1] == {"name": "the-widgets-ship", "state": "current", "depth": 0,
+                                    "walks": []}
+
+
+# --- the history: which station each change unit was opened for --------------------------------
+
+
+def git(repo: Path, *args: str) -> None:
+    subprocess.run(["git", "-C", str(repo), *args], check=True, capture_output=True)
+
+
+def commit_unit(repo: Path, path: str, message: str) -> None:
+    target = repo / path
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text("# a change request\n")
+    git(repo, "add", "-A")
+    git(repo, "commit", "-q", "-m", message)
+
+
+def make_repo(tmp_path: Path) -> Path:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    git(repo, "init", "-q")
+    git(repo, "config", "user.email", "someone@example.invalid")
+    git(repo, "config", "user.name", "someone")
+    return repo
+
+
+UNITS = "system/projects/widgets/journey/tobiishi"
+
+
+def test_the_history_links_a_unit_to_the_station_its_opening_commit_names(tmp_path):
+    repo = make_repo(tmp_path)
+    commit_unit(repo, f"{UNITS}/2026-03-03_ship-one/change_request.md",
+                "open tobiishi: ship-one\n\nShukuba: 2026-03-02_the-widgets-ship — progress: x\n")
+    (repo / UNITS / "trail").mkdir()
+    git(repo, "mv", f"{UNITS}/2026-03-03_ship-one", f"{UNITS}/trail/2026-03-03_ship-one")
+    git(repo, "commit", "-q", "-m",
+        "seal: ship-one\n\nShukuba: 2026-03-09_another-station — progress: y\n")
+
+    assert chain_board.git_opened_stations(repo, "widgets") == {
+        "2026-03-03_ship-one": "2026-03-02_the-widgets-ship"}
+
+
+def test_the_history_ignores_an_opening_with_no_station_and_another_projects_units(tmp_path):
+    repo = make_repo(tmp_path)
+    commit_unit(repo, f"{UNITS}/2026-03-03_by-hand/change_request.md",
+                "widgets: open change by-hand\n\nAgari: widgets — progress: x\n")
+    commit_unit(repo, "system/projects/gadgets/journey/tobiishi/2026-03-03_g/change_request.md",
+                "open tobiishi: g\n\nShukuba: 2026-03-02_a-gadget-stop — progress: x\n")
+
+    assert chain_board.git_opened_stations(repo, "widgets") == {}
+
+
+def test_a_history_that_cannot_be_read_links_nothing(tmp_path):
+    assert chain_board.git_opened_stations(tmp_path / "no-repo", "widgets") == {}
+
+
+def test_an_unticked_item_whose_station_is_parked_reads_parked(tmp_path):
+    root = make_instance(tmp_path, "inst")
+    write_route(root, open_station=None)
+    write_station(root, "widgets", "parked", "2026-03-02_the-widgets-ship.md", "the widgets ship")
+
+    stations = board_with_route(root).routes[0].stations
+
+    assert [(stop.name, stop.state.value) for stop in stations][:2] == [
+        ("the-first-widget", "reached"), ("the-widgets-ship", "parked")]

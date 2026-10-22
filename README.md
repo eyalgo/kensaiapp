@@ -6,11 +6,12 @@
 
 <p>
 <img alt="Runs on Claude Code" src="https://img.shields.io/badge/runs%20on-Claude%20Code-d97757?style=flat-square">
-<img alt="Uses Python 3.13" src="https://img.shields.io/badge/python-3.13-3776ab?style=flat-square">
+<img alt="Version 0.3.0" src="https://img.shields.io/badge/version-0.3.0-2da44e?style=flat-square">
+<img alt="Uses Python 3.13 or later" src="https://img.shields.io/badge/python-3.13%2B-3776ab?style=flat-square">
 <img alt="Licence: MIT" src="https://img.shields.io/badge/licence-MIT-0969da?style=flat-square">
 </p>
 
-<p><a href="#who-it-is-for">Who it is for</a> · <a href="#how-a-change-moves">How a change moves</a> · <a href="#getting-started">Getting started</a> · <a href="#one-change-from-request-to-patch">One change, from request to patch</a> · <a href="#examples">Examples</a> · <a href="about/architecture.md">Architecture overview</a> · <a href="about/operations.md">Operations guide</a> · <a href="#still-changing">Still changing</a></p>
+<p><a href="#who-it-is-for">Who it is for</a> · <a href="#how-a-change-moves">How a change moves</a> · <a href="#getting-started">Getting started</a> · <a href="#one-change-from-request-to-patch">One change, from request to patch</a> · <a href="#examples">Examples</a> · <a href="#built-with-kensaiapp">Built with KensaiApp</a> · <a href="about/architecture.md">Architecture overview</a> · <a href="about/operations.md">Operations guide</a> · <a href="#still-changing">Still changing</a></p>
 <p><img src="about/images/overview.svg" alt="KensaiApp in three stacked bands. Product intent: PRD, then definition of done, then product documents. Journey: seed, then station, then change. One change: Ask by the PM, Spec by the product owner, Design by the architect, Plan by the tech lead, Content by the content editor, only when the change publishes text, Build by the developer, Prove by the senior engineer, Audit by the auditor, Seal by the PM. Below them: lands in git: documents, code, tests, findings, the trail of each change. On the side: the owner gives direction and makes the calls only you can make; a program decides what runs next; each role has one job." width="100%"></p>
 </div>
 
@@ -116,18 +117,26 @@ Each point is stated in full in the section it links to.
 
 ## Getting started
 
-Steps 4 and 5, the panel and telemetry, are optional: everything else works without them.
-
 ### 1. Install what KensaiApp uses
 
 - Claude Code
 - Python 3.13 or later, as `python3`
+- pytest and pytest-xdist, for that same `python3`
 - git
 
 KensaiApp's hooks and launchers run whichever `python3` your shell finds first, so
 `python3 --version` must show 3.13 or later. On a Mac, the `python3` that Apple's command-line
-tools install is older, and the launchers fail on it. What only some parts need is in the how-to
-guide's [How to install what KensaiApp uses](about/how-to.md#how-to-install-what-kensaiapp-uses).
+tools install is older, and the launchers fail on it.
+
+KensaiApp's own code uses only Python's standard library. Its tests, and a walk's closing gate on a
+product with Python tests, run under pytest with pytest-xdist:
+
+```bash
+python3 -m pip install pytest pytest-xdist
+```
+
+What only some parts need is in the how-to guide's
+[How to install what KensaiApp uses](about/how-to.md#how-to-install-what-kensaiapp-uses).
 
 ### 2. Clone, and make your provider file
 
@@ -142,45 +151,7 @@ cp .providers.toml.example .providers.toml
 The first session switches on KensaiApp's commit hooks. If the clone already has hooks of its own,
 they are kept, and KensaiApp's commit check then runs only in runs a launcher starts.
 
-### 4. Turn on the panel
-
-The panel is a Claude Code mod, a plugin that ships in `core/tools/kensaiapp-panel/`. Nothing in the
-clone turns it on. Add its absolute path to the `env` block of your own `~/.claude/settings.json`,
-then restart Claude Code:
-
-```json
-"env": { "CLAUDE_CODE_PLUGIN_DIRS": "/absolute/path/to/kensaiapp/core/tools/kensaiapp-panel" }
-```
-
-`/kensaiapp-panel` then opens the pane in any session inside an instance. The step is optional:
-everything else works without it.
-
-### 5. Collect telemetry
-
-This step is there if you want to collect telemetry: what each run costs in tokens and money, and each
-request it makes to the model. Skip it otherwise: everything else works without it.
-
-Start the receiver in its own terminal, in the clone, and leave it running. It writes what it
-receives to the folder after `--dir`:
-
-```bash
-mkdir -p ~/.claude/tools/otel-receiver
-python3 core/tools/otel_receiver.py --port 4318 --dir ~/.kensaiapp/telemetry \
-  --publish-endpoint ~/.claude/tools/otel-receiver/endpoint
-```
-
-Every chain a launcher starts then sends its telemetry there. For your own Claude Code sessions to
-send theirs too, run this once, from the clone, while the receiver is running:
-
-```bash
-python3 core/tools/apply_telemetry_env.py --settings-file ~/.claude/settings.json
-```
-
-It writes the telemetry settings into your Claude Code settings, so it holds for every session on the
-machine, not only in KensaiApp. The same command with `--remove` takes them out. The receiver stops
-when its terminal closes; start it the same way again. [Telemetry](about/operations.md#telemetry) says what is collected.
-
-### 6. Set up your first project
+### 4. Set up your first project
 
 ```
 /add-dir skills/interactive-product
@@ -226,6 +197,28 @@ another, edit the line on the card.
 
 </details>
 
+Steps 5 and 6, the panel and telemetry, are optional: everything else works without them.
+
+### 5. Turn on the panel
+
+The panel is a Claude Code mod, a plugin that ships in `core/tools/kensaiapp-panel/`. Nothing in the
+clone turns it on. Add its absolute path to the `env` block of your own `~/.claude/settings.json`,
+then restart Claude Code:
+
+```json
+"env": { "CLAUDE_CODE_PLUGIN_DIRS": "/absolute/path/to/kensaiapp/core/tools/kensaiapp-panel" }
+```
+
+`/kensaiapp-panel` then opens the pane in any session inside an instance. Everything else works without it.
+
+### 6. Collect telemetry
+
+This step is there if you want to collect telemetry: what each run costs in tokens and money, and each
+request it makes to the model. It runs on [ka-telemetry](#built-with-kensaiapp), installed once into
+KensaiApp's own environment in your home folder. The how-to guide's
+[How to collect telemetry](about/how-to.md#how-to-collect-telemetry) installs it, starts its receiver
+and has your own sessions send theirs. Everything else works without it.
+
 ## One change, from request to patch
 
 The release keeps the files of every sealed change in the swe-benchmark-poc example
@@ -270,6 +263,15 @@ KensaiApp ships with these examples.
   2026-10-11. KensaiApp was given only each repository as it stood before the fix, and the issue's
   text. Each issue keeps its patch, and its change's trail from the request to the integrity report.
   The project's card sets `Definition: none`, so each change was built from its own request.
+
+## Built with KensaiApp
+
+Products KensaiApp built that are published on their own.
+
+- [ka-telemetry](https://github.com/eyalgo/ka-telemetry): per-agent tokens, time and cost for Claude
+  Code, from its telemetry and transcripts, on your own machine. A Python command-line tool and
+  library, on PyPI as [`ka-telemetry`](https://pypi.org/project/ka-telemetry/). KensaiApp's own
+  telemetry and context cap run on it ([step 6](#6-collect-telemetry)).
 
 ## Still changing
 

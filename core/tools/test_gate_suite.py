@@ -13,6 +13,7 @@ from __future__ import annotations
 import contextlib
 import copy
 import dataclasses
+import re
 from pathlib import Path
 
 import pytest
@@ -101,6 +102,7 @@ class FakeFiles:
     def __init__(self, files: dict[Path, str], tracked: list[str] | None = None) -> None:
         self.files = dict(files)
         self.tracked = tracked or []
+        self.linked: tuple[Path, Path] | None = None
         self.read: list[Path] = []
 
     def read_text(self, path: Path) -> str | None:
@@ -109,6 +111,9 @@ class FakeFiles:
 
     def tracked_files(self, root: Path) -> list[str]:
         return list(self.tracked)
+
+    def linked_git_dirs(self, root: Path) -> tuple[Path, Path] | None:
+        return self.linked
 
 
 def standard_files(**extra: str) -> FakeFiles:
@@ -331,9 +336,6 @@ REFUSALS = {
     "e": (raw_input(candidates=[candidate("python", tag=None)]), RefusalCase.UNDETERMINED_VERSION),
     "f-neither": (raw_input(override={"environment": "neither", "source": source(anchor="jobs:")}),
                   RefusalCase.DECISIONS_RULE_OUT_BOTH),
-    "f-owners-mac": (raw_input(override={"environment": "owners-mac",
-                                         "source": source(anchor="jobs:")}),
-                     RefusalCase.DECISIONS_NAME_OWNERS_MAC),
     "g": (raw_input(ci=CI_UNREADABLE), RefusalCase.UNREADABLE_CI),
 }
 
@@ -386,10 +388,10 @@ def test_a_readable_ci_with_no_runner_is_unreadable_not_no_ci():
     assert result.case is RefusalCase.UNREADABLE_CI
 
 
-def test_a_recorded_override_that_names_the_owners_mac_is_refused_not_obeyed():
-    raw, case = REFUSALS["f-owners-mac"]
-    assert resolve(raw).case is case
+def test_the_owners_ask_outranks_a_recorded_owners_mac_decision():
+    raw = raw_input(override={"environment": "owners-mac", "source": source(anchor="jobs:")})
     assert resolve(raw, owners_ask=True).owners_mac_cause is OwnersMacCause.OWNERS_ASK
+    assert resolve(raw).owners_mac_cause is OwnersMacCause.PRODUCT_DECISION
 
 
 # --- CP-615: several languages --------------------------------------------------------------------
@@ -1132,6 +1134,146 @@ def test_a_checkout_with_no_manifest_is_copied_whole():
     assert harness.processes.pipes[0][0] == packed(WORKTREE)
 
 
+# --- the copy's git data: a linked worktree's `.git` pointer names a path only the host has -------
+
+import subprocess
+
+LINKED_GIT_DIR = Path("/work/instance/.git/worktrees/key1")
+COMMON_GIT_DIR = Path("/work/instance/.git")
+GIT_COPY = shlex.quote(f"{SCRATCH}/.git")
+
+
+def _shared_git_data(common: Path, *own_state: str) -> list[str]:
+    return ["tar", "-C", str(common), "--no-mac-metadata",
+            *(arg for path in ("worktrees", *own_state) for arg in ("--exclude", f"^./{path}")),
+            "-cf", "-", "."]
+
+
+def test_a_linked_worktree_is_copied_with_a_git_folder_that_resolves_in_the_guest():
+    harness = Harness()
+    harness.files.linked = (LINKED_GIT_DIR, COMMON_GIT_DIR)
+    harness.run(raw=guest_raw())
+    into = ["tart", "exec", "-i", "swift-guest", "sh", "-c"]
+    # The pointer file stays behind; the shared data goes in first, the worktree's own state
+    # (its HEAD, its index) over it, and neither file that names a host path.
+    assert harness.processes.pipes == [
+        (packed(WORKTREE, "^./.git"), [*into, COPY], WORKTREE),
+        (_shared_git_data(COMMON_GIT_DIR, *gate_suite.MAIN_CHECKOUT_STATE),
+         [*into, f"mkdir {GIT_COPY} && tar -C {GIT_COPY} -xf -"], WORKTREE),
+        (["tar", "-C", str(LINKED_GIT_DIR), "--no-mac-metadata", "--exclude", "^./commondir",
+          "--exclude", "^./gitdir", "-cf", "-", "."],
+         [*into, f"tar -C {GIT_COPY} -xf -"], WORKTREE)]
+    steps = _guest_steps(harness)
+    assert steps.index(f"tar -C {GIT_COPY} -xf -") < steps.index(_suite_text())
+
+
+def test_a_pointer_to_a_repository_of_its_own_carries_its_data_and_no_worktree_state():
+    harness = Harness()
+    harness.files.linked = (COMMON_GIT_DIR, COMMON_GIT_DIR)
+    harness.run(raw=guest_raw())
+    assert [producer for producer, _consumer, _cwd in harness.processes.pipes] == [
+        packed(WORKTREE, "^./.git"), _shared_git_data(COMMON_GIT_DIR)]
+
+
+def test_git_data_that_fails_to_copy_is_the_environments_failure_and_no_suite_is_issued():
+    harness = Harness()
+    harness.files.linked = (LINKED_GIT_DIR, COMMON_GIT_DIR)
+    results = iter([gate_suite.Completed(0, "", ""),
+                    gate_suite.Completed(1, "", "tar: No space left on device\n")])
+    harness.processes.pipe = lambda producer, consumer, *, cwd: (
+        harness.processes.pipes.append((producer, consumer, cwd)) or next(results))
+    result = harness.run(raw=guest_raw())
+    assert result.status == gate_suite.REFUSAL_STATUS and harness.processes.issued == []
+    _unreachable(harness, stderr_fragment=(
+        f"gate_suite: the git data of this run's checkout, {COMMON_GIT_DIR}, could not be copied "
+        f"onto the macOS guest swift-guest's own disk, where its suite builds."))
+    assert len(harness.processes.pipes) == 2
+    assert _guest_steps(harness)[-1] == CLEAN
+
+
+def _git(*args: str, cwd: Path) -> str:
+    return subprocess.run(["git", *args], cwd=cwd, check=True, capture_output=True,
+                          text=True).stdout
+
+
+def _repository_with_a_worktree(tmp_path: Path) -> tuple[Path, Path]:
+    main = tmp_path / "product"
+    main.mkdir()
+    _git("init", "-q", "-b", "main", cwd=main)
+    (main / "checks").mkdir()
+    (main / "checks" / "gate.sh").write_text("echo gate\n")
+    _git("add", ".", cwd=main)
+    _git("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "first", cwd=main)
+    worktree = main / ".worktrees" / "key1"
+    _git("worktree", "add", "-q", "-b", "key1", str(worktree), cwd=main)
+    return main, worktree
+
+
+def test_the_real_files_name_a_linked_worktrees_git_data_and_nothing_for_a_git_folder(tmp_path):
+    main, worktree = _repository_with_a_worktree(tmp_path)
+    files = gate_suite._RealFiles()
+    git_dir, common_dir = files.linked_git_dirs(worktree)
+    assert (git_dir.resolve(), common_dir.resolve()) == (
+        (main / ".git" / "worktrees" / "key1").resolve(), (main / ".git").resolve())
+    assert files.linked_git_dirs(main) is None
+    assert files.linked_git_dirs(tmp_path) is None
+
+
+def test_git_ls_files_in_the_copy_of_a_linked_worktree_exits_0(tmp_path):
+    """The finding's case end to end, with real tar and real git: the guest is this host, its
+    `tart exec -i` prefix dropped and its scratch folder moved under the test's own folder."""
+    _main, worktree = _repository_with_a_worktree(tmp_path)
+    (worktree / "checks" / "new.sh").write_text("echo new\n")
+    _git("add", "checks/new.sh", cwd=worktree)
+    guest_disk = tmp_path / "guest" / "kensaiapp-gate-suite-"
+    guest_disk.parent.mkdir()
+    real = gate_suite._RealProcesses()
+
+    class LocalGuest:
+        def pipe(self, producer, consumer, *, cwd):
+            assert consumer[:4] == ["tart", "exec", "-i", "g"]
+            text = consumer[-1].replace(gate_suite.GUEST_SCRATCH_PREFIX, str(guest_disk))
+            return real.pipe(producer, ["sh", "-c", text], cwd=cwd)
+
+    host = gate_suite.Host(files=gate_suite._RealFiles(), contract=None, processes=LocalGuest(),
+                           new_token=None, core_root=CORE, guest_lock=None)
+    gate_suite._copy_to_guest_disk(host, gate_suite.Guest("g", ()), str(worktree),
+                                   f"{gate_suite.GUEST_SCRATCH_PREFIX}t")
+    copy = Path(f"{guest_disk}t")
+    assert (copy / ".git").is_dir()
+    listed = subprocess.run(["git", "-C", str(copy), "ls-files", "checks"],
+                            capture_output=True, text=True)
+    assert (listed.returncode, listed.stdout) == (0, "checks/gate.sh\nchecks/new.sh\n")
+    assert _git("-C", str(copy), "branch", "--show-current", cwd=tmp_path) == "key1\n"
+    assert _git("-C", str(copy), "status", "--porcelain", cwd=tmp_path) == "A  checks/new.sh\n"
+
+
+def test_the_main_checkouts_own_state_does_not_reach_a_worktrees_copy(tmp_path):
+    main, worktree = _repository_with_a_worktree(tmp_path)
+    (main / "staged-in-main").write_text("x\n")
+    _git("add", "staged-in-main", cwd=main)
+    _git("update-ref", "refs/bisect/bad", "HEAD", cwd=main)
+    # A worktree with no index of its own: the main checkout's must not stand in for it.
+    (Path(_git("rev-parse", "--git-dir", cwd=worktree).strip()) / "index").unlink()
+    guest_disk = tmp_path / "guest" / "kensaiapp-gate-suite-"
+    guest_disk.parent.mkdir()
+    real = gate_suite._RealProcesses()
+
+    class LocalGuest:
+        def pipe(self, producer, consumer, *, cwd):
+            text = consumer[-1].replace(gate_suite.GUEST_SCRATCH_PREFIX, str(guest_disk))
+            return real.pipe(producer, ["sh", "-c", text], cwd=cwd)
+
+    host = gate_suite.Host(files=gate_suite._RealFiles(), contract=None, processes=LocalGuest(),
+                           new_token=None, core_root=CORE, guest_lock=None)
+    gate_suite._copy_to_guest_disk(host, gate_suite.Guest("g", ()), str(worktree),
+                                   f"{gate_suite.GUEST_SCRATCH_PREFIX}t")
+    copy = Path(f"{guest_disk}t")
+    assert "staged-in-main" not in _git("-C", str(copy), "ls-files", cwd=tmp_path)
+    assert "refs/bisect" not in _git("-C", str(copy), "for-each-ref", cwd=tmp_path)
+    assert _git("-C", str(copy), "branch", "--show-current", cwd=tmp_path) == "key1\n"
+
+
 def test_a_copy_that_fails_is_the_environments_failure_and_no_suite_is_issued():
     harness = Harness()
     harness.processes.pipe_result = gate_suite.Completed(1, "", "tar: Write error\n")
@@ -1309,8 +1451,6 @@ EXEC_REFUSALS = [
      "the version to tag python with cannot be determined", "e"),
     (lambda: raw_input(override={"environment": "neither", "source": source(anchor="jobs:")}),
      "can use neither the macOS guest nor a container, and name no environment", "f"),
-    (lambda: raw_input(override={"environment": "owners-mac", "source": source(anchor="jobs:")}),
-     "name the owner's Mac, which a product record cannot choose", "f"),
     (lambda: raw_input(ci=CI_UNREADABLE),
      "the runner cannot be read from the product's CI configuration", "g"),
 ]
@@ -1361,6 +1501,360 @@ def test_a_refusal_with_no_inputs_at_all_is_the_unreadable_runner_case():
     harness.run(raw=None)
     assert "the runner cannot be read" in harness.first_line
     assert harness.processes.issued == []
+
+
+
+# --- the two refusals the records describe: an empty language list, a failed override -------------
+
+OVERRIDE_WAY_LINE = ("To run it, record an override in the product's decision files, or have the "
+                     "owner ask for the owner's Mac.")
+CLOSING_LINE = "The test command was not run, on the owner's Mac or anywhere else."
+NEITHER_TEXT = ("the product's decision files say it can use neither the macOS guest nor a "
+                "container, and name no environment")
+NO_LANGUAGE_TEXT = ("the product's CI runs on Linux, no container default can be chosen because "
+                    "no language was resolved for the product, and the product's decision files "
+                    "record no override")
+MISSING_QUOTE = "not in the file"
+FAILED_DETAIL = f'{CI_FILE} does not contain the text the input quotes from it: "{MISSING_QUOTE}".'
+
+
+def assert_refused_without_running(harness: Harness, result) -> None:
+    assert result.status == 1 and not result.suite_issued
+    assert harness.processes.probes == [] and harness.processes.issued == []
+    assert harness.processes.pipes == []
+
+
+def test_empty_language_linux_refusal_names_no_language():
+    harness = Harness()
+    harness.files.tracked = ["notes.txt"]
+    raw = raw_input(languages=(), candidates=[])
+    raw["languages"] = {"declared": None, "invoked": None}
+    result = harness.run(raw=raw)
+    stdout = harness.out.getvalue()
+    assert "for ," not in stdout and ", ," not in stdout
+    assert stdout == f"Environment: unresolved {DASH} {NO_LANGUAGE_TEXT}\n"
+    assert harness.err.getvalue().splitlines() == [
+        f"gate_suite: no environment resolves for project demo: {NO_LANGUAGE_TEXT}.",
+        OVERRIDE_WAY_LINE, CLOSING_LINE]
+    assert_refused_without_running(harness, result)
+
+
+def test_nonempty_no_default_refusal_retains_language_order():
+    harness = Harness()
+    result = harness.run(raw=raw_input(languages=("swift", "zig", "mystery"), candidates=[]))
+    text = ("the product's CI runs on Linux, no container default exists for swift, zig, "
+            "mystery, and the product's decision files record no override")
+    assert harness.out.getvalue() == f"Environment: unresolved {DASH} {text}\n"
+    assert harness.err.getvalue().splitlines() == [
+        f"gate_suite: no environment resolves for project demo: {text}.",
+        OVERRIDE_WAY_LINE, CLOSING_LINE]
+    assert "no language was resolved" not in harness.out.getvalue()
+    assert_refused_without_running(harness, result)
+
+
+def failed_override(kind: str, src: dict) -> dict:
+    return {"container": lambda: container_override(source=src),
+            "neither": lambda: {"environment": "neither", "source": src},
+            "macos-guest": lambda: {"environment": "macos-guest", "source": src},
+            "owners-mac": lambda: {"environment": "owners-mac", "source": src}}[kind]()
+
+
+def failed_override_text(file: str) -> str:
+    return (f"the override in the product's decision files cannot be used, because its source, "
+            f"{file}, does not contain the text the input quotes from it")
+
+
+@pytest.mark.parametrize("kind", ["container", "neither", "macos-guest", "owners-mac"])
+def test_failed_override_refusal_names_its_source(kind):
+    harness = Harness()
+    result = harness.run(raw=raw_input(
+        override=failed_override(kind, source(anchor=MISSING_QUOTE))))
+    stdout = harness.out.getvalue()
+    assert CI_FILE in stdout and NEITHER_TEXT not in stdout
+    assert stdout == f"Environment: unresolved {DASH} {failed_override_text(CI_FILE)}\n"
+    assert harness.err.getvalue().splitlines() == [
+        f"gate_suite: no environment resolves for project demo: {failed_override_text(CI_FILE)}.",
+        FAILED_DETAIL, OVERRIDE_WAY_LINE, CLOSING_LINE]
+    assert_refused_without_running(harness, result)
+
+
+def test_failed_override_refusal_names_an_absent_source():
+    harness = Harness()
+    gone = source("docs/decisions/absent.md", MISSING_QUOTE)
+    result = harness.run(raw=raw_input(override=container_override(source=gone)))
+    assert harness.out.getvalue() == (
+        f"Environment: unresolved {DASH} {failed_override_text('docs/decisions/absent.md')}\n")
+    assert harness.err.getvalue().splitlines() == [
+        "gate_suite: no environment resolves for project demo: "
+        f"{failed_override_text('docs/decisions/absent.md')}.",
+        f'docs/decisions/absent.md does not contain the text the input quotes from it: '
+        f'"{MISSING_QUOTE}".', OVERRIDE_WAY_LINE, CLOSING_LINE]
+    assert_refused_without_running(harness, result)
+
+
+def test_failed_override_refusal_preserves_an_alternate_source_name():
+    harness = Harness()
+    harness.files.files[Path(harness.contract["product_worktree"]) / "docs/decisions/env.md"] = (
+        "an environment note\n")
+    elsewhere = source("docs/decisions/env.md", MISSING_QUOTE)
+    result = harness.run(raw=raw_input(override=container_override(source=elsewhere)))
+    text = failed_override_text("docs/decisions/env.md")
+    assert harness.out.getvalue() == f"Environment: unresolved {DASH} {text}\n"
+    assert harness.err.getvalue().splitlines()[1] == (
+        f'docs/decisions/env.md does not contain the text the input quotes from it: '
+        f'"{MISSING_QUOTE}".')
+    assert_refused_without_running(harness, result)
+
+    rooted = Harness()
+    in_core = source("doctrine/engineering/languages/README.md", MISSING_QUOTE, root="core")
+    result = rooted.run(raw=raw_input(override=container_override(source=in_core)))
+    text = failed_override_text("doctrine/engineering/languages/README.md")
+    assert rooted.out.getvalue() == f"Environment: unresolved {DASH} {text}\n"
+    assert "/work/core" not in rooted.out.getvalue() + rooted.err.getvalue()
+    assert rooted.err.getvalue().splitlines()[1] == (
+        f'doctrine/engineering/languages/README.md does not contain the text the input quotes '
+        f'from it: "{MISSING_QUOTE}".')
+    assert_refused_without_running(rooted, result)
+
+
+AMD64_FILE = "docs/decisions/arch.md"
+AMD64_QUOTE = "amd64 please"
+
+
+def failed_amd64_text(file: str) -> str:
+    return (f"the amd64 requirement in the product's decision files cannot be used, because its "
+            f"source, {file}, does not contain the text the input quotes from it")
+
+
+@pytest.mark.parametrize("override", [None, "container"])
+def test_failed_amd64_source_names_its_file(override):
+    harness = Harness()
+    raw = raw_input(amd64={"source": source(AMD64_FILE, AMD64_QUOTE)},
+                    override=container_override() if override else None)
+    result = harness.run(raw=raw)
+    text = failed_amd64_text(AMD64_FILE)
+    assert harness.out.getvalue() == f"Environment: unresolved {DASH} {text}\n"
+    assert NEITHER_TEXT not in harness.out.getvalue() + harness.err.getvalue()
+    assert harness.err.getvalue().splitlines() == [
+        f"gate_suite: no environment resolves for project demo: {text}.",
+        f'{AMD64_FILE} does not contain the text the input quotes from it: "{AMD64_QUOTE}".',
+        OVERRIDE_WAY_LINE, CLOSING_LINE]
+    assert_refused_without_running(harness, result)
+
+
+def test_failed_amd64_source_gets_its_own_refusal_case():
+    refused = resolve(raw_input(amd64={"source": source(AMD64_FILE, AMD64_QUOTE)}))
+    assert refused.case is RefusalCase.FAILED_AMD64_SOURCE
+    assert [found.file for found in refused.failed_sources] == [AMD64_FILE]
+    neither = resolve(raw_input(override={"environment": "neither",
+                                          "source": source(anchor="jobs:")}))
+    assert neither.case is RefusalCase.DECISIONS_RULE_OUT_BOTH
+
+
+def test_an_explicit_container_architecture_never_reaches_a_failing_amd64_source():
+    harness = Harness()
+    raw = raw_input(amd64={"source": source(AMD64_FILE, AMD64_QUOTE)},
+                    override=container_override(architecture="arm64"))
+    result = harness.run(raw=raw)
+    assert harness.first_line == f"Environment: container {DASH} ghcr.io/acme/builder:7.1, arm64"
+    assert result.status == 0 and harness.err.getvalue() == ""
+
+
+def test_failed_override_does_not_override_earlier_environment_selection():
+    bad = container_override(source=source(anchor=MISSING_QUOTE))
+    unreadable = Harness()
+    result = unreadable.run(raw=raw_input(ci=CI_UNREADABLE, override=bad))
+    text = "the runner cannot be read from the product's CI configuration"
+    assert unreadable.out.getvalue() == f"Environment: unresolved {DASH} {text}\n"
+    assert unreadable.err.getvalue().splitlines() == [
+        f"gate_suite: no environment resolves for project demo: {text}.",
+        "To run it, read the runner from the product's CI configuration and supply it with its "
+        "source, or have the owner ask for the owner's Mac.", CLOSING_LINE]
+    assert_refused_without_running(unreadable, result)
+
+    for raw, owners_ask in [(raw_input(ci=CI_NONE, override=bad), False),
+                            (raw_input(override=bad), True)]:
+        asked = Harness()
+        result = asked.run(raw=raw, owners_ask=owners_ask)
+        assert asked.first_line.startswith(f"Environment: owners-mac {DASH} ")
+        assert asked.processes.issued == [(["sh", "-c", CARD_COMMAND], WORKTREE)]
+        assert result.status == 0 and result.suite_issued
+
+
+def test_failed_override_refusal_names_its_source_whatever_platform_ci_reads():
+    # CP-695 holds on any readable CI: the override is read before the CI's platform is.
+    harness = Harness()
+    result = harness.run(raw=raw_input(
+        ci=ci_readable("macos"), languages=("swift",),
+        override=container_override(source=source(anchor=MISSING_QUOTE))))
+    assert harness.out.getvalue() == (
+        f"Environment: unresolved {DASH} {failed_override_text(CI_FILE)}\n")
+    assert harness.err.getvalue().splitlines() == [
+        f"gate_suite: no environment resolves for project demo: {failed_override_text(CI_FILE)}.",
+        FAILED_DETAIL, OVERRIDE_WAY_LINE, CLOSING_LINE]
+    assert_refused_without_running(harness, result)
+
+
+def test_failed_override_outranks_failed_amd64_source():
+    # Both decision sources fail: the override's is the cause, so its text and only its
+    # source line are printed (CP-695, CP-696).
+    harness = Harness()
+    result = harness.run(raw=raw_input(
+        override=container_override(source=source(anchor=MISSING_QUOTE)),
+        amd64={"source": source("docs/decisions/arch.md", "amd64 please")}))
+    assert harness.out.getvalue() == (
+        f"Environment: unresolved {DASH} {failed_override_text(CI_FILE)}\n")
+    assert harness.err.getvalue().splitlines() == [
+        f"gate_suite: no environment resolves for project demo: {failed_override_text(CI_FILE)}.",
+        FAILED_DETAIL, OVERRIDE_WAY_LINE, CLOSING_LINE]
+    assert_refused_without_running(harness, result)
+
+
+def test_other_refusals_keep_exact_output(tmp_path):
+    # Valid neither: the text of the decision files ruling out both environments.
+    neither = Harness()
+    result = neither.run(raw=raw_input(
+        override={"environment": "neither", "source": source(anchor="jobs:")}))
+    assert neither.out.getvalue() == f"Environment: unresolved {DASH} {NEITHER_TEXT}\n"
+    assert neither.err.getvalue().splitlines() == [
+        f"gate_suite: no environment resolves for project demo: {NEITHER_TEXT}.",
+        OVERRIDE_WAY_LINE, CLOSING_LINE]
+    assert_refused_without_running(neither, result)
+
+    # macOS guest with no toolchain named for the language.
+    toolless = Harness()
+    toolless.files.files[CORE / PACKET_DIR / "rust" / "environment.md"] = "no table\n"
+    result = toolless.run(raw=raw_input(ci=ci_readable("macos"), languages=("rust",)))
+    text = ("the product's CI runs on macOS, no macOS guest toolchain is named for rust, and "
+            "the product's decision files record no override")
+    assert toolless.out.getvalue() == f"Environment: unresolved {DASH} {text}\n"
+    assert toolless.err.getvalue().splitlines() == [
+        f"gate_suite: no environment resolves for project demo: {text}.",
+        OVERRIDE_WAY_LINE, CLOSING_LINE]
+    assert_refused_without_running(toolless, result)
+
+    # A checkout under none of the guest's shares, in every share variant.
+    checkout = ("gate_suite: this run's checkout, /work/instance/.worktrees/key1, is under none "
+                "of the shares this run was given for the macOS guest swift-guest.")
+    variants = {
+        "no match": [
+            checkout, "The shares this run was given: /work/products.",
+            "The checkout has to be under one of those folders, or the guest has to be started "
+            "with a share that holds it.", CLOSING_LINE],
+        "absent": [
+            checkout, "This run was given no shares for the guest. Each share is given in "
+            "guest.shares, with the host folder and the folder it appears at inside the guest.",
+            CLOSING_LINE],
+    }
+    variants["empty"] = variants["absent"]
+    guests = {"no match": {"name": "swift-guest", "shares": [PRODUCTS_SHARE]},
+              "absent": {"name": "swift-guest"}, "empty": {"name": "swift-guest", "shares": []}}
+    for name, guest in guests.items():
+        unshared = Harness()
+        result = unshared.run(raw=guest_raw(guest))
+        assert unshared.out.getvalue() == f"Environment: macos-guest {DASH} swift-guest\n", name
+        assert unshared.err.getvalue().splitlines() == variants[name], name
+        assert result.status == 1 and not result.suite_issued, name
+        assert unshared.processes.probes == [] and unshared.processes.issued == [], name
+
+    # The lock that cannot be taken: a refusal of its own, with status 2.
+    missing = tmp_path / "no-such-folder" / "guest.lock"
+    locked = Harness(guest_lock=gate_suite.FileGuestLock(missing))
+    assert run_cli(locked, "--gate", "developer", inputs=guest_raw()) == 2
+    assert locked.out.getvalue() == f"Environment: macos-guest {DASH} swift-guest\n"
+    assert locked.err.getvalue() == (
+        "gate_suite: the lock that lets one gate at a time run in the macOS guest cannot be "
+        f"taken, at {missing}: {os.strerror(errno.ENOENT)}\n")
+    assert locked.processes.probes == [] and locked.processes.issued == []
+
+
+def test_original_formatter_calls_keep_their_meaning():
+    swift = resolve(raw_input(languages=("swift", "mystery"), candidates=[]))
+    text = ("the product's CI runs on Linux, no container default exists for swift, mystery, "
+            "and the product's decision files record no override")
+    assert gate_suite.refusal_case_text(swift) == text
+    assert gate_suite.refusal_lines(swift) == [
+        f"gate_suite: no environment resolves for project demo: {text}.",
+        OVERRIDE_WAY_LINE, CLOSING_LINE]
+    neither = resolve(raw_input(
+        override={"environment": "neither", "source": source(anchor="jobs:")}))
+    assert gate_suite.refusal_case_text(neither) == NEITHER_TEXT
+    assert gate_suite.refusal_lines(neither) == [
+        f"gate_suite: no environment resolves for project demo: {NEITHER_TEXT}.",
+        OVERRIDE_WAY_LINE, CLOSING_LINE]
+
+
+def test_formatter_accepts_checked_override_context():
+    bad = source(anchor=MISSING_QUOTE)
+    refused = resolve(raw_input(override=container_override(source=bad)))
+    checked = refused.failed_sources[0]
+    assert gate_suite.refusal_case_text(refused, failed_override_source=checked) == (
+        failed_override_text(CI_FILE))
+    assert gate_suite.refusal_case_text(refused) == NEITHER_TEXT
+    # The context applies to its own refusal only.
+    other = resolve(raw_input(languages=("swift",), candidates=[]))
+    assert gate_suite.refusal_case_text(other, failed_override_source=checked) == (
+        gate_suite.refusal_case_text(other))
+
+
+def test_refusal_lines_accept_selected_case_text():
+    refused = resolve(raw_input(override=container_override(source=source(anchor=MISSING_QUOTE))))
+    chosen = failed_override_text(CI_FILE)
+    assert gate_suite.refusal_lines(refused, case_text=chosen) == [
+        f"gate_suite: no environment resolves for project demo: {chosen}.",
+        FAILED_DETAIL, OVERRIDE_WAY_LINE, CLOSING_LINE]
+    assert gate_suite.refusal_lines(refused)[1:] == gate_suite.refusal_lines(
+        refused, case_text=chosen)[1:]
+
+
+# --- a recorded owner's-Mac decision (CP-709 to CP-711) -----------------------------------------
+
+
+def mac_decision(**fields) -> dict:
+    return {"environment": "owners-mac", "source": source(anchor="jobs:"), **fields}
+
+
+@pytest.mark.parametrize("ci", [ci_readable("linux"), ci_readable("macos"),
+                                ci_readable("macos", "linux"), ci_readable("windows")])
+@pytest.mark.parametrize("status", [0, 3])
+def test_recorded_mac_decision_runs_the_cards_command(ci, status):
+    harness = Harness()
+    harness.processes.suite = gate_suite.Completed(status, "o\n", "e\n")
+    result = harness.run(raw=raw_input(ci=ci, override=mac_decision()))
+    assert harness.first_line == f"Environment: owners-mac {DASH} product's decision"
+    assert harness.processes.issued == [(["sh", "-c", CARD_COMMAND], WORKTREE)]
+    assert harness.processes.probes == [] and harness.processes.pipes == []
+    assert harness.lock.holds == 0
+    assert result.status == status and result.suite_issued
+    assert harness.out.getvalue() == f"Environment: owners-mac {DASH} product's decision\no\n"
+    assert harness.err.getvalue() == "e\n"
+
+
+def test_recorded_mac_decision_keeps_existing_precedence():
+    bad = mac_decision(source=source(anchor=MISSING_QUOTE))
+    failed = Harness()
+    result = failed.run(raw=raw_input(override=bad))
+    assert failed.out.getvalue() == (
+        f"Environment: unresolved {DASH} {failed_override_text(CI_FILE)}\n")
+    assert_refused_without_running(failed, result)
+
+    for ci in (CI_UNREADABLE, {"finding": "readable", "runners": []},
+               {"finding": "readable", "runners": [
+                   {"platform": "linux", "source": source(anchor=MISSING_QUOTE)}]}):
+        unreadable = Harness()
+        result = unreadable.run(raw=raw_input(ci=ci, override=mac_decision()))
+        assert unreadable.first_line == (
+            f"Environment: unresolved {DASH} the runner cannot be read from the product's CI "
+            "configuration")
+        assert_refused_without_running(unreadable, result)
+
+    no_ci = Harness()
+    no_ci.run(raw=raw_input(ci=CI_NONE, override=mac_decision()))
+    assert no_ci.first_line == f"Environment: owners-mac {DASH} no CI"
+
+    asked = Harness()
+    asked.run(raw=raw_input(override=mac_decision()), owners_ask=True)
+    assert asked.first_line == f"Environment: owners-mac {DASH} owner's ask"
 
 
 # --- exit propagation ----------------------------------------------------------------------------
@@ -1555,6 +2049,7 @@ import multiprocessing
 import os
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 
@@ -2125,6 +2620,197 @@ def test_each_shipped_guest_packet_names_its_tool(language, tool, folder):
     assert gate_suite.guest_tool(language, text) == gate_suite.GuestTool(language, tool, folder)
 
 
+# --- the shipped packets name their container image (CP-726 to CP-738) ---------------------------
+#
+# The reader below is test support. It does what `prompts/gate_suite.md` Step 3 asks of a plan:
+# take the image a packet names, with the packet line that names it as the image's source. The
+# tool never reads a packet itself, so nothing here is a runtime parser.
+
+_REGISTRY_REFERENCE = r"(?:docker\.io|quay\.io|ghcr\.io|mcr\.microsoft\.com)/[a-z0-9._/-]+"
+_PROVISIONING_HEADING = "## Provisioning"
+_EXAMPLE_MARKERS = ("for example", "such as", "e.g.")
+_FENCE = "```"
+_VERSION = re.compile(r"\d+(?:\.\d+)*")
+_SHIPPED_LANGUAGES = ("python", "rust", "javascript", "typescript", "shell", "swift")
+
+
+@dataclasses.dataclass(frozen=True)
+class PacketImage:
+    """The image a shipped packet names and the whole packet line that names it. Both are `None`
+    when the packet names none, which a plan gives its candidate as no `image`."""
+
+    reference: str | None
+    line: str | None
+
+
+def _shipped_text(language: str) -> str:
+    return (_SHIPPED_PACKETS / language / "environment.md").read_text(encoding="utf-8")
+
+
+def _provisioning_prose(text: str):
+    """The lines of `## Provisioning` that are ordinary prose, outside any fenced block."""
+    in_provisioning = False
+    in_fence = False
+    for line in text.splitlines():
+        if line.lstrip().startswith(_FENCE):
+            in_fence = not in_fence
+        elif not in_fence and line.startswith("## "):
+            in_provisioning = line.strip() == _PROVISIONING_HEADING
+        elif in_provisioning and not in_fence:
+            yield line
+
+
+def read_packet_image(text: str) -> PacketImage:
+    """The first registry reference in the packet's provisioning prose that is not an example."""
+    for line in _provisioning_prose(text):
+        found = re.search(_REGISTRY_REFERENCE, line)
+        if found and not any(marker in line.lower() for marker in _EXAMPLE_MARKERS):
+            return PacketImage(found.group(0), line.strip())
+    return PacketImage(None, None)
+
+
+def shipped_ci_text(runner: str) -> str:
+    return ("jobs:\n  test:\n"
+            f"    runs-on: {runner}\n"
+            "    steps:\n"
+            '      - python-version: "3.12"\n'
+            "      - node-version: 22\n")
+
+
+def ci_line(ci_text: str, fragment: str) -> str:
+    return next(line.strip() for line in ci_text.splitlines() if fragment in line)
+
+
+def shipped_files(ci_text: str) -> FakeFiles:
+    """The product's CI and the shipped registry and packets, read from the checkout under test."""
+    files = {PRODUCT / CI_FILE: ci_text,
+             CORE / PACKET_DIR / "README.md": (_SHIPPED_PACKETS / "README.md").read_text("utf-8")}
+    for language in _SHIPPED_LANGUAGES:
+        files[CORE / PACKET_DIR / language / "environment.md"] = _shipped_text(language)
+    return FakeFiles(files, tracked=["src/app.py"])
+
+
+def shipped_candidate(language: str, ci_text: str, tag_fragment: str) -> dict:
+    """The candidate a plan builds: the packet's image with the packet line as its source, and the
+    tag CI states on `tag_fragment`'s line with that line as its source. A packet that names no
+    image gives a candidate with no image; a CI line stating no version gives no tag."""
+    packet = read_packet_image(_shipped_text(language))
+    found = {"language": language}
+    if packet.reference is None:
+        return found
+    found["image"] = packet.reference
+    found["image_source"] = source(f"{PACKET_DIR}/{language}/environment.md", packet.line,
+                                   root="core")
+    tag_line = ci_line(ci_text, tag_fragment)
+    tag = _VERSION.search(tag_line)
+    if tag:
+        found["tag"] = tag.group(0)
+        found["tag_source"] = source(CI_FILE, tag_line)
+    return found
+
+
+def resolve_shipped(ci_text: str, candidates: list[dict], declared: list[str]):
+    ci = {"finding": "readable", "runners": [
+        {"platform": "linux", "source": source(anchor=ci_line(ci_text, "runs-on:"))}]}
+    raw = raw_input(ci=ci, candidates=candidates, declared=declared)
+    return request_from(raw, shipped_files(ci_text)), resolve(raw, files=shipped_files(ci_text))
+
+
+_PACKET_IMAGE_REFERENCES = [
+    pytest.param("python", "docker.io/library/python", id="python"),
+    pytest.param("rust", "docker.io/library/rust", id="rust"),
+    pytest.param("javascript", "docker.io/library/node", id="javascript"),
+    pytest.param("typescript", "docker.io/library/node", id="typescript"),
+    pytest.param("shell", "docker.io/library/ubuntu", id="shell"),
+]
+
+
+@pytest.mark.parametrize("language,reference", _PACKET_IMAGE_REFERENCES)
+def test_shipped_container_packet_names_one_untagged_provisioning_image(language, reference):
+    text = _shipped_text(language)
+    # Exactly one reference in the whole file: one distinct image, written once.
+    assert re.findall(_REGISTRY_REFERENCE, text) == [reference]
+    [image_line] = [line for line in text.splitlines() if re.search(_REGISTRY_REFERENCE, line)]
+    # It sits in ordinary provisioning prose, not in a fenced block or an example.
+    assert read_packet_image(text) == PacketImage(reference, image_line.strip())
+    # No tag and no digest follows it, anywhere in the file.
+    assert not re.search(_REGISTRY_REFERENCE + "[:@]", text)
+
+
+def test_the_packet_reader_names_no_image_where_the_provisioning_prose_holds_none():
+    reference = "docker.io/library/python"
+    outside_section = f"## Default\n\nThe image is `{reference}`.\n\n## Provisioning\n\nNone.\n"
+    fenced = f"## Provisioning\n\n```sh\npodman pull {reference}\n```\n"
+    example = f"## Provisioning\n\nFor example, `{reference}` would do.\n"
+    for text in ("", outside_section, fenced, example):
+        assert read_packet_image(text) == PacketImage(None, None)
+    prose = f"## Provisioning\n\nStart from the image, `{reference}`, tagged by CI.\n\n## Next\n"
+    assert read_packet_image(prose) == PacketImage(
+        reference, f"Start from the image, `{reference}`, tagged by CI.")
+
+
+def test_shipped_python_ci_version_resolves_container():
+    ci_text = shipped_ci_text("ubuntu-24.04")
+    request, result = resolve_shipped(
+        ci_text, [shipped_candidate("python", ci_text, "python-version")], ["python"])
+    # Every quoted source — the packet line and the CI line — is a line the file really holds.
+    assert request.candidates[0].failed == ()
+    assert result == container("docker.io/library/python", "3.12")
+    assert gate_suite.environment_line(result, None) == (
+        f"Environment: container {DASH} docker.io/library/python:3.12, arm64")
+
+
+_SHIPPED_TAG_EVIDENCE = (("python", "python-version"), ("javascript", "node-version"),
+                         ("shell", "runs-on:"))
+_SHIPPED_CONFLICT_LISTING = (
+    "The container images the product's languages call for: docker.io/library/python:3.12 for "
+    "python, docker.io/library/node:22 for javascript, docker.io/library/ubuntu:24.04 for shell.")
+
+
+def shipped_candidates(ci_text: str) -> list[dict]:
+    return [shipped_candidate(language, ci_text, fragment)
+            for language, fragment in _SHIPPED_TAG_EVIDENCE]
+
+
+def test_shipped_python_javascript_shell_report_conflicting_images():
+    ci_text = shipped_ci_text("ubuntu-24.04")
+    request, result = resolve_shipped(ci_text, shipped_candidates(ci_text),
+                                      ["python", "javascript", "shell"])
+    assert isinstance(result, Refused)
+    assert result.case is RefusalCase.CONFLICTING_IMAGES
+    assert [candidate.failed for candidate in request.candidates] == [(), (), ()]
+    assert result.failed_sources == ()
+    assert result.candidate_images == (
+        ("docker.io/library/python", "3.12", "python"),
+        ("docker.io/library/node", "22", "javascript"),
+        ("docker.io/library/ubuntu", "24.04", "shell"))
+    assert _SHIPPED_CONFLICT_LISTING in gate_suite.refusal_lines(result)
+
+
+def test_shipped_ubuntu_latest_requires_a_release():
+    ci_text = shipped_ci_text("ubuntu-latest")
+    _request, result = resolve_shipped(ci_text, shipped_candidates(ci_text),
+                                       ["python", "javascript", "shell"])
+    assert isinstance(result, Refused)
+    assert result.case is RefusalCase.UNDETERMINED_VERSION
+    assert result.image == "docker.io/library/ubuntu"
+    assert gate_suite.refusal_case_text(result) == (
+        "the version to tag docker.io/library/ubuntu with cannot be determined")
+
+
+def test_shipped_non_ubuntu_shell_has_no_container_default():
+    ci_text = shipped_ci_text("debian-12")
+    # Shell's packet names no image for a CI that runs another distribution, so a plan reading it
+    # gives that candidate none. The packet's prose is held by review; this models its result.
+    candidates = [shipped_candidate("python", ci_text, "python-version"),
+                  shipped_candidate("javascript", ci_text, "node-version"),
+                  {"language": "shell"}]
+    _request, result = resolve_shipped(ci_text, candidates, ["python", "javascript", "shell"])
+    assert isinstance(result, Refused)
+    assert result.case is RefusalCase.NO_CONTAINER_DEFAULT
+    assert result.languages_without_default == ("shell",)
+
+
 def test_only_the_languages_the_card_declares_are_probed_in_the_guest():
     # A Swift-only card never asks the guest for cargo, though Rust's packet names it.
     harness = Harness()
@@ -2133,3 +2819,1654 @@ def test_only_the_languages_the_card_declares_are_probed_in_the_guest():
     assert tool_probes == ["command -v swift"]
     [(argv, _cwd)] = harness.processes.issued
     assert "cargo" not in argv[-1]
+
+
+# ==================================================================================================
+# The check (CP-702 to CP-708, CP-721): whether the evidence resolves, with nothing run
+# ==================================================================================================
+
+CHECK_DIR = Path("/tmp/check")
+CHECK_INPUTS = CHECK_DIR / "inputs.json"
+CHECK_PATHS = CHECK_DIR / "paths.json"
+CHECK_TRACKED = CHECK_DIR / "tracked.txt"
+NO_OVERRIDE_TAIL = "and the product's decision files record no override"
+RESOLVES = "resolves"
+OWES = "owes a decision"
+DOES_NOT = "does not resolve"
+PATHS_FIELDS = ["project", "key", "instance_worktree", "product_path", "product_worktree",
+                "product_repo"]
+
+
+def answer_line(answer: str, detail: str) -> str:
+    return f"{answer} {DASH} {detail}\n"
+
+
+def check_paths(kind: str = "relative", **changes) -> dict:
+    """The path tool's contract for the change: the harness contract with the two fields the tool
+    adds to it."""
+    return {**contract(kind), "project": PROJECT, "key": "key1", **changes}
+
+
+def check_card(product_path: str = ".claude", command: str = CARD_COMMAND) -> str:
+    return (f"# Project Context\n\n**Product path:** {product_path}   <!-- the anchor -->\n"
+            f"**Test command:** {command}\n")
+
+
+def forbidden_host():
+    raise AssertionError("the check built the run host")
+
+
+class ReadOnlyFiles:
+    """The check's file collaborator: it can read a file and nothing else."""
+
+    def __init__(self, files: FakeFiles) -> None:
+        self._files = files
+        self.reads: list[Path] = []
+
+    def read_text(self, path: Path) -> str | None:
+        self.reads.append(path)
+        return self._files.read_text(path)
+
+
+class CheckHarness:
+    """The check through its real CLI, over a fake tree it can read and no collaborator that
+    could start a process, take the lock or write."""
+
+    def __init__(self, *, card: str | None = None, kind: str = "relative",
+                 product_files: dict[str, str] | None = None) -> None:
+        self.paths = check_paths(kind)
+        root = Path(self.paths["product_worktree"])
+        base = standard_files(**(product_files or {})).files
+        self.files = FakeFiles({(root / path.relative_to(PRODUCT) if PRODUCT in path.parents
+                                 else path): text for path, text in base.items()})
+        self.card_path = Path(WORKTREE) / "system/projects/demo/project.md"
+        self.files.files[self.card_path] = (
+            card if card is not None else check_card(self.paths["product_path"]))
+        self.read_only = ReadOnlyFiles(self.files)
+        self.host = gate_suite.CheckHost(files=self.read_only, core_root=CORE)
+        self.out, self.err = io.StringIO(), io.StringIO()
+
+    def stage(self, raw: dict | None = None, *, tracked: tuple[str, ...] = ("src/app.py",),
+              inputs_text: str | None = None, paths: dict | None = None,
+              paths_text: str | None = None, tracked_text: str | None = None,
+              omit: tuple[str, ...] = ()) -> None:
+        staged = {
+            "inputs": (CHECK_INPUTS, inputs_text if inputs_text is not None else json.dumps(raw)),
+            "paths": (CHECK_PATHS, paths_text if paths_text is not None
+                      else json.dumps(paths if paths is not None else self.paths)),
+            "tracked": (CHECK_TRACKED, tracked_text if tracked_text is not None
+                        else "".join(f"{name}\n" for name in tracked)),
+        }
+        for name, (path, text) in staged.items():
+            if name not in omit:
+                self.files.files[path] = text
+
+    def invoke(self, *extra: str) -> int:
+        return gate_suite.main(
+            ["check", "--worktree", WORKTREE, "--project", PROJECT, "--key", "key1",
+             "--inputs", str(CHECK_INPUTS), "--paths", str(CHECK_PATHS),
+             "--tracked-files", str(CHECK_TRACKED), *extra],
+            check_host=self.host, host_factory=forbidden_host, stdout=self.out, stderr=self.err)
+
+    def call(self, raw: dict | None = None, **staging) -> int:
+        self.stage(raw, **staging)
+        return self.invoke()
+
+
+@pytest.fixture
+def no_processes(monkeypatch):
+    def refuse(*args, **kwargs):
+        raise AssertionError("the check started a process")
+
+    for name in ("run", "Popen", "call", "check_call", "check_output"):
+        monkeypatch.setattr(subprocess, name, refuse)
+    monkeypatch.setattr(os, "system", refuse)
+
+
+def untagged(language: str) -> dict:
+    return candidate(language, tag=None, tag_source=None)
+
+
+def no_language_input() -> dict:
+    raw = raw_input(candidates=[])
+    raw["languages"] = {"declared": None, "invoked": None}
+    return raw
+
+
+def test_check_reports_multilanguage_default_resolution(no_processes):
+    mac = CheckHarness()
+    status = mac.call(raw_input(ci=ci_readable("macos"), languages=("rust", "swift", "shell"),
+                                candidates=[], guest=None))
+    assert status == 0
+    assert mac.out.getvalue() == answer_line(
+        RESOLVES, "macos-guest: the product's gates run in the macOS guest")
+    assert mac.err.getvalue() == ""
+
+    linux = CheckHarness()
+    status = linux.call(raw_input(languages=("python", "javascript", "shell"), guest=None))
+    assert status == 1
+    assert linux.out.getvalue() == answer_line(
+        OWES, "the product's CI runs on Linux, the languages python, javascript, shell call for "
+        f"more than one container image, {NO_OVERRIDE_TAIL}")
+    assert "Environment:" not in mac.out.getvalue() + linux.out.getvalue()
+    assert linux.err.getvalue() == ""
+
+
+def test_check_has_no_process_or_write_effects(no_processes, tmp_path):
+    raws = {
+        "resolves": raw_input(ci=ci_readable("macos"), languages=("swift",), candidates=[]),
+        "owes": raw_input(languages=("python", "shell")),
+        "does not resolve": raw_input(ci=CI_UNREADABLE),
+    }
+    for name, raw in raws.items():
+        harness = CheckHarness()
+        harness.stage(raw)
+        before = dict(harness.files.files)
+        harness.invoke()
+        assert harness.files.files == before, name
+        assert harness.out.getvalue().splitlines()[0].startswith(
+            {"resolves": RESOLVES, "owes": OWES, "does not resolve": DOES_NOT}[name]), name
+        assert all(isinstance(path, Path) for path in harness.read_only.reads), name
+
+    # Its collaborators can read and cannot do anything else.
+    assert [field.name for field in dataclasses.fields(gate_suite.CheckHost)] == [
+        "files", "core_root"]
+    for name in ("write_text", "remove", "tracked_files", "linked_git_dirs"):
+        assert not hasattr(gate_suite.ReadOnlyFiles, name), name
+
+    # A real prepared tree, read through the real CLI: nothing is created, changed or removed.
+    core, instance = tmp_path / "core", tmp_path / "instance" / ".worktrees" / "key1"
+    context = tmp_path / "context"
+    for relative, text in {
+        f"{PACKET_DIR}/README.md": REGISTRY_TEXT,
+        **{f"{PACKET_DIR}/{language}/environment.md": text
+           for language, text in PACKET_TEXT.items()}}.items():
+        (core / relative).parent.mkdir(parents=True, exist_ok=True)
+        (core / relative).write_text(text, encoding="utf-8")
+    (instance / "system/projects/demo").mkdir(parents=True)
+    (instance / "system/projects/demo/project.md").write_text(check_card("prod"), encoding="utf-8")
+    (instance / CI_FILE).parent.mkdir(parents=True)
+    (instance / CI_FILE).write_text(CI_TEXT, encoding="utf-8")
+    context.mkdir()
+    paths = {**check_paths(), "instance_worktree": str(instance), "product_path": "prod",
+             "product_worktree": str(instance), "product_repo": str(instance)}
+    (context / "paths.json").write_text(json.dumps(paths), encoding="utf-8")
+    (context / "tracked.txt").write_text("prod/app.py\n", encoding="utf-8")
+    (context / "inputs.json").write_text(json.dumps(raw_input(guest=None)), encoding="utf-8")
+
+    def listing() -> dict:
+        return {str(path): (path.stat().st_mtime_ns, path.stat().st_size if path.is_file() else 0)
+                for path in sorted(tmp_path.rglob("*"))}
+
+    before, out, err = listing(), io.StringIO(), io.StringIO()
+    status = gate_suite.main(
+        ["check", "--worktree", str(instance), "--project", PROJECT, "--key", "key1",
+         "--inputs", str(context / "inputs.json"), "--paths", str(context / "paths.json"),
+         "--tracked-files", str(context / "tracked.txt")],
+        check_host=gate_suite.CheckHost(files=gate_suite.ReadOnlyFiles(), core_root=core),
+        host_factory=forbidden_host, stdout=out, stderr=err)
+    assert (status, err.getvalue()) == (0, "")
+    assert out.getvalue() == answer_line(
+        RESOLVES, "container: the product's gates run in python:3.12, arm64")
+    assert listing() == before
+
+
+def owed_cases() -> list:
+    matrix = [candidate("python", tag=version,
+                        tag_source=source(CI_FILE, f'python-version: "{version}"'))
+              for version in ("3.12", "3.13")]
+    return [
+        ("other-platform", raw_input(ci={"finding": "readable", "runners": [runner("windows")]}),
+         None, None, "the product's CI runs on a platform other than macOS or Linux, its "
+         f"platforms are windows, {NO_OVERRIDE_TAIL}"),
+        ("other-platforms-deduplicated", raw_input(ci={"finding": "readable", "runners": [
+            runner("windows"), runner("freebsd"), runner("windows")]}), None, None,
+         "the product's CI runs on a platform other than macOS or Linux, its platforms are "
+         f"windows, freebsd, {NO_OVERRIDE_TAIL}"),
+        ("mixed-platforms", raw_input(ci=ci_readable("macos", "linux")), None, None,
+         f"the product's CI runs on both macOS and Linux, its platforms are macos, linux, "
+         f"{NO_OVERRIDE_TAIL}"),
+        ("no-container-default", raw_input(languages=("swift",), candidates=[]), None, None,
+         f"the product's CI runs on Linux, no container default exists for swift, "
+         f"{NO_OVERRIDE_TAIL}"),
+        ("no-default-keeps-priority-over-conflicts",
+         raw_input(languages=("python", "swift"), candidates=[candidate("python")]), None, None,
+         f"the product's CI runs on Linux, no container default exists for swift, "
+         f"{NO_OVERRIDE_TAIL}"),
+        ("no-default-follows-resolved-order",
+         raw_input(languages=("swift", "kotlin"), candidates=[]), None, None,
+         f"the product's CI runs on Linux, no container default exists for swift, kotlin, "
+         f"{NO_OVERRIDE_TAIL}"),
+        ("no-language", no_language_input(), ("notes.txt",), None,
+         "the product's CI runs on Linux, no container default can be chosen because no language "
+         f"was resolved for the product, {NO_OVERRIDE_TAIL}"),
+        ("conflicting-images", raw_input(languages=("python", "javascript", "shell")), None, None,
+         "the product's CI runs on Linux, the languages python, javascript, shell call for more "
+         f"than one container image, {NO_OVERRIDE_TAIL}"),
+        ("conflicting-images-reversed-and-duplicated",
+         raw_input(languages=("python", "javascript", "shell"),
+                   candidates=[candidate("shell"), candidate("javascript"), candidate("python"),
+                               candidate("python")]), None, None,
+         "the product's CI runs on Linux, the languages python, javascript, shell call for more "
+         f"than one container image, {NO_OVERRIDE_TAIL}"),
+        ("conflicting-images-language-named-twice",
+         raw_input(languages=("python", "shell", "python")), None, None,
+         "the product's CI runs on Linux, the languages python, shell call for more than one "
+         f"container image, {NO_OVERRIDE_TAIL}"),
+        ("untagged-shell", raw_input(
+            languages=("python", "javascript", "shell"),
+            candidates=[candidate("python"), candidate("javascript"), untagged("shell")]),
+         None, None, "the product's CI runs on Linux, the container version cannot be determined "
+         f"for shell, {NO_OVERRIDE_TAIL}"),
+        ("several-unversioned-languages-in-resolved-order",
+         raw_input(languages=("python", "shell"), candidates=[untagged("shell"),
+                                                              untagged("python")]),
+         None, None, "the product's CI runs on Linux, the container version cannot be determined "
+         f"for python, shell, {NO_OVERRIDE_TAIL}"),
+        ("one-language-with-a-version-matrix", raw_input(candidates=matrix), None,
+         {CI_FILE: MATRIX_CI_TEXT}, "the product's CI runs on Linux, the container version "
+         f"cannot be determined for python, {NO_OVERRIDE_TAIL}"),
+        ("no-guest-default", raw_input(ci=ci_readable("macos"), languages=("swift", "kotlin"),
+                                       candidates=[]), None, None,
+         "the product's CI runs on macOS, no macOS guest toolchain is named for kotlin, "
+         f"{NO_OVERRIDE_TAIL}"),
+    ]
+
+
+@pytest.mark.parametrize("name,raw,tracked,files,detail", owed_cases(),
+                         ids=[case[0] for case in owed_cases()])
+def test_check_names_the_reached_owed_case(name, raw, tracked, files, detail, no_processes):
+    harness = CheckHarness(product_files=files)
+    raw = {**raw, "guest": None}
+    status = harness.call(raw, **({"tracked": tracked} if tracked else {}))
+    assert harness.out.getvalue() == answer_line(OWES, detail)
+    assert (status, harness.err.getvalue()) == (1, "")
+
+
+def run_case_text(raw: dict) -> str:
+    harness = Harness()
+    harness.run(raw=raw)
+    prefix = f"Environment: unresolved {DASH} "
+    assert harness.first_line.startswith(prefix)
+    return harness.first_line[len(prefix):]
+
+
+def test_check_distinguishes_other_refusals_from_owed_decisions(no_processes):
+    resolving = {
+        "single-image": (raw_input(), answer_line(
+            RESOLVES, "container: the product's gates run in python:3.12, arm64")),
+        "no-ci": (raw_input(ci=CI_NONE), answer_line(
+            RESOLVES, "owners-mac: the product has no CI, so its gates run on the owner's Mac")),
+        "recorded-mac": (raw_input(override=mac_decision()), answer_line(
+            RESOLVES, "owners-mac: the product's decision files choose the owner's Mac for its "
+            "gates")),
+        "amd64-container": (raw_input(amd64={"source": source(anchor="runs-on: ubuntu-latest")}),
+                            answer_line(RESOLVES, "container: the product's gates run in "
+                                        "python:3.12, amd64")),
+    }
+    for name, (raw, expected) in resolving.items():
+        harness = CheckHarness()
+        status = harness.call({**raw, "guest": None})
+        assert (harness.out.getvalue(), status) == (expected, 0), name
+
+    other = {
+        "unreadable-ci": raw_input(ci=CI_UNREADABLE),
+        "no-runner": raw_input(ci={"finding": "readable", "runners": []}),
+        "failed-runner-source": raw_input(ci={"finding": "readable", "runners": [
+            {"platform": "linux", "source": source(anchor=MISSING_QUOTE)}]}),
+        "valid-neither": raw_input(
+            override={"environment": "neither", "source": source(anchor="jobs:")}),
+        "failed-override": raw_input(override=container_override(
+            source=source(anchor=MISSING_QUOTE))),
+        "failed-amd64": raw_input(amd64={"source": source(AMD64_FILE, AMD64_QUOTE)}),
+        "guest-override-without-guest-default": raw_input(
+            languages=("kotlin",), candidates=[], override=guest_override()),
+        "override-container-without-version": raw_input(
+            override=container_override(tag=None)),
+    }
+    for name, raw in other.items():
+        harness = CheckHarness()
+        status = harness.call({**raw, "guest": None})
+        assert harness.out.getvalue() == answer_line(DOES_NOT, run_case_text(raw)), name
+        assert (status, harness.err.getvalue()) == (1, ""), name
+
+
+@pytest.mark.parametrize("name,staging,message", [
+    ("inputs unreadable", {"omit": ("inputs",)},
+     f"the inputs file {CHECK_INPUTS} cannot be read"),
+    ("paths unreadable", {"omit": ("paths",)}, f"the paths file {CHECK_PATHS} cannot be read"),
+    ("tracked list unreadable", {"omit": ("tracked",)},
+     f"the tracked-files list {CHECK_TRACKED} cannot be read"),
+    *[(f"paths lack {field}",
+       {"paths": {key: value for key, value in check_paths().items() if key != field}},
+       f"the paths file {CHECK_PATHS} has no {field}") for field in PATHS_FIELDS],
+    ("another project", {"paths": check_paths(project="other")},
+     f"the paths file {CHECK_PATHS} is for project other, not demo"),
+    ("another change", {"paths": check_paths(key="other")},
+     f"the paths file {CHECK_PATHS} is for change key other, not key1"),
+    ("another worktree", {"paths": check_paths(instance_worktree="/elsewhere")},
+     f"the paths file {CHECK_PATHS} is for instance worktree /elsewhere, not {WORKTREE}"),
+    ("another product path", {"paths": check_paths(product_path=".elsewhere")},
+     f"the paths file {CHECK_PATHS} gives the product path .elsewhere, but the project card "
+     "names .claude"),
+])
+def test_check_rejects_unavailable_or_mismatched_context(name, staging, message, no_processes):
+    harness = CheckHarness()
+    status = harness.call(raw_input(guest=None), **staging)
+    assert (status, harness.out.getvalue()) == (2, "")
+    assert harness.err.getvalue() == f"gate_suite: {message}\n"
+    assert not [path for path in harness.read_only.reads if path.name == "ci.yml"]
+
+
+@pytest.mark.parametrize("staging,reading", [
+    ({"inputs_text": "{not json"}, "the inputs file {path} is not JSON: "),
+    ({"paths_text": "not json"}, "the paths file {path} is not JSON: "),
+])
+def test_check_rejects_malformed_json_with_the_readers_own_message(staging, reading, no_processes):
+    harness = CheckHarness()
+    path = CHECK_INPUTS if "inputs_text" in staging else CHECK_PATHS
+    status = harness.call(**staging)
+    assert (status, harness.out.getvalue()) == (2, "")
+    assert harness.err.getvalue().startswith("gate_suite: " + reading.format(path=path))
+    assert harness.err.getvalue().count("\n") == 1
+
+
+def test_check_rejects_an_unreadable_card_and_unusable_inputs(no_processes):
+    no_card = CheckHarness()
+    no_card.files.files.pop(no_card.card_path)
+    assert no_card.call(raw_input(guest=None)) == 2
+    assert no_card.out.getvalue() == "" and no_card.err.getvalue().startswith("gate_suite: ")
+
+    for text in ("[1, 2]", "null", '"text"'):
+        odd = CheckHarness()
+        assert odd.call(inputs_text=text) == 2, text
+        assert odd.out.getvalue() == "" and odd.err.getvalue().startswith("gate_suite: "), text
+
+
+def test_check_accepts_an_empty_tracked_snapshot_without_git(no_processes):
+    class Unreadable(ReadOnlyFiles):
+        def tracked_files(self, root: Path) -> list[str]:
+            raise AssertionError("the check asked the files for the tracked list")
+
+    raw = no_language_input()
+    files = Unreadable(CheckHarness().files)
+    empty = io.StringIO()
+    result = gate_suite.check_gate(
+        worktree=WORKTREE, project=PROJECT, key="key1", inputs=raw,
+        context=gate_suite.CheckContext(paths=check_paths(), tracked_files=()),
+        files=files, core_root=CORE, out=empty)
+    detail = ("the product's CI runs on Linux, no container default can be chosen because no "
+              f"language was resolved for the product, {NO_OVERRIDE_TAIL}")
+    assert result.answer is gate_suite.CheckAnswer.OWES_DECISION
+    assert (result.detail, result.status) == (detail, 1)
+    assert empty.getvalue() == answer_line(OWES, detail)
+
+    # The same evidence with one tracked Python file infers the language the empty list lacks.
+    filled = CheckHarness()
+    raw["candidates"] = [candidate("python")]
+    assert filled.call(raw, tracked=("src/app.py",)) == 0
+    assert filled.out.getvalue().startswith(answer_line(RESOLVES, "container:")[:-1])
+
+    # And through the CLI a valid empty list is the same empty snapshot, not a missing file.
+    cli = CheckHarness()
+    assert cli.call(raw, tracked_text="") == 1
+    assert cli.out.getvalue() == answer_line(OWES, detail)
+
+
+def test_check_without_a_suite_needs_no_environment(no_processes):
+    expected = answer_line(
+        RESOLVES, "none: the product has no suite, because its project card names no test command")
+    for text in ("{}", "[1]", "null"):
+        harness = CheckHarness(card=check_card(command="none"))
+        assert harness.call(inputs_text=text) == 0, text
+        assert harness.out.getvalue() == expected, text
+        # Past the three prepared files, the card is the only thing it read.
+        assert [path for path in harness.read_only.reads if CHECK_DIR not in path.parents] == [
+            harness.card_path], text
+
+    malformed = CheckHarness(card=check_card(command="none"))
+    assert malformed.call(inputs_text="{bad") == 2
+    assert malformed.out.getvalue() == ""
+    assert malformed.err.getvalue().startswith(f"gate_suite: the inputs file {CHECK_INPUTS} is not")
+
+
+def test_check_never_inherits_an_owners_ask(no_processes, monkeypatch):
+    conflicting = raw_input(languages=("python", "javascript", "shell"), guest=None)
+    conflicting.update({"owners_mac": True, "owners_ask": True, "ask": "owner asked"})
+    conflicting["decisions"]["owners_ask"] = True
+    monkeypatch.setenv("KENSAIAPP_GATE_OWNERS_MAC", "1")
+    harness = CheckHarness()
+    assert harness.call(conflicting) == 1
+    assert harness.out.getvalue().startswith(OWES)
+    assert "owner's ask" not in harness.out.getvalue()
+
+    with pytest.raises(SystemExit) as refused:
+        harness.stage(conflicting)
+        harness.invoke("--owners-mac")
+    assert refused.value.code == 2
+
+
+def test_check_answers_are_exactly_three_and_carry_status_and_detail(no_processes):
+    assert [answer.value for answer in gate_suite.CheckAnswer] == [RESOLVES, OWES, DOES_NOT]
+    assert {answer.name for answer in gate_suite.CheckAnswer} == {
+        "RESOLVES", "OWES_DECISION", "DOES_NOT_RESOLVE"}
+    harness = CheckHarness()
+    out = io.StringIO()
+    result = gate_suite.check_gate(
+        worktree=WORKTREE, project=PROJECT, key="key1", inputs=raw_input(ci=CI_UNREADABLE),
+        context=gate_suite.CheckContext(paths=check_paths(), tracked_files=("src/app.py",)),
+        files=harness.read_only, core_root=CORE, out=out)
+    assert result.answer is gate_suite.CheckAnswer.DOES_NOT_RESOLVE
+    assert result.status == 1
+    assert result.detail == "the runner cannot be read from the product's CI configuration"
+
+
+def test_check_command_help_names_what_each_option_holds(capsys):
+    with pytest.raises(SystemExit) as shown:
+        gate_suite.main(["--help"])
+    assert shown.value.code == 0
+    assert "answer whether the sourced inputs resolve an environment, starting nothing" in (
+        " ".join(capsys.readouterr().out.split()))
+    with pytest.raises(SystemExit) as shown:
+        gate_suite.main(["check", "--help"])
+    assert shown.value.code == 0
+    text = " ".join(capsys.readouterr().out.split())
+    for help_text in ("the sourced-input JSON",
+                      "the path tool's contract for the change, as a JSON file",
+                      "the product's tracked files, one product-relative path per line"):
+        assert help_text in text
+
+
+# ==================================================================================================
+# The product's committed decision: acquisition (a snapshot of `main`'s docs/nfdr.md, nothing more)
+# ==================================================================================================
+
+NFDR_MAIN = "# Product\n\n## 8. Operational constraints\n\n- **QC-1:** on main\n"
+
+
+def _commit_all(repo: Path, message: str) -> None:
+    _git("add", "-A", cwd=repo)
+    _git("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", message, cwd=repo)
+
+
+def _repository(tmp_path: Path, files: dict[str, str], *, branch: str = "main",
+                name: str = "repo") -> Path:
+    repo = tmp_path / name
+    repo.mkdir()
+    _git("init", "-q", "-b", branch, cwd=repo)
+    for relative, text in files.items():
+        (repo / relative).parent.mkdir(parents=True, exist_ok=True)
+        (repo / relative).write_text(text, encoding="utf-8")
+    _commit_all(repo, "first")
+    return repo
+
+
+def _contract_for(repo: Path, product_path: str) -> dict:
+    return {"product_repo": str(repo), "product_path": product_path}
+
+
+def _main_revision(repo: Path) -> str:
+    return _git("rev-parse", "main", cwd=repo).strip()
+
+
+RECORD_LAYOUTS = {
+    # name: (files main holds, product path as the contract gives it, the decision file's path)
+    "relative-root": ({"docs/nfdr.md": NFDR_MAIN}, ".", "docs/nfdr.md"),
+    "relative-nested": ({"docs/nfdr.md": "# another product's\n", "app/docs/nfdr.md": NFDR_MAIN},
+                        "app", "app/docs/nfdr.md"),
+    "external-root": ({"docs/nfdr.md": NFDR_MAIN}, "REPO", "docs/nfdr.md"),
+    "external-subdirectory": ({"docs/nfdr.md": "# another product's\n",
+                               "app/docs/nfdr.md": NFDR_MAIN}, "REPO/app", "app/docs/nfdr.md"),
+}
+
+
+@pytest.mark.parametrize("layout", RECORD_LAYOUTS)
+def test_record_reads_the_product_nfdr_from_committed_local_main(layout, tmp_path):
+    files, declared, expected_file = RECORD_LAYOUTS[layout]
+    repo = _repository(tmp_path, files)
+    # A branch holds a conflicting entry and is the checked-out one: its file is on disk, and it
+    # is not the record.
+    _git("checkout", "-q", "-b", "key1", cwd=repo)
+    (repo / expected_file).write_text("## 8. Operational constraints\n\n- **QC-9:** branch\n")
+    _commit_all(repo, "branch edit")
+    product_path = declared.replace("REPO", str(repo))
+
+    record = gate_suite.read_decision_record(
+        _contract_for(repo, product_path), gate_suite.GitRecordReader())
+
+    assert record == gate_suite.DecisionRecord(
+        repository=str(repo), file=expected_file, revision=_main_revision(repo), text=NFDR_MAIN)
+
+
+def test_record_ignores_uncommitted_edits_and_refreshes_after_commit(tmp_path):
+    repo = _repository(tmp_path, {"docs/nfdr.md": NFDR_MAIN})
+    contract = _contract_for(repo, ".")
+    reader = gate_suite.GitRecordReader()
+    first = gate_suite.read_decision_record(contract, reader)
+
+    (repo / "docs/nfdr.md").write_text("an uncommitted edit\n")
+    assert gate_suite.read_decision_record(contract, reader) == first
+
+    _commit_all(repo, "commit the edit")
+    second = gate_suite.read_decision_record(contract, reader)
+    assert second.text == "an uncommitted edit\n"
+    assert second.revision == _main_revision(repo) != first.revision
+
+
+def test_record_absence_is_distinct_from_read_failure(tmp_path):
+    reader = gate_suite.GitRecordReader()
+
+    no_main = _repository(tmp_path, {"docs/nfdr.md": NFDR_MAIN}, branch="trunk", name="a")
+    record = gate_suite.read_decision_record(_contract_for(no_main, "."), reader)
+    assert (record.revision, record.text) == (None, None)
+
+    no_file = _repository(tmp_path, {"README.md": "x\n"}, name="b")
+    record = gate_suite.read_decision_record(_contract_for(no_file, "."), reader)
+    assert record.revision == _main_revision(no_file) and record.text is None
+
+    empty = _repository(tmp_path, {"docs/nfdr.md": ""}, name="c")
+    assert gate_suite.read_decision_record(_contract_for(empty, "."), reader).text == ""
+
+    # Failures are errors, in the command's own words, and never an absent record.
+    not_a_repository = tmp_path / "d"
+    not_a_repository.mkdir()
+    with pytest.raises(gate_suite.RecordReadError) as error:
+        gate_suite.read_decision_record(_contract_for(not_a_repository, "."), reader)
+    assert str(error.value).startswith(
+        f"the product's docs/nfdr.md cannot be read from the main branch of {not_a_repository}: ")
+    assert not str(error.value).endswith("\n")
+
+    undecodable = _repository(tmp_path, {"README.md": "x\n"}, name="e")
+    (undecodable / "docs").mkdir()
+    (undecodable / "docs/nfdr.md").write_bytes(b"\xff\xfe not utf-8")
+    _commit_all(undecodable, "binary")
+    with pytest.raises(gate_suite.RecordReadError, match="docs/nfdr.md is not UTF-8 text"):
+        gate_suite.read_decision_record(_contract_for(undecodable, "."), reader)
+
+    a_folder = _repository(tmp_path, {"docs/nfdr.md/part.md": "x\n"}, name="f")
+    with pytest.raises(gate_suite.RecordReadError, match="docs/nfdr.md is not a file"):
+        gate_suite.read_decision_record(_contract_for(a_folder, "."), reader)
+
+
+class FakeRecordReader:
+    """A read-at-revision collaborator that moves `main` after each time it is asked where it is."""
+
+    def __init__(self, text: str | None = NFDR_MAIN, *, revisions=("rev1", "rev2"),
+                 failure: str | None = None) -> None:
+        self.text, self.failure = text, failure
+        self.revisions = iter(revisions)
+        self.calls: list[tuple] = []
+
+    def main_revision(self, repository: str) -> str | None:
+        self.calls.append(("main", repository))
+        if self.failure:
+            raise gate_suite.RecordReadFailure(self.failure)
+        return next(self.revisions)
+
+    def file_at(self, repository: str, revision: str, path: str) -> str | None:
+        self.calls.append(("file", repository, revision, path))
+        return self.text
+
+
+class RecordingRun:
+    """The real reader's process runner, handed in: each command it is given is recorded, then
+    run for real."""
+
+    def __init__(self) -> None:
+        self.sent: list[list[str]] = []
+
+    def __call__(self, argv, **kwargs):
+        self.sent.append(list(argv))
+        return subprocess.run(argv, **kwargs)
+
+
+def test_record_reads_one_revision_without_git_mutation(tmp_path):
+    reader = FakeRecordReader()
+    record = gate_suite.read_decision_record(_contract_for(Path("/p/repo"), "app"), reader)
+    # `main` is resolved once and the file read at that commit, though `main` moves straight after.
+    assert reader.calls == [("main", "/p/repo"), ("file", "/p/repo", "rev1", "app/docs/nfdr.md")]
+    assert record == gate_suite.DecisionRecord("/p/repo", "app/docs/nfdr.md", "rev1", NFDR_MAIN)
+
+    # The real reader sends read-only plumbing only, and no probe or suite is involved.
+    repo = _repository(tmp_path, {"docs/nfdr.md": NFDR_MAIN})
+    run = RecordingRun()
+    record = gate_suite.read_decision_record(
+        _contract_for(repo, "."), gate_suite.GitRecordReader(run=run))
+    assert record.text == NFDR_MAIN
+    assert {argv[3] for argv in run.sent} == {"rev-parse", "ls-tree", "cat-file"}
+    assert all(argv[:3] == ["git", "-C", str(repo)] for argv in run.sent)
+
+
+class RecordHarness:
+    """The `record` command through its real CLI, over a fake tree and a fake reader."""
+
+    def __init__(self, reader=None, *, paths: dict | None = None) -> None:
+        self.paths = paths if paths is not None else check_paths()
+        self.files = FakeFiles({Path(WORKTREE) / "system/projects/demo/project.md": check_card(),
+                                CHECK_PATHS: json.dumps(self.paths)})
+        self.reader = reader if reader is not None else FakeRecordReader()
+        self.out, self.err = io.StringIO(), io.StringIO()
+
+    def invoke(self, *, worktree: str = WORKTREE) -> int:
+        return gate_suite.main(
+            ["record", "--worktree", worktree, "--project", PROJECT, "--key", "key1",
+             "--paths", str(CHECK_PATHS)],
+            record_host=gate_suite.RecordHost(files=ReadOnlyFiles(self.files), reader=self.reader),
+            host_factory=forbidden_host, stdout=self.out, stderr=self.err)
+
+
+def test_record_cli_emits_validated_present_and_absent_snapshots():
+    present = RecordHarness(FakeRecordReader("line one\n\n  `x` — é\n"))
+    assert present.invoke() == 0
+    assert present.err.getvalue() == ""
+    assert json.loads(present.out.getvalue()) == {
+        "repository": "/work/product-repo", "file": ".claude/docs/nfdr.md", "revision": "rev1",
+        "text": "line one\n\n  `x` — é\n"}
+    present.files.files[CHECK_DIR / "record.json"] = present.out.getvalue()
+    assert gate_suite.load_decision_record(
+        ReadOnlyFiles(present.files), str(CHECK_DIR / "record.json")) == (
+            gate_suite.DecisionRecord("/work/product-repo", ".claude/docs/nfdr.md", "rev1",
+                                      "line one\n\n  `x` — é\n"))
+
+    absent = RecordHarness(FakeRecordReader(None))
+    assert absent.invoke() == 0
+    assert json.loads(absent.out.getvalue())["text"] is None
+    assert json.loads(absent.out.getvalue())["revision"] == "rev1"
+
+    # Nothing prepared is trusted unread: bad context stops the command before any read.
+    for name, change in {
+        "unreadable": lambda h: h.files.files.pop(CHECK_PATHS),
+        "malformed": lambda h: h.files.files.update({CHECK_PATHS: "not json"}),
+        "another project": lambda h: h.files.files.update(
+            {CHECK_PATHS: json.dumps(check_paths(project="other"))}),
+        "a field missing": lambda h: h.files.files.update({CHECK_PATHS: json.dumps(
+            {k: v for k, v in check_paths().items() if k != "product_repo"})}),
+    }.items():
+        broken = RecordHarness()
+        change(broken)
+        assert broken.invoke() == 2, name
+        assert broken.out.getvalue() == "" and broken.err.getvalue().startswith("gate_suite: ")
+        assert broken.reader.calls == [], name
+
+    unreadable_main = RecordHarness(FakeRecordReader(failure="fatal: bad object"))
+    assert unreadable_main.invoke() == 2
+    assert unreadable_main.out.getvalue() == ""
+    assert unreadable_main.err.getvalue() == (
+        "gate_suite: the product's .claude/docs/nfdr.md cannot be read from the main branch of "
+        "/work/product-repo: fatal: bad object\n")
+
+
+# ==================================================================================================
+# The product's committed decision: interpretation (an entry in § 8 replaces only the override)
+# ==================================================================================================
+
+OWNERS_MAC_ENTRY = (
+    "- **QC-1:** The product's gates run on the owner's Mac — `environment: owners-mac`, the "
+    "owner's call when the packet defaults did not resolve. Traces to: the runner pool. "
+    "Verified by: the gate check answers `resolves`.")
+CONTAINER_ENTRY = ("- **QC-2:** The gates run in a container — `environment: container`, "
+                   "`image: docker.io/library/python`, `tag: 3.13`, `architecture: arm64`.")
+
+
+def nfdr(*entries: str, heading: str = "## 8. Operational constraints", before: str = "") -> str:
+    return ("# Product\n\n## 7. Quality\n\n- **QC-0:** nothing to run\n\n" + before + heading
+            + "\n\n" + "\n".join(entries) + "\n")
+
+
+def record_of(text: str | None, file: str = "docs/nfdr.md") -> gate_suite.DecisionRecord:
+    return gate_suite.DecisionRecord("/work/product-repo", file, "rev1", text)
+
+
+def decided(text: str | None):
+    return gate_suite.read_current_decision(text)
+
+
+@pytest.mark.parametrize("heading", [
+    "## 8", "## 8.", "## 8. Operational constraints", "# 8 Operational constraints",
+    "### 8 Operational constraints"])
+def test_nfdr_section_eight_accepts_the_numbered_headings(heading):
+    found = decided(nfdr(OWNERS_MAC_ENTRY, heading=heading))
+    assert found == gate_suite.RecordDecision(
+        gate_suite.OverrideKind.OWNERS_MAC, None, None, None, OWNERS_MAC_ENTRY)
+
+
+@pytest.mark.parametrize("name,text", [
+    ("an entry in section 7 only", "# P\n\n## 7. Quality\n\n" + OWNERS_MAC_ENTRY + "\n"),
+    ("section 80", nfdr(OWNERS_MAC_ENTRY, heading="## 80. Other")),
+    ("a heading that only starts with 8", nfdr(OWNERS_MAC_ENTRY, heading="## 8b. Other")),
+    ("a later peer section", nfdr("- **QC-3:** nothing", "", "## 9. Later", "", OWNERS_MAC_ENTRY)),
+    ("ordinary prose, not a list item", nfdr(
+        "The gates run on the owner's Mac, `environment: owners-mac`.")),
+    ("a field outside inline code", nfdr("- **QC-1:** environment: owners-mac")),
+    ("a heading naming an environment", nfdr(
+        "### `environment: owners-mac`", "", "- **QC-1:** nothing")),
+    ("a fenced sample entry", nfdr("```markdown", OWNERS_MAC_ENTRY, "```")),
+    ("a tilde-fenced sample entry", nfdr("~~~", OWNERS_MAC_ENTRY, "~~~")),
+    ("an unknown environment", nfdr("- **QC-1:** `environment: lambda`")),
+    ("no section at all", "# Product\n\nNothing here.\n"),
+    ("an empty file", ""),
+    ("a section with no entries", nfdr("- **QC-1:** nothing recorded")),
+])
+def test_nfdr_section_eight_rejects_what_declares_no_decision(name, text):
+    assert decided(text) is None, name
+
+
+def test_nfdr_section_eight_keeps_subsections_and_stops_at_the_next_peer():
+    inside = nfdr("### 8.1 Sub", "", OWNERS_MAC_ENTRY, "", "#### 8.1.1 Deeper", "", "- **QC-4:** x")
+    assert decided(inside).quote == OWNERS_MAC_ENTRY
+    after_peer = nfdr("- **QC-3:** nothing", "", "## 9. Later", "", OWNERS_MAC_ENTRY)
+    assert decided(after_peer) is None
+    # A heading of a higher level ends the section just as a peer does.
+    higher = nfdr("- **QC-3:** nothing", "", "# Appendix", "", OWNERS_MAC_ENTRY)
+    assert decided(higher) is None
+
+
+def test_nfdr_entries_read_every_environment_architecture_and_wrapped_field():
+    for token, kind in (("macos-guest", gate_suite.OverrideKind.MACOS_GUEST),
+                        ("container", gate_suite.OverrideKind.CONTAINER),
+                        ("owners-mac", gate_suite.OverrideKind.OWNERS_MAC),
+                        ("neither", gate_suite.OverrideKind.NEITHER)):
+        assert decided(nfdr(f"- **QC-1:** x `environment: {token}`.")).environment is kind
+    for token, arch in (("arm64", Architecture.ARM64), ("amd64", Architecture.AMD64)):
+        found = decided(nfdr(f"- **QC-1:** `environment: container`, `image: i`, `tag: 1`, "
+                             f"`architecture: {token}`"))
+        assert found.architecture is arch
+
+    wrapped = ("- **QC-5:** The gates run in a container, per the runner pool —\n"
+               "  `environment: container`, with the image\n"
+               "  `image: docker.io/library/python` and `tag: 3.13`,\n"
+               "  `architecture: amd64`. Traces to: CI.\n"
+               "  Verified by: the check answers `resolves`.")
+    found = decided(nfdr(wrapped, "", "- **QC-6:** unrelated"))
+    assert (found.environment, found.image, found.tag, found.architecture) == (
+        gate_suite.OverrideKind.CONTAINER, "docker.io/library/python", "3.13", Architecture.AMD64)
+    assert found.quote == wrapped
+
+    # A blank line inside an indented item keeps the item whole; an unindented line ends it.
+    loose = "- **QC-7:** a loose item\n\n  `environment: owners-mac` on a second paragraph"
+    assert decided(nfdr(loose)).quote == loose
+    flush = "- **QC-7:** a loose item\n\nflush prose `environment: owners-mac`"
+    assert decided(nfdr(flush)) is None
+
+
+@pytest.mark.parametrize("name,entries", [
+    ("environments", [OWNERS_MAC_ENTRY, CONTAINER_ENTRY]),
+    ("images", ["- a `environment: container` `image: i` `tag: 1`",
+                "- b `environment: container` `image: j` `tag: 1`"]),
+    ("tags", ["- a `environment: container` `image: i` `tag: 1`",
+              "- b `environment: container` `image: i` `tag: 2`"]),
+    ("architectures", ["- a `environment: container` `image: i` `tag: 1` `architecture: arm64`",
+                       "- b `environment: container` `image: i` `tag: 1` `architecture: amd64`"]),
+    ("one entry leaving a field out", [
+        "- a `environment: container` `image: i` `tag: 1` `architecture: arm64`",
+        "- b `environment: container` `image: i` `tag: 1`"]),
+    ("fields inside one entry", ["- a `environment: owners-mac` `environment: neither`"]),
+    ("an image given twice in one entry", [
+        "- a `environment: container` `image: i` `image: j` `tag: 1`"]),
+])
+def test_current_decisions_compare_supplied_values_before_defaults(name, entries):
+    assert isinstance(decided(nfdr(*entries)), gate_suite.RecordConflict), name
+
+
+def test_identical_decisions_collapse_whatever_their_wording_or_order():
+    one = "- first wording `environment: container` `image: i` `tag: 1` `architecture: arm64`"
+    two = "- second `architecture: arm64` words `tag: 1`, `image: i`, `environment: container`"
+    for entries in ([one, two], [two, one], [one, one]):
+        found = decided(nfdr(*entries))
+        assert isinstance(found, gate_suite.RecordDecision), entries
+        assert (found.image, found.tag, found.architecture) == ("i", "1", Architecture.ARM64)
+    # The quote is the first entry's own text, whichever tuple-equal entry follows.
+    assert decided(nfdr(one, two)).quote == one
+    # A field repeated with the same value is one value.
+    assert isinstance(decided(nfdr("- `environment: owners-mac` and `environment: owners-mac`")),
+                      gate_suite.RecordDecision)
+
+
+def _frozen_container() -> dict:
+    return container_override()
+
+
+def _parse(raw: dict | None, record: gate_suite.DecisionRecord | None, files=None):
+    return gate_suite.parse_request(
+        copy.deepcopy(raw), files=files or standard_files(), product_checkout=PRODUCT,
+        language_root=PRODUCT, core_root=CORE, project=PROJECT, record=record)
+
+
+def test_current_record_replaces_only_the_frozen_override():
+    record = record_of(nfdr(OWNERS_MAC_ENTRY))
+    frozen = raw_input(override=_frozen_container(), amd64={"source": source()},
+                       languages=("python", "javascript"))
+    snapshot = copy.deepcopy(frozen)
+    without, with_record = _parse(frozen, None), _parse(frozen, record)
+    assert frozen == snapshot
+    assert without.override.kind is gate_suite.OverrideKind.CONTAINER
+    assert with_record.override.kind is gate_suite.OverrideKind.OWNERS_MAC
+    assert with_record.override.failed == ()
+    assert dataclasses.replace(with_record, override=without.override) == without
+    resolved = gate_suite.resolve_environment(with_record, owners_ask=False)
+    assert (resolved.kind, resolved.owners_mac_cause) == (
+        EnvironmentKind.OWNERS_MAC, OwnersMacCause.PRODUCT_DECISION)
+
+    # A superseded override is never validated: malformed, or sourced to a line no file holds.
+    for stale in ({"environment": "bogus"}, {"environment": "container"},
+                  container_override(source=source(anchor=MISSING_QUOTE))):
+        request = _parse(raw_input(override=stale), record)
+        assert request.override.kind is gate_suite.OverrideKind.OWNERS_MAC, stale
+        assert request.override.failed == ()
+    # And without a current declaration the same malformed override is still an input error.
+    with pytest.raises(gate_suite.InputError):
+        _parse(raw_input(override={"environment": "bogus"}), None)
+    with pytest.raises(gate_suite.InputError):
+        _parse(raw_input(override={"environment": "bogus"}), record_of(nfdr("- nothing")))
+
+
+def test_current_source_validation_uses_the_prepared_record():
+    record = record_of(nfdr(OWNERS_MAC_ENTRY))
+    # The branch holds the quoted text; the prepared record does not. The record is the source.
+    only_here = "## 8. Operational constraints\n- QC-7: only here\n"
+    branch = standard_files(**{"docs/nfdr.md": only_here})
+    request = _parse(raw_input(), record, branch)
+    quoted = gate_suite.RecordDecision(gate_suite.OverrideKind.OWNERS_MAC, None, None, None,
+                                       "- QC-7: only here")
+    checker = gate_suite._Checker(branch, PRODUCT, CORE, record)
+    override = gate_suite._record_override(quoted, record, checker)
+    assert override.failed == (gate_suite.Source("record", "docs/nfdr.md", "- QC-7: only here"),)
+    refused = gate_suite.resolve_environment(
+        dataclasses.replace(request, override=override), owners_ask=False)
+    assert refused.case is RefusalCase.DECISIONS_RULE_OUT_BOTH
+    assert gate_suite.refusal_case_text(refused, failed_override_source=override.failed[0]) == (
+        failed_override_text("docs/nfdr.md"))
+    # The same quote held by the record is accepted, wherever the branch stands.
+    assert gate_suite._record_override(
+        dataclasses.replace(quoted, quote="- **QC-0:** nothing to run"), record, checker
+    ).failed == ()
+
+    # A record that matches does not rescue another source that fails.
+    unreadable = _parse(raw_input(ci={"finding": "readable", "runners": [
+        {"platform": "linux", "source": source(anchor=MISSING_QUOTE)}]}), record)
+    assert gate_suite.resolve_environment(unreadable, owners_ask=False).case is (
+        RefusalCase.UNREADABLE_CI)
+    arch_less = record_of(nfdr("- `environment: container` `image: i` `tag: 1`"))
+    failing_amd64 = _parse(raw_input(amd64={"source": source(AMD64_FILE, AMD64_QUOTE)}), arch_less)
+    assert gate_suite.resolve_environment(failing_amd64, owners_ask=False).case is (
+        RefusalCase.FAILED_AMD64_SOURCE)
+
+
+@pytest.mark.parametrize("record", [
+    None, record_of(None), record_of(""), record_of("# Product\n\n## 7. Quality\n"),
+    record_of(nfdr("- **QC-1:** nothing recorded")),
+], ids=["no-record", "no-file", "empty-file", "no-section", "no-declaration"])
+def test_absent_current_declaration_preserves_legacy_resolution(record):
+    valid = raw_input(override=mac_decision())
+    assert _parse(valid, record) == _parse(valid, None)
+    resolved = gate_suite.resolve_environment(_parse(valid, record), owners_ask=False)
+    assert resolved.owners_mac_cause is OwnersMacCause.PRODUCT_DECISION
+
+    failed = raw_input(override=container_override(source=source(anchor=MISSING_QUOTE)))
+    refused = gate_suite.resolve_environment(_parse(failed, record), owners_ask=False)
+    assert refused.case is RefusalCase.DECISIONS_RULE_OUT_BOTH and refused.failed_sources
+    owed = _parse(raw_input(languages=("python", "javascript", "shell")), record)
+    assert gate_suite.resolve_environment(owed, owners_ask=False).case is (
+        RefusalCase.CONFLICTING_IMAGES)
+    assert owed.override is None and not owed.conflicting_decisions
+
+
+def test_current_decision_preserves_resolution_precedence_and_details():
+    def resolve_record(entries, raw=None, owners_ask=False):
+        request = _parse(raw or raw_input(), record_of(nfdr(*entries)))
+        return request, gate_suite.resolve_environment(request, owners_ask=owners_ask)
+
+    conflicting = [OWNERS_MAC_ENTRY, CONTAINER_ENTRY]
+    # The owner's ask, no CI and an unreadable CI each outrank the record, a conflict included.
+    for entries in ([OWNERS_MAC_ENTRY], conflicting):
+        _request, asked = resolve_record(entries, owners_ask=True)
+        assert asked.owners_mac_cause is OwnersMacCause.OWNERS_ASK
+        _request, no_ci = resolve_record(entries, raw_input(ci=CI_NONE))
+        assert no_ci.owners_mac_cause is OwnersMacCause.NO_CI
+        _request, unreadable = resolve_record(entries, raw_input(ci=CI_UNREADABLE))
+        assert unreadable.case is RefusalCase.UNREADABLE_CI
+
+    # A conflict is refused at the override position and is never an owed decision.
+    request, refused = resolve_record(conflicting)
+    assert request.conflicting_decisions and request.override is None
+    assert refused.case is RefusalCase.CONFLICTING_DECISIONS
+    answer, detail = gate_suite._classify(request, refused)
+    assert answer is gate_suite.CheckAnswer.DOES_NOT_RESOLVE
+    assert detail == ("the product's decision files name more than one environment for its "
+                      "gates, and none of them is used")
+    assert RefusalCase.CONFLICTING_DECISIONS not in gate_suite.OWED_CASES
+
+    # Full containers keep the exact image, tag and architecture; an absent architecture is chosen
+    # as an override that gives none is.
+    _request, full = resolve_record([CONTAINER_ENTRY])
+    assert full == container("docker.io/library/python", "3.13", Architecture.ARM64)
+    _request, implicit = resolve_record(["- `environment: container` `image: i` `tag: 1`"])
+    assert implicit == container("i", "1", Architecture.ARM64)
+    _request, with_amd64 = resolve_record(
+        ["- `environment: container` `image: i` `tag: 1`"],
+        raw_input(amd64={"source": source()}))
+    assert with_amd64 == container("i", "1", Architecture.AMD64)
+    for missing in ("- `environment: container` `image: i`", "- `environment: container` `tag: 1`",
+                    "- `environment: container`"):
+        _request, undetermined = resolve_record([missing])
+        assert undetermined.case is RefusalCase.UNDETERMINED_VERSION, missing
+    _request, neither = resolve_record(["- `environment: neither`"])
+    assert neither.case is RefusalCase.DECISIONS_RULE_OUT_BOTH and not neither.failed_sources
+
+    # The guest follows the languages' guest tools, as an override to it does today.
+    _request, guest = resolve_record(["- `environment: macos-guest`"])
+    assert guest.kind is EnvironmentKind.MACOS_GUEST
+    _request, no_tool = resolve_record(["- `environment: macos-guest`"],
+                                       raw_input(languages=("kotlin",), candidates=[]))
+    assert no_tool.case is RefusalCase.NO_GUEST_DEFAULT
+
+
+# ==================================================================================================
+# The product's committed decision: the check and the gates (one decision for every entry point)
+# ==================================================================================================
+
+CHECK_RECORD = CHECK_DIR / "record.json"
+RECORD_FILE = ".claude/docs/nfdr.md"
+CONFLICT_TEXT = ("the product's decision files name more than one environment for its gates, and "
+                 "none of them is used")
+MAC_DECISION_LINE = f"Environment: owners-mac {DASH} product's decision"
+
+
+def stage_record(harness: CheckHarness, text: str | None, *, file: str = RECORD_FILE,
+                 as_text: str | None = None) -> None:
+    prepared = record_of(text, file)
+    harness.files.files[CHECK_RECORD] = (
+        as_text if as_text is not None else json.dumps(prepared.as_json()))
+
+
+def check_with_record(text: str | None, raw: dict | None = None, **staging) -> tuple:
+    harness = CheckHarness()
+    stage_record(harness, text)
+    harness.stage(raw if raw is not None else raw_input(guest=None), **staging)
+    status = harness.invoke("--decision-record", str(CHECK_RECORD))
+    return status, harness
+
+
+def test_check_accepts_current_record_without_process_or_write_capabilities(no_processes):
+    status, harness = check_with_record(nfdr(OWNERS_MAC_ENTRY))
+    assert (status, harness.err.getvalue()) == (0, "")
+    assert harness.out.getvalue() == answer_line(
+        RESOLVES, "owners-mac: the product's decision files choose the owner's Mac for its gates")
+    assert "Environment:" not in harness.out.getvalue()
+
+    # A record that says `main` holds no file is a prepared answer: the sourced inputs stand.
+    for text in (None, nfdr("- **QC-1:** nothing")):
+        status, absent = check_with_record(
+            text, raw_input(override=mac_decision(), guest=None))
+        assert (status, absent.err.getvalue()) == (0, "")
+        assert absent.out.getvalue() == harness.out.getvalue()
+    status, owed = check_with_record(None, raw_input(languages=("python", "shell"), guest=None))
+    assert status == 1 and owed.out.getvalue().startswith(f"{OWES} {DASH} ")
+
+    # Direct callers prepare the same value in the context; nothing starts, nothing is written.
+    harness = CheckHarness()
+    before = dict(harness.files.files)
+    out = io.StringIO()
+    result = gate_suite.check_gate(
+        worktree=WORKTREE, project=PROJECT, key="key1", inputs=raw_input(guest=None),
+        context=gate_suite.CheckContext(
+            paths=check_paths(), tracked_files=("src/app.py",),
+            decision_record=record_of(nfdr(CONTAINER_ENTRY), RECORD_FILE)),
+        files=harness.read_only, core_root=CORE, out=out)
+    assert (result.answer, result.status) == (gate_suite.CheckAnswer.RESOLVES, 0)
+    assert result.detail == ("container: the product's gates run in "
+                             "docker.io/library/python:3.13, arm64")
+    assert harness.files.files == before
+    assert [field.name for field in dataclasses.fields(gate_suite.CheckHost)] == [
+        "files", "core_root"]
+    for name in ("write_text", "remove", "tracked_files", "linked_git_dirs", "main_revision"):
+        assert not hasattr(gate_suite.ReadOnlyFiles, name), name
+
+
+@pytest.mark.parametrize("name,staging,message", [
+    ("unreadable", {"omit": True}, f"the decision-record file {CHECK_RECORD} cannot be read"),
+    ("not json", {"as_text": "not json"}, None),
+    ("a list", {"as_text": "[1]"},
+     f"the decision-record file {CHECK_RECORD} is not the record command's output"),
+    *[(f"no {field}", {"as_text": json.dumps(
+        {key: value for key, value in record_of("x", RECORD_FILE).as_json().items()
+         if key != field})}, f"the decision-record file {CHECK_RECORD} has no {field}")
+      for field in ("repository", "file", "revision", "text")],
+    ("a repository that is not text", {"as_text": json.dumps(
+        {**record_of("x", RECORD_FILE).as_json(), "repository": 7})},
+     f"the decision-record file {CHECK_RECORD} is not the record command's output"),
+    ("text without a revision", {"as_text": json.dumps(
+        {**record_of("x", RECORD_FILE).as_json(), "revision": None})},
+     f"the decision-record file {CHECK_RECORD} is not the record command's output"),
+    ("another repository", {"file": RECORD_FILE, "repository": "/elsewhere"},
+     f"the decision-record file {CHECK_RECORD} is for product repository /elsewhere, not "
+     "/work/product-repo"),
+    ("another decision file", {"file": "docs/nfdr.md"},
+     f"the decision-record file {CHECK_RECORD} is for decision file docs/nfdr.md, not "
+     f"{RECORD_FILE}"),
+])
+def test_check_rejects_unreadable_malformed_or_mismatched_record_context(
+        name, staging, message, no_processes):
+    harness = CheckHarness()
+    if not staging.get("omit"):
+        if "as_text" in staging:
+            harness.files.files[CHECK_RECORD] = staging["as_text"]
+        else:
+            prepared = record_of("x", staging["file"])
+            harness.files.files[CHECK_RECORD] = json.dumps(
+                {**prepared.as_json(),
+                 "repository": staging.get("repository", "/work/product-repo")})
+    harness.stage(raw_input(guest=None))
+    status = harness.invoke("--decision-record", str(CHECK_RECORD))
+    assert (status, harness.out.getvalue()) == (2, "")
+    error = harness.err.getvalue()
+    assert error.startswith("gate_suite: ") and error.count("\n") == 1
+    if message is not None:
+        assert error == f"gate_suite: {message}\n"
+    else:
+        assert error.startswith(
+            f"gate_suite: the decision-record file {CHECK_RECORD} is not JSON: ")
+    assert not [path for path in harness.read_only.reads if path.name == "ci.yml"]
+
+    # The option stays optional: every existing way to call the check still works.
+    plain = CheckHarness()
+    plain.stage(raw_input(guest=None))
+    assert plain.invoke() == 0
+
+
+class MovingMain:
+    """A `main` whose file changes between asks, as a decision committed after the plan does."""
+
+    def __init__(self, *texts: str | None) -> None:
+        self.texts = list(texts)
+        self.asks = 0
+        self.calls: list[tuple] = []
+
+    def main_revision(self, repository: str) -> str | None:
+        self.calls.append(("main", repository))
+        self.asks += 1
+        return f"rev{self.asks}"
+
+    def file_at(self, repository: str, revision: str, path: str) -> str | None:
+        self.calls.append(("file", revision, path))
+        return self.texts[min(self.asks, len(self.texts)) - 1]
+
+
+def gate_with(reader, *, kind: str = "relative", card: str | None = None) -> Harness:
+    harness = Harness(kind=kind, card=card)
+    harness.host = dataclasses.replace(harness.host, record_reader=reader)
+    return harness
+
+
+@pytest.mark.parametrize("gate", ["developer", "code-integrity", "seal"])
+def test_gate_acquires_current_record_for_every_issuing_ask(gate):
+    main = MovingMain(nfdr(OWNERS_MAC_ENTRY), nfdr(CONTAINER_ENTRY), None)
+    harness = gate_with(main)
+    raw = raw_input(guest=None)
+
+    harness.run(gate=gate, raw=raw)
+    assert harness.first_line == MAC_DECISION_LINE
+    assert harness.processes.issued == [(["sh", "-c", CARD_COMMAND], WORKTREE)]
+
+    # The next run reads `main` again and sees the entry that replaced the first.
+    second = gate_with(main)
+    second.run(gate=gate, raw=raw)
+    assert second.first_line == (
+        f"Environment: container {DASH} docker.io/library/python:3.13, arm64")
+    assert second.processes.issued[0][0][:4] == ["podman", "run", "--rm", "-v"]
+
+    third = gate_with(main)
+    third.run(gate=gate, raw=raw)
+    assert third.first_line == f"Environment: container {DASH} python:3.12, arm64"
+    assert main.asks == 3 and [call[0] for call in main.calls].count("main") == 3
+    assert {call[2] for call in main.calls if call[0] == "file"} == {RECORD_FILE}
+
+
+def test_check_and_gate_share_current_record_refusals(no_processes):
+    conflicting = nfdr(OWNERS_MAC_ENTRY, CONTAINER_ENTRY)
+    status, checked = check_with_record(conflicting)
+    assert (status, checked.err.getvalue()) == (1, "")
+    assert checked.out.getvalue() == answer_line(DOES_NOT, CONFLICT_TEXT)
+
+    gate = gate_with(MovingMain(conflicting))
+    result = gate.run(raw=raw_input(guest=None))
+    assert gate.first_line == f"Environment: unresolved {DASH} {CONFLICT_TEXT}"
+    assert (result.status, result.suite_issued) == (1, False)
+    assert gate.processes.issued == [] and gate.processes.probes == []
+    assert gate.err.getvalue().splitlines() == [
+        f"gate_suite: no environment resolves for project demo: {CONFLICT_TEXT}.",
+        "To run it, change the environment entries in § 8 of the product's docs/nfdr.md on its "
+        "main branch until they name one environment, with the same image, tag and architecture, "
+        "or have the owner ask for the owner's Mac.",
+        "The test command was not run, on the owner's Mac or anywhere else."]
+
+    # A current quote the snapshot does not hold is the existing failed-source refusal. No input
+    # reaches it end to end (the quote is cut from the snapshot it is checked against), so it is
+    # proved where the check and the gate both take their words: the shared classification.
+    record = record_of(nfdr(OWNERS_MAC_ENTRY), RECORD_FILE)
+    lost = gate_suite.RecordDecision(gate_suite.OverrideKind.OWNERS_MAC, None, None, None,
+                                     "- QC-7: no longer in the record")
+    request = _parse(raw_input(guest=None), record)
+    request = dataclasses.replace(request, override=gate_suite._record_override(
+        lost, record, gate_suite._Checker(standard_files(), PRODUCT, CORE, record)))
+    refused = gate_suite.resolve_environment(request, owners_ask=False)
+    text = failed_override_text("docs/nfdr.md").replace("docs/nfdr.md", RECORD_FILE)
+    assert gate_suite._classify(request, refused) == (gate_suite.CheckAnswer.DOES_NOT_RESOLVE, text)
+    failed = gate_suite._failed_override_source(request, refused)
+    assert gate_suite.refusal_case_text(refused, failed_override_source=failed) == text
+
+    # An unreadable CI is refused before the record's conflict is looked at.
+    status, checked = check_with_record(conflicting, raw_input(ci=CI_UNREADABLE, guest=None))
+    assert checked.out.getvalue() == answer_line(
+        DOES_NOT, "the runner cannot be read from the product's CI configuration")
+    gate = gate_with(MovingMain(conflicting))
+    assert gate.run(raw=raw_input(ci=CI_UNREADABLE, guest=None)).status == 1
+    assert gate.first_line == (
+        f"Environment: unresolved {DASH} the runner cannot be read from the product's CI "
+        "configuration")
+    assert gate.processes.issued == [] and gate.processes.probes == []
+
+    # No CI sends the gates to the owner's Mac before the record's conflict is looked at.
+    status, checked = check_with_record(conflicting, raw_input(ci=CI_NONE, guest=None))
+    assert (status, checked.out.getvalue()) == (0, answer_line(
+        RESOLVES, "owners-mac: the product has no CI, so its gates run on the owner's Mac"))
+    gate = gate_with(MovingMain(conflicting))
+    assert gate.run(raw=raw_input(ci=CI_NONE, guest=None)).status == 0
+    assert gate.first_line == f"Environment: owners-mac {DASH} no CI"
+
+
+def test_no_suite_and_owners_ask_do_not_acquire_a_record():
+    class Forbidden:
+        def main_revision(self, repository):
+            raise AssertionError("a record was acquired")
+
+        file_at = main_revision
+
+    asked = gate_with(Forbidden())
+    result = asked.run(raw=raw_input(override=None, guest=None), owners_ask=True)
+    assert asked.first_line == f"Environment: owners-mac {DASH} owner's ask"
+    assert result.suite_issued
+    assert asked.processes.issued == [(["sh", "-c", CARD_COMMAND], WORKTREE)]
+    # Even a conflicting or unreadable record is not looked at: the ask outranks it.
+    assert gate_with(Forbidden()).run(owners_ask=True).suite_issued
+
+    for gate in ("developer", "code-integrity"):
+        none = gate_with(Forbidden(), card=card_text("none"))
+        assert none.run(gate=gate, raw=None).suite_issued is False
+        assert none.first_line == f"Environment: none {DASH} no suite"
+    sealed = gate_with(Forbidden(), kind="external")
+    sealed.run(gate="seal", raw=None)
+    assert sealed.first_line == f"Environment: none {DASH} no suite ran"
+    assert sealed.processes.probes == [] and sealed.processes.issued == []
+
+
+def test_a_read_failure_on_main_stops_the_run_before_any_environment():
+    harness = gate_with(FakeRecordReader(failure="fatal: bad object"))
+    harness.files.files[CHECK_INPUTS] = json.dumps(raw_input(guest=None))
+    status = gate_suite.main(
+        ["run", "--worktree", WORKTREE, "--project", PROJECT, "--key", "key1",
+         "--gate", "developer", "--inputs", str(CHECK_INPUTS)], host=harness.host,
+        stdout=harness.out, stderr=harness.err)
+    assert status == 2
+    assert harness.out.getvalue() == "" and harness.processes.issued == []
+    assert harness.err.getvalue() == (
+        "gate_suite: the product's .claude/docs/nfdr.md cannot be read from the main branch of "
+        "/work/product-repo: fatal: bad object\n")
+
+
+def test_gate_keeps_other_source_roots_and_does_not_mutate_inputs(no_processes):
+    failing_ci = raw_input(ci={"finding": "readable", "runners": [
+        {"platform": "linux", "source": source(anchor=MISSING_QUOTE)}]}, guest=None)
+    snapshot = copy.deepcopy(failing_ci)
+    status, checked = check_with_record(nfdr(OWNERS_MAC_ENTRY), failing_ci)
+    assert checked.out.getvalue() == answer_line(
+        DOES_NOT, "the runner cannot be read from the product's CI configuration")
+    assert failing_ci == snapshot
+
+    gate = gate_with(MovingMain(nfdr(OWNERS_MAC_ENTRY)))
+    result = gate.run(raw=failing_ci)
+    assert gate.first_line == (f"Environment: unresolved {DASH} the runner cannot be read from "
+                               "the product's CI configuration")
+    assert result.suite_issued is False and failing_ci == snapshot
+
+
+# CP-740: an entry on `main` resolves exactly as a `decisions.override` with the same content does
+# today: the same check answer and detail, the same `Environment:` line and the same refusals.
+SAME_AS_OVERRIDE = {
+    # name: (the entry as § 8 records it, the same decision as a frozen override)
+    "owners-mac": ("- `environment: owners-mac`", mac_decision()),
+    "full container": (
+        "- `environment: container` `image: ghcr.io/acme/builder` `tag: 7.1` "
+        "`architecture: amd64`", container_override(architecture="amd64")),
+    "container, no architecture": (
+        "- `environment: container` `image: ghcr.io/acme/builder` `tag: 7.1`",
+        container_override()),
+    "container, no tag": ("- `environment: container` `image: ghcr.io/acme/builder`",
+                          container_override(tag=None)),
+    "container, no image": ("- `environment: container` `tag: 7.1`",
+                            container_override(image=None)),
+    "macos-guest": ("- `environment: macos-guest`", guest_override()),
+    "neither": ("- `environment: neither`",
+                {"environment": "neither", "source": source(anchor="jobs:")}),
+}
+
+
+@pytest.mark.parametrize("name", SAME_AS_OVERRIDE)
+def test_an_entry_on_main_answers_as_the_same_override_does_at_check_and_gate(name, no_processes):
+    entry, override = SAME_AS_OVERRIDE[name]
+
+    status, from_main = check_with_record(nfdr(entry), raw_input(guest=None))
+    frozen_status, frozen = check_with_record(None, raw_input(override=override, guest=None))
+    assert (status, from_main.out.getvalue(), from_main.err.getvalue()) == (
+        frozen_status, frozen.out.getvalue(), frozen.err.getvalue()), name
+
+    gate = gate_with(MovingMain(nfdr(entry)))
+    result = gate.run(raw=raw_input(guest=None))
+    frozen_gate = gate_with(MovingMain(None))
+    frozen_result = frozen_gate.run(raw=raw_input(override=override, guest=None))
+    assert (gate.first_line, result.status, result.suite_issued, gate.processes.issued) == (
+        frozen_gate.first_line, frozen_result.status, frozen_result.suite_issued,
+        frozen_gate.processes.issued), name
+
+
+def test_an_entry_on_main_naming_no_usable_environment_is_refused_in_todays_words(no_processes):
+    expected = {
+        "- `environment: neither`": (
+            "the product's decision files say it can use neither the macOS guest nor a "
+            "container, and name no environment"),
+        "- `environment: container` `image: docker.io/library/python`": (
+            "the version to tag docker.io/library/python with cannot be determined"),
+    }
+    for entry, text in expected.items():
+        status, checked = check_with_record(nfdr(entry))
+        assert (status, checked.out.getvalue()) == (1, answer_line(DOES_NOT, text)), entry
+        gate = gate_with(MovingMain(nfdr(entry)))
+        result = gate.run(raw=raw_input(guest=None))
+        assert gate.first_line == f"Environment: unresolved {DASH} {text}", entry
+        assert (result.status, result.suite_issued, gate.processes.issued) == (1, False, []), entry
+
+
+# ==================================================================================================
+# The last-run record: what a completed `run` printed, kept for the commit that closes the change
+# ==================================================================================================
+
+OTHER_WORKTREE = "/work/other-instance/.worktrees/key1"
+EXTERNAL_PRODUCT = "/work/product-repo/.worktrees/key1"
+
+
+def recording(harness: Harness, store) -> Harness:
+    """`harness` with the record store handed to its host — the one wiring `build_host` does."""
+    harness.host = dataclasses.replace(harness.host, run_records=store)
+    return harness
+
+
+def run_recorded(harness: Harness, *, gate: str = "developer", key: str = "key1",
+                 worktree: str = WORKTREE, inputs: dict | None = None) -> int:
+    argv = ["run", "--worktree", worktree, "--project", PROJECT, "--key", key, "--gate", gate]
+    if inputs is not None:
+        path = Path("/tmp/inputs.json")
+        harness.files.files[path] = json.dumps(inputs)
+        argv += ["--inputs", str(path)]
+    return gate_suite.main(argv, host=harness.host, stdout=harness.out, stderr=harness.err)
+
+
+def stored_run(harness: Harness, store, *, key: str = "key1", checkout: str = WORKTREE):
+    return store.latest(checkout, key)
+
+
+def record_files(root: Path) -> list[Path]:
+    return [path for path in root.rglob("*") if path.is_file()]
+
+
+@pytest.mark.parametrize("gate", ["developer", "code-integrity", "seal"])
+@pytest.mark.parametrize("suite", [
+    gate_suite.Completed(0, "suite out\n", ""),
+    gate_suite.Completed(3, "FAILED tests/test_a.py::test_one\n", "warn\n"),
+    gate_suite.Completed(0, "no final newline", "nor here"),
+])
+def test_completed_run_records_exact_forwarded_evidence(tmp_path, gate, suite):
+    store = gate_suite.FileRunRecords(tmp_path / "runs")
+    harness = recording(Harness(), store)
+    harness.processes.suite = suite
+
+    status = run_recorded(harness, gate=gate, inputs=mac_raw())
+
+    found = stored_run(harness, store)
+    assert found == gate_suite.GateRun(
+        key="key1", checkout=gate_suite.canonical_checkout(WORKTREE),
+        environment_line=f"Environment: owners-mac {DASH} no CI",
+        stdout=harness.out.getvalue(), stderr=harness.err.getvalue(), status=status)
+    assert status == suite.status
+    assert found.stdout == f"Environment: owners-mac {DASH} no CI\n{suite.stdout}"
+    assert found.stderr == suite.stderr
+
+
+def test_refused_and_no_suite_runs_record_actual_output(tmp_path):
+    store = gate_suite.FileRunRecords(tmp_path / "runs")
+
+    refused = recording(Harness(), store)
+    assert run_recorded(refused, inputs=raw_input(ci=CI_UNREADABLE)) == gate_suite.REFUSAL_STATUS
+    found = stored_run(refused, store)
+    assert found.status == gate_suite.REFUSAL_STATUS
+    assert found.environment_line.startswith(f"Environment: unresolved {DASH} ")
+    assert (found.stdout, found.stderr) == (refused.out.getvalue(), refused.err.getvalue())
+    assert refused.processes.issued == []
+
+    not_ready = recording(Harness(), store)
+    not_ready.processes.when("podman", "info", result=gate_suite.Completed(1, "", "no machine\n"))
+    status = run_recorded(not_ready, inputs=container_raw())
+    found = stored_run(not_ready, store)
+    assert found.status == status == gate_suite.REFUSAL_STATUS
+    assert (found.stdout, found.stderr) == (not_ready.out.getvalue(), not_ready.err.getvalue())
+    assert found.stderr != ""
+
+    no_suite = recording(Harness(card="**Test command:** none\n"), store)
+    assert run_recorded(no_suite) == 0
+    found = stored_run(no_suite, store)
+    assert found.environment_line == f"Environment: none {DASH} no suite"
+    assert (found.stdout, found.stderr, found.status) == (
+        f"Environment: none {DASH} no suite\n", "", 0)
+
+    seal_no_suite = recording(Harness(kind="external"), store)
+    assert run_recorded(seal_no_suite, gate="seal") == 0
+    assert stored_run(seal_no_suite, store).environment_line == (
+        f"Environment: none {DASH} no suite ran")
+
+
+def test_a_handled_input_error_is_recorded_with_no_environment_line(tmp_path):
+    store = gate_suite.FileRunRecords(tmp_path / "runs")
+    harness = recording(Harness(card="**Product path:** .claude\n"), store)
+
+    assert run_recorded(harness, inputs=mac_raw()) == gate_suite.ERROR_STATUS
+
+    found = stored_run(harness, store)
+    assert found.status == gate_suite.ERROR_STATUS
+    assert found.environment_line is None and found.stdout == ""
+    assert found.stderr == harness.err.getvalue() and found.stderr.startswith("gate_suite: ")
+
+
+def test_an_error_before_the_checkout_is_known_records_nothing(tmp_path):
+    store = gate_suite.FileRunRecords(tmp_path / "runs")
+    harness = recording(Harness(), store)
+
+    def refuse(worktree, project, key):
+        raise gate_suite.ContractError("missing-project-doc: no project.md")
+
+    harness.host = dataclasses.replace(harness.host, contract=refuse)
+    assert run_recorded(harness, inputs=mac_raw()) == gate_suite.ERROR_STATUS
+    assert record_files(tmp_path / "runs") == []
+    assert stored_run(harness, store) is None
+
+
+def test_run_record_includes_guest_cleanup_diagnostics(tmp_path):
+    store = gate_suite.FileRunRecords(tmp_path / "runs")
+    harness = recording(Harness(), store)
+    harness.processes.when("tart", "exec", "swift-guest", "sh", "-c", CLEAN,
+                           result=gate_suite.Completed(1, "", "busy\n"))
+
+    assert run_recorded(harness, inputs=guest_raw()) == 0
+
+    found = stored_run(harness, store)
+    cleanup = (f"gate_suite: the copy of this run's checkout at {SCRATCH} in the macOS guest "
+               f"swift-guest could not be removed.")
+    assert cleanup in found.stderr and found.stderr == harness.err.getvalue()
+    assert found.status == 0 and found.stdout == harness.out.getvalue()
+
+
+def test_latest_completed_gate_run_replaces_previous_evidence(tmp_path):
+    store = gate_suite.FileRunRecords(tmp_path / "runs")
+    harness = recording(Harness(), store)
+    outcomes = [("developer", gate_suite.Completed(0, "first\n", "")),
+                ("seal", gate_suite.Completed(4, "second\n", "err\n")),
+                ("code-integrity", gate_suite.Completed(0, "third\n", ""))]
+
+    for gate, suite in outcomes:
+        harness.processes.suite = suite
+        harness.out.seek(0)
+        harness.out.truncate()
+        harness.err.seek(0)
+        harness.err.truncate()
+        status = run_recorded(harness, gate=gate, inputs=mac_raw())
+        found = stored_run(harness, store)
+        assert (found.status, found.stdout, found.stderr) == (
+            status, f"Environment: owners-mac {DASH} no CI\n{suite.stdout}", suite.stderr)
+        assert len(record_files(tmp_path / "runs")) == 1
+
+
+def test_gate_records_are_isolated_by_checkout_and_key(tmp_path):
+    store = gate_suite.FileRunRecords(tmp_path / "runs")
+
+    first = recording(Harness(), store)
+    first.processes.suite = gate_suite.Completed(0, "key1 here\n", "")
+    run_recorded(first, key="key1", inputs=mac_raw())
+
+    second_key = recording(Harness(), store)
+    second_key.processes.suite = gate_suite.Completed(7, "key2 here\n", "")
+    run_recorded(second_key, key="key2", inputs=mac_raw())
+
+    other = recording(Harness(), store)
+    other.contract = {**contract(), "pipeline_worktree": OTHER_WORKTREE,
+                      "product_worktree": OTHER_WORKTREE}
+    other.files.files[Path(OTHER_WORKTREE) / "system/projects/demo/project.md"] = card_text()
+    other.processes.suite = gate_suite.Completed(9, "other instance\n", "")
+    run_recorded(other, key="key1", worktree=OTHER_WORKTREE, inputs=mac_raw())
+
+    assert "key1 here" in store.latest(WORKTREE, "key1").stdout
+    assert "key2 here" in store.latest(WORKTREE, "key2").stdout
+    assert "other instance" in store.latest(OTHER_WORKTREE, "key1").stdout
+    assert store.latest(OTHER_WORKTREE, "key2") is None
+    assert store.latest("/work/never-ran", "key1") is None
+
+
+def test_interleaved_publications_cannot_read_each_other(tmp_path):
+    store = gate_suite.FileRunRecords(tmp_path / "runs")
+    checkout = "/work/a"
+
+    def run(key: str, text: str, status: int):
+        return gate_suite.GateRun(key=key, checkout=checkout, environment_line=None,
+                                  stdout=text, stderr="", status=status)
+
+    store.publish(run("one", "one-a", 0), [checkout])
+    store.publish(run("two", "two-a", 1), [checkout])
+    store.publish(run("one", "one-b", 2), [checkout])
+
+    assert (store.latest(checkout, "one").stdout, store.latest(checkout, "one").status) == (
+        "one-b", 2)
+    assert (store.latest(checkout, "two").stdout, store.latest(checkout, "two").status) == (
+        "two-a", 1)
+
+
+def test_pipeline_and_code_checkout_aliases_retrieve_the_same_run(tmp_path):
+    store = gate_suite.FileRunRecords(tmp_path / "runs")
+    harness = recording(Harness(kind="external"), store)
+    harness.contract = {**contract("external"), "pipeline_worktree": WORKTREE,
+                        "code_worktree": EXTERNAL_PRODUCT}
+    harness.processes.suite = gate_suite.Completed(0, "one run\n", "")
+
+    run_recorded(harness, inputs=mac_raw())
+
+    from_instance = store.latest(WORKTREE, "key1")
+    from_product = store.latest(EXTERNAL_PRODUCT, "key1")
+    assert from_instance is not None and from_product is not None
+    assert (from_instance.stdout, from_instance.status, from_instance.environment_line) == (
+        from_product.stdout, from_product.status, from_product.environment_line)
+    assert from_instance.checkout == gate_suite.canonical_checkout(WORKTREE)
+    assert from_product.checkout == gate_suite.canonical_checkout(EXTERNAL_PRODUCT)
+    assert len(record_files(tmp_path / "runs")) == 2
+
+
+def test_equivalent_path_aliases_agree(tmp_path):
+    real = tmp_path / "real"
+    real.mkdir()
+    link = tmp_path / "link"
+    link.symlink_to(real)
+    store = gate_suite.FileRunRecords(tmp_path / "runs")
+    store.publish(gate_suite.GateRun(key="k", checkout=str(real), environment_line=None,
+                                     stdout="x", stderr="", status=0), [str(real)])
+
+    assert store.latest(str(link), "k") == store.latest(str(real), "k")
+    assert store.latest(f"{real}/../real", "k") is not None
+    assert gate_suite.canonical_checkout(str(link)) == gate_suite.canonical_checkout(str(real))
+
+
+def test_record_lookup_verifies_embedded_identity(tmp_path):
+    store = gate_suite.FileRunRecords(tmp_path / "runs")
+    assert store.latest("/work/a", "k") is None
+
+    store.publish(gate_suite.GateRun(key="k", checkout="/work/a", environment_line=None,
+                                     stdout="mine", stderr="", status=0), ["/work/a"])
+    mine = store.path_for("/work/a", "k")
+    # A record found at the wrong address — another checkout's, another key's — is not accepted
+    # because its path exists.
+    for wrong_checkout, wrong_key in (("/work/b", "k"), ("/work/a", "other")):
+        target = store.path_for(wrong_checkout, wrong_key)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(mine.read_bytes())
+        assert store.latest(wrong_checkout, wrong_key) is None
+    mine.write_text("{ not json")
+    assert store.latest("/work/a", "k") is None
+
+
+def test_the_record_lives_under_the_temporary_directory_namespace():
+    assert gate_suite.RUN_RECORDS_NAMESPACE == "kensaiapp-gate-runs"
+    store = gate_suite.default_run_records()
+    assert store.root == Path(tempfile.gettempdir()) / "kensaiapp-gate-runs"
+    assert gate_suite.build_host().run_records.root == store.root
+
+
+def test_atomic_publication_never_exposes_partial_evidence(tmp_path):
+    seen: list[object] = []
+    store: gate_suite.FileRunRecords
+
+    def run(text: str):
+        return gate_suite.GateRun(key="k", checkout="/work/a", environment_line=None,
+                                  stdout=text, stderr="", status=0)
+
+    def observing_replace(source, destination):
+        # Mid-publication: the replacement exists only as a temporary file, so a reader still
+        # sees the previous complete record, never half of the new one.
+        seen.append(store.latest("/work/a", "k"))
+        os.replace(source, destination)
+
+    store = gate_suite.FileRunRecords(tmp_path / "runs", replace=observing_replace)
+    store.publish(run("old"), ["/work/a"])
+    store.publish(run("new" * 10_000), ["/work/a"])
+
+    assert seen[0] is None and seen[1].stdout == "old"
+    assert store.latest("/work/a", "k").stdout == "new" * 10_000
+    assert len(record_files(tmp_path / "runs")) == 1
+
+
+def test_overlapping_publications_leave_one_complete_last_published_record(tmp_path):
+    def run(text: str):
+        return gate_suite.GateRun(key="k", checkout="/work/a", environment_line=None,
+                                  stdout=text, stderr="", status=0)
+
+    inner_done: list[bool] = []
+
+    def overlapping_replace(source, destination):
+        if not inner_done:
+            inner_done.append(True)
+            store.publish(run("inner"), ["/work/a"])
+        os.replace(source, destination)
+
+    store = gate_suite.FileRunRecords(tmp_path / "runs", replace=overlapping_replace)
+    store.publish(run("outer"), ["/work/a"])
+
+    # The outer publication's replacement landed last, so it is the last published one, whole.
+    assert store.latest("/work/a", "k") == run("outer")
+    assert len(record_files(tmp_path / "runs")) == 1
+
+
+def test_recording_failure_preserves_gate_observables(tmp_path):
+    def observed(store):
+        harness = Harness()
+        harness.processes.suite = gate_suite.Completed(5, "suite out\n", "suite err\n")
+        if store is not None:
+            recording(harness, store)
+        status = run_recorded(harness, inputs=mac_raw())
+        return status, harness.events.log
+
+    baseline = observed(None)
+
+    def failing_replace(source, destination):
+        raise OSError(errno.ENOSPC, "No space left on device")
+
+    root = tmp_path / "runs"
+    failing = gate_suite.FileRunRecords(root, replace=failing_replace)
+    assert observed(failing) == baseline
+    assert record_files(root) == []
+    assert failing.latest(WORKTREE, "key1") is None
+
+    class UnwritableStore:
+        def publish(self, run, checkouts):
+            raise PermissionError(errno.EACCES, "Permission denied")
+
+    assert observed(UnwritableStore()) == baseline
+
+
+def test_recording_failure_keeps_the_previous_complete_record(tmp_path):
+    root = tmp_path / "runs"
+    store = gate_suite.FileRunRecords(root)
+    harness = recording(Harness(), store)
+    harness.processes.suite = gate_suite.Completed(0, "first\n", "")
+    run_recorded(harness, inputs=mac_raw())
+    before = stored_run(harness, store)
+
+    def failing_replace(source, destination):
+        raise OSError(errno.EIO, "I/O error")
+
+    broken = recording(Harness(), gate_suite.FileRunRecords(root, replace=failing_replace))
+    broken.processes.suite = gate_suite.Completed(1, "second\n", "")
+    assert run_recorded(broken, inputs=mac_raw()) == 1
+
+    assert stored_run(harness, store) == before
+
+
+def test_recording_uses_a_separate_storage_port(tmp_path):
+    store = gate_suite.FileRunRecords(tmp_path / "runs")
+    harness = recording(Harness(), store)
+
+    run_recorded(harness, inputs=guest_raw())
+
+    # The guest-token port still writes and removes only its own file; the record never uses it.
+    assert harness.files.written == [TOKEN_PATH]
+    assert harness.files.removed == [TOKEN_PATH]
+    assert stored_run(harness, store) is not None
+
+    # An existing Host is built without the port, and a direct run_gate call records nothing.
+    plain = Harness()
+    assert plain.host.run_records is None
+    direct = recording(Harness(), gate_suite.FileRunRecords(tmp_path / "direct"))
+    direct.run(raw=mac_raw())
+    assert record_files(tmp_path / "direct") == []
+
+
+def test_check_and_record_commands_do_not_publish_run_evidence(tmp_path):
+    store = gate_suite.FileRunRecords(tmp_path / "runs")
+    held = recording(Harness(), store).host
+
+    checked = CheckHarness()
+    checked.stage(raw_input(guest=None))
+    status = gate_suite.main(
+        ["check", "--worktree", WORKTREE, "--project", PROJECT, "--key", "key1",
+         "--inputs", str(CHECK_INPUTS), "--paths", str(CHECK_PATHS),
+         "--tracked-files", str(CHECK_TRACKED)],
+        host=held, check_host=checked.host, host_factory=forbidden_host,
+        stdout=checked.out, stderr=checked.err)
+    plain = CheckHarness()
+    plain.stage(raw_input(guest=None))
+    assert plain.invoke() == status
+    assert (checked.out.getvalue(), checked.err.getvalue()) == (
+        plain.out.getvalue(), plain.err.getvalue())
+
+    recorded = RecordHarness(FakeRecordReader("text\n"))
+    out = io.StringIO()
+    gate_suite.main(
+        ["record", "--worktree", WORKTREE, "--project", PROJECT, "--key", "key1",
+         "--paths", str(CHECK_PATHS)],
+        host=held, record_host=gate_suite.RecordHost(files=ReadOnlyFiles(recorded.files),
+                                                     reader=recorded.reader),
+        host_factory=forbidden_host, stdout=out, stderr=io.StringIO())
+    assert json.loads(out.getvalue())["text"] == "text\n"
+    assert record_files(tmp_path / "runs") == []

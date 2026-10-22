@@ -1,5 +1,5 @@
 ---
-version: "1.5.0"
+version: "1.6.0"
 ---
 <!-- The version above is template-file metadata; it is not copied into the instantiated document. -->
 <!-- The shape of one tl_instruction.md, in document order. development-plan owns every rule about
@@ -51,6 +51,14 @@ Decisions that diverged from `change_design.md` / `change_spec.md` (each with it
 - `<path>:<line>` — <what is wrong> → <the correction>. Rides Task N (that task already opens this file).
 - `<path>:<line>` — <what is wrong> → <the correction>. Change-level: no task opens this file.
 - Owed outside this change's reach: `<record>` — <what this change makes false> → <the correction>.
+
+## Gate environment inputs
+
+<!-- One JSON block: the product's sourced evidence, in the shape of <CORE>/prompts/gate_suite.md Step 4, read by its Steps 1 and 3 with no owner's ask and with "guest": null. `{}` on a card reading `Test command: none`. No `Environment:` line and no owner's-ask field. The chain reopens every quoted source before implementation. -->
+
+```json
+<the sourced-input object>
+```
 
 <!-- The task blocks follow: the standard shape, then the three other shapes development-plan
      § Implement section rules sanctions, each marked. Write each task in the one shape its rule picks. -->

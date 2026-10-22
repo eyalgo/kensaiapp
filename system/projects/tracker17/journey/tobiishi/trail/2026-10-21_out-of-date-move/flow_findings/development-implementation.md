@@ -1,0 +1,18 @@
+# Flow Findings — development-implementation  (audited 2026-10-21)
+
+Findings for this step's output only, produced by the `development-audit` skill.
+Change-local findings live here; skill-general findings are also raised as kaizen items.
+
+Audited: closing commit `61b380e78` (and the code-integrity pass `a36e1df0f`) against `tl_instruction.md`, `change_design.md`, `docs/SDD.md` § 3, `code-integrity-report.md` and `project.md`.
+
+- **[non-blocking · change-local · evidence-that-could-have-failed]** The `bore on nothing` verdict on `conventions.md:148` sits beside a quote that holds no such exception. Where: closing commit, `Language resolution:` block, the `__version__` line. The clause reads "Every non-test module carries `__version__ = "X.Y.Z"`"; the line says it bore on nothing because "neither edited file carries a marker today". The change edited two non-test modules (`web/pages.py`, `web/routes.py`), and no product module carries a marker. So the run diverged from the clause, or the product's own rules outrank it, and either needed a divergence entry; the block gives neither. Direction: record the divergence and its reason (the product has no marker anywhere, and the packet yields where the product disagrees), instead of calling the clause inapplicable.
+- **[non-blocking · change-local · evidence-that-could-have-failed]** The Toolchain concern is answered with a clause that does not govern the commands the run ran. Where: closing commit, `toolchain.md:77-78` line. The quoted clause is about the dependency manager being unfixed. The run's commands were `uv run ruff|mypy|pytest` from the product's locked group, and the Interpreter section of the same file says the interpreter is "reached as `python3`" and that "no interpreter other than the one on `PATH` is selected anywhere". The verdict is therefore true of the quoted words but silent on the clause the commands do bear on. Direction: quote the Interpreter clause and state the product-precedence reading (`pyproject.toml` pins the tools and `uv run` selects them).
+
+## Checked and clean
+
+- **Coverage, Step 1b counts, not-delivered:** Clean. Both counts are present (added 2, not delivered 0). Each `#### Behaviours to verify` case named in Tasks 1 and 2 exists under its name. The assertions I opened match what the instruction lists: four saved statuses × both places, bytes and save count before and after, the address refusal at done/cancelled × both addresses × both places with three repeated loads, the escaping assertions, and the focus checks.
+- **Language resolution:** The block carries a line for each of the seven concerns in the packet `README.md`, and the quotes I checked match the packet text (some wrap across lines). Resolved language (Python) matches `Languages:`. The gate commands match `Test command:` (`pytest products/tracker17/tests/`).
+- **Rule discrimination for a task with several rules behind one entry point:** present (`_refusal_line` and `_move_view` in the Developer Review Notes).
+- **Lens 8:** No enacted or dropped handed-down constraint found. The atomic-landing edge is honoured and recorded in the TL Review Notes (task 1 owns the changed default line, task 2 the address wording).
+- **Lens 9 (placement):** `docs/SDD.md` § 3 exists. The new logic (`MoveRefusalContext`, `_refusal_line`, `_has_move_line`, the address-context selection) sits in `web`, which owns page building and request handling. The allowed moves come from the injected `allowed_moves` query. The code-integrity report's **Placement** section agrees with the code. No misplacement.
+- **Lens 10:** Not applicable to this step.

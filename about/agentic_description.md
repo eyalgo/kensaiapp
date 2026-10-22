@@ -311,8 +311,8 @@ stops for you on a rebuild verdict, or on a call the fix-author will not settle.
 Claude Code can export its usage through OpenTelemetry: metrics such as tokens and cost, and events
 such as each API request ([Monitoring](https://code.claude.com/docs/en/monitoring-usage)).
 
-KensaiApp ships a receiver for that export and sends a run's telemetry only to a loopback address
-([Telemetry](operations.md#telemetry)). A launcher can tag each run with its provider, model and effort.
+KensaiApp receives that export through ka-telemetry, an open-source package it built, and sends a
+run's telemetry only to a loopback address ([Telemetry](operations.md#telemetry)). A launcher can tag each run with its provider, model and effort.
 `core/tools/run_provenance.py` reads those back by run ID, from "what landed, not what the launcher
 meant to send". A run whose records carry no provider, or two values for one field, gets a refusal
 rather than a guess.

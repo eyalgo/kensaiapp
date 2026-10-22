@@ -1,5 +1,5 @@
 ---
-version: "2.181.0"
+version: "2.184.0"
 ---
 
 # kensaiapp-instance structure manifest
@@ -84,6 +84,12 @@ Consumed by whatever stamps a kensaiapp:
 - `.gitignore` — `[special]`, stamped from `templates/gitignore_template.md`
 - `.env.example` — `[create]` — tracked template for the untracked `.env` (`CORE=` binding; copied per machine via `cp .env.example .env`)
 - `.providers.toml.example` — `[create]` — tracked template for the untracked `.providers.toml` (the provider each unforced launch goes to, read by `core/tools/providers.py`; copied per instance via `cp .providers.toml.example .providers.toml`, and to a new satellite by `core/tools/spawn_satellite.py`)
+- `.telemetry.env` — `[user]` — tracked, and read on a host only: the one line naming the
+  telemetry package's command for a launch whose environment holds no
+  `KENSAIAPP_TELEMETRY_COMMAND`. `core/tools/telemetry_command.py` reads it as data, from the
+  source host of the core a launch runs on, so a launch from a pin or for a satellite reads its
+  host's file and a satellite needs none. The command's name is written there and in no file under
+  `core/`. Without it, a launch whose environment names no command runs uninstrumented.
 - `claude-design-instructions.md` — `[create]`, stamped from
   `templates/claude_design_instructions_template.md` — the instance's entry point into Claude Design,
   read by both of that tool's routes (a linked-folder run from its setup form, and a `/design-sync`
@@ -254,8 +260,12 @@ project's *own* `.claude/`, never the user's global config.
   a run's current context is over `$KENSAIAPP_CONTEXT_CAP`, tells it to finish the task in progress,
   make the pause commit and end, so a chain can relaunch a fresh developer after that task. Silent
   when the variable is unset or not a positive integer, which is every session but the chain's
-  implementation step. Reads the gauge (`context_gauge.py`) through the resolved core, never a path
-  beside itself. Fail-open, exit 0 on every path, because every satellite runs this file from the host.
+  implementation step. Reads the gauge through the telemetry gateway (`telemetry_gateway.py`) in the
+  resolved core, never a path beside itself. Where the Python running it cannot import the telemetry
+  package, it runs itself once more under `~/.kensaiapp/venv/bin/python`, where that interpreter
+  exists. Where neither can, and the cap is set, it prints one line on stdout saying the cap
+  needs the telemetry package and this run is not capped. Every other failure stays silent.
+  Fail-open, exit 0 on every path, because every satellite runs this file from the host.
 - `.claude/hooks/read_first_guard.py` — `[create]` — PreToolUse hook on every tool, vendored stdlib-only:
   refuses an agent run's calls until the run has read the files its agent file tells it to read
   first. `Read`, `Grep` and `Glob` are never refused. Every other call the run makes is refused, from
@@ -652,7 +662,7 @@ to move it out of this layer.
   `model-assignment:` message. Exit 6 is a tier named for a skill whose folder exists, which wins over
   a missing or malformed file. Exit 64 is a usage error. No exit 3 exists: an absent folder is `tier`
   or `default`. Every instrumented launcher calls it once, hands its run the model and effort it
-  answers, and stamps the same values with `source=` on its `instrument_run` line. So the stamp and the
+  answers, and stamps the same values with `source=` on its `run_telemetry` line. So the stamp and the
   run are one resolution. A launcher's own documented input overlays the answer, and the overlay stays
   in that launcher: `ratify`'s non-tier `--model` (the raw value, no source), the companion's fixed
   effort `high` (`<CORE>/doctrine/governance/skill_intelligence.md`).
@@ -850,6 +860,17 @@ to move it out of this layer.
   from its host's hook wiring, with each command pointed at the host's `.claude/hooks/` by absolute
   path, and for a producer links the host's root `skills/` by absolute symlink; re-runnable, with
   `--check` as a drift gate.
+- `<CORE>/tools/telemetry_command.py` — `[create]` — the one resolver of the name
+  `run_telemetry.sh` runs as the telemetry command: the invoking environment's
+  `KENSAIAPP_TELEMETRY_COMMAND` when it holds one, else the source host's `.telemetry.env`
+  (§ Root). The precedence, how the source host is found and what an unreadable setting answers
+  are the tool's own. Takes the core directory by argument (`--core`), never from the caller's
+  working directory, and prints the name alone. It runs, checks and searches for no command: what
+  happens to the name next is `run_telemetry.sh`'s.
+- `<CORE>/tools/run_telemetry.sh` — `[create]` — the telemetry tagging every instrumented launcher
+  sources and calls (`run_telemetry key=value ...`), over the telemetry package's `turn-on`. It
+  hands the launch its settings document and its six telemetry exports, and it never fails the
+  launch. Its contract, where the command's name comes from included, is its own header's.
 - `core/tools/skill_path.py` — `[create]` — the one resolver: a skill name in, its directory out,
   under either layout — the flat path when it exists, else the single match of
   `skills/*/.claude/skills/<name>` (not found and ambiguous never look the same to a caller). Takes
@@ -894,8 +915,10 @@ to move it out of this layer.
   reach it through their own path, so the three cannot disagree on a station's name.
 - `core/tools/chain_board.py` — `[create]` — reads one instance's `system/logs/` walk state, for every
   chain kind (`build-idea`, `chain-change`, `chain-development`, `chain-agari`, `chain-product`), into
-  WAITING ON YOU and RUNNING NOW and prints them as JSON. Read-only: it opens no file for writing. Whether
-  a walk still runs comes from `walk_stop.py`'s `launch_state`, never from a copy of its rules here.
+  WAITING ON YOU and RUNNING NOW, adds each listed project's route — its active seed's checklist, with
+  the walks opened for each station — and prints them as JSON. Read-only: it opens no file for
+  writing. Whether a walk still runs comes from `walk_stop.py`'s `launch_state`, never from a copy of its
+  rules here; which station a walk was opened for comes from its opening commit's `Shukuba:` line.
 - `core/tools/kensaiapp-panel/` — `[create]` — the home of the kensaiapp side pane: a Claude Code mod
   that draws `chain_board.py`'s output in a pane beside the session. It holds `.claude-plugin/plugin.json`,
   `hooks/hooks.json`, `hooks/register.tsx`, `types/index.d.ts`, `tests/pane.test.tsx` and `tsconfig.json`,
@@ -1180,7 +1203,7 @@ watcher path is the one a migration can get wrong without noticing; both still h
   apart from the `chain-<project>-state.json` its siblings share. It spawns no model itself: every
   step's run is started by `core/launchers/skill/launcher.sh`, which detaches that run's watcher,
   holds its `--keep-awake` and tags it, so this script carries no `caffeinate` and no
-  `instrument_run` call. `KENSAIAPP_NOTIFIER` is resolved here and passed as `--notifier`. Its
+  `run_telemetry` call. `KENSAIAPP_NOTIFIER` is resolved here and passed as `--notifier`. Its
   `--dry-run` asks the engine's `--describe` first and names the change and the entry step before
   the command it would run, or fails with the reason a start would be refused, so a dry run never
   reports a walk the real start turns away. Same
@@ -1197,7 +1220,7 @@ watcher path is the one a migration can get wrong without noticing; both still h
   resolved value, the state file being its own, no `--spine` and no `--chain-name`, the notifier
   layering with no real notifier invoked, `--dry-run` calling `--describe` and never `--start`,
   naming the change and the entry step, failing on a refused describe, and printing the exact argv,
-  `--keep-awake`, and the absence of any `claude` spawn, `caffeinate` or `instrument_run` call. The
+  `--keep-awake`, and the absence of any `claude` spawn, `caffeinate` or `run_telemetry` call. The
   engine is stubbed throughout; its decisions are `core/tools/test_chain_development.py`'s.
 - `core/launchers/chain-change/launcher.sh` — `[create]` — the entry command for a change unit's
   whole life, from the station that names it to the seal that lands it on `main` and the
@@ -1306,7 +1329,7 @@ watcher path is the one a migration can get wrong without noticing; both still h
   values, an optional unit key and a second positional dying, the notifier layering with no real
   notifier invoked, `--keep-awake`, provider propagation, the dry run asking `--describe` and never `--start`,
   `--chain-ended` starting the queue only on `sealed`, `--stop` and its refusals, and the absence of
-  any `claude` spawn, `caffeinate` or `instrument_run` call. The engine is stubbed for those. The
+  any `claude` spawn, `caffeinate` or `run_telemetry` call. The engine is stubbed for those. The
   end-to-end tests run the real launcher and the real engine over a synthetic core whose `skill`,
   `chain-product` and `chain-change` launchers are stubs that record their argv: the station's six —
   After order, a retire row ending the loop, a halt ending it, a failed row ending it, a row with no
@@ -1387,14 +1410,15 @@ watcher path is the one a migration can get wrong without noticing; both still h
   no `intelligence/` folder launches on the provider's default; a folder with no file for the
   provider is refused naming the missing path. A defect in `launcher.md`
   is refused naming that file, and a malformed call is refused, both before anything spawns. Everything
-  else is the fleet's shape: `CORE_DIR` by the sanctioned expression, `instrument_run` with
+  else is the fleet's shape: `CORE_DIR` by the sanctioned expression, `run_telemetry` with
   `skill=`/`project=`, and `--dry-run`. The provider is `--provider`, else `KENSAIAPP_AGENT_PROVIDER`, else the launcher's `launchers.skill` entry in the instance's `.providers.toml`, else a refusal; on Claude the run is a detached
   `claude --print` process `agent_run.py` starts, with `--settings`, and its completion watch runs
   through `core/tools/detach_process_watcher.sh` with `KENSAIAPP_NOTIFIER` and the declared reporter handed what it
   reads as `--artifact-path` — `generic` when a declaration names none, and a best-effort fall back to
   `generic`, with a warning, when the path it reads is not there. The message's
-  label is `<instance> · <project> · <skill>` — the instance named as `instrument_run.sh` names it, the
-  project left out when the run takes none. A skill resolved under `skills/<group>/` has that group
+  label is `<instance> · <project> · <skill>` — the instance being the folder name of the git
+  checkout the launch runs in (for a worktree, the checkout it was cut from), else the instance
+  root's folder name, and the project left out when the run takes none. A skill resolved under `skills/<group>/` has that group
   granted with `--add-dir` on the Codex path, read off where the skill lives rather than off
   `**Agent:**`, because a grouped skill is hidden from a session at startup; a flat skill gains no
   flag there either. On the Claude path a grouped skill's group reaches the run through the pin's

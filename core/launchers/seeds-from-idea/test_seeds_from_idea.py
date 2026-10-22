@@ -47,14 +47,21 @@ from pathlib import Path
 
 import pytest
 
+import launcher_telemetry_test_support as support
 from provenance_test_support import (
-    assert_instrument_run_call_carries_provenance,
+    HOST_TOOLS,
     assert_provenance_stamped,
     isolated_host,
     REFUSED_OWN_INTELLIGENCE,
     place_own_skill,
     place_refused_own_skill,
 )
+from test_skill_launcher_telemetry import install_telemetry_command
+
+# The isolated hosts the own-skill cases build hold the shared tools a launch reads; the telemetry
+# helper is one of them now that the launcher calls it, and the explicit command each case names
+# means the host needs no resolver.
+_HOST_TOOLS = (*HOST_TOOLS, "run_telemetry.sh")
 
 from kensaiapp_launchers_conftest import _granted_dirs, _plugin_skills
 
@@ -137,6 +144,9 @@ def run(tmp_path, warm_executables):
     # published telemetry endpoint (`a-launcher-tags-its-own-run`) — a launcher's own suite
     # is isolated from real machine state exactly like the watcher and the notifier above.
     env["INSTRUMENT_RUN_ENDPOINT_FILE"] = str(tmp_path / "no-instrument-endpoint")
+    # Explicitly unconfigured: absent would let the source host's own setting answer, and a case
+    # that is not about the telemetry command must not depend on this machine's package.
+    env[support.COMMAND_VARIABLE] = ""
     env["CLAUDE_ARGV_LOG"] = str(argv_log)
     env["WATCHER_ARGV_LOG"] = str(watcher_log)
     env["CAFFEINATE_ARGV_LOG"] = str(caffeinate_log)
@@ -881,11 +891,13 @@ def test_launcher_is_executable():
 
 def test_dry_run_states_the_arm_it_would_run_under(run, tmp_path):
     """`a-launcher-tags-its-own-run` — a dry run that hides the instrument is a dry run that
-    lies. With a published endpoint file present, `instrument_run` prints the arm it derived
-    (this launcher's own directory name) even though nothing is actually spawned."""
+    lies. With a runnable telemetry command and a published endpoint file present,
+    `run_telemetry` prints the arm it derived (this launcher's own directory name) even though
+    nothing is actually spawned."""
     endpoint_file = tmp_path / "real-instrument-endpoint"
     endpoint_file.write_text("http://127.0.0.1:9/v1\n")
     run.env["INSTRUMENT_RUN_ENDPOINT_FILE"] = str(endpoint_file)
+    install_telemetry_command(tmp_path / "home", run.env)
     run.project("example-product", product_path="products/thing")
     idea = run.idea_in_project("example-product", "2026-08-30_an-idea.md")
     result = run(str(idea), "--dry-run")
@@ -898,8 +910,8 @@ def test_dry_run_states_the_arm_it_would_run_under(run, tmp_path):
 # --- the run's provenance (CP-218, CP-221, CP-227, CP-229, CP-230) -----------------------------
 
 
-def test_the_instrument_run_call_carries_the_four_provenance_keys():
-    assert_instrument_run_call_carries_provenance(_SCRIPT)
+def test_the_run_telemetry_call_carries_the_four_provenance_keys():
+    support.assert_run_telemetry_call_carries_provenance(_SCRIPT)
 
 
 def _an_idea(run):
@@ -911,6 +923,7 @@ def _with_endpoint(run, tmp_path):
     endpoint_file = tmp_path / "real-instrument-endpoint"
     endpoint_file.write_text("http://127.0.0.1:9/v1\n")
     run.env["INSTRUMENT_RUN_ENDPOINT_FILE"] = str(endpoint_file)
+    install_telemetry_command(tmp_path / "home", run.env)
 
 
 def test_stamp_is_provider_claude_source_default_with_no_model_or_effort_and_the_argv_carries_neither(  # noqa: E501 — the instruction's own case name
@@ -933,7 +946,7 @@ def test_an_own_skill_with_an_intelligence_file_is_handed_and_stamped_the_same_p
     """One resolution feeds the argv and the stamp: the own skill's intelligence file, placed where
     the launcher's host root resolves it, is what the run goes at and what it is stamped with."""
     host = tmp_path_factory.mktemp("own_skill_host")
-    script = isolated_host(host, _SCRIPT)
+    script = isolated_host(host, _SCRIPT, tools=_HOST_TOOLS)
     place_own_skill(host, "seeds-from-idea", "**Model:** claude-opus-5-5\n**Effort:** high\n")
     _with_endpoint(run, tmp_path)
     idea = _an_idea(run)
@@ -956,7 +969,7 @@ def test_an_unresolvable_own_skill_is_default_and_the_launch_proceeds(
 ):
     """A host that holds no such skill is not a refusal: the run goes at the provider default."""
     host = tmp_path_factory.mktemp("no_own_skill_host")
-    script = isolated_host(host, _SCRIPT)
+    script = isolated_host(host, _SCRIPT, tools=_HOST_TOOLS)
     _with_endpoint(run, tmp_path)
     idea = _an_idea(run)
     result = run(str(idea), "--dry-run", script=script)
@@ -974,7 +987,7 @@ def test_an_own_skill_whose_intelligence_the_resolver_refuses_stops_the_launch(
     one) stops the launch with the reader's own words behind the launcher's prefix, as the skill
     launcher's refusal does — before anything is tagged or handed a model."""
     host = tmp_path_factory.mktemp("refused_own_skill_host")
-    script = isolated_host(host, _SCRIPT)
+    script = isolated_host(host, _SCRIPT, tools=_HOST_TOOLS)
     refusal = place_refused_own_skill(host, "seeds-from-idea", kind)
     _with_endpoint(run, tmp_path)
     idea = _an_idea(run)
@@ -983,3 +996,113 @@ def test_an_own_skill_whose_intelligence_the_resolver_refuses_stops_the_launch(
     assert result.returncode == 1, result.stdout
     assert result.stderr.endswith(f"seeds-from-idea: {refusal}"), result.stderr
     assert "Telemetry:" not in result.stdout
+
+
+# --- the launcher's launch, observed over the real helper (CP-685, CP-688, CP-759) -------------
+
+_OWN_INTELLIGENCE = "**Model:** claude-opus-5-5\n**Effort:** high\n"
+# The pairs one seeds-from-idea launch stamps, in the order its call hands them over: the arm and
+# the run's own id, then the provenance. The launcher hands no subject — no skill, project or
+# document — and a scratch tree that is no git checkout has no instance to add, so the whole list
+# below is the launch's attributes and a subject key anywhere would fail the comparison.
+_ARM_PAIRS = [("arm", "seeds-from-idea"), ("run_id", None)]
+_OWN_INTELLIGENCE_PAIRS = [
+    *_ARM_PAIRS,
+    ("provider", "claude"),
+    ("model", "claude-opus-5-5"),
+    ("effort", "high"),
+    ("source", "intelligence"),
+]
+_DEFAULT_PAIRS = [*_ARM_PAIRS, ("provider", "claude"), ("source", "default")]
+
+
+def _seeds_argv(idea):
+    return (str(idea), "--dry-run")
+
+
+@pytest.mark.parametrize("cap", [None, "250000"], ids=["cap-absent", "cap-250000"])
+@pytest.mark.parametrize("endpoint", ["valid", "absent"])
+@pytest.mark.parametrize("resolution", ["own-intelligence", "default"])
+def test_seeds_from_idea_helper_observation_matches_case_inputs(
+    run, tmp_path, resolution, endpoint, cap
+):
+    """CP-685, CP-688, CP-759: the launcher itself, run once over the real helper and the real
+    package, prints the lines, exports the six variables and hands its run the settings its own
+    inputs call for: the arm it runs under and the provenance it resolved, with no subject. Its
+    own skill's intelligence names claude-opus-5-5 at high, or it has none and the default
+    stands."""
+    package = support.require_real_package(tmp_path / "package")
+    idea = _an_idea(run)
+    endpoint_file = tmp_path / "published-endpoint"
+    cause = support.publish_endpoint(endpoint_file, endpoint)
+    launcher = support.scratch_core(tmp_path / "scratch", _SCRIPT)
+    helper = launcher.parents[2] / "tools" / "run_telemetry.sh"
+    if resolution == "own-intelligence":
+        place_own_skill(tmp_path / "scratch", "seeds-from-idea", _OWN_INTELLIGENCE)
+    env = support.telemetry_environment(
+        run.env, home=package.home, endpoint_file=endpoint_file, cap=cap, command=package.command
+    )
+
+    observation = support.run_launcher(
+        launcher, _seeds_argv(idea), cwd=tmp_path, env=env, observation_dir=tmp_path / "observed"
+    )
+
+    if endpoint == "valid":
+        pairs = _OWN_INTELLIGENCE_PAIRS if resolution == "own-intelligence" else _DEFAULT_PAIRS
+        support.assert_instrumented_observation(observation, pairs=pairs, helper=helper, cap=cap)
+    else:
+        assert observation.status == 0, observation.stderr
+        assert Path(observation.helper_source).resolve() == helper.resolve()
+        assert observation.telemetry_lines == [f"          ({cause} — run uninstrumented)"]
+        support.assert_uninstrumented(observation, cap=cap)
+
+
+@pytest.mark.parametrize("combination", support.ORDINARY_COMBINATIONS)
+def test_seeds_ordinary_launch_discovers_source_host_setting(run, tmp_path, combination):
+    """CP-692: a launch whose environment names no command is instrumented from its source host's
+    setting, whether the launcher runs from a core or a pin of it, for the host or for an
+    instance that binds that core."""
+    package = support.require_real_package(tmp_path / "package")
+    idea = _an_idea(run)
+    endpoint_file = tmp_path / "published-endpoint"
+    support.publish_endpoint(endpoint_file)
+    launch = support.ordinary_launch(tmp_path, _SCRIPT, tmp_path, combination, package.command)
+    env = support.telemetry_environment(run.env, home=package.home, endpoint_file=endpoint_file)
+
+    observation = support.run_launcher(
+        launch.launcher, _seeds_argv(idea), cwd=launch.instance, env=env,
+        observation_dir=tmp_path / "observed",
+    )
+
+    support.assert_ordinary_launch_is_instrumented(observation, environment=env)
+
+
+@pytest.mark.parametrize("cap", [None, "250000"], ids=["cap-absent", "cap-250000"])
+@pytest.mark.parametrize("kind", support.FAILURE_KINDS)
+def test_seeds_telemetry_failures_preserve_launch(run, tmp_path, kind, cap):
+    """CP-687, CP-693, CP-694: whatever is wrong with the command or the endpoint, the launch is
+    not failed by it — it prints the one cause on stdout and hands its run the cap alone."""
+    idea = _an_idea(run)
+    scenario = support.failure_scenario(
+        kind, run.env, home=tmp_path / "failure-home", endpoint_file=tmp_path / "endpoint", cap=cap
+    )
+    host = tmp_path / "host"
+    host.mkdir()
+    launcher = support.scratch_core(host, _SCRIPT)
+    if scenario.host_setting is not None:
+        support.write_host_setting(host, scenario.host_setting)
+
+    observation = support.run_launcher(
+        launcher, _seeds_argv(idea), cwd=tmp_path, env=scenario.environment,
+        observation_dir=tmp_path / "observed",
+    )
+
+    support.assert_failure_scenario(observation, scenario, cap=cap)
+
+
+def test_seeds_observation_skips_an_unreachable_package_and_fails_a_reached_one(tmp_path):
+    """CP-689: the observation above is skipped, with the reason named, where the package's
+    command cannot be reached, and fails where it is reached and breaks the contract."""
+    support.assert_selection_skips_unreachable_and_fails_reached(
+        tmp_path, f"{__file__}::test_seeds_from_idea_helper_observation_matches_case_inputs"
+    )

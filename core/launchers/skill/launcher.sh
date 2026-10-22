@@ -6,6 +6,7 @@
 # `launchers.skill` entry in .providers.toml at the instance root, else a refusal. Whichever
 # provider that is, the run is one detached process the provider-neutral agent runner starts and
 # one watcher observes.
+# Version: 4.9.0 — skill launcher runs on the package's turn-on through a thin helper
 # Version: 4.8.1 — launchers and launch scripts take a portable mktemp template, so they run on Linux
 # Version: 4.8.0 — ollama is a provider — a launch can run on the owner's local Ollama models
 # Version: 4.7.0 — the board drops a halt another launcher resumed, and shows a single skill run
@@ -145,7 +146,7 @@
 #   the one resolver.
 #
 # THE RUN'S PROVENANCE, STAMPED
-#   The one instrument_run call hands over provider=, model=, effort= and source=, exactly as
+#   The one run_telemetry call hands over provider=, model=, effort= and source=, exactly as
 #   run_intelligence.py answered them: `intelligence` (the file's values), `tier` (a named tier,
 #   model_assignment.py's values) or `default` (neither — no model, no effort). They reach the
 #   printed `Telemetry:` line with the rest.
@@ -202,7 +203,7 @@
 #   a chain's hook still fires. Override the pair with LAUNCH_SKILL_WATCHER / LAUNCH_SKILL_NOTIFIER.
 #
 # THE SHARED HOMES (<CORE>/tools/agent_run.py, <CORE>/tools/detached_run.sh,
-#                   <CORE>/tools/detach_process_watcher.sh, <CORE>/tools/instrument_run.sh,
+#                   <CORE>/tools/detach_process_watcher.sh, <CORE>/tools/run_telemetry.sh,
 #                   <CORE>/tools/skill_path.py)
 #   Sourced or called, never hand-copied. No env override: no test or caller ever wants a stub in
 #   their place, only the real files at their real relative depth.
@@ -239,7 +240,7 @@ WATCHER="${LAUNCH_SKILL_WATCHER:-$CORE_DIR/tools/watch_process.py}"
 NOTIFIER="${LAUNCH_SKILL_NOTIFIER:-${KENSAIAPP_NOTIFIER:-}}"
 DETACH_LIB="$CORE_DIR/tools/detach_process_watcher.sh"
 RUN_LIB="$CORE_DIR/tools/detached_run.sh"
-INSTRUMENT_LIB="$CORE_DIR/tools/instrument_run.sh"
+INSTRUMENT_LIB="$CORE_DIR/tools/run_telemetry.sh"
 RESOLVER="$CORE_DIR/tools/skill_path.py"
 AGENT_RUN="$CORE_DIR/tools/agent_run.py"
 RUN_INTELLIGENCE="$CORE_DIR/tools/run_intelligence.py"
@@ -697,13 +698,16 @@ while case "$rest" in *"{"*) true ;; *) false ;; esac; do
 done
 run_prompt="$run_prompt$rest"
 
-# --- tag this run before it spawns (the shared instrument home) -------------------
+# --- tag this run before it spawns (the telemetry helper over the package's turn-on) ---------
 #   Unconditional, not behind a flag. Called ahead of the dry-run branch too, so a dry run states
 #   the arm it would run under; the exports it makes die with this script when --dry-run exits.
+#   A settings document inherited from whatever started this launcher is never this run's, so it is
+#   dropped here, before the helper is looked for: a missing helper must not forward it either.
+unset INSTRUMENT_RUN_SETTINGS
 if [ -f "$INSTRUMENT_LIB" ]; then
   # shellcheck source=/dev/null
   source "$INSTRUMENT_LIB"
-  instrument_run skill="$skill" project="$project" provider="$provider" model="$model" effort="$effort" source="$source"
+  run_telemetry skill="$skill" project="$project" provider="$provider" model="$model" effort="$effort" source="$source"
 else
   echo "          (no instrument library at $INSTRUMENT_LIB — run uninstrumented)"
 fi

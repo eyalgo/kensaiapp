@@ -2,8 +2,8 @@
 
 **Status:** Settled
 **Owner:** CDO
-**Version:** 6 — the fourth answered round folded in (`products/tracker17/docs/trail/uxd/cycle-4.md`): UX-I3 names what to do only where something is left to do, and a refusal whose wanted state already holds, shown on a page loaded after it that shows that state, says what is true now and names no action and offers no reload (UX-I3, RN-32).
-**Inputs read:** PRD Settled (version 6) · SRS Settled · Agari no Status line (`agari_template.md` carries none) · visual_restrictions Settled · voice_restrictions Settled · tracker17 doctrine no Status line (stamped, unfilled) · SDD Settled, fdr Settled, DESIGN Settled and CONTENT Settled (version 10) (downstream; read to check what the answered round cites, not sources)
+**Version:** 9 — the seventh answered round folded in (`products/tracker17/docs/trail/uxd/cycle-7.md`): a refusal states what holds when its page is built and claims no event before it. The overtaken move states the task's status and what that status allows, the assignee refusals say the name is not on the list, and UX-I3's out-of-date refusal no longer says the page was out of date (UX-F3, UX-F4, UX-F9, UX-I3, RN-34, RN-35). PRD version 7 read, unchanged since version 8.
+**Inputs read:** PRD Settled (version 7) · SRS Settled · Agari no Status line (`agari_template.md` carries none) · visual_restrictions Settled · voice_restrictions Settled · tracker17 doctrine no Status line (stamped, unfilled) · CONTENT Draft (version 14) (downstream; read to check what the answered round cites, not a source)
 
 > The UXD is the experience source of truth: the experience-level **what**, derived from the
 > settled PRD, authored concurrent with the SRS, and consumed cold by the SDD (so
@@ -27,7 +27,10 @@ product question the round settled. The reasoning behind the answers in `cycle-1
 `products/tracker17/docs/trail/uxd/self_answer-1.md`. The reasoning behind the answer in `cycle-2.md`
 is `products/tracker17/docs/trail/uxd/self_answer-2.md`, and the reasoning behind the answers in
 `cycle-3.md` is `products/tracker17/docs/trail/uxd/self_answer-3.md`. The reasoning behind the answer
-in `cycle-4.md` is `products/tracker17/docs/trail/uxd/self_answer-4.md`. The Review Note named beside
+in `cycle-4.md` is `products/tracker17/docs/trail/uxd/self_answer-4.md`, and the reasoning behind
+the answer in `cycle-5.md` is `products/tracker17/docs/trail/uxd/self_answer-5.md`. The reasoning behind the
+answer in `cycle-6.md` is `products/tracker17/docs/trail/uxd/self_answer-6.md`, and the reasoning behind the
+answer in `cycle-7.md` is `products/tracker17/docs/trail/uxd/self_answer-7.md`. The Review Note named beside
 a marker says why this document reads as it does.
 
 ---
@@ -154,9 +157,14 @@ that page, and no area of the tracker is reachable until the data is dealt with.
   link to People, so the operator can see why there is no one to pick.
 - Failure/recovery: a blank title is refused under UX-I3, keeping what was typed. A name that is not
   on the assignee list cannot be picked from the control, so that refusal arises only when the list
-  changed in another tab after the page loaded. It is then refused with the reason, under UX-I3.
+  changed in another tab after the page loaded. It is then refused under UX-I3. The reason says the
+  name is not on the list *(confirmed with an addition: `trail/uxd/cycle-7.md` § 2.1; why, RN-35)*
+  and names what is left to do: pick another assignee, or none. It offers no
+  reload, because the Tasks view it lands on is built after the refusal, and its assignee control
+  already offers only the names now on the list. *(confirmed with an addition: `trail/uxd/cycle-6.md`
+  § 2.2; why, RN-34)*
 
-### 5.4 UX-F4 — Move a task to its next status *(→ PRD § Key Use Cases 3; § UX Notes, What must feel effortless and The status workflow is visible; § Core Features, Status workflow)*
+### 5.4 UX-F4 — Move a task to its next status *(→ PRD § Key Use Cases 3; § UX Notes, What must feel effortless, The status workflow is visible and Refusals say why; § Core Features, Status workflow)*
 
 - Steps: on any task list row, or on the task's page, the moves allowed from the task's current
   status appear as buttons, each named by the status it moves to → the operator presses one → the
@@ -167,8 +175,20 @@ that page, and no area of the tracker is reachable until the data is dealt with.
 - Data the UI needs at each step: for every task shown, its current status and the moves allowed
   from it. A task in `done` or `cancelled` has none, and its row shows no move buttons.
 - Failure/recovery: a move the workflow does not allow is refused under UX-I3 and nothing changes.
-  On this interface that refusal arises only when the task was moved in another tab after the page
-  loaded. The reason says the task's status has changed and offers a reload.
+  On this interface that refusal arises in two ways. The first is a press made after the task was
+  moved in another tab, once the page had loaded. The reason states the task's current status and
+  the moves that status allows, or that there are none when the status is final, and claims no
+  change: the same page is shown again by a reload, by Back or from a bookmark, with no press
+  (UX-I3). *(confirmed with an addition: `trail/uxd/cycle-7.md` § 2.1; why, RN-35)* It offers no
+  reload: the list or the task's page it lands on is built after the refusal and already shows the
+  task's current status and the moves that status allows (UX-I3). *(confirmed with an addition:
+  `trail/uxd/cycle-6.md` § 2.2; why, RN-34)* The second is reached by an address, with no press. The address that shows the
+  confirmation for a move to `cancelled`, or the one that backs out of it (UX-I2), is opened again by
+  a reload, by Back or from a bookmark, once the task's status no longer allows that move. Only
+  `done` and `cancelled` are final, so the task is in one of them. Both addresses reach it, on a
+  project's Tasks view as well as on the task's page. The refusal shows where the confirmation would
+  have been asked for, beside the task's status. It says what is true now, names no action and offers
+  no reload (UX-I3). *(confirmed with an addition: `trail/uxd/cycle-5.md` § 2.1; why, RN-33)*
 - When the list was filtered by status, the moved task no longer matches the filter. It leaves the
   list, and the confirmation names it, so the operator knows where it went.
 
@@ -270,7 +290,12 @@ that page, and no area of the tracker is reachable until the data is dealt with.
 - Failure/recovery: a blank title is refused under UX-I3. An assignee changed to a name that has left
   the list since the page loaded is refused under UX-I3 as out of date, the same case UX-F3 describes
   for the add-task form. An assignee left as the page showed it is never refused for being off the
-  list. *(confirmed with an addition: `trail/uxd/cycle-3.md` § 2.2; why, RN-30)* A task that no
+  list. *(confirmed with an addition: `trail/uxd/cycle-3.md` § 2.2; why, RN-30)* The refusal says the
+  name is not on the list *(confirmed with an addition: `trail/uxd/cycle-7.md` § 2.1; why, RN-35)*
+  and names what is left to do: pick another assignee, or none. It offers no
+  reload, because the task's page it lands on is built after the refusal and offers the names now on
+  the list, showing the refused name only as the choice that failed. *(confirmed with an addition:
+  `trail/uxd/cycle-6.md` § 2.2; why, RN-34)* A task that no
   longer exists, because another tab deleted it, shows UX-S10.
 
 ### 5.10 UX-F10 — Rename or delete a project *(→ PRD § Core Features, Projects)*
@@ -309,9 +334,9 @@ from that.
 | UX-S1 | **Setup instructions** — the written document a reader arrives at. Its sections, in order: what tracker17 is, and its two reasons for existing — a worked example a reader can read end to end, run locally and judge, and kensaiapp's own testing ground, where building tracker17 is how issues in kensaiapp are found and fixed (PRD § Purpose; RN-31) · prerequisites (including the one-time network connection setup needs) · the commands that take a fresh copy to the tracker in the browser · what the start prints, and the address to open · where the saved data is kept · starting the tracker again · setting the saved data aside to start fresh. | n/a — a written document has no empty state. | n/a — a static document. | n/a in the document itself. It is where every console failure in UX-S2 and the browser's "can't reach" page point the reader. | The reader can follow it top to bottom with no section skipped and no choice to make. |
 | UX-S2 | **Start command** — the console the tracker is started from. | n/a — the command takes no input. | The console shows nothing until the tracker is ready, then UX-S2 Success. | Plain, one-paragraph messages, each saying what is wrong and what to do: the address is in use by something else · another tracker is already running on the same saved data · the saved data cannot be read (its location named). Nothing is written to the saved data in any of them. | The address to open, and the saved data's location. |
 | UX-S3 | **Projects** (home) — every project by name, with its description, sorted by name, ignoring case; the create-project form, which says beside the description field that the description cannot be changed later, and the most characters it can hold (UX-F2). | First run: no projects. The page says there are none yet and invites a first project, with the create form in view. No sample data. | UX-I8. | A create refused under UX-I3 keeps the form filled and shows the reason by the field. A failure that is not a refusal shows UX-I5's message. | The list, and after a create, the new project's Tasks view (UX-F2). |
-| UX-S4 | **Project — Tasks** — the project's name and description, the Tasks / Summary links, the filter and sort controls with the match count, the task list, the add-task form, and the rename and delete controls. Each row: title (a link to the task), status, priority, assignee or "unassigned", labels, due date with the "Overdue" marker when it applies, and the moves allowed from the task's status. | Two distinct states. **No tasks yet:** the page says the project has no tasks and invites a first one, with the add-task form in view. **No match:** the filter matched nothing. The page says so, names that the filter is the reason, and shows Clear. Neither shows a blank list. | UX-I8. | Refusals under UX-I3 at the control used. A non-refusal failure shows UX-I5's message. A project that no longer exists shows UX-S10. | The list as filtered and sorted, with the count. After an action, UX-I4's confirmation. |
+| UX-S4 | **Project — Tasks** — the project's name and description, the Tasks / Summary links, the filter and sort controls with the match count, the task list, the add-task form, and the rename and delete controls. Each row: title (a link to the task), status, priority, assignee or "unassigned", labels, due date with the "Overdue" marker when it applies, and the moves allowed from the task's status. | Two distinct states. **No tasks yet:** the page says the project has no tasks and invites a first one, with the add-task form in view. **No match:** the filter matched nothing. The page says so, names that the filter is the reason, and shows Clear. Neither shows a blank list. | UX-I8. | Refusals under UX-I3 at the control used. A refusal reached by an address and no control sits beside the task's status in its row (UX-F4). A non-refusal failure shows UX-I5's message. A project that no longer exists shows UX-S10. | The list as filtered and sorted, with the count. After an action, UX-I4's confirmation. |
 | UX-S5 | **Project — Summary** — the counts and rows UX-F6 lists, with the status, priority and overdue counts as links. | A project with no tasks: every count shows as 0, and the page invites a first task with a link to the Tasks view. | UX-I8. | A project that no longer exists shows UX-S10. | The counts, as of today's local date. |
-| UX-S6 | **Task** — the edit form (title, priority, assignee, due date), the task's project as text, its status with its allowed moves, its labels with Remove and Add, Delete task, and the comments list with the add-comment form, which says beside its text field the most characters a comment can hold (UX-F7). A task whose assignee has left the list shows that name as the assignee control's current choice, with UX-F9's sentence beside the control. | No labels: the label area says the task has none, with Add in view. No comments: the comment area says there are none yet, with the form in view. No operator name: UX-F7's notice above the comment form. | UX-I8. | Refusals under UX-I3 at the control used, keeping what was typed. A non-refusal failure shows UX-I5's message. A task that no longer exists shows UX-S10. | The task as saved. After an action, UX-I4's confirmation. A task in `done` or `cancelled` shows its status with no move buttons. |
+| UX-S6 | **Task** — the edit form (title, priority, assignee, due date), the task's project as text, its status with its allowed moves, its labels with Remove and Add, Delete task, and the comments list with the add-comment form, which says beside its text field the most characters a comment can hold (UX-F7). A task whose assignee has left the list shows that name as the assignee control's current choice, with UX-F9's sentence beside the control. | No labels: the label area says the task has none, with Add in view. No comments: the comment area says there are none yet, with the form in view. No operator name: UX-F7's notice above the comment form. | UX-I8. | Refusals under UX-I3 at the control used, keeping what was typed. A refusal reached by an address and no control sits beside the task's status (UX-F4). A non-refusal failure shows UX-I5's message. A task that no longer exists shows UX-S10. | The task as saved. After an action, UX-I4's confirmation. A task in `done` or `cancelled` shows its status with no move buttons. |
 | UX-S7 | **All tasks** — UX-S4's filter, sort and list, across every project, with a project column linking to each task's project. No add-task form, because a task is always created in a project. | **No tasks anywhere:** the page says there are no tasks yet and links to Projects. **No match:** as UX-S4. | UX-I8. | As UX-S4. | As UX-S4, across projects. |
 | UX-S8 | **People** — Your name, and the assignee list. | No name set: the section says no name is set and that a name is needed to comment. No assignees: the section says there are none and that tasks can be assigned only to names added here. | UX-I8. | Refusals under UX-I3. A non-refusal failure shows UX-I5's message. | The current name and the list. After a removal, the confirmation says the name stays on the tasks that carry it. |
 | UX-S9 | **Saved data can't be read** — replaces every page. | n/a — the page exists only because data exists and cannot be read. | UX-I8. | This page is itself the error state. It says plainly that the saved data could not be read, names its location, says nothing was changed or overwritten, and points to the setup instructions' section on setting saved data aside. It offers no control that acts on the data, and no navigation into the tracker. | n/a — the page has no success state. Success is the tracker started fresh, on purpose (UX-F11). |
@@ -348,18 +373,35 @@ from that.
   "Deleting a project deletes all of its tasks"; § Core Features, Status workflow, "`done` and
   `cancelled` are final"; § UX Notes, What must feel effortless)*
 - **UX-I3** — **A refusal changes nothing and says why, beside the control that was used.** The
-  reason is in plain words. Where something is left for the operator to do, the refusal names what
-  to do. Everything the operator typed stays in the form. A refusal caused by the page being out of
-  date, because another tab changed or moved the task, says so and offers a reload. **One kind of
+  reason is in plain words. Every refusal in this tracker is read from its page's address, so a
+  reload, Back or a bookmark shows it again with no press. A refusal therefore states what holds
+  when its page is built, never an event before it. *(confirmed with an addition:
+  `trail/uxd/cycle-7.md` § 2.1; why, RN-35)* Where something is left for the operator to do, the
+  refusal names what to do. Everything the operator typed stays in the form. A refusal caused by the
+  page being out of date, because another tab changed or moved the task, names what is left to do
+  on the page it lands on. *(confirmed with an addition:
+  `trail/uxd/cycle-7.md` § 2.1; why, RN-35)* It offers a reload only where the page that shows it
+  is itself still out of date. *(confirmed with an addition: `trail/uxd/cycle-6.md` § 2.2; why,
+  RN-34)* **One kind of
   refusal names no action and offers no reload:** the state the operator wanted already holds, and the
   page the refusal lands on already shows it. That page is loaded after the refusal, from the saved
   data, so a reload would show nothing new, and the refusal says what is true now. Removing a label
   the task no longer carries is one such refusal: it lands on the task's page, which lists the task's
   current labels. Removing an assignee already off the list is another: it lands on People, which
   shows the current list. Where the wanted state does not hold, the out-of-date refusal still names
-  what to do and offers a reload. A status move another tab overtook (UX-F4) is that case, and so is
-  an assignee who left the list before an add or an edit (UX-F3, UX-F9). *(confirmed with an
-  addition: `trail/uxd/cycle-4.md` § 2.1; why, RN-32)* Rules are checked when the action is
+  what to do. A status move another tab overtook (UX-F4) is that case, and so is an assignee who
+  left the list before an add or an edit (UX-F3, UX-F9). *(confirmed with an addition:
+  `trail/uxd/cycle-4.md` § 2.1; why, RN-32)* The overtaken move names the moves the page now shows,
+  or none for a final status, and the assignee refusals name picking another assignee or none. Each
+  lands on a page built after the refusal, so none of them offers a reload. *(confirmed with an
+  addition: `trail/uxd/cycle-6.md` § 2.2; why, RN-34)* **A refusal reached by an address and no
+  control is a case of its own.** The page's address asks for a step the task's status no longer
+  allows, and the operator pressed nothing to get there (UX-F4). The page was just built from the
+  saved data, so it is not out of date, and with the task in a final status nothing is left for the
+  operator to do. The refusal says what is true now, names no action and offers no reload, for a
+  task in `done` and a task in `cancelled` alike. No control was used, so it sits beside the task's
+  status, in the row or on the page. *(confirmed with an addition: `trail/uxd/cycle-5.md` § 2.1;
+  why, RN-33)* Rules are checked when the action is
   submitted: no field is checked while the operator types. *(→ PRD § UX Notes, Refusals say why)*
 - **UX-I4** — **A completed action is confirmed in one line, on the page it leaves the operator
   on.** The line names what changed ("Moved 'Set up CI' to done"). A result is shown only once it
@@ -396,7 +438,9 @@ from that.
 - **UX-A3** — Every refusal and failure is identified in text, associated with the control it
   concerns, and describes how to correct it where a correction exists (WCAG 2.2 SC 3.3.1 Error
   Identification, SC 3.3.3 Error Suggestion). *(overridden: `trail/uxd/cycle-1.md` § 2.3; why,
-  RN-24)* *(→ PRD § UX Notes, Refusals say why)*
+  RN-24)* For a refusal reached by an address and no control (UX-I3), the control it concerns is the
+  task's status, and the refusal is associated with that. *(confirmed with an addition:
+  `trail/uxd/cycle-5.md` § 2.1; why, RN-33)* *(→ PRD § UX Notes, Refusals say why)*
 - **UX-A4** — Status, priority and the overdue state are each shown in text, never by colour alone
   (WCAG 2.2 SC 1.4.1 Use of Color). *(overridden: `trail/uxd/cycle-1.md` § 2.3; why, RN-24)* *(→ PRD
   § UX Notes, What must feel effortless, "seeing which tasks are overdue")*
@@ -505,7 +549,7 @@ What this UXD itself does not design:
 | UX-F1 | § Key Use Cases 1; § Purpose; § UX Notes, Arrival, Failure states; § Success Metrics, Simple to set up |
 | UX-F2 | § Key Use Cases 3; § UX Notes, First run, Refusals say why; § Core Features, Projects |
 | UX-F3 | § Key Use Cases 3; § Core Features, Tasks, Priorities, Assignees, Labels, Due dates |
-| UX-F4 | § Key Use Cases 3; § UX Notes, What must feel effortless, The status workflow is visible; § Core Features, Status workflow |
+| UX-F4 | § Key Use Cases 3; § UX Notes, What must feel effortless, The status workflow is visible, Refusals say why; § Core Features, Status workflow |
 | UX-F5 | § Key Use Cases 4; § UX Notes, What must feel effortless; § Core Features, Filtering, Sorting, Due dates |
 | UX-F6 | § Key Use Cases 4; § Core Features, Project summary |
 | UX-F7 | § Key Use Cases 5; § Core Features, Comments; § UX Notes, Refusals say why |
@@ -794,12 +838,70 @@ requirement, that a reader learns both purposes from the first thing they read, 
   nothing new. The exception was confirmed with two additions
   (`products/tracker17/docs/trail/uxd/cycle-4.md` § 2.1). The first bounds the exception by where the
   refusal is shown, not only by what was refused. A reload offers something only on a page that is
-  still out of date, so where the wanted state does not hold the refusal still names what to do, and
-  UX-F3, UX-F4 and UX-F9 stand as written. The second names the assignee refusal on People as a
-  second refusal of the same kind. The same answer records that the product's People refusal still
+  still out of date, so where the wanted state does not hold the refusal still names what to do, in
+  UX-F3, UX-F4 and UX-F9. Whether those refusals also offer a reload is RN-34's. The second names
+  the assignee refusal on People as a second refusal of the same kind. The same answer records that the product's People refusal still
   offers a reload, and that meeting UX-I3 is a change to that string, not to this document. RN-17's
   reason for the out-of-date refusal still holds for every page that is still out of date. *(re:
   UX-I3, UX-A3, UX-F3, UX-F4, UX-F9; PRD source: § UX Notes, Refusals say why)*
+- **RN-33:** *(added)* A move refusal reached by an address and no press is kept. It is a case of
+  its own in UX-I3: it says what is true now, names no action, offers no reload, and sits beside the
+  task's status. UX-F4 names it as the second way a move refusal arises. *Because* the address asks
+  for a step, the confirmation of a move to `cancelled` or the backing out of it, and the page then
+  does not show it. With no line, the step would vanish with no reason, and the PRD has a refused
+  action tell "the reason in plain words" (PRD § UX Notes, Refusals say why). The case is its own,
+  and not RN-32's: RN-32's exception needs the wanted state to hold, and for a task in `done` the
+  move to `cancelled` never holds. What covers it is that the page is not out of date, because it is
+  built from the saved data when it loads (UX-I9). With the task in a final status (PRD § Core
+  Features, Status workflow, "`done` and `cancelled` are final") nothing is left to do, so UX-I3's
+  "where something is left for the operator to do" and UX-A3's "where a correction exists" ask for no
+  action. No control was used, so "the control that was used" (UX-I3) and "the control it concerns"
+  (UX-A3) read as the task's status for this case. The refusal was confirmed with three additions
+  (`products/tracker17/docs/trail/uxd/cycle-5.md` § 2.1): the reason above, both addresses reaching
+  it on a project's Tasks view and on the task's page, and its place beside the task's status. How
+  the line is worded is `products/tracker17/docs/CONTENT.md`'s. *(re: UX-F4, UX-I3, UX-A3, UX-S4,
+  UX-S6; PRD source: § UX Notes, Refusals say why; § Core Features, Status workflow)*
+- **RN-34:** *(added)* No refusal offers a reload on a page built after it. A status move another tab
+  overtook names the moves the page now shows, or none for a final status. An assignee who left the
+  list before an add or an edit is refused with a reason that names picking another assignee or
+  none. UX-I3's out-of-date refusal names what is left to do on the page it lands on, and offers a
+  reload only where the page that shows it is itself still out of date. *Because* each of these refusals lands on a page built when it loads (UX-I9), not on the page
+  the operator pressed from. A refused move lands on the list or the task's page it was pressed on,
+  which shows the task's current status and the moves that status allows. A refused add lands on the
+  project's Tasks view, whose assignee control offers only the names now on the list. A refused edit
+  lands on the task's page, which offers the names now on the list and shows the refused name only as
+  the choice that failed. By RN-32's own reason, "A reload offers something only on a page that is
+  still out of date", a reload there shows nothing new. A reload that goes to the page's plain
+  address would also drop what the operator typed, against UX-I3's "Everything the operator typed
+  stays in the form". The rule is written as a condition on the page that shows the refusal, rather
+  than as a list of cases, so it holds whatever page a refusal is answered with. RN-17's reason for
+  the out-of-date refusal still holds: an address can outlive what it names. What the refusal says
+  is RN-35's. The draft was confirmed with two additions (`products/tracker17/docs/trail/uxd/cycle-6.md`
+  § 2.2): the assignee refusals go the same way as the overtaken move, and UX-I3's reload sentence
+  becomes the condition above. The same answer records that the product's two assignee refusal lines
+  still offer a reload, and that meeting UX-F3 and UX-F9 is a change to those strings, not to this
+  document. How each line is worded is `products/tracker17/docs/CONTENT.md`'s. *(re: UX-F3, UX-F4,
+  UX-F9, UX-I3, RN-32; PRD source: § UX Notes, Refusals say why)*
+- **RN-35:** *(added)* A refusal states what holds when its page is built and claims no event before
+  it. A status move another tab overtook states the task's current status and the moves that status
+  allows, or that there are none when the status is final. The assignee refusals in UX-F3 and UX-F9
+  say the name is not on the list. UX-I3's out-of-date refusal names what is left to do and does not
+  say the page was out of date. *Because* every refusal in this tracker is read from its page's
+  address, so a reload, Back, a bookmark or a typed address shows it again with no press, and the
+  tracker cannot tell the first landing from a later visit. A line saying the status "has changed",
+  that a name "has left the list" or that the page was out of date claims a past event the address
+  cannot show, and on a later visit, or on an address typed for a task that was never moved, it is
+  false. The verbal standard's rule is "State only what the tracker established"
+  (`products/tracker17/docs/CONTENT.md` § Voice). The task's status, the moves it allows and the
+  names on the list are read when the page is built, so a line stating them is true on the press and
+  on every later visit. The draft, which changed UX-F4 only, was confirmed with two additions
+  (`products/tracker17/docs/trail/uxd/cycle-7.md` § 2.1): UX-I3 states the rule once and drops its
+  "says so", and the assignee refusals go the same way. The cost is accepted: the move line no
+  longer says the press failed because the page was out of date. It still shows as a refusal beside
+  the task's status, and the status it names is not the one the operator pressed from. RN-17's
+  reason for the out-of-date refusal stands: an address can outlive what it names. How each line is
+  worded is `products/tracker17/docs/CONTENT.md`'s. *(re: UX-F3, UX-F4, UX-F9, UX-I3, RN-34; PRD
+  source: § UX Notes, Refusals say why)*
 
 ---
 

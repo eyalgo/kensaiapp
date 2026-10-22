@@ -1,5 +1,5 @@
 ---
-version: "1.1.0"
+version: "1.2.0"
 ---
 
 # Shell — gate environment
@@ -27,9 +27,11 @@ offers.
 ## Provisioning
 
 Start a container from the image of CI's distribution, at CI's release, by the command
-`languages/README.md` § Gate environment defaults gives. The parse gate needs bash in the image. The
-suite is written in Python and run with pytest (`testing.md` § The tool is pytest, and the tests are
-written in Python), so `python3` and pytest are installed in the container before the suite runs.
+`languages/README.md` § Gate environment defaults gives. Where CI's distribution is Ubuntu, that
+image is `docker.io/library/ubuntu`. This file names no image for any other distribution. The parse
+gate needs bash in the image. The suite is written in Python and run with pytest (`testing.md` § The
+tool is pytest, and the tests are written in Python), so `python3` and pytest are installed in the
+container before the suite runs.
 
 Where `languages/README.md` § Gate environment defaults sends the gates to the macOS guest instead,
 that guest is set up as `swift/environment.md` § macOS guest provisioning states.

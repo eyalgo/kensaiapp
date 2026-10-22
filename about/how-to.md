@@ -13,12 +13,35 @@ satellite, read every `core/` path in this file as `$CORE`, as the operations gu
 
 The README's [step 1](../README.md#1-install-what-kensaiapp-uses) lists what every clone needs.
 KensaiApp's own code uses only Python's standard library, so nothing is installed with `pip` to run
-it.
+it. Its tests and its telemetry need more, below.
 
 The hooks, the launchers and the pane each run `python3`, and it must be 3.13 or later. On a Mac
 with 3.11 or 3.12, stopping a walk fails. On anything older, the launchers stop with
 `No module named 'tomllib'`, and one of a session's checks fails on every edit. On a Mac, the `python3` that Apple's command-line tools install is 3.9. Install a newer
 Python and put it first on your `PATH`.
+
+KensaiApp's own tests, and a walk's closing gate on a product with Python tests, run under pytest
+with its pytest-xdist plugin: `core/pytest.ini` runs the tests in parallel with `-n 32`, and without
+the plugin pytest stops before running a test. Install both for the same `python3` the hooks run
+(a Homebrew Python also needs `--break-system-packages`):
+
+```bash
+python3 -m pip install pytest pytest-xdist
+```
+
+They belong to that one Python. After you upgrade Python, both of these must succeed again, or every
+closing gate stops as a red suite with no test failing:
+
+```bash
+python3 -m pytest --version
+python3 -c "import xdist"
+```
+
+The context cap and the telemetry need [ka-telemetry](https://github.com/eyalgo/ka-telemetry), an
+open-source package KensaiApp built. KensaiApp looks for it in one place, its own environment in your
+home folder; [How to collect telemetry](#how-to-collect-telemetry) installs it there. Without it,
+KensaiApp runs, a capped run says in one line that nothing is capped, and the launchers start their
+runs with no telemetry.
 
 A clone needs no `.env`: the first session finds the `core/` folder beside it. A `.env` is for a
 satellite, as the operations guide's section [More than one instance](operations.md#more-than-one-instance)
@@ -52,7 +75,7 @@ launcher, so you add a group only in a session you work in yourself.
 ## How to set up a project
 
 The first two steps, `/add-dir skills/interactive-product` and `/project-setup`, are the README's
-[step 6](../README.md#6-set-up-your-first-project). What follows them:
+[step 4](../README.md#4-set-up-your-first-project). What follows them:
 
 1. `/project-setup` asks for the project's name, then four things about it: what you are building,
    where it should live, whether it looks after something outside itself, such as a public
@@ -143,6 +166,41 @@ The pane and the journey page are in the operations guide's section
 the chains afresh. `python3 core/tools/journey_status.py --repo .` writes its page to
 `system/logs/journey_status.html` unless `--out` names another path.
 
+## How to collect telemetry
+
+The telemetry is what each run costs in tokens and money, and each request it makes to the model.
+It runs on [ka-telemetry](https://github.com/eyalgo/ka-telemetry), an open-source package KensaiApp
+built. Install it once, into KensaiApp's own environment in your home folder, which is where the
+launchers look for it:
+
+```bash
+python3 -m venv ~/.kensaiapp/venv
+~/.kensaiapp/venv/bin/pip install ka-telemetry
+```
+
+Start the receiver in its own terminal and leave it running. It writes what it receives to the folder
+after `--dir`:
+
+```bash
+mkdir -p ~/.claude/tools/otel-receiver
+~/.kensaiapp/venv/bin/ka-telemetry receive --port 4318 --dir ~/.kensaiapp/telemetry \
+  --publish-endpoint ~/.claude/tools/otel-receiver/endpoint
+```
+
+Every chain a launcher starts then sends its telemetry there. For your own Claude Code sessions to
+send theirs too, run this once, while the receiver is running:
+
+```bash
+~/.kensaiapp/venv/bin/ka-telemetry turn-on --settings-file ~/.claude/settings.json
+```
+
+It writes the telemetry settings into your Claude Code settings, so it holds for every session on the
+machine, not only in KensaiApp. The same command with `--remove` takes them out. The receiver stops
+when its terminal closes; start it the same way again. The operations guide's section
+[Telemetry](operations.md#telemetry) says what is collected. The same install also gives the
+developer's [context cap](glossary.md#context-cap) what it reads; without the package, nothing is
+capped.
+
 ## How to tell why a run stopped, and what to do
 
 The operations guide's section [When a run stops, it says why](operations.md#when-a-run-stops-it-says-why)
@@ -197,6 +255,12 @@ The product's own state stopped the change, not the change itself. Examples are 
 failed before the change began (`red-suite`), a product checkout missing what its tests need, a
 small defect already on the main branch, or files a run left behind in the product checkout. Fix it
 on the product's main branch, or fix the project's test command, then run the launcher again.
+
+One stop comes before the implementation starts: `environment-decision-owed`. The product's tests
+have no place to run that KensaiApp can work out, so the product owes a decision on where its gates
+run. Record it in the product's decision files (its `docs/nfdr.md`, § 8) on the product's main
+branch and start the walk again, or start it again with `--gate-owners-mac` to run the gates on your
+own Mac.
 
 ### It stopped because KensaiApp broke
 

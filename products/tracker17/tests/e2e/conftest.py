@@ -136,6 +136,33 @@ def browser(playwright_instance: Playwright) -> Iterator[Browser]:
     chromium.close()
 
 
+# The one launch default the driver sets that bears on history traversal: it turns the browser's
+# back/forward cache off. Read from the pinned driver's `chromiumSwitches` (playwright 1.63.0,
+# `--disable-back-forward-cache`); every other default is left in place. The headless shell the
+# default launch uses never restores a page from that cache even without the switch (measured with
+# a plain page: `pageshow.persisted` stayed false), so the history proof launches the full Chromium
+# the same lock installs, through its `chromium` channel.
+HISTORY_CACHE_SWITCH = "--disable-back-forward-cache"
+
+
+@pytest.fixture(scope="session")
+def history_browser(playwright_instance: Playwright) -> Iterator[Browser]:
+    """A browser whose history cache is available, for the history-traversal proof alone."""
+    chromium = playwright_instance.chromium.launch(
+        channel="chromium", ignore_default_args=[HISTORY_CACHE_SWITCH]
+    )
+    yield chromium
+    chromium.close()
+
+
+@pytest.fixture
+def history_page(history_browser: Browser) -> Iterator[Page]:
+    context = history_browser.new_context()
+    context.set_default_timeout(15000)
+    yield context.new_page()
+    context.close()
+
+
 @pytest.fixture
 def page(browser: Browser) -> Iterator[Page]:
     context = browser.new_context()

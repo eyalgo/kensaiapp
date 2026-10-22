@@ -1,5 +1,5 @@
 ---
-version: "2.20.1"
+version: "2.21.0"
 ---
 
 # The Michi / Agari system — how kensaiapp expresses direction
@@ -126,6 +126,12 @@ One turn of the loop:
    checklist of the stations it will take. That checklist arrives as the cutter's **proposal**, and
    re-cutting it — where the station boundaries fall, and in what order they are walked — is the PM's
    first act on the picked seed. A divergence from the proposal is logged in the seed.
+
+   **Quality comes before features at the pick.** When a seed that makes the product's footing
+   hold — its tests, its harness, its CI, a tree left clean — competes with a feature seed, the PM
+   picks the quality seed, even where a queued or implied feature order put the feature first. The
+   pick says so in one line and is not raised to the owner. An order the owner stated outright still
+   wins. The owner's call of 2026-10-21.
 
 2. **Open a station — 宿場 Shukuba.** The **PM** opens the current station: a concrete stretch of
    work with its own reached-when. **Exactly one** station is active at a time. A single idea usually

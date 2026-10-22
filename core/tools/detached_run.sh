@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # detached_run.sh — start one unattended run as a detached process, and say where it is.
+# Version: 1.2.1 — delete the seven old telemetry files and their seven tests, and move everything that pointed at them
 # Version: 1.2.0 — the queue runs readme-status after each close
 # Version: 1.1.0 — a stop ends the wait — one shared stop that ends a live walk across chain, chain_development and build_idea, marks it ended with a reason and leaves the state file readable
 # Version: 1.0.0
@@ -10,10 +11,10 @@
 # prints where the run is. The watch half is `detach_process_watcher.sh`, which a launcher sources
 # separately because a missing watcher must never cost the launch.
 
-# The variables a chain (`chain.py`, `chain_development.py`, `build_idea.py`) and `instrument_run`
-# set for a LAUNCHER — its completion hook and the tags `instrument_run` has already folded into the
-# run's `--settings` by the time the run starts. None of them reached a `claude --bg` session, which
-# takes only a few named variables from the shell that dispatched it
+# The variables a chain (`chain.py`, `chain_development.py`, `build_idea.py`) and
+# `run_telemetry.sh` set for a LAUNCHER — its completion hook and the tags `run_telemetry` has
+# already folded into the run's `--settings` by the time the run starts. None of them reached a
+# `claude --bg` session, which takes only a few named variables from the shell that dispatched it
 # (https://code.claude.com/docs/en/agent-view.md); a detached process would inherit them, and a run that started a launcher of its
 # own would then hand that launcher's watcher its parent chain's hook. So the run is started without
 # them, whichever the provider. DETACHED_RUN_IDENTITY_FILE is one of them: it names the file THIS

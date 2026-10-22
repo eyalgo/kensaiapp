@@ -1,5 +1,5 @@
 ---
-version: "1.1.1"
+version: "1.2.0"
 ---
 
 # Python — gate environment
@@ -22,11 +22,11 @@ tag.
 
 ## Provisioning
 
-Start a container from the official Python image, tagged with CI's Python version, by the command
-`languages/README.md` § Gate environment defaults gives. The compile gate needs nothing the image
-lacks, because it ships with the interpreter (`quality_gates.md` § The two gates). The suite runs
-pytest (`testing_python.md`, the layer table), so pytest and whatever the product's code imports are
-installed in the container before the suite runs.
+Start a container from the official Python image, `docker.io/library/python`, tagged with CI's
+Python version, by the command `languages/README.md` § Gate environment defaults gives. The compile
+gate needs nothing the image lacks, because it ships with the interpreter (`quality_gates.md` § The
+two gates). The suite runs pytest (`testing_python.md`, the layer table), so pytest and whatever the
+product's code imports are installed in the container before the suite runs.
 
 Where `languages/README.md` § Gate environment defaults sends the gates to the macOS guest instead,
 that guest is set up as `swift/environment.md` § macOS guest provisioning states.

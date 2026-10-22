@@ -158,15 +158,16 @@ import re
 import subprocess
 import sys
 import tempfile
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from enum import Enum, auto
 from pathlib import Path
 from typing import Literal
 
+import gate_suite
 import pin
 import skill_path
 
-__version__ = "1.23.0"
+__version__ = "1.25.0"
 
 Op = Literal["commit", "merge", "advance"]
 
@@ -1208,6 +1209,43 @@ def _staged_set_guard_refusal(
 
 MARKER_FORMS = ("frontmatter", "python", "workflow", "shell", "plugin")
 
+# ── whose markers these are ────────────────────────────────────────────────
+# `versioning.md` governs kensaiapp's own artifacts, and they live in four
+# layers of an instance. A product's `__version__` is the product's release
+# number — content a change may need to set — and its repository is not an
+# instance. Read as a marker, it was refused on the branch that came to fix it
+# (2026-10-19, a satellite's product) and bumped by every seal that touched it.
+_INSTANCE_IDENTITY = "kensaiapp.md"
+KENSAIAPP_LAYERS = ("core", ".claude", "skills", "system")
+
+
+def _work_tree_root(repo: str) -> Path:
+    """The top of the work tree `repo` sits in — `repo` itself when git cannot
+    say, which then reads as no instance rather than raising."""
+    result = subprocess.run(
+        ["git", "-C", repo, "rev-parse", "--show-toplevel"], capture_output=True, text=True,
+    )
+    return Path(result.stdout.strip()) if result.returncode == 0 else Path(repo)
+
+
+def _is_kensaiapp_path(repo: str, path: str) -> bool:
+    """Is `path` — relative to the work tree's top, as git's diffs name it —
+    one of kensaiapp's own artifacts, the only files whose marker the branch
+    guard, `merge --bump` and `markers --base` judge? True when the work tree
+    is an instance (its top holds `kensaiapp.md`, the identity every instance
+    carries) and `path` sits in one of `KENSAIAPP_LAYERS`. A product
+    repository fails the first test, and an instance's internal product under
+    `products/` fails the second.
+
+    **The top, not `repo`.** `--repo` may name a subdirectory
+    (`_repo_prefix`); read there, an instance looked like a product and its
+    markers went unguarded. The path is normalised first, so
+    `core/../products/x` is judged where it lands."""
+    if not (_work_tree_root(repo) / _INSTANCE_IDENTITY).is_file():
+        return False
+    parts = Path(os.path.normpath(path)).parts
+    return parts[:1] in {(layer,) for layer in KENSAIAPP_LAYERS}
+
 
 def _plugin_version_span(text: str) -> tuple[int, int] | None:
     """The character span of a plugin manifest's top-level `"version"` value,
@@ -1429,6 +1467,8 @@ def _moved_markers(
         )
     moved = []
     for path in _changed_paths(repo, ref):
+        if not _is_kensaiapp_path(repo, path):
+            continue
         base = _marker_pair(_locate_marker_at_ref(repo, path, ref))
         now = _marker_pair(_locate_marker(Path(repo) / path))
         if base != now:
@@ -1521,6 +1561,14 @@ def _bump_refusal(repo: str, specs: list[str], branch: str | None = None) -> str
         if not path or level not in BUMP_LEVELS:
             problems.append(
                 f"  {spec} — expected <path>=<level>, level one of {list(BUMP_LEVELS)}"
+            )
+            continue
+        if not _is_kensaiapp_path(repo, _repo_prefix(repo) + path):
+            problems.append(
+                f"  {spec} — not a kensaiapp artifact: a marker --bump moves "
+                "sits under core/, .claude/, skills/ or system/ of an instance "
+                "(one holding kensaiapp.md); a product's version is its own "
+                "content, set by the change that needs it"
             )
             continue
         marker = _read_marker_semver(Path(repo) / path)
@@ -1768,7 +1816,10 @@ def _branch_marker_refusal(
     value for a landing bump to rewrite, so deletion is outside this guard.
 
     Repositories without a local ``main`` ref are outside Kensaiapp's landing
-    convention and remain usable by the generic commit builder.
+    convention and remain usable by the generic commit builder. A path that is
+    not one of kensaiapp's own artifacts (`_is_kensaiapp_path`) — a product's
+    files, in its own repository or under an instance's ``products/`` — is
+    outside it too, whatever its version line says.
     """
     branch = _current_branch(repo)
     if branch == base or _rev(repo, base) is None:
@@ -1786,6 +1837,10 @@ def _branch_marker_refusal(
     for status, old_path, new_path in _branch_changes(repo, against):
         kind = status[0]
         if kind == "D":
+            continue
+        if not any(
+            _is_kensaiapp_path(repo, str(p)) for p in (old_path, new_path) if p
+        ):
             continue
         if kind == "R":
             before = _marker_pair(_locate_marker_at_ref(repo, old_path, against))
@@ -2166,6 +2221,167 @@ _ADVANCE_CONFLICT_RESUME_HINT = (
 )
 
 
+_BODY_FILE_NOT_STAGED = "Nothing was staged and no commit was made."
+
+
+def _body_file_conflict_refusal(path: str) -> str:
+    return "\n".join([
+        "commit_builder: refusing to commit — --body and --body-file were both given.",
+        "A commit takes its body from one of the two, so the builder will not guess which one "
+        "you meant.",
+        f"{_BODY_FILE_NOT_STAGED} The body file '{path}' is left in place.",
+        'Ways out: pass only one of the two. An empty --body "" still counts as given.',
+    ])
+
+
+def _body_file_missing_refusal(path: str) -> str:
+    return "\n".join([
+        f"commit_builder: refusing to commit — the body file '{path}' does not exist.",
+        _BODY_FILE_NOT_STAGED,
+        "Ways out: check the path given to --body-file. The builder removes a body file once "
+        "its commit lands, so if this path was already used for a commit, write the body to a "
+        "new file from mktemp.",
+    ])
+
+
+def _body_file_unreadable_refusal(path: str, reason: str) -> str:
+    return "\n".join([
+        f"commit_builder: refusing to commit — the body file '{path}' cannot be read: "
+        f"{reason}.",
+        f"{_BODY_FILE_NOT_STAGED} The body file is left in place.",
+        "Ways out: make the file readable as text, or write the body to a new file from mktemp.",
+    ])
+
+
+def _body_file_not_removed_notice(path: str, reason: str) -> str:
+    return "\n".join([
+        f"commit_builder: the commit landed, but the body file '{path}' could not be removed: "
+        f"{reason}.",
+        "Remove it by hand. It holds the body of the commit that just landed and is not needed "
+        "again.",
+    ])
+
+
+def _read_body_file(path: str) -> str:
+    """The file's text, read as UTF-8 with no newline conversion: a `\\r\\n` inside the body
+    reaches the message as written, which `Path.read_text` would turn into `\\n`."""
+    with open(path, encoding="utf-8", newline="") as handle:
+        return handle.read()
+
+
+def _body_from_file(
+    path: str, read_body_file: Callable[[str], str]
+) -> tuple[str | None, str | None]:
+    """`(body, None)` for a readable file, `(None, refusal)` for one that is missing or cannot be
+    read. The body is the text with its trailing newline characters removed and nothing else."""
+    try:
+        return read_body_file(path).rstrip("\r\n"), None
+    except FileNotFoundError:
+        return None, _body_file_missing_refusal(path)
+    except (OSError, UnicodeDecodeError) as error:
+        reason = error.strerror if isinstance(error, OSError) and error.strerror else str(error)
+        return None, _body_file_unreadable_refusal(path, reason)
+
+
+def _remove_body_file(path: str) -> None:
+    """Delete the body file after its commit landed. The commit stands whatever happens here, so
+    a failed removal is a notice on stderr and never a changed exit status."""
+    try:
+        os.remove(path)
+    except OSError as error:
+        print(_body_file_not_removed_notice(path, error.strerror or str(error)), file=sys.stderr)
+
+
+_CLOSING_MARKER_PHRASE = "implementation complete"
+_DECLARATION_EMPHASIS = "*_`"
+_NO_GATE_ENVIRONMENT = "(the gate run printed no Environment: line)"
+_MARKER_REFUSAL_FIRST_LINE = (
+    "commit_builder: refusing to commit — the closing marker does not match this change's "
+    "last gate run."
+)
+_MARKER_WAYS_OUT = (
+    "Ways out: take the Environment: line and each failing case id from this change's last gate "
+    "run, then commit again. If the body was read from a file, check that this run wrote it. A "
+    "body another change left behind carries that change's lines, not this one's."
+)
+
+
+def _declared_lines(body: str, prefix: str) -> list[tuple[str, str]]:
+    """`(line as written, line with its emphasis and whitespace removed)` for every body line
+    that starts with `prefix` once stripped, in body order — the chain's reading of a marker's
+    declared lines (`DiskReader._declared_lines`), kept here without importing the chain."""
+    found = []
+    for line in body.splitlines():
+        stripped = line.strip().strip(_DECLARATION_EMPHASIS).strip()
+        if stripped.startswith(prefix):
+            found.append((line, stripped))
+    return found
+
+
+def _failing_case_id(stripped_line: str) -> str:
+    """The text after `Failing:`, trimmed, up to the line's last ` — ` (the whole remainder when
+    there is none), trimmed again."""
+    remainder = stripped_line[len("Failing:"):].strip()
+    return (remainder.rsplit(" — ", 1)[0] if " — " in remainder else remainder).strip()
+
+
+def _closing_marker_refusal(
+    body: str, run: "gate_suite.GateRun", body_file: str | None
+) -> str | None:
+    """The refusal for a closing marker whose `Environment:` or `Failing:` lines contradict the
+    gate run, naming every failing check, or None when it matches. Judged before anything is
+    staged; `Suite:` and the completeness of the `Failing:` lines are not judged."""
+    gate_line = run.environment_line if run.environment_line is not None else _NO_GATE_ENVIRONMENT
+    blocks: list[str] = []
+
+    environments = _declared_lines(body, "Environment:")
+    if not environments:
+        blocks += ["The marker has no Environment: line. The gate run printed:", f"  {gate_line}"]
+    else:
+        differing = [raw for raw, stripped in environments if stripped != run.environment_line]
+        if differing:
+            blocks += [
+                "The marker's Environment: line differs from the one the gate run printed.",
+                *(f"  marker:   {raw}" for raw in differing),
+                f"  gate run: {gate_line}",
+            ]
+
+    failing = _declared_lines(body, "Failing:")
+    if failing and run.status == 0:
+        blocks += [
+            "The gate run exited 0, so the marker must carry no Failing: line. It carries:",
+            *(f"  {raw}" for raw, _ in failing),
+        ]
+    elif failing:
+        printed = run.stdout + run.stderr
+        absent = [(raw, _failing_case_id(stripped)) for raw, stripped in failing]
+        absent = [(raw, case) for raw, case in absent if not case or case not in printed]
+        if absent:
+            blocks.append("These Failing: lines name a case that appears nowhere in the gate "
+                          "run's output:")
+            for raw, case in absent:
+                blocks += [f"  {raw}", f"    case id looked for: {case}"]
+
+    if not blocks:
+        return None
+    return "\n".join([
+        _MARKER_REFUSAL_FIRST_LINE,
+        *blocks,
+        "Nothing was staged and no commit was made. HEAD and the index are as they were.",
+        *([f"The body file '{body_file}' is left in place."] if body_file is not None else []),
+        _MARKER_WAYS_OUT,
+    ])
+
+
+def _marker_gate_run(repo: str, records) -> "gate_suite.GateRun | None":
+    """This change's last gate run: the one recorded for `repo`'s work tree root and the branch
+    it is on, or None when there is none (and none for a detached head)."""
+    branch = _current_branch(repo)
+    if branch is None:
+        return None
+    return records.latest(str(_work_tree_root(repo)), branch)
+
+
 def _build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="commit_builder.py",
@@ -2183,7 +2399,19 @@ def _build_arg_parser() -> argparse.ArgumentParser:
 
     commit_parser = subparsers.add_parser("commit", help="assemble + run a git commit")
     commit_parser.add_argument("--subject", required=True)
-    commit_parser.add_argument("--body", default="")
+    # `--body` has no default text: an explicit empty `--body ""` is a body given, which
+    # `--body-file` may not accompany, and an omitted one is the empty body.
+    commit_parser.add_argument("--body")
+    commit_parser.add_argument(
+        "--body-file",
+        help=(
+            "read the commit body from this file instead of --body: its text with the trailing "
+            "newlines removed, every other character as the file holds it. The builder removes "
+            "the file once the commit lands and leaves it in place on every refusal, failed "
+            "staging or rejected commit. Make the path with mktemp in the run that writes the "
+            "body; never a fixed or shared name. Mutually exclusive with --body."
+        ),
+    )
     # Exactly one of --actor (workflow: derive Role: from the agent_type) or
     # --role (interactive: the posture-supplied Role: value, used verbatim).
     identity = commit_parser.add_mutually_exclusive_group(required=True)
@@ -2497,10 +2725,26 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main(argv: list[str] | None = None) -> int:
+def main(
+    argv: list[str] | None = None,
+    *,
+    read_body_file: Callable[[str], str] = _read_body_file,
+    gate_run_records=None,
+) -> int:
     args = _build_arg_parser().parse_args(argv)
 
     if args.op == "commit":
+        # The body is settled before anything is staged or recorded, so a refusal about it leaves
+        # the index, HEAD and the body file exactly as they were.
+        body = args.body or ""
+        if args.body_file is not None:
+            if args.body is not None:
+                print(_body_file_conflict_refusal(args.body_file), file=sys.stderr)
+                return 1
+            body, body_refusal = _body_from_file(args.body_file, read_body_file)
+            if body_refusal is not None:
+                print(body_refusal, file=sys.stderr)
+                return 1
         try:
             skill_version = resolve_skill_version(
                 str(instance_repo_root()), args.skill
@@ -2514,7 +2758,7 @@ def main(argv: list[str] | None = None) -> int:
             message = build_message(
                 "commit",
                 subject=args.subject,
-                body=args.body,
+                body=body,
                 actor=args.actor,
                 role=args.role,
                 directional=args.directional,
@@ -2537,6 +2781,18 @@ def main(argv: list[str] | None = None) -> int:
         if directional_refusal is not None:
             print(directional_refusal, file=sys.stderr)
             return 1
+        # A closing marker is held to the gate run made for this change, before the copy
+        # declaration is recorded or anything is staged — --take-index waives nothing here. With
+        # no gate run on record, or any other subject, the commit goes on as it always did.
+        if _CLOSING_MARKER_PHRASE in args.subject:
+            records = (gate_run_records if gate_run_records is not None
+                       else gate_suite.default_run_records())
+            run = _marker_gate_run(args.repo, records)
+            marker_refusal = (_closing_marker_refusal(body, run, args.body_file)
+                              if run is not None else None)
+            if marker_refusal is not None:
+                print(marker_refusal, file=sys.stderr)
+                return 1
         # Same rule as the directional check: a declaration that cannot be made leaves the index
         # untouched and records nothing. A declaration recorded before a LATER refusal (the
         # staged-set or marker guard) stays — it only ever lets through bytes the guard compares.
@@ -2572,7 +2828,10 @@ def main(argv: list[str] | None = None) -> int:
         if marker_refusal is not None:
             print(marker_refusal, file=sys.stderr)
             return 1
-        return _run_git_commit(args.repo, message, allow_empty=args.allow_empty)
+        committed = _run_git_commit(args.repo, message, allow_empty=args.allow_empty)
+        if committed == 0 and args.body_file is not None:
+            _remove_body_file(args.body_file)
+        return committed
 
     if args.op == "markers":
         if args.base is not None:

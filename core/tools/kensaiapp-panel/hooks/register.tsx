@@ -1,7 +1,7 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
-import type { Board, BoardRow, PaneState } from '../types'
+import type { Board, BoardRow, PaneState, Route, RouteStop, RouteWalk } from '../types'
 
 const PANE = 'kensaiapp-panel'
 const PANE_TITLE = 'kensaiapp'
@@ -13,13 +13,20 @@ const MINUTES_PER_HOUR = 60
 const HOURS_PER_DAY = 24
 const HOURS_SHOWN_AS_HOURS = 48
 const DETAIL_SEPARATOR = ' · '
+// The launcher a single skill run is listed under; its row's walk names the skill.
+const SKILL_LAUNCHER = 'skill'
 
 // The fewest rows the pane's window may have for a scroll marker to share it with a line.
 const MIN_ROWS_FOR_MARKERS = 3
 const ROW_INDENT = 2
+// A station sits under its seed, a nested item one step further, and a walk under its station.
+const STATION_INDENT = 4
+const DEPTH_INDENT = 2
+const WALK_INDENT = 4
 
 // Every string a person reads that is not a row's own text. Each is `change_text.md`'s, verbatim,
-// but the seed, station and walk labels and the scroll markers, which came after it.
+// but the seed, station, walk and skill labels, the scroll markers, the route's marks and the fix
+// line, which came after it.
 const TEXT = {
   commandMenu: "Read this instance's chains again and open the kensaiapp pane",
   empty: 'nothing',
@@ -34,8 +41,16 @@ const TEXT = {
   seed: (title: string) => `seed: ${title}`,
   station: (title: string) => `station: ${title}`,
   walk: (title: string) => `walk: ${title}`,
+  skill: (name: string) => `skill: ${name}`,
+  fixing: (name: string) => `↳ fixing: ${name}`,
   moreAbove: (count: number) => `↑ ${count} more above`,
   moreBelow: (count: number) => `↓ ${count} more below`,
+  stop: { reached: '✓', current: '▸', parked: '‖', ahead: '○' },
+  parked: 'parked',
+  walkMark: { sealed: '✓', dropped: '✗', open: '●' },
+  walkState: { sealed: 'sealed', dropped: 'dropped', open: '' },
+  nextWalk: '○ next walk — not opened yet',
+  nextStation: '○ next station — not opened yet',
 } as const
 
 // One row of the pane: a line is wrapped to the pane's width before it is drawn, so the pane's
@@ -50,20 +65,126 @@ type Line = {
 
 // The board as the pane's lines, top to bottom.
 function boardLines(board: Board, now: number): Line[] {
-  const row = (one: BoardRow, isWaiting: boolean): Line[] => {
-    // The row's place on the journey, each line only where the reader found it.
-    const place = [
-      one.seed && TEXT.seed(one.seed),
-      one.station && TEXT.station(one.station),
-      one.walk && TEXT.walk(one.walk),
-    ].filter(Boolean)
-    const detail = [one.launcher, isWaiting ? one.status : '', one.step, age(one.started_at, now)]
+  // What the row is doing: its launcher, why it waits, its step and its age.
+  const doing = (one: BoardRow, isWaiting: boolean, withLauncher: boolean): string[] =>
+    [withLauncher ? one.launcher : '', isWaiting ? one.status : '', one.step, age(one.started_at, now)]
       .filter(Boolean)
-      .join(DETAIL_SEPARATOR)
+  // A skill run on the station of a walk waiting on you is that walk's fix: it reads under the
+  // walk, not as a running row of its own.
+  const isSkill = (one: BoardRow) => one.launcher === SKILL_LAUNCHER
+  const fixTarget = (one: BoardRow): BoardRow | undefined =>
+    isSkill(one) && one.station
+      ? board.waiting.find(walker => walker.key && walker.project === one.project && walker.station === one.station)
+      : undefined
+  const running = board.running.filter(one => fixTarget(one) === undefined)
+  // Under a waiting row: why it waits, dimmed, then each skill run fixing it — live work, so not.
+  const waitLines = (one: BoardRow, isWaiting: boolean, indent: number): Line[] =>
+    isWaiting
+      ? [
+          ...(one.reason ? [{ text: one.reason, dimColor: true, indent }] : []),
+          ...board.running
+            .filter(fix => fixTarget(fix) === one)
+            .map(fix => ({
+              text: [TEXT.fixing(fix.walk), ...doing(fix, false, true)].join(DETAIL_SEPARATOR),
+              indent,
+            })),
+        ]
+      : []
+
+  // The row's place on the journey, each line only where the reader found it. A project with a
+  // route has its seed named there, so the row never repeats it; where the route also has a
+  // current station, the row names only its walk.
+  const row = (one: BoardRow, isWaiting: boolean, hasRoute: boolean, routeNamesStation: boolean): Line[] => {
+    const place = [
+      hasRoute ? '' : one.seed && TEXT.seed(one.seed),
+      routeNamesStation ? '' : one.station && TEXT.station(one.station),
+      one.walk && (isSkill(one) ? TEXT.skill(one.walk) : TEXT.walk(one.walk)),
+    ].filter(Boolean)
     return [
       ...place.map(text => ({ text, indent: ROW_INDENT })),
-      { text: detail, dimColor: true, indent: ROW_INDENT },
-      ...(isWaiting && one.reason ? [{ text: one.reason, dimColor: true, indent: ROW_INDENT }] : []),
+      { text: doing(one, isWaiting, !isSkill(one)).join(DETAIL_SEPARATOR), dimColor: true, indent: ROW_INDENT },
+      ...waitLines(one, isWaiting, ROW_INDENT),
+    ]
+  }
+
+  // The seed, its checklist, and under the current station its walks; under any other station only
+  // a walk a row is still on, as after its station has closed. A walk a row is on, open or already
+  // sealed or dropped, reads on one line with what that row is doing, the launcher named when it
+  // waits on you; a second row on it follows beneath. Without an open walk the current station
+  // shows that the next walk is owed, and with no station open the route shows, before its first
+  // unreached item, that the next station is.
+  const routeLines = (route: Route, rows: readonly BoardRow[], isWaiting: boolean): Line[] => {
+    const walkLines = (walk: RouteWalk, indent: number): Line[] => {
+      const [first, ...more] = rows.filter(one => one.key === walk.key)
+      const head = [`${TEXT.walkMark[walk.state]} ${walk.name}`, TEXT.walkState[walk.state],
+        ...(first ? doing(first, isWaiting, isWaiting) : [])]
+      return [
+        { text: head.filter(Boolean).join(DETAIL_SEPARATOR), dimColor: walk.state !== 'open' && !first, indent },
+        ...(first ? waitLines(first, isWaiting, indent + ROW_INDENT) : []),
+        ...more.flatMap(one => [
+          { text: doing(one, isWaiting, true).join(DETAIL_SEPARATOR), dimColor: true, indent: indent + ROW_INDENT },
+          ...waitLines(one, isWaiting, indent + ROW_INDENT),
+        ]),
+      ]
+    }
+    const stopLines = (stop: RouteStop): Line[] => {
+      const indent = STATION_INDENT + stop.depth * DEPTH_INDENT
+      const isCurrent = stop.state === 'current'
+      const hasOpenWalk = stop.walks.some(walk => walk.state === 'open')
+      const text = [`${TEXT.stop[stop.state]} ${stop.name}`, stop.state === 'parked' ? TEXT.parked : '']
+        .filter(Boolean)
+        .join(DETAIL_SEPARATOR)
+      return [
+        { text, bold: isCurrent, dimColor: stop.state === 'ahead' || stop.state === 'parked', indent },
+        ...stop.walks
+          .filter(walk => isCurrent || rows.some(one => one.key === walk.key))
+          .flatMap(walk => walkLines(walk, indent + WALK_INDENT)),
+        ...(isCurrent && !hasOpenWalk ? [{ text: TEXT.nextWalk, dimColor: true, indent: indent + WALK_INDENT }] : []),
+      ]
+    }
+    const isBetween = !route.stations.some(stop => stop.state === 'current')
+    const firstUnreached = route.stations.findIndex(stop => stop.state !== 'reached')
+    return [
+      ...(route.seed ? [{ text: TEXT.seed(route.seed), indent: ROW_INDENT }] : []),
+      ...route.stations.flatMap((stop, index) => [
+        ...(isBetween && index === firstUnreached
+          ? [{ text: TEXT.nextStation, dimColor: true, indent: STATION_INDENT }]
+          : []),
+        ...stopLines(stop),
+      ]),
+    ]
+  }
+
+  // Which section draws a project's route: the one holding a row on the current station's walk,
+  // waiting before running; else the one holding a row on a closed station's walk; else the
+  // section where the project first appears. The route is drawn there once, and the project's rows
+  // in the other section are rows alone, so the live walk keeps its place in the tree over a walk
+  // whose station has closed.
+  const drawnKeysOf = (route: Route) =>
+    new Set(route.stations.flatMap(stop => stop.walks.map(walk => walk.key)))
+  const currentKeysOf = (route: Route) =>
+    new Set(route.stations.filter(stop => stop.state === 'current').flatMap(stop => stop.walks.map(walk => walk.key)))
+  const drawsRouteIn = (route: Route): boolean => {
+    const walking = (rows: readonly BoardRow[], keys: ReadonlySet<string>) =>
+      rows.some(one => one.project === route.project && keys.has(one.key))
+    for (const keys of [currentKeysOf(route), drawnKeysOf(route)]) {
+      if (walking(board.waiting, keys)) return true
+      if (walking(running, keys)) return false
+    }
+    return board.waiting.some(one => one.project === route.project)
+  }
+
+  // A project's rows: in the section that draws its route, the route, with each row on one of its
+  // walks on that walk's line and every other row below it; elsewhere, rows alone.
+  const projectLines = (project: string, rows: readonly BoardRow[], isWaiting: boolean): Line[] => {
+    const route = board.routes.find(one => one.project === project)
+    if (route === undefined) return rows.flatMap(one => row(one, isWaiting, false, false))
+    const namesPlace = route.stations.some(stop => stop.state === 'current')
+    if (drawsRouteIn(route) !== isWaiting) return rows.flatMap(one => row(one, isWaiting, true, namesPlace))
+    const drawnKeys = drawnKeysOf(route)
+    return [
+      ...routeLines(route, rows, isWaiting),
+      ...rows.filter(one => !drawnKeys.has(one.key)).flatMap(one => row(one, isWaiting, true, namesPlace)),
     ]
   }
 
@@ -77,7 +198,7 @@ function boardLines(board: Board, now: number): Line[] {
       ...(rows.length === 0 ? [{ text: TEXT.empty, dimColor: true }] : []),
       ...[...groups].flatMap(([project, projectRows]) => [
         { text: project, bold: true },
-        ...projectRows.flatMap(one => row(one, isWaiting)),
+        ...projectLines(project, projectRows, isWaiting),
       ]),
     ]
   }
@@ -87,7 +208,7 @@ function boardLines(board: Board, now: number): Line[] {
     { text: ' ' },
     ...section(TEXT.waitingHeading(board.waiting.length), board.waiting, true),
     { text: ' ' },
-    ...section(TEXT.runningHeading(board.running.length), board.running, false),
+    ...section(TEXT.runningHeading(running.length), running, false),
   ]
 }
 
@@ -160,10 +281,11 @@ function parseBoard(stdout: string): Board | null {
     return null
   }
   if (typeof parsed !== 'object' || parsed === null) return null
-  const { instance, waiting, running } = parsed as Record<string, unknown>
+  const { instance, waiting, running, routes } = parsed as Record<string, unknown>
   if (!Array.isArray(waiting) || !Array.isArray(running)) return null
   if (typeof instance !== 'string' && instance !== null) return null
-  return { instance, waiting, running } as Board
+  if (!Array.isArray(routes)) return null
+  return { instance, waiting, running, routes } as Board
 }
 
 // `$.process.run` resolves on any exit code, so a failed read is a rejection, a non-zero exit, or

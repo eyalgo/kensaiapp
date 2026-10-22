@@ -12,6 +12,8 @@ import pytest
 
 
 LIB = Path(__file__).with_name("detach_process_watcher.sh")
+# A generous ceiling, not a speed bar: a loaded full-suite run (16 workers) once missed 5 s by 5 ms.
+WAIT_SECONDS = 30
 
 
 @pytest.mark.parametrize("delayed_write", [False, True])
@@ -44,7 +46,7 @@ def test_completion_hook_survives_launcher_process_group_cleanup(tmp_path, delay
         assert launcher.returncode == 0, stderr
         watcher_pid = int(next(line[4:] for line in stdout.splitlines() if line.startswith("PID=")))
         observer_log = next((tmp_path / "system" / "logs").glob("watch-fixture-*.log"))
-        deadline = time.monotonic() + 5
+        deadline = time.monotonic() + WAIT_SECONDS
         while "watch_process: watching" not in observer_log.read_text():
             assert time.monotonic() < deadline, observer_log.read_text()
             time.sleep(0.01)
@@ -55,7 +57,7 @@ def test_completion_hook_survives_launcher_process_group_cleanup(tmp_path, delay
         except ProcessLookupError:
             pass
         run_log.write_text('{"type":"turn.completed"}\n')
-        deadline = time.monotonic() + 5
+        deadline = time.monotonic() + WAIT_SECONDS
         while not receipt.exists() or receipt.read_text() != "completed":
             assert time.monotonic() < deadline, observer_log.read_text()
             time.sleep(0.01)

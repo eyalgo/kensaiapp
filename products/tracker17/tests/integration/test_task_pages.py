@@ -206,8 +206,8 @@ def test_project_list_shows_every_own_task_in_seven_columns(tmp_path: Path) -> N
     assert "ops" in values[0][4] and "urgent" in values[0][4]
     assert values[0][5].startswith("2026-10-20")
     assert values[1] == ["Spaced", "todo", "low", "unassigned", "none", "none"]
-    assert [b.text() for b in rows[0][6].find_all("button")] == ["done", "todo"]
-    assert [b.text() for b in rows[1][6].find_all("button")] == ["in-progress"]
+    assert [b.text() for b in rows[0][6].find_all("button")] == ["done", "cancelled", "todo"]
+    assert [b.text() for b in rows[1][6].find_all("button")] == ["in-progress", "cancelled"]
     assert rows[2][6].text() == "" and rows[2][6].find_all("button") == []
     (link,) = rows[0][0].find_all("a")
     assert link.attrs["href"] == "/tasks/1" and link.text() == " Spaced "
@@ -314,6 +314,7 @@ def test_task_page_shows_the_four_fields_in_the_one_authorized_form(tmp_path: Pa
         assert [f.attrs["action"] for f in shown_main.find_all("form")] == [
             form.attrs["action"],
             f"{form.attrs['action']}/move",
+            f"{form.attrs['action']}/move",
             f"{form.attrs['action']}/labels",
             f"{form.attrs['action']}/comments",
         ]
@@ -417,7 +418,7 @@ def test_task_page_opens_edit_form_from_saved_values(tmp_path: Path) -> None:
         root = parse(shown_page)
         form = edit_form(root)
         assert form.attrs["action"] == f"/tasks/{index}" and form.attrs["method"] == "post"
-        moves = {"todo": 1, "in-progress": 2, "done": 0, "cancelled": 0}[status]
+        moves = {"todo": 2, "in-progress": 3, "done": 0, "cancelled": 0}[status]
         assert [f.attrs["action"] for f in root.find_all("form")] == [
             f"/tasks/{index}",
             *[f"/tasks/{index}/move"] * moves,

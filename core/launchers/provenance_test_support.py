@@ -1,66 +1,25 @@
-"""Shared by every instrumented launcher's suite: its `instrument_run` call hands over the four
-provenance keys on the call's own line (CP-229, CP-230), and its printed `Telemetry:` line stamps
-exactly the provenance the run was handed, after the pairs it stamped before (CP-218, CP-227).
-A launcher that consults its own skill's intelligence is run from an `isolated_host`, where the test
-decides what that skill holds.
+"""Shared by every instrumented launcher's suite: its printed `Telemetry:` line stamps exactly the
+provenance the run was handed, after the pairs it stamped before (CP-218, CP-227). A launcher that
+consults its own skill's intelligence is run from an `isolated_host`, where the test decides what
+that skill holds.
 
-WHY THIS EXISTS
-    `grep -rlE 'instrument_run .*provider='` — the station's own measure — also matches a comment,
-    and misses a call whose keys sit on a `\\`-continued line. So each launcher's suite proves the
-    call itself, and eleven suites prove it one way rather than eleven.
-
-    The call predicate — a stripped line that *is* `instrument_run` or starts with it plus a space
-    — is the one `core/tools/test_launcher_instrumentation.py` keeps in `_is_instrument_run_call`.
-    It is stated again here rather than imported, because a suite under `core/launchers/` cannot
-    import a test module under `core/tools/`; the fleet sweep there and this helper answer the same
-    question about the same lines.
-
-    The keys are read as shell words (`shlex`, comments stripped), never as substrings: `run_model=`
-    is not `model=`, and a key named in the call line's trailing comment is still a comment.
+The check that a launcher's `run_telemetry` call hands over the four provenance keys on the call's
+own line (CP-229, CP-230) is `assert_run_telemetry_call_carries_provenance` in
+`core/tools/launcher_telemetry_test_support.py`. Each launcher's suite imports it from there, so one
+reader answers that question for every suite.
 """
 
 from __future__ import annotations
 
 import json
-import shlex
 import shutil
 import subprocess
 import sys
 from pathlib import Path
 
-__version__ = "1.0.1"
+__version__ = "1.1.0"
 
 PROVENANCE_KEYS = ("provider", "model", "effort", "source")
-
-_CALL = "instrument_run"
-
-
-def _is_instrument_run_call(line: str) -> bool:
-    stripped = line.strip()
-    return stripped == _CALL or stripped.startswith(f"{_CALL} ")
-
-
-def _keys_on(line: str) -> set[str]:
-    """The `key=` words the call line itself hands over. A trailing `\\` continues the call onto a
-    line this never reads, which is the point: the keys must sit on the call's own line."""
-    words = shlex.split(line.strip().removesuffix("\\"), comments=True)
-    return {word.split("=", 1)[0] for word in words[1:] if "=" in word}
-
-
-def assert_instrument_run_call_carries_provenance(launcher: Path) -> None:
-    """Fail unless every `instrument_run` call in `launcher` carries all four provenance keys on
-    its own line. A file with no call fails too, naming the file — an absent call is not a pass."""
-    # A comment line never starts with the call's word, so the predicate alone keeps every one
-    # out — `# instrument_run provider= …` is not a call however many keys it names.
-    calls = [line for line in launcher.read_text().splitlines() if _is_instrument_run_call(line)]
-    assert calls, f"{launcher}: no instrument_run call on any non-comment line"
-    for call in calls:
-        missing = [key for key in PROVENANCE_KEYS if key not in _keys_on(call)]
-        assert not missing, (
-            f"{launcher}: the instrument_run call does not hand over {', '.join(missing)} "
-            f"on its own line: {call.strip()!r}"
-        )
-
 
 _TELEMETRY = "Telemetry:"
 _ENDPOINT_ARROW = " → "
@@ -92,7 +51,7 @@ def assert_provenance_stamped(
     after: tuple[str, ...] = (),
 ) -> None:
     """The line stamps exactly these provenance pairs, in `PROVENANCE_KEYS` order — an empty value
-    is a key that must be absent, as `instrument_run` drops it — and every one of them follows each
+    is a key that must be absent, as `run_telemetry` drops it — and every one of them follows each
     key named in `after`, the pairs the launcher stamped before this change."""
     pairs = telemetry_pairs(output)
     expected = [
@@ -115,9 +74,11 @@ _CORE = Path(__file__).resolve().parents[1]
 
 # What a launcher that resolves its own skill reaches before it spawns, dry run included: the pin
 # (`pin_enter` sources `pin_run.sh`, which runs `pin.py`), the one Claude builder and its imports,
-# the skill resolver, the one intelligence resolution and its two readers, the instrument, and the
-# provider reader (a launcher asks `providers.py` which provider it goes to; the file it reads is
-# the instance's own `.providers.toml`, which a case writes at the instance it runs for).
+# the skill resolver, the one intelligence resolution and its two readers, and the provider reader
+# (a launcher asks `providers.py` which provider it goes to; the file it reads is the instance's
+# own `.providers.toml`, which a case writes at the instance it runs for). The telemetry helper,
+# `run_telemetry.sh`, is not copied, so a launch from this host prints its `(no instrument library
+# at … — run uninstrumented)` line and runs untagged.
 HOST_TOOLS = (
     "pin.py",
     "pin_run.sh",
@@ -129,7 +90,6 @@ HOST_TOOLS = (
     "skill_path.py",
     "run_intelligence.py",
     "intelligence.py",
-    "instrument_run.sh",
     "providers.py",
 )
 

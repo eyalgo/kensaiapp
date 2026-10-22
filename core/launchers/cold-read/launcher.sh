@@ -4,6 +4,7 @@
 # and stops. It is the whole of move 1 in <CORE>/doctrine/kaizen/skills.md § Running the cold-read;
 # moves 2 and 3 - commit the reports, then work the fixes - are the owner's, by hand.
 #
+# Version: 1.16.0 — the other six launchers run on the package's turn-on
 # Version: 1.15.1 — launchers and launch scripts take a portable mktemp template, so they run on Linux
 # Version: 1.15.0 — the providers file lives in the instance — each instance reads its own .providers.toml, and a tracked .providers.toml.example is the template
 # Version: 1.14.1 — product-setup becomes product-card, and the stamped setup seed becomes define-the-product — so project-setup can name the front door
@@ -148,7 +149,7 @@ DETACH_LIB="$CORE_DIR/tools/detach_watcher.sh"
 # The shared telemetry-instrument home — same real depth as DETACH_LIB above. No env override,
 # for the same reason: no test or caller ever wants a stub in its place, only the real file at
 # its real relative depth.
-INSTRUMENT_LIB="$CORE_DIR/tools/instrument_run.sh"
+INSTRUMENT_LIB="$CORE_DIR/tools/run_telemetry.sh"
 # The one resolution of a run's model, effort and source, shared by every instrumented launcher —
 # same real depth, and no env override for the same reason.
 RUN_INTELLIGENCE="$CORE_DIR/tools/run_intelligence.py"
@@ -501,7 +502,7 @@ run_source="$(printf '%s\n' "$resolution" | sed -n 's/^source=//p')"
 if [ -f "$INSTRUMENT_LIB" ]; then
   # shellcheck source=/dev/null
   source "$INSTRUMENT_LIB"
-  instrument_run skill="$skill" project="$project" provider="$provider" model="$run_model" effort="$run_effort" source="$run_source"
+  run_telemetry skill="$skill" project="$project" provider="$provider" model="$run_model" effort="$run_effort" source="$run_source"
 else
   echo "          (no instrument library at $INSTRUMENT_LIB — run uninstrumented)"
 fi

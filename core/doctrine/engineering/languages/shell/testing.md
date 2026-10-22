@@ -1,5 +1,5 @@
 ---
-version: "1.0.6"
+version: "1.0.7"
 ---
 
 # Shell — testing
@@ -22,7 +22,7 @@ suite that runs the real script as a subprocess.
 (`core/launchers/<identity>/test_<identity>.py`, the hyphens of the identity written as underscores,
 and `_launcher` appended in three cases); the eight bash files under `core/tools/` each carry one there
 (`test_detach_watcher.py`, `test_detach_process_watcher.py`, `test_detached_run.py`,
-`test_instrument_run.py`, `test_pin_run.py`, `test_launch_audit.py`, `test_launch_apply_packet.py`,
+`test_run_telemetry.py`, `test_pin_run.py`, `test_launch_audit.py`, `test_launch_apply_packet.py`,
 `test_launch_fix_author.py`).
 
 **The two git hook shims have none, and that is a gap rather than a rule.** The Python checkers they

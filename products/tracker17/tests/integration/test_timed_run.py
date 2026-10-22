@@ -1,14 +1,14 @@
 """Integration tests of the timed harness at task volume (layer 3).
 
 Checks SRS NFR-1 (an action stays fast with 1,000 tasks of 20 comments each, editing a task's fields
-included, a label added or removed too, the operator's name saved, a comment added, and a name added
-to or removed from the assignee list) and AC-15 (the response time). Change spec rules CP-143 (the
-add), CP-179 (the edit), CP-208 (the label add and remove), CP-237 (the name save) and CP-276 to
-CP-289 (the comment add and the assignee add and remove) and NFDR QC-48 are the ones each test
-names. The harness is tests/timed_run.py; it is loaded by its path and handed its own
-collaborators (a request site, a timer, a location), so no product name is patched. A script that
-only exits 0 could time the wrong path, so these tests prove it exercises the real one and refuses
-a wrong one.
+included, a label added or removed too, the operator's name saved, a comment added, a name added
+to or removed from the assignee list, and a task moved from `todo` to `in-progress`) and AC-15 (the
+response time). Change spec rules CP-143 (the add), CP-179 (the edit), CP-208 (the label add and
+remove), CP-237 (the name save), CP-276 to CP-289 (the comment add and the assignee add and remove)
+and CP-371 to CP-392 (the status move) and NFDR QC-48 are the ones each test names. The harness is
+tests/timed_run.py; it is loaded by its path and handed its own collaborators (a request site, a
+timer, a location), so no product name is patched. A script that only exits 0 could time the wrong
+path, so these tests prove it exercises the real one and refuses a wrong one.
 """
 
 from __future__ import annotations
@@ -29,7 +29,7 @@ from urllib.parse import parse_qs, urlencode
 import pytest
 
 from application import Tracker
-from domain import Comment, Priority, find_task
+from domain import Comment, Priority, TaskStatus, find_task, restore_state
 from persistence import SavedData
 from web import Response, Site
 
@@ -409,7 +409,8 @@ def test_timed_run_fails_when_only_the_edit_fails(
     add_ticks, edit_ticks = (0.0, 0.1, 0.2, 0.3), (0.0, 1.5, 2.0, 2.1)
     label_ticks = (0.0, 0.1, 0.2, 0.3) * 2
     status = harness.main(
-        tmp_path, Ticks(*add_ticks, *edit_ticks, *label_ticks, *QUICK, *NEW_ACTIONS_QUICK)
+        tmp_path,
+        Ticks(*add_ticks, *edit_ticks, *label_ticks, *QUICK, *NEW_ACTIONS_QUICK, *MOVE_QUICK),
     )
 
     over = [line.split(":")[0] for line in capsys.readouterr().out.splitlines() if "over" in line]
@@ -705,7 +706,7 @@ def test_timed_run_fails_when_only_a_label_action_fails(
     """CP-208: the run exits non-zero on a label action's verdict alone."""
     quick = (0.0, 0.1, 0.2, 0.3)
     slow_total = (0.0, 0.5, 1.0, 1.5)
-    ticks = Ticks(*quick, *quick, *slow_total, *quick, *quick, *NEW_ACTIONS_QUICK)
+    ticks = Ticks(*quick, *quick, *slow_total, *quick, *quick, *NEW_ACTIONS_QUICK, *MOVE_QUICK)
 
     status = harness.main(tmp_path, ticks)
 
@@ -738,6 +739,8 @@ def test_timed_label_fixtures_leave_product_data_untouched(
 QUICK = (0.0, 0.1, 0.2, 0.3)
 # The readings of the comment add and the two assignee actions: four each, all under the limit.
 NEW_ACTIONS_QUICK = (*QUICK, *QUICK, *QUICK)
+# The status move's four readings, taken after every earlier action's: all under the limit.
+MOVE_QUICK = QUICK
 NAME_LABEL = "set your name at 1000 tasks"
 NAME_LANDING_LABEL = "name landing page at 1000 tasks"
 NAME_ADDRESS = "/operator-name"
@@ -944,7 +947,7 @@ def test_full_timed_run_fails_when_only_name_measurement_fails(
     for position, name_ticks in enumerate(((0.0, 1.5, 2.0, 2.1), (0.0, 0.1, 0.2, 1.5))):
         old = (*QUICK, *QUICK, *QUICK, *QUICK)
         status = harness.main(
-            tmp_path / str(position), Ticks(*old, *name_ticks, *NEW_ACTIONS_QUICK)
+            tmp_path / str(position), Ticks(*old, *name_ticks, *NEW_ACTIONS_QUICK, *MOVE_QUICK)
         )
         lines = capsys.readouterr().out.splitlines()
         over = [line.split(":")[0] for line in lines if "over" in line]
@@ -2046,9 +2049,9 @@ def _run_readings(**slow: tuple[float, float, float, float]) -> Ticks:
     """The timer readings of one whole run: every action under the limit, except those named.
 
     The five old actions read first, in the order the run times them, then the comment add, the
-    assignee add and the assignee remove, as the run appends them.
+    assignee add, the assignee remove and the status move, as the run appends them.
     """
-    order = ("comment", "assignee add", "assignee remove")
+    order = ("comment", "assignee add", "assignee remove", "move")
     new = [slow.get(name, QUICK) for name in order]
     return Ticks(*QUICK * OLD_ACTION_READINGS, *[value for each in new for value in each])
 
@@ -2079,7 +2082,11 @@ def test_timed_run_appends_exactly_three_ordered_action_blocks(whole_run) -> Non
     _, status, lines, _, _ = whole_run
 
     assert status == 0
-    assert [line.split(":")[0] for line in lines] == [*OLD_RUN_LABELS, *NEW_RUN_LABELS]
+    assert [line.split(":")[0] for line in lines] == [
+        *OLD_RUN_LABELS,
+        *NEW_RUN_LABELS,
+        *MOVE_RUN_LABELS,
+    ]
     assert "over" not in "\n".join(lines) and "refused" not in "\n".join(lines)
 
 
@@ -2261,3 +2268,614 @@ def test_new_timed_action_reads_the_saved_state_back_before_the_landing_interval
     ticks = [position for position, event in enumerate(log.events) if event == "tick"]
     assert len(ticks) == 4
     assert "load" in log.events[ticks[1] + 1 : ticks[2]]
+
+
+# --- The status move, timed on its own 1,000-task fixture (CP-371 to CP-381, CP-384, CP-385) -----
+
+MOVE_TASK = 4
+MOVE_POST = f"/tasks/{MOVE_TASK}/move"
+MOVE_LANDING = f"/projects/1?moved=in-progress&move_task={MOVE_TASK}"
+MOVE_LABELS = (
+    "move a task at 1000 tasks",
+    "move landing page at 1000 tasks",
+    "move total at 1000 tasks",
+)
+MOVE_RUN_LABELS = ("move fixture", *MOVE_LABELS)
+MOVE_OPERATOR = "Jordan Rivera"
+MOVE_ASSIGNEES = ("Zed Quinn", "Mara Lopez")
+
+
+def _moved_line(title: str, status: str = "in-progress") -> str:
+    return f"You moved '{escape(title)}' to {status}."
+
+
+def _move_page(title: str) -> Response:
+    """The landing a real move shows: the title as a heading and the completion line."""
+    return _page(f"<h1>{escape(title)}</h1><p>{_moved_line(title)}</p>")
+
+
+def _with_task(state, task_id: int, **changes):
+    """The state with these fields of the one task replaced, and nothing else."""
+    return replace(
+        state,
+        tasks=tuple(replace(t, **changes) if t.id == task_id else t for t in state.tasks),
+    )
+
+
+def _after_the_move(state):
+    """What a correct move leaves: the task's status replaced by `in-progress`, nothing else."""
+    return _with_task(state, MOVE_TASK, status=TaskStatus.IN_PROGRESS)
+
+
+def _populated(harness: ModuleType, tasks: int = 50, comments: int = 2):
+    """A small fixture with a saved operator name and listed assignees, so their preservation
+    counts."""
+    state = replace(harness.seeded_state(), assignees=MOVE_ASSIGNEES, operator_name=MOVE_OPERATOR)
+    return _shrunk(state, tasks=tasks, comments=comments)
+
+
+def _move_fixture(harness: ModuleType, location: Path, state=None):
+    """The real site over this state (the run's own fixture by default), saved and loaded."""
+    saved_data = SavedData(location)
+    site, loaded = _site_over(
+        harness, saved_data, harness.seeded_state() if state is None else state
+    )
+    return site, saved_data, loaded
+
+
+def _answer_move(
+    saved_data: SavedData,
+    redirect: str | None,
+    landing: Response | None,
+    change: Callable | None = lambda state: state,
+) -> Callable[[str, str], Response | None]:
+    """Answer the POST with `redirect` after `change` rewrote the file (removed it when `change` is
+    None) and the GET with `landing`; None leaves that request to the real site."""
+
+    def answer(method: str, target: str) -> Response | None:
+        if method == "GET":
+            return landing
+        if change is None:
+            (saved_data.location / SAVED_FILE).unlink()
+        else:
+            state = saved_data.load()
+            assert state is not None
+            saved_data.save(change(state))
+        return None if redirect is None else _found(redirect)
+
+    return answer
+
+
+def test_timed_move_saves_only_status_and_lands_at_full_volume(
+    harness: ModuleType, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """T1, CP-371, CP-372, CP-377, CP-378: one marked POST of two fields, one exact GET, one
+    status."""
+    site, saved_data, seeded = _move_fixture(harness, tmp_path)
+    recording = Intercept(site)
+    task = find_task(seeded, MOVE_TASK)
+    assert task is not None and task.status is TaskStatus.TODO
+    assert len(seeded.tasks) == 1000
+    assert [len(t.comments) for t in seeded.tasks] == [20] * 1000
+    capsys.readouterr()
+
+    results = harness.measure_task_move(site=recording, saved_data=saved_data, timer=Ticks(*QUICK))
+
+    assert capsys.readouterr().out == ""
+    assert [(m, t) for m, t, _, _ in recording.requests] == [
+        ("POST", MOVE_POST),
+        ("GET", MOVE_LANDING),
+    ]
+    _, _, headers, body = recording.requests[0]
+    assert headers["Host"] == SITE_HOST and headers["Sec-Fetch-Site"] == "same-origin"
+    assert headers["Content-Type"] == "application/x-www-form-urlencoded"
+    assert parse_qs(body.decode("utf-8"), keep_blank_values=True) == {
+        "status": ["in-progress"],
+        "place": ["list"],
+    }
+    assert recording.requests[1][2]["Host"] == SITE_HOST
+    assert [(r.label, r.created) for r in results] == [(label, True) for label in MOVE_LABELS]
+    assert saved_data.load() == _after_the_move(seeded)
+    assert harness.verdict(results, LIMIT) == 0
+
+
+def test_timed_move_uses_loaded_task_identity_and_project(
+    harness: ModuleType, tmp_path: Path
+) -> None:
+    """TL addition: the task is found by its identity, and its project is the one it carries."""
+    base = _populated(harness)
+    moved = find_task(_with_task(base, MOVE_TASK, project_id=2), MOVE_TASK)
+    tasks = tuple(reversed([moved if t.id == MOVE_TASK else t for t in base.tasks]))
+    state = restore_state(
+        [(1, "Volume project", "One."), (2, "Second project", "Two.")],
+        3,
+        MOVE_ASSIGNEES,
+        tasks=tasks,
+        next_task_id=base.next_task_id,
+        operator_name=MOVE_OPERATOR,
+    )
+    site, saved_data, seeded = _move_fixture(harness, tmp_path, state)
+    assert seeded.tasks[0].id != 1 and seeded.tasks[MOVE_TASK - 1].id != MOVE_TASK
+    recording = Intercept(site)
+
+    results = harness.measure_task_move(site=recording, saved_data=saved_data, timer=Ticks(*QUICK))
+
+    assert [(m, t) for m, t, _, _ in recording.requests] == [
+        ("POST", MOVE_POST),
+        ("GET", f"/projects/2?moved=in-progress&move_task={MOVE_TASK}"),
+    ]
+    assert [r.created for r in results] == [True, True, True]
+    assert saved_data.load() == _after_the_move(seeded)
+
+
+def test_timed_move_refusal_never_requests_landing(harness: ModuleType, tmp_path: Path) -> None:
+    """T2, CP-379, CP-381, CP-384: the real product refuses a move to the status already held."""
+    state = _with_task(_populated(harness), MOVE_TASK, status=TaskStatus.IN_PROGRESS)
+    site, saved_data, seeded = _move_fixture(harness, tmp_path, state)
+    recording = Intercept(site)
+
+    results = harness.measure_task_move(
+        site=recording, saved_data=saved_data, timer=Ticks(0.0, 0.1)
+    )
+
+    assert [(m, t) for m, t, _, _ in recording.requests] == [("POST", MOVE_POST)]
+    assert saved_data.load() == seeded
+    assert [(r.label, r.created) for r in results] == [(label, False) for label in MOVE_LABELS]
+    assert results[1].seconds == 0.0
+    assert results[0].seconds == pytest.approx(0.1) == results[2].seconds
+    assert harness.verdict(results, LIMIT) == 1
+
+
+def test_timed_move_requires_todo_even_with_plausible_success(
+    harness: ModuleType, tmp_path: Path
+) -> None:
+    """TL addition: a task already `in-progress` cannot be shown moved by a plausible answer."""
+    state = _with_task(_populated(harness), MOVE_TASK, status=TaskStatus.IN_PROGRESS)
+    site, saved_data, seeded = _move_fixture(harness, tmp_path, state)
+    title = find_task(seeded, MOVE_TASK).title  # type: ignore[union-attr]
+    answer = _answer_move(saved_data, MOVE_LANDING, _move_page(title))
+    recording = Intercept(site, answer)
+
+    results = harness.measure_task_move(site=recording, saved_data=saved_data, timer=Ticks(*QUICK))
+
+    assert saved_data.load() == _after_the_move(seeded)
+    assert [(m, t) for m, t, _, _ in recording.requests] == [
+        ("POST", MOVE_POST),
+        ("GET", MOVE_LANDING),
+    ]
+    assert [r.created for r in results] == [False, True, False]
+    assert harness.verdict(results, LIMIT) == 1
+
+
+BAD_ANSWERS = {
+    "forbidden": Response(403, (), b""),
+    "server error": Response(500, (), b""),
+    "ok with the exact location": Response(200, (("Location", MOVE_LANDING),), b""),
+    "found with the exact location": Response(302, (("Location", MOVE_LANDING),), b""),
+    "no location": Response(303, (), b""),
+    "wrong project": _found(f"/projects/2?moved=in-progress&move_task={MOVE_TASK}"),
+    "wrong task": _found(f"/projects/1?moved=in-progress&move_task={MOVE_TASK + 1}"),
+    "wrong destination": _found(f"/tasks/{MOVE_TASK}?moved=in-progress&move_task={MOVE_TASK}"),
+    "wrong status": _found(f"/projects/1?moved=done&move_task={MOVE_TASK}"),
+    "missing field": _found("/projects/1?moved=in-progress"),
+    "extra field": _found(f"{MOVE_LANDING}&x=1"),
+    "reordered fields": _found(f"/projects/1?move_task={MOVE_TASK}&moved=in-progress"),
+    "refusal address": _found(f"/projects/1?move_refused=not-allowed&move_task={MOVE_TASK}"),
+    "confirmation address": _found(f"/projects/1?move_confirm=cancelled&move_task={MOVE_TASK}"),
+}
+
+
+def _assert_never_lands(harness: ModuleType, recording, saved_data, seeded) -> None:
+    results = harness.measure_task_move(
+        site=recording, saved_data=saved_data, timer=Ticks(0.0, 0.1)
+    )
+
+    assert [method for method, *_ in recording.requests] == ["POST"]
+    assert saved_data.load() == seeded
+    assert [(r.label, r.created) for r in results] == [(label, False) for label in MOVE_LABELS]
+    assert results[1].seconds == 0.0
+    assert results[0].seconds == pytest.approx(0.1) == results[2].seconds
+    assert harness.verdict(results, LIMIT) == 1
+
+
+@pytest.mark.parametrize("answer", BAD_ANSWERS.values(), ids=BAD_ANSWERS.keys())
+def test_timed_move_invalid_response_never_requests_landing(
+    harness: ModuleType, tmp_path: Path, answer: Response
+) -> None:
+    """T3, CP-371, CP-377, CP-379: any answer but the exact 303 gives no landing request."""
+    site, saved_data, seeded = _move_fixture(harness, tmp_path, _populated(harness))
+    recording = Intercept(site, lambda m, t: answer if m == "POST" else None)
+
+    _assert_never_lands(harness, recording, saved_data, seeded)
+
+
+def test_timed_move_unmarked_submission_is_refused_and_never_lands(
+    harness: ModuleType, tmp_path: Path
+) -> None:
+    """T3, CP-371: the same submission without its same-origin mark is a 403 that saves nothing."""
+    site, saved_data, seeded = _move_fixture(harness, tmp_path, _populated(harness))
+    forwarded: list[int] = []
+
+    class Unmarked(Intercept):
+        def handle(self, method, target, headers, body):
+            without = {k: v for k, v in headers.items() if k != "Sec-Fetch-Site"}
+            response = super().handle(method, target, without, body)
+            forwarded.append(response.status)
+            return response
+
+    recording = Unmarked(site)
+
+    _assert_never_lands(harness, recording, saved_data, seeded)
+    assert forwarded == [403]
+
+
+def _renamed_project(state):
+    first, *rest = state.projects
+    return replace(state, projects=(replace(first, name="Renamed"), *rest))
+
+
+SAVED_DELTAS = {
+    "missing readback": None,
+    "unchanged state": lambda state: state,
+    "wrong moved status": lambda state: _with_task(state, MOVE_TASK, status=TaskStatus.DONE),
+    "second task changed too": lambda state: _with_task(
+        _after_the_move(state), MOVE_TASK + 1, priority=Priority.CRITICAL
+    ),
+    "second task moved too": lambda state: _with_task(
+        _after_the_move(state), MOVE_TASK + 1, status=TaskStatus.DONE
+    ),
+    "moved task retitled": lambda state: _with_task(
+        _after_the_move(state), MOVE_TASK, title="Changed"
+    ),
+    "moved task comment changed": lambda state: _with_task(
+        _after_the_move(state),
+        MOVE_TASK,
+        comments=(
+            replace(
+                find_task(state, MOVE_TASK).comments[0],  # type: ignore[union-attr]
+                text="Altered",
+            ),
+            *find_task(state, MOVE_TASK).comments[1:],  # type: ignore[union-attr]
+        ),
+    ),
+    "moved task comment dropped": lambda state: _with_task(
+        _after_the_move(state), MOVE_TASK, comments=()
+    ),
+    "project changed": lambda state: _renamed_project(_after_the_move(state)),
+    "task counter changed": lambda state: replace(
+        _after_the_move(state), next_task_id=state.next_task_id + 1
+    ),
+    "project counter changed": lambda state: replace(
+        _after_the_move(state), next_project_id=state.next_project_id + 1
+    ),
+    "assignee list changed": lambda state: replace(
+        _after_the_move(state), assignees=state.assignees[:1]
+    ),
+    "operator name changed": lambda state: replace(
+        _after_the_move(state), operator_name="Someone Else"
+    ),
+}
+
+
+@pytest.mark.parametrize("change", SAVED_DELTAS.values(), ids=SAVED_DELTAS.keys())
+def test_timed_move_requires_exact_saved_delta_but_still_lands(
+    harness: ModuleType, tmp_path: Path, change: Callable | None
+) -> None:
+    """T4, CP-377 (b): a correct redirect still gets its GET, and a wrong saved state fails the
+    POST."""
+    site, saved_data, seeded = _move_fixture(harness, tmp_path, _populated(harness))
+    title = find_task(seeded, MOVE_TASK).title  # type: ignore[union-attr]
+    answer = _answer_move(saved_data, MOVE_LANDING, _move_page(title), change)
+    recording = Intercept(site, answer)
+
+    results = harness.measure_task_move(site=recording, saved_data=saved_data, timer=Ticks(*QUICK))
+
+    assert [(m, t) for m, t, _, _ in recording.requests] == [
+        ("POST", MOVE_POST),
+        ("GET", MOVE_LANDING),
+    ]
+    assert [r.created for r in results] == [False, True, False]
+    assert harness.verdict(results, LIMIT) == 1
+
+
+def _landing_title(harness: ModuleType) -> str:
+    return harness.seeded_state().tasks[MOVE_TASK - 1].title
+
+
+def test_timed_move_landing_requires_200_and_completion(
+    harness: ModuleType, tmp_path: Path
+) -> None:
+    """T5, CP-378, CP-385: after a real POST the landing needs a 200 and this move's own line."""
+    title = _landing_title(harness)
+    other = f"Seeded task {MOVE_TASK + 1}: write up the work for this part"
+    pages = {
+        "non-200 with the line": Response(404, (), _moved_line(title).encode("utf-8")),
+        "server error with the line": Response(500, (), _moved_line(title).encode("utf-8")),
+        "200 without the line": _page("<h1>Tasks</h1>"),
+        "title only": _page(f"<h1>{escape(title)}</h1>"),
+        "another task's line": _page(f"<p>{_moved_line(other)}</p>"),
+        "another destination": _page(f"<p>{_moved_line(title, 'done')}</p>"),
+    }
+    for name, landing in pages.items():
+        site, saved_data, _ = _move_fixture(
+            harness, tmp_path / name.replace(" ", "-"), _populated(harness)
+        )
+        recording = Intercept(site, lambda m, t, landing=landing: landing if m == "GET" else None)
+
+        results = harness.measure_task_move(
+            site=recording, saved_data=saved_data, timer=Ticks(*QUICK)
+        )
+
+        assert [r.created for r in results] == [True, False, False], name
+        assert harness.verdict(results, LIMIT) == 1, name
+    site, saved_data, _ = _move_fixture(harness, tmp_path / "control", _populated(harness))
+    control = _page(f"<p>{_moved_line(title)}</p>")
+    recording = Intercept(site, lambda m, t: control if m == "GET" else None)
+    results = harness.measure_task_move(site=recording, saved_data=saved_data, timer=Ticks(*QUICK))
+    assert [r.created for r in results] == [True, True, True]
+
+
+def test_timed_move_completion_escapes_loaded_title(harness: ModuleType, tmp_path: Path) -> None:
+    """T5, CP-378: a title full of markup is compared as the page shows it, never raw."""
+    title = "Tricky <b> & \"double\" 'single' é"
+    state = _with_task(_populated(harness), MOVE_TASK, title=title)
+    site, saved_data, _ = _move_fixture(harness, tmp_path / "real", state)
+    results = harness.measure_task_move(site=site, saved_data=saved_data, timer=Ticks(*QUICK))
+    assert [r.created for r in results] == [True, True, True]
+
+    wrong = {
+        "raw": f"<p>You moved '{title}' to in-progress.</p>",
+        "quotes left raw": f"<p>You moved '{escape(title, quote=False)}' to in-progress.</p>",
+    }
+    for name, text in wrong.items():
+        site, saved_data, _ = _move_fixture(harness, tmp_path / name.replace(" ", "-"), state)
+        recording = Intercept(site, lambda m, t, text=text: _page(text) if m == "GET" else None)
+        results = harness.measure_task_move(
+            site=recording, saved_data=saved_data, timer=Ticks(*QUICK)
+        )
+        assert [r.created for r in results] == [True, False, False], name
+
+
+def test_timed_move_excludes_setup_readback_and_gap_from_intervals(
+    harness: ModuleType, tmp_path: Path
+) -> None:
+    """T6, CP-376: setup before tick 1, the POST between 1-2, the readback between 2-3, the GET
+    between 3-4; a large gap between the intervals changes neither duration nor the total."""
+    site, saved_data, _ = _move_fixture(harness, tmp_path, _populated(harness))
+    log = EventLog()
+
+    results = harness.measure_task_move(
+        site=log.site(site),
+        saved_data=log.saved_data(saved_data),
+        timer=log.timer(0.0, 0.1, 50.0, 50.2),
+    )
+
+    assert log.events == ["load", "tick", "POST", "tick", "load", "tick", "GET", "tick"]
+    assert [r.seconds for r in results] == [
+        pytest.approx(0.1),
+        pytest.approx(0.2),
+        pytest.approx(0.3),
+    ]
+    assert [r.created for r in results] == [True, True, True]
+
+
+MOVE_TIMING = {
+    "all fast": ((0.0, 0.4, 5.0, 5.5), ()),
+    "total exactly 1 s": ((0.0, 0.5, 5.0, 5.5), ("total",)),
+    "total above 1 s": ((0.0, 0.6, 5.0, 5.6), ("total",)),
+    "post exactly 1 s": ((0.0, 1.0, 5.0, 5.1), ("post", "total")),
+    "post 1.5 s": ((0.0, 1.5, 5.0, 5.1), ("post", "total")),
+    "get exactly 1 s": ((0.0, 0.1, 5.0, 6.0), ("landing", "total")),
+    "get above 1 s": ((0.0, 0.1, 5.0, 6.5), ("landing", "total")),
+    "just below 1 s": ((0.0, 0.99996, 5.0, 5.00001), ()),
+}
+
+
+@pytest.mark.parametrize("readings,failing", MOVE_TIMING.values(), ids=MOVE_TIMING.keys())
+def test_timed_move_requires_each_interval_and_total_below_limit(
+    harness: ModuleType,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    readings: tuple[float, float, float, float],
+    failing: tuple[str, ...],
+) -> None:
+    """T7, CP-375, CP-380: raw durations select the problems before one-decimal formatting."""
+    site, saved_data, _ = _move_fixture(harness, tmp_path, _populated(harness))
+    first, second, third, fourth = readings
+
+    results = harness.measure_task_move(site=site, saved_data=saved_data, timer=Ticks(*readings))
+
+    assert all(result.created for result in results)
+    post, landing = second - first, fourth - third
+    assert [r.seconds for r in results] == [
+        pytest.approx(post),
+        pytest.approx(landing),
+        pytest.approx(post + landing),
+    ]
+    capsys.readouterr()
+    assert harness.verdict(results, LIMIT) == (1 if failing else 0)
+    lines = capsys.readouterr().out.splitlines()
+    names = dict(zip(("post", "landing", "total"), MOVE_LABELS))
+    assert [line.split(":")[0] for line in lines if "over" in line] == [
+        names[each] for each in failing
+    ]
+    assert all(line.endswith(" — at or over 1 s") for line in lines if "over" in line)
+    assert all("refused" not in line for line in lines)
+    if readings[1] == 0.99996:
+        assert lines[0] == "move a task at 1000 tasks: 1000.0 ms"
+
+
+def test_timed_move_rows_print_exact_times_and_ordered_problems(
+    harness: ModuleType, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """T8, CP-375, CP-379, CP-380: the printed rows, success and refusal, to one decimal place."""
+    site, saved_data, _ = _move_fixture(harness, tmp_path / "ok", _populated(harness))
+    results = harness.measure_task_move(
+        site=site, saved_data=saved_data, timer=Ticks(0.0, 0.0265, 5.0, 5.0031)
+    )
+    capsys.readouterr()
+    assert harness.verdict(results, LIMIT) == 0
+    assert capsys.readouterr().out.splitlines() == [
+        "move a task at 1000 tasks: 26.5 ms",
+        "move landing page at 1000 tasks: 3.1 ms",
+        "move total at 1000 tasks: 29.6 ms",
+    ]
+
+    refused = _with_task(_populated(harness), MOVE_TASK, status=TaskStatus.IN_PROGRESS)
+    for seconds, text in ((1.0, "1000.0"), (1.5, "1500.0")):
+        site, saved_data, _ = _move_fixture(harness, tmp_path / text, refused)
+        results = harness.measure_task_move(
+            site=site, saved_data=saved_data, timer=Ticks(0.0, seconds)
+        )
+        capsys.readouterr()
+        assert harness.verdict(results, LIMIT) == 1
+        assert capsys.readouterr().out.splitlines() == [
+            f"move a task at 1000 tasks: {text} ms — refused or failed, at or over 1 s",
+            "move landing page at 1000 tasks: 0.0 ms — refused or failed",
+            f"move total at 1000 tasks: {text} ms — refused or failed, at or over 1 s",
+        ]
+
+
+def test_move_fixture_report_uses_loaded_full_volume(
+    harness: ModuleType, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """T9, CP-374, CP-386: the whole line from the fixture as loaded back; the report prints
+    nothing."""
+    _, _, loaded = _move_fixture(harness, tmp_path)
+    task = find_task(loaded, MOVE_TASK)
+    assert task is not None
+    capsys.readouterr()
+
+    report = harness.move_fixture_report(loaded)
+
+    assert capsys.readouterr().out == ""
+    assert report == (
+        "move fixture: 1000 tasks, 20 comments each (20000 in all); "
+        f"title of {len(task.title)} characters, "
+        f"comment of {len(task.comments[0].text)} characters"
+    )
+
+
+def test_move_fixture_report_uses_varied_loaded_counts_and_code_points(
+    harness: ModuleType, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """T9, CP-374, CP-386: counts and lengths come from the loaded task, not constants or
+    position."""
+    shrunk = _shrunk(harness.seeded_state(), tasks=300, comments=3)
+    selected = find_task(shrunk, MOVE_TASK)
+    assert selected is not None
+    note = replace(selected.comments[0], text="Note 😀")
+    varied = _with_task(
+        shrunk, MOVE_TASK, title="Plan 😀😀", comments=(note, *selected.comments[1:])
+    )
+    varied = replace(varied, tasks=tuple(reversed(varied.tasks)))
+    _, _, loaded = _move_fixture(harness, tmp_path, varied)
+    first = loaded.tasks[0]
+    assert first.id != MOVE_TASK and len(first.title) != 7
+    assert len(first.comments[0].text) != 6
+    capsys.readouterr()
+
+    report = harness.move_fixture_report(loaded)
+
+    assert capsys.readouterr().out == ""
+    assert report == (
+        "move fixture: 300 tasks, 3 comments each (900 in all); "
+        "title of 7 characters, comment of 6 characters"
+    )
+
+
+# --- The status move appended to the whole run (CP-372, CP-373, CP-380, CP-381) ------------------
+
+EARLIER_FIXTURES = (
+    "data",
+    "task-volume",
+    "edit-volume",
+    "label-add-volume",
+    "label-remove-volume",
+    "name-volume",
+    "comment-volume",
+    "assignee-add-volume",
+    "assignee-remove-volume",
+)
+
+
+def test_timed_run_appends_exact_move_block_and_nothing_after(
+    harness: ModuleType, whole_run, tmp_path: Path
+) -> None:
+    """T10, CP-373, CP-375, CP-381: after every older line, the move's four lines and no footer."""
+    _, status, lines, _, _ = whole_run
+    _, fresh = harness.open_task_volume(SavedData(tmp_path / "fresh"))
+
+    assert status == 0
+    assert [line.split(":")[0] for line in lines[:-4]] == [*OLD_RUN_LABELS, *NEW_RUN_LABELS]
+    assert lines[-4:] == [
+        harness.move_fixture_report(fresh),
+        "move a task at 1000 tasks: 100.0 ms",
+        "move landing page at 1000 tasks: 100.0 ms",
+        "move total at 1000 tasks: 200.0 ms",
+    ]
+
+
+def test_timed_move_fixture_is_independent_and_product_data_unchanged(
+    harness: ModuleType, whole_run, tmp_path: Path
+) -> None:
+    """T10, CP-372: a location of its own under the run's directory, one status changed, and the
+    product's data directory as the run found it."""
+    directory, _, _, before, after = whole_run
+    moved = SavedData(directory / "move-volume")
+    _, seeded = harness.open_task_volume(SavedData(tmp_path / "fresh"))
+
+    state = moved.load()
+    assert state is not None
+    assert len(state.tasks) == 1000
+    assert [len(t.comments) for t in state.tasks] == [20] * 1000
+    assert state == _after_the_move(seeded)
+    assert moved.location.parent == directory
+    earlier = {SavedData(directory / name).location for name in EARLIER_FIXTURES}
+    assert moved.location not in earlier and len(earlier) == len(EARLIER_FIXTURES)
+    assert after == before
+
+
+@pytest.mark.parametrize(
+    "readings",
+    [(0.0, 0.5, 1.0, 1.5), (0.0, 0.6, 1.0, 1.6)],
+    ids=["total exactly 1 s", "total above 1 s"],
+)
+def test_timed_run_fails_when_only_move_total_reaches_limit(
+    harness: ModuleType,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    readings: tuple[float, float, float, float],
+) -> None:
+    """T12, CP-380, CP-381: both parts under the limit, the total over it: only that row, exit 1."""
+    status = harness.main(tmp_path, _run_readings(move=readings))
+
+    over = [line for line in capsys.readouterr().out.splitlines() if "over" in line]
+    assert [line.split(":")[0] for line in over] == [MOVE_LABELS[2]]
+    assert over[0].endswith(" — at or over 1 s")
+    assert status == 1
+
+
+@pytest.mark.parametrize(
+    "readings,expected",
+    [
+        ((0.0, 1.0, 5.0, 5.1), [MOVE_LABELS[0], MOVE_LABELS[2]]),
+        ((0.0, 1.5, 5.0, 5.1), [MOVE_LABELS[0], MOVE_LABELS[2]]),
+        ((0.0, 0.1, 5.0, 6.0), [MOVE_LABELS[1], MOVE_LABELS[2]]),
+        ((0.0, 0.1, 5.0, 7.5), [MOVE_LABELS[1], MOVE_LABELS[2]]),
+    ],
+    ids=["post exactly 1 s", "post 1.5 s", "get exactly 1 s", "get 2.5 s"],
+)
+def test_timed_run_propagates_move_submission_and_landing_timing_failures(
+    harness: ModuleType,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    readings: tuple[float, float, float, float],
+    expected: list[str],
+) -> None:
+    """T12, CP-380, CP-381: a slow POST or a slow GET makes exactly its row and the total slow."""
+    status = harness.main(tmp_path, _run_readings(move=readings))
+
+    lines = capsys.readouterr().out.splitlines()
+    assert [line.split(":")[0] for line in lines if "over" in line] == expected
+    assert status == 1

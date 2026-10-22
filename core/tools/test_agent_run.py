@@ -686,9 +686,9 @@ def _telemetry_settings(
     resource_attributes=f"kensai.arm=skill,kensai.run_id={_RUN_ID}",
     **extra_env,
 ):
-    """The `--settings` document `instrument_run` builds (`core/tools/instrument_run.sh`,
-    `_instrument_run_settings`): the base telemetry keys, the endpoint, and the resource attributes.
-    A keyword given `None` leaves that key out."""
+    """The `--settings` document `run_telemetry` builds (`core/tools/run_telemetry.sh`): the base
+    telemetry keys, the endpoint, and the resource attributes. A keyword given `None` leaves that
+    key out."""
     env = {
         "CLAUDE_CODE_ENABLE_TELEMETRY": "1",
         "OTEL_METRICS_EXPORTER": "otlp",
@@ -803,8 +803,7 @@ def test_codex_exporter_endpoint_is_a_quoted_toml_string_whatever_it_holds():
 
 
 def test_codex_settings_without_telemetry_give_no_exporter_config():
-    """The uninstrumented path: `instrument_run` hands over the context cap alone
-    (`_instrument_run_cap_settings`)."""
+    """The uninstrumented path: `run_telemetry` hands over the context cap alone."""
     settings = '{"env":{"KENSAIAPP_CONTEXT_CAP":"150000"}}'
 
     command = CodexAdapter().command(RunRequest(prompt="work", settings=settings))
@@ -853,8 +852,9 @@ def test_codex_settings_missing_the_protocol_or_the_logs_exporter_give_no_export
 
 
 def test_codex_settings_without_a_run_id_still_configure_the_exporter():
-    """An arm `instrument_run` refused leaves the base keys and no `kensai.run_id`; the run still
-    emits, as a Claude run does."""
+    """A settings document with the base keys and no `kensai.run_id` still configures the
+    exporter, and the run still emits, as a Claude run does. `run_telemetry` never builds such a
+    document. Every document it hands over with the base keys carries exactly one run id."""
     for resource_attributes in (None, "kensai.instance=example-host"):
         command = CodexAdapter().command(
             RunRequest(

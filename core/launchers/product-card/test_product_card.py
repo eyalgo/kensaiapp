@@ -20,15 +20,16 @@ from pathlib import Path
 
 import pytest
 
+import launcher_telemetry_test_support as support
 from kensaiapp_launchers_conftest import _plugin_skills
 from path_test_support import path_without_caffeinate
 from provenance_test_support import (
-    assert_instrument_run_call_carries_provenance,
     assert_provenance_stamped,
     REFUSED_OWN_INTELLIGENCE,
     place_own_skill,
     place_refused_own_skill,
 )
+from test_skill_launcher_telemetry import install_telemetry_command
 
 _SCRIPT = Path(__file__).resolve().parent / "launcher.sh"
 # The delivered provider file: the tracked template at the instance root, copied into the instance
@@ -106,6 +107,9 @@ def run(tmp_path):
     # published telemetry endpoint (`a-launcher-tags-its-own-run`) — a launcher's own suite is
     # isolated from real machine state exactly like the skeleton and the two stubs above.
     env["INSTRUMENT_RUN_ENDPOINT_FILE"] = str(tmp_path / "no-instrument-endpoint")
+    # Explicitly unconfigured: absent would let the source host's own setting answer, and a case
+    # that is not about the telemetry command must not depend on this machine's package.
+    env[support.COMMAND_VARIABLE] = ""
 
     def _run(*argv, use_env=None):
         return subprocess.run(
@@ -572,12 +576,13 @@ def test_keep_awake_is_reported_by_the_dry_run(run):
 
 def test_dry_run_states_the_arm_it_would_run_under(run, tmp_path):
     """`a-launcher-tags-its-own-run` — a dry run that hides the instrument is a dry run that
-    lies. With a published endpoint file present, `instrument_run` prints the arm it derived
-    (this launcher's own directory name) even though the card half is `claude -p`, not `--bg`,
-    and nothing is actually spawned under --dry-run."""
+    lies. With a runnable telemetry command and a published endpoint file present,
+    `run_telemetry` prints the arm it derived (this launcher's own directory name) even though
+    the card half is `claude -p`, not `--bg`, and nothing is actually spawned under --dry-run."""
     endpoint_file = tmp_path / "real-instrument-endpoint"
     endpoint_file.write_text("http://127.0.0.1:9/v1\n")
     run.env["INSTRUMENT_RUN_ENDPOINT_FILE"] = str(endpoint_file)
+    install_telemetry_command(tmp_path / "home", run.env)
     run.project("example-product")
 
     result = run("example-product", "--dry-run")
@@ -590,14 +595,15 @@ def test_dry_run_states_the_arm_it_would_run_under(run, tmp_path):
 # --- the run's provenance (CP-218, CP-221, CP-227, CP-229, CP-230) -----------------------------
 
 
-def test_the_instrument_run_call_carries_the_four_provenance_keys():
-    assert_instrument_run_call_carries_provenance(_SCRIPT)
+def test_the_run_telemetry_call_carries_the_four_provenance_keys():
+    support.assert_run_telemetry_call_carries_provenance(_SCRIPT)
 
 
 def _dry_run_with_endpoint(run, tmp_path):
     endpoint_file = tmp_path / "real-instrument-endpoint"
     endpoint_file.write_text("http://127.0.0.1:9/v1\n")
     run.env["INSTRUMENT_RUN_ENDPOINT_FILE"] = str(endpoint_file)
+    install_telemetry_command(tmp_path / "home", run.env)
     run.project("example-product")
     result = run("example-product", "--dry-run")
     assert result.returncode == 0, result.stderr
@@ -663,3 +669,185 @@ def test_an_own_skill_whose_intelligence_the_resolver_refuses_stops_the_launch(
     assert result.returncode == 1, result.stdout
     assert result.stderr.endswith(f"product-card: {refusal}"), result.stderr
     assert "Telemetry:" not in result.stdout
+
+
+# --- the launcher's launch, observed over the real helper (CP-685, CP-688, CP-759) -------------
+
+_CARD_ARGV = ("example-product", "--dry-run")
+# The pairs one product-card launch stamps, in the order its call hands them over: the arm and the
+# run's own id, then the project and the product it looks up, then the provenance. A scratch tree
+# that is no git checkout has no instance to add.
+_OWN_INTELLIGENCE = "**Model:** claude-opus-5-5\n**Effort:** high\n"
+
+
+def _card_product(project_dir):
+    """The product a project's card names: the basename of the first path on its `**Product
+    path:**` line — taken from the card the fixture wrote, never from what the launch printed."""
+    line = next(
+        line
+        for line in (project_dir / "project.md").read_text().splitlines()
+        if line.startswith("**Product path:**")
+    )
+    return os.path.basename(line.removeprefix("**Product path:**").split()[0])
+
+
+@pytest.mark.parametrize("cap", [None, "250000"], ids=["cap-absent", "cap-250000"])
+@pytest.mark.parametrize("endpoint", ["valid", "absent"])
+def test_product_card_helper_observation_matches_case_inputs(run, tmp_path, endpoint, cap):
+    """CP-685, CP-688, CP-759: the launcher itself, run once over the real helper and the real
+    package, prints the lines, exports the six variables and hands its run the settings its own
+    inputs call for: the arm it runs under, the project it was given, the product that project's
+    card names, and the provider, model, effort and source its own skill's intelligence names
+    (claude-opus-5-5 at high)."""
+    package = support.require_real_package(tmp_path / "package")
+    place_own_skill(tmp_path, "product-card", _OWN_INTELLIGENCE)
+    project_dir = run.project("example-product")
+    endpoint_file = tmp_path / "published-endpoint"
+    cause = support.publish_endpoint(endpoint_file, endpoint)
+    launcher = support.scratch_core(tmp_path / "scratch", _SCRIPT)
+    helper = launcher.parents[2] / "tools" / "run_telemetry.sh"
+    env = support.telemetry_environment(
+        run.env, home=package.home, endpoint_file=endpoint_file, cap=cap, command=package.command
+    )
+
+    observation = support.run_launcher(
+        launcher, _CARD_ARGV, cwd=tmp_path, env=env, observation_dir=tmp_path / "observed"
+    )
+
+    if endpoint == "valid":
+        support.assert_instrumented_observation(
+            observation,
+            pairs=[
+                ("arm", "product-card"),
+                ("run_id", None),
+                ("project", "example-product"),
+                ("product", _card_product(project_dir)),
+                ("provider", "claude"),
+                ("model", "claude-opus-5-5"),
+                ("effort", "high"),
+                ("source", "intelligence"),
+            ],
+            helper=helper,
+            cap=cap,
+        )
+    else:
+        assert observation.status == 0, observation.stderr
+        assert Path(observation.helper_source).resolve() == helper.resolve()
+        assert observation.telemetry_lines == [f"          ({cause} — run uninstrumented)"]
+        support.assert_uninstrumented(observation, cap=cap)
+
+
+@pytest.mark.parametrize("cap", [None, "250000"], ids=["cap-absent", "cap-250000"])
+def test_product_card_unresolved_skill_observation_matches_case_inputs(run, tmp_path, cap):
+    """CP-685, CP-759: a skills root that holds no product-card is not a refusal — the provider
+    default is stamped with no model and no effort, and every other observable is what the case's
+    inputs call for."""
+    package = support.require_real_package(tmp_path / "package")
+    project_dir = run.project("example-product")
+    endpoint_file = tmp_path / "published-endpoint"
+    support.publish_endpoint(endpoint_file)
+    launcher = support.scratch_core(tmp_path / "scratch", _SCRIPT)
+    helper = launcher.parents[2] / "tools" / "run_telemetry.sh"
+    env = support.telemetry_environment(
+        run.env, home=package.home, endpoint_file=endpoint_file, cap=cap, command=package.command
+    )
+
+    observation = support.run_launcher(
+        launcher, _CARD_ARGV, cwd=tmp_path, env=env, observation_dir=tmp_path / "observed"
+    )
+
+    support.assert_instrumented_observation(
+        observation,
+        pairs=[
+            ("arm", "product-card"),
+            ("run_id", None),
+            ("project", "example-product"),
+            ("product", _card_product(project_dir)),
+            ("provider", "claude"),
+            ("source", "default"),
+        ],
+        helper=helper,
+        cap=cap,
+    )
+
+
+@pytest.mark.parametrize("combination", support.ORDINARY_COMBINATIONS)
+def test_product_card_ordinary_launch_discovers_source_host_setting(run, tmp_path, combination):
+    """CP-692: a launch whose environment names no command is instrumented from its source host's
+    setting, whether the launcher runs from a core or a pin of it, for the host or for an
+    instance that binds that core."""
+    package = support.require_real_package(tmp_path / "package")
+    place_own_skill(tmp_path, "product-card", _OWN_INTELLIGENCE)
+    run.project("example-product")
+    endpoint_file = tmp_path / "published-endpoint"
+    support.publish_endpoint(endpoint_file)
+    launch = support.ordinary_launch(tmp_path, _SCRIPT, tmp_path, combination, package.command)
+    env = support.telemetry_environment(run.env, home=package.home, endpoint_file=endpoint_file)
+
+    observation = support.run_launcher(
+        launch.launcher, _CARD_ARGV, cwd=launch.instance, env=env,
+        observation_dir=tmp_path / "observed",
+    )
+
+    support.assert_ordinary_launch_is_instrumented(observation, environment=env)
+
+
+@pytest.mark.parametrize("cap", [None, "250000"], ids=["cap-absent", "cap-250000"])
+def test_product_card_missing_helper_preserves_launch(run, tmp_path, cap):
+    """CP-687: a core whose tools hold no helper prints the one line naming the helper's path,
+    exits as it would anyway, and hands its run no telemetry — there is no helper to carry even
+    the cap, so the handoff is empty."""
+    run.project("example-product")
+    endpoint_file = tmp_path / "published-endpoint"
+    support.publish_endpoint(endpoint_file)
+    launcher = support.scratch_core(tmp_path / "scratch", _SCRIPT)
+    helper = launcher.parents[2] / "tools" / "run_telemetry.sh"
+    helper.unlink()
+    env = support.telemetry_environment(
+        run.env, home=tmp_path / "failure-home", endpoint_file=endpoint_file, cap=cap,
+        command="neutral-command",
+    )
+
+    observation = support.run_launcher(
+        launcher, _CARD_ARGV, cwd=tmp_path, env=env, observation_dir=tmp_path / "observed"
+    )
+
+    assert observation.status == 0, observation.stderr
+    assert observation.telemetry_lines == [
+        f"          (no instrument library at {helper} — run uninstrumented)"
+    ]
+    for name in support.TELEMETRY_EXPORT_NAMES:
+        assert observation.exports.get(name) is None, f"{name} is exported"
+    assert observation.exports.get(support.SETTINGS_NAME) in (None, ""), observation.exports
+    assert observation.handed_settings is None, observation.handed_settings
+
+
+@pytest.mark.parametrize("cap", [None, "250000"], ids=["cap-absent", "cap-250000"])
+@pytest.mark.parametrize("kind", support.FAILURE_KINDS)
+def test_product_card_telemetry_failures_preserve_launch(run, tmp_path, kind, cap):
+    """CP-687, CP-693, CP-694: whatever is wrong with the command or the endpoint, the launch is
+    not failed by it — it prints the one cause on stdout and hands its run the cap alone."""
+    run.project("example-product")
+    scenario = support.failure_scenario(
+        kind, run.env, home=tmp_path / "failure-home", endpoint_file=tmp_path / "endpoint", cap=cap
+    )
+    host = tmp_path / "host"
+    host.mkdir()
+    launcher = support.scratch_core(host, _SCRIPT)
+    if scenario.host_setting is not None:
+        support.write_host_setting(host, scenario.host_setting)
+
+    observation = support.run_launcher(
+        launcher, _CARD_ARGV, cwd=tmp_path, env=scenario.environment,
+        observation_dir=tmp_path / "observed",
+    )
+
+    support.assert_failure_scenario(observation, scenario, cap=cap)
+
+
+def test_product_card_observation_skips_an_unreachable_package_and_fails_a_reached_one(tmp_path):
+    """CP-689: the observation above is skipped, with the reason named, where the package's
+    command cannot be reached, and fails where it is reached and breaks the contract."""
+    support.assert_selection_skips_unreachable_and_fails_reached(
+        tmp_path, f"{__file__}::test_product_card_helper_observation_matches_case_inputs"
+    )

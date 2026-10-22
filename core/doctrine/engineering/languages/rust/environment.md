@@ -1,5 +1,5 @@
 ---
-version: "1.1.0"
+version: "1.2.0"
 ---
 
 # Rust — gate environment
@@ -26,9 +26,9 @@ image is taken at the toolchain that file names. This answer adds no version or 
 - **In the macOS guest:** set up as `swift/environment.md` § macOS guest provisioning states, with
   rustup installed into the base by the step § In the macOS guest names, once a card whose product's
   CI runs on macOS declares Rust. The image carries no Rust.
-- **In a Linux container:** start a container from the official Rust image, at the toolchain
-  `rust-toolchain.toml` names, by the command `languages/README.md` § Gate environment defaults
-  gives.
+- **In a Linux container:** start a container from the official Rust image,
+  `docker.io/library/rust`, at the toolchain `rust-toolchain.toml` names, by the command
+  `languages/README.md` § Gate environment defaults gives.
 
 ## In the macOS guest
 

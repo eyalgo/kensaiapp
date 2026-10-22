@@ -533,7 +533,8 @@ def test_describe_and_start_argv_carry_the_same_provider(run, forcing):
 # a symlink would lead Python's `sys.path[0]` straight back to the whole real tree.
 
 REAL_ENGINE_TOOLS = (
-    "build_idea.py", "chain.py", "chain_development.py", "journey_names.py", "journey_status.py",
+    "build_idea.py", "chain.py", "chain_development.py", "gate_suite.py", "journey_names.py",
+    "journey_status.py",
     "reporters.py",
     "providers.py", "run_intelligence.py", "agent_run.py", "hook_wiring.py", "intelligence.py",
     "model_assignment.py", "task_context.py", "env_file.py", "completion_shim.py", "walk_stop.py",
@@ -860,10 +861,13 @@ def test_the_launcher_spawns_no_claude_and_holds_no_caffeinate():
     assert "caffeinate" not in code
 
 
-def test_the_launcher_has_no_instrument_run_call_and_declares_no_completion_watcher_library():
+def test_the_launcher_has_no_run_telemetry_call_and_declares_no_completion_watcher_library():
     code = _code()
 
-    assert "instrument_run" not in code
+    assert not any(
+        line.strip() == "run_telemetry" or line.strip().startswith("run_telemetry ")
+        for line in code.splitlines()
+    )
     assert "DETACH_LIB" not in code and "detach_watcher" not in code
 
 

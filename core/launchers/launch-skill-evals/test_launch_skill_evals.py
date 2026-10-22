@@ -46,10 +46,9 @@ from pathlib import Path
 
 import pytest
 
-from provenance_test_support import (
-    assert_instrument_run_call_carries_provenance,
-    assert_provenance_stamped,
-)
+import launcher_telemetry_test_support as support
+from provenance_test_support import assert_provenance_stamped
+from test_skill_launcher_telemetry import install_telemetry_command
 
 from kensaiapp_launchers_conftest import _granted_dirs, _plugin_skills
 
@@ -130,6 +129,9 @@ def run(tmp_path):
     # published telemetry endpoint (`a-launcher-tags-its-own-run`) — a launcher's own suite
     # is isolated from real machine state exactly like the watcher and the notifier above.
     env["INSTRUMENT_RUN_ENDPOINT_FILE"] = str(tmp_path / "no-instrument-endpoint")
+    # Explicitly unconfigured: absent would let the source host's own setting answer, and a case
+    # that is not about the telemetry command must not depend on this machine's package.
+    env[support.COMMAND_VARIABLE] = ""
     env["CLAUDE_ARGV_LOG"] = str(argv_log)
     env["WATCHER_ARGV_LOG"] = str(watcher_log)
     env["AGENTS_JSON"] = str(agents_json)
@@ -790,11 +792,13 @@ def test_ambiguous_message_differs_from_not_found_message(run):
 
 def test_dry_run_states_the_arm_it_would_run_under(run, tmp_path):
     """`a-launcher-tags-its-own-run` — a dry run that hides the instrument is a dry run that
-    lies. With a published endpoint file present, `instrument_run` prints the arm it derived
-    (this launcher's own directory name) even though nothing is actually spawned."""
+    lies. With a runnable telemetry command and a published endpoint file present,
+    `run_telemetry` prints the arm it derived (this launcher's own directory name) even though
+    nothing is actually spawned."""
     endpoint_file = tmp_path / "real-instrument-endpoint"
     endpoint_file.write_text("http://127.0.0.1:9/v1\n")
     run.env["INSTRUMENT_RUN_ENDPOINT_FILE"] = str(endpoint_file)
+    install_telemetry_command(tmp_path / "home", run.env)
     run.skill("demo-skill")
     result = run("demo-skill", "--dry-run")
 
@@ -806,14 +810,15 @@ def test_dry_run_states_the_arm_it_would_run_under(run, tmp_path):
 # --- the run's provenance (CP-222, CP-226, CP-227, CP-229, CP-230) -----------------------------
 
 
-def test_the_instrument_run_call_carries_the_four_provenance_keys():
-    assert_instrument_run_call_carries_provenance(_SCRIPT)
+def test_the_run_telemetry_call_carries_the_four_provenance_keys():
+    support.assert_run_telemetry_call_carries_provenance(_SCRIPT)
 
 
 def _dry_run_with_endpoint(run, tmp_path):
     endpoint_file = tmp_path / "real-instrument-endpoint"
     endpoint_file.write_text("http://127.0.0.1:9/v1\n")
     run.env["INSTRUMENT_RUN_ENDPOINT_FILE"] = str(endpoint_file)
+    install_telemetry_command(tmp_path / "home", run.env)
     result = run("demo-skill", "--dry-run")
     assert result.returncode == 0, result.stderr
     return result
@@ -844,3 +849,103 @@ def test_the_argv_still_carries_model_sonnet_and_no_effort(run, tmp_path):
     assert re.search(r"--model\s+sonnet\s", result.stdout), result.stdout
     assert "--effort" not in result.stdout
     assert "claude-opus-5-5" not in result.stdout
+
+
+# --- the launcher's launch, observed over the real helper (CP-685, CP-688, CP-759) -------------
+
+_EVALS_ARGV = ("demo-skill", "--dry-run")
+# The pairs one skill-evals launch stamps, in the order its call hands them over: the arm and the
+# run's own id, then the skill and the provenance. The driver goes at the fixed tier sonnet, so the
+# model is stamped and the effort is not, and a scratch tree that is no git checkout has no
+# instance to add.
+_STAMPED_PAIRS = [
+    ("arm", "launch-skill-evals"),
+    ("run_id", None),
+    ("skill", "demo-skill"),
+    ("provider", "claude"),
+    ("model", "sonnet"),
+    ("source", "tier"),
+]
+
+
+@pytest.mark.parametrize("cap", [None, "250000"], ids=["cap-absent", "cap-250000"])
+@pytest.mark.parametrize("endpoint", ["valid", "absent"])
+def test_launch_skill_evals_helper_observation_matches_case_inputs(run, tmp_path, endpoint, cap):
+    """CP-685, CP-688, CP-759: the launcher itself, run once over the real helper and the real
+    package, prints the lines, exports the six variables and hands its run the settings its own
+    inputs call for: the arm it runs under, the skill it was given and the provider, model and
+    source its fixed tier resolves, with no effort."""
+    package = support.require_real_package(tmp_path / "package")
+    run.skill("demo-skill")
+    endpoint_file = tmp_path / "published-endpoint"
+    cause = support.publish_endpoint(endpoint_file, endpoint)
+    launcher = support.scratch_core(tmp_path / "scratch", _SCRIPT)
+    helper = launcher.parents[2] / "tools" / "run_telemetry.sh"
+    env = support.telemetry_environment(
+        run.env, home=package.home, endpoint_file=endpoint_file, cap=cap, command=package.command
+    )
+
+    observation = support.run_launcher(
+        launcher, _EVALS_ARGV, cwd=tmp_path, env=env, observation_dir=tmp_path / "observed"
+    )
+
+    if endpoint == "valid":
+        support.assert_instrumented_observation(
+            observation, pairs=_STAMPED_PAIRS, helper=helper, cap=cap
+        )
+    else:
+        assert observation.status == 0, observation.stderr
+        assert Path(observation.helper_source).resolve() == helper.resolve()
+        assert observation.telemetry_lines == [f"          ({cause} — run uninstrumented)"]
+        support.assert_uninstrumented(observation, cap=cap)
+
+
+@pytest.mark.parametrize("combination", support.ORDINARY_COMBINATIONS)
+def test_skill_evals_ordinary_launch_discovers_source_host_setting(run, tmp_path, combination):
+    """CP-692: a launch whose environment names no command is instrumented from its source host's
+    setting, whether the launcher runs from a core or a pin of it, for the host or for an
+    instance that binds that core."""
+    package = support.require_real_package(tmp_path / "package")
+    run.skill("demo-skill")
+    endpoint_file = tmp_path / "published-endpoint"
+    support.publish_endpoint(endpoint_file)
+    launch = support.ordinary_launch(tmp_path, _SCRIPT, tmp_path, combination, package.command)
+    env = support.telemetry_environment(run.env, home=package.home, endpoint_file=endpoint_file)
+
+    observation = support.run_launcher(
+        launch.launcher, _EVALS_ARGV, cwd=launch.instance, env=env,
+        observation_dir=tmp_path / "observed",
+    )
+
+    support.assert_ordinary_launch_is_instrumented(observation, environment=env)
+
+
+@pytest.mark.parametrize("cap", [None, "250000"], ids=["cap-absent", "cap-250000"])
+@pytest.mark.parametrize("kind", support.FAILURE_KINDS)
+def test_skill_evals_telemetry_failures_preserve_launch(run, tmp_path, kind, cap):
+    """CP-687, CP-693, CP-694: whatever is wrong with the command or the endpoint, the launch is
+    not failed by it — it prints the one cause on stdout and hands its run the cap alone."""
+    run.skill("demo-skill")
+    scenario = support.failure_scenario(
+        kind, run.env, home=tmp_path / "failure-home", endpoint_file=tmp_path / "endpoint", cap=cap
+    )
+    host = tmp_path / "host"
+    host.mkdir()
+    launcher = support.scratch_core(host, _SCRIPT)
+    if scenario.host_setting is not None:
+        support.write_host_setting(host, scenario.host_setting)
+
+    observation = support.run_launcher(
+        launcher, _EVALS_ARGV, cwd=tmp_path, env=scenario.environment,
+        observation_dir=tmp_path / "observed",
+    )
+
+    support.assert_failure_scenario(observation, scenario, cap=cap)
+
+
+def test_skill_evals_observation_skips_an_unreachable_package_and_fails_a_reached_one(tmp_path):
+    """CP-689: the observation above is skipped, with the reason named, where the package's
+    command cannot be reached, and fails where it is reached and breaks the contract."""
+    support.assert_selection_skips_unreachable_and_fails_reached(
+        tmp_path, f"{__file__}::test_launch_skill_evals_helper_observation_matches_case_inputs"
+    )

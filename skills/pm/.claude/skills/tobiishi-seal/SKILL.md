@@ -11,7 +11,7 @@ description: |
   Do not use for an earlier stage or an interactive hand-driven merge.
 license: MIT
 metadata:
-  version: "4.5.0"
+  version: "4.6.0"
   category: delivery
   risk: safe
 ---
@@ -329,9 +329,13 @@ Read preparation-time commit entries separately for each role with
 `git -C "<that role's repo>" log main..<key> --oneline`. Choose each role's merge description and
 context from its verified change; when real deferrals are present, the instance context says
 *sealed with deferrals* and makes no green-suite claim. Obtain changed versioned files with
-`git -C "<that role's repo>" diff --name-only main...<key>` and supply a bump entry for each under
+`git -C "<that role's repo>" diff --name-only main...<key>` and supply a bump entry for each one
+under `core/`, `.claude/`, `skills/` or `system/` per
 `<CORE>/doctrine/governance/versioning.md` § Bump semantics; skill levels follow
 `<CORE>/doctrine/kaizen/skills.md` § The version's three digits. Keep branch markers unchanged.
+**No bump names a product's file** — not in the `product` record, and not under `products/` in an
+instance record. A product's version lines are its own content, which its tasks set, and the
+builder refuses a bump on them (`<CORE>/doctrine/governance/versioning.md` § Whose artifacts).
 No supplied commit list predicts the seal SHA: the action records its actual SHA after committing,
 and the executable observes the new instance tip for landing.
 

@@ -35,6 +35,7 @@ from application import (
     OperatorNameNotSet,
     Project,
     ProjectNotFound,
+    Task,
     TaskFields,
     TaskNotFound,
     TaskStatus,
@@ -67,6 +68,8 @@ ADD_LABEL_PATTERN = re.compile(r"/tasks/([0-9]+)/labels")
 REMOVE_LABEL_PATTERN = re.compile(r"/tasks/([0-9]+)/labels/remove")
 ADD_COMMENT_PATTERN = re.compile(r"/tasks/([0-9]+)/comments")
 MOVE_PATTERN = re.compile(r"/tasks/([0-9]+)/move")
+CONFIRM_MOVE_PATTERN = re.compile(r"/tasks/([0-9]+)/move/confirm")
+NOT_STORED = ("Cache-Control", "no-store")
 SHOWN_PREFIX = "shown_"
 TASK_FIELDS = ("title", "priority", "assignee", "due_date")
 EDIT_FAILED = "save"
@@ -107,6 +110,7 @@ ROUTES = (
     Route("POST", "/tasks/[0-9]+/labels/remove", SUBMISSION),
     Route("POST", "/tasks/[0-9]+/comments", SUBMISSION),
     Route("POST", "/tasks/[0-9]+/move", SUBMISSION),
+    Route("POST", "/tasks/[0-9]+/move/confirm", SUBMISSION),
     Route("GET", "/style.css", PAGE),
 )
 
@@ -238,6 +242,9 @@ class Site:
         add_comment = ADD_COMMENT_PATTERN.fullmatch(path)
         if add_comment:
             return self._add_comment(add_comment.group(1), form)
+        confirm_move = CONFIRM_MOVE_PATTERN.fullmatch(path)
+        if confirm_move:
+            return self._move_task(confirm_move.group(1), form, confirming=True)
         move = MOVE_PATTERN.fullmatch(path)
         if move:
             return self._move_task(move.group(1), form)
@@ -270,7 +277,7 @@ class Site:
         project = self._project_named_by(match.group(1)) if match else None
         if project is None:
             return self._not_found_page()
-        return self._html(self._project_page(project, query))
+        return self._project_page(project, query)
 
     @staticmethod
     def _identity(digits: str) -> int | None:
@@ -290,6 +297,11 @@ class Site:
         context = None if identity is None else self._tracker.task_edit_context(identity)
         if context is None:
             return Site._html(pages.task_not_found_page(), HTTPStatus.NOT_FOUND)
+        shown = context.task
+        move = self._move_view(query, lambda found: shown if found == shown.id else None)
+        if move is None:
+            return Site._html(pages.task_not_found_page(), HTTPStatus.NOT_FOUND)
+        move_outcome, move_interaction = move
         return self._html(
             pages.task_page(
                 context,
@@ -300,25 +312,88 @@ class Site:
                 comment_area=self._comment_area(query),
                 operator_name=self._tracker.operator_name(),
                 allowed_moves=self._tracker.allowed_moves,
-                move_outcome=self._move_outcome(query),
-            )
+                move_outcome=move_outcome,
+                move_interaction=move_interaction,
+            ),
+            Site._pending_status(move_interaction),
+            extra=self._stored_as_asked(query),
         )
 
     @staticmethod
+    def _pending_status(interaction: pages.MoveInteraction | None) -> HTTPStatus:
+        """202 for a page that actually renders a pending confirmation, 200 for every other page.
+
+        The decision reads the resolved view, after outcome precedence, task membership and the
+        saved workflow answer, so an address that only asks for a confirmation changes nothing.
+        """
+        pending = interaction is not None and interaction.mode is pages.MoveInteractionMode.CONFIRM
+        # 202, not a page script or a cache-clearing header: the browser's history cache admits only
+        # 200 main documents, so a pending move intent, accepted and awaiting the person, is never
+        # replayed from history (CP-343).
+        return HTTPStatus.ACCEPTED if pending else HTTPStatus.OK
+
+    @staticmethod
+    def _stored_as_asked(query: Mapping[str, list[str]]) -> tuple[tuple[str, str], ...]:
+        """A page that carries a move's interaction or outcome is never stored (design § 3 A.3)."""
+        return (NOT_STORED,) if "move_task" in query else ()
+
+    def _move_view(
+        self, query: Mapping[str, list[str]], on_page: Callable[[int], Task | None]
+    ) -> tuple[pages.MoveOutcome, pages.MoveInteraction | None] | None:
+        """The one move state an address asks for, read against the saved state, or None when the
+        address opens or backs out of a task no task holds (a not-found page).
+
+        A recognized outcome wins, in the order refusal, failure, completion; then opening, then
+        backing out. A task that is on another page, an unknown code or a task value that is no
+        number changes nothing. Where the workflow no longer offers cancelled, the answer is the
+        current-status refusal, in the address context, rather than a button the page would
+        fabricate.
+        """
+        outcome = self._move_outcome(query)
+        if outcome.refusal or outcome.failed or outcome.moved:
+            return outcome, None
+        mode = self._interaction_mode(query)
+        digits = _first(query, "move_task")
+        if mode is None or not (digits.isascii() and digits.isdigit()):
+            return outcome, None
+        identity = self._identity(digits)
+        if identity is None or self._tracker.task(identity) is None:
+            return None
+        task = on_page(identity)
+        if task is None:
+            return outcome, None
+        if TaskStatus.CANCELLED not in self._tracker.allowed_moves(task.status):
+            refused = pages.MoveOutcome(
+                identity,
+                refusal=pages.MoveRefusal.NOT_ALLOWED,
+                refusal_context=pages.MoveRefusalContext.CANCELLATION_ADDRESS,
+            )
+            return refused, None
+        return outcome, pages.MoveInteraction(identity, mode)
+
+    @staticmethod
+    def _interaction_mode(query: Mapping[str, list[str]]) -> pages.MoveInteractionMode | None:
+        cancelled = TaskStatus.CANCELLED.value
+        if _first(query, "move_confirm") == cancelled:
+            return pages.MoveInteractionMode.CONFIRM
+        if _first(query, "move_back") == cancelled:
+            return pages.MoveInteractionMode.BACK_OUT
+        return None
+
+    @staticmethod
     def _move_outcome(query: Mapping[str, list[str]]) -> pages.MoveOutcome:
-        """The move outcome from the address: the first of the refusal, failure and completion keys
-        present, read with the closed vocabularies. Unknown words, and a task identity that is no
-        place, give no outcome (the page then shows only a task the outcome is about)."""
+        """The move outcome from the address: the first recognized of the refusal, failure and
+        completion keys, read with the closed vocabularies. Unknown words, and a task identity that
+        is no place, give no outcome (the page then shows only a task the outcome is about)."""
         identity = _position(_first(query, "move_task"))
         if identity is None:
             return pages.MoveOutcome()
-        if "move_refused" in query:
-            refusal = _closed(pages.MoveRefusal, _first(query, "move_refused"))
+        refusal = _closed(pages.MoveRefusal, _first(query, "move_refused"))
+        if refusal is not None:
             return pages.MoveOutcome(identity, refusal=refusal)
-        if "move_failed" in query:
-            return pages.MoveOutcome(
-                identity, failed=_closed(TaskStatus, _first(query, "move_failed"))
-            )
+        failed = _closed(TaskStatus, _first(query, "move_failed"))
+        if failed is not None:
+            return pages.MoveOutcome(identity, failed=failed)
         return pages.MoveOutcome(identity, moved=_closed(TaskStatus, _first(query, "moved")))
 
     @staticmethod
@@ -376,16 +451,27 @@ class Site:
             added_position=_position(_first(query, "comment_added")),
         )
 
-    def _project_page(self, project: Project, query: Mapping[str, list[str]]) -> str:
+    def _project_page(self, project: Project, query: Mapping[str, list[str]]) -> Response:
         """Read the add form's outcome from the address and build the page; it changes nothing."""
-        return pages.project_page(
-            project,
-            self._tracker.project_tasks(project.id),
-            self._tracker.assignees(),
-            form=self._task_form(query),
-            created="created" in query,
-            allowed_moves=self._tracker.allowed_moves,
-            move_outcome=self._move_outcome(query),
+        rows = self._tracker.project_tasks(project.id)
+        tasks = {row.task.id: row.task for row in rows}
+        move = self._move_view(query, tasks.get)
+        if move is None:
+            return Site._html(pages.task_not_found_page(), HTTPStatus.NOT_FOUND)
+        move_outcome, move_interaction = move
+        return self._html(
+            pages.project_page(
+                project,
+                rows,
+                self._tracker.assignees(),
+                form=self._task_form(query),
+                created="created" in query,
+                allowed_moves=self._tracker.allowed_moves,
+                move_outcome=move_outcome,
+                move_interaction=move_interaction,
+            ),
+            Site._pending_status(move_interaction),
+            extra=self._stored_as_asked(query),
         )
 
     @staticmethod
@@ -406,8 +492,10 @@ class Site:
         )
 
     @staticmethod
-    def _html(page: str, status: int = HTTPStatus.OK) -> Response:
-        return _respond(status, page.encode("utf-8"), ("Content-Type", HTML_TYPE))
+    def _html(
+        page: str, status: int = HTTPStatus.OK, *, extra: tuple[tuple[str, str], ...] = ()
+    ) -> Response:
+        return _respond(status, page.encode("utf-8"), ("Content-Type", HTML_TYPE), *extra)
 
     @staticmethod
     def _not_found_page() -> Response:
@@ -628,11 +716,16 @@ class Site:
         )
         return f"The tracker couldn't {action} {subject}, and nothing was changed."
 
-    def _move_task(self, digits: str, form: Mapping[str, list[str]]) -> Response:
+    def _move_task(
+        self, digits: str, form: Mapping[str, list[str]], *, confirming: bool = False
+    ) -> Response:
         """Move the task to the status the form names and answer at the place the button was on.
 
         The status goes to the tracker as sent, whatever it is; the place word only says which of
-        two addresses the answer goes to (QC-38). A refusal is mapped to its code by type.
+        two addresses the answer goes to (QC-38). A refusal is mapped to its code by type. A move
+        to cancelled is saved only by the confirming submission, whose target is fixed: the
+        ordinary address only opens the confirmation, reading the workflow's answer and saving
+        nothing.
         """
         identity = self._identity(digits)
         if identity is None:
@@ -641,13 +734,17 @@ class Site:
         task = self._tracker.task(identity)
         if task is None:
             return self._redirect(task_address)
-        status = _first(form, "status")
+        status = TaskStatus.CANCELLED.value if confirming else _first(form, "status")
         place = (
             f"/projects/{task.project_id}"
             if _first(form, "place") == pages.MOVE_PLACE_LIST
             else task_address
         )
         about = {"move_task": str(identity)}
+        if status == TaskStatus.CANCELLED.value and not confirming:
+            if TaskStatus.CANCELLED in self._tracker.allowed_moves(task.status):
+                return self._redirect(place, **about, move_confirm=TaskStatus.CANCELLED.value)
+            return self._redirect(place, move_refused=pages.MoveRefusal.NOT_ALLOWED.value, **about)
 
         def move() -> Response:
             try:

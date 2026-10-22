@@ -435,6 +435,7 @@ def test_written_comments_offer_no_edit_delete_or_reply_control(tmp_path: Path) 
     assert actions == [
         "/tasks/1",
         "/tasks/1/move",
+        "/tasks/1/move",
         "/tasks/1/labels/remove",
         "/tasks/1/labels/remove",
         "/tasks/1/labels",

@@ -1,21 +1,25 @@
 ---
-version: "1.1.1"
+version: "1.3.0"
 ---
 
 # Gate suite — read the product's evidence, then run the card's command through the tool
 
-**This file is the reading method and the call, and nothing else.** It owns how a run collects the
-facts about a product that decide where its suite runs, and the one executable call that issues the
-suite there. It owns no packet default: which image or guest a language's gates run in is the
+**This file is the reading method and the calls, and nothing else.** It owns how a run collects the
+facts about a product that decide where its suite runs, the one executable call that issues the suite
+there, and the call that asks whether those facts resolve an environment without issuing anything. It owns no packet default: which image or guest a language's gates run in is the
 language packet's (`<CORE>/doctrine/engineering/languages/README.md` § Gate environment defaults, and
 each `<CORE>/doctrine/engineering/languages/<language>/environment.md`), and which environment those
 facts select is the tool's (`<CORE>/tools/gate_suite.py`). A caller points here rather than restating
 either.
 
-**Three callers read this file:** the developer's closing run of the card's test command
+**Three callers run the suite through this file:** the developer's closing run of the card's test command
 (`development-implementation`), the code-integrity run (`development-code-integrity`) and the seal's
 run (`tobiishi-seal`). Each passes its own gate name, and each copies the tool's printed first line
 into its own record. None of them regenerates that line from the facts it read.
+
+**Two more read it without running a suite.** The plan (`development-plan`) records the evidence of
+Steps 3 and 4 in its instruction, and any run that has to know whether a product owes an environment
+decision asks through § *The check — whether the evidence resolves, with nothing run*.
 
 ## The result is the tool's, never yours
 
@@ -32,13 +36,12 @@ to get one.
 Ask the path tool for the change's complete contract, as the calling skill's own entry step does, and
 use its `product_worktree` for every read of the product and as the checkout the suite runs in. For
 an in-repo product it is the instance worktree; for an external product it is the product's own
-worktree, a second repository. Read CI and decision files from it; the tool runs the card's command
-there too.
+worktree, a second repository. Read CI and decision files from it, and the tool runs the card's command there too. The one exception is the product's environment decision, which the tool reads itself from the product's `main` branch, as Step 3's *An environment entry on `main` outranks the worktree's decision* says.
 
 ## Step 2 — decide the ask
 
-The owner's Mac is selected in exactly two ways: the product has no CI, or **the owner asked**. The
-owner's ask has two sources, and only these two:
+The owner's Mac is selected in exactly three ways: the product has no CI, the product's decision
+files choose it, or **the owner asked**. The owner's ask has two sources, and only these two:
 
 - **A managed walk's launch context.** `KENSAIAPP_GATE_OWNERS_MAC` set to exactly `1` in this run's
   environment. Any other value, and an unset variable, is no ask. The chain sets it only for a walk
@@ -46,8 +49,10 @@ owner's ask has two sources, and only these two:
 - **The owner's request in the current interactive session**, made in so many words.
 
 **No other source is an ask.** A product decision file, the project card, the sourced input below
-and a variable of any other value cannot make one: a record that names the owner's Mac is a refusal
-the tool reports, not a request.
+and a variable of any other value cannot make one. A decision file that names the owner's Mac is the
+product's own decision: Step 3 reads it like any other decision, and the tool obeys it only when its
+quoted source holds up and the product's CI can be read. It is not an ask, and it does not let a run
+skip Steps 3 to 5.
 
 With the ask, run the second block below and skip Steps 3 to 5; the tool needs no evidence to run
 where the owner asked. Without it, go on.
@@ -84,12 +89,9 @@ read what is there.
    is `{"finding": "unreadable", "reason": "<what you could not read>"}`. It is never evidence of
    absence.
 
-**The product's decisions.** Read the product's decision files (`docs/adr/`, `docs/nfdr.md`,
-`docs/SDD.md`, and any file the product names as its decisions) for a recorded environment for its
-gates, and for a recorded amd64 requirement. Supply what a decision says, with its file and line, as
-`decisions.override` (`environment`: `macos-guest`, `container`, `owners-mac` or `neither`, with
-`image`, `tag` and `architecture` when it gives them) and `decisions.amd64`. Where no decision says
-anything, supply nothing. Prose that is not a decision is not one.
+**The product's decisions.** Read the product's decision files in the product's worktree (`docs/adr/`, `docs/nfdr.md`, `docs/SDD.md`, and any file the product names as its decisions) for a recorded environment for its gates, and for a recorded amd64 requirement. Supply what a decision says, with its file and line, as `decisions.override` (`environment`: `macos-guest`, `container`, `owners-mac` or `neither`, with `image`, `tag` and `architecture` when it gives them) and `decisions.amd64`. Where no decision says anything, supply nothing. Prose that is not a decision is not one.
+
+**An environment entry on `main` outranks the worktree's decision.** At every call, the tool reads § 8 of the product's `docs/nfdr.md` as committed on the `main` branch of the repository that holds the product, in the form § *The environment entry — the one form the tool reads* gives. Where it finds an environment entry there, that entry is the decision, and it replaces any `decisions.override` you supply. Where it finds none, your `decisions.override` is used, exactly as before. That covers no `docs/nfdr.md` on `main`, no § 8 in it, and a § 8 with no environment entry. Collect `decisions.override` from the worktree either way: the tool decides which one applies, not you. Never copy an entry from `main` into `decisions.override` or into a plan's inputs, because the tool reads `main` again at every call. An edit to `docs/nfdr.md` that is not committed on `main` is not read. `decisions.amd64` is read from the worktree only, as before.
 
 **The container candidates.** For each language, read the packet's `environment.md` at
 `<CORE>/doctrine/engineering/languages/<language>/environment.md` and take the image it names, with
@@ -150,7 +152,7 @@ Fill the placeholders: `<instance change worktree>` is the absolute path of the 
 worktree, `<project>` and `<key>` the project and the change key, `<gate>` the calling skill's gate
 (`developer`, `code-integrity` or `seal`), `<inputs file>` the file from Step 3, and
 `<output file>` and `<error file>` two files outside the tracked tree. Read the first line of the
-output file as the `Environment:` line and take the command's exit status as the run's status.
+output file as the `Environment:` line and take the command's exit status as the run's status. The call reads the environment entry on the product's `main` branch itself, at every run, so it takes no decision-record file.
 
 With the evidence:
 
@@ -181,8 +183,97 @@ python3 "<CORE>/tools/gate_suite.py" run \
 ```
 
 A call that exits 2 could not be made — no card, no path contract, an unreadable or malformed input
-file. Its message is on standard error; correct the input and call again. That is not a refusal and
+file, or a product repository whose `main` branch fails when the tool reads it. Its message is on standard error; correct the input and call again. That is not a refusal and
 not a no-suite finding.
+
+## The check — whether the evidence resolves, with nothing run
+
+The check asks the tool what Step 5's call would decide for the same evidence, without the owner's
+ask, and starts nothing: no suite, no container, no guest, no probe, and no file written into the
+checkout. A run that has to know whether a product owes an environment decision, before any gate runs,
+uses the check.
+
+Read the evidence by Steps 1, 3 and 4, with two differences. Never take Step 2's ask: the check always
+answers as if no ask were made. And give no guest: `guest` is `null`, because whether the guest runs
+and reaches the checkout is a question for the run that issues the suite, not for the check. On a card
+reading `Test command: none` the inputs file may hold an empty object, `{}`, and the check answers
+without reading it.
+
+Before the call, write three context files outside the tracked tree, beside the inputs file. The check reads all three and runs none of the commands that made them.
+
+1. **The paths file** — the path tool's complete contract for the change, as JSON: the output of
+   `python3 "<CORE>/tools/development_path.py" resolve --format json --worktree "<instance change worktree>" --project "<project>" --key "<key>"`.
+2. **The tracked-files list** — the output of `git -C "<product root>" ls-files`, one product-relative
+   file per line. `<product root>` is the product's own tree: the contract's `product_worktree` joined
+   with its `product_path`, or with the part of an absolute `product_path` under `product_repo`. An
+   empty list is a valid list.
+3. **The decision-record file** — the output of the `record` call below, made with the paths file from item 1. It holds the product's `docs/nfdr.md` as committed on `main` at that moment, or says that `main` holds none. Make it immediately before each check, and never reuse one from an earlier check: a decision committed since then would not be in it.
+
+The `record` call reads the product's repository and changes nothing in it. It starts no suite, no container and no guest. A `record` call that exits `2` could not read the record: its reason is on standard error, and the check is not made until a `record` call succeeds.
+
+```sh
+python3 "<CORE>/tools/gate_suite.py" record \
+  --worktree "<instance change worktree>" --project "<project>" --key "<key>" \
+  --paths "<paths file>" \
+  > "<decision-record file>" 2> "<error file>"
+```
+
+```sh
+python3 "<CORE>/tools/gate_suite.py" check \
+  --worktree "<instance change worktree>" --project "<project>" --key "<key>" \
+  --inputs "<inputs file>" --paths "<paths file>" --tracked-files "<tracked-files list>" \
+  --decision-record "<decision-record file>" \
+  > "<output file>" 2> "<error file>"
+```
+
+Remove the paths file, the tracked-files list and the decision-record file with the inputs file once the check's output is read.
+
+The first line of the output file is the answer, then ` — ` and a detail:
+
+- `resolves` — the evidence names one environment, and the detail names its kind. Exit status `0`.
+- `owes a decision` — the product's decision files record no override, its CI's runners are read, and
+  the packet defaults still name no environment. The detail names the languages, or the platforms,
+  behind the gap. The decision is recorded as an environment entry in § 8 of the product's `docs/nfdr.md`, committed on its `main` branch, where the tool reads it at the next check.
+  Exit status `1`.
+- `does not resolve` — the evidence names no environment, and the product does not owe a decision: its
+  CI cannot be read, a quoted source does not hold up, its decision files name more than one environment, or it already records a decision that names no
+  environment the tool can use. The detail is the text Step 5's call prints after
+  `Environment: unresolved — `. Exit status `1`.
+
+Tell the two nonzero answers apart by the first line's words, never by the status. A check that exits
+`2` could not be made: its reason is on standard error and nothing is on standard output, as for
+Step 5's call. **No answer of the check selects an environment or runs a suite.** A gate still runs
+only through Step 5's call.
+
+## The environment entry — the one form the tool reads
+
+The product's environment decision is an environment entry in § 8 of its `docs/nfdr.md`: the section whose heading is numbered `8`, as in `## 8. Operational constraints`. This section is the one statement of how that entry is written. The architecture prompt that records the entry points here, and Step 3 reads by it.
+
+§ 8 runs from its heading to the next heading of the same level or a higher one, and its subsections are part of it. An entry anywhere else in the file, § 7 included, is not the decision.
+
+An environment entry is a Markdown list item in § 8 that holds the inline-code field `` `environment: <value>` ``, where `<value>` is `macos-guest`, `container`, `owners-mac` or `neither`. The field may sit anywhere in the item, among the item's own words, its trace and its `verified by:`. The same item may hold three more fields, each in an inline-code span of its own:
+
+- `` `image: <image>` `` — the container's image, without its tag.
+- `` `tag: <tag>` `` — the image's tag.
+- `` `architecture: arm64` `` or `` `architecture: amd64` ``.
+
+A list item's wrapped lines are part of it, so a field on a continuation line belongs to the item above it. Nothing else declares a decision. A field outside an inline-code span does not, prose or a heading that names an environment does not, and nothing inside a fenced block does, so an example in a fenced block records nothing.
+
+Each of these is one complete environment entry:
+
+```markdown
+- **QC-1:** The product's gates run on the owner's Mac — `environment: owners-mac`, the owner's call when the packet defaults did not resolve. Verified by: the gate check answers `resolves`.
+```
+
+```markdown
+- **QC-2:** The product's gates run in a container — `environment: container`, `image: docker.io/library/python`, `tag: 3.13`, `architecture: arm64`.
+```
+
+Several entries that give the same fields with the same values are one decision, whatever their wording and their order. Entries that differ in any field are refused. They differ when the environment, the image, the tag or the architecture differs, and when one gives a field that another leaves out. One item that gives a field twice with two values is refused the same way. The tool then uses none of them, and the check and every gate answer that the product's decision files name more than one environment.
+
+A container entry needs both `image` and `tag`. With either missing, the tool refuses it, because the version to tag the image with cannot be determined. With no `architecture`, the tool chooses one as it does for an override that gives none. An entry naming `neither` records that the product can use neither the macOS guest nor a container, and the tool refuses it, because it names no environment to run in.
+
+The entry is read after the owner's ask and the product's CI. With the owner's ask it is not read at all. With no CI the gates run on the owner's Mac. With a CI that cannot be read, the tool refuses before it reads the entry.
 
 ## What stays outside this file
 

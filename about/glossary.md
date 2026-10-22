@@ -661,7 +661,8 @@ which takes a new pin when the host has changed.
 
 The context cap is the size of context, in tokens, past which a Developer run finishes its task,
 commits and hands over to a fresh run. It is set with `--context-cap` on `chain-change` and
-`build-idea`, and the default is 250000.
+`build-idea`, and the default is 250000. The hook that applies it reads the run's context through
+ka-telemetry, an open-source package KensaiApp built; without the package, nothing is capped.
 
 ## Provider
 
@@ -736,16 +737,17 @@ With the variable unset, nothing is sent.
 
 ## Receiver
 
-The receiver is the program that takes in Claude Code's telemetry, `core/tools/otel_receiver.py`.
-You start it yourself, as step 5 of the README's Getting started shows, and it appends what it
-receives to files on your machine. A launcher finds it through the endpoint file it publishes.
+The receiver is the program that takes in Claude Code's telemetry, `ka-telemetry receive`, from
+ka-telemetry, an open-source package KensaiApp built. You start it yourself, as the how-to
+guide's [How to collect telemetry](how-to.md#how-to-collect-telemetry) shows, and it appends what it receives to files on your machine. A launcher
+finds it through the endpoint file it publishes.
 
 ## ID
 
 A run ID names one run a launcher started, so that its telemetry can be found again. It is attached
 together with the run's arm: the name of the folder of the launcher that started the run, such as
-`chain-change`. A run whose arm cannot be read from that folder gets no run ID. Where a run has one,
-the launcher prints it on its `Telemetry:` line. `core/tools/run_provenance.py` reads the run's
+`chain-change`. A run whose arm cannot be read from that folder still gets a run ID, with no arm. The
+launcher prints it on its `Telemetry:` line. `core/tools/run_provenance.py` reads the run's
 provider, model and effort back by that ID, from what reached the receiver.
 
 ## Kaizen

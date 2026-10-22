@@ -12,13 +12,17 @@ owns the shape, so the shape is read from it rather than copied here:
   stanzas would otherwise read as items;
 - bucket 1 receives one `### 1.N` item per answer, its slot labels taken from the template's
   own `### 1.1` stanza: `Answer` holds the owner's answer, `Why it matters` the reason the
-  skill gives, and any other slot the interview's provenance line.
+  skill gives, and any other slot the interview's provenance line;
+- an answer that came from the session's suggestion says so after its text, so a run never reads
+  the session's words as the owner's own.
 
 Usage:
     write_companion.py --template <template.md> --out <companion.md> --name <project>
                        --answers <answers.json>
 
-answers.json is a list of {"question": str, "why": str, "answer": str}. The output must not
+answers.json is a list of {"question": str, "why": str, "answer": str}, each with an optional
+"suggested": "accepted" (the owner took the session's suggestion as shown) or "edited" (the owner
+changed it). An answer with no "suggested" is the owner's own. The output must not
 exist — a companion already on disk belongs to a round in progress, and is never overwritten.
 """
 
@@ -30,8 +34,13 @@ import os
 import re
 import sys
 
-ROUND_ZERO = ("> **Round 0.** Written by `project-setup` from the owner's interview — every "
-              "answer below is the owner's own, given before any draft existed.")
+ROUND_ZERO = ("> **Round 0.** Written by `project-setup` from the owner's interview, before any "
+              "draft existed. Every answer below is the owner's own, except any marked as the "
+              "session's suggestion, which the owner accepted or edited.")
+SUGGESTED = {
+    "accepted": "*(the session's suggestion, accepted by the owner as shown)*",
+    "edited": "*(the session's suggestion, edited by the owner)*",
+}
 PROVENANCE = "Asked of the owner in the project-setup interview; answered there."
 
 
@@ -63,6 +72,8 @@ def _item(number: int, entry: dict, labels: list[str]) -> list[str]:
     for label in labels:
         if label == "Answer":
             value = entry["answer"].strip()
+            if "suggested" in entry:
+                value += " " + SUGGESTED[entry["suggested"]]
         elif label == "Why it matters":
             value = entry["why"].strip()
         else:
@@ -105,9 +116,17 @@ def main() -> int:
         return 3
     with open(args.answers, encoding="utf-8") as fh:
         answers = json.load(fh)
-    if not answers or not all({"question", "why", "answer"} <= set(a) for a in answers):
-        print("error: answers must be a non-empty list of {question, why, answer}",
+    if (not isinstance(answers, list) or not answers
+            or not all(isinstance(a, dict) and {"question", "why", "answer"} <= set(a)
+                       and all(isinstance(a[k], str) for k in ("question", "why", "answer"))
+                       for a in answers)):
+        print("error: answers must be a non-empty list of {question, why, answer} strings",
               file=sys.stderr)
+        return 2
+    if any(not isinstance(a.get("suggested", "accepted"), str)
+           or a.get("suggested", "accepted") not in SUGGESTED for a in answers):
+        print("error: suggested must be 'accepted' or 'edited' — leave it out for the owner's "
+              "own answer", file=sys.stderr)
         return 2
     if any(not a["answer"].strip() for a in answers):
         print("error: an answer is empty — an unanswered item is the run's to raise, not "

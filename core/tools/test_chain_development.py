@@ -10,6 +10,8 @@ WHY THIS FILE LOOKS LIKE THIS
 
 from __future__ import annotations
 
+import contextlib
+import io
 import json
 import os
 import re
@@ -21,6 +23,7 @@ import pytest
 
 import chain_development as cd
 import completion_shim
+import gate_suite
 from instance_test_support import scratch_instance
 import product_checkout
 import providers
@@ -239,7 +242,7 @@ def test_the_audit_fans_out_over_the_producer_steps_and_never_gates():
 
 def test_every_step_declares_its_responsible_role():
     """Each `Step` carries the agent role responsible for it — the value
-    `instrument_run.sh` stamps as `kensai.role` on every launch (CP-1)."""
+    `run_telemetry.sh` stamps as `kensai.role` on every launch (CP-1)."""
     assert {entry.id: entry.role for entry in cd.DEVELOPMENT_STEPS} == {
         "specs": "product-owner",
         "design": "architect",
@@ -947,6 +950,33 @@ class FakeProcessTable:
         self.starts.pop(pid, None)
 
 
+RESOLVING = gate_suite.CheckResult(gate_suite.CheckAnswer.RESOLVES, "owners-mac: no CI", 0)
+OWING = gate_suite.CheckResult(
+    gate_suite.CheckAnswer.OWES_DECISION,
+    "the product's CI runs on Linux, no container default exists for python, and the "
+    "product's decision files record no override", 1)
+UNRESOLVED = gate_suite.CheckResult(
+    gate_suite.CheckAnswer.DOES_NOT_RESOLVE,
+    "the runner cannot be read from the product's CI configuration", 1)
+
+
+class FakeEnvironmentCheck:
+    """The environment check's port. `outcomes` scripts each successive `check`: a
+    `CheckResult` is returned and an exception raised; once they are spent every call resolves.
+    `calls` records the change and core directory of every call."""
+
+    def __init__(self, *outcomes):
+        self.outcomes = list(outcomes)
+        self.calls: list[tuple] = []
+
+    def check(self, change, core_dir):
+        self.calls.append((change, core_dir))
+        outcome = self.outcomes.pop(0) if self.outcomes else RESOLVING
+        if isinstance(outcome, Exception):
+            raise outcome
+        return outcome
+
+
 CORE = "/core"
 PRODUCT = "/product"
 LOGS = f"{INSTANCE}/system/logs"
@@ -956,7 +986,8 @@ SKILL_LAUNCHER = f"{CORE}/launchers/skill/launcher.sh"
 
 
 def build(files: FakeFiles, *, git=None, processes=None, notifier=None, lock=None, environ=None,
-          log=None, steps=None, provider_port=None, process_table=None, checkout=None):
+          log=None, steps=None, provider_port=None, process_table=None, checkout=None,
+          environment_check=None):
     return cd.DevelopmentChain(
         store=cd.StateStore(files, STATE),
         reader=cd.DiskReader(files=files, git=git or FakeGit()),
@@ -972,6 +1003,7 @@ def build(files: FakeFiles, *, git=None, processes=None, notifier=None, lock=Non
         providers=provider_files(port=provider_port),
         process_table=FakeProcessTable() if process_table is None else process_table,
         checkout=checkout or FakeCheckout(),
+        environment_check=environment_check or FakeEnvironmentCheck(),
     )
 
 
@@ -1888,9 +1920,12 @@ class Walk:
     # The product checkout's port every engine of this walk reads; `None` is a checkout that never
     # changes.
     checkout = None
+    # The environment check's port every engine of this walk asks; `None` is one that resolves.
+    environment_check = None
 
     def __init__(self, through: str | None = None, codes=None, product_path: str = PRODUCT,
-                 steps=None, provider_port=None, table=None, checkout=None, **start_arguments):
+                 steps=None, provider_port=None, table=None, checkout=None,
+                 environment_check=None, **start_arguments):
         disk, git = _through(through)
         self.files = FakeFiles(disk)
         self.git = git
@@ -1900,6 +1935,7 @@ class Walk:
         self.steps = steps
         self.table = table or FakeProcessTable()
         self.checkout = checkout or FakeCheckout()
+        self.environment_check = environment_check or FakeEnvironmentCheck()
         # The provider file every engine of this walk reads; a test edits its `text` mid-walk.
         self.provider_port = provider_port or ProviderText()
         start(self.engine(), product_path=product_path, **start_arguments)
@@ -1907,7 +1943,8 @@ class Walk:
     def engine(self):
         return build(self.files, git=self.git, processes=self.processes, notifier=self.notifier,
                      lock=self.lock, steps=self.steps, provider_port=self.provider_port,
-                     process_table=self.table, checkout=self.checkout)
+                     process_table=self.table, checkout=self.checkout,
+                     environment_check=self.environment_check)
 
     def advance(self, run: str, outcome: str = "completed"):
         return self.engine().advance(run, outcome)
@@ -3252,7 +3289,8 @@ def test_a_whole_walk_reaches_sealed_against_a_real_repository_laid_down_by_the_
         files=files, processes=processes, notifier=notifier, lock=cd.FileLock(),
         log=cd.WalkLog(), id_source=FakeIdSource(), environ={}, engine_path=_REAL_ENGINE,
         steps=cd.DEVELOPMENT_STEPS, providers=provider_files(),
-        process_table=FakeProcessTable(), checkout=product_checkout.Checkout())
+        process_table=FakeProcessTable(), checkout=product_checkout.Checkout(),
+        environment_check=FakeEnvironmentCheck())
     chain.start(instance_root=str(repo), product_path=str(repo / "product"), project=PROJECT,
                 core_dir=CORE, shim_dir=str(tmp_path / "logs"))
 
@@ -8146,3 +8184,808 @@ def test_a_start_only_ask_on_an_advance_does_not_replace_the_stored_authority(tm
              "--gate-owners-mac"])
 
     assert json.loads(state.read_text())["gate_owners_mac"] is False
+
+
+# ==================================================================================================
+# The walk stops before implementation only when the product owes an environment decision
+# ==================================================================================================
+
+DECISION_OWED = (
+    "environment-decision-owed — the product owes an environment decision, so implementation "
+    "was not launched: {detail}. To go on, record the environment for the product's gates in "
+    "its decision files and start the walk again, or start it again with the owner's ask "
+    "(--gate-owners-mac).")
+CHECK_UNAVAILABLE = (
+    "environment-check-unavailable — implementation was not launched, because the walk cannot "
+    "tell whether the product owes an environment decision: {problem}. To go on, correct what "
+    "that names and start the walk again.")
+OWED_STOP = "stopped at implementation: " + DECISION_OWED.format(detail=OWING.detail)
+ROUTES = ["start", "no-text", "text"]
+
+
+class Guarded:
+    """A walk over `steps` that reaches the implementation launch by `route`: entered there by a
+    start, or advanced to it from a no-text plan or from the content step."""
+
+    def __init__(self, steps, route, check, **start_arguments):
+        self.steps, self.check = steps, check
+        self.processes, self.notifier = FakeProcesses(), FakeNotifier()
+        entering = {"start": "implementation", "no-text": "plan", "text": "content"}[route]
+        disk, self.git = _entering_at(entering, steps)
+        self.files = FakeFiles(disk)
+        start(self.engine(), **start_arguments)
+        if route == "no-text":
+            land(self.files, self.git, "plan")
+            self.engine().advance("plan", "completed")
+        elif route == "text":
+            land(self.files, self.git, "content")
+            self.engine().advance("content", "completed")
+
+    def engine(self, **arguments):
+        return build(self.files, git=self.git, processes=self.processes, notifier=self.notifier,
+                     steps=self.steps, environment_check=self.check, **arguments)
+
+    @property
+    def state(self) -> dict:
+        return saved(self.files)
+
+    @property
+    def launched(self) -> list[str]:
+        return [argv[1] for argv in self.processes.launched]
+
+    def implementation_shims(self) -> list[str]:
+        return [path for path in self.files.files
+                if path.endswith(".sh") and "implementation" in path]
+
+
+@pytest.mark.parametrize("steps", [cd.DEVELOPMENT_STEPS, cd.CHANGE_STEPS])
+@pytest.mark.parametrize("route", ROUTES)
+def test_owed_environment_decision_stops_before_implementation(steps, route):
+    walk = Guarded(steps, route, FakeEnvironmentCheck(OWING))
+
+    assert walk.state["ended"] == "halted"
+    assert walk.state["ended_reason"] == OWED_STOP
+    assert walk.state["pending"] == {}
+    assert "development-implementation" not in walk.launched
+    assert walk.implementation_shims() == []
+    assert len(walk.check.calls) == 1
+    assert walk.notifier.messages[-1].endswith(OWED_STOP)
+
+    resolving = Guarded(steps, route, FakeEnvironmentCheck(RESOLVING))
+    assert resolving.state["ended"] is None
+    assert resolving.launched[-1] == "development-implementation"
+    assert set(resolving.state["pending"]) == {"implementation"}
+
+
+@pytest.mark.parametrize("answer", [RESOLVING, UNRESOLVED], ids=["resolves", "does-not-resolve"])
+@pytest.mark.parametrize("route", ROUTES)
+def test_other_check_answers_continue_to_implementation(route, answer):
+    # `does not resolve` carries exit status 1, as `owes a decision` does: the answer decides.
+    walk = Guarded(cd.DEVELOPMENT_STEPS, route, FakeEnvironmentCheck(answer))
+
+    assert walk.state["ended"] is None
+    assert walk.launched[-1] == "development-implementation"
+    assert len(walk.check.calls) == 1
+
+
+def test_the_check_is_asked_about_this_change_and_this_cores_directory():
+    walk = Guarded(cd.DEVELOPMENT_STEPS, "start", FakeEnvironmentCheck())
+
+    assert walk.check.calls == [(layout(), CORE)]
+
+
+def test_only_the_walks_stored_ask_bypasses_the_check():
+    asked = Guarded(cd.DEVELOPMENT_STEPS, "start", FakeEnvironmentCheck(OWING),
+                    gate_owners_mac=True)
+
+    assert asked.state["ended"] is None
+    assert asked.check.calls == []
+    assert asked.processes.calls[-1]["env"][ASK_VARIABLE] == "1"
+
+    # An ambient variable of the engine's own environment is no ask: the walk still stops.
+    disk, git = _entering_at("implementation", cd.DEVELOPMENT_STEPS)
+    check, processes = FakeEnvironmentCheck(OWING), FakeProcesses()
+    files = FakeFiles(disk)
+    start(build(files, git=git, processes=processes, environment_check=check,
+                environ={"PATH": "/usr/bin", ASK_VARIABLE: "1"}))
+    assert saved(files)["ended_reason"] == OWED_STOP
+    assert processes.launched == []
+
+    # Nor can a field of the planning evidence: the check port is handed no inputs of its own.
+    assert len(check.calls) == 1
+
+
+def test_a_paused_relaunch_checks_again_and_stops_before_the_launch():
+    check = FakeEnvironmentCheck(RESOLVING, OWING)
+    walk = Walk(through="plan", environment_check=check)
+    walk.git.commits[KEY] = [_pause(3), *TASK_COMMITS]
+
+    walk.advance("implementation")
+
+    assert len(check.calls) == 2
+    assert walk.state["ended_reason"] == OWED_STOP
+    assert len(walk.processes.launched) == 1
+    assert walk.state["pending"] == {}
+
+
+def test_a_failed_relaunch_checks_again_and_stops_before_the_launch():
+    check = FakeEnvironmentCheck(RESOLVING, OWING)
+    walk = Walk(through="plan", environment_check=check)
+    walk.git.commits[KEY] = [_pause(3), *TASK_COMMITS]
+
+    walk.advance("implementation", "failed")
+
+    assert len(check.calls) == 2
+    assert walk.state["ended_reason"] == OWED_STOP
+    assert len(walk.processes.launched) == 1
+
+
+def test_a_missing_marker_recovery_checks_again_and_stops_before_the_launch():
+    check = FakeEnvironmentCheck(RESOLVING, OWING)
+    walk = Walk(through="plan", environment_check=check)
+
+    walk.advance("implementation")
+
+    assert len(check.calls) == 2
+    assert walk.state["ended_reason"] == OWED_STOP
+    assert len(walk.processes.launched) == 1
+    assert not any(path.endswith("implementation-recovery.sh") for path in walk.files.files)
+
+
+def test_an_explicit_restart_checks_again():
+    files, git = _stopped_deferred_change()
+    check, processes = FakeEnvironmentCheck(OWING), FakeProcesses()
+
+    start(build(files, git=git, processes=processes, steps=cd.CHANGE_STEPS,
+                environment_check=check))
+
+    assert len(check.calls) == 1
+    assert processes.launched == []
+    assert saved(files)["ended_reason"] == OWED_STOP
+
+
+def test_describe_other_steps_and_a_completed_marker_perform_no_check():
+    check = FakeEnvironmentCheck()
+    files, git = _through("plan")
+    describe(build(FakeFiles(files), git=git, environment_check=check))
+    assert check.calls == []
+
+    walk = Walk(through="design", environment_check=check)
+    land(walk.files, walk.git, "plan")
+    walk.advance("plan")
+    assert len(check.calls) == 1
+    land(walk.files, walk.git, "implementation")
+    walk.advance("implementation")
+    assert walk.skills_launched[-1] == "development-code-integrity"
+    assert len(check.calls) == 1
+
+
+@pytest.mark.parametrize("route", ROUTES)
+def test_an_unavailable_check_halts_without_launch(route):
+    problem = 'the change\'s plan has no "Gate environment inputs" section'
+    check = FakeEnvironmentCheck(cd.EnvironmentCheckUnavailable(problem))
+
+    walk = Guarded(cd.DEVELOPMENT_STEPS, route, check)
+
+    assert walk.state["ended"] == "halted"
+    assert walk.state["ended_reason"] == (
+        "stopped at implementation: " + CHECK_UNAVAILABLE.format(problem=problem))
+    assert "environment-decision-owed" not in walk.state["ended_reason"]
+    assert "red-suite" not in walk.state["ended_reason"]
+    assert walk.state["pending"] == {} and walk.implementation_shims() == []
+    assert "development-implementation" not in walk.launched
+
+
+def test_the_production_adapter_is_wired_at_the_composition_root(tmp_path):
+    chain = cd.build_chain(str(tmp_path / "state.json"), notifier_command="",
+                           engine_path="/pinned/chain_development.py")
+
+    assert isinstance(chain.environment_check, cd.GateEnvironmentCheck)
+
+
+# --- the production adapter, over real repositories ----------------------------------------
+
+from chain import Files as RealFiles  # noqa: E402
+from test_gate_suite import (CI_FILE, CI_NONE, CI_TEXT, raw_input, source)  # noqa: E402
+
+CORE_DIRECTORY = str(Path(cd.__file__).resolve().parent.parent)
+INPUTS_HEADING = "## Gate environment inputs"
+SUITE_CARD = "**Test command:** python3 -m pytest -q"
+PLAN_UNDER_TEST = "# Tech Lead instruction\n\n{section}\n## Project layout\n\nlayout\n"
+
+
+def _plan_with(raw=None, *, fence="```json", body=None, copies=1) -> str:
+    text = body if body is not None else json.dumps(raw)
+    section = f"{INPUTS_HEADING}\n\n{fence}\n{text}\n```\n"
+    return PLAN_UNDER_TEST.format(section="\n".join([section] * copies))
+
+
+def _commit_all(directory: Path, message: str) -> None:
+    _git(directory, "add", "-A")
+    _git(directory, "commit", "-q", "--allow-empty", "-m", message)
+
+
+def _write_tree(root: Path, files: dict[str, str]) -> None:
+    for relative, text in files.items():
+        target = root / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(text)
+
+
+def _primary(files: dict[str, str] | None) -> dict[str, str]:
+    return {"README.md": "x\n"} if files is None else files
+
+
+class RealChange:
+    """A change over real repositories: the instance with its worktree for the key, and the
+    product in it at `where`, or in a repository of its own (`external`)."""
+
+    def __init__(self, tmp_path: Path, where: str, *, worktree_files: dict[str, str],
+                 primary_files: dict[str, str] | None = None, command: str = SUITE_CARD):
+        self.instance = tmp_path / "instance"
+        self.instance.mkdir(parents=True)
+        _git(self.instance, "init", "-q", "-b", "main")
+        self.external = where == "external"
+        if self.external:
+            self.product_repo = tmp_path / "product"
+            self.product_repo.mkdir(parents=True)
+            _git(self.product_repo, "init", "-q", "-b", "main")
+            _write_tree(self.product_repo, _primary(primary_files))
+            _commit_all(self.product_repo, "root")
+            declared, self.inside = str(self.product_repo), ""
+        else:
+            declared, self.inside = where, ("" if where == "." else where)
+            _write_tree(self.instance / self.inside, _primary(primary_files))
+        card = f"# Project Context\n\n**Product path:** {declared}\n{command}\n"
+        _write_tree(self.instance, {f"system/projects/{PROJECT}/project.md": card})
+        _commit_all(self.instance, "root")
+        self.worktree = self.instance / ".worktrees" / KEY
+        _git(self.instance, "worktree", "add", "-q", "-b", KEY, str(self.worktree))
+        if self.external:
+            self.product_tree = self.product_repo / ".worktrees" / KEY
+            _git(self.product_repo, "worktree", "add", "-q", "-b", KEY, str(self.product_tree))
+            self.product_root = self.product_tree
+        else:
+            self.product_root = self.worktree / self.inside
+        _write_tree(self.product_root, worktree_files)
+        _commit_all(self.product_root if self.external else self.worktree, "product files")
+        self.change = cd.ChangeLayout(str(self.instance), PROJECT, KEY)
+
+    def at(self, relative: str) -> str:
+        """A product file as the gate's sources name it: relative to the product's checkout."""
+        return f"{self.inside}/{relative}" if self.inside and not self.external else relative
+
+    def linux_ci(self) -> dict:
+        return {"finding": "readable", "runners": [{
+            "platform": "linux",
+            "source": source(self.at(CI_FILE), "runs-on: ubuntu-latest")}]}
+
+    def plan(self, text: str | None) -> None:
+        path = Path(self.change.branch_change_folder) / "tl_instruction.md"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        if text is None:
+            path.unlink(missing_ok=True)
+        else:
+            path.write_text(text)
+
+    def check(self, **adapter):
+        return cd.GateEnvironmentCheck(files=RealFiles(), **adapter).check(
+            self.change, CORE_DIRECTORY)
+
+    def commit_to_main(self, relative: str, text: str) -> None:
+        """A product file committed to the product repository's `main` alone: the change's branch,
+        its worktree and its plan stay as they were."""
+        repo = self.product_repo if self.external else self.instance
+        target = repo / self.inside / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(text)
+        _git(repo, "add", str(target))
+        _git(repo, "commit", "-q", "-m", f"main records {relative}")
+
+
+LAYOUTS = ["in-repo-root", "in-repo-nested", "external"]
+WHERE = {"in-repo-root": ".", "in-repo-nested": "apps/widget", "external": "external"}
+PRODUCT_FILES = {CI_FILE: CI_TEXT, "src/app.py": "print()\n"}
+
+
+def _undeclared_python(ci, **changes) -> dict:
+    raw = raw_input(ci=ci, languages=("python",), candidates=[], guest=None, **changes)
+    raw["languages"] = {"declared": None, "invoked": None}
+    return raw
+
+
+@pytest.mark.parametrize("layout_name", LAYOUTS)
+def test_real_environment_adapter_reads_the_products_change_worktree(tmp_path, layout_name):
+    # The primary checkout holds none of the product's CI or sources; only the change's worktree
+    # does, so an answer drawn from the primary checkout could not name python.
+    change = RealChange(tmp_path, WHERE[layout_name], worktree_files=PRODUCT_FILES)
+    change.plan(_plan_with(_undeclared_python(change.linux_ci())))
+
+    owed = change.check()
+
+    assert owed.answer is gate_suite.CheckAnswer.OWES_DECISION
+    assert "no container default exists for python" in owed.detail
+    assert owed.status == 1
+
+    change.plan(_plan_with(raw_input(ci=CI_NONE, languages=("python",), candidates=[],
+                                     guest=None)))
+    resolved = change.check()
+    assert resolved.answer is gate_suite.CheckAnswer.RESOLVES
+    assert resolved.detail == (
+        "owners-mac: the product has no CI, so its gates run on the owner's Mac")
+
+
+@pytest.mark.parametrize("layout_name", LAYOUTS)
+def test_a_decision_changed_after_planning_is_reopened_and_continues(tmp_path, layout_name):
+    held = "The gates run on the owner's Mac."
+    change = RealChange(tmp_path, WHERE[layout_name],
+                        worktree_files={**PRODUCT_FILES, "docs/nfdr.md": f"## 8\n{held}\n"})
+    override = {"environment": "owners-mac", "source": source(change.at("docs/nfdr.md"), held)}
+    change.plan(_plan_with(raw_input(ci=change.linux_ci(), languages=("python",),
+                                     candidates=[], guest=None, override=override)))
+
+    assert change.check().answer is gate_suite.CheckAnswer.RESOLVES
+
+    (change.product_root / "docs/nfdr.md").write_text("## 8\nNothing is recorded.\n")
+    # `main` holds a section eight with no declaration, so the branch's frozen quote still decides.
+    change.commit_to_main("docs/nfdr.md", NFDR_SECTION_SEVEN + "## 8\nNothing is recorded.\n")
+    after = change.check()
+
+    assert after.answer is gate_suite.CheckAnswer.DOES_NOT_RESOLVE
+    assert after.status == 1
+    assert after.detail == (
+        "the override in the product's decision files cannot be used, because its source, "
+        f"{change.at('docs/nfdr.md')}, does not contain the text the input quotes from it")
+    check, processes = FakeEnvironmentCheck(after), FakeProcesses()
+    files, git = _entering_at("implementation", cd.DEVELOPMENT_STEPS)
+    start(build(FakeFiles(files), git=git, processes=processes, environment_check=check))
+    assert processes.launched[-1][1] == "development-implementation"
+
+
+# --- the walk reads the decision the product's main branch holds now ------------------------
+
+EMBEDDED_DECISION = (
+    "- **QC-7:** The product's gates run on the owner's Mac — `environment: owners-mac`, the "
+    "owner's call when the packet defaults did not resolve. Verified by: the gate check answers "
+    "`resolves`.")
+NFDR_SECTION_SEVEN = "# Product\n\n## 7. Quality\n\n- **QC-0:** nothing to run\n\n"
+NFDR_WITH_DECISION = (NFDR_SECTION_SEVEN + "## 8. Operational constraints\n\n"
+                      + EMBEDDED_DECISION + "\n")
+RESOLVES_ON_MAIN = ("owners-mac: the product's decision files choose the owner's Mac for its "
+                    "gates")
+GATE_LINE_ON_MAIN = "Environment: owners-mac — product's decision"
+
+
+class RealCheck:
+    """The production check over a real change, handed to the walk as its check port. The walk's
+    own change layout is a fake disk; the check reads the real repositories."""
+
+    def __init__(self, change: RealChange, **adapter):
+        self.change, self.adapter, self.calls = change, adapter, []
+
+    def check(self, change, core_dir):
+        self.calls.append((change, core_dir))
+        return self.change.check(**self.adapter)
+
+
+class ScriptedRecord:
+    """A read-at-revision collaborator that answers each ask from the next script entry: a text,
+    `None` for a file `main` does not hold, or an exception for a read that fails."""
+
+    def __init__(self, *script):
+        self.script, self.asks = list(script), 0
+        self.calls: list[tuple] = []
+
+    def main_revision(self, repository: str):
+        self.calls.append(("main", repository))
+        self.asks += 1
+        if isinstance(self.script[self.asks - 1], BaseException):
+            raise self.script[self.asks - 1]
+        return f"rev{self.asks}"
+
+    def file_at(self, repository: str, revision: str, path: str):
+        self.calls.append(("file", repository, revision, path))
+        return self.script[self.asks - 1]
+
+
+class IssuingProcesses:
+    """The gate's execution collaborators: a suite issue answers a chosen status and records its
+    argv and directory. Nothing is started."""
+
+    def __init__(self, status: int = 3):
+        self.status, self.issued, self.probes = status, [], []
+
+    def probe(self, argv):
+        self.probes.append(list(argv))
+        return gate_suite.Completed(0, "", "")
+
+    def issue(self, argv, *, cwd):
+        self.issued.append((list(argv), cwd))
+        return gate_suite.Completed(self.status, "", "")
+
+
+class NoGuestLock:
+    @contextlib.contextmanager
+    def hold(self):
+        yield
+
+
+@pytest.mark.parametrize("layout_name", LAYOUTS)
+def test_walk_resumes_after_main_records_environment(tmp_path, layout_name):
+    change = RealChange(tmp_path, WHERE[layout_name], worktree_files=PRODUCT_FILES)
+    plan = _plan_with(_undeclared_python(change.linux_ci()))
+    change.plan(plan)
+    plan_bytes = (Path(change.change.branch_change_folder) / "tl_instruction.md").read_bytes()
+    check = RealCheck(change)
+    walk = Guarded(cd.DEVELOPMENT_STEPS, "start", check)
+
+    owed = change.check()
+    assert owed.answer is gate_suite.CheckAnswer.OWES_DECISION
+    assert walk.state["ended"] == "halted"
+    assert walk.state["ended_reason"] == (
+        "stopped at implementation: " + DECISION_OWED.format(detail=owed.detail))
+    assert "development-implementation" not in walk.launched
+
+    change.commit_to_main("docs/nfdr.md", NFDR_WITH_DECISION)
+    start(walk.engine())
+
+    resolved = change.check()
+    assert resolved.answer is gate_suite.CheckAnswer.RESOLVES
+    assert resolved.detail == RESOLVES_ON_MAIN
+    assert walk.state["ended"] is None
+    assert walk.launched[-1] == "development-implementation"
+    assert "environment-decision-owed" not in json.dumps(walk.state)
+    assert "environment-check-unavailable" not in json.dumps(walk.state)
+    assert (Path(change.change.branch_change_folder) / "tl_instruction.md").read_bytes() \
+        == plan_bytes
+    assert not (change.product_root / "docs/nfdr.md").exists()
+
+    # The gates read the same decision at their own asks: real acquisition and resolution, with
+    # only the execution handed in, and no owner's ask.
+    raw = _undeclared_python(change.linux_ci())
+    for gate in ("developer", "code-integrity"):
+        processes, out, err = IssuingProcesses(status=3), io.StringIO(), io.StringIO()
+        host = gate_suite.Host(
+            files=gate_suite.build_host().files,
+            contract=lambda worktree, project, key: cd._real_contract(change.change),
+            processes=processes, new_token=lambda: "token", core_root=Path(CORE_DIRECTORY),
+            guest_lock=NoGuestLock(), record_reader=gate_suite.GitRecordReader())
+        result = gate_suite.run_gate(
+            gate=gate, worktree=change.change.worktree, project=PROJECT, key=KEY, inputs=raw,
+            owners_ask=False, host=host, out=out, err=err)
+        assert result.environment_line == GATE_LINE_ON_MAIN
+        assert out.getvalue().splitlines()[0] == GATE_LINE_ON_MAIN
+        assert result.suite_issued and result.status == 3
+        assert result.command == "python3 -m pytest -q"
+        assert result.cwd == str(change.product_root if change.external else change.worktree)
+        assert [cwd for _, cwd in processes.issued] == [result.cwd]
+
+
+NO_DECISION_ON_MAIN = {
+    "no decision file": None,
+    "no section eight": NFDR_SECTION_SEVEN,
+    "section eight without a declaration": (NFDR_SECTION_SEVEN
+                                            + "## 8. Operational constraints\n\nNothing yet.\n"),
+}
+
+
+@pytest.mark.parametrize("held", sorted(NO_DECISION_ON_MAIN))
+@pytest.mark.parametrize("layout_name", LAYOUTS)
+def test_walk_without_a_current_decision_keeps_its_owed_stop(tmp_path, layout_name, held):
+    change = RealChange(tmp_path, WHERE[layout_name], worktree_files=PRODUCT_FILES)
+    change.plan(_plan_with(_undeclared_python(change.linux_ci())))
+    if NO_DECISION_ON_MAIN[held] is not None:
+        change.commit_to_main("docs/nfdr.md", NO_DECISION_ON_MAIN[held])
+    owed = change.check()
+    stop = "stopped at implementation: " + DECISION_OWED.format(detail=owed.detail)
+
+    walk = Guarded(cd.DEVELOPMENT_STEPS, "start", RealCheck(change))
+    assert walk.state["ended_reason"] == stop
+    again = walk.engine()
+    start(again)
+
+    assert owed.answer is gate_suite.CheckAnswer.OWES_DECISION
+    assert "no container default exists for python" in owed.detail
+    assert walk.state["ended_reason"] == stop
+    assert "development-implementation" not in walk.launched
+    assert len(walk.check.calls) == 2
+
+
+def test_walk_refreshes_record_context_on_each_ask(tmp_path):
+    change = RealChange(tmp_path, ".", worktree_files=PRODUCT_FILES)
+    change.plan(_plan_with(_undeclared_python(change.linux_ci())))
+    plan_bytes = (Path(change.change.branch_change_folder) / "tl_instruction.md").read_bytes()
+    read_failure = gate_suite.RecordReadFailure("the object store is damaged")
+    reader = ScriptedRecord(None, NFDR_WITH_DECISION, NFDR_WITH_DECISION, read_failure,
+                            NFDR_SECTION_SEVEN)
+
+    first = change.check(record_reader=reader)
+    second = change.check(record_reader=reader)
+    third = change.check(record_reader=reader)
+    with pytest.raises(cd.EnvironmentCheckUnavailable) as unavailable:
+        change.check(record_reader=reader)
+    fifth = change.check(record_reader=reader)
+
+    assert [first.answer, second.answer, third.answer, fifth.answer] == [
+        gate_suite.CheckAnswer.OWES_DECISION, gate_suite.CheckAnswer.RESOLVES,
+        gate_suite.CheckAnswer.RESOLVES, gate_suite.CheckAnswer.OWES_DECISION]
+    assert second.detail == RESOLVES_ON_MAIN
+    assert reader.asks == 5
+    assert str(unavailable.value) == (
+        "the gate tool could not make the check: the product's docs/nfdr.md cannot be read from "
+        f"the main branch of {change.instance}: the object store is damaged")
+    assert (Path(change.change.branch_change_folder) / "tl_instruction.md").read_bytes() \
+        == plan_bytes
+
+
+def test_walks_stored_owners_ask_bypasses_record_acquisition(tmp_path):
+    change = RealChange(tmp_path, ".", worktree_files=PRODUCT_FILES)
+    change.plan(_plan_with(_undeclared_python(change.linux_ci())))
+    unreadable = ScriptedRecord(gate_suite.RecordReadFailure("unreadable"))
+
+    asked = Guarded(cd.DEVELOPMENT_STEPS, "start", RealCheck(change, record_reader=unreadable),
+                    gate_owners_mac=True)
+
+    assert asked.state["ended"] is None
+    assert asked.launched[-1] == "development-implementation"
+    assert asked.check.calls == [] and unreadable.calls == []
+
+    # An ambient variable of the engine's own environment is no ask: the record is read, fails,
+    # and the walk stops on it.
+    disk, git = _entering_at("implementation", cd.DEVELOPMENT_STEPS)
+    check, processes = RealCheck(change, record_reader=unreadable), FakeProcesses()
+    files = FakeFiles(disk)
+    start(build(files, git=git, processes=processes, environment_check=check,
+                environ={"PATH": "/usr/bin", ASK_VARIABLE: "1"}))
+    assert "environment-check-unavailable" in saved(files)["ended_reason"]
+    assert processes.launched == []
+    assert unreadable.asks == 1
+
+
+
+UNAVAILABLE_PLANS = {
+    "no plan file": (None, 'the change\'s plan has no "Gate environment inputs" section'),
+    "no section": ("# Plan\n\nnothing\n",
+                   'the change\'s plan has no "Gate environment inputs" section'),
+    "no block": (PLAN_UNDER_TEST.format(section=f"{INPUTS_HEADING}\n\nprose only\n"),
+                 'the change\'s plan holds no JSON block under "Gate environment inputs"'),
+    "two blocks": (PLAN_UNDER_TEST.format(
+        section=f"{INPUTS_HEADING}\n\n```json\n{{}}\n```\n\n```json\n{{}}\n```\n"),
+        'the change\'s plan holds more than one JSON block under "Gate environment inputs"'),
+    "two sections": (_plan_with({}, copies=2),
+                     'the change\'s plan holds more than one JSON block under '
+                     '"Gate environment inputs"'),
+    "not json": (_plan_with(body="not json"),
+                 'the block under "Gate environment inputs" in the change\'s plan is not JSON: '
+                 "Expecting value: line 1 column 1 (char 0)"),
+}
+
+
+@pytest.mark.parametrize("name", sorted(UNAVAILABLE_PLANS))
+def test_unavailable_planning_evidence_is_named_exactly(tmp_path, name):
+    plan, problem = UNAVAILABLE_PLANS[name]
+    change = RealChange(tmp_path, ".", worktree_files=PRODUCT_FILES)
+    change.plan(plan)
+
+    with pytest.raises(cd.EnvironmentCheckUnavailable) as raised:
+        change.check()
+
+    assert str(raised.value) == problem
+
+
+def test_a_heading_inside_a_fence_is_not_a_section(tmp_path):
+    change = RealChange(tmp_path, ".", worktree_files=PRODUCT_FILES)
+    change.plan(f"# Plan\n\n```\n{INPUTS_HEADING}\n```\n")
+
+    with pytest.raises(cd.EnvironmentCheckUnavailable, match="has no .Gate environment inputs"):
+        change.check()
+
+
+def test_a_plan_in_the_templates_shape_holds_one_block_before_its_tasks(tmp_path):
+    # `tl_instruction_template.md` puts the section straight before the task blocks, with no `## `
+    # heading between, and `development-plan` carries a design hint into a task as a fenced
+    # `# Hint:` block. The section's one JSON block is still the only one under it.
+    change = RealChange(tmp_path, ".", worktree_files=PRODUCT_FILES)
+    raw = raw_input(ci=CI_NONE, languages=("python",), candidates=[], guest=None)
+    change.plan(
+        f"# Tech Lead instruction\n\n{INPUTS_HEADING}\n\n```json\n{json.dumps(raw)}\n```\n\n"
+        "### Task 1: Module (`module.py`)\n\n#### Implement\n\nInfer from failing tests.\n\n"
+        "```text\n# Hint:\nKeep policy in one place.\n```\n\n"
+        "#### Verification gate\n\nRun:\n\n```sh\npython3 -m pytest -q\n```\n\n"
+        "### Task 2: Prose (`README.md`)\n\n```text\nan example\n```\n")
+
+    answer = change.check()
+
+    assert answer.answer is gate_suite.CheckAnswer.RESOLVES
+    assert answer.detail == (
+        "owners-mac: the product has no CI, so its gates run on the owner's Mac")
+
+
+def test_unreadable_paths_tracked_files_and_a_non_object_are_named(tmp_path):
+    change = RealChange(tmp_path, ".", worktree_files=PRODUCT_FILES)
+    change.plan(_plan_with(["not", "an", "object"]))
+    with pytest.raises(cd.EnvironmentCheckUnavailable) as raised:
+        change.check()
+    assert str(raised.value) == "the gate tool could not make the check: input must be an object"
+
+    (change.worktree / f"system/projects/{PROJECT}/project.md").unlink()
+    with pytest.raises(cd.EnvironmentCheckUnavailable) as raised:
+        change.check()
+    assert str(raised.value).startswith("the product's paths cannot be resolved: ")
+
+    missing = RealChange(tmp_path / "second", "apps/absent", worktree_files={},
+                         primary_files={})
+    missing.plan(_plan_with({}))
+    with pytest.raises(cd.EnvironmentCheckUnavailable) as raised:
+        missing.check()
+    assert str(raised.value).startswith("the product's tracked files cannot be listed: ")
+
+
+def test_an_explicit_empty_object_is_evidence(tmp_path):
+    # A card with no suite needs no environment, so `{}` resolves without reading any of it.
+    none_card = RealChange(tmp_path / "none", ".", worktree_files=PRODUCT_FILES,
+                           command="**Test command:** none")
+    none_card.plan(_plan_with({}))
+    assert none_card.check().answer is gate_suite.CheckAnswer.RESOLVES
+
+    # A card with a suite and no CI evidence is the real check's own answer, never "unavailable".
+    suite = RealChange(tmp_path / "suite", ".", worktree_files=PRODUCT_FILES)
+    suite.plan(_plan_with({}))
+    assert suite.check().answer is gate_suite.CheckAnswer.DOES_NOT_RESOLVE
+
+
+def test_an_empty_tracked_inventory_is_a_valid_snapshot(tmp_path):
+    change = RealChange(tmp_path, "apps/empty", worktree_files={}, primary_files={})
+    # The CI file is readable but untracked, so the inventory stays empty and nothing is inferred.
+    _write_tree(change.product_root, {CI_FILE: CI_TEXT})
+    change.plan(_plan_with(_undeclared_python(change.linux_ci())))
+
+    answer = change.check()
+
+    assert answer.answer is gate_suite.CheckAnswer.OWES_DECISION
+    assert "no language was resolved" in answer.detail
+
+
+# --- a body another change left behind cannot close this one ------------------------------------
+# The kasanari shape, through the real connection: A's gate run is made by the real gate CLI over a
+# fake suite process, its record is kept by the real store, and the closing commit is attempted by
+# the real builder in a real repository. The chain then reads that repository's real history; only
+# its disk, its processes and its notifier stay scripted around the commit.
+
+import subprocess  # noqa: E402
+
+import commit_builder  # noqa: E402
+
+CORE_ROOT = Path(gate_suite.__file__).resolve().parent.parent
+REAL_GATE_PROJECT = "tracker"
+GATE_INPUTS = {
+    "languages": {"declared": [], "invoked": None},
+    "ci": {"finding": "none", "inventory": "ls -d .github .gitlab-ci.yml: no such file"},
+    "decisions": {"override": None, "amd64": None},
+    "candidates": [],
+    "guest": None,
+}
+STALE_BODY = (f"Suite: red\n\nLanguage resolution:\n- python — declared in project.md\n\n"
+              f"{ENVIRONMENT_LINE}\n\nFailing: tests/test_b.py::test_two — task 2\n"
+              f"Deferred: task 2 — the blocked case — system/projects/{PROJECT}/journey/x.md\n")
+GREEN_BODY = ("Suite: green\n\nLanguage resolution:\n- python — declared in project.md\n\n"
+              f"{ENVIRONMENT_LINE}\n")
+
+
+class FakeSuiteProcesses:
+    """The gate's process port with a suite that passes; nothing real starts."""
+
+    def probe(self, argv):
+        return gate_suite.Completed(0, "", "")
+
+    def issue(self, argv, *, cwd):
+        return gate_suite.Completed(0, "tests/test_a.py::test_one PASSED\n5 passed\n", "")
+
+
+class RealRepoGit(FakeGit):
+    """The chain's git questions, answered from a real repository for the instance."""
+
+    def __init__(self, repo: Path):
+        super().__init__()
+        self.repo = str(repo)
+
+    def commits_ahead(self, repo: str, base: str, branch: str):
+        return cd.Git().commits_ahead(self.repo, base, branch)
+
+    def commit_body(self, repo: str, sha: str) -> str:
+        return cd.Git().commit_body(self.repo, sha)
+
+
+def _repo_git(repo: Path, *args: str) -> str:
+    return subprocess.run(["git", "-C", str(repo), *args], capture_output=True, text=True,
+                          check=True).stdout
+
+
+def _change_checkout(tmp_path: Path) -> Path:
+    """A real repository with `main` and the change branch, holding the project's card."""
+    repo = tmp_path / "instance"
+    repo.mkdir()
+    for step in (["init", "-q", "-b", "main"], ["config", "user.name", "Test"],
+                 ["config", "user.email", "test@example.com"],
+                 ["config", "commit.gpgsign", "false"]):
+        _repo_git(repo, *step)
+    card = repo / "system" / "projects" / REAL_GATE_PROJECT / "project.md"
+    card.parent.mkdir(parents=True)
+    card.write_text("**Product path:** .claude\n**Test command:** pytest -q\n")
+    (repo / "kensaiapp.md").write_text("# instance\n")
+    _repo_git(repo, "add", "-A")
+    _repo_git(repo, "commit", "-q", "-m", "seed")
+    _repo_git(repo, "checkout", "-q", "-b", KEY)
+    return repo
+
+
+def _run_the_gate(repo: Path, store, tmp_path: Path, gate: str = "developer") -> int:
+    inputs = tmp_path / "gate-inputs.json"
+    inputs.write_text(json.dumps(GATE_INPUTS))
+    paths = {"kind": "relative", "product_worktree": str(repo), "pipeline_worktree": str(repo),
+             "code_worktree": str(repo), "product_repo": str(repo), "product_path": ".claude",
+             "instance_worktree": str(repo)}
+    host = gate_suite.Host(files=gate_suite._RealFiles(), contract=lambda *_: paths,
+                           processes=FakeSuiteProcesses(), new_token=lambda: "tok",
+                           core_root=CORE_ROOT, guest_lock=None, run_records=store)
+    return gate_suite.main(
+        ["run", "--worktree", str(repo), "--project", REAL_GATE_PROJECT, "--key", KEY,
+         "--gate", gate, "--inputs", str(inputs)],
+        host=host, stdout=io.StringIO(), stderr=io.StringIO())
+
+
+def _attempt_the_closing_commit(repo: Path, store, route: str, body: str, where: Path) -> int:
+    source = where / "shared-body.txt"
+    source.write_text(body)
+    body_args = ["--body-file", str(source)] if route == "file" else ["--body", source.read_text()]
+    return commit_builder.main(
+        ["--repo", str(repo), "commit", "--subject", MARKER[1], "--actor", "developer",
+         "--directional", "Michi: none — close the change", "--surface", "Claude Code",
+         "--co-authored-by", "Claude Sonnet 5.5 <noreply@anthropic.com>", "--allow-empty",
+         *body_args], gate_run_records=store)
+
+
+def _settle(repo: Path):
+    walk = Walk(through="plan")
+    walk.git = RealRepoGit(repo)
+    land_files = walk.files
+    walk.advance("implementation")
+    return walk, land_files
+
+
+@pytest.mark.parametrize("route", ["file", "inline"])
+def test_another_changes_stale_red_body_cannot_close_this_change(tmp_path, route):
+    repo = _change_checkout(tmp_path)
+    store = gate_suite.FileRunRecords(tmp_path / "gate-runs")
+    assert _run_the_gate(repo, store, tmp_path) == 0
+    shared = tmp_path / "shared"
+    shared.mkdir()
+    history_before = _repo_git(repo, "log", "--format=%H %s", f"main..{KEY}")
+
+    exit_code = _attempt_the_closing_commit(repo, store, route, STALE_BODY, shared)
+
+    assert exit_code != 0
+    assert _repo_git(repo, "log", "--format=%H %s", f"main..{KEY}") == history_before
+    assert "implementation complete" not in _repo_git(repo, "log", "--format=%s", f"main..{KEY}")
+    assert (shared / "shared-body.txt").read_text() == STALE_BODY
+    walk, _ = _settle(repo)
+    assert "red-suite" not in (walk.state["ended_reason"] or "")
+    assert walk.state["suite"] != "red"
+
+
+@pytest.mark.parametrize("route", ["file", "inline"])
+def test_matching_green_body_really_closes_the_same_chain_setup(tmp_path, route):
+    repo = _change_checkout(tmp_path)
+    store = gate_suite.FileRunRecords(tmp_path / "gate-runs")
+    assert _run_the_gate(repo, store, tmp_path) == 0
+    shared = tmp_path / "shared"
+    shared.mkdir()
+
+    exit_code = _attempt_the_closing_commit(repo, store, route, GREEN_BODY, shared)
+
+    assert exit_code == 0
+    assert _repo_git(repo, "log", "--format=%s", f"main..{KEY}").splitlines() == [MARKER[1]]
+    assert (shared / "shared-body.txt").exists() is (route == "inline")
+    walk, _ = _settle(repo)
+    assert walk.state["suite"] == "green" and walk.state["ended"] is None
+    assert walk.skills_launched[-1] == "development-code-integrity"

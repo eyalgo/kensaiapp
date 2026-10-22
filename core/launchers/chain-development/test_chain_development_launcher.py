@@ -493,7 +493,10 @@ def test_this_launcher_spawns_no_run_holds_no_keep_awake_and_tags_nothing():
 
     assert "caffeinate" not in code
     assert "claude --bg" not in code and "claude -p " not in code
-    assert not any(line.strip().startswith("instrument_run") for line in _code_lines())
+    assert not any(
+        line.strip() == "run_telemetry" or line.strip().startswith("run_telemetry ")
+        for line in _code_lines()
+    )
 
 
 def test_launcher_is_executable():

@@ -1,8 +1,10 @@
-"""Tests for `provenance_test_support.py` — the helper every instrumented launcher's suite calls to
-prove its own `instrument_run` call hands over the four provenance keys (CP-229, CP-230).
+"""Tests for `provenance_test_support.py` — the helpers every instrumented launcher's suite calls
+to read the provenance a launch stamped, and to run a launcher from an isolated host.
 
-A helper whose one job is to fail on a dropped key has to be shown failing on one, on a synthetic
-`launcher.sh` per case, so the helper is proved apart from the launchers it is pointed at.
+The call check itself is `assert_run_telemetry_call_carries_provenance` (CP-229, CP-230), kept in
+`core/tools/launcher_telemetry_test_support.py`. A check whose one job is to fail on a dropped key
+has to be shown failing on one, on a synthetic `launcher.sh` per case, so it is proved apart from
+the launchers it is pointed at.
 """
 
 from __future__ import annotations
@@ -11,17 +13,20 @@ from pathlib import Path
 
 import pytest
 
+from launcher_telemetry_test_support import assert_run_telemetry_call_carries_provenance
 from provenance_test_support import (
+    HOST_TOOLS,
     PROVENANCE_KEYS,
-    assert_instrument_run_call_carries_provenance,
     assert_provenance_stamped,
     isolated_host,
     place_own_skill,
     telemetry_pairs,
 )
 
+_REAL_TOOLS = Path(__file__).resolve().parents[1] / "tools"
+
 _FULL_CALL = (
-    '  instrument_run skill="$skill" provider=claude model="$run_model" '
+    '  run_telemetry skill="$skill" provider=claude model="$run_model" '
     'effort="$run_effort" source="$run_source"'
 )
 
@@ -32,12 +37,12 @@ def _launcher(tmp_path: Path, *lines: str) -> Path:
     return path
 
 
-def test_the_four_keys_are_the_ones_instrument_run_stamps():
+def test_the_four_keys_are_the_ones_run_telemetry_stamps():
     assert PROVENANCE_KEYS == ("provider", "model", "effort", "source")
 
 
 def test_a_call_line_carrying_all_four_keys_passes(tmp_path):
-    assert_instrument_run_call_carries_provenance(_launcher(tmp_path, _FULL_CALL))
+    assert_run_telemetry_call_carries_provenance(_launcher(tmp_path, _FULL_CALL))
 
 
 @pytest.mark.parametrize("dropped", PROVENANCE_KEYS)
@@ -46,19 +51,19 @@ def test_a_call_missing_any_one_of_the_four_keys_fails(tmp_path, dropped):
     launcher = _launcher(tmp_path, call)
 
     with pytest.raises(AssertionError, match=rf"\b{dropped}\b"):
-        assert_instrument_run_call_carries_provenance(launcher)
+        assert_run_telemetry_call_carries_provenance(launcher)
 
 
 def test_a_comment_naming_all_four_does_not_satisfy_a_bare_call(tmp_path):
     launcher = _launcher(
         tmp_path,
-        "# instrument_run skill=x provider=claude model=m effort=e source=s",
-        "  # instrument_run provider= model= effort= source=",
-        "  instrument_run",
+        "# run_telemetry skill=x provider=claude model=m effort=e source=s",
+        "  # run_telemetry provider= model= effort= source=",
+        "  run_telemetry",
     )
 
     with pytest.raises(AssertionError):
-        assert_instrument_run_call_carries_provenance(launcher)
+        assert_run_telemetry_call_carries_provenance(launcher)
 
 
 def test_a_trailing_comment_on_the_call_line_does_not_supply_a_key(tmp_path):
@@ -66,11 +71,11 @@ def test_a_trailing_comment_on_the_call_line_does_not_supply_a_key(tmp_path):
     is a comment too — the same failure CP-230 names, one column to the right."""
     launcher = _launcher(
         tmp_path,
-        '  instrument_run provider=claude model="$m" effort="$e"   # source= is stamped elsewhere',
+        '  run_telemetry provider=claude model="$m" effort="$e"   # source= is stamped elsewhere',
     )
 
     with pytest.raises(AssertionError, match=r"\bsource\b"):
-        assert_instrument_run_call_carries_provenance(launcher)
+        assert_run_telemetry_call_carries_provenance(launcher)
 
 
 def test_a_key_that_only_ends_in_a_key_name_does_not_count(tmp_path):
@@ -78,50 +83,63 @@ def test_a_key_that_only_ends_in_a_key_name_does_not_count(tmp_path):
     it for one."""
     launcher = _launcher(
         tmp_path,
-        '  instrument_run provider=claude run_model="$m" effort="$e" source="$s"',
+        '  run_telemetry provider=claude run_model="$m" effort="$e" source="$s"',
     )
 
     with pytest.raises(AssertionError, match=r"\bmodel\b"):
-        assert_instrument_run_call_carries_provenance(launcher)
+        assert_run_telemetry_call_carries_provenance(launcher)
 
 
 def test_keys_on_a_backslash_continued_line_fail(tmp_path):
     launcher = _launcher(
         tmp_path,
-        '  instrument_run skill="$skill" \\',
+        '  run_telemetry skill="$skill" \\',
         '    provider=claude model="$run_model" effort="$run_effort" source="$run_source"',
     )
 
     with pytest.raises(AssertionError):
-        assert_instrument_run_call_carries_provenance(launcher)
+        assert_run_telemetry_call_carries_provenance(launcher)
 
 
 def test_a_file_with_no_call_fails_naming_the_file(tmp_path):
     launcher = _launcher(tmp_path, 'echo "nothing is instrumented here"')
 
     with pytest.raises(AssertionError, match=str(launcher)):
-        assert_instrument_run_call_carries_provenance(launcher)
+        assert_run_telemetry_call_carries_provenance(launcher)
 
 
 def test_the_library_definition_and_source_lines_are_not_calls(tmp_path):
     launcher = _launcher(
         tmp_path,
-        'INSTRUMENT_LIB="$CORE_DIR/tools/instrument_run.sh"',
-        '  source "$INSTRUMENT_LIB"',
-        'echo "instrument_run provider= model= effort= source="',
+        'TELEMETRY_LIB="$CORE_DIR/tools/run_telemetry.sh"',
+        '  source "$TELEMETRY_LIB"',
+        "run_telemetry() { :; }",
+        'echo "run_telemetry provider= model= effort= source="',
     )
 
-    with pytest.raises(AssertionError, match="no instrument_run call"):
-        assert_instrument_run_call_carries_provenance(launcher)
+    with pytest.raises(AssertionError, match="no run_telemetry call"):
+        assert_run_telemetry_call_carries_provenance(launcher)
+
+
+def test_a_lookalike_name_is_not_a_call(tmp_path):
+    """Added beyond the instruction: a command that only begins with the helper's name is another
+    command, so a file holding only that has no call to check."""
+    launcher = _launcher(
+        tmp_path,
+        '  run_telemetry_extra provider=claude model="$m" effort="$e" source="$s"',
+    )
+
+    with pytest.raises(AssertionError, match="no run_telemetry call"):
+        assert_run_telemetry_call_carries_provenance(launcher)
 
 
 def test_every_call_in_the_file_is_held_to_the_rule(tmp_path):
     """Added beyond the instruction: a file with a second, bare call alongside a stamping one
     has a run that goes out unstamped."""
-    launcher = _launcher(tmp_path, _FULL_CALL, "  instrument_run")
+    launcher = _launcher(tmp_path, _FULL_CALL, "  run_telemetry")
 
     with pytest.raises(AssertionError):
-        assert_instrument_run_call_carries_provenance(launcher)
+        assert_run_telemetry_call_carries_provenance(launcher)
 
 
 # --- the printed Telemetry: line ---------------------------------------------------------------
@@ -197,6 +215,20 @@ def test_an_isolated_host_puts_the_launcher_under_its_own_core_beside_the_named_
     copied_tools = sorted(p.name for p in (tmp_path / "host" / "core" / "tools").iterdir())
     assert copied_tools == ["skill_path.py"]
     assert (tmp_path / "host" / "pin.json").is_file()
+
+
+def test_the_default_host_copies_each_requested_tool(tmp_path):
+    script = tmp_path / "src" / "demo" / "launcher.sh"
+    script.parent.mkdir(parents=True)
+    script.write_text("#!/usr/bin/env bash\n")
+    isolated_host(tmp_path / "host", script)
+
+    tools_dir = tmp_path / "host" / "core" / "tools"
+    assert sorted(p.name for p in tools_dir.iterdir()) == sorted(HOST_TOOLS)
+    assert all(
+        (tools_dir / tool).read_bytes() == (_REAL_TOOLS / tool).read_bytes()
+        for tool in HOST_TOOLS
+    )
 
 
 def test_an_own_skill_is_placed_where_the_skill_resolver_finds_it(tmp_path):

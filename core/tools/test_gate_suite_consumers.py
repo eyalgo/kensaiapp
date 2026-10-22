@@ -25,9 +25,18 @@ import chain_development as cd
 import gate_suite
 from test_gate_suite import (
     CARD_COMMAND,
+    CHECK_INPUTS,
+    CHECK_PATHS,
+    CHECK_RECORD,
+    CHECK_TRACKED,
     CI_NONE,
     CI_UNREADABLE,
+    CheckHarness,
+    DOES_NOT,
+    forbidden_host,
+    OWES,
     PROJECT,
+    RESOLVES,
     WORKTREE,
     DASH,
     Harness,
@@ -38,6 +47,7 @@ from test_gate_suite import (
     mac_raw,
     raw_input,
     source,
+    stage_record,
 )
 
 CORE_ROOT = Path(__file__).resolve().parent.parent
@@ -81,6 +91,34 @@ def run_adopted(harness: Harness, label: str, gate: str, raw: dict | None = None
         harness.files.files[Path(INPUTS_FILE)] = json.dumps(raw)
     return gate_suite.main(adopted_argv(label, gate, path), host=harness.host,
                            stdout=harness.out, stderr=harness.err)
+
+
+_CHECK_BLOCK = re.compile(r"```sh\n(?P<body>[^`]*?gate_suite\.py\" check.*?)```", re.DOTALL)
+
+
+def check_argv() -> list[str]:
+    """The arguments the recipe's unlabelled check block passes to `gate_suite.py`, its placeholders
+    filled with the check harness's files and its output redirections dropped."""
+    found = _CHECK_BLOCK.search(RECIPE.read_text())
+    assert found, "the recipe has no unlabelled check block"
+    body = found["body"].replace("\\\n", " ")
+    values = {"<instance change worktree>": WORKTREE, "<project>": PROJECT, "<key>": "key1",
+              "<inputs file>": str(CHECK_INPUTS), "<paths file>": str(CHECK_PATHS),
+              "<tracked-files list>": str(CHECK_TRACKED),
+              "<decision-record file>": str(CHECK_RECORD)}
+    for placeholder, value in values.items():
+        body = body.replace(placeholder, value)
+    kept, skip = [], False
+    for token in shlex.split(body):
+        if skip:
+            skip = False
+        elif token in _REDIRECTS:
+            skip = True
+        else:
+            kept.append(token)
+    script = next(at for at, token in enumerate(kept) if token.endswith("/tools/gate_suite.py"))
+    assert kept[script].startswith("<CORE>/")
+    return kept[script + 1:]
 
 
 ENVIRONMENTS = {
@@ -142,11 +180,12 @@ def test_shared_invocation_keeps_owner_authority_separate():
     run_adopted(harness, "invocation", "developer", raw)
     assert harness.first_line == "Environment: container — python:3.12, arm64"
 
+    # A recorded choice of the owner's Mac is the product's own decision, not an ask.
     named = raw_input(override={"environment": "owners-mac", "source": source()})
-    refused = Harness()
-    assert run_adopted(refused, "invocation", "developer", named) != 0
-    assert refused.first_line.startswith("Environment: unresolved — the product's decision files")
-    assert refused.processes.issued == []
+    recorded = Harness()
+    assert run_adopted(recorded, "invocation", "developer", named) == 0
+    assert recorded.first_line == "Environment: owners-mac — product's decision"
+    assert recorded.processes.issued == [(["sh", "-c", CARD_COMMAND], WORKTREE)]
 
     # The owner's ask is the block that carries the explicit flag, and it needs no sourced input.
     asked = Harness()
@@ -154,6 +193,29 @@ def test_shared_invocation_keeps_owner_authority_separate():
     assert asked.first_line == "Environment: owners-mac — owner's ask"
     assert asked.processes.probes == []
     assert asked.processes.issued == [(["sh", "-c", CARD_COMMAND], WORKTREE)]
+
+
+def test_shared_check_invocation_calls_the_real_check():
+    argv = check_argv()
+    assert argv[0] == "check"
+    assert "--owners-mac" not in argv and "--gate" not in argv
+    assert argv[argv.index("--decision-record") + 1] == str(CHECK_RECORD)
+    cases = (
+        (raw_input(languages=("python",), guest=None), 0, RESOLVES),
+        (raw_input(languages=("python", "shell"), guest=None), 1, OWES),
+        (raw_input(ci=CI_UNREADABLE, guest=None), 1, DOES_NOT),
+    )
+    for raw, status, answer in cases:
+        harness = CheckHarness()
+        stage_record(harness, None)
+        harness.stage(raw)
+
+        got = gate_suite.main(argv, check_host=harness.host, host_factory=forbidden_host,
+                              stdout=harness.out, stderr=harness.err)
+
+        assert got == status
+        assert harness.out.getvalue().startswith(f"{answer} {DASH} ")
+        assert harness.err.getvalue() == ""
 
 
 def test_the_recipe_names_only_the_two_sources_of_the_owners_ask():

@@ -11,7 +11,11 @@ launch, `nemawashi-pick`'s and `nemawashi-unpick`'s beside it,
 fixtures. Every shipped **Reporter:** is also held to the registry and to what it reads.
 
 Isolation: the real script at its real location, an independent `tmp_path` tree standing in for a
-whole instance, and stubs for `claude`, the watcher, the notifier and `caffeinate`.
+whole instance, and stubs for `claude`, the watcher, the notifier and `caffeinate`. The telemetry
+helper (`core/tools/run_telemetry.sh`) is the real one; the package command it calls is a neutral
+fixture installed under the case's own `HOME` (`install_telemetry_command`, shared with
+`core/tools/test_skill_launcher_telemetry.py`), because an isolated `HOME` cannot reach the
+installed package. The real package is held to the helper's contract in `test_run_telemetry.py`.
 """
 
 from __future__ import annotations
@@ -29,6 +33,14 @@ from pathlib import Path
 
 import pytest
 
+import launcher_telemetry_test_support as support
+from test_skill_launcher_telemetry import (
+    COMMAND_VARIABLE,
+    FIXTURE_COMMAND,
+    FIXTURE_MODE_VARIABLE,
+    fixture_calls,
+    install_telemetry_command,
+)
 from kensaiapp_launchers_conftest import (
     _PRINT_RUN_HEAD,
     assert_launch_recorded_its_identity,
@@ -223,6 +235,11 @@ def run(tmp_path, warm_executables, _session_pin):
     env["LAUNCH_SKILL_SKILLS_ROOT"] = str(tmp_path)
     env["HOME"] = str(home)
     env.pop("KENSAIAPP_NOTIFIER", None)
+    # The telemetry helper reaches the package command only through the case's own HOME, and the
+    # settings and cap it reads come from the case, never from the session that runs the suite.
+    for name in ("INSTRUMENT_RUN_SETTINGS", "KENSAIAPP_CONTEXT_CAP", FIXTURE_MODE_VARIABLE):
+        env.pop(name, None)
+    install_telemetry_command(home, env)
 
     def _run(*cli_args, script=_SCRIPT, cwd=None):
         return subprocess.run(
@@ -355,7 +372,7 @@ def _isolated_core(tmp_path_factory, *tools):
 # `.providers.toml` for: that file is untracked and absent from a fresh checkout.
 _DELIVERED_PROVIDERS = (_CORE_DIR.parent / ".providers.toml.example").read_text()
 _ISOLATED_TOOLS = ("skill_path.py", "detach_watcher.sh", "detach_process_watcher.sh",
-                   "instrument_run.sh", "watch_process.py")
+                   "run_telemetry.sh", "watch_process.py")
 
 
 def _instance_provider_file(run, text):
@@ -3078,3 +3095,332 @@ def test_readme_status_without_a_project_is_refused_before_anything_spawns(run):
 
 def test_readme_status_with_two_projects_is_refused_before_anything_spawns(run):
     _refused_readme_status(run, "unexpected argument", "some-project", "other-project")
+
+
+# --- telemetry on the package's turn-on (change 2026-10-21_skill-launcher-runs-on-turn-on) --------
+
+_SENTINEL_SETTINGS = json.dumps(
+    {"env": {"OTEL_EXPORTER_OTLP_ENDPOINT": "http://sentinel.invalid/v1"}}
+)
+_TELEMETRY_LINE = re.compile(r" {10}Telemetry: {4}(\S+) → (\S+)")
+_RUN_ID_PAIR = re.compile(r"kensai\.run_id=([0-9a-f-]{36})")
+_UNINSTRUMENTED = " — run uninstrumented)"
+
+
+def _launched_settings(run_):
+    """The merged settings document the one launched `claude` was handed."""
+    argv = run_.launched_argv()
+    assert argv.count("--settings") == 1, argv
+    return json.loads(Path(argv[argv.index("--settings") + 1]).read_text())
+
+
+def _the_telemetry_line(stdout):
+    lines = [line for line in stdout.splitlines() if "Telemetry:" in line]
+    assert len(lines) == 1, stdout
+    match = _TELEMETRY_LINE.fullmatch(lines[0])
+    assert match, repr(lines[0])
+    return match
+
+
+def _labels_of(call):
+    argv = call["argv"]
+    return dict(argv[i + 1].split("=", 1) for i, word in enumerate(argv) if word == "--label")
+
+
+def _uninstrumented_lines(stdout):
+    return [line for line in stdout.splitlines() if line.endswith(_UNINSTRUMENTED)]
+
+
+@pytest.mark.parametrize("mode", ["dry-run", "real"])
+def test_launcher_uses_the_real_helper_once_before_either_launch_mode(demo, mode):
+    _publish_endpoint(demo)
+
+    result = demo("demo", "some-project", *(["--dry-run"] if mode == "dry-run" else []))
+
+    assert result.returncode == 0, result.stderr
+    calls = fixture_calls(demo.home)
+    assert len(calls) == 1, calls
+    labels = _labels_of(calls[0])
+    assert {k: labels[k] for k in ("skill", "project", "provider", "source")} == {
+        "skill": "demo",
+        "project": "some-project",
+        "provider": "claude",
+        "source": "default",
+    }
+    assert _the_telemetry_line(result.stdout)
+    assert bool(demo.launched_argv(wait=_ABSENT_WAIT if mode == "dry-run" else _DETACHED_WAIT)) == (
+        mode == "real"
+    )
+
+
+def _assert_one_normalized_document(run_, result):
+    match = _the_telemetry_line(result.stdout)
+    attributes = _launched_settings(run_)["env"]["OTEL_RESOURCE_ATTRIBUTES"].split(",")
+    assert attributes == match.group(1).split(",")
+    assert [pair for pair in attributes if pair.startswith("kensai.run_id=")] == [
+        _RUN_ID_PAIR.search(match.group(1)).group(0)
+    ]
+    assert len(fixture_calls(run_.home)) == 1
+
+
+def test_an_hf_launch_hands_one_normalized_settings_document(run, tmp_path):
+    run.skill("demo", _md())
+    run.project("some-project")
+    _publish_endpoint(run)
+    _give_hf_token(run)
+
+    result = run("demo", "some-project", "--provider", "hf")
+
+    assert result.returncode == 0, result.stderr
+    _assert_one_normalized_document(run, result)
+
+
+def test_an_ollama_launch_hands_one_normalized_settings_document(run, ollama_server):
+    run.skill("demo", _md())
+    run.project("some-project")
+    _publish_endpoint(run)
+    _point_at(run, ollama_server)
+
+    result = run("demo", "some-project", "--provider", "ollama")
+
+    assert result.returncode == 0, result.stderr
+    _assert_one_normalized_document(run, result)
+
+
+def test_a_claude_launch_hands_one_normalized_settings_document(demo):
+    _publish_endpoint(demo)
+
+    result = demo("demo", "some-project")
+
+    assert result.returncode == 0, result.stderr
+    _assert_one_normalized_document(demo, result)
+
+
+_ENDPOINT_FAILURES = (
+    ("absent", None, "no published telemetry endpoint at {file}"),
+    ("malformed", "not-a-url\n", "telemetry endpoint at {file} is unreadable or malformed"),
+    (
+        "remote",
+        "http://example.com:4318\n",
+        "telemetry endpoint at {file} is not on this machine (loopback only)",
+    ),
+)
+
+
+@pytest.mark.parametrize(("kind", "content", "cause"), _ENDPOINT_FAILURES)
+@pytest.mark.parametrize("cap", [None, "250000"])
+def test_endpoint_failures_keep_the_launch_successful(demo, tmp_path, kind, content, cause, cap):
+    endpoint_file = tmp_path / "endpoint-under-test"
+    if content is not None:
+        endpoint_file.write_text(content)
+    demo.env["INSTRUMENT_RUN_ENDPOINT_FILE"] = str(endpoint_file)
+    if cap is not None:
+        demo.env["KENSAIAPP_CONTEXT_CAP"] = cap
+
+    result = demo("demo", "some-project")
+
+    assert result.returncode == 0, result.stderr
+    assert _uninstrumented_lines(result.stdout) == [
+        f"          ({cause.format(file=endpoint_file)}{_UNINSTRUMENTED}"
+    ]
+    env = _launched_settings(demo).get("env", {})
+    assert "OTEL_EXPORTER_OTLP_ENDPOINT" not in env and "OTEL_RESOURCE_ATTRIBUTES" not in env
+    assert env.get("KENSAIAPP_CONTEXT_CAP") == cap
+
+
+def _package_failure(home, kind):
+    bin_dir = home / ".kensaiapp" / "venv" / "bin"
+    return {
+        "unconfigured": (
+            {COMMAND_VARIABLE: ""},
+            f"no telemetry command configured in {COMMAND_VARIABLE}",
+        ),
+        "unavailable": (
+            {COMMAND_VARIABLE: "absent-command"},
+            f"no runnable telemetry command at {bin_dir / 'absent-command'}",
+        ),
+        "nonzero": (
+            {FIXTURE_MODE_VARIABLE: "exit-3"},
+            f"telemetry command at {bin_dir / FIXTURE_COMMAND} exited with status 3",
+        ),
+        "invalid-document": (
+            {FIXTURE_MODE_VARIABLE: "garbage"},
+            f"telemetry command at {bin_dir / FIXTURE_COMMAND}"
+            " did not print a usable settings document",
+        ),
+    }[kind]
+
+
+@pytest.mark.parametrize("kind", ["unconfigured", "unavailable", "nonzero", "invalid-document"])
+def test_package_failures_keep_the_launch_successful(demo, kind):
+    _publish_endpoint(demo)
+    changes, cause = _package_failure(demo.home, kind)
+    for name, value in changes.items():
+        if value is None:
+            demo.env.pop(name, None)
+        else:
+            demo.env[name] = value
+    demo.env["INSTRUMENT_RUN_SETTINGS"] = _SENTINEL_SETTINGS
+
+    result = demo("demo", "some-project")
+
+    assert result.returncode == 0, result.stderr
+    assert _uninstrumented_lines(result.stdout) == [f"          ({cause}{_UNINSTRUMENTED}"]
+    assert "Telemetry:" not in result.stdout
+    settings = _launched_settings(demo)
+    assert "OTEL_EXPORTER_OTLP_ENDPOINT" not in settings.get("env", {})
+    assert "sentinel" not in json.dumps(settings)
+
+
+def test_missing_helper_uses_the_fixed_fallback_and_discards_parent_settings(
+    demo, tmp_path_factory
+):
+    script = _isolated_core(tmp_path_factory, "skill_path.py", "detach_watcher.sh")
+    demo.env["INSTRUMENT_RUN_SETTINGS"] = _SENTINEL_SETTINGS
+
+    result = demo("demo", "some-project", script=script)
+
+    assert result.returncode == 0, result.stderr
+    helper = script.parents[2] / "tools" / "run_telemetry.sh"
+    assert _uninstrumented_lines(result.stdout) == [
+        f"          (no instrument library at {helper}{_UNINSTRUMENTED}"
+    ]
+    settings = _launched_settings(demo)
+    assert "OTEL_EXPORTER_OTLP_ENDPOINT" not in settings.get("env", {})
+    assert "sentinel" not in json.dumps(settings)
+
+
+@pytest.mark.parametrize("state", ["valid", "failed", "missing"])
+def test_parent_settings_never_reach_valid_failed_or_missing_helper_launches(
+    demo, tmp_path_factory, state
+):
+    _publish_endpoint(demo)
+    demo.env["INSTRUMENT_RUN_SETTINGS"] = _SENTINEL_SETTINGS
+    script = _SCRIPT
+    if state == "failed":
+        demo.env[FIXTURE_MODE_VARIABLE] = "exit-3"
+    if state == "missing":
+        script = _isolated_core(tmp_path_factory, "skill_path.py", "detach_watcher.sh")
+
+    result = demo("demo", "some-project", script=script)
+
+    assert result.returncode == 0, result.stderr
+    settings = _launched_settings(demo)
+    assert "sentinel" not in json.dumps(settings)
+    env = settings.get("env", {})
+    if state == "valid":
+        run_id = _the_telemetry_line(result.stdout).group(1)
+        assert env["OTEL_EXPORTER_OTLP_ENDPOINT"] == "http://127.0.0.1:4318"
+        assert _RUN_ID_PAIR.search(env["OTEL_RESOURCE_ATTRIBUTES"]).group(0) in run_id
+    else:
+        assert "OTEL_EXPORTER_OTLP_ENDPOINT" not in env
+
+
+_ENV_RECORDING_CLAUDE_STUB = """#!/usr/bin/env bash
+printf '%s\\n' "$@" > "$CLAUDE_ARGV_LOG"
+python3 - "$CLAUDE_ENV_LOG" <<'EOF'
+import json, os, sys
+
+NAMED = ("INSTRUMENT_RUN_CHAIN", "INSTRUMENT_RUN_WALK_ID", "INSTRUMENT_RUN_ROLE",
+         "INSTRUMENT_RUN_AUDIT_TARGET", "INSTRUMENT_RUN_SETTINGS")
+# Names only: any variable whose value is a settings document (`{"env": …}`).
+bearing = sorted(n for n, v in os.environ.items() if v.startswith("{") and '"env"' in v)
+record = {"named": {n: os.environ.get(n) for n in NAMED}, "settings_bearing": bearing}
+open(sys.argv[1], "w").write(json.dumps(record))
+EOF
+printf '%s\\n' '{"type":"result","subtype":"success","is_error":false,"result":"ok"}'
+"""
+
+
+def test_detached_child_receives_tags_only_inside_settings(demo, warm_executables, tmp_path):
+    _publish_endpoint(demo)
+    claude = tmp_path / "bin" / "claude"
+    claude.unlink()
+    warm_executables.link(claude, _ENV_RECORDING_CLAUDE_STUB)
+    env_log = tmp_path / "claude_env.json"
+    demo.env["CLAUDE_ENV_LOG"] = str(env_log)
+    tags = {
+        "INSTRUMENT_RUN_CHAIN": "chain-under-test",
+        "INSTRUMENT_RUN_WALK_ID": "walk-under-test",
+        "INSTRUMENT_RUN_ROLE": "role-under-test",
+        "INSTRUMENT_RUN_AUDIT_TARGET": "target-under-test",
+    }
+    demo.env.update(tags)
+    demo.env["INSTRUMENT_RUN_SETTINGS"] = _SENTINEL_SETTINGS
+
+    result = demo("demo", "some-project")
+
+    assert result.returncode == 0, result.stderr
+    attributes = _launched_settings(demo)["env"]["OTEL_RESOURCE_ATTRIBUTES"].split(",")
+    assert {pair for pair in attributes if pair.split("=", 1)[0] in {
+        "kensai.chain", "kensai.walk_id", "kensai.role", "kensai.audit_target"
+    }} == {
+        "kensai.chain=chain-under-test",
+        "kensai.walk_id=walk-under-test",
+        "kensai.role=role-under-test",
+        "kensai.audit_target=target-under-test",
+    }
+    demo.launched_argv()
+    for _ in range(200):
+        if env_log.exists() and env_log.read_text():
+            break
+        time.sleep(0.05)
+    recorded = json.loads(env_log.read_text())
+    assert recorded["named"] == {name: None for name in recorded["named"]}
+    assert recorded["settings_bearing"] == []
+
+
+@pytest.mark.parametrize("combination", support.ORDINARY_COMBINATIONS)
+def test_skill_ordinary_launch_discovers_source_host_setting(demo, tmp_path, combination):
+    """CP-692: a launch whose environment names no command is instrumented from its source host's
+    setting, whether the launcher runs from a core or a pin of it, for the host or for an
+    instance that binds that core."""
+    package = support.require_real_package(tmp_path / "package")
+    endpoint_file = tmp_path / "published-endpoint"
+    support.publish_endpoint(endpoint_file)
+    launch = support.ordinary_launch(tmp_path, _SCRIPT, tmp_path, combination, package.command)
+    # The seat is served from a group when the instance is the host (the pin's, for a pinned
+    # launch): the instance's own `.claude/agents` entry is the host's own there.
+    for root in (tmp_path, tmp_path / "pin"):
+        seat = root / "skills" / "pm" / ".claude" / "agents"
+        seat.mkdir(parents=True, exist_ok=True)
+        (seat / "pm.md").write_text("---\nname: pm\n---\n")
+    env = support.telemetry_environment(demo.env, home=package.home, endpoint_file=endpoint_file)
+
+    observation = support.run_launcher(
+        launch.launcher, ("demo", "some-project", "--dry-run"), cwd=launch.instance, env=env,
+        observation_dir=tmp_path / "observed",
+    )
+
+    support.assert_ordinary_launch_is_instrumented(observation, environment=env)
+
+
+@pytest.mark.parametrize("value", ["fixture", "absent-command", "has space", ""],
+                         ids=["valid", "unavailable", "invalid", "empty"])
+def test_skill_environment_override_including_empty_wins(demo, tmp_path, value):
+    """CP-687: an explicit command, empty included, is the answer, whatever the source host's
+    setting holds; discovery is never consulted to replace it."""
+    endpoint_file = tmp_path / "published-endpoint"
+    support.publish_endpoint(endpoint_file)
+    support.write_host_setting(tmp_path, "setting-must-not-win")
+    explicit = FIXTURE_COMMAND if value == "fixture" else value
+    demo.env[COMMAND_VARIABLE] = explicit
+    demo.env["INSTRUMENT_RUN_ENDPOINT_FILE"] = str(endpoint_file)
+    bin_dir = demo.home / ".kensaiapp" / "venv" / "bin"
+    expected = {
+        "fixture": None,
+        "absent-command": f"no runnable telemetry command at {bin_dir / 'absent-command'}",
+        "has space": f"{COMMAND_VARIABLE} is not a plain command name "
+        "(name only, no path or arguments)",
+        "": f"no telemetry command configured in {COMMAND_VARIABLE}",
+    }[value]
+
+    result = demo("demo", "some-project", "--dry-run")
+
+    assert result.returncode == 0, result.stderr
+    assert "setting-must-not-win" not in result.stdout + result.stderr
+    if expected is None:
+        assert _the_telemetry_line(result.stdout)
+        assert not _uninstrumented_lines(result.stdout)
+    else:
+        assert _uninstrumented_lines(result.stdout) == [f"          ({expected}{_UNINSTRUMENTED}"]

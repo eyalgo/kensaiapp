@@ -446,3 +446,43 @@ def test_comments_entry_names_every_participating_module_and_check() -> None:
         assert named_requirements(docstring_of(module)), checking
     assert missing_paths(text) == []
     assert unknown_requirements(text) == []
+
+
+WORKFLOW_REQUIREMENTS = {"FR-18", "FR-19"}
+WORKFLOW_PARTICIPANTS = (
+    "application/tracker.py",
+    "web/routes.py",
+    "web/pages.py",
+    "web/style.css",
+)
+WORKFLOW_CHECKING_TESTS = (
+    "tests/unit/test_workflow.py",
+    "tests/integration/test_move_tracker.py",
+    "tests/integration/test_move_pages.py",
+    "tests/integration/test_move_routes.py",
+    "tests/integration/test_routes.py",
+    "tests/integration/test_task_pages.py",
+    "tests/integration/test_comment_pages.py",
+    "tests/e2e/test_moves.py",
+    "tests/architecture/test_trace.py",
+    "tests/architecture/test_shapes.py",
+)
+
+
+def test_workflow_entry_names_every_participating_module_and_check() -> None:
+    """QC-11, CP-340: the Workflow entry names FR-18 and FR-19, every application and web module
+    that takes part and every checking module, and each named path exists and each named test
+    module names a real requirement or acceptance criterion."""
+    text = entry_docstring("workflow")
+    paths = named_paths(text)
+    assert WORKFLOW_REQUIREMENTS <= set(named_requirements(text))
+    for participant in WORKFLOW_PARTICIPANTS:
+        assert participant in paths, participant
+    for checking in WORKFLOW_CHECKING_TESTS:
+        assert checking in paths, checking
+        module = PRODUCT_ROOT / checking
+        assert module.is_file(), checking
+        assert named_requirements(docstring_of(module)), checking
+        assert unknown_requirements(docstring_of(module)) == [], checking
+    assert missing_paths(text) == []
+    assert unknown_requirements(text) == []

@@ -1,6 +1,7 @@
 """The timed run: project creation and, at task volume, adding a task, editing one, adding and
-removing a task's label, saving the operator's name, adding a comment, and adding and removing a
-name on the People assignee list, each with the page it lands on.
+removing a task's label, saving the operator's name, adding a comment, adding and removing a
+name on the People assignee list, and moving a task from `todo` to `in-progress`, each with the
+page it lands on.
 
 A script, not a collected test: pytest does not pick it up, because its name does not start with
 `test_`. Run it from the product root with `python3 tests/timed_run.py`. It uses locations of its
@@ -19,8 +20,11 @@ save seeds its own 1,000 tasks, posts one ordinary name to People, and times tha
 landing GET apart; it counts only as a changed save whose landing shows the saved name. The comment
 add, the assignee add and the assignee remove each seed a full-volume fixture of their own too, send
 the one form POST, and time it, its landing GET and their total; each counts only when the saved
-file is the fixture with that one change and the landing shows the action's completion line. Its
-harness is checked by tests/integration/test_timed_run.py.
+file is the fixture with that one change and the landing shows the action's completion line. The
+status move comes last, on a fixture of its own: it sends the one list-row move of a `todo` task,
+and counts only when the saved file is the fixture with that task's status replaced and nothing
+else, and the project list it lands on shows the move's completion line. Its harness is checked by
+tests/integration/test_timed_run.py.
 """
 
 from __future__ import annotations
@@ -45,6 +49,7 @@ from domain import (
     SHORT_TEXT_MAX,
     Comment,
     Task,
+    TaskStatus,
     TrackerState,
     empty_state,
     find_task,
@@ -92,6 +97,12 @@ COMMENT_TASK_ID = 250
 COMMENT_TEXT = "Compare the new figures with the report before the next review."
 COMMENT_OPERATOR_NAME = "Jordan Rivera"
 ASSIGNEE_NAME = "Avery Chen"
+MOVE_TASK_ID = 4
+MOVE_STATUS = TaskStatus.IN_PROGRESS
+MOVE_PLACE = "list"
+MOVE_LABEL = f"move a task at {TASK_VOLUME} tasks"
+MOVE_LANDING_LABEL = f"move landing page at {TASK_VOLUME} tasks"
+MOVE_TOTAL_LABEL = f"move total at {TASK_VOLUME} tasks"
 TASK_FIELDS = ("title", "priority", "assignee", "due_date")
 SHOWN_VALUE = re.compile(r'<input type="hidden" name="shown_([a-z_]+)" value="([^"]*)">')
 
@@ -793,9 +804,88 @@ def assignee_remove_fixture_report(state: TrackerState) -> str:
     )
 
 
+def _move_redirect(task: Task) -> str:
+    """The exact address a done move redirects to: the moved task's project list, in this order."""
+    outcome = urlencode({"moved": MOVE_STATUS.value, "move_task": MOVE_TASK_ID})
+    return f"/projects/{task.project_id}?{outcome}"
+
+
+def _saved_the_move(before: TrackerState, task: Task, after: TrackerState | None) -> bool:
+    """True when the task was `todo` and the saved file is the fixture with its status replaced.
+
+    The expectation is built from the loaded pre-state by replacing one field, and never by the
+    workflow's own move rule, so a product that moved the task wrongly cannot pass itself. The whole
+    state is compared: every other task, project, counter, the assignee list and the operator name.
+    """
+    expected = tuple(
+        replace(each, status=MOVE_STATUS) if each.id == task.id else each for each in before.tasks
+    )
+    return task.status is TaskStatus.TODO and after == replace(before, tasks=expected)
+
+
+def measure_task_move(
+    *, site: Site, saved_data: SavedData, timer: Callable[[], float]
+) -> list[Timed]:
+    """Move one `todo` task to `in-progress` from its project's list and fetch the page it lands on.
+
+    Three rows come back, in order: the POST, the landing GET and their total. The task and its
+    project are read from the loaded pre-state before the POST interval opens. The POST counts as
+    done only when it is a 303 to the exact project-list address and the saved file read back is
+    the pre-state with that one status replaced; a task that was not `todo` never counts. The
+    landing counts as done only when it is a 200 whose page carries the completion line with the
+    title escaped as the page shows it. The total, the two intervals added and not the gap between
+    them, counts only when both do. The readback sits between the two intervals. With any other
+    answer to the POST the landing is not requested: its row is zero and failed, and the total is
+    the POST's time. Nothing is printed here; `verdict` prints the rows.
+    """
+    before = saved_data.load()
+    assert before is not None
+    task = find_task(before, MOVE_TASK_ID)
+    assert task is not None
+    body = urlencode({"status": MOVE_STATUS.value, "place": MOVE_PLACE}).encode("utf-8")
+    started = timer()
+    response = site.handle("POST", f"{ADDED_PREFIX}{MOVE_TASK_ID}/move", FORM_HEADERS, body)
+    post_seconds = timer() - started
+    location = dict(response.headers).get("Location", "")
+    redirected = response.status == 303 and location == _move_redirect(task)
+    saved = redirected and _saved_the_move(before, task, saved_data.load())
+    results = [Timed(MOVE_LABEL, post_seconds, saved)]
+    if not redirected:
+        return [
+            *results,
+            Timed(MOVE_LANDING_LABEL, 0.0, False),
+            Timed(MOVE_TOTAL_LABEL, post_seconds, False),
+        ]
+    started = timer()
+    landing = site.handle("GET", location, {"Host": HOST}, b"")
+    landing_seconds = timer() - started
+    line = f"You moved '{escape(task.title)}' to {MOVE_STATUS.value}."
+    shown = landing.status == 200 and line in landing.body.decode("utf-8")
+    return [
+        *results,
+        Timed(MOVE_LANDING_LABEL, landing_seconds, shown),
+        Timed(MOVE_TOTAL_LABEL, post_seconds + landing_seconds, saved and shown),
+    ]
+
+
+def move_fixture_report(state: TrackerState) -> str:
+    """The volume and the actual lengths of the ordinary text the move measurement ran on.
+
+    Every number is read from the fixture as loaded back: the counts from all its tasks, the
+    lengths, in code points, from the task the move acts on. Nothing is printed here.
+    """
+    task = find_task(state, MOVE_TASK_ID)
+    assert task is not None
+    return (
+        f"move fixture: {_volume_line(state)}; title of {len(task.title)} characters, "
+        f"comment of {len(task.comments[0].text)} characters"
+    )
+
+
 def main(directory: Path | None = None, timer: Callable[[], float] = time.perf_counter) -> int:
     """Run the project creates, then the add, the edit, the label add and remove, the name save, the
-    comment add and the assignee add and remove at task volume; 1 when any failed."""
+    comment add, the assignee add and remove and the status move at task volume; 1 when any
+    failed."""
     if directory is None:
         with tempfile.TemporaryDirectory() as temporary:
             return main(Path(temporary), timer)
@@ -824,7 +914,10 @@ def main(directory: Path | None = None, timer: Callable[[], float] = time.perf_c
     name_results = measure_operator_name(site=name_site, saved_data=name_data, timer=timer)
     name_status = verdict(name_results, LIMIT_SECONDS)
     new_action_status = _run_new_actions(directory, timer)
-    return max(status, task_status, edit_status, label_status, name_status, new_action_status)
+    move_status = _run_move(directory, timer)
+    return max(
+        status, task_status, edit_status, label_status, name_status, new_action_status, move_status
+    )
 
 
 def _run_new_actions(directory: Path, timer: Callable[[], float]) -> int:
@@ -855,6 +948,18 @@ def _run_new_actions(directory: Path, timer: Callable[[], float]) -> int:
         results = measure(site=action_site, saved_data=action_data, timer=timer)
         status = max(status, verdict(results, LIMIT_SECONDS))
     return status
+
+
+def _run_move(directory: Path, timer: Callable[[], float]) -> int:
+    """Time the status move on a fixture of its own, after every other line the run prints.
+
+    Prints the fixture line, then the move's three rows: the POST, the landing and the total.
+    """
+    move_data = SavedData(directory / "move-volume")
+    move_site, move_seeded = open_task_volume(move_data)
+    print(move_fixture_report(move_seeded))
+    results = measure_task_move(site=move_site, saved_data=move_data, timer=timer)
+    return verdict(results, LIMIT_SECONDS)
 
 
 if __name__ == "__main__":

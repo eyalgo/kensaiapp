@@ -55,7 +55,7 @@ import model_assignment
 import pin
 import task_context
 
-__version__ = "2.13.0"
+__version__ = "2.13.1"
 
 BackgroundOwner = Literal["provider", "process"]
 
@@ -559,7 +559,7 @@ def _settings_env(settings: str | None, provider: str) -> dict[str, str]:
     return env
 
 
-# The OTLP protocols `instrument_run` may export (`OTEL_EXPORTER_OTLP_PROTOCOL`), spelled as
+# The OTLP protocols `run_telemetry` may export (`OTEL_EXPORTER_OTLP_PROTOCOL`), spelled as
 # Codex's OTLP/HTTP exporter names them (https://developers.openai.com/codex/config-advanced
 # § Observability and telemetry). gRPC has its own exporter kind and is not mapped here.
 _CODEX_OTLP_HTTP_PROTOCOLS = {"http/json": "json", "http/protobuf": "binary"}

@@ -1,5 +1,5 @@
 ---
-version: "1.12.0"
+version: "1.12.1"
 ---
 
 # Handoff via folder state
@@ -64,11 +64,11 @@ written — the producer is ignorant of its successor, naming no next role and t
 ## State is derived, not tracked
 
 The chain computes the next action on every invocation from two signals: which action artifacts are
-present in the folder, and the declared lines it reads from them — the design's `Publishes text:`
-line, the code-integrity report's `Integrity:` line, and the closing marker's `Suite:` and
-`Language resolution:` lines
-(`step_outcome_contract.md` § *The chain's on-disk transport*). There is no status field for a role to
-update and no queue to drift out of sync.
+present in the folder, and the declared lines it reads from them. Those lines are the design's
+`Publishes text:` line, the code-integrity report's `Integrity:` and `Environment:` lines, and the
+closing marker's `Suite:`, `Language resolution:` and `Environment:` lines. What each line accepts,
+`Environment:` included, is stated in `step_outcome_contract.md` § *The chain's on-disk transport*.
+There is no status field for a role to update and no queue to drift out of sync.
 
 An explicit new start after integrity stops a change with declared developer deferrals returns to
 implementation to reassess and finish that work. It preserves the old marker and report, requires a
@@ -84,8 +84,8 @@ verdicts retain their refusal. `chain_development.py`'s start/describe decision 
 | `tl_instruction.md`, no `change_text.md`, `change_design.md` declaring `Publishes text: yes` | `development-content` | Content Editor |
 | `tl_instruction.md`, `change_design.md` declaring `Publishes text: no`, or `change_text.md` on the branch, code stage open | `development-implementation` | Developer |
 | `tl_instruction.md`, `change_design.md` with no `Publishes text:` line, or a first word other than `yes` or `no` | halts `missing-text-verdict`, no launch | — |
-| the closing marker declaring a passing `Suite:` verdict (`step_outcome_contract.md` § What passes) and a `Language resolution:` line | `development-code-integrity` | Senior Engineer |
-| `code-integrity-report.md` declaring `Integrity: pass` | `development-audit`, once per audited step (`development-specs`, `development-design`, `development-plan`, `development-content` when it ran, `development-implementation`), each finding on its own branch — not a gate | kensaiapp-auditor |
+| the closing marker declaring a passing `Suite:` verdict (`step_outcome_contract.md` § What passes), a `Language resolution:` line and an `Environment:` line whose kind passes | `development-code-integrity` | Senior Engineer |
+| `code-integrity-report.md` declaring `Integrity: pass` and an `Environment:` line whose kind passes | `development-audit`, once per audited step (`development-specs`, `development-design`, `development-plan`, `development-content` when it ran, `development-implementation`), each finding on its own branch — not a gate | kensaiapp-auditor |
 | `Integrity: pass`, with every audit run ended, whatever it returned | `tobiishi-seal` (seal: move `<key>/` to `trail/` on branch + `--no-ff` merge) | PM |
 
 Action artifacts are immutable once written and read-only downstream.

@@ -1,5 +1,5 @@
 ---
-version: "1.10.0"
+version: "1.11.0"
 ---
 
 # Versioning — which artifacts carry a `version:`, and how it moves
@@ -21,6 +21,20 @@ doctrine's own case. **It does not own** a template's format — that is `core/t
 
 Kind is not the test. Most templates are script-facing, but a template a model reads is not — the
 split runs *through* the template layer, not around it.
+
+## Whose artifacts — kensaiapp's, never a product's
+
+This file governs kensaiapp's own artifacts, and they live in four layers of an instance: `core/`,
+`.claude/`, `skills/` and `system/`. A product's version string — a `__version__` in its code, a
+`version` in its package manifest — is the product's release number. It is product content, set by
+whichever change needs to set it, and nothing here moves it or forbids moving it. That holds for a
+product in its own repository and for an internal one under an instance's `products/`. The owner's
+ruling, 2026-10-19, after a product's branch was refused the fix its task asked for.
+
+`commit_builder.py` draws the line the same way: a path is kensaiapp's when its repository is an
+instance — one holding `kensaiapp.md` — and the path sits in one of the four layers. The branch
+guard, `merge --bump` and `markers --base` all judge only those paths, and `--bump` refuses any
+other.
 
 ## Where the test lands
 
@@ -114,7 +128,8 @@ statement about the source, never as a claim about the galaxy.
   The check runs after the builder has assembled the final staged set and before `git commit`; it is
   provider-neutral, so forgetting the rule in a Claude or Codex session cannot land the invalid
   commit. A repository with no local `main` is outside this instance's landing convention and the
-  generic builder leaves it alone.
+  generic builder leaves it alone. The guard leaves alone any path that is not kensaiapp's, too
+  (§ Whose artifacts).
 - **The landing commit's bump reads every form in the table.** `commit_builder.py merge --bump`
   moves a frontmatter `version:`, a Python `__version__`, a workflow `// Version:`, a mod's
   `plugin.json` `"version"` and a shell `# Version:` header alike, so no marker is set by hand and

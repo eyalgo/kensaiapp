@@ -16,6 +16,7 @@ from __future__ import annotations
 import json
 import re
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -828,7 +829,7 @@ def test_pytest_collects_this_module_alongside_its_precedent():
     """`python3 -m pytest core/tools/ -q` collects both — the widened check and the narrow one it
     sits beside, unmodified."""
     result = subprocess.run(
-        ["python3", "-m", "pytest", "core/tools/test_check_vendor_neutrality.py",
+        [sys.executable, "-m", "pytest", "core/tools/test_check_vendor_neutrality.py",
          "core/tools/test_templates_are_instance_neutral.py", "-q", "--collect-only"],
         cwd=REPO,
         capture_output=True,

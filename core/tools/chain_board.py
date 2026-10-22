@@ -41,6 +41,21 @@ WHAT IT DECIDES
     The quiet ends are built from the engines' own enums, so a renamed value fails at import
     rather than leaking a walk into the wrong list.
 
+    Each project a row names, with one seed at its seedbed root, also gets its route: the seed's
+    checklist as it reads now, each item reached, current, parked (its station sits in
+    `shukuba/parked/`) or ahead, and under each the walks opened for it — sealed, dropped or open.
+    Which of them a person sees is the pane's call; the reader hands it every one, because a run
+    can still be on a walk after its station has closed. The current item is the one the project's
+    open station is named for. A walk belongs to the station whose name its opening commit carries on
+    its `Shukuba:` line, the only place the record links the two; that history is the second
+    collaborator the reader is handed. An open unit whose opening commit names no station — one
+    opened by hand carries `Agari:` — is the current station's, because exactly one station is open
+    and units open inside it; a sealed or dropped one the history does not link is under no station.
+    A history that cannot be read links nothing, so then every open unit is the current station's —
+    right whenever, as usual, one unit is open at a time.
+    A trailer written before stations were named by their dated stem names the bare slug, and
+    matches by it. A refine that re-cuts the checklist changes the route on the next read.
+
 READ-ONLY
     Nothing here opens a file for writing, and no engine is changed. The engines and `walk_stop`
     are imported from this file's own folder, so a satellite is read with the core it binds.
@@ -50,6 +65,7 @@ from __future__ import annotations
 
 import json
 import re
+import subprocess
 import sys
 from dataclasses import asdict, dataclass
 from datetime import datetime
@@ -63,7 +79,7 @@ import chain_development
 import journey_status
 import walk_stop
 
-__version__ = "1.8.0"
+__version__ = "1.10.0"
 
 QUIET_ENDS = frozenset(end.value for end in (
     chain_development.Ended.SEALED, chain_development.Ended.STOPPED,
@@ -80,6 +96,7 @@ CHAIN_LAUNCHER_PREFIX = "chain-"
 DEFAULT_DEVELOPMENT_CHAIN = "development"
 DEFAULT_PRODUCT_CHAIN = "product"
 STATION_FOLDERS = ("", "parked", "trail")
+CHANGE_FOLDERS = (("", "open"), ("trail", "sealed"), ("drop", "dropped"))
 SEED_FOLDERS = ("", "trail", "drop")
 CLOSED_CHANGE_FOLDERS = ("trail", "drop")
 HEADING_PREFIX = "# "
@@ -88,10 +105,22 @@ NO_START_TIME = float("-inf")
 
 _LAUNCHER_PATH = re.compile(r"[^\s`'\"(]*core/launchers/([\w-]+)/launcher\.sh")
 _MARKDOWN_PATH = re.compile(r"[^\s`'\"(),;]+\.md\b")
+# Where a path may start in a reason: at its start, or after a space, a quote or a bracket.
+_PATH_START = r"(?<![^\s`'\"(])"
 _DATE_PREFIX = re.compile(r"^\d{4}-\d{2}-\d{2}_")
 _ON_END_BUILD_IDEA = re.compile(r"core/launchers/build-idea/launcher\.sh\s+([\w.-]+)")
+# A seed's checklist item: its indent, its tick, and its text up to the ` — ` that opens the
+# description. The tick is read the way `journey_status` counts it.
+_CHECKLIST_ITEM = re.compile(r"^([ \t]*)- \[([ x])\] (.+?)(?: — |$)", re.MULTILINE)
+_ITEM_NUMBER = re.compile(r"^[\d↳]+\.\s*")
+_SHUKUBA_TRAILER = re.compile(r"^Shukuba: (\S+)", re.MULTILINE)
+RECORD_SEPARATOR = "\x1e"
+INDENT_PER_DEPTH = 2
+HISTORY_TIMEOUT_SECONDS = 10
 
 LaunchState = Callable[[str], walk_stop.LaunchState]
+# Per change key, the station its opening commit names, for one project of one instance.
+OpenedStations = Callable[[Path, str], dict[str, str]]
 
 
 class WalkKind(Enum):
@@ -113,10 +142,40 @@ class Row:
     seed: str
     station: str
     walk: str
+    key: str
     step: str
     status: str
     reason: str
     started_at: str
+
+
+class StopState(str, Enum):
+    REACHED = "reached"
+    CURRENT = "current"
+    PARKED = "parked"
+    AHEAD = "ahead"
+
+
+@dataclass(frozen=True)
+class Walk:
+    name: str
+    key: str
+    state: str
+
+
+@dataclass(frozen=True)
+class Stop:
+    name: str
+    state: StopState
+    depth: int
+    walks: list[Walk]
+
+
+@dataclass(frozen=True)
+class Route:
+    project: str
+    seed: str
+    stations: list[Stop]
 
 
 @dataclass(frozen=True)
@@ -124,6 +183,7 @@ class Board:
     instance: str
     waiting: list[Row]
     running: list[Row]
+    routes: list[Route]
 
 
 @dataclass(frozen=True)
@@ -147,7 +207,7 @@ def find_instance_root(start: Path) -> Path | None:
     return next((folder for folder in folders if (folder / "kensaiapp.md").is_file()), None)
 
 
-def read_board(root: Path, launch_state: LaunchState) -> Board:
+def read_board(root: Path, launch_state: LaunchState, opened_stations: OpenedStations) -> Board:
     waiting: list[Row] = []
     running: list[Row] = []
     walks = []
@@ -175,13 +235,17 @@ def read_board(root: Path, launch_state: LaunchState) -> Board:
         row = Row(launcher=_launcher_name(kind, state), project=project,
                   seed=_seed(root, project, str(state.get("seed") or "")),
                   station=_station(root, project, str(state.get("station") or "")),
-                  walk=_walk(state), step=_step(kind, state), status=verdict.status,
+                  walk=_walk(state), key=str(state.get("key") or ""),
+                  step=_step(kind, state), status=verdict.status,
                   reason=verdict.reason, started_at=str(state.get("started_at") or ""))
         (waiting if verdict.waiting else running).append(row)
     running.extend(_live_skill_runs(root, launch_state))
     waiting.sort(key=_newest_first, reverse=True)
     running.sort(key=_newest_first, reverse=True)
-    return Board(instance=root.name, waiting=waiting, running=running)
+    projects = dict.fromkeys(row.project for row in waiting + running if row.project)
+    routes = [route for route in (_route(root, project, opened_stations) for project in projects)
+              if route is not None]
+    return Board(instance=root.name, waiting=waiting, running=running, routes=routes)
 
 
 def _handed_back_to_build_idea(walks: list[tuple[WalkKind, dict]]) -> dict[str, list[float]]:
@@ -285,7 +349,8 @@ def _live_skill_runs(root: Path, launch_state: LaunchState) -> list[Row]:
             continue
         project = str(record.get("project") or "")
         rows.append(Row(launcher=SKILL_LAUNCHER, project=project, seed=_seed(root, project, ""),
-                        station=_station(root, project, ""), walk=str(record["skill"]), step="",
+                        station=_station(root, project, ""), walk=str(record["skill"]), key="",
+                        step="",
                         status="", reason="", started_at=str(record.get("started_at") or "")))
     return rows
 
@@ -382,6 +447,76 @@ def _station(root: Path, project: str, recorded: str) -> str:
     return _heading(open_stations[0]) or ""
 
 
+def _route(root: Path, project: str, opened_stations: OpenedStations) -> Route | None:
+    """The project's one active seed's checklist, read now. No seed, or several, is no route."""
+    journey = _journey(root, project)
+    seeds = journey_status._seed_entries(journey / "nemawashi")
+    if len(seeds) != 1:
+        return None
+    seed_path = journey_status._seed_text_path(seeds[0])
+    try:
+        text = seed_path.read_text()
+    except OSError:
+        return None
+    open_stations = journey_status._md_files(journey / "shukuba")
+    current = open_stations[0].stem if len(open_stations) == 1 else ""
+    parked = {_DATE_PREFIX.sub("", path.stem)
+              for path in journey_status._md_files(journey / "shukuba" / "parked")}
+    stops = []
+    for indent, tick, label in _CHECKLIST_ITEM.findall(text):
+        name = label.replace("**", "").strip()
+        slug = _ITEM_NUMBER.sub("", name)
+        state = StopState.REACHED if tick == "x" else StopState.AHEAD
+        if state is StopState.AHEAD and slug in parked:
+            state = StopState.PARKED
+        if current and slug == _DATE_PREFIX.sub("", current):
+            state = StopState.CURRENT
+        stops.append(Stop(name=name, state=state, depth=len(indent.expandtabs()) // INDENT_PER_DEPTH,
+                          walks=[]))
+    if current and not any(stop.state is StopState.CURRENT for stop in stops):
+        stops.append(Stop(name=_DATE_PREFIX.sub("", current), state=StopState.CURRENT, depth=0,
+                          walks=[]))
+    slugs = [_ITEM_NUMBER.sub("", stop.name) for stop in stops]
+    current_at = next((at for at, stop in enumerate(stops) if stop.state is StopState.CURRENT), None)
+    openings = opened_stations(root, project)
+    walks_at: dict[int, list[Walk]] = {at: [] for at in range(len(stops))}
+    for walk in _units(journey / "tobiishi"):
+        at = _item_opened_for(walk, openings.get(walk.key), slugs, current_at, current)
+        if at is not None:
+            walks_at[at].append(walk)
+    stops = [Stop(stop.name, stop.state, stop.depth, walks_at[at]) for at, stop in enumerate(stops)]
+    return Route(project=project, seed=_heading(seed_path) or "", stations=stops)
+
+
+def _units(tobiishi: Path) -> list[Walk]:
+    """Every change unit of the project, open, sealed or dropped, in the order of its key."""
+    walks = []
+    for folder, state in CHANGE_FOLDERS:
+        where = tobiishi / folder
+        if not where.is_dir():
+            continue
+        for unit in where.iterdir():
+            if unit.is_dir() and unit.name not in CLOSED_CHANGE_FOLDERS:
+                walks.append(Walk(name=_DATE_PREFIX.sub("", unit.name), key=unit.name,
+                                  state=state))
+    return sorted(walks, key=lambda walk: walk.key)
+
+
+def _item_opened_for(walk: Walk, opened_for: str | None, slugs: list[str], current_at: int | None,
+                     current_stem: str) -> int | None:
+    """Which checklist item the unit was opened for, by its place in the checklist; a unit sits
+    under one item only. The current item takes a trailer naming its own dated stem, or before
+    2026-09-14 its bare slug. A dated trailer naming another stem is a station an earlier walk of
+    the route opened under the same slug, so it goes to the first other item of that slug, never
+    to the current one. An open unit the history links to no station is the current item's."""
+    if opened_for is None:
+        return current_at if walk.state == "open" else None
+    if current_at is not None and opened_for in (current_stem, slugs[current_at]):
+        return current_at
+    slug = _DATE_PREFIX.sub("", opened_for)
+    return next((at for at, item in enumerate(slugs) if item == slug and at != current_at), None)
+
+
 def _walk(state: dict) -> str:
     """The change key's words, else the document a definition chain is on."""
     if state.get("key"):
@@ -434,9 +569,13 @@ def _words(name: str) -> str:
 
 def _clean_reason(root: Path, reason: str) -> str:
     """The reason with no pinned launcher path and no `.md` path in it: a launcher reads as its
-    name, and a file as its heading, or as its name in words where it is not found."""
+    name, and a file as its heading, or as its name in words where it is not found. Any other path
+    inside the instance reads from below its project's folder, or from the instance's root."""
     reason = _LAUNCHER_PATH.sub(lambda match: match.group(1), reason)
-    return _MARKDOWN_PATH.sub(lambda match: _file_in_words(root, match.group(0)), reason)
+    reason = _MARKDOWN_PATH.sub(lambda match: _file_in_words(root, match.group(0)), reason)
+    projects = re.escape(str(root / "system" / "projects"))
+    reason = re.sub(_PATH_START + projects + r"/[^/\s]+/", "", reason)
+    return re.sub(_PATH_START + re.escape(str(root)) + "/", "", reason)
 
 
 def _file_in_words(root: Path, token: str) -> str:
@@ -467,7 +606,9 @@ def _timestamp(started_at: str) -> float:
 def _as_json(instance: str | None, board: Board | None) -> str:
     waiting = [asdict(row) for row in board.waiting] if board else []
     running = [asdict(row) for row in board.running] if board else []
-    return json.dumps({"instance": instance, "waiting": waiting, "running": running})
+    routes = [asdict(route) for route in board.routes] if board else []
+    return json.dumps({"instance": instance, "waiting": waiting, "running": running,
+                       "routes": routes})
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -477,14 +618,44 @@ def main(argv: list[str] | None = None) -> int:
     if root is None:
         print(_as_json(None, None))
         return 0
-    print(_as_json(root.name, read_board(root, build_launch_state())))
+    print(_as_json(root.name, read_board(root, build_launch_state(), build_opened_stations())))
     return 0
 
 
-# The composition root: the only place the real filesystem and process table are constructed.
+def git_opened_stations(root: Path, project: str) -> dict[str, str]:
+    """Per change key, the station named on the `Shukuba:` line of the commit that added the
+    unit's `change_request.md` at the tobiishi root. The oldest such commit wins, so a unit's
+    later commits never move it. A history that cannot be read links nothing."""
+    tobiishi = f"system/projects/{project}/journey/tobiishi/"
+    opened = re.compile(rf"^{re.escape(tobiishi)}([^/]+)/change_request\.md$", re.MULTILINE)
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(root), "log", "--diff-filter=A", "--no-renames", "--name-only",
+             f"--format={RECORD_SEPARATOR}%B", "--", tobiishi],
+            capture_output=True, text=True, timeout=HISTORY_TIMEOUT_SECONDS, check=False)
+    except (OSError, subprocess.SubprocessError):
+        return {}
+    if result.returncode != 0:
+        return {}
+    stations: dict[str, str] = {}
+    for record in reversed(result.stdout.split(RECORD_SEPARATOR)):
+        trailer = _SHUKUBA_TRAILER.search(record)
+        if trailer is None:
+            continue
+        for key in opened.findall(record):
+            stations.setdefault(key, trailer.group(1))
+    return stations
+
+
+# The composition root: the only place the real filesystem, process table and git history are
+# constructed.
 def build_launch_state() -> LaunchState:
     files, table = walk_stop.DiskFiles(), walk_stop.ProcessTable()
     return lambda identity: walk_stop.launch_state(files, table, identity)
+
+
+def build_opened_stations() -> OpenedStations:
+    return git_opened_stations
 
 
 if __name__ == "__main__":

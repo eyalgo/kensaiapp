@@ -25,12 +25,95 @@ import ast
 import inspect
 import json
 import re
+from datetime import datetime
 from pathlib import Path
 
 import pytest
 
 import chain
 import chain_usage
+import telemetry_gateway
+
+
+# ── the gateway's collaborators, written by hand ──
+#
+# The reader takes everything the telemetry package knows through `telemetry_gateway.Telemetry`.
+# These fakes stand in for it: a transcript port that reads the real files a test lays out under
+# `tmp_path`, and a telemetry that finds, reads and totals those transcripts the way the
+# gateway's contract describes and records each call it receives.
+
+
+class DiskTranscripts:
+    """The transcript file port over real files: absent files are absent, never an error."""
+
+    def find_transcripts(self, session_id: str, projects_root: Path) -> list[Path]:
+        return sorted(projects_root.glob(f"*/{session_id}.jsonl"))
+
+    def read_lines(self, path: Path) -> list[str] | None:
+        try:
+            return path.read_text(encoding="utf-8", errors="replace").splitlines()
+        except OSError:
+            return None
+
+
+class FakeTelemetry:
+    """The gateway's facade for a test. A usage record is `(usage payload, model, timestamp)`."""
+
+    def __init__(self) -> None:
+        self.files = DiskTranscripts()
+        self.processes = object()
+        self.calls: list[tuple] = []
+
+    def find_transcript(self, session_id, projects_root, files):
+        self.calls.append(("find_transcript", session_id, projects_root, files))
+        found = files.find_transcripts(session_id, projects_root)
+        return found[0] if found else None
+
+    def read_usage(self, path, files):
+        self.calls.append(("read_usage", path, files))
+        for line in files.read_lines(path) or []:
+            try:
+                record = json.loads(line)
+            except ValueError:
+                continue
+            message = record.get("message") if isinstance(record, dict) else None
+            if record.get("type") == "assistant" and isinstance(message, dict):
+                if "usage" in message:
+                    yield (message["usage"], message.get("model"), record.get("timestamp"))
+
+    def spend_by_model(self, records):
+        self.calls.append(("spend_by_model",))
+        totals: dict[str, dict] = {}
+        for payload, model, _stamp in records:
+            row = totals.setdefault(model, dict.fromkeys(_CLASSES, 0) | {"thinking": None})
+            row["input"] += payload.get("input_tokens", 0)
+            row["output"] += payload.get("output_tokens", 0)
+            row["cache_read"] += payload.get("cache_read_input_tokens", 0)
+            created = payload.get("cache_creation") or {}
+            row["cache_write_1h"] += created.get("ephemeral_1h_input_tokens", 0)
+            row["cache_write_5m"] += created.get("ephemeral_5m_input_tokens", 0)
+            thought = (payload.get("output_tokens_details") or {}).get("thinking_tokens")
+            if thought is not None:
+                row["thinking"] = (row["thinking"] or 0) + thought
+        return {model: telemetry_gateway.Spend(**row) for model, row in totals.items()}
+
+    def span_seconds(self, records):
+        self.calls.append(("span_seconds",))
+        stamps = [
+            datetime.fromisoformat(stamp.replace("Z", "+00:00"))
+            for _payload, _model, stamp in records
+            if stamp
+        ]
+        return (max(stamps) - min(stamps)).total_seconds() if stamps else None
+
+
+_CLASSES = ("input", "output", "cache_read", "cache_write_1h", "cache_write_5m")
+
+
+def _files() -> chain_usage.Files:
+    """The reader's own `Files`, composed over the on-disk transcript port."""
+    return chain_usage.Files(DiskTranscripts())
+
 
 
 # ── Task 1 — the population is the watcher logs that carry an `on_complete:` line ──
@@ -136,7 +219,7 @@ class TestWatchLogs:
         _write_log(tmp_path, "watch-demo-20260909-145750.log", CHAIN_DRIVEN_BODY)
         _write_log(tmp_path, "watch-demo-20260909-150000.log", HAND_LAUNCHED_BODY)
 
-        read = chain_usage.watch_logs(tmp_path, "demo", chain_usage.Files())
+        read = chain_usage.watch_logs(tmp_path, "demo", _files())
 
         assert [log.name for log in read.logs] == ["watch-demo-20260909-145750.log"]
         assert read.not_chain_driven == 1
@@ -145,7 +228,7 @@ class TestWatchLogs:
         _write_log(tmp_path, "watch-demo-20260909-145750.log", CHAIN_DRIVEN_BODY)
         _write_log(tmp_path, "watch-demo-nostamp.log", CHAIN_DRIVEN_BODY)
 
-        read = chain_usage.watch_logs(tmp_path, "demo", chain_usage.Files())
+        read = chain_usage.watch_logs(tmp_path, "demo", _files())
 
         assert read.unparsed_names == ("watch-demo-nostamp.log",)
 
@@ -153,7 +236,7 @@ class TestWatchLogs:
         _write_log(tmp_path, "watch-demo-20260909-150000.log", CHAIN_DRIVEN_BODY)
         _write_log(tmp_path, "watch-demo-SRS-20260901-090000.log", CHAIN_DRIVEN_BODY)
 
-        read = chain_usage.watch_logs(tmp_path, "demo", chain_usage.Files())
+        read = chain_usage.watch_logs(tmp_path, "demo", _files())
 
         assert [log.name for log in read.logs] == [
             "watch-demo-SRS-20260901-090000.log",
@@ -163,7 +246,7 @@ class TestWatchLogs:
     def test_a_log_carries_its_tag_and_the_short_id_of_the_run_it_watched(self, tmp_path):
         _write_log(tmp_path, "watch-demo-SRS-20260901-090000.log", CHAIN_DRIVEN_BODY)
 
-        read = chain_usage.watch_logs(tmp_path, "demo", chain_usage.Files())
+        read = chain_usage.watch_logs(tmp_path, "demo", _files())
 
         assert read.logs[0].tag == "SRS"
         assert read.logs[0].short_id == "ecef71f7"
@@ -171,13 +254,13 @@ class TestWatchLogs:
     def test_another_projects_logs_are_never_read(self, tmp_path):
         _write_log(tmp_path, "watch-other-20260909-145750.log", CHAIN_DRIVEN_BODY)
 
-        read = chain_usage.watch_logs(tmp_path, "demo", chain_usage.Files())
+        read = chain_usage.watch_logs(tmp_path, "demo", _files())
 
         assert read.logs == ()
         assert read.total_seen == 0
 
     def test_a_nonexistent_logs_dir_reads_nothing_and_does_not_raise(self, tmp_path):
-        read = chain_usage.watch_logs(tmp_path / "gone", "demo", chain_usage.Files())
+        read = chain_usage.watch_logs(tmp_path / "gone", "demo", _files())
         assert read.logs == ()
         assert read.total_seen == 0
 
@@ -188,10 +271,10 @@ class TestFilesFindWatchLogs:
         _write_log(tmp_path, "watch-other-20260909-145750.log", "x")
         (tmp_path / "chain-demo-state.json").write_text("{}")
 
-        assert chain_usage.Files().find_watch_logs(tmp_path, "demo") == [wanted]
+        assert _files().find_watch_logs(tmp_path, "demo") == [wanted]
 
     def test_a_nonexistent_dir_yields_no_matches(self, tmp_path):
-        assert chain_usage.Files().find_watch_logs(tmp_path / "gone", "demo") == []
+        assert _files().find_watch_logs(tmp_path / "gone", "demo") == []
 
 
 def test_the_marker_this_reader_keys_the_population_on_is_the_watchers_own_line():
@@ -340,7 +423,7 @@ class TestFirstUserText:
             )
         )
         assert (
-            chain_usage.first_user_text(transcript, chain_usage.Files())
+            chain_usage.first_user_text(transcript, _files())
             == "invoke the product-srs skill"
         )
 
@@ -359,7 +442,7 @@ class TestFirstUserText:
                 }
             )
         )
-        text = chain_usage.first_user_text(transcript, chain_usage.Files())
+        text = chain_usage.first_user_text(transcript, _files())
         assert chain_usage.producer_skill(text) == "product-uxd"
 
     def test_a_malformed_line_is_skipped_rather_than_fatal(self, tmp_path):
@@ -372,17 +455,17 @@ class TestFirstUserText:
                 ]
             )
         )
-        assert chain_usage.first_user_text(transcript, chain_usage.Files()) == (
+        assert chain_usage.first_user_text(transcript, _files()) == (
             "invoke the x skill"
         )
 
     def test_a_transcript_that_cannot_be_read_yields_none(self, tmp_path):
-        assert chain_usage.first_user_text(tmp_path / "gone.jsonl", chain_usage.Files()) is None
+        assert chain_usage.first_user_text(tmp_path / "gone.jsonl", _files()) is None
 
     def test_a_transcript_with_no_user_record_yields_none(self, tmp_path):
         transcript = tmp_path / "sid.jsonl"
         transcript.write_text(json.dumps({"type": "assistant", "message": {"content": "hi"}}))
-        assert chain_usage.first_user_text(transcript, chain_usage.Files()) is None
+        assert chain_usage.first_user_text(transcript, _files()) is None
 
 
 def test_the_registry_is_handed_in_and_never_reached_for_inside_a_unit():
@@ -631,14 +714,14 @@ class TestProductRunRecords:
         _write_run_record(tmp_path, 9)
         _write_run_record(tmp_path, 10)
 
-        records = chain_usage.product_run_records(tmp_path, chain_usage.Files())
+        records = chain_usage.product_run_records(tmp_path, _files())
 
         assert [record.run for record in records] == [9, 10]
 
     def test_a_records_own_seats_are_parsed(self, tmp_path):
         _write_run_record(tmp_path, 4)
 
-        records = chain_usage.product_run_records(tmp_path, chain_usage.Files())
+        records = chain_usage.product_run_records(tmp_path, _files())
 
         assert records[0].seats is not None
         assert len(records[0].seats) == 3
@@ -646,7 +729,7 @@ class TestProductRunRecords:
     def test_a_record_that_does_not_parse_carries_no_seats_rather_than_raising(self, tmp_path):
         _write_run_record(tmp_path, 1, body="no seats block here at all")
 
-        records = chain_usage.product_run_records(tmp_path, chain_usage.Files())
+        records = chain_usage.product_run_records(tmp_path, _files())
 
         assert records[0].seats is None
 
@@ -656,12 +739,12 @@ class TestProductRunRecords:
         (sdd_dir / "cycle-1.md").write_text(SEAT_BLOCK)
         (sdd_dir / "self_answer-1.md").write_text(SEAT_BLOCK)
 
-        records = chain_usage.product_run_records(tmp_path, chain_usage.Files())
+        records = chain_usage.product_run_records(tmp_path, _files())
 
         assert [record.run for record in records] == [1]
 
     def test_a_product_with_no_sdd_trail_yields_no_records_not_an_error(self, tmp_path):
-        assert chain_usage.product_run_records(tmp_path, chain_usage.Files()) == ()
+        assert chain_usage.product_run_records(tmp_path, _files()) == ()
 
     def test_the_engines_own_state_file_beside_a_run_record_is_never_read_as_one(self, tmp_path):
         # The retired engine kept its own state at `run-<N>.state.json`, beside the run's
@@ -670,7 +753,7 @@ class TestProductRunRecords:
         sdd_dir = tmp_path / "docs" / "trail" / "sdd"
         (sdd_dir / "run-1.state.json").write_text('{"schema_version": 1}')
 
-        records = chain_usage.product_run_records(tmp_path, chain_usage.Files())
+        records = chain_usage.product_run_records(tmp_path, _files())
 
         assert [record.run for record in records] == [1]
 
@@ -681,12 +764,12 @@ class TestFilesFindRunRecords:
         sdd_dir = tmp_path / "docs" / "trail" / "sdd"
         (sdd_dir / "cycle-1.md").write_text("x")
 
-        found = chain_usage.Files().find_run_records(tmp_path)
+        found = _files().find_run_records(tmp_path)
 
         assert found == [wanted]
 
     def test_a_nonexistent_sdd_trail_yields_no_matches(self, tmp_path):
-        assert chain_usage.Files().find_run_records(tmp_path) == []
+        assert _files().find_run_records(tmp_path) == []
 
 
 class TestSeatRowsFromRecords:
@@ -711,7 +794,7 @@ class TestSeatRowsFromRecords:
                 _agent_row("cccccccc", "sdd-demo-run4-cdo", 3),
             )
         )
-        records = chain_usage.product_run_records(tmp_path, chain_usage.Files())
+        records = chain_usage.product_run_records(tmp_path, _files())
 
         join = chain_usage.seat_rows_from_records(records, rows)
 
@@ -743,7 +826,7 @@ class TestSeatRowsFromRecords:
                 _agent_row("dddddddd", "sdd-demo-run4-cdo", 4),
             )
         )
-        records = chain_usage.product_run_records(tmp_path, chain_usage.Files())
+        records = chain_usage.product_run_records(tmp_path, _files())
 
         join = chain_usage.seat_rows_from_records(records, rows)
 
@@ -753,7 +836,7 @@ class TestSeatRowsFromRecords:
 
     def test_a_recorded_name_with_no_agent_row_is_reported_not_dropped(self, tmp_path):
         _write_run_record(tmp_path, 4)  # names sdd-demo-run4-{cto,cpo,cdo}; no rows given
-        records = chain_usage.product_run_records(tmp_path, chain_usage.Files())
+        records = chain_usage.product_run_records(tmp_path, _files())
 
         join = chain_usage.seat_rows_from_records(records, ())
 
@@ -767,7 +850,7 @@ class TestSeatRowsFromRecords:
     def test_a_run_whose_record_does_not_parse_contributes_no_seats(self, tmp_path):
         _write_run_record(tmp_path, 1, body="no seats block here at all")
         rows = chain_usage.agent_rows(_agents_json(_agent_row("aaaaaaaa", "anything", 1)))
-        records = chain_usage.product_run_records(tmp_path, chain_usage.Files())
+        records = chain_usage.product_run_records(tmp_path, _files())
 
         join = chain_usage.seat_rows_from_records(records, rows)
 
@@ -793,7 +876,7 @@ class TestSeatRowsFromRecords:
                 _agent_row("bbbbbbbb", "sdd-other-run4-cto", 2),
             )
         )
-        records = chain_usage.product_run_records(product_a, chain_usage.Files())
+        records = chain_usage.product_run_records(product_a, _files())
 
         join = chain_usage.seat_rows_from_records(records, rows)
 
@@ -809,14 +892,14 @@ class TestReadSeats:
                 _agent_row("cccccccc", "sdd-demo-run1-cdo", 3),
             )
         )
-        reading = chain_usage.read_seats(None, "demo", rows, chain_usage.Files())
+        reading = chain_usage.read_seats(None, "demo", rows, _files())
         assert reading.seats == chain_usage.seat_rows(rows, "demo")
 
     def test_with_no_product_path_every_run_is_named_read_by_convention(self):
         rows = chain_usage.agent_rows(
             _agents_json(_agent_row("aaaaaaaa", "sdd-demo-run1-cpo", 1))
         )
-        reading = chain_usage.read_seats(None, "demo", rows, chain_usage.Files())
+        reading = chain_usage.read_seats(None, "demo", rows, _files())
         assert reading.evidence == {1: chain_usage.SeatEvidence.CONVENTION}
 
     def test_a_record_that_does_not_parse_falls_back_to_the_pattern_named_convention(
@@ -830,7 +913,7 @@ class TestReadSeats:
                 _agent_row("cccccccc", "sdd-demo-run1-cdo", 3),
             )
         )
-        reading = chain_usage.read_seats(tmp_path, "demo", rows, chain_usage.Files())
+        reading = chain_usage.read_seats(tmp_path, "demo", rows, _files())
         assert len(reading.seats) == 3
         assert reading.evidence[1] is chain_usage.SeatEvidence.CONVENTION
 
@@ -854,7 +937,7 @@ class TestReadSeats:
                 _agent_row("dddddddd", "sdd-demo-run5-cto", 4),
             )
         )
-        reading = chain_usage.read_seats(tmp_path, "demo", rows, chain_usage.Files())
+        reading = chain_usage.read_seats(tmp_path, "demo", rows, _files())
 
         assert len(reading.seats) == 3
         assert "dddddddd" not in {s.row.id for s in reading.seats}
@@ -862,7 +945,7 @@ class TestReadSeats:
 
     def test_a_recorded_name_with_no_row_is_carried_as_unmatched(self, tmp_path):
         _write_run_record(tmp_path, 4)  # names sdd-demo-run4-{cto,cpo,cdo}; no rows given
-        reading = chain_usage.read_seats(tmp_path, "demo", (), chain_usage.Files())
+        reading = chain_usage.read_seats(tmp_path, "demo", (), _files())
         assert set(reading.unmatched_recorded_names) == {
             "sdd-demo-run4-cto",
             "sdd-demo-run4-cpo",
@@ -895,7 +978,7 @@ class TestReadSeatsMissingRecord:
                 _agent_row("eeeeeeee", "sdd-demo-run2-cpo", 5),
             )
         )
-        reading = chain_usage.read_seats(tmp_path, "demo", rows, chain_usage.Files())
+        reading = chain_usage.read_seats(tmp_path, "demo", rows, _files())
 
         assert {s.row.id for s in reading.seats} == {
             "aaaaaaaa", "bbbbbbbb", "cccccccc", "dddddddd", "eeeeeeee",
@@ -915,9 +998,9 @@ class TestRunsFromSeatsEvidence:
         runs = chain_usage.runs_from_seats(
             seats,
             tmp_path,
-            chain_usage.Files(),
+            _files(),
             chain_usage.document_keys(chain.DOCUMENT_REGISTRY),
-            evidence={17: chain_usage.SeatEvidence.RECORD},
+            FakeTelemetry(), evidence={17: chain_usage.SeatEvidence.RECORD},
         )
 
         assert runs[0].seat_evidence is chain_usage.SeatEvidence.RECORD
@@ -928,8 +1011,8 @@ class TestRunsFromSeatsEvidence:
         seats = chain_usage.seat_rows(rows, "demo")
 
         runs = chain_usage.runs_from_seats(
-            seats, tmp_path, chain_usage.Files(),
-            chain_usage.document_keys(chain.DOCUMENT_REGISTRY),
+            seats, tmp_path, _files(),
+            chain_usage.document_keys(chain.DOCUMENT_REGISTRY), FakeTelemetry(),
         )
 
         assert runs[0].seat_evidence is chain_usage.SeatEvidence.CONVENTION
@@ -940,9 +1023,9 @@ class TestRunsFromSeatsEvidence:
         seats = chain_usage.seat_rows(rows, "demo")
 
         runs = chain_usage.runs_from_seats(
-            seats, tmp_path, chain_usage.Files(),
+            seats, tmp_path, _files(),
             chain_usage.document_keys(chain.DOCUMENT_REGISTRY),
-            evidence={},
+            FakeTelemetry(), evidence={},
         )
 
         assert runs[0].seat_evidence is chain_usage.SeatEvidence.CONVENTION
@@ -981,14 +1064,14 @@ class TestRunsFromLogs:
             (log,),
             chain_usage.agent_rows(_agents_json(row)),
             projects_root,
-            chain_usage.Files(),
-            chain_usage.document_keys(chain.DOCUMENT_REGISTRY),
+            _files(),
+            chain_usage.document_keys(chain.DOCUMENT_REGISTRY), FakeTelemetry(),
         )
 
         assert runs[0].kind is chain_usage.Kind.PRODUCER
         assert runs[0].document_key == "SRS"
         assert runs[0].transcript is chain_usage.Transcript.READ
-        assert chain_usage.run_spend(runs[0])["claude-sonnet-5"].input == 11
+        assert chain_usage.run_spend(runs[0], FakeTelemetry())["claude-sonnet-5"].input == 11
 
     def test_a_log_naming_its_session_joins_the_transcript_with_no_agent_row(self, tmp_path):
         projects_root = tmp_path / "projects"
@@ -1000,19 +1083,19 @@ class TestRunsFromLogs:
             f"(run process 4242 completed — provider: claude)\n(run session {session_id})\n"
             "on_complete: ran.\n",
         )
-        logs = chain_usage.watch_logs(tmp_path, "demo", chain_usage.Files()).logs
+        logs = chain_usage.watch_logs(tmp_path, "demo", _files()).logs
 
         runs = chain_usage.runs_from_logs(
             logs,
             (),
             projects_root,
-            chain_usage.Files(),
-            chain_usage.document_keys(chain.DOCUMENT_REGISTRY),
+            _files(),
+            chain_usage.document_keys(chain.DOCUMENT_REGISTRY), FakeTelemetry(),
         )
 
         assert runs[0].session_id == session_id
         assert runs[0].transcript is chain_usage.Transcript.READ
-        assert chain_usage.run_spend(runs[0])["claude-sonnet-5"].output == 9
+        assert chain_usage.run_spend(runs[0], FakeTelemetry())["claude-sonnet-5"].output == 9
 
     def test_a_tagged_log_is_a_self_answer_and_needs_no_transcript_for_its_document(
         self, tmp_path
@@ -1031,13 +1114,13 @@ class TestRunsFromLogs:
             (log,),
             chain_usage.agent_rows(_agents_json(row)),
             projects_root,
-            chain_usage.Files(),
-            chain_usage.document_keys(chain.DOCUMENT_REGISTRY),
+            _files(),
+            chain_usage.document_keys(chain.DOCUMENT_REGISTRY), FakeTelemetry(),
         )
 
         assert runs[0].kind is chain_usage.Kind.SELF_ANSWER
         assert runs[0].document_key == "SRS"
-        assert chain_usage.run_spend(runs[0])["claude-sonnet-5"].output == 7
+        assert chain_usage.run_spend(runs[0], FakeTelemetry())["claude-sonnet-5"].output == 7
 
     def test_a_log_whose_short_id_is_in_no_agent_row_is_reported_not_dropped(self, tmp_path):
         log = chain_usage.WatchLog(
@@ -1051,14 +1134,14 @@ class TestRunsFromLogs:
             (log,),
             (),
             tmp_path,
-            chain_usage.Files(),
-            chain_usage.document_keys(chain.DOCUMENT_REGISTRY),
+            _files(),
+            chain_usage.document_keys(chain.DOCUMENT_REGISTRY), FakeTelemetry(),
         )
 
         assert len(runs) == 1
         assert runs[0].transcript is chain_usage.Transcript.NO_SESSION
         assert runs[0].session_id is None
-        assert chain_usage.run_spend(runs[0]) == {}
+        assert chain_usage.run_spend(runs[0], FakeTelemetry()) == {}
 
     def test_a_run_whose_transcript_is_gone_is_reported_not_dropped(self, tmp_path):
         row = _agent_row("ecef71f7", "demo", 1)
@@ -1073,8 +1156,8 @@ class TestRunsFromLogs:
             (log,),
             chain_usage.agent_rows(_agents_json(row)),
             tmp_path / "empty",
-            chain_usage.Files(),
-            chain_usage.document_keys(chain.DOCUMENT_REGISTRY),
+            _files(),
+            chain_usage.document_keys(chain.DOCUMENT_REGISTRY), FakeTelemetry(),
         )
 
         assert runs[0].transcript is chain_usage.Transcript.MISSING
@@ -1093,8 +1176,8 @@ class TestRunsFromLogs:
             (log,),
             chain_usage.agent_rows(_agents_json(row)),
             tmp_path,
-            chain_usage.Files(),
-            chain_usage.document_keys(chain.DOCUMENT_REGISTRY),
+            _files(),
+            chain_usage.document_keys(chain.DOCUMENT_REGISTRY), FakeTelemetry(),
         )
 
         assert runs[0].document_key is None
@@ -1116,8 +1199,8 @@ class TestRunsFromLogs:
             (log,),
             chain_usage.agent_rows(_agents_json(row)),
             tmp_path,
-            chain_usage.Files(),
-            chain_usage.document_keys(chain.DOCUMENT_REGISTRY),
+            _files(),
+            chain_usage.document_keys(chain.DOCUMENT_REGISTRY), FakeTelemetry(),
         )
         assert runs[0].started_at == 1788965870000
 
@@ -1132,15 +1215,15 @@ class TestRunsFromSeats:
         runs = chain_usage.runs_from_seats(
             chain_usage.seat_rows(rows, "demo"),
             projects_root,
-            chain_usage.Files(),
-            chain_usage.document_keys(chain.DOCUMENT_REGISTRY),
+            _files(),
+            chain_usage.document_keys(chain.DOCUMENT_REGISTRY), FakeTelemetry(),
         )
 
         assert runs[0].kind is chain_usage.Kind.SEAT
         assert runs[0].source is chain_usage.Source.SEAT_SESSION
         assert runs[0].document_key == "SDD"
         assert runs[0].seat == "cpo"
-        assert chain_usage.run_spend(runs[0])["claude-sonnet-5"].output == 5
+        assert chain_usage.run_spend(runs[0], FakeTelemetry())["claude-sonnet-5"].output == 5
 
     def test_a_seat_takes_its_start_from_the_agents_list(self, tmp_path):
         row = _agent_row("cbd6cde0", "sdd-demo-run17-cpo", 1788965870000)
@@ -1148,8 +1231,8 @@ class TestRunsFromSeats:
         runs = chain_usage.runs_from_seats(
             chain_usage.seat_rows(rows, "demo"),
             tmp_path,
-            chain_usage.Files(),
-            chain_usage.document_keys(chain.DOCUMENT_REGISTRY),
+            _files(),
+            chain_usage.document_keys(chain.DOCUMENT_REGISTRY), FakeTelemetry(),
         )
         assert runs[0].started_at == 1788965870000
 
@@ -1160,8 +1243,8 @@ class TestRunsFromSeats:
         runs = chain_usage.runs_from_seats(
             chain_usage.seat_rows(rows, "demo"),
             tmp_path / "empty",
-            chain_usage.Files(),
-            chain_usage.document_keys(chain.DOCUMENT_REGISTRY),
+            _files(),
+            chain_usage.document_keys(chain.DOCUMENT_REGISTRY), FakeTelemetry(),
         )
         assert len(runs) == 1
         assert runs[0].transcript is chain_usage.Transcript.MISSING
@@ -1202,20 +1285,20 @@ class TestRunSpan:
             (log,),
             chain_usage.agent_rows(_agents_json(row)),
             projects_root,
-            chain_usage.Files(),
-            chain_usage.document_keys(chain.DOCUMENT_REGISTRY),
+            _files(),
+            chain_usage.document_keys(chain.DOCUMENT_REGISTRY), FakeTelemetry(),
         )
-        assert chain_usage.run_span(runs[0]) == 600.0
+        assert chain_usage.run_span(runs[0], FakeTelemetry()) == 600.0
 
     def test_a_run_with_no_records_has_no_span_rather_than_zero(self, tmp_path):
         log = chain_usage.WatchLog(
             name="watch-demo-20260909-145750.log", tag=None, started_at=1, short_id=None
         )
         runs = chain_usage.runs_from_logs(
-            (log,), (), tmp_path, chain_usage.Files(),
-            chain_usage.document_keys(chain.DOCUMENT_REGISTRY),
+            (log,), (), tmp_path, _files(),
+            chain_usage.document_keys(chain.DOCUMENT_REGISTRY), FakeTelemetry(),
         )
-        assert chain_usage.run_span(runs[0]) is None
+        assert chain_usage.run_span(runs[0], FakeTelemetry()) is None
 
 
 def test_the_seat_name_scheme_is_the_one_the_structure_map_states():
@@ -1231,23 +1314,60 @@ def test_the_seat_name_scheme_is_the_one_the_structure_map_states():
     assert chain_usage._SEATS_HEADER in structure
 
 
-def test_the_spend_accumulator_is_the_siblings_and_never_a_second_one():
-    # run_usage.spend_by_model owns the five-class split and the thinking-is-a-share rule.
-    # A second accumulator here would be a second place for them to drift.
+def test_the_spend_accumulator_is_the_packages_and_never_a_second_one(tmp_path):
+    # The gateway owns the five-class split and the thinking-is-a-share rule. A second
+    # accumulator here would be a second place for them to drift.
     #
-    # Checked as a call in the parse tree rather than a string in the file: this module's own
-    # docstring names run_usage.spend_by_model, so a text search passes on the prose alone and
-    # would keep passing over a hand-rolled accumulator sitting right beneath it.
+    # Checked twice. As a call in the parse tree rather than a string in the file: this module's
+    # own docstring names the gateway's spend, so a text search passes on the prose alone and
+    # would keep passing over a hand-rolled accumulator sitting right beneath it. And as the
+    # calls a recording gateway receives while a transcript is read and totalled.
     source = Path(chain_usage.__file__).read_text()
     called = {
         ast.unparse(node.func)
         for node in ast.walk(ast.parse(source))
         if isinstance(node, ast.Call)
     }
-    assert "run_usage.spend_by_model" in called
-    assert "run_usage.usage_records" in called
+    assert "telemetry.spend_by_model" in called
+    assert "telemetry.read_usage" in called
     assert "cache_read_input_tokens" not in source
     assert "ephemeral_1h_input_tokens" not in source
+
+    telemetry = FakeTelemetry()
+    projects_root = tmp_path / "projects"
+    _write_transcript(projects_root, "slug", "sess-1", [_usage_line(input_tokens=4)])
+    state, records, path = chain_usage._records_for("sess-1", projects_root, _files(), telemetry)
+    spend = chain_usage.run_spend(_run("SRS", chain_usage.Kind.PRODUCER, 1, records=records),
+                                  telemetry)
+
+    assert state is chain_usage.Transcript.READ
+    assert spend["claude-sonnet-5"].input == 4
+    assert [call[0] for call in telemetry.calls] == [
+        "find_transcript", "read_usage", "spend_by_model",
+    ]
+
+
+def test_chain_reader_composes_transcript_access():
+    """`Files` forwards the two transcript reaches to the port it was given, keeps the rest
+    local, and has no base class from the old module or the package."""
+    calls = []
+
+    class RecordingPort:
+        def find_transcripts(self, session_id, projects_root):
+            calls.append(("find_transcripts", session_id, projects_root))
+            return [Path("/x/s.jsonl")]
+
+        def read_lines(self, path):
+            calls.append(("read_lines", path))
+            return ["a line"]
+
+    files = chain_usage.Files(RecordingPort())
+
+    assert files.find_transcripts("s", Path("/root")) == [Path("/x/s.jsonl")]
+    assert files.read_lines(Path("/x/s.jsonl")) == ["a line"]
+    assert calls == [("find_transcripts", "s", Path("/root")), ("read_lines", Path("/x/s.jsonl"))]
+    assert chain_usage.Files.__bases__ == (object,)
+    assert files.read_text(Path("/nonexistent/anything")) is None  # a local reach, not forwarded
 
 
 # ── Task 4 — the cycles, the aggregation, and the coverage this reading states ──
@@ -1402,7 +1522,9 @@ class TestByDocument:
                      records=(_usage(output_tokens=4),)),
             )
         )
-        rows = chain_usage.by_document(runs, chain_usage.document_keys(chain.DOCUMENT_REGISTRY))
+        rows = chain_usage.by_document(
+            runs, chain_usage.document_keys(chain.DOCUMENT_REGISTRY), FakeTelemetry()
+        )
         assert rows[0].spend["m"].output == 7
 
     def test_a_row_counts_the_cycles_and_each_kind_of_run(self):
@@ -1415,14 +1537,14 @@ class TestByDocument:
             )
         )
         row = chain_usage.by_document(
-            runs, chain_usage.document_keys(chain.DOCUMENT_REGISTRY)
+            runs, chain_usage.document_keys(chain.DOCUMENT_REGISTRY), FakeTelemetry()
         )[0]
         assert (row.cycles, row.producers, row.self_answers, row.seats) == (2, 2, 1, 1)
 
     def test_a_row_names_every_document_the_key_covers(self):
         runs = chain_usage.with_cycles((_run("architecture", chain_usage.Kind.PRODUCER, 1),))
         row = chain_usage.by_document(
-            runs, chain_usage.document_keys(chain.DOCUMENT_REGISTRY)
+            runs, chain_usage.document_keys(chain.DOCUMENT_REGISTRY), FakeTelemetry()
         )[0]
         assert row.documents == ("ADR", "NFDR")
 
@@ -1434,7 +1556,9 @@ class TestByDocument:
                 _run("SRS", chain_usage.Kind.PRODUCER, 300),
             )
         )
-        rows = chain_usage.by_document(runs, chain_usage.document_keys(chain.DOCUMENT_REGISTRY))
+        rows = chain_usage.by_document(
+            runs, chain_usage.document_keys(chain.DOCUMENT_REGISTRY), FakeTelemetry()
+        )
         assert [row.key for row in rows] == ["PRD", "SRS", "SDD"]
 
     def test_the_unattributed_runs_get_their_own_row_last(self):
@@ -1445,13 +1569,15 @@ class TestByDocument:
                      records=(_usage(output_tokens=9),)),
             )
         )
-        rows = chain_usage.by_document(runs, chain_usage.document_keys(chain.DOCUMENT_REGISTRY))
+        rows = chain_usage.by_document(
+            runs, chain_usage.document_keys(chain.DOCUMENT_REGISTRY), FakeTelemetry()
+        )
         assert rows[-1].key is None
         assert rows[-1].spend["m"].output == 9
 
     def test_a_document_with_no_runs_gets_no_row(self):
         rows = chain_usage.by_document(
-            (), chain_usage.document_keys(chain.DOCUMENT_REGISTRY)
+            (), chain_usage.document_keys(chain.DOCUMENT_REGISTRY), FakeTelemetry()
         )
         assert rows == ()
 
@@ -1466,7 +1592,9 @@ class TestByCycle:
                 _run("SRS", chain_usage.Kind.PRODUCER, 200, records=(_usage(output_tokens=4),)),
             )
         )
-        rows = chain_usage.by_cycle(runs, chain_usage.document_keys(chain.DOCUMENT_REGISTRY))
+        rows = chain_usage.by_cycle(
+            runs, chain_usage.document_keys(chain.DOCUMENT_REGISTRY), FakeTelemetry()
+        )
         assert [(row.key, row.cycle, row.spend["m"].output) for row in rows] == [
             ("SRS", 1, 3),
             ("SRS", 2, 4),
@@ -1479,7 +1607,9 @@ class TestByCycle:
                 _run("FDR", chain_usage.Kind.PRODUCER, 200),
             )
         )
-        rows = chain_usage.by_cycle(runs, chain_usage.document_keys(chain.DOCUMENT_REGISTRY))
+        rows = chain_usage.by_cycle(
+            runs, chain_usage.document_keys(chain.DOCUMENT_REGISTRY), FakeTelemetry()
+        )
         assert [row.cycle for row in rows] == [0, 1]
 
 
@@ -1555,30 +1685,30 @@ class TestChainState:
     def test_the_facts_this_reader_uses_are_read_off_the_state(self, tmp_path):
         path = tmp_path / "chain-demo-state.json"
         path.write_text(json.dumps(STATE_FILE))
-        state = chain_usage.chain_state(path, chain_usage.Files())
+        state = chain_usage.chain_state(path, _files())
         assert state.chain_name == "definition"
         assert state.project == "demo"
         assert state.spine == ("PRD", "Agari", "SRS", "UXD", "DESIGN", "CONTENT", "SDD")
         assert state.ended == "settled"
 
     def test_a_state_that_cannot_be_read_yields_none_rather_than_raising(self, tmp_path):
-        assert chain_usage.chain_state(tmp_path / "gone.json", chain_usage.Files()) is None
+        assert chain_usage.chain_state(tmp_path / "gone.json", _files()) is None
 
     def test_a_state_that_is_not_json_yields_none(self, tmp_path):
         path = tmp_path / "s.json"
         path.write_text("{not json")
-        assert chain_usage.chain_state(path, chain_usage.Files()) is None
+        assert chain_usage.chain_state(path, _files()) is None
 
     def test_the_logs_dir_is_derived_from_the_instance_root_the_state_names(self, tmp_path):
         path = tmp_path / "s.json"
         path.write_text(json.dumps(STATE_FILE))
-        state = chain_usage.chain_state(path, chain_usage.Files())
+        state = chain_usage.chain_state(path, _files())
         assert chain_usage.logs_dir_for(state) == Path("/instance/system/logs")
 
     def test_a_state_with_no_instance_root_derives_no_logs_dir(self, tmp_path):
         path = tmp_path / "s.json"
         path.write_text(json.dumps({"project": "demo"}))
-        state = chain_usage.chain_state(path, chain_usage.Files())
+        state = chain_usage.chain_state(path, _files())
         assert chain_usage.logs_dir_for(state) is None
 
 
@@ -1638,14 +1768,15 @@ class TestReadWalk:
             project="demo",
             agents_json_text=agents,
             projects_root=projects_root,
-            files=chain_usage.Files(),
+            files=_files(),
             keys=chain_usage.document_keys(chain.DOCUMENT_REGISTRY),
             since=None,
             until=None,
+            telemetry=FakeTelemetry(),
         )
         assert reading.coverage.chain_driven_runs == 1
         assert reading.coverage.seat_runs == 1
-        row = chain_usage.by_document(reading.runs, reading.keys)[0]
+        row = chain_usage.by_document(reading.runs, reading.keys, FakeTelemetry())[0]
         assert row.key == "SDD"
         assert row.spend["claude-sonnet-5"].output == 32
 
@@ -1662,10 +1793,11 @@ class TestReadWalk:
             project="demo",
             agents_json_text=agents,
             projects_root=projects_root,
-            files=chain_usage.Files(),
+            files=_files(),
             keys=chain_usage.document_keys(chain.DOCUMENT_REGISTRY),
             since=chain_usage.parse_day("2026-09-01"),
             until=None,
+            telemetry=FakeTelemetry(),
         )
         assert reading.runs == ()
 
@@ -1698,10 +1830,11 @@ class TestReadWalk:
             project="demo",
             agents_json_text=agents,
             projects_root=projects_root,
-            files=chain_usage.Files(),
+            files=_files(),
             keys=chain_usage.document_keys(chain.DOCUMENT_REGISTRY),
             since=None,
             until=None,
+            telemetry=FakeTelemetry(),
         )
         assert sorted(run.cycle for run in reading.runs) == [1, 2]
 
@@ -1722,11 +1855,12 @@ class TestReadWalk:
             project="demo",
             agents_json_text=agents,
             projects_root=projects_root,
-            files=chain_usage.Files(),
+            files=_files(),
             keys=chain_usage.document_keys(chain.DOCUMENT_REGISTRY),
             since=None,
             until=None,
             state=state,
+            telemetry=FakeTelemetry(),
         )
         seat_run = next(run for run in reading.runs if run.kind is chain_usage.Kind.SEAT)
         assert seat_run.seat_evidence is chain_usage.SeatEvidence.RECORD
@@ -1747,11 +1881,12 @@ class TestReadWalk:
             project="demo",
             agents_json_text=agents,
             projects_root=projects_root,
-            files=chain_usage.Files(),
+            files=_files(),
             keys=chain_usage.document_keys(chain.DOCUMENT_REGISTRY),
             since=None,
             until=None,
             state=state,
+            telemetry=FakeTelemetry(),
         )
         seat_run = next(run for run in reading.runs if run.kind is chain_usage.Kind.SEAT)
         assert seat_run.seat_evidence is chain_usage.SeatEvidence.CONVENTION
@@ -1772,10 +1907,11 @@ class TestReadWalk:
             project="demo",
             agents_json_text=agents,
             projects_root=projects_root,
-            files=chain_usage.Files(),
+            files=_files(),
             keys=chain_usage.document_keys(chain.DOCUMENT_REGISTRY),
             since=None,
             until=None,
+            telemetry=FakeTelemetry(),
         )
         seat_ids = {r.session_id for r in reading.runs if r.kind is chain_usage.Kind.SEAT}
         today = chain_usage.seat_rows(chain_usage.agent_rows(agents), "demo")
@@ -1805,11 +1941,12 @@ class TestReadWalk:
             project="demo",
             agents_json_text=agents,
             projects_root=projects_root,
-            files=chain_usage.Files(),
+            files=_files(),
             keys=chain_usage.document_keys(chain.DOCUMENT_REGISTRY),
             since=None,
             until=None,
             state=state,
+            telemetry=FakeTelemetry(),
         )
 
         text = chain_usage.render(reading)
@@ -1830,6 +1967,7 @@ def _reading(runs, *, state=None, logs=None):
         state=state,
         since=None,
         until=None,
+        telemetry=FakeTelemetry(),
     )
 
 
@@ -2066,12 +2204,20 @@ class TestCompositionRoot:
         assert holders == []
 
     def test_build_reader_resolves_the_default_projects_root(self):
-        reader = chain_usage.build_reader()
+        reader = chain_usage.build_reader(telemetry=FakeTelemetry())
         assert reader.projects_root == Path.home() / ".claude" / "projects"
         assert isinstance(reader.files, chain_usage.Files)
 
     def test_build_reader_honors_an_explicit_projects_root(self, tmp_path):
-        assert chain_usage.build_reader(tmp_path).projects_root == tmp_path
+        assert chain_usage.build_reader(tmp_path, FakeTelemetry()).projects_root == tmp_path
+
+    def test_build_reader_wires_the_given_telemetry_once(self):
+        telemetry = FakeTelemetry()
+
+        reader = chain_usage.build_reader(telemetry=telemetry)
+
+        assert reader.telemetry is telemetry
+        assert reader.processes is telemetry.processes
 
     def test_only_build_reader_constructs_a_port(self):
         tree = ast.parse(Path(chain_usage.__file__).read_text())
@@ -2084,7 +2230,7 @@ class TestCompositionRoot:
                     if call.func.id == "Files":
                         constructing.add(node.name)
                 if isinstance(call, ast.Call) and isinstance(call.func, ast.Attribute):
-                    if call.func.attr == "Processes":
+                    if call.func.attr in ("Processes", "build_telemetry"):
                         constructing.add(node.name)
         assert constructing == {"build_reader"}
 
@@ -2125,7 +2271,8 @@ class TestCli:
                 "--project", "demo",
                 "--agents-json", str(agents_file),
                 "--projects-root", str(projects_root),
-            ]
+            ],
+            telemetry=FakeTelemetry(),
         )
         assert code == 0
         out = capsys.readouterr().out
@@ -2149,7 +2296,8 @@ class TestCli:
                 "--state", str(state),
                 "--agents-json", str(agents_file),
                 "--projects-root", str(projects_root),
-            ]
+            ],
+            telemetry=FakeTelemetry(),
         )
         assert code == 0
         out = capsys.readouterr().out
@@ -2159,7 +2307,10 @@ class TestCli:
     def test_no_project_and_no_state_is_a_usage_error_naming_what_is_missing(
         self, tmp_path, capsys
     ):
-        code = chain_usage.main(["--logs-dir", str(tmp_path), "--agents-json", str(tmp_path)])
+        code = chain_usage.main(
+            ["--logs-dir", str(tmp_path), "--agents-json", str(tmp_path)],
+            telemetry=FakeTelemetry(),
+        )
         assert code != 0
         assert "--project" in capsys.readouterr().err
 
@@ -2171,10 +2322,10 @@ class TestCli:
             "--agents-json", str(agents_file),
             "--projects-root", str(projects_root),
         ]
-        chain_usage.main(argv)
+        chain_usage.main(argv, telemetry=FakeTelemetry())
         assert "output=9" in capsys.readouterr().out
 
-        chain_usage.main(argv + ["--json"])
+        chain_usage.main(argv + ["--json"], telemetry=FakeTelemetry())
         payload = json.loads(capsys.readouterr().out)
         assert payload["documents"][0]["spend"]["claude-sonnet-5"]["output"] == 9
 
@@ -2187,7 +2338,8 @@ class TestCli:
                 "--agents-json", str(agents_file),
                 "--projects-root", str(projects_root),
                 "--since", "yesterday",
-            ]
+            ],
+            telemetry=FakeTelemetry(),
         )
         assert code != 0
         assert "yesterday" in capsys.readouterr().err
@@ -2203,7 +2355,8 @@ class TestCli:
                     "--project", "demo",
                     "--agents-json", str(tmp_path / "gone.json"),
                     "--projects-root", str(projects_root),
-                ]
+                ],
+                telemetry=FakeTelemetry(),
             )
 
     def test_the_reader_writes_nothing(self, tmp_path):
@@ -2215,7 +2368,8 @@ class TestCli:
                 "--project", "demo",
                 "--agents-json", str(agents_file),
                 "--projects-root", str(projects_root),
-            ]
+            ],
+            telemetry=FakeTelemetry(),
         )
         after = sorted(p.relative_to(tmp_path) for p in tmp_path.rglob("*"))
         assert before == after

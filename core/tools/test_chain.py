@@ -1824,6 +1824,14 @@ class TestResolveDocument:
         assert chain.resolve_document("docs/adr_open_issues.md") is None
         assert chain.resolve_document("docs/adrenaline.md") is None
 
+    def test_a_companion_resolves_to_the_document_it_answers_for(self):
+        expect = {
+            "docs/architecture_open_issues.md": "ADR", "agari_open_issues.md": "Agari",
+            "docs/SDD_open_issues.md": "SDD", "docs/srs_open_issues.md": "SRS",
+        }
+        for path, name in expect.items():
+            assert chain.resolve_document(path) is chain.document(name), path
+
     def test_a_path_naming_no_document_resolves_to_nothing(self):
         assert chain.resolve_document("docs/random_notes.md") is None
         assert chain.resolve_document("") is None
@@ -2523,6 +2531,15 @@ class TestUnroutedCompanions:
                      owed=(("docs/adr/` and `docs/nfdr.md", "x"),),
                      companions_opened=[("/p/docs/architecture_open_issues.md", "opened",
                                           "adr/")])
+        assert chain.unrouted_companions(one) == []
+
+    def test_the_architecture_companion_is_routed_by_its_own_path(self):
+        """A live product, 2026-10-20: the round opened the architecture companion on `adr/`
+        and owed its round on the companion file itself."""
+        one = report(counts={"confirmed": 1},
+                     owed=(("products/p/docs/architecture_open_issues.md", "x"),),
+                     companions_opened=[("products/p/docs/architecture_open_issues.md",
+                                          "opened", "adr/")])
         assert chain.unrouted_companions(one) == []
 
 
@@ -4806,7 +4823,7 @@ class TestTheCardRunsOnceAndLast:
 
         assert processes.launched == [answer("FDR"), through_skill("product-architecture"),
                                       answer("architecture"), through_skill("writing-bar"),
-                                      CARD_ARGV]
+                                      CARD_ARGV, answer("FDR")]
 
     @pytest.mark.parametrize("interleaved", [False, True], ids=["plain", "interleaved-duplicates"])
     def test_distinct_card_arguments_keep_arrival_order_after_ordinary_items(self, interleaved):
@@ -4846,7 +4863,7 @@ class TestTheCardRunsOnceAndLast:
         finish(engine)
 
         assert processes.launched == [answer("FDR"), through_skill("product-architecture"),
-                                      CARD_ARGV]
+                                      CARD_ARGV, answer("FDR")]
         assert engine.store.load().card_launches_in_drain == [CARD_ARGV]
 
     def test_card_drain_finishes_before_the_next_spine_document(self):
@@ -4859,14 +4876,14 @@ class TestTheCardRunsOnceAndLast:
             scripts={"architecture": [report(document="docs/adr/", counts={"confirmed": 1},
                                              owed=[("docs/fdr.md", card_command())])]})
 
-        finishes(engine, 4)
+        finishes(engine, 3)
 
         assert processes.launched == [answer("FDR"), through_skill("product-srs"), CARD_ARGV,
                                       answer("FDR"), through_skill("product-architecture")]
 
         finishes(engine, 2)
 
-        assert processes.launched[5:] == [answer("architecture"), CARD_ARGV]
+        assert processes.launched[5:7] == [answer("architecture"), CARD_ARGV]
         assert processes.launched.count(CARD_ARGV) == 2
 
     @pytest.mark.parametrize("first_document, provider, kept_document", [
@@ -4886,15 +4903,13 @@ class TestTheCardRunsOnceAndLast:
 
         finish(engine)
 
-        assert processes.launched == [answer("FDR"), CARD_ARGV]
+        assert processes.launched[:2] == [answer("FDR"), CARD_ARGV]
         assert provider_of(processes.calls[1]) == provider
-        assert engine.store.load().pending["document"] == kept_document
-
-        finish(engine)
-
+        # The card's completion is the kept copy's: its document goes back to the answer step,
+        # and a card on no document leaves nothing to answer.
         assert processes.launched[2:] == ([answer("FDR")] if kept_document else [])
-        if kept_document is None:
-            assert engine.store.load().pending is None
+        pending = engine.store.load().pending
+        assert (pending or {}).get("document") == kept_document
 
     def test_queue_without_cards_keeps_dependency_order_and_stable_ties(self):
         """Example 8 and CP-606: with no card, the tiers, the ties within a tier and the
@@ -4940,19 +4955,17 @@ class TestTheCardRunsOnceAndLast:
             [("docs/fdr.md", card_command())],
             [("docs/fdr.md", card_command(spelling=CORE)), *later],
             spine="FDR,ADR")
-        finishes(engine, 2)
+        finish(engine)
         assert processes.launched == [answer("FDR"), CARD_ARGV, answer("FDR")]
         engine = resumed(files, processes, reports)
 
         finish(engine)
 
+        # The `q` card finishes as it launches, so the drain empties and the spine moves on.
         state = engine.store.load()
-        if later:
-            assert processes.launched[3:] == [card_argv("q")]
-            assert state.card_launches_in_drain == [CARD_ARGV, card_argv("q")]
-        else:
-            assert processes.launched[3:] == [through_skill("product-architecture")]
-            assert state.card_launches_in_drain == []
+        assert processes.launched[3:] == ([card_argv("q")] if later else []) + [
+            through_skill("product-architecture")]
+        assert state.card_launches_in_drain == []
         assert processes.launched.count(CARD_ARGV) == 1
 
     def test_older_state_without_card_memory_dispatches_normally(self):
@@ -4975,10 +4988,9 @@ class TestTheCardRunsOnceAndLast:
         finish(engine)
         engine = resumed(files, processes, reports)
 
-        assert processes.launched == [answer("FDR"), through_skill("product-srs"), CARD_ARGV]
+        assert processes.launched == [answer("FDR"), through_skill("product-srs"), CARD_ARGV,
+                                      answer("FDR")]
         assert json.loads(files.read_text(STATE))["card_launches_in_drain"] == [CARD_ARGV]
-        finish(engine)
-        assert engine.store.load().card_launches_in_drain == [CARD_ARGV]
 
     def test_card_only_drain_launches_once_before_conclusion(self):
         """CP-607: a queue holding nothing but cards launches one, then the walk concludes."""
@@ -4992,6 +5004,24 @@ class TestTheCardRunsOnceAndLast:
         assert processes.launched == [answer("FDR"), CARD_ARGV]
         assert state.ended is not None
         assert state.pending is None
+
+    def test_a_card_that_exits_0_ends_the_walk_with_no_shim_call(self):
+        """The card launcher runs in the foreground and leaves no watcher, so nothing ever calls
+        its shim: its clean exit is the run's end. Measured on a live product, 2026-10-21: the
+        walk reached the card, the card succeeded, and the state sat at `ended: null` with the
+        card's launch pending until the owner asked why it had gone quiet."""
+        engine, processes, _, _ = card_walk([("system/projects/x/project.md", card_command())])
+
+        finish(engine)
+
+        state = engine.store.load()
+        assert processes.launched == [answer("FDR"), CARD_ARGV]
+        assert state.pending is None
+        assert state.ended == chain.CycleEnd.LEFT_FOR_THE_OWNER.value
+        # A shim fired by hand for the card's launch, the remedy the hang needed, now finds
+        # the walk over and changes nothing.
+        assert not engine.advance("completed", launch="fixed-walk-id-2").acted
+        assert processes.launched == [answer("FDR"), CARD_ARGV]
 
     def test_card_launcher_failure_keeps_machinery_outcome_without_retry(self):
         """A card launch that exits non-zero ends the walk `machinery`, and is not tried again."""

@@ -2,6 +2,7 @@
 #
 # launcher.sh (companion-self-answer) — deterministic, pollution-proof launcher for a
 # companion-self-answer run: answering an open-issues companion with nobody in the room.
+# Version: 4.10.0 — the other six launchers run on the package's turn-on
 # Version: 4.9.1 — launchers and launch scripts take a portable mktemp template, so they run on Linux
 # Version: 4.9.0 — ollama is a provider — a launch can run on the owner's local Ollama models
 # Version: 4.8.0 — the 19 agents load from their groups — agent files move to skills/<agent>/.claude/agents/ and every reader resolves them there
@@ -209,7 +210,7 @@ RUN_LIB="$CORE_DIR/tools/detached_run.sh"
 # The shared telemetry-instrument home — same real depth as DETACH_LIB above. No env
 # override, for the same reason: no test or caller ever wants a stub in its place, only
 # the real file at its real relative depth.
-INSTRUMENT_LIB="$CORE_DIR/tools/instrument_run.sh"
+INSTRUMENT_LIB="$CORE_DIR/tools/run_telemetry.sh"
 # The one resolution of a run's model, effort and source, shared by every instrumented
 # launcher — same real depth, and no env override for the same reason.
 RUN_INTELLIGENCE="$CORE_DIR/tools/run_intelligence.py"
@@ -727,7 +728,7 @@ build_run_command() {
 if [ -f "$INSTRUMENT_LIB" ]; then
   # shellcheck source=/dev/null
   source "$INSTRUMENT_LIB"
-  instrument_run project="$project" document="$document" provider="$provider" model="$run_model" effort="$run_effort" source="$run_source"
+  run_telemetry project="$project" document="$document" provider="$provider" model="$run_model" effort="$run_effort" source="$run_source"
 else
   echo "          (no instrument library at $INSTRUMENT_LIB — run uninstrumented)"
 fi

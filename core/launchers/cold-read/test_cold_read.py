@@ -33,11 +33,10 @@ from pathlib import Path
 
 import pytest
 
+import launcher_telemetry_test_support as support
 from path_test_support import path_without_caffeinate as _path_without_caffeinate
-from provenance_test_support import (
-    assert_instrument_run_call_carries_provenance,
-    assert_provenance_stamped,
-)
+from provenance_test_support import assert_provenance_stamped
+from test_skill_launcher_telemetry import install_telemetry_command
 
 _SCRIPT = Path(__file__).resolve().parent / "launcher.sh"
 # The delivered provider file: the tracked template at the instance root, copied into the instance
@@ -266,6 +265,9 @@ def run(tmp_path, warm_executables):
     # published telemetry endpoint (`a-launcher-tags-its-own-run`) — a launcher's own suite
     # is isolated from real machine state exactly like the watcher and the notifier above.
     env["INSTRUMENT_RUN_ENDPOINT_FILE"] = str(tmp_path / "no-instrument-endpoint")
+    # Explicitly unconfigured: absent would let the source host's own setting answer, and a case
+    # that is not about the telemetry command must not depend on this machine's package.
+    env[support.COMMAND_VARIABLE] = ""
     env["CLAUDE_ARGV_DIR"] = str(claude_argv_dir)
     env["WATCHER_ARGV_DIR"] = str(watcher_argv_dir)
     env["NOTIFIER_ARGV_LOG"] = str(notifier_log)
@@ -2328,12 +2330,13 @@ def test_a_retitled_fan_out_that_hands_its_ids_over_identifies_every_reader(run)
 
 def test_dry_run_states_the_arm_it_would_run_under(run, tmp_path):
     """`a-launcher-tags-its-own-run` — a dry run that hides the instrument is a dry run that
-    lies. With a published endpoint file present, `instrument_run` prints the arm it derived
-    (this launcher's own directory name) once, before the per-reader dry-run loop, even though
-    nothing is actually spawned."""
+    lies. With a runnable telemetry command and a published endpoint file present,
+    `run_telemetry` prints the arm it derived (this launcher's own directory name) once, before
+    the per-reader dry-run loop, even though nothing is actually spawned."""
     endpoint_file = tmp_path / "real-instrument-endpoint"
     endpoint_file.write_text("http://127.0.0.1:9/v1\n")
     run.env["INSTRUMENT_RUN_ENDPOINT_FILE"] = str(endpoint_file)
+    install_telemetry_command(tmp_path / "home", run.env)
     run.skill("product-uxd")
     run.project("product-definition")
 
@@ -2347,14 +2350,15 @@ def test_dry_run_states_the_arm_it_would_run_under(run, tmp_path):
 # --- the run's provenance (CP-221, CP-227, CP-229, CP-230) -------------------------------------
 
 
-def test_the_instrument_run_call_carries_the_four_provenance_keys():
-    assert_instrument_run_call_carries_provenance(_SCRIPT)
+def test_the_run_telemetry_call_carries_the_four_provenance_keys():
+    support.assert_run_telemetry_call_carries_provenance(_SCRIPT)
 
 
 def _dry_run_with_endpoint(run, tmp_path):
     endpoint_file = tmp_path / "real-instrument-endpoint"
     endpoint_file.write_text("http://127.0.0.1:9/v1\n")
     run.env["INSTRUMENT_RUN_ENDPOINT_FILE"] = str(endpoint_file)
+    install_telemetry_command(tmp_path / "home", run.env)
     run.project("product-definition")
     result = run("product-uxd", "--project", "product-definition", "--dry-run")
     assert result.returncode == 0, result.stderr
@@ -2388,3 +2392,117 @@ def test_a_skill_with_an_intelligence_folder_is_still_default_and_the_argv_carri
     assert_provenance_stamped(result.stdout, provider="claude", source="default")
     assert "claude-opus-5-5" not in result.stdout
     assert "--model" not in result.stdout and "--effort" not in result.stdout
+
+
+# --- the launcher's launch, observed over the real helper (CP-685, CP-688, CP-759) -------------
+
+_READ_ARGV = ("product-uxd", "--project", "product-definition", "--dry-run")
+
+
+def _card_product(project_dir):
+    """The product a project's card names: the basename of the first path on its `**Product
+    path:**` line, the way the card is read — taken from the card the fixture wrote, never from
+    what the launch printed."""
+    line = next(
+        line
+        for line in (project_dir / "project.md").read_text().splitlines()
+        if line.startswith("**Product path:**")
+    )
+    return os.path.basename(line.removeprefix("**Product path:**").split()[0])
+
+
+@pytest.mark.parametrize("cap", [None, "250000"], ids=["cap-absent", "cap-250000"])
+@pytest.mark.parametrize("endpoint", ["valid", "absent"])
+def test_cold_read_helper_observation_matches_case_inputs(run, tmp_path, endpoint, cap):
+    """CP-685, CP-688, CP-759: the launcher itself, run once over the real helper and the real
+    package, prints the lines, exports the six variables and hands its readers the settings its
+    own inputs call for: the arm it runs under, the skill and project it was given, the product
+    that project's card names, and the provider it resolved with no model or effort."""
+    package = support.require_real_package(tmp_path / "package")
+    run.skill("product-uxd")
+    run.project("product-definition")
+    endpoint_file = tmp_path / "published-endpoint"
+    cause = support.publish_endpoint(endpoint_file, endpoint)
+    launcher = support.scratch_core(tmp_path / "scratch", _SCRIPT)
+    helper = launcher.parents[2] / "tools" / "run_telemetry.sh"
+    env = support.telemetry_environment(
+        run.env, home=package.home, endpoint_file=endpoint_file, cap=cap, command=package.command
+    )
+
+    observation = support.run_launcher(
+        launcher, _READ_ARGV, cwd=tmp_path, env=env, observation_dir=tmp_path / "observed"
+    )
+
+    if endpoint == "valid":
+        support.assert_instrumented_observation(
+            observation,
+            pairs=[
+                ("arm", "cold-read"),
+                ("run_id", None),
+                ("skill", "product-uxd"),
+                ("project", "product-definition"),
+                ("product", _card_product(tmp_path / "system" / "projects" / "product-definition")),
+                ("provider", "claude"),
+                ("source", "default"),
+            ],
+            helper=helper,
+            cap=cap,
+        )
+    else:
+        assert observation.status == 0, observation.stderr
+        assert Path(observation.helper_source).resolve() == helper.resolve()
+        assert observation.telemetry_lines == [f"          ({cause} — run uninstrumented)"]
+        support.assert_uninstrumented(observation, cap=cap)
+
+
+@pytest.mark.parametrize("combination", support.ORDINARY_COMBINATIONS)
+def test_cold_read_ordinary_launch_discovers_source_host_setting(run, tmp_path, combination):
+    """CP-692: a launch whose environment names no command is instrumented from its source host's
+    setting, whether the launcher runs from a core or a pin of it, for the host or for an
+    instance that binds that core."""
+    package = support.require_real_package(tmp_path / "package")
+    run.skill("product-uxd")
+    run.project("product-definition")
+    endpoint_file = tmp_path / "published-endpoint"
+    support.publish_endpoint(endpoint_file)
+    launch = support.ordinary_launch(tmp_path, _SCRIPT, tmp_path, combination, package.command)
+    env = support.telemetry_environment(run.env, home=package.home, endpoint_file=endpoint_file)
+
+    observation = support.run_launcher(
+        launch.launcher, _READ_ARGV, cwd=launch.instance, env=env,
+        observation_dir=tmp_path / "observed",
+    )
+
+    support.assert_ordinary_launch_is_instrumented(observation, environment=env)
+
+
+@pytest.mark.parametrize("cap", [None, "250000"], ids=["cap-absent", "cap-250000"])
+@pytest.mark.parametrize("kind", support.FAILURE_KINDS)
+def test_cold_read_telemetry_failures_preserve_launch(run, tmp_path, kind, cap):
+    """CP-687, CP-693, CP-694: whatever is wrong with the command or the endpoint, the launch is
+    not failed by it — it prints the one cause on stdout and hands its readers the cap alone."""
+    run.skill("product-uxd")
+    run.project("product-definition")
+    scenario = support.failure_scenario(
+        kind, run.env, home=tmp_path / "failure-home", endpoint_file=tmp_path / "endpoint", cap=cap
+    )
+    host = tmp_path / "host"
+    host.mkdir()
+    launcher = support.scratch_core(host, _SCRIPT)
+    if scenario.host_setting is not None:
+        support.write_host_setting(host, scenario.host_setting)
+
+    observation = support.run_launcher(
+        launcher, _READ_ARGV, cwd=tmp_path, env=scenario.environment,
+        observation_dir=tmp_path / "observed",
+    )
+
+    support.assert_failure_scenario(observation, scenario, cap=cap)
+
+
+def test_cold_read_observation_skips_an_unreachable_package_and_fails_a_reached_one(tmp_path):
+    """CP-689: the observation above is skipped, with the reason named, where the package's
+    command cannot be reached, and fails where it is reached and breaks the contract."""
+    support.assert_selection_skips_unreachable_and_fails_reached(
+        tmp_path, f"{__file__}::test_cold_read_helper_observation_matches_case_inputs"
+    )

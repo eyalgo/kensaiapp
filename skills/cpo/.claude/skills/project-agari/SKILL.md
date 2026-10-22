@@ -4,7 +4,7 @@ description: CPO-posture skill that declares a project's Agari (上がり) — t
 license: MIT
 metadata:
   author: Eyal Golan
-  version: "2.6.2"
+  version: "2.7.0"
   created: "2026-07-04"
   category: product-definition
   tags: agari, cpo, project, done, declaration
@@ -154,7 +154,12 @@ Identify the target project and read:
   rather than halting on it.
 - `system/projects/<name>/agari.md` — the placeholder or the existing declaration.
 - `system/projects/<name>/agari_open_issues.md` — the existing companion, if any. **This is the
-  loop's re-entry point:** the owner's inline answers are read here.
+  loop's re-entry point:** the owner's inline answers are read here. An answer marked *(the session's suggestion, accepted by the owner as shown)* or *(the
+  session's suggestion, edited by the owner)* came from `project-setup`'s interview: it is the
+  session's suggestion, which the owner accepted, so weigh it as that rather than as the owner's
+  own words — except that in an edited one, what the owner changed is theirs — and never copy the
+  mark into the document. The same marks reach the trail's first cycle; read them there the same
+  way.
 - `system/projects/<name>/trail/agari/` — every answer the owner has already given, and their
   reasoning. A value the owner set in an earlier cycle is authorized; changing it needs a fresh
   authorization. It also gives you the next cycle number.

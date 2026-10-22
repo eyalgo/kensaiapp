@@ -1,5 +1,5 @@
 ---
-version: "1.1.0"
+version: "1.2.0"
 ---
 
 # JavaScript — gate environment
@@ -25,10 +25,10 @@ scope"). A product that writes browser tests runs them in the published image of
 
 ## Provisioning
 
-Start a container from the official Node image, tagged with CI's Node version, by the command
-`languages/README.md` § Gate environment defaults gives. Nothing is installed in it before the gates
-run, because both gates "ship with Node and need no installed dependency" (`quality_gates.md` § The
-two gates).
+Start a container from the official Node image, `docker.io/library/node`, tagged with CI's Node
+version, by the command `languages/README.md` § Gate environment defaults gives. Nothing is
+installed in it before the gates run, because both gates "ship with Node and need no installed
+dependency" (`quality_gates.md` § The two gates).
 
 Where `languages/README.md` § Gate environment defaults sends the gates to the macOS guest instead,
 that guest is set up as `swift/environment.md` § macOS guest provisioning states.

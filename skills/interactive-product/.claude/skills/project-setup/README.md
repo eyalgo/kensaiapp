@@ -3,16 +3,18 @@
 Starting a product in kensaiapp used to take knowing the machinery: run `project-stamp`, launch the
 PRD, answer its companion, launch the Agari, answer that one. A newcomer knows none of it. This
 skill is the front door for a project in a kensaiapp: one conversation in plain words, after which the project exists and its
-first two documents are being written from the owner's own answers.
+first two documents are being written from the owner's answers.
 
 ## What It Does
 
-- Interviews the owner with `AskUserQuestion` screens and chat questions, in plain language
+- Interviews the owner with `AskUserQuestion` screens and chat questions, in plain language, one
+  question at a time, offering a suggested answer where the idea or the material already holds one
 - Records what kind of product it is (software or not), where it lives, what it looks after outside
   itself, and what material it starts from — on the project card
 - Stamps the project through `project-stamp`'s script
 - Writes the owner's answers as round 0 of the PRD's and the Agari's companions, in the templates'
-  exact shape (`scripts/write_companion.py`), and commits them
+  exact shape (`scripts/write_companion.py`), marking each answer that came from a suggestion,
+  and commits them
 - Starts `chain-agari`, which writes the PRD and then the Agari, answering its own follow-up
   questions as every chain does
 

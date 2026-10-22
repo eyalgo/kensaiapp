@@ -13,7 +13,7 @@ description: >-
 license: MIT
 metadata:
   author: Eyal Golan
-  version: "1.6.0"
+  version: "1.7.0"
   created: "2026-09-14"
   category: journey
   tags: nemawashi, pick, pm, journey

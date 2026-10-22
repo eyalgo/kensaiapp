@@ -1,5 +1,5 @@
 ---
-version: "1.2.0"
+version: "1.3.0"
 ---
 
 # Deliver a development-path contract
@@ -93,7 +93,7 @@ the tool checks every role through `merge --check-only` before the first merge, 
 product change branch, which is not merged
 (`core/tools/deliver_change.py:L415-L423,L609-L619`, `Delivery._check` and `Delivery.deliver`).
 Supply builder bump entries in its public `path=level` format, with `level` one of
-`patch`, `minor` or `major` (`core/tools/commit_builder.py:L1417-L1464`, `BUMP_LEVELS`, `_split_bump` and `_bump_refusal`).
+`patch`, `minor` or `major` (`core/tools/commit_builder.py:L1531-L1597`, `BUMP_LEVELS`, `_split_bump` and `_bump_refusal`).
 
 A relative merges object may be:
 
@@ -107,13 +107,16 @@ A relative merges object may be:
     "co_authored_by": "gpt-6.1-sol <noreply@openai.com>",
     "reasoning_effort": "high",
     "branch_commits": ["example implementation"],
-    "bump": ["version.py=patch"]
+    "bump": ["core/tools/example.py=patch"]
   }
 }
 ```
 
 For fixed delivery, supply both `product` and `instance` records; the records may use distinct
-attribution and bumps (`core/tools/deliver_change.py:L360-L372,L415-L421`,
+attribution. Only the `instance` record carries bumps, and only for paths under `core/`,
+`.claude/`, `skills/` or `system/`: the builder refuses a bump on any other path, which is every
+product path, an internal product's under `products/` included
+(`core/doctrine/governance/versioning.md` § Whose artifacts) (`core/tools/deliver_change.py:L360-L372,L415-L421`,
 `Delivery._inputs` and `Delivery._check`).
 The seal JSON carries exactly one field, `argv`, a nonempty string array whose first element names a
 reachable executable (`core/tools/deliver_change.py:L373-L376,L604-L607`,

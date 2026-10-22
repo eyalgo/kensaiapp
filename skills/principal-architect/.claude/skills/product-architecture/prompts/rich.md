@@ -1,5 +1,5 @@
 ---
-version: "1.3.4"
+version: "1.5.0"
 ---
 
 # product-architecture — the Principal Architect's recording and binding lens
@@ -162,6 +162,14 @@ observability floor. Three cases, and the middle one is where runs go wrong.
 **The test between 2 and 3:** could two competent architects reading the same SDD derive different
 answers? Same answer regardless → derive. Different defensible answers → it is a decision, and you
 route it.
+
+## The gate environment — recorded when the defaults do not resolve
+
+A product whose packet defaults do not resolve its gate environment owes a recorded environment decision. The defaults do not resolve when the product's CI and languages leave the gate tool no single environment to run its suite in. Which inputs do that is the tool's to say, not yours: ask it with `<CORE>/prompts/gate_suite.md` § *The check — whether the evidence resolves, with nothing run*, which reads the product's evidence by that file's Step 3 and answers `owes a decision` when the product owes one.
+
+When it does, the answer is an environment entry in § 8 *Operational constraints* of `docs/nfdr.md`, committed on the product's `main` branch. Write it in the form `<CORE>/prompts/gate_suite.md` § *The environment entry — the one form the tool reads* defines, which is the only form the gate tool reads. The entry records the macOS guest, a container with its image, tag and architecture, or the owner's Mac. Entries in § 8 that record different environments are refused, so § 8 holds one. The entry traces to the fact that settled the answer, and its `verified by:` names the check, which answers `resolves` once the entry holds. An ADR carries the decision's why only when it passes the three gates in § *What earns a record*. A routine environment setting does not pass them.
+
+**You record an answer. You do not pick one because the defaults left a gap.** Which environment a product's gates run in decides what its suite proves, so where nothing upstream settles it, it is § *When upstream is silent* case 2: a companion item for whoever answers it, never an entry you supply. Never record the owner's Mac because nothing else resolved. It is recorded only where whoever answered chose it.
 
 ## The constraint set's own bar
 

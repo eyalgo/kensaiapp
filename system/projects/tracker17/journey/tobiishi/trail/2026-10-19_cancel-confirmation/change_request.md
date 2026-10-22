@@ -1,0 +1,20 @@
+# Change request — 2026-10-19_cancel-confirmation
+
+**Request:** Add the `cancelled` button to every list row and to the task's page, wherever the workflow rule allows that move (a task in `todo` or `in-progress`; none for `done` or `cancelled`), and make its first press open the in-place confirmation (SDD § 4 EX-6, UXD UX-I2) instead of saving. The confirmation shows in view, in this order: its sentence, its confirming control, its back-out control, with focus where UX-I2 places it. The confirming control saves the move to `cancelled` and shows the new status with one line naming what changed. Backing out restores the button and returns focus to it. A first press for a move the task no longer allows opens no confirmation and saves nothing.
+
+Remove the pages' own withholding of `cancelled` (`_WITHHELD_MOVES` in `products/tracker17/web/pages.py` and its filter in `_move_forms`), so the moves a page offers equal the workflow rule's allowed moves (`domain/workflow.py`) for each status and no page keeps a second rule about them (SDD § 3 `web`). Run the browser tests the previous change landed unrun (`tests/e2e/test_moves.py`) and add the end-to-end focus tests: focus on opening the confirmation, focus on backing out, and a double press on the first button of a row far down a list scrolled part-way never confirms.
+
+Checkable when done: `grep -n "_WITHHELD_MOVES" products/tracker17/web/pages.py` prints nothing; integration tests cover the `cancelled` button per status, the first press, confirming, and the stale first press; `pytest products/tracker17/tests/e2e/` (the whole folder) exits 0 on a machine where layer 5 runs (NFDR § 9: macOS, or the Debian/Ubuntu releases SDD § 4 RT-4 lists, with the browser libraries installed; on a machine where it does not run, that folder is a missing prerequisite and this item is checked on one that does); `pytest products/tracker17/tests/` exits 0 from the repository root.
+
+Must not be weakened: the workflow rule stays written once, in `domain/workflow.py`, and no page, route or test restates the table. The saved data format stays as it is except for the status. There is no out-of-date-move handling and no change to `tests/timed_run.py`. Deleting a task or a project gets no confirmation here; the confirmation built must be reusable by that work but is not extended to it. Files other than the pages and routes that offer or confirm moves, `domain/workflow.py` if a gap shows, and their tests stay as they are.
+
+Sizing: one capability, the `cancelled` move and its confirmation, with one acceptance boundary (the station's reached-when 1 to 6). The button, the confirmation and its focus rules mean nothing apart, and the confirmation is what lets the withholding go, so they merge together. The stale-page refusal and the timed run belong to later stations (`out-of-date-move`, `move-timed-run`).
+
+**Category:** feature
+**Behaviour:** changing
+**Classified because:** the station's reached-when 1 and 3 add a `cancelled` button and a confirmation to every row and task page, which adds to the contract SDD § 4 EX-6 states; a feature adds behaviour, so it is never preserving.
+
+**Sealed:** 2026-10-20 — sealed with deferrals; merged to `main` via `--no-ff`.
+Environment: owners-mac — no CI
+Deferred: task 1 — the Back-after-confirm history case (tests/e2e/test_moves.py::test_real_history_traversal_revalidates_the_confirmation): Clear-Site-Data "cache" does not evict the old confirmation from the pinned browser's live history cache — system/projects/tracker17/journey/tobiishi/2026-10-19_cancel-confirmation/change_design.md § 3
+Deferred: task 3 — depends on task 1 — system/projects/tracker17/journey/tobiishi/2026-10-19_cancel-confirmation/change_design.md § 3

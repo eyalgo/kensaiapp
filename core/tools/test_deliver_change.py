@@ -24,6 +24,7 @@ def git(repo, *args, check=True):
 
 
 def commit(repo, filename, content):
+    (repo / filename).parent.mkdir(parents=True, exist_ok=True)
     (repo / filename).write_text(content)
     git(repo, "add", filename)
     git(repo, "commit", "-qm", filename)
@@ -54,6 +55,12 @@ def refusal_snapshot(repo, worktree):
     return tuple(observations)
 
 
+# The instance's versioned file sits in a kensaiapp layer of a repo holding `kensaiapp.md`, so a
+# `--bump` reaches it. The product's is the product's own release number, which no bump touches
+# (`versioning.md` § Whose artifacts).
+VERSIONED = {"instance": "core/tools/version.py", "product": "version.py"}
+
+
 class Scenario:
     def __init__(self, root, fixed=False):
         self.root = root
@@ -68,7 +75,9 @@ class Scenario:
             git(repo, "config", "user.name", "Example")
             git(repo, "config", "user.email", "example@example.invalid")
             git(repo, "config", "core.hooksPath", str(root / f"{role}-hooks"))
-            commit(repo, "version.py", '__version__ = "1.0.0"\n')
+            if role == "instance":
+                commit(repo, "kensaiapp.md", "# an instance\n")
+            commit(repo, VERSIONED[role], '__version__ = "1.0.0"\n')
             commit(repo, "shared", "base\n")
             worktree = root / f"{role} change ; literal"
             git(repo, "worktree", "add", "-qb", KEY, str(worktree))
@@ -220,11 +229,11 @@ def test_fixed_delivery_orders_product_seal_instance(tmp_path):
 
 def test_delivery_passes_per_role_metadata_unchanged(tmp_path):
     s = Scenario(tmp_path, True)
-    for role, effort, level in [("product", "max", "minor"), ("instance", "high", "patch")]:
+    for role, effort in [("product", "max"), ("instance", "high")]:
         s.merges[role].update(branch_commits=[f"{role} first", f"{role} second"],
                               co_authored_by=f"{role} <example@example.invalid>",
-                              reasoning_effort=effort, claude_session=f"session-{role}",
-                              bump=[f"version.py={level}"])
+                              reasoning_effort=effort, claude_session=f"session-{role}")
+    s.merges["instance"]["bump"] = [f"{VERSIONED['instance']}=patch"]
     del s.merges["instance"]["actor"]
     s.merges["instance"]["authorizer"] = "Product"
     assert_success(s, s.call())
@@ -244,8 +253,20 @@ def test_delivery_passes_per_role_metadata_unchanged(tmp_path):
         assert f"Claude-Session: {metadata['claude_session']}" in body
         assert body.index(metadata["branch_commits"][0]) < body.index(metadata["branch_commits"][1])
         assert f"Merge-Authorized: {'PM' if role == 'product' else 'Product'}" in body
-        expected = "1.1.0" if role == "product" else "1.0.1"
-        assert expected in git(s.repos[role], "show", "main:version.py").stdout
+        expected = "1.0.0" if role == "product" else "1.0.1"
+        assert expected in git(s.repos[role], "show", f"main:{VERSIONED[role]}").stdout
+
+
+def test_a_bump_on_the_product_halts_before_any_merge(tmp_path):
+    """A product's version line is its own content; the builder's check refuses a bump on it, so
+    the delivery stops before its first merge rather than moving the product's release number."""
+    s = Scenario(tmp_path, True)
+    s.merges["product"]["bump"] = [f"{VERSIONED['product']}=minor"]
+    result = s.call()
+    halt(result, "deliver-precondition-failed")
+    assert "not a kensaiapp artifact" in result.stderr
+    assert not s.merges_called()
+    assert git(s.repos["product"], "show", "main:version.py").stdout == '__version__ = "1.0.0"\n'
 
 
 @pytest.mark.parametrize("empty", [False, True])
@@ -444,18 +465,18 @@ def test_unrelated_uncommitted_work_survives_a_bumped_merge(tmp_path, fixed):
     """CP-527 where the merge also bumps: the bump stages and commits its own file, and an
     unrelated edit or untracked file beside it still stays on disk and out of the merge commit."""
     s = Scenario(tmp_path, fixed)
+    s.merges["instance"]["bump"] = [f"{VERSIONED['instance']}=patch"]
     for role, repo in s.repos.items():
-        s.merges[role]["bump"] = ["version.py=patch"]
         commit(repo, "other", "base\n")
         s.tips[role] = git(repo, "rev-parse", "main").stdout.strip()
         (repo / "other").write_text("my edit\n")
         (repo / "note").write_text("untracked\n")
     assert_success(s, s.call())
-    for repo in s.repos.values():
+    for role, repo in s.repos.items():
         assert (repo / "other").read_text() == "my edit\n"
         assert (repo / "note").read_text() == "untracked\n"
         written = git(repo, "diff", "--name-only", "main^1", "main").stdout.split()
-        assert "version.py" in written
+        assert (VERSIONED[role] in written) is (role == "instance")
         assert "other" not in written and "note" not in written
         assert git(repo, "show", "main:other").stdout == "base\n"
 
@@ -496,8 +517,8 @@ def collide(s, case):
         commit(wt, "added", "x")
         (repo / "added").write_text("dirt")
     elif case == "edit-bump-path":
-        s.merges["instance"]["bump"] = ["version.py=patch"]
-        (repo / "version.py").write_text("dirt")
+        s.merges["instance"]["bump"] = [f"{VERSIONED['instance']}=patch"]
+        (repo / VERSIONED["instance"]).write_text("dirt")
     elif case == "file-where-branch-adds-folder":
         (wt / "d").mkdir()
         commit(wt, "d/f", "x")
@@ -858,7 +879,7 @@ def test_real_conflict_retains_unmerged_state(tmp_path, product, bump):
     role = "product" if product else "instance"
     commit(s.repos[role], "shared", "target conflict\n")
     s.tips[role] = git(s.repos[role], "rev-parse", "main").stdout.strip()
-    if bump: s.merges[role]["bump"] = ["version.py=minor"]
+    if bump: s.merges["instance"]["bump"] = [f"{VERSIONED['instance']}=minor"]
     result = s.call()
     halt(result, "merge-conflict")
     s.assert_recovery(role)
@@ -867,7 +888,7 @@ def test_real_conflict_retains_unmerged_state(tmp_path, product, bump):
     assert "MERGE_HEAD=present" in result.stderr
     assert len(s.merges_called()) == 1
     if product: assert not any("seal" in e for e in s.log())
-    assert '"1.0.0"' in (s.repos[role] / "version.py").read_text()
+    assert '"1.0.0"' in (s.repos[role] / VERSIONED[role]).read_text()
 
 
 @pytest.mark.parametrize("hook,body,bump", [
@@ -881,7 +902,7 @@ def test_blocking_hook_rejection_is_observed(tmp_path, hook, body, bump):
     s = Scenario(tmp_path)
     # Seal commits share hook configuration; reject only at the target main checkout.
     s.hook("instance", hook, '[ "$(git branch --show-current)" = "main" ] || exit 0\n' + body)
-    if bump: s.merges["instance"]["bump"] = ["version.py=minor"]
+    if bump: s.merges["instance"]["bump"] = [f"{VERSIONED['instance']}=minor"]
     result = s.call()
     halt(result, "merge-hook-failed")
     assert hook in result.stderr and "MERGE_HEAD=present" in result.stderr

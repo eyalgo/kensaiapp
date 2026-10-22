@@ -1,5 +1,5 @@
 ---
-version: "2.6.1"
+version: "2.6.2"
 ---
 
 # Step outcome contract
@@ -63,10 +63,11 @@ Every flow-* subagent ends its run by returning this object as its final output:
 ## The chain's on-disk transport
 
 The chain (`core/tools/chain_development.py`) never receives the message above. It reads the same
-outcome — `Suite:`, `Language resolution:`, `Integrity:` — off three **declared lines**, written by
-the steps that already carry them in their artifacts, and the closing marker's `Deferred:` and
-`Failing:` lines beside them. It reads a fourth, `Publishes text:`, from the design, before the step it
-gates runs, so the chain reads **four declared lines** in all:
+outcome off **declared lines** that the steps already write into their artifacts. The closing marker
+carries `Suite:`, `Language resolution:` and `Environment:`, with its `Deferred:` and `Failing:`
+lines beside them. The code-integrity report carries `Integrity:` and an `Environment:` line of its
+own. The design carries `Publishes text:`, which the chain reads before the step that line gates
+runs. Each is read from the place the list below names:
 
 - **`Suite:`** and **`Language resolution:`** are read from the body of the newest commit in
   `main..<key>` whose subject contains `implementation complete` — development-implementation's
@@ -92,6 +93,18 @@ gates runs, so the chain reads **four declared lines** in all:
   `Deferred:` line or a re-lane note is not judged.
 - **`Integrity:`** is read from the first line of `code-integrity-report.md`, on the change branch,
   that starts with it.
+- **`Environment:`** is read from two places. The first is the closing marker's body: the same
+  newest `implementation complete` commit the `Suite:` line is read from (`chain_development.py`'s
+  `DiskReader.marker_environment_kind`). The second is `code-integrity-report.md` on the change
+  branch (`DiskReader.report_environment_kind`). In each place the declaration is the first line the
+  scan below counts. The line records the environment the step's suite ran in, as
+  `core/tools/gate_suite.py` prints it. Its kind is the value's first word, and it must be exactly
+  `macos-guest`, `container`, `owners-mac` or `none` (`chain_development.py`'s
+  `_ENVIRONMENT_KINDS`). Any other first word halts `missing-environment`, and that includes
+  `unresolved`, the word the gate prints when no environment resolved. An empty value halts it too,
+  and so does a record with no `Environment:` line. `none` passes only where the project card on
+  `main` reads `Test command: none` (`DiskReader.card_has_no_suite`). Beside a card on `main` that
+  names a command, or a card that cannot be read, `Environment: none` halts `missing-environment`.
 - **`Publishes text:`** is read from the first line of `change_design.md`, on the change branch, that
   starts with it, when the walk reaches the `content` step. Its value is read by first word, which must be
   exactly `yes` (run the step) or `no` (pass it with no launch). `Yes`, `maybe`, an empty value, a missing
@@ -105,22 +118,25 @@ line, does not count. Stripping the wrapping characters means `**Integrity: pass
 `Integrity: pass`; it does not widen what counts as the value that follows the prefix — `Integrity:
 Pass` is a different string from `Integrity: pass` and still fails the pass check below
 (`chain_development.py`'s `DiskReader._declared_lines` and `DiskReader._first_declared_line`, the
-one scan every declared line goes through). Two lines are read more loosely than that. The `Suite:`
+one scan every declared line goes through). Some lines are read more loosely than that. The `Suite:`
 verdict is the value's first word, so `Suite: green — 5083 passed` declares `green`; what follows is
-the record and never changes the verdict (`chain_development.py`'s `DiskReader.suite_verdict`). And
-the language line still counts with a parenthesised label between the words and the colon,
-`Language resolution (tasks 1 to 3):` (`chain_development.py`'s
-`_LANGUAGE_HEADING`). The developer skill forbids the label, but a finished, green change does not
-halt on it.
+the record and never changes the verdict (`chain_development.py`'s `DiskReader.suite_verdict`). The
+`Environment:` kind is the value's first word in the same way, so `**Environment: container —
+python:3.12, arm64**` declares `container`, and the kind is still compared exactly, so `Container`
+is not `container` (`DiskReader._environment_kind`). And the language line still counts with a
+parenthesised label between the words and the colon, `Language resolution (tasks 1 to 3):`
+(`chain_development.py`'s `_LANGUAGE_HEADING`). The developer skill forbids the label, but a
+finished, green change does not halt on it.
 
 **What passes:** `Suite: green`, or `Suite: red` where the marker carries at least one `Failing:`
 line and every `Failing:` line names a task that some `Deferred:` line names, or `Suite: none` where
-the project card on `main` reads `Test command: none` (a product with no code, so no suite); a `Language
-resolution:` line, labelled or not, present with any value; on that marker, a red commit older than its oldest
-landing for every judged TDD-lane task that landed; `Integrity: pass`. A `Deferred:` line is a
-declaration the chain reads, not a halt and not the origin of one: with a green suite it changes
-nothing but leaving its task out of the commit-shape read, and a `Deferred:` line whose task cannot
-be read defers nothing.
+the project card on `main` reads `Test command: none` (a product with no code, so no suite); a
+`Language resolution:` line, labelled or not, present with any value; on that marker, a red commit
+older than its oldest landing for every judged TDD-lane task that landed; `Integrity: pass`; and on
+the marker and on `code-integrity-report.md` alike, an `Environment:` line whose kind passes (the
+`Environment:` entry above). A `Deferred:` line is a declaration the chain reads, not a halt and not
+the origin of one: with a green suite it changes nothing but leaving its task out of the
+commit-shape read, and a `Deferred:` line whose task cannot be read defers nothing.
 
 **The halts**, each against the value on disk that gives it:
 
@@ -133,23 +149,29 @@ be read defers nothing.
 | `unreadable-plan` | `tl_instruction.md` on the branch unreadable when the check runs |
 | `integrity-stopped` | `Integrity: stopped` |
 | `missing-integrity` | any other `Integrity:` value, or no `Integrity:` line |
+| `missing-environment` | on the closing marker or on `code-integrity-report.md`: no `Environment:` line, an empty value, or a first word other than `macos-guest`, `container`, `owners-mac` or `none`, `unresolved` included; or `Environment: none` beside a card on `main` that names a command or cannot be read |
 | `missing-text-verdict` | `change_design.md` with no `Publishes text:` line, a first word that is neither `yes` nor `no`, or no such file, when the walk reaches `content`; the engine writes a `halt_report.md` and launches nothing |
 
-No value the code does not read produces a ninth halt.
+No value the code does not read produces a halt this table does not list.
 
-`core/tools/chain_development.py` is the reader. Its `DevelopmentChain._bad_verdict` method owns the first
-seven reasons and their order (`missing-text-verdict` is the gate in `DevelopmentChain._launch_step`, which
-runs before a step launches and so before `_bad_verdict` has an artifact to judge); the last two it returns through `_commit_shape_verdict`, which it
-reaches only on a marker that passes the three before them. `DevelopmentChain.describe`, which
-`start` calls first, refuses a relaunch: it calls `_bad_verdict` for each step before the entry it
-would otherwise resume at, and raises rather than passing silently over a step that declared a bad
-verdict. `describe` takes the product path the start takes, so a dry run judges the commit shape on
-the same repo.
+`core/tools/chain_development.py` is the reader. Its `DevelopmentChain._bad_verdict` method owns
+every reason in the table except `missing-text-verdict`, and it owns their order.
+`missing-text-verdict` is the gate in `DevelopmentChain._launch_step`, which runs before a step
+launches and so before `_bad_verdict` has an artifact to judge. On the closing marker,
+`_bad_verdict` checks `red-suite`, `missing-suite` and `missing-language` first. Only a marker that
+passes those three has its commit shape read, through `_commit_shape_verdict`, which returns
+`unreadable-plan` or `missing-red-commit`. `missing-environment` is checked last. On the marker it
+is reached only after the commit shape passes. On `code-integrity-report.md` it is reached only once
+the report reads `Integrity: pass`, after `integrity-stopped` and `missing-integrity`.
+`DevelopmentChain.describe`, which `start` calls first, refuses a relaunch: it calls `_bad_verdict`
+for each step before the entry it would otherwise resume at, and raises rather than passing silently
+over a step that declared a bad verdict. `describe` takes the product path the start takes, so a dry
+run judges the commit shape on the same repo.
 
-The first three lines are read only once a step's artifact is on disk (`Publishes text:` is read before the step it gates, above). A run that ended without its artifact
+Every declared line except `Publishes text:` is read only once a step's artifact is on disk, and
+`Publishes text:` is read before the step it gates (above). A run that ended without its artifact
 halts before any declared line is read, whether or not it left a `halt_report.md`. The chain looks
-for that file only to name it in the halt (`DevelopmentChain._settle`;
-`DiskReader.halt_report`).
+for that file only to name it in the halt (`DevelopmentChain._settle`; `DiskReader.halt_report`).
 
 ---
 

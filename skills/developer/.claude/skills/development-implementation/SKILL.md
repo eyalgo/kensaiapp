@@ -3,7 +3,7 @@ name: development-implementation
 description: Developer-posture skill for ongoing work. Executes a development-plan `tl_instruction.md` in a fresh execution session — per-task TDD (red/green/refactor), developer standards, verification gates, and a self-owned closing commit, made again over an earlier one when a relaunched run re-closes the change — or, when the chain's context cap is passed, a pause commit after the task in progress so a fresh run continues at the next task. Repairs incomplete implementation and tests against the resolved contract, including inherited work, until verification passes. Writes new logic in the part that owns it in the product's parts table (docs/SDD.md § 3). External impediments are handled by the deferral contract; the run halts in three cases only. Reads execution type + test command from project.md. Does not advance pipeline inboxes — that baton-pass is handled separately.
 license: MIT
 metadata:
-  version: "5.7.2"
+  version: "5.8.0"
   category: execution
   risk: safe
 ---
@@ -356,7 +356,7 @@ The grep carries `<key>` because the chain only counts commits whose subject nam
 
 **A card with no suite is the one exception.** A product with no code has nothing for a test runner to run, and its card says so with `Test command: none`. On that card there is no command to run, here or on a re-close, and the line is `Suite: none`. Nowhere else is `none` a verdict. The chain reads the card on `main`, never the branch's copy, and halts `missing-suite` on a `Suite: none` beside any card there that names a command, so `none` cannot stand in for a red suite. Where the card names a command that cannot pass on this product, for example `pytest tests/` over a product with no `tests/`, the line is `Suite: red`. Changing the card is not this run's to do. Say so in `Developer Review Notes`, so the card can be settled on `main`.
 
-**The closing run goes through the gate tool.** The run whose exit the `Suite:` line states is the card's whole `Test command:`, issued by `<CORE>/tools/gate_suite.py` in the environment the product's CI calls for. The owner's Mac is that environment only when the product has no CI or the owner asked. Read `<CORE>/prompts/gate_suite.md` and follow it: it owns how the evidence is read, where the owner's ask comes from, and the three calls. This skill's own call, with the evidence file that recipe's Step 3 builds, is:
+**The closing run goes through the gate tool.** The run whose exit the `Suite:` line states is the card's whole `Test command:`, issued by `<CORE>/tools/gate_suite.py` in the environment the product's CI calls for. The owner's Mac is that environment only when the product has no CI, the product's decision files choose it, or the owner asked. Read `<CORE>/prompts/gate_suite.md` and follow it: it owns how the evidence is read, where the owner's ask comes from, and the three calls. This skill's own call, with the evidence file that recipe's Step 3 builds, is:
 
 ```sh invocation
 python3 "<CORE>/tools/gate_suite.py" run \

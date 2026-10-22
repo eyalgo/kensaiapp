@@ -249,8 +249,77 @@ button.move-button:hover {
 .moves {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
+  align-items: flex-start;
   gap: 8px;
+}
+
+/* The cancelled move's slot: it holds the button, or the confirmation that takes the button's
+   place. The moves keep room for the confirmation, so the slot starts where the button stood
+   whether or not it is open. */
+.moves {
+  min-width: 27rem;
+}
+
+.move-slot {
+  flex: 0 0 auto;
+}
+
+/* The confirmation (DESIGN.md confirm-strip): the sentence covers the spot the button stood in and
+   is at least as tall; the controls follow below it. */
+.confirm-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 8px;
+  width: 18rem;
+}
+
+.confirm-strip form {
+  flex: 0 0 auto;
+}
+
+.confirm-sentence {
+  flex: 0 0 100%;
+  box-sizing: border-box;
+  min-height: 28px;
+  margin: 0;
+  padding: 4px 8px;
+  background: var(--surface-sunk);
+  color: var(--ink);
+  font-size: 0.9375rem;
+  line-height: 1.3;
+}
+
+/* The confirming control is as tall as the button it follows (row-control); the ink fill is the
+   darkest the product has. The back-out control is the secondary button. */
+.strip-row-control button.button-confirm {
+  height: 28px;
+  min-width: 24px;
+  padding: 0 12px;
+  background: var(--ink);
+  color: var(--surface);
+  border: 1px solid var(--ink);
+  border-radius: 4px;
+}
+
+.strip-row-control button.button-confirm:hover {
+  background: var(--ink-muted);
+  border-color: var(--ink-muted);
+}
+
+button.button-secondary {
+  height: 36px;
+  min-width: 24px;
+  padding: 0 16px;
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--ink-muted);
+  border-radius: 4px;
+}
+
+button.button-secondary:hover {
+  background: var(--surface-sunk);
+  color: var(--ink);
 }
 
 /* A refusal or a failure: red pencil margin mark on a late tint. */
@@ -294,6 +363,7 @@ button:focus-visible,
 h1:focus,
 h2:focus,
 .assignee-name:focus,
+.confirm-sentence:focus,
 .comment-list li:focus {
   outline: 2px solid var(--primary);
   outline-offset: 2px;

@@ -140,6 +140,7 @@ from __future__ import annotations
 import argparse
 import fcntl
 import hashlib
+import io
 import json
 import os
 import re
@@ -151,15 +152,18 @@ from contextlib import contextmanager
 from dataclasses import asdict, dataclass, field, fields
 from datetime import datetime, timezone
 from enum import Enum
+from pathlib import Path
 
 import completion_shim
+import development_path
+import gate_suite
 import product_checkout
 import providers
 import walk_stop
 from chain import PROVIDERS, Files, IdSource, Notifier, Processes, run_end_hook, with_provider
 from providers import ProviderFiles, ProvidersRefused
 
-__version__ = "3.13.1"
+__version__ = "3.15.1"
 
 
 class ChainRefused(Exception):
@@ -207,9 +211,10 @@ class RunVerdict(Enum):
 
 @dataclass(frozen=True)
 class Step:
-    """One step of the pipeline. `role` is the agent role responsible for it —
-    `instrument_run.sh` stamps it directly onto every launch's telemetry as `kensai.role`, never
-    derived from `skill` at read time (`core/tools/instrument_run.sh` § The direct identity).
+    """One step of the pipeline. `role` is the agent role responsible for it. The engine hands it
+    to each of the step's launches as `INSTRUMENT_RUN_ROLE`, and `run_telemetry.sh` stamps it onto
+    that launch's telemetry as `kensai.role` (`core/tools/run_telemetry.sh` § The chain tags). A
+    reader never derives it from `skill`.
     `gates` is False for the one step whose absence never stops a walk — `development-audit is
     not a gate` (`skills/kensaiapp-auditor/.claude/skills/development-audit/SKILL.md` § Critical Rules) — and `fans_out_over`
     names the steps that audit runs once per. The provider a step runs on is not the table's:
@@ -387,6 +392,24 @@ _CONTEXT_CAP_VARIABLE = "KENSAIAPP_CONTEXT_CAP"
 # card's suite, and only when this walk's owner start carried the ask (`WalkState.gate_owners_mac`).
 _GATE_OWNERS_MAC_VARIABLE = "KENSAIAPP_GATE_OWNERS_MAC"
 _GATE_CONSUMER_STEPS = frozenset({"implementation", "code-integrity", "seal"})
+
+# The two stops the environment check can end an implementation launch with. The words are
+# `change_text.md`'s, section *The walk's decision-owed stop message*.
+_DECISION_OWED = (
+    "environment-decision-owed — the product owes an environment decision, so implementation "
+    "was not launched: {detail}. To go on, record the environment for the product's gates in "
+    "its decision files and start the walk again, or start it again with the owner's ask "
+    "(--gate-owners-mac).")
+_CHECK_UNAVAILABLE = (
+    "environment-check-unavailable — implementation was not launched, because the walk cannot "
+    "tell whether the product owes an environment decision: {problem}. To go on, correct what "
+    "that names and start the walk again.")
+_INPUTS_HEADING = "## Gate environment inputs"
+_PLAN_FILE = "tl_instruction.md"
+_NO_INPUTS_SECTION = 'the change\'s plan has no "Gate environment inputs" section'
+_NO_INPUTS_BLOCK = 'the change\'s plan holds no JSON block under "Gate environment inputs"'
+_MANY_INPUTS_BLOCKS = ('the change\'s plan holds more than one JSON block under '
+                       '"Gate environment inputs"')
 # `tobiishi-seal` flips the project's `CONTEXT_PM.md` status to this line when the change lands
 # (`skills/pm/.claude/skills/tobiishi-seal/SKILL.md`, the `caller-seal-action` block) — the same line
 # `shukuba-refine` reads its default unit off (`SKILL.md` § Input). Matched as a prefix, so a
@@ -1288,14 +1311,117 @@ def _missing(change: ChangeLayout, step: Step) -> str:
     return f"trail/{change.key}/ on main"
 
 
+class EnvironmentCheckUnavailable(Exception):
+    """The walk could not carry out the environment check. `str(self)` is the problem, in the
+    words the stop message puts after its colon."""
+
+
+def _gate_inputs_blocks(plan: str) -> tuple[int, list[str]]:
+    """How many `## Gate environment inputs` sections the plan holds outside any fence, and the
+    body of every fenced block inside them. A section runs to the next heading of any level: the
+    plan's task blocks follow it as `### Task` headings, and their fenced hints are not its
+    evidence."""
+    sections, blocks = 0, []
+    in_section, in_fence, current = False, False, None
+    for line in plan.splitlines():
+        if line.strip().startswith("```"):
+            if in_fence and current is not None:
+                blocks.append("\n".join(current))
+                current = None
+            elif not in_fence and in_section:
+                current = []
+            in_fence = not in_fence
+        elif in_fence:
+            if current is not None:
+                current.append(line)
+        elif _HEADING.match(line):
+            in_section = line.strip() == _INPUTS_HEADING
+            sections += in_section
+    return sections, blocks
+
+
+def _real_contract(change: "ChangeLayout") -> dict:
+    return development_path.resolve_from_paths(
+        change.worktree, change.project, change.key,
+        development_path.GitRepos(development_path.Git()))
+
+
+def _real_tracked_files(root: str) -> list[str]:
+    """The tracked files of the product tree at `root`, one product-relative name each."""
+    result = subprocess.run(["git", "-C", root, "ls-files", "-z"], capture_output=True, text=True)
+    if result.returncode != 0:
+        lines = (result.stderr or "git ls-files failed").strip().splitlines()
+        raise OSError(lines[0] if lines else "git ls-files failed")
+    return [name for name in result.stdout.split("\0") if name]
+
+
+class GateEnvironmentCheck:
+    """The production environment-check port. It reads the plan's sourced evidence from the
+    change's branch, prepares the current path contract, tracked-file inventory and the
+    product's committed decision record (read afresh at every ask), and asks
+    `gate_suite.check_gate` — which starts no process. Policy stays in the gate tool: this class
+    prepares context and reports a check it could not make."""
+
+    def __init__(self, *, files, gate_files=None, contract=_real_contract,
+                 tracked_files=_real_tracked_files, record_reader=None):
+        self.files = files
+        self.gate_files = gate_files if gate_files is not None else gate_suite.ReadOnlyFiles()
+        self.contract = contract
+        self.tracked_files = tracked_files
+        self.record_reader = record_reader if record_reader is not None \
+            else gate_suite.GitRecordReader()
+
+    def check(self, change: "ChangeLayout", core_dir: str) -> "gate_suite.CheckResult":
+        inputs = self._planned_inputs(change)
+        try:
+            paths = self.contract(change)
+        except development_path.ToolError as error:
+            raise EnvironmentCheckUnavailable(
+                f"the product's paths cannot be resolved: {error.message}") from None
+        try:
+            tracked = self.tracked_files(str(gate_suite.product_tree(paths)))
+        except OSError as error:
+            raise EnvironmentCheckUnavailable(
+                f"the product's tracked files cannot be listed: {error}") from None
+        try:
+            record = gate_suite.read_decision_record(paths, self.record_reader)
+            context = gate_suite.CheckContext(
+                paths=paths, tracked_files=tuple(tracked), decision_record=record)
+            return gate_suite.check_gate(
+                worktree=change.worktree, project=change.project, key=change.key, inputs=inputs,
+                context=context, files=self.gate_files, core_root=Path(core_dir),
+                out=io.StringIO())
+        except (gate_suite.GateError, gate_suite.InputError) as error:
+            raise EnvironmentCheckUnavailable(
+                f"the gate tool could not make the check: {error}") from None
+
+    def _planned_inputs(self, change: "ChangeLayout") -> object:
+        plan = self.files.read_text(os.path.join(change.branch_change_folder, _PLAN_FILE))
+        sections, blocks = _gate_inputs_blocks(plan or "")
+        if not sections:
+            raise EnvironmentCheckUnavailable(_NO_INPUTS_SECTION)
+        if not blocks:
+            raise EnvironmentCheckUnavailable(_NO_INPUTS_BLOCK)
+        if sections > 1 or len(blocks) > 1:
+            raise EnvironmentCheckUnavailable(_MANY_INPUTS_BLOCKS)
+        try:
+            return json.loads(blocks[0])
+        except ValueError as error:
+            raise EnvironmentCheckUnavailable(
+                f'the block under "Gate environment inputs" in the change\'s plan is not JSON: '
+                f"{error}") from None
+
+
 class DevelopmentChain:
     """The walk. Everything it uses is handed to it; it constructs nothing."""
 
     def __init__(self, *, store: StateStore, reader: DiskReader, files, processes, notifier,
                  lock, log, id_source, environ: dict, engine_path: str, steps: tuple[Step, ...],
                  providers: ProviderFiles, process_table: walk_stop.ProcessTable,
-                 checkout: product_checkout.Checkout, chain_name: str = ""):
+                 checkout: product_checkout.Checkout, environment_check,
+                 chain_name: str = ""):
         self.store = store
+        self.environment_check = environment_check
         self.checkout = checkout
         self.process_table = process_table
         self.providers = providers
@@ -1846,11 +1972,31 @@ class DevelopmentChain:
             self._halt(state, step, str(refused))
             return None
 
+    def _environment_allows(self, state: WalkState, change: ChangeLayout, step: Step) -> bool:
+        """Whether an implementation launch may go ahead. Asked at the one boundary every
+        implementation launch passes — a first entry, an advance, a pause or failure relaunch, a
+        missing-marker recovery, an explicit restart — before its shim, its pending entry or its
+        launcher exists. Only an owed decision stops it; the walk's stored ask bypasses it."""
+        if state.gate_owners_mac:
+            return True
+        try:
+            result = self.environment_check.check(change, state.core_dir)
+        except EnvironmentCheckUnavailable as unavailable:
+            self._halt(state, step, _CHECK_UNAVAILABLE.format(problem=unavailable))
+            return False
+        if result.answer is gate_suite.CheckAnswer.OWES_DECISION:
+            self._halt(state, step, _DECISION_OWED.format(detail=result.detail))
+            return False
+        return True
+
     def _launch_run(self, state: WalkState, change: ChangeLayout, step: Step,
                     audited: str | None, after: int | None = None,
                     run: str | None = None, provider: str | None = None) -> None:
         """Launch one run of `step`. `provider` is the fan-out's one read; every other launch
         reads the file here, before its shim or its pending entry is written."""
+        if step.evidence is Evidence.MARKER_COMMIT and not self._environment_allows(
+                state, change, step):
+            return
         if provider is None:
             provider = self._provider_or_halt(state, step)
             if provider is None:
@@ -2159,6 +2305,7 @@ def build_chain(state_path: str, *, notifier_command: str, engine_path: str,
         providers=ProviderFiles(files),
         process_table=walk_stop.ProcessTable(),
         checkout=product_checkout.Checkout(),
+        environment_check=GateEnvironmentCheck(files=files),
         chain_name=name,
     )
 

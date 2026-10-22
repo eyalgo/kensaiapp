@@ -1,5 +1,5 @@
 ---
-version: "1.4.0"
+version: "1.5.0"
 ---
 
 # seeds-from-product-docs — the Principal PM's document-cutting lens
@@ -273,6 +273,10 @@ When they disagree, dependency wins on the edge itself and risk wins everywhere 
 most places, because most seeds have fewer real dependencies than the order they were written in
 suggests. **A stated order is not a dependency**: the sibling's rule, and it is the defect this cut
 is most exposed to, because a document's section numbers read as a sequence and are not one.
+
+**Where neither decides, a quality seed goes ahead of a feature seed.** The PM's pick ranks them
+that way (`<CORE>/docs/michi_agari.md` § *How we work — walking a project's journey*, step 1), so
+a cut that queues the features first proposes an order the pick will undo.
 
 **A first increment is the smallest thing that is worth having on its own**, and it is not the
 smallest thing you can do. The test is not size: it is whether someone can look at the system after

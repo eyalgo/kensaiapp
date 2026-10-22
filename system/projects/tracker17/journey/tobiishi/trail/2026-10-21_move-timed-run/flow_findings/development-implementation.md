@@ -1,0 +1,20 @@
+# Flow Findings — development-implementation  (audited 2026-10-21)
+
+Findings for this step's output only, produced by the `development-audit` skill.
+Change-local findings live here; skill-general findings are also raised as kaizen items.
+
+Audited: the closing commit `9141daa6e` (Suite, Language resolution, Step 1b, Developer Review Notes), the
+two-file code delta, `tl_instruction.md`, `code-integrity-report.md`, and the Python packet.
+
+- **[non-blocking · change-local · evidence]** The `python/environment.md:16` line says "bore on the commands the run used" and never says the clause was met. The quoted clause ("Python's gates run in a Linux container on the official Python image, at the Python version the product's CI uses") has no exception for a product with no CI, and the run ran on the owner's Mac (3.14.7) and a 3.11.9 venv. The no-CI default lives in `languages/README.md` § Gate environment defaults and is not quoted. Where: closing commit § Language resolution, `python/environment.md:16`. The verdict is a divergence from the quoted clause, so it belongs worded and reasoned as one, with the clause that sends a no-CI product elsewhere quoted.
+- **[non-blocking · change-local · evidence]** The `python/conventions.md:17` line says "followed" and cites `ruff format --check` and `ruff check` exit 0 as the proof. Code-integrity found eight lines this change added past 100 columns, so the verdict was false when written and the cited gate does not enforce the clause. Where: closing commit § Language resolution; `code-integrity-report.md` § Tests added or fixed. Integrity rewrapped them, and the delta now has no added line over 100 columns (checked), so the code is right. The commit's record of it is not, and a gate exit cited as proof of a clause the gate does not test is how a false "followed" passes.
+- **[non-blocking · change-local · evidence]** The rule-discrimination notes name one test per rule for only a few rules. Task 1 lists 15 rules and names two tests ("e.g."). Task 2 lists three rules over one test. Task 3 lists four rules and names three tests with no pairing. The lens asks which case goes red when each rule alone is reverted. Where: closing commit, `Rule discrimination` lines. The claim reads as all reverted, but a reader cannot check which case answers which rule from the notes. Integrity's three spot mutations are the only independently shown reds.
+- **[non-blocking · change-local · evidence]** The CP-387 real-timing check ran in a fresh clone at `a1e1f9f84`, not at the commit under test, which is `9141daa6e` and then the integrity commit. Where: Developer Review Notes, "real timing". Later commits were the pause/close and the integrity rewrap (code-integrity re-ran the suite, not the timed command). The clean 63.7/3.4/67.1 ms result is likely unchanged, but the instruction asks for the commit under test.
+
+Lenses with nothing to report:
+
+- **Resolved language** — `Python` matches `Languages: Python` and the `.py` files touched.
+- **Packet roll-call** — all seven concerns have a per-concern line (Toolchain, Layout, Quality gates, Conventions, Errors and logging, Testing, Gate environment), with verbatim quotes. Spot-checked quotes at `toolchain.md:17`, `:65`, `conventions.md:148` and `environment.md:16` match the packet.
+- **Step 1b block** — present, with both counts (4 added, 0 not delivered). Spot-checked the instruction's named cases (17 test names, each present once) and the multi-case parameter families (bad-answer cases, saved-delta, landing, unmarked submission). I did not read every assertion.
+- **Placement (lens 9)** — `docs/SDD.md` § 3 exists. No part owns harness measurement and the unit frame places `tests/` at the product root. The new logic is in `tests/timed_run.py`. `_saved_the_move` builds its expectation by field replacement and not by the workflow rule. The placement lines say the Developer did not re-read § 3 itself, but the table agrees with them, so there is no finding. No misplacement, and the integrity report's Placement entry matches the code.
+- **Scope** — the delta is two test files, with the change-folder artifacts alongside.

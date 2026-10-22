@@ -7,14 +7,18 @@ this one rule).
 
 Taking part: application/tracker.py applies the rule to the current state, saves the result, and
 hands the allowed moves to the pages; web/routes.py turns a submission into a move and each refusal
-into its reason, and web/pages.py shows the moves, the status and the line after a move.
+into its reason, and web/pages.py shows the moves, the status and the line after a move;
+web/style.css gives the move controls and the cancelled move's confirmation their look.
 
 Checked by: tests/unit/test_workflow.py (the rule and its sixteen pairs),
 tests/integration/test_move_tracker.py (the move through the Tracker),
 tests/integration/test_move_routes.py (the request and its landing),
 tests/integration/test_move_pages.py (the controls and the line),
-tests/e2e/test_moves.py (the keys and the landing in a browser), and
-tests/architecture/test_trace.py and tests/architecture/test_shapes.py (the entry and the shape).
+tests/integration/test_routes.py (the route patterns, origin check and headers),
+tests/integration/test_task_pages.py and tests/integration/test_comment_pages.py (the task
+page and its forms with the moves), tests/e2e/test_moves.py (the keys and the landing in a
+browser), and tests/architecture/test_trace.py and tests/architecture/test_shapes.py (the entry
+and the shape).
 """
 
 from __future__ import annotations

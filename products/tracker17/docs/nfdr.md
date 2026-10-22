@@ -2,8 +2,8 @@
 
 **Status:** Settled
 **Owner:** Principal Architect
-**Version:** 13 — the owner's answer to companion § 3.1 folded in (`products/tracker17/docs/trail/architecture/cycle-11.md`): RN-15 ties each focus-test result to the commit it was measured at and drops its "no product code has moved since" claim, and records the comment focus tests as a second element that is not a control, with their own result (RN-42); no obligation's text and no record in `adr/` moves; nothing is left open, so the companion is removed and this document is Settled
-**Inputs read:** SRS Settled (version 6) · SDD Settled (version 10) · FDR Settled (version 4) · PRD Settled (version 7) · UXD Settled (version 6) · DESIGN Settled (version 3) · CONTENT Settled (version 10) · Agari no Status line · tracker17 doctrine no Status line (stamped, unfilled)
+**Version:** 15 — the owner's answer to companion § 2.2 folded in (`products/tracker17/docs/trail/architecture/cycle-13.md`): RN-15 counts the SDD § 4 EX-6 confirmation verified, as SDD version 11's § 11 R-2 does, states the browser build as R-2 states it, and counts the one SDD Open Question left (RN-46); no obligation, trace tag or § 10 row moves, nothing is left open, so the companion is removed and this document is Settled
+**Inputs read:** SRS Settled (version 6) · SDD Settled (version 11) · FDR Settled (version 4) · PRD Settled (version 7) · UXD Settled (version 8) · DESIGN Settled (version 4) · CONTENT Settled (version 12) · Agari no Status line · tracker17 doctrine no Status line (stamped, unfilled)
 
 > The NFDR is the product's **standing obligations, consolidated and verifiable**: every quality
 > constraint a change is checked against, derived from the SRS, the SDD, the FDR and the ADR — never
@@ -82,6 +82,23 @@ module under `tests/architecture/`, which `pytest tests/` runs.
   layer 6 fails on an import of `http.cookies`; the keeps-nothing half is a review at
   `development-design` for a change to `web`, because state held in a module-level value is not
   reliably distinguishable from a constant by a scanner *(traces to: ADR-0006; SDD § 4 RT-7)*
+- **QC-63:** A page that shows a pending confirmation of a move to `cancelled` is answered with HTTP
+  status 202, and every other page a move's interaction or outcome lands on with 200. Each of them
+  carries `Cache-Control: no-store`. The status is read off the page as built, never off the address
+  alone. A confirmation address naming a task no task holds answers the not-found page, 404, with no
+  `no-store`, and is outside this obligation. No move response carries `Clear-Site-Data`: no move
+  submission's response, and neither the confirmation page nor the back-out page.
+  — *verified by:* layer 3, `tests/integration/test_routes.py`,
+  `test_pending_confirmation_response_matches_the_rendered_page`,
+  `test_non_confirmation_move_views_keep_their_response_contract`,
+  `test_move_interaction_and_outcome_pages_are_not_stored` and
+  `test_move_responses_do_not_clear_site_data`; layer 5, `tests/e2e/test_moves.py`,
+  `test_history_matrix_revalidates_current_saved_status` and
+  `test_real_history_traversal_revalidates_the_confirmation`, which fail when a return to a
+  confirmation's address is restored from history instead of loaded. Layer 5 proves the build the
+  pinned library installs, Chromium 153.0.8010.12 under `playwright==1.63.0`, and not the operator's
+  current stable Chrome *(traces to: ADR-0010; SDD § 4 RT-11, § 9 TO-8, § 11 R-12; SRS NFR-3, NFR-13;
+  UXD § 4, UX-F4, UX-I3; owner, `trail/architecture/cycle-12.md` § 2.1; see RN-44)*
 - **QC-9:** The two maximum text lengths are stated once, in `domain`, and every text field's
   `maxlength` is written from them, as is the maximum the description field and the comment field
   state beside them. `web` turns each submitted CR LF pair, and each remaining CR, into
@@ -615,6 +632,7 @@ Every row's command is typed from the product root, inside the virtual environme
 | QC-62 | formatting | `ruff format --check .` | the tree | suite |
 | QC-62 | lint | `ruff check .` | the tree | suite |
 | QC-62 | types | `mypy main.py errors.py domain application persistence web` | the tree | suite |
+| QC-63 | move pages: 202 for a pending confirmation, `no-store` | `pytest tests/` · layer 3; `pytest tests/e2e/` · layer 5 | the tree | suite |
 
 QC-12, QC-25, QC-26, QC-27, QC-40, QC-41 and QC-60 are review gates and have no row.
 
@@ -727,10 +745,10 @@ QC-12, QC-25, QC-26, QC-27, QC-40, QC-41 and QC-60 are review gates and have no 
   operating system" and TS-2's "never patches a name inside it" — *because* each is an absolute a
   layer-6 walk can prove over every module, where a behaviour test proves only the paths it walked.
   *(re: QC-28, QC-61; source: SDD § 4 RT-3, TS-2)*
-- **RN-15:** Two SDD Open Questions bear on these records, and both bear on ADR-0003. Neither settles
-  here: one settles in the build and one in a run by the owner. ADR-0003's `## Traces to` cites the
-  list's second item, which is now the question of assistive-technology speech. What is verified, in
-  Chromium: `autofocus` focuses and brings into view a form control (SDD RN-36), and an element that
+- **RN-15:** One SDD Open Question bears on these records, and it bears on ADR-0003. It does not
+  settle here: it settles in a run by the owner. ADR-0003's `## Traces to` cites the list's second
+  item, the question of assistive-technology speech, which is now the list's only item. What is
+  verified, in Chromium: `autofocus` focuses and brings into view a form control (SDD RN-36), and an element that
   is not a control, made focusable with `tabindex="-1"`, in two places. The first is the added name
   on the People page (`tests/e2e/test_people.py`,
   `test_added_markup_name_has_browser_focus_and_accessible_description` and
@@ -741,12 +759,20 @@ QC-12, QC-25, QC-26, QC-27, QC-40, QC-41 and QC-60 are review gates and have no 
   `test_keyboard_comment_add_brings_the_new_comment_into_view_and_focus`, and `:L171`,
   `test_keyboard_comment_refusals_keep_text_focus_and_description`): the same command gave 33 passed
   at `4f6f59752` with playwright 1.63.0, and 33 passed at `c0e4d65f4`, whose product code and tests
-  match `4f6f59752`, with playwright 1.63.0 and Chromium 153.0.8010.12. Each result is a count at the
-  commit it names, not a claim about the tree after it; `git diff <commit>` shows what has moved
-  since. What stays open is two cases. The first is the confirmation of SDD § 4 EX-6:
-  focus on its sentence, the double press that never confirms, and back-out returning focus. The
-  confirmation tests of SDD § 6 `status-moves` settle it. The second is assistive technology
-  speaking the description SDD § 4 EX-14 needs. None of ADR-0003's three focus tests reaches it,
+  match `4f6f59752`, with playwright 1.63.0 and Chromium 153.0.8010.12. The confirmation of SDD § 4
+  EX-6 is verified too, in its three parts: the sentence alone holding focus, the double press that
+  never confirms, and back-out returning focus. SDD § 11 R-2 names the four tests in
+  `tests/e2e/test_moves.py` that verify them (`test_keyboard_opening_focuses_the_visible_sentence`,
+  `test_keyboard_confirming_and_back_out_use_their_own_intents`,
+  `test_double_click_never_confirms_at_the_original_trigger_coordinates` and
+  `test_keyboard_opening_on_a_far_row_focuses_the_visible_sentence`): all four passed in a fresh
+  clone at `9b05680c7` (`tests/e2e/`, 67 passed), with the pinned library, `playwright==1.63.0`. That
+  run asserts the browser build rather than inferring it from the pin: its
+  `test_history_matrix_revalidates_current_saved_status` asserts `153.0.8010.12` on the full Chromium
+  of that install, and the four focus tests drive the headless shell the same install provides.
+  Each result is a count at the commit it names, not a claim about the tree after it; `git diff
+  <commit>` shows what has moved since. What stays open is one case: assistive technology speaking
+  the description SDD § 4 EX-14 needs. None of ADR-0003's three focus tests reaches it,
   because a computed accessible description does not prove the line is spoken. One VoiceOver pass on
   the owner's macOS machine settles it, and no slice requires that run. The passing tests stay as
   regression triggers, because a Chromium release could change the behaviour. If any focus test
@@ -755,9 +781,11 @@ QC-12, QC-25, QC-26, QC-27, QC-40, QC-41 and QC-60 are review gates and have no 
   `maxlength` (ADR-0007) closed in SDD RN-36: Chromium counted each line break as one, and what it
   sends no longer matters, because `web` turns CR LF and a lone CR into LF before the value reaches
   `application`, which is what ADR-0007 decided. The port closed in SDD RN-35, with the address
-  `127.0.0.1:8017` (SDD § 4 RT-5), whose host QC-30 checks. ADR-0007's *Dependence* calls the
-  line-break question open as the list's first item, which now names SDD RN-36, and RN-36 records
-  that question closing. ADR-0003's *Dependence* calls the not-a-control case unverified and cites
+  `127.0.0.1:8017` (SDD § 4 RT-5), whose host QC-30 checks. The EX-6 confirmation, which this note
+  counted open through NFDR version 14, closed at SDD version 11 (§ 11 R-2). ADR-0007's *Dependence*
+  calls the line-break question open as the list's first item. The list's first item is now the
+  assistive-technology question and names no RN-36; SDD RN-36 itself records the line-break question
+  closing. ADR-0003's *Dependence* calls the not-a-control case unverified and cites
   SDD § 11 R-2 and its Open Questions, which SDD version 8 narrowed (SDD RN-41), so the citation lands
   on the current state. Both records are Accepted and stay as written, because neither decision
   moved and each was true on its date. A reader reaches this note from either record through its
@@ -765,7 +793,8 @@ QC-12, QC-25, QC-26, QC-27, QC-40, QC-41 and QC-60 are review gates and have no 
   RN-15. An answer that contradicts a record lands as a superseding record. *(re: ADR-0003,
   ADR-0007, QC-9, QC-30, QC-34; source: SDD § Open Questions, § 4 RT-5, EX-6, EX-14, § 11 R-2, RN-35,
   RN-36, RN-41; owner, `trail/architecture/cycle-4.md` § 2.1, `trail/architecture/cycle-8.md` § 3.1,
-  `trail/architecture/cycle-11.md` § 3.1; see RN-23, RN-35, RN-42)*
+  `trail/architecture/cycle-11.md` § 3.1, `trail/architecture/cycle-13.md` § 2.2; see RN-23, RN-35,
+  RN-42, RN-46)*
 - **RN-16:** § 3 names what the loopback boundary leaves open — *because* the owner confirmed the
   not-applicable declaration with that addition (`trail/architecture/cycle-1.md` § 2.5; reasoning,
   `trail/architecture/self_answer-1.md` § 2.5). Version 1 said "the only caller is someone already at
@@ -1177,3 +1206,80 @@ QC-12, QC-25, QC-26, QC-27, QC-40, QC-41 and QC-60 are review gates and have no 
   project's doctrine are unchanged since version 12. No obligation's text, no trace tag and no § 10
   row moves, and no record in `adr/` moves. Nothing is left open, so the companion is removed and
   this document is Settled. *(re: Version 13; RN-15)*
+- **RN-44:** ADR-0010 records the history-admission boundary and QC-63 binds it — *because* the
+  owner confirmed companion § 2.1 with three additions (`trail/architecture/cycle-12.md` § 2.1;
+  reasoning, `trail/architecture/self_answer-16.md` § 2.1), and SDD version 11 settled the decision
+  in § 4 RT-11, § 9 TO-8 and § 11 R-12 (SDD RN-49). The product has run on it since `9b05680c7`, and
+  until this version no record and no obligation named the 202 or the header. The first addition is
+  the reversal cost. SDD TO-8 puts undoing the 202 at one line in `web`, and RN-13 and RN-22 refused
+  records to one-line decisions. This one passes the hard-to-reverse gate because the line is not
+  the decision: nothing else is left to keep UXD UX-F4's no-press refusal on Back, so undoing it
+  takes a page script, which supersedes ADR-0003, a cookie or session, which supersedes ADR-0006, or
+  giving that refusal up. ADR-0010's § Consequences says so, and so does this note, so the record
+  does not read as contradicting RN-13. ADR-0010's *Dependence* keeps SDD R-12's bound: the history
+  tests prove the pinned build, not the operator's current stable Chrome. The second addition is the
+  placement. QC-63 sits in § 1.1 beside QC-7 and QC-8, which also trace to ADR-0006, and not in § 2,
+  whose entries each name the trust boundary they guard; this one guards none of B-1 to B-4. IDs are
+  never renumbered, so it sits out of numeric order there. The third addition is two bounds RT-11
+  states: the not-found page a confirmation address answers when its task is gone, 404 with no
+  `no-store`, is outside the obligation, and the `Clear-Site-Data` clause covers a move's responses,
+  which is what `test_move_responses_do_not_clear_site_data` reaches, so the tail names that test
+  beside the five the draft listed. QC-63 traces to SRS NFR-13 for that bound, not as an obligation
+  realized from it, so RN-12's reading of NFR-13 as experience stands. This run checked each locator
+  at `HEAD`: `web/routes.py`, `Site._pending_status` (`HTTPStatus.ACCEPTED` only for a rendered
+  confirmation), `Site._stored_as_asked` (`NOT_STORED` when the address carries `move_task`) and
+  `Site._move_view`; the four layer-3 tests in `tests/integration/test_routes.py`, the 404 rows
+  among them; the two layer-5 tests and `PINNED_BROWSER` in `tests/e2e/test_moves.py`. The recorded
+  result is SDD RT-11's: 67 passed in `tests/e2e/` in a fresh clone at `9b05680c7`, a count at that
+  commit. This run ran no suite. ADR-0003 and ADR-0006 are neither edited nor superseded: ADR-0010
+  adds a decision inside both and moves neither. *(re: ADR-0010, QC-63, § 10; source: owner,
+  `trail/architecture/cycle-12.md` § 2.1; SDD § 4 RT-11, § 9 TO-8, § 11 R-12, RN-49; SRS NFR-3,
+  NFR-13; UXD UX-F4, UX-I3)*
+- **RN-45:** Version 14 was written on 2026-10-21. It read the answered companion as committed at
+  `d9fe641ff` and copied it whole to `trail/architecture/cycle-12.md` before the fold, with the
+  reasoning behind both items at `trail/architecture/self_answer-16.md`. A `companion-self-answer`
+  run opened that companion in the CTO's seat; no producing run wrote it. Of its two items, § 2.1
+  was answered and is folded into ADR-0010 and QC-63 (RN-44). § 2.2, which asks for RN-15 to count
+  the EX-6 confirmation verified as SDD version 11's § 11 R-2 does, has no answer, so it stays in the
+  companion, RN-15 stands as version 13 wrote it, and this document is Draft. Since version 13
+  (`git diff --stat 5e68bc569 HEAD` over the product's `docs/` and the project's `agari.md`,
+  `doctrine/` and `project.md`), upstream moved. This run read each change. SDD version 11 adds
+  RT-11, TO-8 and R-12, which RN-44 records, scopes RT-8's reload sentence to a page whose address
+  names a finished outcome, which moves no entry because QC-7 binds only that a submission is
+  answered by an address, and changes `status-moves`'s behaviour bar and EX-4 for UXD version 8
+  (SDD RC-4, RN-50), which is behaviour. UXD versions 7 and 8, `DESIGN.md` version 4 and
+  `CONTENT.md` versions 11 and 12 change what a refusal says and where it sits and the confirmation
+  strip's height, which is behaviour and experience (RN-12), and move no entry. `what_left.md` lost
+  the lines for the status workflow and the empty project, since built, and moves no entry. The SRS,
+  the FDR, the PRD, the Agari and the project's doctrine are unchanged since version 13. *(re:
+  Version 14; ADR-0010, QC-63)*
+- **RN-46:** RN-15 counts the SDD § 4 EX-6 confirmation verified and one SDD Open Question left —
+  *because* the owner confirmed companion § 2.2 with two additions (`trail/architecture/cycle-13.md`
+  § 2.2; reasoning, `trail/architecture/self_answer-17.md` § 2.2), and SDD version 11 settled it:
+  § 11 R-2 counts the confirmation case verified by four tests at `9b05680c7`, and § Open Questions
+  keeps only the assistive-technology item. The first addition is the browser build. RN-15 states it
+  as R-2 does: the run pinned `playwright==1.63.0`, and asserted `153.0.8010.12` on the full Chromium
+  of that install through `test_history_matrix_revalidates_current_saved_status`, while the four
+  focus tests drive the headless shell the same install provides. RN-15 claims no more about the
+  build than the SDD does. The second addition is the list. With one item left, RN-15's count of
+  questions, its sentence on ADR-0003's citation and its sentence on ADR-0007's citation each went
+  false, and each now reads the list as it stands: ADR-0003's cited question is the list's only item,
+  and ADR-0007's reader is pointed at SDD RN-36, which records the line-break question closing. This
+  run checked the locators at `HEAD`: the four tests at `tests/e2e/test_moves.py:174`, `:208`, `:321`
+  and `:606`, `PINNED_BROWSER` at `:452`, the `browser` and `history_browser` fixtures in
+  `tests/e2e/conftest.py`, `playwright==1.63.0` in `pyproject.toml` and `tests/requirements.txt`, and
+  that `git diff --stat 9b05680c7 HEAD -- products/tracker17 ':!products/tracker17/docs'` lists one
+  line of `README.md` and no code. It ran no suite. RN-42 is a dated record and is not edited.
+  ADR-0003 and ADR-0007 are neither edited nor superseded, because neither decision moved and each
+  citation was true on its date (RN-15's own rule). QC-9's and QC-34's obligations and trace tags do
+  not move, and § 10 gains no row. *(re: RN-15, ADR-0003, ADR-0007, QC-9, QC-34; source: owner,
+  `trail/architecture/cycle-13.md` § 2.2; SDD § 11 R-2, § Open Questions, RN-36)*
+- **RN-47:** Version 15 was written on 2026-10-21. It read the answered companion as committed at
+  `b8fec1f86` and copied it whole to `trail/architecture/cycle-13.md` before the fold, with the
+  reasoning behind its one item at `trail/architecture/self_answer-17.md`. A `companion-self-answer`
+  run raised that item in this seat; no producing run wrote it. It was answered and is folded into
+  RN-15 (RN-46). Since version 14 (`git diff --stat b4810919c HEAD` over the product and the project's
+  `agari.md`, `doctrine/` and `project.md`), only the companion and its reasoning file moved; no
+  upstream document changed, so `Inputs read:` stands. No obligation's text, no trace tag and no
+  § 10 row moves, and no record in `adr/` moves. Nothing is left open, so the companion is removed
+  and this document is Settled. *(re: Version 15; RN-15)*

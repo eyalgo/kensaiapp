@@ -21,3 +21,4 @@
 | [ADR-0007](0007-text-counted-once-in-domain-in-code-points.md) | Count typed text once, in `domain`, in code points, after `web` turns each line break back into one character | Accepted | 2026-10-06 |
 | [ADR-0008](0008-identities-issued-from-counters-in-the-state.md) | Issue every identity from a counter kept in the saved state | Accepted | 2026-10-06 |
 | [ADR-0009](0009-one-unix-lock-no-windows.md) | Build for macOS and Linux only, with one locking path, and do not support Windows | Accepted | 2026-10-06 |
+| [ADR-0010](0010-pending-confirmation-answered-202-move-pages-not-stored.md) | Answer a page that shows a pending confirmation with 202, and store no move page | Accepted | 2026-10-21 |

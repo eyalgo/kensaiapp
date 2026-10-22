@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from test_deliver_change import BUILDER, KEY, TOOL, Scenario, git
+from test_deliver_change import BUILDER, KEY, TOOL, VERSIONED, Scenario, git
 
 ROOT = Path(__file__).resolve().parents[4]
 SKILL = ROOT / "skills/pm/.claude/skills/tobiishi-seal/SKILL.md"
@@ -263,9 +263,10 @@ def test_caller_preserves_the_complete_contract_and_role_records(tmp_path, recip
     product.pop("actor")
     product["authorizer"] = "Product"
     if optional:
-        product.update(branch_commits=["second", "first"], bump=["version.py=patch"],
+        product.update(branch_commits=["second", "first"],
                        claude_session="https://example.invalid/session")
-        managed.config["merges"]["instance"].update(branch_commits=[], bump=[])
+        managed.config["merges"]["instance"].update(
+            branch_commits=[], bump=[f"{VERSIONED['instance']}=patch"])
     else:
         for record in managed.config["merges"].values():
             for field in ("co_authored_by", "reasoning_effort"):
@@ -458,8 +459,9 @@ def test_seal_and_delivery_preserve_runtime_attribution(tmp_path, recipe, sessio
     managed = Managed(tmp_path, fixed=True)
     product = managed.config["merges"]["product"]
     product.update(co_authored_by="distinct-model <noreply@openai.com>", reasoning_effort="low",
-                   branch_commits=["product second", "product first"], bump=["version.py=patch"])
-    managed.config["merges"]["instance"].update(branch_commits=["instance entry"], bump=[])
+                   branch_commits=["product second", "product first"])
+    managed.config["merges"]["instance"].update(
+        branch_commits=["instance entry"], bump=[f"{VERSIONED['instance']}=patch"])
     if session:
         managed.config["bookkeeping"]["claude_session"] = session
         for record in managed.config["merges"].values():
@@ -479,9 +481,11 @@ def test_seal_and_delivery_preserve_runtime_attribution(tmp_path, recipe, sessio
     assert "Co-Authored-By: distinct-model <noreply@openai.com>" in body
     assert "Reasoning-Effort: low" in body
     assert body.index("product second") < body.index("product first")
+    # The instance's marker moves at the landing merge; the product's release number does not.
+    assert git(instance, "show", f"main:{VERSIONED['instance']}").stdout == '__version__ = "1.0.1"\n'
     assert (
         git(managed.scenario.repos["product"], "show", "main:version.py").stdout ==
-        '__version__ = "1.0.1"\n'
+        '__version__ = "1.0.0"\n'
     )
     assert json.loads((prepared.directory / "merges.json").read_text()) == managed.config["merges"]
     assert seal not in (prepared.directory / "merges.json").read_text()

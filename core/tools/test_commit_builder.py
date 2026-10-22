@@ -1741,7 +1741,10 @@ def _init_repo(path: Path) -> str:
     git("config", "user.email", "test@example.com")
     git("config", "commit.gpgsign", "false")
     (path / "seed.txt").write_text("seed\n")
-    git("add", "seed.txt")
+    # An instance's identity: what makes the tree's `core/`, `.claude/`,
+    # `skills/` and `system/` kensaiapp's own artifacts (`_is_kensaiapp_path`).
+    (path / "kensaiapp.md").write_text("# throwaway instance\n")
+    git("add", "seed.txt", "kensaiapp.md")
     git("commit", "-q", "-m", "seed")
     return git("rev-parse", "--abbrev-ref", "HEAD")
 
@@ -1846,10 +1849,11 @@ def _feature_repo_with_versioned_file(tmp_path: Path, version: str = "1.0.0") ->
     subprocess.run(
         ["git", "-C", str(tmp_path), "branch", "-M", "main"], check=True
     )
-    target = tmp_path / "versioned.py"
+    target = tmp_path / "core/versioned.py"
+    target.parent.mkdir(exist_ok=True)
     target.write_text(f'__version__ = "{version}"\n', encoding="utf-8")
     subprocess.run(
-        ["git", "-C", str(tmp_path), "add", "versioned.py"], check=True
+        ["git", "-C", str(tmp_path), "add", "core/versioned.py"], check=True
     )
     subprocess.run(
         ["git", "-C", str(tmp_path), "commit", "-q", "-m", "add versioned file"],
@@ -1881,13 +1885,13 @@ def test_feature_commit_refuses_an_existing_artifact_version_bump(
     target.write_text('__version__ = "1.1.0"\n', encoding="utf-8")
     head_before = _base_sha(tmp_path)
 
-    exit_code = _product_commit(tmp_path, "versioned.py")
+    exit_code = _product_commit(tmp_path, "core/versioned.py")
 
     assert exit_code == 1
     assert _base_sha(tmp_path) == head_before
     error = capsys.readouterr().err
     assert "version markers move only in the landing commit on main" in error
-    assert "versioned.py: 1.0.0 -> 1.1.0" in error
+    assert "core/versioned.py: 1.0.0 -> 1.1.0" in error
 
 
 def test_feature_commit_allows_content_change_with_an_unchanged_marker(tmp_path):
@@ -1897,17 +1901,17 @@ def test_feature_commit_allows_content_change_with_an_unchanged_marker(tmp_path)
         encoding="utf-8",
     )
 
-    exit_code = _product_commit(tmp_path, "versioned.py")
+    exit_code = _product_commit(tmp_path, "core/versioned.py")
 
     assert exit_code == 0
 
 
 def test_feature_commit_allows_a_new_artifact_at_creation_version(tmp_path):
     _feature_repo_with_versioned_file(tmp_path)
-    added = tmp_path / "added.py"
+    added = tmp_path / "core/added.py"
     added.write_text('__version__ = "1.0.0"\n', encoding="utf-8")
 
-    exit_code = _product_commit(tmp_path, "added.py")
+    exit_code = _product_commit(tmp_path, "core/added.py")
 
     assert exit_code == 0
 
@@ -1916,10 +1920,10 @@ def test_feature_commit_refuses_a_new_artifact_above_creation_version(
     tmp_path, capsys
 ):
     _feature_repo_with_versioned_file(tmp_path)
-    added = tmp_path / "added.py"
+    added = tmp_path / "core/added.py"
     added.write_text('__version__ = "1.2.0"\n', encoding="utf-8")
 
-    exit_code = _product_commit(tmp_path, "added.py")
+    exit_code = _product_commit(tmp_path, "core/added.py")
 
     assert exit_code == 1
     assert "new artifact starts at 1.0.0, found 1.2.0" in capsys.readouterr().err
@@ -1927,9 +1931,9 @@ def test_feature_commit_refuses_a_new_artifact_above_creation_version(
 
 def test_feature_commit_preserves_a_renamed_artifacts_existing_version(tmp_path):
     target = _feature_repo_with_versioned_file(tmp_path, version="2.3.0")
-    renamed = tmp_path / "renamed.py"
+    renamed = tmp_path / "core/renamed.py"
     subprocess.run(
-        ["git", "-C", str(tmp_path), "mv", target.name, renamed.name], check=True
+        ["git", "-C", str(tmp_path), "mv", "core/versioned.py", "core/renamed.py"], check=True
     )
 
     exit_code = commit_builder.main([
@@ -1939,7 +1943,7 @@ def test_feature_commit_preserves_a_renamed_artifacts_existing_version(tmp_path)
         "--role", "Product",
         "--directional", "Michi: none — exercise the branch marker gate",
         "--surface", "Codex",
-        "--staged", target.name, renamed.name,
+        "--staged", "core/versioned.py", "core/renamed.py",
     ])
 
     assert exit_code == 0
@@ -1971,7 +1975,7 @@ def test_feature_commit_still_refuses_its_own_bump_while_main_moved(tmp_path, ca
     subprocess.run(["git", "-C", str(tmp_path), "checkout", "-q", "feature"], check=True)
     target.write_text('__version__ = "9.9.9"\n', encoding="utf-8")
 
-    exit_code = _product_commit(tmp_path, "versioned.py")
+    exit_code = _product_commit(tmp_path, "core/versioned.py")
 
     assert exit_code == 1
     assert "1.0.0 -> 9.9.9" in capsys.readouterr().err
@@ -1984,7 +1988,7 @@ def test_main_commit_may_move_a_marker_directly(tmp_path):
     )
     target.write_text('__version__ = "1.1.0"\n', encoding="utf-8")
 
-    exit_code = _product_commit(tmp_path, "versioned.py")
+    exit_code = _product_commit(tmp_path, "core/versioned.py")
 
     assert exit_code == 0
 
@@ -3408,6 +3412,7 @@ def test_declared_prestage_of_a_non_ascii_rename_commits(tmp_path, monkeypatch):
 # commits — one merge commit carrying both the branch and the bump.
 
 def _versioned(path: Path, version: str, body: str = "body\n") -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(f'---\nversion: "{version}"\n---\n\n{body}')
 
 
@@ -3433,9 +3438,9 @@ def test_merge_bump_lands_inside_the_merge_commit(tmp_path):
             capture_output=True, text=True, check=True,
         ).stdout.strip()
 
-    doctrine = tmp_path / "doctrine.md"
+    doctrine = tmp_path / "core/doctrine.md"
     _versioned(doctrine, "1.42.0")
-    git("add", "doctrine.md")
+    git("add", "core/doctrine.md")
     git("commit", "-q", "-m", "seed the doctrine file")
 
     git("checkout", "-q", "-b", "feature")
@@ -3452,7 +3457,7 @@ def test_merge_bump_lands_inside_the_merge_commit(tmp_path):
         "--branch-commits", "feature: add a rule",
         "--actor", "pm",
         "--merge-context", "manual",
-        "--bump", "doctrine.md=minor",
+        "--bump", "core/doctrine.md=minor",
         "--surface", "Claude Code",
         "--co-authored-by", CO_AUTHORED_BY,
     ])
@@ -3462,7 +3467,7 @@ def test_merge_bump_lands_inside_the_merge_commit(tmp_path):
     assert "an added rule" in doctrine.read_text()
     # One merge commit carries both: two parents, and the bump in its own diff.
     assert len(git("rev-list", "--parents", "-1", "HEAD").split()) == 3
-    assert "doctrine.md" in git("show", "--format=", "--name-only", "HEAD")
+    assert "core/doctrine.md" in git("show", "--format=", "--name-only", "HEAD")
     # Nothing committed to main after the merge.
     assert git("status", "--porcelain") == ""
 
@@ -3591,11 +3596,11 @@ def test_merge_bump_conflict_leaves_a_resumable_state_then_resumes(tmp_path):
     def git_out(*args: str) -> str:
         return git(*args).stdout.strip()
 
-    doctrine = tmp_path / "doctrine.md"
+    doctrine = tmp_path / "core/doctrine.md"
     _versioned(doctrine, "1.42.0")
-    registry = tmp_path / "registry.md"
+    registry = tmp_path / "core/registry.md"
     registry.write_text("base row\n")
-    git("add", "doctrine.md", "registry.md")
+    git("add", "core/doctrine.md", "core/registry.md")
     git("commit", "-q", "-m", "seed the doctrine + registry files")
 
     git("checkout", "-q", "-b", "feature")
@@ -3614,7 +3619,7 @@ def test_merge_bump_conflict_leaves_a_resumable_state_then_resumes(tmp_path):
         "--branch-commits", "feature: add a row",
         "--actor", "pm",
         "--merge-context", "manual",
-        "--bump", "doctrine.md=minor",
+        "--bump", "core/doctrine.md=minor",
         "--surface", "Claude Code",
         "--co-authored-by", CO_AUTHORED_BY,
     ]
@@ -3635,7 +3640,7 @@ def test_merge_bump_conflict_leaves_a_resumable_state_then_resumes(tmp_path):
     # The caller resolves the conflict by hand (the one thing the builder
     # never does) and stages it.
     registry.write_text("feature's row\nmain's row\n")
-    git("add", "registry.md")
+    git("add", "core/registry.md")
 
     # Second call: the IDENTICAL command, re-run. This is the resume.
     exit_code = commit_builder.main(merge_args)
@@ -3648,8 +3653,8 @@ def test_merge_bump_conflict_leaves_a_resumable_state_then_resumes(tmp_path):
     body = _commit_body(tmp_path)
     assert body.startswith(f"merge: feature → {main_branch} — bring in the row")
     assert "Merge-Authorized: PM — manual" in body
-    assert "doctrine.md" in git_out("show", "--format=", "--name-only", "HEAD")
-    assert "registry.md" in git_out("show", "--format=", "--name-only", "HEAD")
+    assert "core/doctrine.md" in git_out("show", "--format=", "--name-only", "HEAD")
+    assert "core/registry.md" in git_out("show", "--format=", "--name-only", "HEAD")
     # Nothing left uncommitted.
     assert git_out("status", "--porcelain") == ""
 
@@ -3663,11 +3668,11 @@ def test_merge_conflict_prints_a_resume_instruction_not_a_reformat_hint(tmp_path
             capture_output=True, text=True, check=check,
         )
 
-    doctrine = tmp_path / "doctrine.md"
+    doctrine = tmp_path / "core/doctrine.md"
     _versioned(doctrine, "1.42.0")
-    registry = tmp_path / "registry.md"
+    registry = tmp_path / "core/registry.md"
     registry.write_text("base row\n")
-    git("add", "doctrine.md", "registry.md")
+    git("add", "core/doctrine.md", "core/registry.md")
     git("commit", "-q", "-m", "seed")
 
     git("checkout", "-q", "-b", "feature")
@@ -3686,7 +3691,7 @@ def test_merge_conflict_prints_a_resume_instruction_not_a_reformat_hint(tmp_path
         "--branch-commits", "feature: add a row",
         "--actor", "pm",
         "--merge-context", "manual",
-        "--bump", "doctrine.md=minor",
+        "--bump", "core/doctrine.md=minor",
         "--surface", "Claude Code",
         "--co-authored-by", CO_AUTHORED_BY,
     ])
@@ -3776,21 +3781,21 @@ def _merge_probe_repo(tmp_path, extra_branch: bool = False) -> tuple[str, callab
             capture_output=True, text=True, check=check,
         )
 
-    _versioned(tmp_path / "doctrine.md", "1.42.0")
-    (tmp_path / "registry.md").write_text("base row\n")
-    git("add", "doctrine.md", "registry.md")
+    _versioned(tmp_path / "core/doctrine.md", "1.42.0")
+    (tmp_path / "core/registry.md").write_text("base row\n")
+    git("add", "core/doctrine.md", "core/registry.md")
     git("commit", "-q", "-m", "seed the doctrine + registry files")
 
     git("checkout", "-q", "-b", "feature")
-    (tmp_path / "registry.md").write_text("feature's row\n")
+    (tmp_path / "core/registry.md").write_text("feature's row\n")
     git("commit", "-qam", "feature: add a row")
     git("checkout", "-q", main_branch)
     if extra_branch:
         git("checkout", "-q", "-b", "other")
-        (tmp_path / "registry.md").write_text("other's row\n")
+        (tmp_path / "core/registry.md").write_text("other's row\n")
         git("commit", "-qam", "other: add a row")
         git("checkout", "-q", main_branch)
-    (tmp_path / "registry.md").write_text("main's row\n")
+    (tmp_path / "core/registry.md").write_text("main's row\n")
     git("commit", "-qam", "main: add a different row to the same spot")
     return main_branch, git
 
@@ -3805,7 +3810,7 @@ def _merge_argv(tmp_path, main_branch: str, branch: str = "feature") -> list[str
         "--branch-commits", f"{branch}: add a row",
         "--actor", "pm",
         "--merge-context", "manual",
-        "--bump", "doctrine.md=minor",
+        "--bump", "core/doctrine.md=minor",
         "--surface", "Claude Code",
         "--co-authored-by", CO_AUTHORED_BY,
     ]
@@ -3817,14 +3822,14 @@ def test_a_resumed_merge_applies_its_bump_exactly_once(tmp_path):
     file in the editor and re-runs before staging it — so the commit is
     refused by git for unmerged paths. The bump must not survive that."""
     main_branch, git = _merge_probe_repo(tmp_path)
-    doctrine = tmp_path / "doctrine.md"
+    doctrine = tmp_path / "core/doctrine.md"
     argv = _merge_argv(tmp_path, main_branch)
 
     assert commit_builder.main(argv) != 0
     assert 'version: "1.42.0"' in doctrine.read_text()
 
     # Resolved on disk, not staged — the re-run cannot land the commit.
-    (tmp_path / "registry.md").write_text("feature's row\nmain's row\n")
+    (tmp_path / "core/registry.md").write_text("feature's row\nmain's row\n")
     assert commit_builder.main(argv) != 0
     assert 'version: "1.42.0"' in doctrine.read_text(), (
         "a resume that did not land left its bump applied — the next re-run "
@@ -3832,7 +3837,7 @@ def test_a_resumed_merge_applies_its_bump_exactly_once(tmp_path):
     )
 
     # Now staged, so this re-run lands — and the marker moves exactly one level.
-    git("add", "registry.md")
+    git("add", "core/registry.md")
     assert commit_builder.main(argv) == 0
     assert 'version: "1.43.0"' in doctrine.read_text()
     assert len(
@@ -3856,20 +3861,20 @@ def test_a_bump_is_not_left_applied_when_the_merge_commit_is_refused(tmp_path):
             capture_output=True, text=True, check=check,
         )
 
-    doctrine = tmp_path / "doctrine.md"
+    doctrine = tmp_path / "core/doctrine.md"
     _versioned(doctrine, "1.42.0")
-    git("add", "doctrine.md")
+    git("add", "core/doctrine.md")
     git("commit", "-q", "-m", "seed the doctrine file")
 
     # The two branches touch different files, so the merge itself is clean —
     # the refusal under test is the hook's, not a conflict's.
     git("checkout", "-q", "-b", "feature")
-    (tmp_path / "theirs.md").write_text("theirs\n")
-    git("add", "theirs.md")
+    (tmp_path / "core/theirs.md").write_text("theirs\n")
+    git("add", "core/theirs.md")
     git("commit", "-q", "-m", "feature: add a file of its own")
     git("checkout", "-q", main_branch)
-    (tmp_path / "ours.md").write_text("ours\n")
-    git("add", "ours.md")
+    (tmp_path / "core/ours.md").write_text("ours\n")
+    git("add", "core/ours.md")
     git("commit", "-q", "-m", "main: add a different file")
 
     hooks = tmp_path / "githooks"
@@ -3897,12 +3902,12 @@ def test_a_resume_refuses_a_merge_in_progress_of_another_branch(tmp_path, capsys
     not that merge, and finishing it would land a commit whose subject names
     one branch and whose second parent is another."""
     main_branch, git = _merge_probe_repo(tmp_path, extra_branch=True)
-    doctrine = tmp_path / "doctrine.md"
+    doctrine = tmp_path / "core/doctrine.md"
 
     # A merge this tool never started, conflicted and then resolved by hand.
     git("merge", "--no-ff", "--no-commit", "other", check=False)
-    (tmp_path / "registry.md").write_text("other's row\nmain's row\n")
-    git("add", "registry.md")
+    (tmp_path / "core/registry.md").write_text("other's row\nmain's row\n")
+    git("add", "core/registry.md")
     head_before = git("rev-parse", "HEAD").stdout.strip()
 
     exit_code = commit_builder.main(_merge_argv(tmp_path, main_branch, branch="feature"))
@@ -4948,6 +4953,7 @@ def test_end_to_end_no_workflow_flag_omits_line(tmp_path, monkeypatch):
 # workflow markers are one bare line each and rewrite in place.
 
 def _python_module(path: Path, version: str, preamble: str = "") -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
         f'"""A module."""\n{preamble}\n__version__ = "{version}"\n\n'
         "def f():\n    return 1\n"
@@ -4956,6 +4962,7 @@ def _python_module(path: Path, version: str, preamble: str = "") -> None:
 
 def _shell_script(path: Path, entries: list[tuple[str, str]]) -> None:
     """A shell file with its `# Version:` stack, newest-first."""
+    path.parent.mkdir(parents=True, exist_ok=True)
     lines = ["#!/usr/bin/env bash", "#", "# thing.sh — a thing.", "#"]
     lines += [f"# Version: {v} — {d}" for v, d in entries]
     lines += ["", 'echo "hi"']
@@ -4963,6 +4970,7 @@ def _shell_script(path: Path, entries: list[tuple[str, str]]) -> None:
 
 
 def _workflow_script(path: Path, version: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
         "export const meta = {\n  name: 'x',\n}\n\n"
         f"// Version: {version}\n\nconsole.log(1)\n"
@@ -5057,14 +5065,14 @@ def _branch_with_edit(tmp_path, filename: str, edit) -> str:
 
 
 def test_merge_bump_moves_a_python_version(tmp_path):
-    tool = tmp_path / "tool.py"
+    tool = tmp_path / "core/tool.py"
     _python_module(tool, "1.0.0")
     main_branch = _branch_with_edit(
-        tmp_path, "tool.py",
+        tmp_path, "core/tool.py",
         lambda: _python_module(tool, "1.0.0", preamble="\n# an added behaviour\n"),
     )
 
-    assert _merge_with_bump(tmp_path, main_branch, "tool.py=minor") == 0
+    assert _merge_with_bump(tmp_path, main_branch, "core/tool.py=minor") == 0
     text = tool.read_text()
     assert '__version__ = "1.1.0"' in text
     assert "an added behaviour" in text
@@ -5074,7 +5082,7 @@ def test_merge_bump_moves_a_python_version(tmp_path):
         ["git", "-C", str(tmp_path), "show", "--format=", "--name-only", "HEAD"],
         capture_output=True, text=True, check=True,
     ).stdout
-    assert "tool.py" in show
+    assert "core/tool.py" in show
     parents = subprocess.run(
         ["git", "-C", str(tmp_path), "rev-list", "--parents", "-1", "HEAD"],
         capture_output=True, text=True, check=True,
@@ -5087,47 +5095,47 @@ def test_merge_bump_reads_a_file_the_branch_renamed_at_its_new_path(tmp_path):
     made — is checked against the branch's copy, then bumped after the merge. Before, the
     up-front check read the target's working tree, found no file, and refused the merge
     (2026-10-12, a satellite seal: a module renamed into a package directory)."""
-    tool = tmp_path / "tool.py"
+    tool = tmp_path / "core/tool.py"
     _python_module(tool, "1.0.0")
 
     def rename_and_edit():
-        moved = tmp_path / "pkg" / "tool.py"
-        moved.parent.mkdir()
-        subprocess.run(["git", "-C", str(tmp_path), "mv", "tool.py", "pkg/tool.py"], check=True)
+        moved = tmp_path / "core" / "pkg" / "tool.py"
+        moved.parent.mkdir(parents=True)
+        subprocess.run(["git", "-C", str(tmp_path), "mv", "core/tool.py", "core/pkg/tool.py"], check=True)
         _python_module(moved, "1.0.0", preamble="\n# an added behaviour\n")
-        subprocess.run(["git", "-C", str(tmp_path), "add", "pkg/tool.py"], check=True)
+        subprocess.run(["git", "-C", str(tmp_path), "add", "core/pkg/tool.py"], check=True)
 
-    main_branch = _branch_with_edit(tmp_path, "tool.py", rename_and_edit)
+    main_branch = _branch_with_edit(tmp_path, "core/tool.py", rename_and_edit)
 
-    assert _merge_with_bump(tmp_path, main_branch, "pkg/tool.py=minor") == 0
-    text = (tmp_path / "pkg" / "tool.py").read_text()
+    assert _merge_with_bump(tmp_path, main_branch, "core/pkg/tool.py=minor") == 0
+    text = (tmp_path / "core" / "pkg" / "tool.py").read_text()
     assert '__version__ = "1.1.0"' in text
     assert "an added behaviour" in text
     assert not tool.exists()
 
 
 def test_merge_still_refuses_a_bump_path_absent_on_both_sides(tmp_path, capsys):
-    tool = tmp_path / "tool.py"
+    tool = tmp_path / "core/tool.py"
     _python_module(tool, "1.0.0")
     main_branch = _branch_with_edit(
-        tmp_path, "tool.py",
+        tmp_path, "core/tool.py",
         lambda: _python_module(tool, "1.0.0", preamble="\n# an added behaviour\n"),
     )
 
-    assert _merge_with_bump(tmp_path, main_branch, "nowhere.py=minor") == 1
-    assert "nowhere.py=minor — no version marker" in capsys.readouterr().err
+    assert _merge_with_bump(tmp_path, main_branch, "core/nowhere.py=minor") == 1
+    assert "core/nowhere.py=minor — no version marker" in capsys.readouterr().err
 
 
 def test_merge_bump_moves_a_workflow_marker(tmp_path):
-    flow = tmp_path / "flow.js"
+    flow = tmp_path / "core/flow.js"
     _workflow_script(flow, "1.0.1")
     main_branch = _branch_with_edit(
-        tmp_path, "flow.js", lambda: flow.write_text(
+        tmp_path, "core/flow.js", lambda: flow.write_text(
             flow.read_text().replace("console.log(1)", "console.log(2)")
         ),
     )
 
-    assert _merge_with_bump(tmp_path, main_branch, "flow.js=patch") == 0
+    assert _merge_with_bump(tmp_path, main_branch, "core/flow.js=patch") == 0
     text = flow.read_text()
     assert "// Version: 1.0.2" in text
     assert "// Version: 1.0.1" not in text
@@ -5137,6 +5145,7 @@ def test_merge_bump_moves_a_workflow_marker(tmp_path):
 
 
 def _plugin_manifest(path: Path, version: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
         "{\n"
         '  "name": "sample-mod",\n'
@@ -5147,15 +5156,15 @@ def _plugin_manifest(path: Path, version: str) -> None:
 
 
 def test_merge_bump_moves_a_plugin_manifest_version(tmp_path):
-    manifest = tmp_path / "plugin.json"
+    manifest = tmp_path / "core/plugin.json"
     _plugin_manifest(manifest, "1.0.0")
     main_branch = _branch_with_edit(
-        tmp_path, "plugin.json", lambda: manifest.write_text(
+        tmp_path, "core/plugin.json", lambda: manifest.write_text(
             manifest.read_text().replace("an invented mod", "an edited mod")
         ),
     )
 
-    assert _merge_with_bump(tmp_path, main_branch, "plugin.json=minor") == 0
+    assert _merge_with_bump(tmp_path, main_branch, "core/plugin.json=minor") == 0
     text = manifest.read_text()
     assert '"version": "1.1.0",' in text
     assert '"1.0.0"' not in text
@@ -5186,17 +5195,18 @@ def test_a_plugin_marker_is_the_top_level_version_not_a_nested_one(tmp_path):
 
 
 def test_merge_bump_of_a_plugin_moves_its_own_version_not_a_nested_one(tmp_path):
-    manifest = tmp_path / "plugin.json"
+    manifest = tmp_path / "core/plugin.json"
+    manifest.parent.mkdir()
     manifest.write_text(
         '{"dependencies": {"version": "1.0.0"}, "version": "1.0.0", "name": "m"}\n'
     )
     main_branch = _branch_with_edit(
-        tmp_path, "plugin.json", lambda: manifest.write_text(
+        tmp_path, "core/plugin.json", lambda: manifest.write_text(
             manifest.read_text().replace('"m"', '"m2"')
         ),
     )
 
-    assert _merge_with_bump(tmp_path, main_branch, "plugin.json=patch") == 0
+    assert _merge_with_bump(tmp_path, main_branch, "core/plugin.json=patch") == 0
     assert manifest.read_text() == (
         '{"dependencies": {"version": "1.0.0"}, "version": "1.0.1", "name": "m2"}\n'
     )
@@ -5242,17 +5252,17 @@ def test_a_plugin_manifest_that_does_not_parse_carries_no_marker(tmp_path):
 
 
 def test_merge_bump_prepends_a_shell_entry_and_keeps_the_old_one(tmp_path):
-    script = tmp_path / "script.sh"
+    script = tmp_path / "core/script.sh"
     _shell_script(script, [("1.4.0", "the previous change")])
     before_line = "# Version: 1.4.0 — the previous change"
     main_branch = _branch_with_edit(
-        tmp_path, "script.sh", lambda: script.write_text(
+        tmp_path, "core/script.sh", lambda: script.write_text(
             script.read_text().replace('echo "hi"', 'echo "hello"')
         ),
     )
 
     assert _merge_with_bump(
-        tmp_path, main_branch, "script.sh=minor",
+        tmp_path, main_branch, "core/script.sh=minor",
         description="the greeting is spelled out",
     ) == 0
     lines = script.read_text().splitlines()
@@ -5271,16 +5281,16 @@ def test_a_shell_bump_folds_a_multiline_description_onto_one_line(tmp_path):
     # the file it is written into, so whitespace is collapsed rather than
     # refused — the merge's `--description` is specified as one line, and this
     # is the guard for when it is not.
-    script = tmp_path / "script.sh"
+    script = tmp_path / "core/script.sh"
     _shell_script(script, [("1.0.0", "first")])
     main_branch = _branch_with_edit(
-        tmp_path, "script.sh", lambda: script.write_text(
+        tmp_path, "core/script.sh", lambda: script.write_text(
             script.read_text() + 'echo "more"\n'
         ),
     )
 
     assert _merge_with_bump(
-        tmp_path, main_branch, "script.sh=patch",
+        tmp_path, main_branch, "core/script.sh=patch",
         description="two lines\nbecome one",
     ) == 0
     assert "# Version: 1.0.1 — two lines become one" in script.read_text().splitlines()
@@ -5291,15 +5301,15 @@ def test_merge_bump_of_a_python_module_leaves_a_matching_string_alone(tmp_path):
     # — safe for frontmatter, which is always first, and wrong for a module
     # whose docstring quotes the same value above the marker. The rewrite is
     # line-targeted, on the line the reader matched.
-    tool = tmp_path / "tool.py"
+    tool = tmp_path / "core/tool.py"
     _python_module(tool, "1.0.0", preamble='\nEXAMPLE = "1.0.0"  # not the marker\n')
     main_branch = _branch_with_edit(
-        tmp_path, "tool.py", lambda: tool.write_text(
+        tmp_path, "core/tool.py", lambda: tool.write_text(
             tool.read_text().replace("return 1", "return 2")
         ),
     )
 
-    assert _merge_with_bump(tmp_path, main_branch, "tool.py=major") == 0
+    assert _merge_with_bump(tmp_path, main_branch, "core/tool.py=major") == 0
     text = tool.read_text()
     assert 'EXAMPLE = "1.0.0"  # not the marker' in text
     assert '__version__ = "2.0.0"' in text
@@ -5309,10 +5319,11 @@ def test_bump_refusal_names_every_form_it_looked_for(tmp_path, capsys):
     # A file carrying no marker of ANY form still refuses, before the merge
     # runs — and the refusal says which five forms were looked for, so the
     # caller can tell "wrong path" from "this file carries no marker".
-    plain = tmp_path / "plain.md"
+    plain = tmp_path / "core/plain.md"
+    plain.parent.mkdir()
     plain.write_text("no marker of any kind\n")
     main_branch = _branch_with_edit(
-        tmp_path, "plain.md",
+        tmp_path, "core/plain.md",
         lambda: plain.write_text("no marker of any kind, edited\n"),
     )
 
@@ -5324,7 +5335,7 @@ def test_bump_refusal_names_every_form_it_looked_for(tmp_path, capsys):
 
     before = git("rev-parse", "HEAD")
 
-    assert _merge_with_bump(tmp_path, main_branch, "plain.md=minor") != 0
+    assert _merge_with_bump(tmp_path, main_branch, "core/plain.md=minor") != 0
     err = capsys.readouterr().err
     for form in ("version:", "__version__", "// Version:", "# Version:", "plugin.json"):
         assert form in err, f"the refusal never names the {form!r} form"
@@ -5760,58 +5771,61 @@ def _stage(repo: Path, *paths: str) -> None:
 
 def test_markers_base_names_a_file_that_gained_a_marker(tmp_path, capsys):
     _init_repo(tmp_path)
+    (tmp_path / "core").mkdir()
     base = _base_sha(tmp_path)
-    gained = tmp_path / "gained.py"
+    gained = tmp_path / "core/gained.py"
     gained.write_text('__version__ = "1.0.0"\n')
-    _stage(tmp_path, "gained.py")
+    _stage(tmp_path, "core/gained.py")
 
     exit_code = commit_builder.main(["--repo", str(tmp_path), "markers", "--base", base])
 
     assert exit_code != 0
     out = capsys.readouterr().out
-    assert "gained.py" in out
+    assert "core/gained.py" in out
     assert "no marker" in out
     assert "1.0.0" in out
 
 
 def test_markers_base_names_a_file_that_lost_its_marker(tmp_path, capsys):
     _init_repo(tmp_path)
-    losing = tmp_path / "losing.py"
+    (tmp_path / "core").mkdir()
+    losing = tmp_path / "core/losing.py"
     losing.write_text('__version__ = "1.0.0"\n')
-    _stage(tmp_path, "losing.py")
+    _stage(tmp_path, "core/losing.py")
     subprocess.run(
         ["git", "-C", str(tmp_path), "commit", "-q", "-m", "add losing.py"], check=True,
     )
     base = _base_sha(tmp_path)
     losing.write_text('# no marker anymore\n')
-    _stage(tmp_path, "losing.py")
+    _stage(tmp_path, "core/losing.py")
 
     exit_code = commit_builder.main(["--repo", str(tmp_path), "markers", "--base", base])
 
     assert exit_code != 0
     out = capsys.readouterr().out
-    assert "losing.py" in out
+    assert "core/losing.py" in out
     assert "1.0.0" in out
     assert "no marker" in out
 
 
 def test_markers_base_names_a_file_whose_semver_changed(tmp_path, capsys):
     _init_repo(tmp_path)
-    bumped = tmp_path / "bumped.py"
+    (tmp_path / "core").mkdir()
+    bumped = tmp_path / "core/bumped.py"
     bumped.write_text('__version__ = "1.0.0"\n')
-    _stage(tmp_path, "bumped.py")
+    _stage(tmp_path, "core/bumped.py")
     subprocess.run(
         ["git", "-C", str(tmp_path), "commit", "-q", "-m", "add bumped.py"], check=True,
     )
     base = _base_sha(tmp_path)
     bumped.write_text('__version__ = "2.0.0"\n')
-    _stage(tmp_path, "bumped.py")
+    _stage(tmp_path, "core/bumped.py")
 
     exit_code = commit_builder.main(["--repo", str(tmp_path), "markers", "--base", base])
 
     assert exit_code != 0
     out = capsys.readouterr().out
-    assert "bumped.py" in out
+    assert "core/bumped.py" in out
     assert "1.0.0" in out
     assert "2.0.0" in out
 
@@ -5927,9 +5941,10 @@ def test_markers_base_still_names_a_moved_marker_beside_a_binary_file(tmp_path, 
     move — `_moved_markers` reports every path in the changed set, and git's
     order puts `logo.png` first."""
     _init_repo(tmp_path)
-    bumped = tmp_path / "zz_bumped.py"
+    (tmp_path / "core").mkdir()
+    bumped = tmp_path / "core/zz_bumped.py"
     bumped.write_text('__version__ = "1.0.0"\n')
-    _stage(tmp_path, "zz_bumped.py")
+    _stage(tmp_path, "core/zz_bumped.py")
     subprocess.run(
         ["git", "-C", str(tmp_path), "commit", "-q", "-m", "add zz_bumped.py"],
         check=True,
@@ -5937,7 +5952,7 @@ def test_markers_base_still_names_a_moved_marker_beside_a_binary_file(tmp_path, 
     base = _base_sha(tmp_path)
     _write_binary(tmp_path / "logo.png")
     bumped.write_text('__version__ = "2.0.0"\n')
-    _stage(tmp_path, "logo.png", "zz_bumped.py")
+    _stage(tmp_path, "logo.png", "core/zz_bumped.py")
 
     exit_code = commit_builder.main(["--repo", str(tmp_path), "markers", "--base", base])
 
@@ -5997,9 +6012,10 @@ def test_markers_answers_no_marker_for_a_binary_path(tmp_path, capsys):
 
 def test_markers_base_names_an_unstaged_working_tree_marker_edit(tmp_path, capsys):
     _init_repo(tmp_path)
-    bumped = tmp_path / "bumped.py"
+    (tmp_path / "core").mkdir()
+    bumped = tmp_path / "core/bumped.py"
     bumped.write_text('__version__ = "1.0.0"\n')
-    _stage(tmp_path, "bumped.py")
+    _stage(tmp_path, "core/bumped.py")
     subprocess.run(
         ["git", "-C", str(tmp_path), "commit", "-q", "-m", "add bumped.py"], check=True,
     )
@@ -6772,7 +6788,7 @@ def test_merge_check_and_merge_validate_the_same_inputs(tmp_path, mode):
 
 
 @pytest.mark.parametrize("optional", [[], ["--reasoning-effort", "max", "--claude-session", "literal",
-    "--branch-commits", "one", "two", "--bump", "doctrine.md=patch"]])
+    "--branch-commits", "one", "two", "--bump", "core/doctrine.md=patch"]])
 def test_merge_check_accepts_supplied_optional_metadata(tmp_path, optional):
     branch, _ = _merge_probe_repo(tmp_path)
     before = _check_snapshot(tmp_path)
@@ -6819,7 +6835,7 @@ def test_guard_passes_an_added_copy_identical_to_a_file_at_the_source(tmp_path):
     receiving.mkdir()
     _feature_repo_with_versioned_file(receiving)
     source, sha = _copy_source_repo(tmp_path, {"lib/run_usage.py": _COPY_BYTES})
-    _add_to_branch(receiving, "run_usage.py", _COPY_BYTES)
+    _add_to_branch(receiving, "core/run_usage.py", _COPY_BYTES)
 
     refusal = commit_builder._branch_marker_refusal(
         str(receiving), "main", [(str(source), sha)]
@@ -6833,14 +6849,14 @@ def test_guard_refuses_a_copy_one_byte_away_from_the_source(tmp_path):
     receiving.mkdir()
     _feature_repo_with_versioned_file(receiving)
     source, sha = _copy_source_repo(tmp_path, {"lib/run_usage.py": _COPY_BYTES})
-    _add_to_branch(receiving, "run_usage.py", _COPY_BYTES.replace("VALUE = 1", "VALUE = 2"))
+    _add_to_branch(receiving, "core/run_usage.py", _COPY_BYTES.replace("VALUE = 1", "VALUE = 2"))
 
     refusal = commit_builder._branch_marker_refusal(
         str(receiving), "main", [(str(source), sha)]
     )
 
     assert refusal is not None
-    assert "run_usage.py" in refusal
+    assert "core/run_usage.py" in refusal
     assert "found 2.3.0" in refusal
     assert "no declared source holds a file with the same bytes" in refusal
 
@@ -6850,14 +6866,14 @@ def test_guard_refuses_an_added_file_with_no_match_at_the_source(tmp_path):
     receiving.mkdir()
     _feature_repo_with_versioned_file(receiving)
     source, sha = _copy_source_repo(tmp_path, {"other.txt": "unrelated\n"})
-    _add_to_branch(receiving, "run_usage.py", _COPY_BYTES)
+    _add_to_branch(receiving, "core/run_usage.py", _COPY_BYTES)
 
     refusal = commit_builder._branch_marker_refusal(
         str(receiving), "main", [(str(source), sha)]
     )
 
     assert refusal is not None
-    assert "run_usage.py" in refusal
+    assert "core/run_usage.py" in refusal
     assert "no declared source holds a file with the same bytes" in refusal
 
 
@@ -6866,14 +6882,14 @@ def test_guard_names_a_source_that_does_not_resolve(tmp_path):
     receiving.mkdir()
     _feature_repo_with_versioned_file(receiving)
     source, _ = _copy_source_repo(tmp_path, {"lib/run_usage.py": _COPY_BYTES})
-    _add_to_branch(receiving, "run_usage.py", _COPY_BYTES)
+    _add_to_branch(receiving, "core/run_usage.py", _COPY_BYTES)
     absent_sha = "0" * 40
 
     for declared in ((str(source), absent_sha), (str(tmp_path / "gone"), absent_sha)):
         refusal = commit_builder._branch_marker_refusal(str(receiving), "main", [declared])
 
         assert refusal is not None
-        assert "run_usage.py" in refusal
+        assert "core/run_usage.py" in refusal
         assert declared[0] in refusal
         assert "no longer resolves" in refusal
 
@@ -6883,7 +6899,7 @@ def test_guard_passes_a_copy_on_one_source_when_another_does_not_resolve(tmp_pat
     receiving.mkdir()
     _feature_repo_with_versioned_file(receiving)
     source, sha = _copy_source_repo(tmp_path, {"lib/run_usage.py": _COPY_BYTES})
-    _add_to_branch(receiving, "run_usage.py", _COPY_BYTES)
+    _add_to_branch(receiving, "core/run_usage.py", _COPY_BYTES)
 
     for sources in (
         [(str(tmp_path / "gone"), "0" * 40), (str(source), sha)],
@@ -6901,14 +6917,14 @@ def test_guard_still_refuses_an_edited_marker_on_an_existing_artifact_with_a_sou
     new_bytes = '__version__ = "2.3.0"\n'
     source, sha = _copy_source_repo(tmp_path, {"lib/versioned.py": new_bytes})
     target.write_text(new_bytes, encoding="utf-8")
-    subprocess.run(["git", "-C", str(receiving), "add", "versioned.py"], check=True)
+    subprocess.run(["git", "-C", str(receiving), "add", "core/versioned.py"], check=True)
 
     refusal = commit_builder._branch_marker_refusal(
         str(receiving), "main", [(str(source), sha)]
     )
 
     assert refusal is not None
-    assert "versioned.py: 1.0.0 -> 2.3.0" in refusal
+    assert "core/versioned.py: 1.0.0 -> 2.3.0" in refusal
 
 
 def test_guard_still_refuses_a_rename_that_changes_the_marker_with_a_source_declared(tmp_path):
@@ -6922,28 +6938,28 @@ def test_guard_still_refuses_a_rename_that_changes_the_marker_with_a_source_decl
     subprocess.run(["git", "-C", str(receiving), "checkout", "-q", "-B", "feature"], check=True)
     new_bytes = '__version__ = "2.3.0"\n' + padding
     source, sha = _copy_source_repo(tmp_path, {"lib/versioned.py": new_bytes})
-    subprocess.run(["git", "-C", str(receiving), "mv", "versioned.py", "renamed.py"], check=True)
-    (receiving / "renamed.py").write_text(new_bytes, encoding="utf-8")
-    subprocess.run(["git", "-C", str(receiving), "add", "renamed.py"], check=True)
+    subprocess.run(["git", "-C", str(receiving), "mv", "core/versioned.py", "core/renamed.py"], check=True)
+    (receiving / "core/renamed.py").write_text(new_bytes, encoding="utf-8")
+    subprocess.run(["git", "-C", str(receiving), "add", "core/renamed.py"], check=True)
 
     refusal = commit_builder._branch_marker_refusal(
         str(receiving), "main", [(str(source), sha)]
     )
 
     assert refusal is not None
-    assert "versioned.py -> renamed.py: 1.0.0 -> 2.3.0" in refusal
+    assert "core/versioned.py -> core/renamed.py: 1.0.0 -> 2.3.0" in refusal
 
 
 def test_guard_with_no_sources_refuses_above_creation_version_and_names_the_flag(
     tmp_path,
 ):
     _feature_repo_with_versioned_file(tmp_path)
-    _add_to_branch(tmp_path, "added.py", '__version__ = "1.2.0"\n')
+    _add_to_branch(tmp_path, "core/added.py", '__version__ = "1.2.0"\n')
 
     refusal = commit_builder._branch_marker_refusal(str(tmp_path), "main")
 
     assert refusal is not None
-    assert "added.py: new artifact starts at 1.0.0, found 1.2.0" in refusal
+    assert "core/added.py: new artifact starts at 1.0.0, found 1.2.0" in refusal
     assert "and no declared source" not in refusal
     assert "--copied-from <repo> <revision>" in refusal
 
@@ -6951,7 +6967,7 @@ def test_guard_with_no_sources_refuses_above_creation_version_and_names_the_flag
 def test_guard_hint_is_absent_when_only_an_edited_marker_is_refused(tmp_path):
     target = _feature_repo_with_versioned_file(tmp_path)
     target.write_text('__version__ = "1.1.0"\n', encoding="utf-8")
-    subprocess.run(["git", "-C", str(tmp_path), "add", "versioned.py"], check=True)
+    subprocess.run(["git", "-C", str(tmp_path), "add", "core/versioned.py"], check=True)
 
     refusal = commit_builder._branch_marker_refusal(str(tmp_path), "main")
 
@@ -6989,7 +7005,7 @@ def _copy_fixture(tmp_path: Path) -> tuple[Path, Path, str]:
     receiving.mkdir()
     _feature_repo_with_versioned_file(receiving)
     source, sha = _copy_source_repo(tmp_path, {"lib/run_usage.py": _COPY_BYTES})
-    (receiving / "run_usage.py").write_text(_COPY_BYTES, encoding="utf-8")
+    (receiving / "core/run_usage.py").write_text(_COPY_BYTES, encoding="utf-8")
     return receiving, source, sha
 
 
@@ -7003,11 +7019,11 @@ def _staged_names(repo: Path) -> str:
 def test_commit_with_copied_from_lands_a_verified_copy(tmp_path):
     receiving, source, sha = _copy_fixture(tmp_path)
 
-    exit_code = _copy_commit(receiving, ["run_usage.py"], (str(source), sha))
+    exit_code = _copy_commit(receiving, ["core/run_usage.py"], (str(source), sha))
 
     assert exit_code == 0
     shown = subprocess.run(
-        ["git", "-C", str(receiving), "show", "HEAD:run_usage.py"],
+        ["git", "-C", str(receiving), "show", "HEAD:core/run_usage.py"],
         capture_output=True, text=True, check=True,
     ).stdout
     assert shown == _COPY_BYTES
@@ -7015,7 +7031,7 @@ def test_commit_with_copied_from_lands_a_verified_copy(tmp_path):
 
 def test_a_later_commit_on_the_branch_needs_no_redeclaration(tmp_path):
     receiving, source, sha = _copy_fixture(tmp_path)
-    assert _copy_commit(receiving, ["run_usage.py"], (str(source), sha)) == 0
+    assert _copy_commit(receiving, ["core/run_usage.py"], (str(source), sha)) == 0
     (receiving / "other.py").write_text("print('later work')\n", encoding="utf-8")
 
     assert _copy_commit(receiving, ["other.py"]) == 0
@@ -7023,15 +7039,15 @@ def test_a_later_commit_on_the_branch_needs_no_redeclaration(tmp_path):
 
 def test_a_later_edit_to_the_copy_is_refused(tmp_path, capsys):
     receiving, source, sha = _copy_fixture(tmp_path)
-    assert _copy_commit(receiving, ["run_usage.py"], (str(source), sha)) == 0
-    (receiving / "run_usage.py").write_text(
+    assert _copy_commit(receiving, ["core/run_usage.py"], (str(source), sha)) == 0
+    (receiving / "core/run_usage.py").write_text(
         _COPY_BYTES.replace("VALUE = 1", "VALUE = 2"), encoding="utf-8"
     )
 
-    exit_code = _copy_commit(receiving, ["run_usage.py"])
+    exit_code = _copy_commit(receiving, ["core/run_usage.py"])
 
     assert exit_code == 1
-    assert "run_usage.py" in capsys.readouterr().err
+    assert "core/run_usage.py" in capsys.readouterr().err
 
 
 def test_an_unresolvable_copy_source_is_refused_before_staging(tmp_path, capsys):
@@ -7042,7 +7058,7 @@ def test_an_unresolvable_copy_source_is_refused_before_staging(tmp_path, capsys)
         (str(source), "0" * 40, "names no commit in"),
         (str(tmp_path / "not-a-repo"), sha, "is not a git repository"),
     ):
-        exit_code = _copy_commit(receiving, ["run_usage.py"], (repo_arg, revision))
+        exit_code = _copy_commit(receiving, ["core/run_usage.py"], (repo_arg, revision))
 
         assert exit_code == 1
         error = capsys.readouterr().err
@@ -7058,7 +7074,7 @@ def test_a_declaration_on_main_is_refused(tmp_path, capsys):
     subprocess.run(["git", "-C", str(receiving), "checkout", "-q", "main"], check=True)
     head_before = _base_sha(receiving)
 
-    exit_code = _copy_commit(receiving, ["run_usage.py"], (str(source), sha))
+    exit_code = _copy_commit(receiving, ["core/run_usage.py"], (str(source), sha))
 
     assert exit_code == 1
     assert "--copied-from is declared on main" in capsys.readouterr().err
@@ -7071,7 +7087,7 @@ def test_a_declaration_on_a_detached_head_is_refused(tmp_path, capsys):
     receiving, source, sha = _copy_fixture(tmp_path)
     subprocess.run(["git", "-C", str(receiving), "checkout", "-q", "--detach"], check=True)
 
-    exit_code = _copy_commit(receiving, ["run_usage.py"], (str(source), sha))
+    exit_code = _copy_commit(receiving, ["core/run_usage.py"], (str(source), sha))
 
     assert exit_code == 1
     assert "HEAD is detached" in capsys.readouterr().err
@@ -7081,7 +7097,7 @@ def test_a_declaration_on_a_detached_head_is_refused(tmp_path, capsys):
 
 def test_a_repeated_declaration_is_recorded_once(tmp_path):
     receiving, source, sha = _copy_fixture(tmp_path)
-    assert _copy_commit(receiving, ["run_usage.py"], (str(source), sha)) == 0
+    assert _copy_commit(receiving, ["core/run_usage.py"], (str(source), sha)) == 0
     (receiving / "other.py").write_text("print('later work')\n", encoding="utf-8")
 
     assert _copy_commit(receiving, ["other.py"], (str(source), sha)) == 0
@@ -7095,7 +7111,7 @@ def test_the_declared_revision_is_fixed_at_the_commit_it_named(tmp_path):
         ["git", "-C", str(source), "branch", "--show-current"],
         capture_output=True, text=True, check=True,
     ).stdout.strip()
-    assert _copy_commit(receiving, ["run_usage.py"], (str(source), source_branch)) == 0
+    assert _copy_commit(receiving, ["core/run_usage.py"], (str(source), source_branch)) == 0
     (source / "lib" / "run_usage.py").write_text("changed at the tip\n", encoding="utf-8")
     subprocess.run(["git", "-C", str(source), "commit", "-qam", "tip moves"], check=True)
     (receiving / "other.py").write_text("print('later work')\n", encoding="utf-8")
@@ -7106,7 +7122,7 @@ def test_the_declared_revision_is_fixed_at_the_commit_it_named(tmp_path):
 
 def test_deleting_the_branch_drops_its_declaration(tmp_path):
     receiving, source, sha = _copy_fixture(tmp_path)
-    assert _copy_commit(receiving, ["run_usage.py"], (str(source), sha)) == 0
+    assert _copy_commit(receiving, ["core/run_usage.py"], (str(source), sha)) == 0
     assert _recorded_sources(receiving) != []
     subprocess.run(["git", "-C", str(receiving), "checkout", "-q", "main"], check=True)
     subprocess.run(["git", "-C", str(receiving), "branch", "-D", "feature"], check=True)
@@ -7124,15 +7140,15 @@ def test_guard_judges_an_added_copy_by_the_bytes_the_commit_carries(tmp_path):
     receiving.mkdir()
     _feature_repo_with_versioned_file(receiving)
     source, sha = _copy_source_repo(tmp_path, {"lib/run_usage.py": _COPY_BYTES})
-    _add_to_branch(receiving, "run_usage.py", _COPY_BYTES.replace("VALUE = 1", "VALUE = 2"))
-    (receiving / "run_usage.py").write_text(_COPY_BYTES, encoding="utf-8")
+    _add_to_branch(receiving, "core/run_usage.py", _COPY_BYTES.replace("VALUE = 1", "VALUE = 2"))
+    (receiving / "core/run_usage.py").write_text(_COPY_BYTES, encoding="utf-8")
 
     refusal = commit_builder._branch_marker_refusal(
         str(receiving), "main", [(str(source), sha)]
     )
 
     assert refusal is not None
-    assert "run_usage.py" in refusal
+    assert "core/run_usage.py" in refusal
     assert "no declared source holds a file with the same bytes" in refusal
 
 
@@ -7140,8 +7156,8 @@ def test_a_later_commit_is_judged_by_the_copy_it_carries_not_an_unstaged_edit(tm
     """A later commit that does not carry an edit to the copy still lands (CP-565): the copy's
     committed bytes are the verified ones."""
     receiving, source, sha = _copy_fixture(tmp_path)
-    assert _copy_commit(receiving, ["run_usage.py"], (str(source), sha)) == 0
-    (receiving / "run_usage.py").write_text(
+    assert _copy_commit(receiving, ["core/run_usage.py"], (str(source), sha)) == 0
+    (receiving / "core/run_usage.py").write_text(
         _COPY_BYTES.replace("VALUE = 1", "VALUE = 2"), encoding="utf-8"
     )
     (receiving / "other.py").write_text("print('later work')\n", encoding="utf-8")
@@ -7154,7 +7170,7 @@ def test_one_unresolvable_pair_records_none_of_the_declared_pairs(tmp_path, caps
     head_before = _base_sha(receiving)
 
     exit_code = _copy_commit(
-        receiving, ["run_usage.py"], (str(source), sha), (str(source), "0" * 40)
+        receiving, ["core/run_usage.py"], (str(source), sha), (str(source), "0" * 40)
     )
 
     assert exit_code == 1
@@ -7170,7 +7186,7 @@ def test_the_flag_repeated_on_one_commit_records_each_source(tmp_path):
     other, other_sha = _copy_source_repo(tmp_path / "second", {"unrelated.txt": "x\n"})
 
     exit_code = _copy_commit(
-        receiving, ["run_usage.py"], (str(other), other_sha), (str(source), sha)
+        receiving, ["core/run_usage.py"], (str(other), other_sha), (str(source), sha)
     )
 
     assert exit_code == 0
@@ -7186,10 +7202,919 @@ def test_guard_matches_a_copy_anywhere_in_a_source_named_by_a_subdirectory(tmp_p
     source, sha = _copy_source_repo(
         tmp_path, {"lib/run_usage.py": _COPY_BYTES, "docs/readme.md": "docs\n"}
     )
-    _add_to_branch(receiving, "run_usage.py", _COPY_BYTES)
+    _add_to_branch(receiving, "core/run_usage.py", _COPY_BYTES)
 
     refusal = commit_builder._branch_marker_refusal(
         str(receiving), "main", [(str(source / "docs"), sha)]
     )
 
     assert refusal is None
+
+
+# ── whose markers these are — kensaiapp's, never a product's ────────────────
+# `versioning.md` § Whose artifacts. 2026-10-19: a product's change unit was
+# refused the fix its task asked for — setting two `__version__` strings to the
+# distribution's own — and every seal before it had bumped those lines as if
+# they were kensaiapp markers. The guard, `--bump` and `markers --base` judge
+# kensaiapp's four layers of an instance only.
+
+def _scope_repo(tmp_path: Path, files: dict[str, str], instance: bool) -> None:
+    """A repo on `main` holding `files` — an instance, or with `kensaiapp.md`
+    removed a product repository — then checked out on `feature`."""
+    def git(*args: str) -> None:
+        subprocess.run(["git", "-C", str(tmp_path), *args], check=True,
+                       capture_output=True)
+
+    _init_repo(tmp_path)  # seeds `kensaiapp.md`: every throwaway repo starts as an instance
+    git("branch", "-M", "main")
+    if not instance:
+        git("rm", "-q", "kensaiapp.md")
+    for relative, text in files.items():
+        (tmp_path / relative).parent.mkdir(parents=True, exist_ok=True)
+        (tmp_path / relative).write_text(text, encoding="utf-8")
+    git("add", *files)
+    git("commit", "-q", "-m", "seed the scope fixture")
+    git("checkout", "-q", "-b", "feature")
+
+
+def _scope_commit(repo: Path, *paths: str) -> int:
+    return commit_builder.main([
+        "--repo", str(repo),
+        "commit",
+        "--subject", "developer: set the version",
+        "--role", "Product",
+        "--directional", "Michi: none — exercise whose markers these are",
+        "--surface", "Codex",
+        "--add", *paths,
+    ])
+
+
+@pytest.mark.parametrize("instance, path, expected", [
+    (True, "core/tools/x.py", True),
+    (True, ".claude/hooks/x.py", True),
+    (True, "skills/pm/.claude/skills/s/SKILL.md", True),
+    (True, "system/loaders/pm.md", True),
+    (True, "products/app/app/__init__.py", False),
+    (True, "docs/findings/f.md", False),
+    (True, "corefoo/x.py", False),
+    (True, "x.py", False),
+    (False, "core/tools/x.py", False),
+    (False, "app/__init__.py", False),
+])
+def test_is_kensaiapp_path_reads_the_instance_and_the_layer(tmp_path, instance, path, expected):
+    if instance:
+        (tmp_path / "kensaiapp.md").write_text("# an instance\n")
+
+    assert commit_builder._is_kensaiapp_path(str(tmp_path), path) is expected
+
+
+def test_a_product_repo_branch_may_set_its_own_version(tmp_path):
+    """The recorded case: a product's task sets `__version__` 1.6.0 -> 0.1.0."""
+    _scope_repo(tmp_path, {"app/stream.py": '__version__ = "1.6.0"\n'}, instance=False)
+    (tmp_path / "app/stream.py").write_text('__version__ = "0.1.0"\n')
+
+    assert _scope_commit(tmp_path, "app/stream.py") == 0
+
+
+def test_a_product_repo_with_a_core_folder_is_still_a_product(tmp_path):
+    _scope_repo(tmp_path, {"core/__init__.py": '__version__ = "2.0.0"\n'}, instance=False)
+    (tmp_path / "core/__init__.py").write_text('__version__ = "2.1.0"\n')
+
+    assert _scope_commit(tmp_path, "core/__init__.py") == 0
+
+
+def test_an_internal_product_under_products_may_set_its_own_version(tmp_path):
+    _scope_repo(
+        tmp_path, {"products/app/app/__init__.py": '__version__ = "1.0.0"\n'}, instance=True
+    )
+    (tmp_path / "products/app/app/__init__.py").write_text('__version__ = "3.0.0"\n')
+
+    assert _scope_commit(tmp_path, "products/app/app/__init__.py") == 0
+
+
+def test_an_instance_layer_marker_is_still_refused_beside_a_product_edit(tmp_path, capsys):
+    _scope_repo(tmp_path, {
+        "core/tools/tool.py": '__version__ = "1.0.0"\n',
+        "products/app/app/__init__.py": '__version__ = "1.0.0"\n',
+    }, instance=True)
+    (tmp_path / "core/tools/tool.py").write_text('__version__ = "1.1.0"\n')
+    (tmp_path / "products/app/app/__init__.py").write_text('__version__ = "0.1.0"\n')
+
+    exit_code = _scope_commit(tmp_path, "core/tools/tool.py", "products/app/app/__init__.py")
+
+    assert exit_code == 1
+    error = capsys.readouterr().err
+    assert "core/tools/tool.py: 1.0.0 -> 1.1.0" in error
+    assert "products/app" not in error
+
+
+def test_merge_refuses_a_bump_on_a_product_path(tmp_path, capsys):
+    _scope_repo(tmp_path, {"app/__init__.py": '__version__ = "1.6.0"\n'}, instance=False)
+    (tmp_path / "app/__init__.py").write_text('"""Changed."""\n__version__ = "1.6.0"\n')
+    assert _scope_commit(tmp_path, "app/__init__.py") == 0
+    subprocess.run(["git", "-C", str(tmp_path), "checkout", "-q", "main"], check=True)
+    head_before = _base_sha(tmp_path)
+
+    exit_code = commit_builder.main([
+        "--repo", str(tmp_path),
+        "merge",
+        "--branch", "feature",
+        "--target-branch", "main",
+        "--description", "bring it in",
+        "--branch-commits", "feature: the edit",
+        "--actor", "pm",
+        "--merge-context", "manual",
+        "--bump", "app/__init__.py=minor",
+        "--surface", "Claude Code",
+        "--co-authored-by", CO_AUTHORED_BY,
+    ])
+
+    assert exit_code != 0
+    assert _base_sha(tmp_path) == head_before
+    assert "app/__init__.py=minor — not a kensaiapp artifact" in capsys.readouterr().err
+    assert '__version__ = "1.6.0"' in (tmp_path / "app/__init__.py").read_text()
+
+
+def test_markers_base_leaves_a_product_path_out(tmp_path, capsys):
+    _scope_repo(tmp_path, {
+        "core/tools/tool.py": '__version__ = "1.0.0"\n',
+        "products/app/app/__init__.py": '__version__ = "1.0.0"\n',
+    }, instance=True)
+    base = _base_sha(tmp_path)
+    (tmp_path / "core/tools/tool.py").write_text('__version__ = "1.1.0"\n')
+    (tmp_path / "products/app/app/__init__.py").write_text('__version__ = "0.1.0"\n')
+
+    exit_code = commit_builder.main(["--repo", str(tmp_path), "markers", "--base", base])
+
+    assert exit_code != 0
+    out = capsys.readouterr().out
+    assert "core/tools/tool.py: 1.0.0 -> 1.1.0" in out
+    assert "products/app" not in out
+
+
+def test_the_guard_still_refuses_with_repo_at_a_subdirectory_of_an_instance(tmp_path):
+    """`--repo` may name a subdirectory (`_repo_prefix`). The identity is read at the work tree's
+    top, so an instance seen from `products/app` is still an instance."""
+    _scope_repo(tmp_path, {
+        "core/tools/tool.py": '__version__ = "1.0.0"\n',
+        "products/app/README.md": "app\n",
+    }, instance=True)
+    (tmp_path / "core/tools/tool.py").write_text('__version__ = "1.0.1"\n')
+    _stage(tmp_path, "core/tools/tool.py")
+
+    assert commit_builder._branch_marker_refusal(str(tmp_path / "products/app")) is not None
+
+
+def test_merge_refuses_a_bump_that_climbs_out_of_a_layer(tmp_path, capsys):
+    _scope_repo(
+        tmp_path, {"products/app/app/__init__.py": '__version__ = "1.0.0"\n'}, instance=True
+    )
+
+    refusal = commit_builder._bump_refusal(
+        str(tmp_path), ["core/../products/app/app/__init__.py=minor"]
+    )
+
+    assert refusal is not None and "not a kensaiapp artifact" in refusal
+
+
+def test_the_guard_refuses_a_marker_change_renamed_out_of_a_layer(tmp_path, capsys):
+    body = "".join(f"line {n}\n" for n in range(40))  # enough shared bytes to read as a rename
+    _scope_repo(
+        tmp_path, {"core/tools/tool.py": f'__version__ = "1.0.0"\n{body}'}, instance=True
+    )
+    (tmp_path / "products/app").mkdir(parents=True)
+    subprocess.run(["git", "-C", str(tmp_path), "mv", "core/tools/tool.py",
+                    "products/app/tool.py"], check=True)
+    (tmp_path / "products/app/tool.py").write_text(f'__version__ = "2.0.0"\n{body}')
+    _stage(tmp_path, "products/app/tool.py")
+
+    exit_code = commit_builder.main([
+        "--repo", str(tmp_path),
+        "commit",
+        "--subject", "developer: move the tool",
+        "--role", "Product",
+        "--directional", "Michi: none — exercise whose markers these are",
+        "--surface", "Codex",
+        "--staged", "core/tools/tool.py", "products/app/tool.py",
+    ])
+
+    assert exit_code == 1
+    assert "1.0.0 -> 2.0.0" in capsys.readouterr().err
+
+
+# ── --body-file: a body that belongs to the run that wrote it ───────────────
+# `commit` reads its body from a file the run made, and removes that file once the commit lands.
+# Every refusal, a failed staging and a rejected commit leave it where it was.
+
+def _git_out(repo: Path, *args: str) -> str:
+    return subprocess.run(
+        ["git", "-C", str(repo), *args], capture_output=True, text=True, check=True
+    ).stdout
+
+
+def _head(repo: Path) -> str:
+    return _git_out(repo, "rev-parse", "HEAD").strip()
+
+
+def _commit_argv(repo: Path, *extra: str, subject: str = "developer: work",
+                 directional: str = "Michi: none — exercise the body file") -> list[str]:
+    return [
+        "--repo", str(repo),
+        "commit",
+        "--subject", subject,
+        "--actor", "developer",
+        "--directional", directional,
+        "--surface", "Claude Code",
+        "--co-authored-by", CO_AUTHORED_BY,
+        *extra,
+    ]
+
+
+def _new_file(repo: Path, name: str = "work.txt") -> str:
+    (repo / name).write_text("work\n")
+    return name
+
+
+def _body_file(directory: Path, text: str, name: str = "body.txt") -> Path:
+    path = directory / name
+    path.write_bytes(text.encode())
+    return path
+
+
+@pytest.mark.parametrize("file_text, inline_text", [
+    ("Fixes `x`.\n\n", "Fixes `x`."),
+    ("a $(echo hi) b\n\n\nc  \n", "a $(echo hi) b\n\n\nc  "),
+    ("first\r\nsecond\r\n\r\nthird\n\n\n", "first\r\nsecond\r\n\r\nthird"),
+    ("  indented\n\twith a tab\n", "  indented\n\twith a tab"),
+    ("", ""),
+    ("no final newline", "no final newline"),
+])
+def test_body_file_commits_the_same_message_as_inline_body(tmp_path, file_text, inline_text):
+    inline_repo, file_repo = tmp_path / "inline", tmp_path / "file"
+    for repo in (inline_repo, file_repo):
+        repo.mkdir()
+        _init_repo(repo)
+    scratch = tmp_path / "scratch"
+    scratch.mkdir()
+    source = _body_file(scratch, file_text)
+
+    assert commit_builder.main(_commit_argv(
+        inline_repo, "--add", _new_file(inline_repo), "--body", inline_text)) == 0
+    assert commit_builder.main(_commit_argv(
+        file_repo, "--add", _new_file(file_repo), "--body-file", str(source))) == 0
+
+    assert _commit_body(file_repo) == _commit_body(inline_repo)
+    if file_text.startswith("Fixes"):
+        assert "Fixes `x`.\n\nShukuba" not in _commit_body(file_repo)
+        assert _commit_body(file_repo).startswith("developer: work\n\nFixes `x`.\n\n")
+
+
+@pytest.mark.parametrize("file_text", ["", "x\n", "x", "x\n\n\n"])
+def test_successful_commit_removes_only_its_body_file(tmp_path, file_text):
+    _init_repo(tmp_path)
+    scratch = tmp_path / "scratch"
+    scratch.mkdir()
+    source = _body_file(scratch, file_text)
+    other = _body_file(scratch, file_text, name="other.txt")
+
+    assert commit_builder.main(_commit_argv(
+        tmp_path, "--add", _new_file(tmp_path), "--body-file", str(source))) == 0
+
+    assert not source.exists()
+    assert other.read_bytes() == file_text.encode()
+
+
+def test_body_flags_conflict_even_when_inline_body_is_empty(tmp_path, capsys):
+    _init_repo(tmp_path)
+    source = _body_file(tmp_path, "the body\n")
+    before = _head(tmp_path)
+    _new_file(tmp_path)
+
+    for inline in ("x", ""):
+        capsys.readouterr()
+        exit_code = commit_builder.main(_commit_argv(
+            tmp_path, "--add", "work.txt", "--body", inline, "--body-file", str(source)))
+        stderr = capsys.readouterr().err
+
+        assert exit_code != 0
+        assert stderr.splitlines()[0] == (
+            "commit_builder: refusing to commit — --body and --body-file were both given.")
+        assert f"The body file '{source}' is left in place." in stderr
+        assert _head(tmp_path) == before
+        assert _git_out(tmp_path, "diff", "--cached", "--name-only") == ""
+        assert source.read_bytes() == b"the body\n"
+
+
+def test_missing_or_unreadable_body_file_refuses_before_staging(tmp_path, capsys):
+    _init_repo(tmp_path)
+    before = _head(tmp_path)
+    _new_file(tmp_path)
+
+    missing = tmp_path / "nonexistent" / "body"
+    exit_code = commit_builder.main(_commit_argv(
+        tmp_path, "--add", "work.txt", "--body-file", str(missing)))
+    stderr = capsys.readouterr().err
+    assert exit_code != 0
+    assert stderr.splitlines()[0] == (
+        f"commit_builder: refusing to commit — the body file '{missing}' does not exist.")
+    assert "Nothing was staged and no commit was made." in stderr
+
+    def unreadable(path: str) -> str:
+        raise PermissionError(13, "Permission denied", path)
+
+    present = _body_file(tmp_path, "text\n")
+    exit_code = commit_builder.main(
+        _commit_argv(tmp_path, "--add", "work.txt", "--body-file", str(present)),
+        read_body_file=unreadable)
+    stderr = capsys.readouterr().err
+    assert exit_code != 0
+    assert stderr.splitlines()[0] == (
+        f"commit_builder: refusing to commit — the body file '{present}' cannot be read: "
+        "Permission denied.")
+    assert "The body file is left in place." in stderr
+
+    exit_code = commit_builder.main(_commit_argv(
+        tmp_path, "--add", "work.txt", "--body-file", str(tmp_path)))
+    assert exit_code != 0
+    assert f"the body file '{tmp_path}' cannot be read: " in capsys.readouterr().err
+
+    assert _head(tmp_path) == before
+    assert _git_out(tmp_path, "diff", "--cached", "--name-only") == ""
+    assert present.read_bytes() == b"text\n"
+
+
+def test_an_undecodable_body_file_is_refused_as_unreadable_and_left_in_place(tmp_path, capsys):
+    _init_repo(tmp_path)
+    source = tmp_path / "body.bin"
+    source.write_bytes(b"\xff\xfe not text")
+    _new_file(tmp_path)
+
+    exit_code = commit_builder.main(_commit_argv(
+        tmp_path, "--add", "work.txt", "--body-file", str(source)))
+
+    assert exit_code != 0
+    assert f"the body file '{source}' cannot be read: " in capsys.readouterr().err
+    assert source.read_bytes() == b"\xff\xfe not text"
+
+
+def _marker_refusal_repo(tmp_path: Path) -> Path:
+    _scope_repo(tmp_path, {"core/tools/x.py": '__version__ = "1.0.0"\n'}, instance=True)
+    (tmp_path / "core/tools/x.py").write_text('__version__ = "1.1.0"\n')
+    return tmp_path
+
+
+@pytest.mark.parametrize("refusal", ["staged-set guard", "bad directional", "branch marker"])
+def test_builder_refusals_retain_body_file(tmp_path, refusal):
+    scratch = tmp_path / "scratch"
+    scratch.mkdir()
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    directional = "Michi: none — exercise the body file"
+    if refusal == "branch marker":
+        _marker_refusal_repo(repo)
+        add = "core/tools/x.py"
+    else:
+        _init_repo(repo)
+        add = _new_file(repo)
+    if refusal == "staged-set guard":
+        (repo / "foreign.txt").write_text("someone else's\n")
+        subprocess.run(["git", "-C", str(repo), "add", "foreign.txt"], check=True)
+    if refusal == "bad directional":
+        (repo / "system" / "projects" / "doctrine").mkdir(parents=True)
+        directional = "Agari: versioning — progress: x"
+    source = _body_file(scratch, "keep me `safe`\n")
+    before = _head(repo)
+
+    exit_code = commit_builder.main(_commit_argv(
+        repo, "--add", add, "--body-file", str(source), directional=directional))
+
+    assert exit_code != 0
+    assert _head(repo) == before
+    assert source.read_bytes() == b"keep me `safe`\n"
+
+
+@pytest.mark.parametrize("staging", ["add", "rm"])
+def test_failed_staging_retains_body_file_and_creates_no_commit(tmp_path, staging):
+    _init_repo(tmp_path)
+    source = _body_file(tmp_path, "body\n")
+    before = _head(tmp_path)
+
+    exit_code = commit_builder.main(_commit_argv(
+        tmp_path, f"--{staging}", "no-such-path.txt", "--body-file", str(source)))
+
+    assert exit_code != 0
+    assert _head(tmp_path) == before
+    assert source.read_bytes() == b"body\n"
+
+
+def test_commit_hook_rejection_retains_body_file(tmp_path):
+    _init_repo(tmp_path)
+    hook = tmp_path / ".git" / "hooks" / "commit-msg"
+    hook.write_text("#!/bin/sh\nexit 1\n")
+    hook.chmod(0o755)
+    source = _body_file(tmp_path, "rejected body\n")
+    before = _head(tmp_path)
+
+    exit_code = commit_builder.main(_commit_argv(
+        tmp_path, "--add", _new_file(tmp_path), "--body-file", str(source)))
+
+    assert exit_code != 0
+    assert _head(tmp_path) == before
+    assert source.read_bytes() == b"rejected body\n"
+
+
+def test_a_body_file_that_cannot_be_removed_is_reported_after_the_commit_lands(
+        tmp_path, capsys, monkeypatch):
+    _init_repo(tmp_path)
+    source = _body_file(tmp_path, "body\n")
+
+    def refuse(path):
+        raise PermissionError(13, "Permission denied", str(path))
+
+    monkeypatch.setattr(commit_builder.os, "remove", refuse)
+    exit_code = commit_builder.main(_commit_argv(
+        tmp_path, "--add", _new_file(tmp_path), "--body-file", str(source)))
+
+    assert exit_code == 0
+    assert _commit_body(tmp_path).startswith("developer: work\n\nbody\n\n")
+    assert capsys.readouterr().err.splitlines() == [
+        f"commit_builder: the commit landed, but the body file '{source}' could not be removed: "
+        "Permission denied.",
+        "Remove it by hand. It holds the body of the commit that just landed and is not needed "
+        "again.",
+    ]
+
+
+def test_legacy_inline_body_has_no_file_cleanup(tmp_path):
+    _init_repo(tmp_path)
+    source = _body_file(tmp_path, "from a file the builder was never given\n")
+
+    for index, body_args in enumerate(([], ["--body", ""],
+                                       ["--body", source.read_text().rstrip("\n")])):
+        name = _new_file(tmp_path, f"work{index}.txt")
+        assert commit_builder.main(_commit_argv(tmp_path, "--add", name, *body_args)) == 0
+
+    assert source.read_bytes() == b"from a file the builder was never given\n"
+    assert _commit_body(tmp_path).startswith(
+        "developer: work\n\nfrom a file the builder was never given\n\n")
+
+
+@pytest.mark.parametrize("operation", [
+    ["merge", "--branch", "b", "--target-branch", "main", "--description", "d",
+     "--merge-context", "c", "--actor", "developer", "--surface", "Claude Code"],
+    ["advance", "--from", "main", "--actor", "developer", "--surface", "Claude Code"],
+    ["markers", "some/path"],
+])
+def test_body_file_does_not_extend_other_builder_operations(tmp_path, operation, capsys):
+    with pytest.raises(SystemExit) as raised:
+        commit_builder.main(["--repo", str(tmp_path), *operation, "--body-file", "x"])
+
+    assert raised.value.code == 2
+    assert "--body-file" in capsys.readouterr().err
+
+
+# ── a closing marker matches this change's last gate run ────────────────────
+# A commit whose subject says `implementation complete` is compared, before anything is staged,
+# with what the gate tool last printed for the change the commit is on: its `Environment:` lines
+# and its `Failing:` lines. With no gate run on record the builder commits as it always did.
+
+import gate_suite  # noqa: E402  (this section's own collaborator)
+
+CHANGE_KEY = "2026-10-22_x"
+MARKER_SUBJECT = f"developer: {CHANGE_KEY} — implementation complete"
+GATE_ENVIRONMENT = "Environment: container — python:3.12, arm64"
+OTHER_ENVIRONMENT = "Environment: owners-mac — no CI"
+REFUSAL_FIRST_LINE = (
+    "commit_builder: refusing to commit — the closing marker does not match this change's "
+    "last gate run.")
+
+
+def _change_repo(path: Path, key: str = CHANGE_KEY) -> Path:
+    """A throwaway repo checked out on the change branch `key`."""
+    path.mkdir(parents=True, exist_ok=True)
+    _init_repo(path)
+    subprocess.run(["git", "-C", str(path), "checkout", "-q", "-b", key], check=True)
+    return path
+
+
+def _gate_store(tmp_path: Path) -> gate_suite.FileRunRecords:
+    return gate_suite.FileRunRecords(tmp_path / "gate-runs")
+
+
+def _record_gate_run(store, repo: Path, *, key: str = CHANGE_KEY,
+                     environment: str | None = GATE_ENVIRONMENT, status: int = 0,
+                     stdout: str | None = None, stderr: str = "", also=()) -> None:
+    printed = stdout if stdout is not None else (
+        (f"{environment}\n" if environment else "") + "5 passed\n")
+    store.publish(
+        gate_suite.GateRun(key=key, checkout=str(repo), environment_line=environment,
+                           stdout=printed, stderr=stderr, status=status),
+        [str(repo), *map(str, also)])
+
+
+def _marker_body(*lines: str) -> str:
+    return "\n".join(lines) + "\n"
+
+
+def _close(repo: Path, store, body_args: list[str], *extra: str,
+           subject: str = MARKER_SUBJECT, allow_empty: bool = True) -> int:
+    flags = [*extra, *(["--allow-empty"] if allow_empty else [])]
+    return commit_builder.main(
+        _commit_argv(repo, *flags, *body_args, subject=subject), gate_run_records=store)
+
+
+def _refusal_lines(capsys) -> list[str]:
+    return capsys.readouterr().err.splitlines()
+
+
+def _state(repo: Path) -> tuple[str, str, str]:
+    return (_head(repo), _git_out(repo, "diff", "--cached", "--name-only"),
+            _git_out(repo, "status", "--porcelain"))
+
+
+@pytest.mark.parametrize("route", ["inline", "file"])
+def test_matching_green_marker_commits_with_either_body_input(tmp_path, route):
+    body = _marker_body("Suite: green", GATE_ENVIRONMENT, "", "Developer Review Notes: none.")
+    store = _gate_store(tmp_path)
+    recorded, twin = _change_repo(tmp_path / "recorded"), _change_repo(tmp_path / "twin")
+    _record_gate_run(store, recorded)
+    source = _body_file(tmp_path, body)
+
+    args = ["--body-file", str(source)] if route == "file" else ["--body", body.rstrip("\n")]
+    assert _close(recorded, store, args) == 0
+    assert _close(twin, _gate_store(tmp_path / "empty"),
+                  ["--body", body.rstrip("\n")]) == 0
+
+    assert _commit_body(recorded) == _commit_body(twin)
+    assert source.exists() is (route == "inline")
+
+
+@pytest.mark.parametrize("take_index", [False, True])
+@pytest.mark.parametrize("marker_lines, shown", [
+    ([OTHER_ENVIRONMENT], [OTHER_ENVIRONMENT]),
+    (["Suite: green"], None),
+])
+def test_marker_environment_mismatch_refuses_without_mutation(
+        tmp_path, capsys, take_index, marker_lines, shown):
+    repo, store = _change_repo(tmp_path / "repo"), _gate_store(tmp_path)
+    _record_gate_run(store, repo)
+    (repo / "staged.txt").write_text("staged\n")
+    subprocess.run(["git", "-C", str(repo), "add", "staged.txt"], check=True)
+    (repo / "candidate.txt").write_text("candidate\n")
+    source = _body_file(tmp_path, _marker_body("Suite: green", *marker_lines))
+    before = _state(repo)
+    flags = ["--take-index"] if take_index else ["--staged", "staged.txt"]
+
+    exit_code = _close(repo, store, ["--body-file", str(source)], "--add", "candidate.txt",
+                       *flags, allow_empty=False)
+    lines = _refusal_lines(capsys)
+
+    assert exit_code != 0
+    assert lines[0] == REFUSAL_FIRST_LINE
+    if shown is None:
+        assert lines[1:3] == ["The marker has no Environment: line. The gate run printed:",
+                              f"  {GATE_ENVIRONMENT}"]
+    else:
+        assert lines[1:4] == ["The marker's Environment: line differs from the one the gate "
+                              "run printed.", f"  marker:   {OTHER_ENVIRONMENT}",
+                              f"  gate run: {GATE_ENVIRONMENT}"]
+    assert lines[-3:-1] == [
+        "Nothing was staged and no commit was made. HEAD and the index are as they were.",
+        f"The body file '{source}' is left in place."]
+    assert "Ways out: take the Environment: line" in lines[-1]
+    assert _state(repo)[:2] == before[:2]
+    assert (repo / "candidate.txt").exists()
+    assert source.read_bytes() == _marker_body("Suite: green", *marker_lines).encode()
+
+
+def test_marker_refusal_records_no_copy_declaration(tmp_path, capsys):
+    repo, store = _change_repo(tmp_path / "repo"), _gate_store(tmp_path)
+    source_repo, sha = _copy_source_repo(tmp_path, {"lib/x.py": "x\n"})
+    _record_gate_run(store, repo)
+    (repo / "x.py").write_text("x\n")
+
+    exit_code = _close(
+        repo, store, ["--body", _marker_body(OTHER_ENVIRONMENT)], "--add", "x.py",
+        "--copied-from", str(source_repo), sha, allow_empty=False)
+
+    assert exit_code != 0
+    assert _recorded_sources(repo, commit_builder._copy_source_key(CHANGE_KEY)) == []
+    assert _git_out(repo, "diff", "--cached", "--name-only") == ""
+
+
+def test_all_environment_declarations_must_match(tmp_path, capsys):
+    repo, store = _change_repo(tmp_path / "repo"), _gate_store(tmp_path)
+    _record_gate_run(store, repo)
+
+    several = _marker_body(f"**`{GATE_ENVIRONMENT}`**", f"  _{GATE_ENVIRONMENT}_  ",
+                           GATE_ENVIRONMENT)
+    assert _close(repo, store, ["--body", several]) == 0
+
+    other = _change_repo(tmp_path / "other")
+    _record_gate_run(store, other)
+    wrapped_bad = f"**`{OTHER_ENVIRONMENT}`**"
+    before = _state(other)
+    exit_code = _close(other, store,
+                       ["--body", _marker_body(GATE_ENVIRONMENT, wrapped_bad, GATE_ENVIRONMENT)])
+    lines = _refusal_lines(capsys)
+    assert exit_code != 0 and _state(other) == before
+    assert f"  marker:   {wrapped_bad}" in lines
+    assert f"  marker:   {GATE_ENVIRONMENT}" not in lines
+
+    mention = _change_repo(tmp_path / "mention")
+    _record_gate_run(store, mention)
+    away = f"See {GATE_ENVIRONMENT} for the run"
+    assert _close(mention, store, ["--body", _marker_body(away)]) != 0
+    assert "The marker has no Environment: line. The gate run printed:" in _refusal_lines(capsys)
+
+
+def test_green_gate_rejects_every_failure_declaration(tmp_path, capsys):
+    repo, store = _change_repo(tmp_path / "repo"), _gate_store(tmp_path)
+    _record_gate_run(store, repo, status=0,
+                     stdout=f"{GATE_ENVIRONMENT}\ntests/test_a.py::test_one PASSED\n")
+    first, second = "Failing: tests/test_a.py::test_one — task 1", "**Failing: tests/other.py**"
+    before = _state(repo)
+
+    exit_code = _close(repo, store,
+                       ["--body", _marker_body(GATE_ENVIRONMENT, first, second)])
+    lines = _refusal_lines(capsys)
+
+    assert exit_code != 0 and _state(repo) == before
+    at = lines.index("The gate run exited 0, so the marker must carry no Failing: line. "
+                     "It carries:")
+    assert lines[at + 1:at + 3] == [f"  {first}", f"  {second}"]
+
+
+def test_red_gate_accepts_only_literal_reported_case_ids(tmp_path, capsys):
+    stdout = (f"{GATE_ENVIRONMENT}\nFAILED tests/test_a.py::test_one - boom\n"
+              "case a — b broke\n tests/test_[x].py::t\n")
+    ok = ["Failing: tests/test_a.py::test_one — task 1",
+          "Failing: tests/test_c.py::test_three",
+          "Failing:   tests/test_a.py::test_one   — task 2",
+          "Failing: case a — b — task 3",
+          "**Failing: tests/test_[x].py::t — task 4**"]
+    repo, store = _change_repo(tmp_path / "ok"), _gate_store(tmp_path)
+    _record_gate_run(store, repo, status=1, stdout=stdout,
+                     stderr="ERROR tests/test_c.py::test_three\n")
+    assert _close(repo, store, ["--body", _marker_body(GATE_ENVIRONMENT, *ok)]) == 0
+
+    bad = ["Failing: tests/test_b.py::test_two — task 5",
+           "Failing: tests/*.py::test_one — task 6",
+           "Failing: case a — c — task 7",
+           "Failing:"]
+    other = _change_repo(tmp_path / "bad")
+    _record_gate_run(store, other, status=1, stdout=stdout,
+                     stderr="ERROR tests/test_c.py::test_three\n")
+    before = _state(other)
+    exit_code = _close(other, store, ["--body", _marker_body(GATE_ENVIRONMENT, *bad)])
+    lines = _refusal_lines(capsys)
+
+    assert exit_code != 0 and _state(other) == before
+    at = lines.index("These Failing: lines name a case that appears nowhere in the gate run's "
+                     "output:")
+    assert lines[at + 1:at + 9] == [
+        f"  {bad[0]}", "    case id looked for: tests/test_b.py::test_two",
+        f"  {bad[1]}", "    case id looked for: tests/*.py::test_one",
+        f"  {bad[2]}", "    case id looked for: case a — c",
+        f"  {bad[3]}", "    case id looked for: "]
+
+
+def test_marker_refusal_reports_all_failed_checks(tmp_path, capsys):
+    repo, store = _change_repo(tmp_path / "repo"), _gate_store(tmp_path)
+    _record_gate_run(store, repo, status=2, stdout=f"{GATE_ENVIRONMENT}\nFAILED t.py::good\n")
+
+    exit_code = _close(repo, store, ["--body", _marker_body(
+        OTHER_ENVIRONMENT, "Failing: t.py::good — task 1", "Failing: t.py::gone — task 2",
+        "Failing: t.py::also_gone")])
+    lines = _refusal_lines(capsys)
+
+    assert exit_code != 0
+    assert lines[0] == REFUSAL_FIRST_LINE
+    assert f"  marker:   {OTHER_ENVIRONMENT}" in lines
+    assert "  Failing: t.py::gone — task 2" in lines
+    assert "  Failing: t.py::also_gone" in lines
+    assert "  Failing: t.py::good — task 1" not in lines
+    assert lines.count("    case id looked for: t.py::gone") == 1
+    assert lines.count("    case id looked for: t.py::also_gone") == 1
+
+
+def test_matching_refused_gate_environment_can_commit(tmp_path):
+    repo, store = _change_repo(tmp_path / "repo"), _gate_store(tmp_path)
+    refused = "Environment: unresolved — the CI file is unreadable"
+    _record_gate_run(store, repo, environment=refused, status=1, stdout=f"{refused}\n",
+                     stderr="why\n")
+
+    assert _close(repo, store, ["--body", _marker_body("Suite: red", refused)]) == 0
+
+
+def test_marker_uses_latest_completed_run_at_any_gate(tmp_path, capsys):
+    repo, store = _change_repo(tmp_path / "repo"), _gate_store(tmp_path)
+    _record_gate_run(store, repo, environment=OTHER_ENVIRONMENT)
+    _record_gate_run(store, repo, environment=GATE_ENVIRONMENT, status=3,
+                     stdout=f"{GATE_ENVIRONMENT}\nFAILED a::b\n")
+
+    assert _close(repo, store, ["--body", _marker_body(OTHER_ENVIRONMENT)]) != 0
+    assert f"  gate run: {GATE_ENVIRONMENT}" in _refusal_lines(capsys)
+    assert _close(repo, store, ["--body", _marker_body(GATE_ENVIRONMENT, "Failing: a::b")]) == 0
+
+
+def test_marker_ignores_other_changes_gate_records(tmp_path):
+    store = _gate_store(tmp_path)
+    stale = _marker_body(OTHER_ENVIRONMENT, "Suite: red", "Failing: t.py::x — task 1")
+
+    other_key = _change_repo(tmp_path / "other-key")
+    _record_gate_run(store, other_key, key="another-change")
+    assert _close(other_key, store, ["--body", stale]) == 0
+
+    other_instance = _change_repo(tmp_path / "other-instance")
+    elsewhere = _change_repo(tmp_path / "elsewhere")
+    _record_gate_run(store, elsewhere)
+    assert _close(other_instance, store, ["--body", stale]) == 0
+
+
+def test_marker_resolves_aliases_and_the_separate_code_checkout(tmp_path, capsys):
+    store = _gate_store(tmp_path)
+    pipeline = _change_repo(tmp_path / "pipeline")
+    code = _change_repo(tmp_path / "code")
+    _record_gate_run(store, pipeline, also=[code])
+    link = tmp_path / "code-link"
+    link.symlink_to(code)
+
+    assert _close(link, store, ["--body", _marker_body(OTHER_ENVIRONMENT)]) != 0
+    assert f"  gate run: {GATE_ENVIRONMENT}" in _refusal_lines(capsys)
+    assert _close(code, store, ["--body", _marker_body(GATE_ENVIRONMENT)]) == 0
+
+
+def test_a_subdirectory_repo_argument_is_compared_at_its_worktree_root(tmp_path, capsys):
+    store = _gate_store(tmp_path)
+    repo = _change_repo(tmp_path / "repo")
+    (repo / "sub").mkdir()
+    _record_gate_run(store, repo)
+
+    assert _close(repo / "sub", store, ["--body", _marker_body(OTHER_ENVIRONMENT)]) != 0
+    assert _refusal_lines(capsys)[0] == REFUSAL_FIRST_LINE
+
+
+def test_nonclosing_and_no_record_markers_retain_existing_behaviour(tmp_path):
+    store = _gate_store(tmp_path)
+    stale = _marker_body(OTHER_ENVIRONMENT, "Failing: t.py::x")
+
+    paused = _change_repo(tmp_path / "paused")
+    _record_gate_run(store, paused)
+    assert _close(paused, store, ["--body", stale],
+                  subject=f"developer: {CHANGE_KEY} — implementation paused after task 2") == 0
+
+    empty = _change_repo(tmp_path / "empty")
+    assert _close(empty, store, ["--body", "Developer Review Notes: none."]) == 0
+
+    taken = _change_repo(tmp_path / "taken")
+    (taken / "staged.txt").write_text("s\n")
+    subprocess.run(["git", "-C", str(taken), "add", "staged.txt"], check=True)
+    assert _close(taken, store, ["--body", stale], "--take-index", allow_empty=False) == 0
+
+
+def test_marker_check_does_not_expand_suite_or_failure_contract(tmp_path):
+    store = _gate_store(tmp_path)
+    nonzero = dict(status=1, stdout=f"{GATE_ENVIRONMENT}\nFAILED a::b\nFAILED a::c\n")
+
+    omitted = _change_repo(tmp_path / "omitted")
+    _record_gate_run(store, omitted, **nonzero)
+    assert _close(omitted, store, ["--body", _marker_body("Suite: red", GATE_ENVIRONMENT)]) == 0
+
+    subset = _change_repo(tmp_path / "subset")
+    _record_gate_run(store, subset, **nonzero)
+    assert _close(subset, store, ["--body", _marker_body(
+        "Suite: green", GATE_ENVIRONMENT, "Failing: a::b")]) == 0
+
+
+def test_a_commit_without_a_gate_record_store_reads_the_real_default(tmp_path, monkeypatch):
+    repo = _change_repo(tmp_path / "repo")
+    real = _gate_store(tmp_path)
+    _record_gate_run(real, repo)
+    monkeypatch.setattr(gate_suite, "default_run_records", lambda: real)
+
+    assert commit_builder.main(_commit_argv(
+        repo, "--allow-empty", "--body", _marker_body(OTHER_ENVIRONMENT),
+        subject=MARKER_SUBJECT)) != 0
+
+
+# ── the refusals' words, whole (change_text.md § The builder's refusal messages) ─────────────
+# Each refusal is published text, printed line by line exactly as written; these pin every line,
+# not only the first, so a reworded or dropped line is a red test rather than a quiet drift.
+
+MARKER_WAYS_OUT = (
+    "Ways out: take the Environment: line and each failing case id from this change's last gate "
+    "run, then commit again. If the body was read from a file, check that this run wrote it. A "
+    "body another change left behind carries that change's lines, not this one's.")
+NOTHING_STAGED_MARKER = (
+    "Nothing was staged and no commit was made. HEAD and the index are as they were.")
+NO_GATE_ENVIRONMENT = "(the gate run printed no Environment: line)"
+
+
+def test_the_body_file_refusals_print_their_whole_text(tmp_path, capsys):
+    _init_repo(tmp_path)
+    _new_file(tmp_path)
+    source = _body_file(tmp_path, "the body\n")
+
+    assert commit_builder.main(_commit_argv(
+        tmp_path, "--add", "work.txt", "--body", "", "--body-file", str(source))) != 0
+    assert _refusal_lines(capsys) == [
+        "commit_builder: refusing to commit — --body and --body-file were both given.",
+        "A commit takes its body from one of the two, so the builder will not guess which one "
+        "you meant.",
+        f"Nothing was staged and no commit was made. The body file '{source}' is left in place.",
+        'Ways out: pass only one of the two. An empty --body "" still counts as given.',
+    ]
+
+    missing = tmp_path / "gone" / "body"
+    assert commit_builder.main(_commit_argv(
+        tmp_path, "--add", "work.txt", "--body-file", str(missing))) != 0
+    assert _refusal_lines(capsys) == [
+        f"commit_builder: refusing to commit — the body file '{missing}' does not exist.",
+        "Nothing was staged and no commit was made.",
+        "Ways out: check the path given to --body-file. The builder removes a body file once its "
+        "commit lands, so if this path was already used for a commit, write the body to a new "
+        "file from mktemp.",
+    ]
+
+    def unreadable(path: str) -> str:
+        raise PermissionError(13, "Permission denied", path)
+
+    assert commit_builder.main(
+        _commit_argv(tmp_path, "--add", "work.txt", "--body-file", str(source)),
+        read_body_file=unreadable) != 0
+    assert _refusal_lines(capsys) == [
+        f"commit_builder: refusing to commit — the body file '{source}' cannot be read: "
+        "Permission denied.",
+        "Nothing was staged and no commit was made. The body file is left in place.",
+        "Ways out: make the file readable as text, or write the body to a new file from mktemp.",
+    ]
+    assert source.read_bytes() == b"the body\n"
+
+
+def test_a_marker_refusal_from_a_body_file_prints_its_whole_text(tmp_path, capsys):
+    repo, store = _change_repo(tmp_path / "repo"), _gate_store(tmp_path)
+    _record_gate_run(store, repo, status=0)
+    wrapped = f"**{OTHER_ENVIRONMENT}**"
+    failing = "Failing: tests/test_a.py::test_one — task 1"
+    source = _body_file(tmp_path, _marker_body("Suite: green", wrapped, failing))
+
+    assert _close(repo, store, ["--body-file", str(source)]) != 0
+
+    assert _refusal_lines(capsys) == [
+        REFUSAL_FIRST_LINE,
+        "The marker's Environment: line differs from the one the gate run printed.",
+        f"  marker:   {wrapped}",
+        f"  gate run: {GATE_ENVIRONMENT}",
+        "The gate run exited 0, so the marker must carry no Failing: line. It carries:",
+        f"  {failing}",
+        NOTHING_STAGED_MARKER,
+        f"The body file '{source}' is left in place.",
+        MARKER_WAYS_OUT,
+    ]
+
+
+def test_an_inline_marker_refusal_names_no_body_file(tmp_path, capsys):
+    repo, store = _change_repo(tmp_path / "repo"), _gate_store(tmp_path)
+    _record_gate_run(store, repo, status=1, stdout=f"{GATE_ENVIRONMENT}\nFAILED a::b\n")
+
+    body = _marker_body("Suite: red", "Failing: a::c — task 1")
+    assert _close(repo, store, ["--body", body]) != 0
+
+    assert _refusal_lines(capsys) == [
+        REFUSAL_FIRST_LINE,
+        "The marker has no Environment: line. The gate run printed:",
+        f"  {GATE_ENVIRONMENT}",
+        "These Failing: lines name a case that appears nowhere in the gate run's output:",
+        "  Failing: a::c — task 1",
+        "    case id looked for: a::c",
+        NOTHING_STAGED_MARKER,
+        MARKER_WAYS_OUT,
+    ]
+
+
+def test_a_gate_run_that_printed_no_environment_line_is_shown_as_such(tmp_path, capsys):
+    # A run that stopped on a handled error after its checkout was known is on record with no
+    # `Environment:` line (gate_suite `_main_run`). CP-758 still holds the marker to it: a marker
+    # line has no printed line to match, and a marker with none "differs" by the rule's own words.
+    store = _gate_store(tmp_path)
+    declared = _change_repo(tmp_path / "declared")
+    _record_gate_run(store, declared, environment=None, status=2, stdout="",
+                     stderr="gate_suite: the inputs file is malformed\n")
+    assert _close(declared, store, ["--body", _marker_body(GATE_ENVIRONMENT)]) != 0
+    assert _refusal_lines(capsys)[1:4] == [
+        "The marker's Environment: line differs from the one the gate run printed.",
+        f"  marker:   {GATE_ENVIRONMENT}",
+        f"  gate run: {NO_GATE_ENVIRONMENT}",
+    ]
+
+    bare = _change_repo(tmp_path / "bare")
+    _record_gate_run(store, bare, environment=None, status=2, stdout="",
+                     stderr="gate_suite: the inputs file is malformed\n")
+    before = _state(bare)
+    assert _close(bare, store, ["--body", _marker_body("Suite: red")]) != 0
+    assert _refusal_lines(capsys)[1:3] == [
+        "The marker has no Environment: line. The gate run printed:",
+        f"  {NO_GATE_ENVIRONMENT}",
+    ]
+    assert _state(bare) == before

@@ -1,5 +1,5 @@
 ---
-version: "1.1.0"
+version: "1.2.0"
 ---
 
 # TypeScript — gate environment
@@ -27,10 +27,11 @@ product's CI runs.
 
 ## Provisioning
 
-Start a container from the official Node image, tagged with CI's Node version, by the command
-`languages/README.md` § Gate environment defaults gives. Set pnpm up in it as `toolchain.md`
-§ Package manager — pnpm states: `corepack enable`, preceded by `npm install -g corepack` on Node.js
-25 or later. Then install the product's dependencies with pnpm before a gate runs.
+Start a container from the official Node image, `docker.io/library/node`, tagged with CI's Node
+version, by the command `languages/README.md` § Gate environment defaults gives. Set pnpm up in it
+as `toolchain.md` § Package manager — pnpm states: `corepack enable`, preceded by
+`npm install -g corepack` on Node.js 25 or later. Then install the product's dependencies with pnpm
+before a gate runs.
 
 Browser tests run in a second container, started the same way from Playwright's published image, with
 pnpm set up and the dependencies installed in it the same way.

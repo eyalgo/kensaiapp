@@ -6,20 +6,33 @@ sessions, providers, launchers, more than one instance, findings and the additio
 ## See where things stand
 
 `/kensaiapp-panel` opens a pane in your Claude Code session that lists the chains waiting on
-you, and the ones running now ([step 4](../README.md#4-turn-on-the-panel) turns it on). For each project it shows
-the seed, the station, the change being walked, the step it is on and how long ago that walk started.
+you, and the ones running now ([step 5](../README.md#5-turn-on-the-panel) turns it on). For each project it shows
+the seed being walked and the seed's route as a tree: the stations already reached, the one being
+walked with its change, the step that change is on and how long ago it started, and the stations not
+opened yet.
 
-<p align="center"><img src="images/panel-waiting-and-running.png" alt="The KensaiApp pane in a Claude Code session. Under WAITING ON YOU, one project, ka-reader, with its seed, station and walk, at build-idea, started 4 days ago, waiting on an act owed by the owner: push the product's main branch. Under RUNNING NOW, one project, ka-telemetry, in the implementation step of chain-change, started 39 minutes ago." width="100%"></p>
-<p align="center"><sub>The pane from <code>/kensaiapp-panel</code>: one project waiting on its owner, one running. A real session. ka-reader and ka-telemetry are two projects being built with KensaiApp.</sub></p>
+<p align="center"><img src="images/panel-route-waiting-and-running.png" alt="The KensaiApp pane. Under WAITING ON YOU, the project ka-telemetry: its seed, the release kensaiapp runs on is public and meets every release bar, with four stations reached and two not opened yet, and its walk, the readme says what runs, stopped at build-idea 10 hours ago on an act owed by the owner: walk that station yourself, then resume build-idea. Under RUNNING NOW, the project ka-reader: three stations reached, the fourth being walked, its change in the code-integrity step, started 2 hours ago, and one station not opened yet." width="70%"></p>
+<p align="center"><sub>The pane from <code>/kensaiapp-panel</code>: one project waiting on its owner, one running, each with its route. A real session, 2026-10-21. ka-reader and ka-telemetry are two projects being built with KensaiApp.</sub></p>
 
 When a chain is waiting on you, the pane says what it needs.
 
-<p align="center"><img src="images/panel-owner-act-owed.png" alt="The KensaiApp pane. Under WAITING ON YOU, the project ka-reader is stopped at build-idea on an act owed by the owner: push the product's main branch, wait for the hosted run to succeed, read a reached-when condition with a named command, then resume build-idea. Under RUNNING NOW, ka-telemetry is in the specs step of chain-change." width="70%"></p>
+<p align="center"><img src="images/panel-owner-acts-owed.png" alt="The KensaiApp pane. Under WAITING ON YOU, two projects, each with its route as a tree and a sealed walk stopped at build-idea on an act owed by the owner. For ka-reader: say whether the station to walk is done or is to be cut again, then resume build-idea. For ka-telemetry: walk that station yourself, then resume build-idea. Under RUNNING NOW, ka-reader, in the skill shukuba-open, started 0 minutes ago." width="70%"></p>
+<p align="center"><sub>A real session, 2026-10-22.</sub></p>
 
-You do the act it names, then tell the session in your own words:
+You do the act it names, then tell the session in your own words. A reply to an earlier act owed:
 
 <p align="center"><img src="images/reply-with-the-owners-act.png" alt="A Claude Code prompt reading: push ka-reader, wait for success, then read reached-when 3 with QC-25's command on that run. after that, resume build-idea on ka-reader." width="100%"></p>
-<p align="center"><sub>Both from a real instance, 2026-10-14.</sub></p>
+<p align="center"><sub>From a real instance, 2026-10-14.</sub></p>
+
+While a change is in review, the pane lists every audit running on it at once:
+
+<p align="center"><img src="images/panel-five-audits.png" alt="The KensaiApp pane. Under RUNNING NOW, the project ka-reader: three stations reached, the fourth being walked, its change in five steps at once, audit-development-content, audit-development-design, audit-development-implementation, audit-development-plan and audit-development-specs, started 3 hours ago, and one station not opened yet." width="70%"></p>
+<p align="center"><sub>One change, five audits running at the same time. A real session, 2026-10-21.</sub></p>
+
+KensaiApp is built the same way. The same pane, in the instance where KensaiApp itself is developed:
+
+<p align="center"><img src="images/panel-kensaiapp-on-itself.png" alt="The KensaiApp pane. Under RUNNING NOW, two projects. product-development, seed product gates run where CI runs, not on the owner's Mac: four stations reached, the fifth with its change in the specs step, started 3 minutes ago, one station not opened yet. tools, seed kensaiapp reads its telemetry through the ka-telemetry package: two stations reached, the third with its change in implementation, started 2 hours ago, one station not opened yet." width="70%"></p>
+<p align="center"><sub>Two of KensaiApp's own projects walking at once; the second moved KensaiApp's telemetry onto ka-telemetry. A real session, 2026-10-21.</sub></p>
 
 For the whole picture, `python3 core/tools/journey_status.py --repo .` writes one HTML page of the
 instance's journey, with every place it has drifted from the model. It only reads.
@@ -351,16 +364,24 @@ The [how-to guide](how-to.md) has the details.
 ### Telemetry
 
 Claude Code can export its usage as OpenTelemetry: tokens and cost per run, and each API request and
-finished agent. KensaiApp ships a receiver that appends what it receives to files on your machine.
-[Step 5](../README.md#5-collect-telemetry) of Getting started turns it on.
+finished agent. KensaiApp's telemetry runs on [ka-telemetry](https://github.com/eyalgo/ka-telemetry),
+an open-source package KensaiApp built: its receiver appends what it receives to files on your
+machine, and removes every `user.email` attribute from what it receives before writing it.
+The how-to guide's [How to collect telemetry](how-to.md#how-to-collect-telemetry) installs it and turns it on.
 
-A launcher finds the receiver through the file `--publish-endpoint` writes. Without that file, it
-starts its runs with no telemetry.
+A launcher runs the package's command from `~/.kensaiapp/venv/bin/` and nowhere else. The command's
+name is the one line of `.telemetry.env`, at the root of the instance whose core the launch runs on,
+and an exported `KENSAIAPP_TELEMETRY_COMMAND` takes its place for one launch; set empty, it turns
+telemetry off for that launch. The launcher finds the receiver through the file `--publish-endpoint`
+writes. Without the package, or without that file, it starts its runs with no telemetry and says so
+in one line.
 
 A launcher exports a run's telemetry only to a receiver at a loopback address, and refuses any other
 host. It tags each run with its provider, model and effort, so they can be read back afterwards from
-what actually landed, not from what the launcher meant to send. Scripts in `core/tools/` read it back
-per agent, per run and per chain.
+what actually landed, not from what the launcher meant to send. The package's own commands read it
+back per agent, per background run and per workflow step. Two scripts in `core/tools/` add what only
+KensaiApp knows: `chain_usage.py` reads it per chain, and `run_provenance.py` reads one run's
+provider, model and effort. They import the package, so they run under
+`~/.kensaiapp/venv/bin/python`, as each says at its top.
 
-Running the receiver as a background service on your machine is out of KensaiApp's scope; the
-receiver itself ships with KensaiApp.
+Running the receiver as a background service on your machine is out of KensaiApp's scope.

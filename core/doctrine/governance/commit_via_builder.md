@@ -1,5 +1,5 @@
 ---
-version: "1.0.0"
+version: "1.1.0"
 ---
 
 # Commit via builder — the one way a producer skill commits
@@ -59,10 +59,23 @@ python3 "<CORE>/tools/commit_builder.py" --repo "<repo>" commit \
   caller believed it was doing the whole recipe. A flag nobody is told about is a flag half the
   callers omit.
 
-**A `--body` that carries a backtick goes through a file, never inline.** `--body "$(cat <file>)"`
-rather than a quoted literal. A backtick in an inline shell argument is command substitution: the
-shell runs it, the text vanishes from the message, and the commit lands looking fine. Measured
-2026-09-02, on a body whose only example of the defect it was describing was eaten.
+**A body that carries a backtick goes through a file, never inline.** A backtick in an inline shell
+argument is command substitution: the shell runs it, the text vanishes from the message, and the
+commit lands looking fine. Measured 2026-09-02, on a body whose only example of the defect it was
+describing was eaten.
+
+**The file belongs to the run that writes the body.** Run `mktemp`, keep the path it prints, write
+the body into that path, and pass it as `--body-file "<path>"` in place of `--body`. `mktemp` makes a
+new file under a name no other run holds, so only the run that made it can name it. The builder
+refuses a commit given both `--body` and `--body-file`.
+
+**Never pass a body through a fixed or shared name, such as a constant `/tmp/<name>`.** Every run
+that uses the same name reads and writes the same file. A body one run leaves there can then be
+committed by the next run that reads the name, as that run's own.
+
+**The builder removes the file once the commit lands.** A refused commit leaves the file in place, so
+fix what the refusal names and run the same command again with the same path. Once a commit has
+landed the path is gone, and the next commit gets a new file from `mktemp`.
 
 - **`--add <paths…>`** — files to stage (created or modified). The builder runs `git -C "<repo>" add` on
   them before committing.

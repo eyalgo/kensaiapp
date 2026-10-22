@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # product-card — the owner's one move after the foundation step settles: the card, then the skeleton.
 #
+# Version: 1.13.0 — the other six launchers run on the package's turn-on
 # Version: 1.12.3 — Python floor is 3.13 everywhere, product-card --keep-awake runs where caffeinate is absent, and .env.example says its launcher settings come from the environment
 # Version: 1.12.2 — re-running the card leaves a built product's code alone — the skeleton places a frame whole or not at all
 # Version: 1.12.1 — launchers and launch scripts take a portable mktemp template, so they run on Linux
@@ -82,7 +83,7 @@ SKELETON="${LAUNCH_PRODUCT_CARD_SKELETON:-$SCRIPT_DIR/../product-skeleton/launch
 # is no watcher and no notifier here (see the header), but the card half still runs `claude -p`
 # and still deserves to be tagged. No env override, for the same reason the siblings carry none:
 # no test or caller ever wants a stub in its place, only the real file at its real relative depth.
-INSTRUMENT_LIB="$CORE_DIR/tools/instrument_run.sh"
+INSTRUMENT_LIB="$CORE_DIR/tools/run_telemetry.sh"
 # The one resolution of a run's model, effort and source, shared by every instrumented
 # launcher — same real depth, and no env override for the same reason.
 RUN_INTELLIGENCE="$CORE_DIR/tools/run_intelligence.py"
@@ -207,7 +208,7 @@ run_source="$(printf '%s\n' "$resolution" | sed -n 's/^source=//p')"
 if [ -f "$INSTRUMENT_LIB" ]; then
   # shellcheck source=/dev/null
   source "$INSTRUMENT_LIB"
-  instrument_run project="$project" provider="$provider" model="$run_model" effort="$run_effort" source="$run_source"
+  run_telemetry project="$project" provider="$provider" model="$run_model" effort="$run_effort" source="$run_source"
 else
   echo "          (no instrument library at $INSTRUMENT_LIB — run uninstrumented)"
 fi

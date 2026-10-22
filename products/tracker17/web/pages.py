@@ -10,7 +10,7 @@ that shows its reason.
 from __future__ import annotations
 
 import html
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
@@ -168,6 +168,13 @@ class MoveRefusal(Enum):
     NOT_A_STATUS = "not-a-status"
 
 
+class MoveRefusalContext(Enum):
+    """How a refusal was reached, which decides only the words of its line."""
+
+    SUBMISSION = "submission"
+    CANCELLATION_ADDRESS = "cancellation-address"
+
+
 @dataclass(frozen=True)
 class MoveOutcome:
     """What a press of a move last had, as plain values; it decides no rule.
@@ -175,12 +182,44 @@ class MoveOutcome:
     `task_id` is the task the press was about. At most one of `refusal`, `failed` and `moved` is
     set: the refusal's code, the status a failed move named, or the status the task moved to. A
     task that is not on the page shown, or an outcome with none of the three, is no outcome.
+    `refusal_context` is read only beside a refusal about the task shown.
     """
 
     task_id: int | None = None
     refusal: MoveRefusal | None = None
     failed: TaskStatus | None = None
     moved: TaskStatus | None = None
+    refusal_context: MoveRefusalContext = MoveRefusalContext.SUBMISSION
+
+
+class MoveInteractionMode(Enum):
+    """Which half of the cancellation's confirmation an address asks for."""
+
+    CONFIRM = "confirm"
+    BACK_OUT = "back-out"
+
+
+@dataclass(frozen=True)
+class MoveInteraction:
+    """The confirmation an address opened or backed out of, as plain values; it decides no rule.
+
+    It is separate from `MoveOutcome`: an outcome says what a press last had, an interaction says
+    which task's cancelled button is replaced by the strip or given back its focus. A task that is
+    not on the page shown is no interaction.
+    """
+
+    task_id: int
+    mode: MoveInteractionMode
+
+
+@dataclass(frozen=True)
+class StripForm:
+    """One of the strip's two forms: the control's words, where it goes, how, and its hidden fields."""
+
+    label: str
+    action: str
+    method: str
+    fields: Mapping[str, str]
 
 
 class _MoveKind(Enum):
@@ -600,50 +639,160 @@ def _due_date_cell(row: TaskRow) -> str:
     return f"{shown}{marker}"
 
 
-_WITHHELD_MOVES = (TaskStatus.CANCELLED,)
+CONFIRM_SENTENCE_ID = "confirm-sentence"
+CANCEL_SENTENCE = "Move '{title}' to cancelled? A cancelled task can't be moved again."
+CONFIRM_CANCEL_LABEL = "Move to cancelled"
+BACK_OUT_LABEL = "Back out"
+MOVE_CONFIRM_ADDRESS = "/tasks/{task_id}/move/confirm"
+CANCELLED_CODE = TaskStatus.CANCELLED.value
+TRIGGER_SIZE = "row-control"
 
 
-def _move_forms(task: Task, place: str, allowed: tuple[TaskStatus, ...]) -> str:
-    """One form and one button per move the page offers: the allowed ones in the order given,
-    less the moves this slice withholds (D-10). Which moves are allowed is not decided here."""
-    offered = [move for move in allowed if move not in _WITHHELD_MOVES]
-    title = _escape(task.title)
-    forms = "".join(
+def _strip_form(form: StripForm, button_class: str) -> str:
+    fields = "".join(
+        f'<input type="hidden" name="{_escape(name)}" value="{_escape(value)}">'
+        for name, value in form.fields.items()
+    )
+    return (
+        f'<form method="{_escape(form.method)}" action="{_escape(form.action)}">{fields}'
+        f'<button type="submit" class="{button_class}">{_escape(form.label)}</button></form>'
+    )
+
+
+def confirm_strip(
+    *,
+    sentence: str,
+    sentence_id: str,
+    confirm: StripForm,
+    back_out: StripForm,
+    size: str,
+    focus: bool,
+) -> str:
+    """The in-place confirmation: the sentence, then the confirming form, then the back-out form.
+
+    Plain text and destinations in, markup out; it knows no task, status, workflow or action, so
+    any caller supplies its own words and targets. The sentence is a non-control element outside
+    both forms, and `focus` makes it the page's one autofocus. `size` names the trigger-size
+    context the stylesheet sizes the strip from. Every value is escaped here, once.
+    """
+    focus_attributes = " autofocus" if focus else ""
+    return (
+        f'<div class="confirm-strip strip-{_escape(size)}">'
+        f'<p class="confirm-sentence" id="{_escape(sentence_id)}" tabindex="-1"'
+        f"{focus_attributes}>{_escape(sentence)}</p>"
+        f"{_strip_form(confirm, 'button-confirm')}"
+        f"{_strip_form(back_out, 'button-secondary')}"
+        "</div>"
+    )
+
+
+def _cancellation_strip(task: Task, place: str) -> str:
+    back_out_address = (
+        f"/projects/{task.project_id}" if place == MOVE_PLACE_LIST else f"/tasks/{task.id}"
+    )
+    return confirm_strip(
+        sentence=CANCEL_SENTENCE.format(title=task.title),
+        sentence_id=CONFIRM_SENTENCE_ID,
+        confirm=StripForm(
+            CONFIRM_CANCEL_LABEL,
+            MOVE_CONFIRM_ADDRESS.format(task_id=task.id),
+            "post",
+            {"place": place},
+        ),
+        back_out=StripForm(
+            BACK_OUT_LABEL,
+            back_out_address,
+            "get",
+            {"move_task": str(task.id), "move_back": CANCELLED_CODE},
+        ),
+        size=TRIGGER_SIZE,
+        focus=True,
+    )
+
+
+def _move_form(task: Task, move: TaskStatus, place: str, *, focus: bool = False) -> str:
+    focus_attributes = " autofocus" if focus else ""
+    return (
         f'<form method="post" action="/tasks/{task.id}/move">'
         f'<input type="hidden" name="status" value="{move.value}">'
         f'<input type="hidden" name="place" value="{place}">'
-        f'<button type="submit" class="move-button" '
-        f"aria-label=\"Move '{title}' to {move.value}\">{move.value}</button>"
+        f'<button type="submit" class="move-button"{focus_attributes} '
+        f"aria-label=\"Move '{_escape(task.title)}' to {move.value}\">{move.value}</button>"
         "</form>"
-        for move in offered
     )
-    return f'<div class="moves">{forms}</div>' if forms else ""
 
 
-_REFUSAL_TAILS = {
-    TaskStatus.TODO: "The moves shown are the ones you can press.",
-    TaskStatus.IN_PROGRESS: "The moves shown are the ones you can press.",
-    TaskStatus.DONE: "A task in done can't be moved.",
-    TaskStatus.CANCELLED: "A task in cancelled can't be moved.",
-}
+def _move_forms(
+    task: Task,
+    place: str,
+    allowed: tuple[TaskStatus, ...],
+    interaction: MoveInteraction | None = None,
+) -> str:
+    """One form and one button per move the workflow allows, in the order given. The cancelled
+    one stands in a slot of its own, where the confirmation replaces it or its restored button
+    takes focus. Which moves are allowed is not decided here."""
+    forms = []
+    for move in allowed:
+        if move is not TaskStatus.CANCELLED:
+            forms.append(_move_form(task, move, place))
+        elif interaction is not None and interaction.mode is MoveInteractionMode.CONFIRM:
+            forms.append(f'<div class="move-slot">{_cancellation_strip(task, place)}</div>')
+        else:
+            restored = interaction is not None and interaction.mode is MoveInteractionMode.BACK_OUT
+            forms.append(
+                f'<div class="move-slot">{_move_form(task, move, place, focus=restored)}</div>'
+            )
+    joined = "".join(forms)
+    return f'<div class="moves">{joined}</div>' if joined else ""
 
 
-def _move_line(outcome: MoveOutcome | None, task: Task) -> tuple[_MoveKind, str] | None:
+# One whole string for each count of moves a task offers; a task has three other statuses to move
+# to, so none to three. Each placeholder holds one status word (text record, Wording decisions).
+_CHANGED = "The status of '{title}' has changed to {status}. "
+_OVERTAKEN_LINES = (
+    _CHANGED + "A task in {status} can't be moved.",
+    _CHANGED + "A task in {status} can be moved to {0}.",
+    _CHANGED + "A task in {status} can be moved to {0} or {1}.",
+    _CHANGED + "A task in {status} can be moved to {0}, {1} or {2}.",
+)
+_ADDRESS_LINE = (
+    "The status of '{title}' is {status}, which doesn't allow a move to cancelled. "
+    "A task in {status} can't be moved."
+)
+
+
+def _has_move_line(outcome: MoveOutcome | None, task: Task) -> bool:
+    """Whether the outcome is about this task and holds one of the three things a line shows."""
+    return (
+        outcome is not None
+        and outcome.task_id == task.id
+        and (outcome.refusal is not None or outcome.failed is not None or outcome.moved is not None)
+    )
+
+
+def _refusal_line(context: MoveRefusalContext, task: Task, allowed: tuple[TaskStatus, ...]) -> str:
+    """The refusal's whole line. A refused submission names the moves the page offers for the
+    task, in the order it offers them: `allowed` is that one tuple, also the controls' tuple."""
+    words = {"title": _escape(task.title), "status": task.status.value}
+    if context is MoveRefusalContext.CANCELLATION_ADDRESS:
+        return _ADDRESS_LINE.format(**words)
+    moves = [move.value for move in allowed]
+    return _OVERTAKEN_LINES[len(moves)].format(*moves, **words)
+
+
+def _move_line(
+    outcome: MoveOutcome | None, task: Task, allowed: tuple[TaskStatus, ...]
+) -> tuple[_MoveKind, str] | None:
     """The one line a move outcome shows for this task, or None when it is not about the task.
 
-    A refusal is chosen before a failure and a failure before a completion. The title is the one
-    the state holds now; the status is the one the address names.
+    A refusal is chosen before a failure and a failure before a completion. The title and the
+    status are the ones the state holds now.
     """
-    if outcome is None or outcome.task_id != task.id:
+    if outcome is None or not _has_move_line(outcome, task):
         return None
-    title = _escape(task.title)
     if outcome.refusal is not None:
-        status = task.status.value
-        line = (
-            f"The status of '{title}' is {status}, which doesn't allow the move you pressed. "
-            f"{_REFUSAL_TAILS[task.status]}"
-        )
-        return _MoveKind.REFUSED, line
+        return _MoveKind.REFUSED, _refusal_line(outcome.refusal_context, task, allowed)
+    title = _escape(task.title)
     if outcome.failed is not None:
         line = (
             f"The tracker couldn't move '{title}' to {outcome.failed.value}, and nothing was "
@@ -674,15 +823,16 @@ def _status_word(task: Task, line: tuple[_MoveKind, str] | None, tag: str, attri
 def _task_row(
     position: int,
     row: TaskRow,
-    allowed: AllowedMoves,
+    allowed: tuple[TaskStatus, ...],
     line: tuple[_MoveKind, str] | None,
+    interaction: MoveInteraction | None = None,
 ) -> str:
     task = row.task
     title = _escape(task.title)
     labels = ", ".join(_escape(label) for label in task.labels) or "none"
     assignee = _escape(task.assignee) if task.assignee is not None else "unassigned"
     status = _status_word(task, line, "span", ' class="status-word"') if line else task.status.value
-    moves = _move_forms(task, MOVE_PLACE_LIST, allowed(task.status))
+    moves = _move_forms(task, MOVE_PLACE_LIST, allowed, interaction)
     return (
         "<tr>"
         f'<td><a class="pre-wrap" href="/tasks/{task.id}" '
@@ -700,7 +850,12 @@ def _task_row(
 _TASK_COLUMNS = ("Title", "Status", "Priority", "Assignee", "Labels", "Due date", "Moves")
 
 
-def _task_list(rows: Sequence[TaskRow], allowed: AllowedMoves, outcome: MoveOutcome | None) -> str:
+def _task_list(
+    rows: Sequence[TaskRow],
+    allowed: AllowedMoves,
+    outcome: MoveOutcome | None,
+    interaction: MoveInteraction | None = None,
+) -> str:
     """The seven-column table in the order given, or the first-task invitation when there is none."""
     if not rows:
         return (
@@ -709,8 +864,15 @@ def _task_list(rows: Sequence[TaskRow], allowed: AllowedMoves, outcome: MoveOutc
         )
     headers = "".join(f'<th scope="col">{name}</th>' for name in _TASK_COLUMNS)
     body = "".join(
-        _task_row(position, row, allowed, _move_line(outcome, row.task))
+        _task_row(
+            position,
+            row,
+            offered,
+            _move_line(outcome, row.task, offered),
+            interaction if interaction and interaction.task_id == row.task.id else None,
+        )
         for position, row in enumerate(rows, start=1)
+        for offered in (allowed(row.task.status),)
     )
     return (
         '<table class="task-list">\n'
@@ -730,15 +892,24 @@ def project_page(
     created: bool = False,
     allowed_moves: AllowedMoves = _no_moves,
     move_outcome: MoveOutcome | None = None,
+    move_interaction: MoveInteraction | None = None,
 ) -> str:
     """One project's page: its add-task form, and its tasks in the order and with the overdue
     flags handed in. With `created`, it opens on its heading and the created line.
 
     Deciding no order and no overdue state, it shows the rows exactly as given. Each row offers the
     moves `allowed_moves` gives for its status. A `move_outcome` about one of the rows takes
-    precedence over every other outcome: the page then shows only its line, and its focus.
+    precedence over every other outcome: the page then shows only its line, and its focus. A
+    `move_interaction` about one of the rows, with no such outcome, replaces that row's cancelled
+    button and owns the one focus in the same way.
     """
-    if any(_move_line(move_outcome, row.task) is not None for row in rows):
+    lined = any(_has_move_line(move_outcome, row.task) for row in rows)
+    interacting = (
+        not lined
+        and move_interaction is not None
+        and any(row.task.id == move_interaction.task_id for row in rows)
+    )
+    if lined or interacting:
         created, form = False, None
     heading_attributes = ' tabindex="-1"'
     created_line = ""
@@ -758,7 +929,7 @@ def project_page(
         f"{created_line}"
         f"{description}"
         f"{_add_task_form(project, assignees, priority_choices, form or TaskForm())}"
-        f"{_task_list(rows, allowed_moves, move_outcome)}"
+        f"{_task_list(rows, allowed_moves, move_outcome, move_interaction if interacting else None)}"
     )
     return _document(f"{project.name} - tracker17", body)
 
@@ -1165,7 +1336,10 @@ def _comment_section(
 
 
 def _status_section(
-    task: Task, allowed: tuple[TaskStatus, ...], line: tuple[_MoveKind, str] | None
+    task: Task,
+    allowed: tuple[TaskStatus, ...],
+    line: tuple[_MoveKind, str] | None,
+    interaction: MoveInteraction | None = None,
 ) -> str:
     """The status area: its heading, the status in words, the moves the page offers and, after a
     press, the one line beside them."""
@@ -1174,7 +1348,7 @@ def _status_section(
         f'<section id="{_STATUS_ID}" class="sheet">\n'
         "<h2>Status</h2>\n"
         f"{word}\n"
-        f"{_move_forms(task, MOVE_PLACE_TASK, allowed)}"
+        f"{_move_forms(task, MOVE_PLACE_TASK, allowed, interaction)}"
         f"{_move_line_block(line)}"
         "</section>\n"
     )
@@ -1191,6 +1365,7 @@ def task_page(
     operator_name: str | None = None,
     allowed_moves: AllowedMoves = _no_moves,
     move_outcome: MoveOutcome | None = None,
+    move_interaction: MoveInteraction | None = None,
 ) -> str:
     """One task: its title, its project as text, the form that edits its four fields, its labels
     and its comments.
@@ -1203,11 +1378,21 @@ def task_page(
     `comment_area` takes precedence over all of them. `operator_name` is the name saved now, with
     None while none is: it decides whether the comments area shows its no-name notice. The status
     area offers the moves `allowed_moves` gives for the saved status; a `move_outcome` about this
-    task takes precedence over every other outcome, and the status word takes the one focus.
+    task takes precedence over every other outcome, and the status word takes the one focus. A
+    `move_interaction` about this task, with no such outcome, replaces its cancelled button and
+    owns the one focus instead.
     """
     task = context.task
-    move_line = _move_line(move_outcome, task)
-    if move_line is not None:
+    offered = allowed_moves(task.status)
+    move_line = _move_line(move_outcome, task, offered)
+    interaction = (
+        move_interaction
+        if move_line is None
+        and move_interaction is not None
+        and move_interaction.task_id == task.id
+        else None
+    )
+    if move_line is not None or interaction is not None:
         form, added, saved, label_area, comment_area = None, False, False, None, None
     comment_area = comment_area or CommentArea()
     comment_outcome = _comment_outcome(comment_area, task)
@@ -1240,7 +1425,7 @@ def task_page(
         f'<dt>Project</dt><dd class="pre-wrap">{_escape(context.project.name)}</dd>\n'
         "</dl>\n"
         f"{_edit_form(context, form)}"
-        f"{_status_section(task, allowed_moves(task.status), move_line)}"
+        f"{_status_section(task, offered, move_line, interaction)}"
         f"{_label_section(task, label_area, label_outcome)}"
         f"{_comment_section(task, comment_area, operator_name, comment_outcome)}"
     )

@@ -1,5 +1,5 @@
 ---
-version: "2.0.0"
+version: "2.1.0"
 ---
 
 # Swift — gate environment
@@ -204,7 +204,11 @@ same option). A checkout is reached inside the guest at its path under its share
    copy without build output: the `.build` folder beside each tracked `Package.swift` and the
    `target` folder beside each tracked `Cargo.toml`, each matched by its exact path from the
    checkout's root. Build output holds the absolute paths it was built at, and the build in the copy
-   makes its own. A folder or file of those names anywhere else is copied. It removes any copy an earlier run left, then runs
+   makes its own. A folder or file of those names anywhere else is copied. A worktree's `.git` is
+   a file that points at its git data by a host path, so the copy would leave git in the guest
+   with no repository ("fatal: not a git repository"). For a worktree, the copy's `.git` is a
+   folder instead: the repository's shared git data, with the worktree's own HEAD and index laid
+   over it, so git in the guest sees the same branch and the same staged files. It removes any copy an earlier run left, then runs
    the gate command in the new copy, then removes it. It runs one gate in the guest at a time: a
    second gate waits until the first gate's copy is removed. It never starts, stops or restarts the
    guest.

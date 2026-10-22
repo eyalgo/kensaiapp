@@ -225,8 +225,8 @@ components:
 
 **Status:** Settled
 **Owner:** CDO
-**Version:** 3 — UXD versions 3 and 4 carried in: the confirmation's sentence takes the first button's place and keyboard focus, and shows the focus ring (RN-25); the three new sentences beside a field are field hints (RN-26); RN-14's reason now cites `SRS.md` FR-40, which closes the one open item. No token value changed
-**Inputs read:** UXD Settled (version 4, no companion) · PRD Settled · SRS Settled · Agari no Status line (`agari_template.md` carries none) · visual_direction Settled · visual_restrictions Settled · tracker17 doctrine no Status line (stamped, unfilled)
+**Version:** 4 — the answered round folded in (`products/tracker17/docs/trail/design/cycle-2.md`): the confirmation strip's sentence and confirming button take the height token of the button the strip replaces, so a status move's strip on the task page is {spacing.row-control} tall, and the back-out control stays full size (§ Components, RN-25). UXD versions 5 and 6 read, with nothing visual to carry. No token value changed
+**Inputs read:** UXD Settled (version 6, no companion) · PRD Settled · SRS Settled · Agari no Status line (`agari_template.md` carries none) · visual_direction Settled · visual_restrictions Settled · tracker17 doctrine no Status line (stamped, unfilled)
 
 > The design language is the visual source of truth: the tokens are normative, the prose says
 > how to apply them. It is authored off the UXD's § Design-System Direction — that section names
@@ -245,8 +245,9 @@ components:
 Every value below is a CDO choice. tracker17 has no source code and no brand asset yet, so nothing
 was found to carry (RN-1). The owner confirmed the load-bearing choices, each with additions, in the
 answered round kept at `products/tracker17/docs/trail/design/cycle-1.md` § 2. Each Review Note names
-the item that holds its call, and the reasoning behind every answer is
-`products/tracker17/docs/trail/design/self_answer-1.md`.
+the item that holds its call. The reasoning behind the answers in `cycle-1.md` is
+`products/tracker17/docs/trail/design/self_answer-1.md`, and the reasoning behind the answer in
+`cycle-2.md` is `products/tracker17/docs/trail/design/self_answer-2.md`.
 
 ---
 
@@ -457,8 +458,13 @@ browser's default look beside a styled one.
   pressed (`products/tracker17/docs/UXD.md` UX-I2). It holds the consequence in words,
   **{components.button-confirm}** and a back-out {components.button-secondary}. The sentence stands
   in the first button's spot and is at least as tall as that button. The confirming button takes the
-  first button's height too. That height is {spacing.row-control} in a task row and {spacing.control}
-  elsewhere. The confirming button is ink, the darkest fill the product has,
+  first button's height too. That height is the height token of the button the strip replaces:
+  {spacing.row-control} where the first button is a {components.button-move}, a status move on a
+  task row or on the task page, and {spacing.control} where it is a full-size
+  {components.button-secondary}, Delete project's or Delete task's first press. The rule sizes the
+  sentence and the confirming button only. The back-out control stays a full-size
+  {components.button-secondary} wherever the strip appears (RN-25). The confirming button is ink,
+  the darkest fill the product has,
   because an inked line cannot be erased. The order of the strip's parts, and which part takes
   keyboard focus when the strip appears, are not this document's. They are component anatomy and
   accessible behaviour, and `products/tracker17/docs/UXD.md` UX-I2 owns them.
@@ -737,8 +743,17 @@ browser's default look beside a styled one.
   sentence takes focus only as the page opens, never from a click on it. Whether the heuristic makes
   that focus evident is not verified here, and a keyboard user must see where focus went once the
   first button is gone. The ring sits on the strip's {colors.surface-sunk}, a ground RN-7 already
-  measures at 5.21. *(re: {components.confirm-strip}, § Components focus rule, RN-16; source: UXD
-  change plus stated design reason)*
+  measures at 5.21. Version 3 then named the height by place: {spacing.row-control} "in a task row"
+  and {spacing.control} "elsewhere". That held only while move buttons sat in rows alone. On the task
+  page the first button is a {components.button-move}, which is {spacing.row-control} tall there too,
+  so the two sentences gave the strip two heights. The rule is now keyed to the button the strip
+  replaces, which cannot drift from that button's own contract wherever it is placed next. It binds
+  the sentence and the confirming button only, so it cannot be read as shrinking the back-out
+  {components.button-secondary} to {spacing.row-control} (confirmed with an addition:
+  `products/tracker17/docs/trail/design/cycle-2.md` § 3.1; reasoning,
+  `products/tracker17/docs/trail/design/self_answer-2.md`). No token value changed. *(re:
+  {components.confirm-strip}, § Components focus rule, RN-16; source: UXD change, owner answer, plus
+  stated design reason)*
 - **RN-26:** Each of the three new sentences beside a field is a field hint, under its field in
   {components.meta-text} — *because* the UXD added them in version 4. The project-description field
   and the comment field each state their most characters (`products/tracker17/docs/UXD.md` UX-F2,

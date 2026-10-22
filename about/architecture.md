@@ -193,7 +193,7 @@ launchers.
 | `read_first_guard.py` | Refuses an agent run's acting calls until it has read the files its agent file tells it to read first |
 | `brief_anchor_guard.py` | Refuses to spawn an agent whose brief cites something that is not there |
 | `written_forward_guard.py` | Refuses a write that narrates a file's own state into a scoped document |
-| `context_cap.py` | Tells a developer run past its context cap to finish its task, commit, and hand over to a fresh run |
+| `context_cap.py` | Tells a developer run past its context cap to finish its task, commit, and hand over to a fresh run. It reads the run's context through ka-telemetry; without the package, it caps nothing and says so |
 | `task_map_salience.py`, `manifest_salience.py`, `standing_rules_salience.py` | Inject, at every session and subagent start, the task-to-rule map, the map of where files live, and the rules that bind without being looked up |
 | `commit-msg` check | Refuses a commit or merge that lacks its required trailers, such as `Role:` and `Surface:` |
 | Permission mode | A launched Claude run uses Claude Code's auto permission mode, and no launcher bypasses permissions. A run started in the background, the default, can still stop on a prompt and wait; a print run takes none, so an action it would have to ask about is denied and the run carries on |

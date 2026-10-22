@@ -4,7 +4,7 @@ description: CPO-posture skill that authors a project's PRD — the product sour
 license: MIT
 metadata:
   author: Eyal Golan
-  version: "4.15.1"
+  version: "4.16.0"
   created: "2026-07-09"
   category: product-definition
   tags: prd, cpo, product-definition, product-source-of-truth, upstream-chain
@@ -159,7 +159,12 @@ git -C "<expanded Product path>" rev-parse --show-toplevel
 - `<Product path>/docs/PRD.md` — the existing PRD, if any.
 - `<Product path>/docs/what_left.md` — the product's what-left list, if any.
 - `<Product path>/docs/PRD_open_issues.md` — **the loop's re-entry point**: the owner's
-  inline answers are here.
+  inline answers are here. An answer marked *(the session's suggestion, accepted by the owner as shown)* or *(the
+  session's suggestion, edited by the owner)* came from `project-setup`'s interview: it is the
+  session's suggestion, which the owner accepted, so weigh it as that rather than as the owner's
+  own words — except that in an edited one, what the owner changed is theirs — and never copy the
+  mark into the document. The same marks reach the trail's first cycle; read them there the same
+  way.
 - `<Product path>/docs/trail/prd/` — every answer the owner has already given, and their
   reasoning. Read it: a value the owner confirmed in an earlier cycle is authorized, and
   changing it needs a fresh authorization (the prompt's principle 7). It also gives you the

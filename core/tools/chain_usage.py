@@ -2,13 +2,13 @@
 """chain_usage.py — what a chain walk spent, per document and per cycle.
 
 WHY THIS EXISTS
-    `run_usage.py` reads what one background run spent and `flow_usage.py` reads what one
-    `/development` step spent. Neither has a notion of a **chain**: `chain.py` walks a spine
-    of documents, folding each one through `producer -> companion-self-answer -> producer`
-    until it settles, and the runs that walk it appear in `run_usage.py`'s flat ledger as
-    unattributed rows — nothing says which document a run belongs to, whether it produced or
-    answered, or how many cycles a document took. Three readers, three populations, one unit
-    apiece: a run there, a step there, a document cycle here.
+    The telemetry package's `run_usage` reads what one background run spent, and its
+    `flow_usage` reads what a workflow run spent, one row per step. Neither has a notion of a
+    **chain**: `chain.py` walks a spine of documents, folding each one through
+    `producer -> companion-self-answer -> producer` until it settles, and the runs that walk it
+    appear in `run_usage`'s flat ledger as unattributed rows — nothing says which document a run
+    belongs to, whether it produced or answered, or how many cycles a document took. Three readers,
+    three populations, one unit apiece: a run there, a step there, a document cycle here.
 
     Measured against the live disk on 2026-09-09, over one instance's finished definition
     chain (239 watcher logs and 592 agent rows):
@@ -65,16 +65,22 @@ WHY THIS EXISTS
 
     **No price model, no currency** — this counts, it does not price, exactly like both
     siblings. **The five spend classes are kept apart and never summed**, and `thinking` stays
-    a share of `output` rather than an addend: `run_usage.spend_by_model` is imported and does
-    all of it, here as in `flow_usage.py`.
+    a share of `output` rather than an addend: the telemetry gateway's `spend_by_model` does all
+    of it here, and the package's `flow_usage` takes the same split from the package's
+    `run_usage`.
 
     **What this reader does not attribute.** The chain engine's own `chain.py` invocations
     cost nothing to attribute because they are not runs; the shim that fires them leaves no
     session. A run launched by hand during a walk leaves a watcher log with no `on_complete:`
     line and is out of the population by definition, counted and named rather than dropped.
 
-Usage:  python3 <CORE>/tools/chain_usage.py --logs-dir DIR --project NAME [--json]
-        python3 <CORE>/tools/chain_usage.py --state <chain-state.json> [--json]
+Usage:  ~/.kensaiapp/venv/bin/python <CORE>/tools/chain_usage.py
+            --logs-dir DIR --project NAME [--json]
+        ~/.kensaiapp/venv/bin/python <CORE>/tools/chain_usage.py
+            --state <chain-state.json> [--json]
+
+Under a Python that cannot import the telemetry package, it reads nothing, prints one line on stderr
+saying so, and exits 1. `--help` and argument errors are answered without the package.
 """
 
 from __future__ import annotations
@@ -87,11 +93,12 @@ from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
+from typing import Any
 
 import chain
-import run_usage
+import telemetry_gateway
 
-__version__ = "1.4.0"
+__version__ = "1.5.1"
 
 # The line `watch_agent.py:675` prints, and only under the `if args.on_complete:` guard at
 # `:814-815`. A log carrying it was watched for a run the chain launched.
@@ -337,7 +344,7 @@ def first_user_text(path: Path, files: Files) -> str | None:
 
     `content` arrives either as a plain string or as a list of blocks; both are read, and a
     malformed line is skipped rather than fatal, the same read-a-live-file posture
-    `run_usage.usage_records` already takes."""
+    the telemetry gateway's usage reader already takes."""
     lines = files.read_lines(path)
     if lines is None:
         return None
@@ -409,7 +416,7 @@ class Transcript(str, Enum):
 class AgentRow:
     """One row of `claude agents --json --all`, projected to what this reader joins on.
 
-    `run_usage.runs_from` is not reused for this, for two reasons that are both about the
+    The gateway's `parse_runs` is not reused for this, for two reasons that are both about the
     join rather than about taste: it drops `id`, which is the only field a watcher log gives
     this reader to join on, and it excludes `kind == "interactive"`, which is right for a
     ledger of background runs and wrong for a join keyed on an id a log already named."""
@@ -436,8 +443,8 @@ class SeatRow:
 class ChainRun:
     """One run of a chain walk, whichever population it came from, with the usage records its
     transcript carried. The records are kept rather than a summed spend, so an aggregate over
-    several runs is `run_usage.spend_by_model` over their combined records — the sibling's own
-    accumulator applied once, never a second accumulator adding `ModelSpend`s together.
+    several runs is the gateway's `spend_by_model` over their combined records — the package's own
+    accumulator applied once, never a second accumulator adding `Spend`s together.
 
     `cycle` is `None` until `with_cycles` assigns it, and `document_key is None` is a real
     answer: a run whose document this reader could not name is reported unattributed."""
@@ -643,17 +650,20 @@ def seat_rows_from_records(
 
 
 def _records_for(
-    session_id: str | None, projects_root: Path, files: Files
+    session_id: str | None,
+    projects_root: Path,
+    files: Files,
+    telemetry: telemetry_gateway.Telemetry,
 ) -> tuple[Transcript, tuple, Path | None]:
-    """The transcript state and usage records for `session_id` — resolved through
-    `run_usage.transcript_for` and read through `run_usage.usage_records`, the sibling's own
+    """The transcript state and usage records for `session_id` — resolved through the
+    gateway's `find_transcript` and read through its `read_usage`, the package's own
     resolution and reader rather than a second pair."""
     if session_id is None:
         return Transcript.NO_SESSION, (), None
-    path = run_usage.transcript_for(session_id, projects_root, files)
+    path = telemetry.find_transcript(session_id, projects_root, files)
     if path is None:
         return Transcript.MISSING, (), None
-    return Transcript.READ, tuple(run_usage.usage_records(path, files)), path
+    return Transcript.READ, tuple(telemetry.read_usage(path, files)), path
 
 
 def runs_from_logs(
@@ -662,6 +672,7 @@ def runs_from_logs(
     projects_root: Path,
     files: Files,
     keys: tuple[DocumentKey, ...],
+    telemetry: telemetry_gateway.Telemetry,
 ) -> tuple[ChainRun, ...]:
     """One `ChainRun` per watcher log. A tagged log is a `companion-self-answer` run whose
     document the tag names; an untagged one is a producer whose document comes from the first
@@ -676,7 +687,7 @@ def runs_from_logs(
     for log in logs:
         row = by_short_id.get(log.short_id) if log.short_id else None
         session_id = log.session_id or (row.session_id if row else None)
-        state, records, path = _records_for(session_id, projects_root, files)
+        state, records, path = _records_for(session_id, projects_root, files, telemetry)
 
         if log.tag is not None:
             kind = Kind.SELF_ANSWER
@@ -756,6 +767,7 @@ def runs_from_seats(
     projects_root: Path,
     files: Files,
     keys: tuple[DocumentKey, ...],
+    telemetry: telemetry_gateway.Telemetry,
     evidence: dict[int, SeatEvidence] | None = None,
 ) -> tuple[ChainRun, ...]:
     """One `ChainRun` per SDD seat session, attributed to the document its runner writes —
@@ -772,7 +784,9 @@ def runs_from_seats(
     key = key_for_skill(SEAT_RUNNER_SKILL, keys)
     runs = []
     for seat in seats:
-        state, records, _path = _records_for(seat.row.session_id, projects_root, files)
+        state, records, _path = _records_for(
+            seat.row.session_id, projects_root, files, telemetry
+        )
         runs.append(
             ChainRun(
                 label=seat.row.name or seat.row.session_id,
@@ -791,18 +805,20 @@ def runs_from_seats(
     return tuple(runs)
 
 
-def run_spend(run: ChainRun) -> dict[str, run_usage.ModelSpend]:
-    """One `ModelSpend` per model this run used — `run_usage.spend_by_model` over the records
+def run_spend(
+    run: ChainRun, telemetry: telemetry_gateway.Telemetry
+) -> dict[str, telemetry_gateway.Spend]:
+    """One `Spend` per model this run used — the gateway's `spend_by_model` over the records
     it already holds. The five classes are kept apart and `thinking` stays a share of
     `output`, because that function is the one place either rule is implemented."""
-    return run_usage.spend_by_model(run.records)
+    return telemetry.spend_by_model(run.records)
 
 
-def run_span(run: ChainRun) -> float | None:
-    """The run's wall time from its own transcript — `run_usage.span_seconds`, a span measured
-    first-to-last and never a sum. `None` for a run with no timestamped record at all, which
-    is a different fact from a run that took no time."""
-    return run_usage.span_seconds(run.records)
+def run_span(run: ChainRun, telemetry: telemetry_gateway.Telemetry) -> float | None:
+    """The run's wall time from its own transcript — the gateway's `span_seconds`, a span
+    measured first-to-last and never a sum. `None` for a run with no timestamped record at
+    all, which is a different fact from a run that took no time."""
+    return telemetry.span_seconds(run.records)
 
 
 # ── Task 4 — the cycles, the aggregation, and the coverage this reading states ──
@@ -891,7 +907,7 @@ class DocumentRow:
     self_answers: int
     seats: int
     runs: int
-    spend: dict[str, run_usage.ModelSpend]
+    spend: dict[str, telemetry_gateway.Spend]
 
 
 @dataclass(frozen=True)
@@ -906,16 +922,18 @@ class CycleRow:
     seats: int
     runs: int
     started_at: int | None
-    spend: dict[str, run_usage.ModelSpend]
+    spend: dict[str, telemetry_gateway.Spend]
 
 
-def _combined_spend(runs) -> dict[str, run_usage.ModelSpend]:
-    """The spend across several runs — `run_usage.spend_by_model` over their combined records,
-    which is the sibling's accumulator applied once rather than a second one adding
-    `ModelSpend`s. That is what keeps "no class is ever summed with another" true here without
+def _combined_spend(
+    runs, telemetry: telemetry_gateway.Telemetry
+) -> dict[str, telemetry_gateway.Spend]:
+    """The spend across several runs — the gateway's `spend_by_model` over their combined
+    records, which is the package's accumulator applied once rather than a second one adding
+    `Spend`s. That is what keeps "no class is ever summed with another" true here without
     this module implementing the rule a second time."""
     records = [record for run in runs for record in run.records]
-    return run_usage.spend_by_model(records)
+    return telemetry.spend_by_model(records)
 
 
 def _key_order(keys: tuple[DocumentKey, ...]) -> dict[str | None, int]:
@@ -941,7 +959,9 @@ def _counts(runs) -> tuple[int, int, int]:
 
 
 def by_document(
-    runs: tuple[ChainRun, ...], keys: tuple[DocumentKey, ...]
+    runs: tuple[ChainRun, ...],
+    keys: tuple[DocumentKey, ...],
+    telemetry: telemetry_gateway.Telemetry,
 ) -> tuple[DocumentRow, ...]:
     """One row per document cycle this reading saw, in registry order, with the unattributed
     runs as a row of their own at the end. A document with no runs gets no row: this reader
@@ -964,14 +984,16 @@ def by_document(
                 self_answers=self_answers,
                 seats=seats,
                 runs=len(group),
-                spend=_combined_spend(group),
+                spend=_combined_spend(group, telemetry),
             )
         )
     return tuple(rows)
 
 
 def by_cycle(
-    runs: tuple[ChainRun, ...], keys: tuple[DocumentKey, ...]
+    runs: tuple[ChainRun, ...],
+    keys: tuple[DocumentKey, ...],
+    telemetry: telemetry_gateway.Telemetry,
 ) -> tuple[CycleRow, ...]:
     """One row per `(document, cycle)`, in registry order then cycle order. A run this reader
     could not place carries `cycle = None` and gets its own row rather than joining another
@@ -998,7 +1020,7 @@ def by_cycle(
                 seats=seats,
                 runs=len(group),
                 started_at=min(starts) if starts else None,
-                spend=_combined_spend(group),
+                spend=_combined_spend(group, telemetry),
             )
         )
     return tuple(rows)
@@ -1128,7 +1150,8 @@ def spine_without_runs(
 class Reading:
     """One whole reading of a walk — every run from both populations with its cycle assigned,
     what the reading covered, the keys it attributed against, and the window and state file it
-    was scoped by — and every seat name a run record states that no agent row answered to, so
+    was scoped by, with the telemetry collaborator the aggregation and renderings read spend
+    through — and every seat name a run record states that no agent row answered to, so
     a recorded seat with no session is reported rather than dropped."""
 
     project: str
@@ -1138,6 +1161,7 @@ class Reading:
     state: ChainStateFacts | None
     since: int | None
     until: int | None
+    telemetry: telemetry_gateway.Telemetry
     unmatched_recorded_names: tuple[str, ...] = ()
 
 
@@ -1151,6 +1175,7 @@ def read_walk(
     keys: tuple[DocumentKey, ...],
     since: int | None,
     until: int | None,
+    telemetry: telemetry_gateway.Telemetry,
     state: ChainStateFacts | None = None,
 ) -> Reading:
     """Assemble both populations into one reading: the chain-driven watcher logs, the SDD seat
@@ -1169,9 +1194,9 @@ def read_walk(
     product_path = Path(state.product_path) if state and state.product_path else None
     seat_reading = read_seats(product_path, project, rows, files)
 
-    runs = runs_from_logs(logs.logs, rows, projects_root, files, keys)
+    runs = runs_from_logs(logs.logs, rows, projects_root, files, keys, telemetry)
     runs += runs_from_seats(
-        seat_reading.seats, projects_root, files, keys, evidence=seat_reading.evidence
+        seat_reading.seats, projects_root, files, keys, telemetry, evidence=seat_reading.evidence
     )
     runs = with_cycles(within(runs, since=since, until=until))
 
@@ -1183,6 +1208,7 @@ def read_walk(
         state=state,
         since=since,
         until=until,
+        telemetry=telemetry,
         unmatched_recorded_names=seat_reading.unmatched_recorded_names,
     )
 
@@ -1198,7 +1224,7 @@ def _stamp(epoch_ms: int | None) -> str:
     )
 
 
-def _spend_lines(spend: dict[str, run_usage.ModelSpend], indent: str) -> list[str]:
+def _spend_lines(spend: dict[str, telemetry_gateway.Spend], indent: str) -> list[str]:
     """One line per model, five classes apart, `thinking` beside `output` and never inside
     it."""
     lines = []
@@ -1302,12 +1328,12 @@ def render(reading: Reading) -> str:
     lines.extend(_coverage_lines(reading.coverage))
     lines.append("")
 
-    documents = by_document(reading.runs, reading.keys)
+    documents = by_document(reading.runs, reading.keys, reading.telemetry)
     if not documents:
         lines.append("No runs read.")
         return "\n".join(lines).rstrip() + "\n"
 
-    cycles = by_cycle(reading.runs, reading.keys)
+    cycles = by_cycle(reading.runs, reading.keys, reading.telemetry)
     for row in documents:
         lines.append(
             f"{_document_label(row)}  cycles={row.cycles}  runs={row.runs} "
@@ -1329,7 +1355,7 @@ def render(reading: Reading) -> str:
     return "\n".join(lines).rstrip() + "\n"
 
 
-def _spend_payload(spend: dict[str, run_usage.ModelSpend]) -> dict:
+def _spend_payload(spend: dict[str, telemetry_gateway.Spend]) -> dict:
     return {
         model: {
             "input": amount.input,
@@ -1388,7 +1414,7 @@ def render_json(reading: Reading) -> str:
                 "seats": row.seats,
                 "spend": _spend_payload(row.spend),
             }
-            for row in by_document(reading.runs, reading.keys)
+            for row in by_document(reading.runs, reading.keys, reading.telemetry)
         ],
         "cycles": [
             {
@@ -1401,7 +1427,7 @@ def render_json(reading: Reading) -> str:
                 "seats": row.seats,
                 "spend": _spend_payload(row.spend),
             }
-            for row in by_cycle(reading.runs, reading.keys)
+            for row in by_cycle(reading.runs, reading.keys, reading.telemetry)
         ],
         "runs": [
             {
@@ -1416,8 +1442,8 @@ def render_json(reading: Reading) -> str:
                 "session_id": run.session_id,
                 "started_at": run.started_at,
                 "transcript": run.transcript.value,
-                "span_seconds": run_span(run),
-                "spend": _spend_payload(run_spend(run)),
+                "span_seconds": run_span(run, reading.telemetry),
+                "spend": _spend_payload(run_spend(run, reading.telemetry)),
             }
             for run in reading.runs
         ],
@@ -1431,13 +1457,26 @@ def render_json(reading: Reading) -> str:
 # constructed anywhere but `build_reader()`.
 
 
-class Files(run_usage.Files):
-    """Every filesystem touch this reader makes. It **extends** `run_usage.Files` rather than
-    restating it: `find_transcripts` and `read_lines` are exactly the reaches
-    `run_usage.transcript_for` and `run_usage.usage_records` take through their own `files`
-    argument, and this reader hands itself straight to both. Only the two reaches those
-    functions do not have — a logs directory, and a whole file read as text — are added
-    here."""
+class Files:
+    """Every filesystem touch this reader makes. It **composes** the gateway's transcript file
+    port rather than restating it: `find_transcripts` and `read_lines` are exactly the reaches
+    the gateway's `find_transcript` and `read_usage` take through their own `files` argument,
+    so both forward to `transcripts` and this reader hands itself straight to both. Only the
+    reaches that port does not have — a logs directory, a whole file read as text, and the run
+    records — are written here."""
+
+    def __init__(self, transcripts: Any):
+        self._transcripts = transcripts
+
+    def find_transcripts(self, session_id: str, projects_root: Path) -> list[Path]:
+        """Every transcript of `session_id` under `projects_root`, as the transcript port finds
+        them."""
+        return self._transcripts.find_transcripts(session_id, projects_root)
+
+    def read_lines(self, path: Path) -> list[str] | None:
+        """`path`'s lines, or `None` when it cannot be read, as the transcript port reads
+        them."""
+        return self._transcripts.read_lines(path)
 
     def find_watch_logs(self, logs_dir: Path, project: str) -> list[Path]:
         """Every `watch-<project>-*.log` under `logs_dir`, in no particular order — a
@@ -1468,24 +1507,31 @@ class Files(run_usage.Files):
 
 @dataclass(frozen=True)
 class Reader:
-    """The reader's whole environment: the two ports it reaches the world through, plus the
+    """The reader's whole environment: the two ports it reaches the world through, the
     projects root resolved to a concrete `Path` — the one environment reach `build_reader`
-    performs itself, per `run_usage.py`'s own `Reader` / `build_reader` shape."""
+    performs itself — and the telemetry collaborator every spend and usage read goes
+    through."""
 
     files: Files
-    processes: run_usage.Processes
+    processes: Any
     projects_root: Path
+    telemetry: telemetry_gateway.Telemetry
 
 
-def build_reader(projects_root: Path | None = None) -> Reader:
-    """Wire the real ports. The only place `Files()` or `run_usage.Processes()` is
-    constructed. A `projects_root` of `None` resolves to `~/.claude/projects`, here rather
-    than at an argparse default or inside a unit's own body."""
+def build_reader(
+    projects_root: Path | None = None, telemetry: telemetry_gateway.Telemetry | None = None
+) -> Reader:
+    """Wire the real ports. The only place `Files()` is constructed. A `projects_root` of
+    `None` resolves to `~/.claude/projects`, here rather than at an argparse default or inside
+    a unit's own body. A test passes its own `telemetry`; otherwise the gateway loads the
+    package, or raises `TelemetryUnavailable`."""
     default_root = Path.home() / ".claude" / "projects"
+    wired = telemetry_gateway.build_telemetry() if telemetry is None else telemetry
     return Reader(
-        files=Files(),
-        processes=run_usage.Processes(),
+        files=Files(wired.files),
+        processes=wired.processes,
         projects_root=projects_root if projects_root is not None else default_root,
+        telemetry=wired,
     )
 
 
@@ -1493,7 +1539,7 @@ def build_reader(projects_root: Path | None = None) -> Reader:
 
 
 def _agents_json_text(
-    agents_json_path: Path | None, files: Files, processes: run_usage.Processes
+    agents_json_path: Path | None, files: Files, processes: Any
 ) -> str:
     """The `claude agents --json --all` text this run reads: a saved file when one is given —
     the seam a test uses to shell out to nothing — else the live command. A missing saved file
@@ -1507,7 +1553,9 @@ def _agents_json_text(
     return processes.run(["claude", "agents", "--json", "--all"])
 
 
-def main(argv: list[str] | None = None) -> int:
+def main(
+    argv: list[str] | None = None, *, telemetry: telemetry_gateway.Telemetry | None = None
+) -> int:
     parser = argparse.ArgumentParser(
         prog="chain_usage.py",
         description=(
@@ -1560,7 +1608,14 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    reader = build_reader(args.projects_root)
+    try:
+        reader = build_reader(args.projects_root, telemetry)
+    except telemetry_gateway.TelemetryUnavailable:
+        print(
+            telemetry_gateway.dependency_message(telemetry_gateway.ReaderName.CHAIN_USAGE),
+            file=sys.stderr,
+        )
+        return 1
 
     state = chain_state(args.state, reader.files) if args.state is not None else None
     if args.state is not None and state is None:
@@ -1600,6 +1655,7 @@ def main(argv: list[str] | None = None) -> int:
             keys=document_keys(chain.DOCUMENT_REGISTRY),
             since=since,
             until=until,
+            telemetry=reader.telemetry,
             state=state,
         )
     except ValueError as exc:

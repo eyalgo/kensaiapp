@@ -85,3 +85,46 @@ def test_an_empty_answer_is_refused(tmp_path):
                        answers=[{"question": "Who?", "why": "x", "answer": "  "}])
     assert result.returncode == 2
     assert not out.exists()
+
+
+def test_an_adopted_suggestion_is_marked_and_the_owners_words_are_not(tmp_path):
+    answers = [
+        {"question": "Who is it for?", "why": "PRD: Target Users", "answer": "Solo founders",
+         "suggested": "accepted"},
+        {"question": "What is it not?", "why": "PRD: Out of Scope", "answer": "Not a CRM",
+         "suggested": "edited"},
+        {"question": "What problem does it remove?", "why": "PRD: Problem Statement",
+         "answer": "Plans scattered across five apps"},
+    ]
+    result, out = _run(tmp_path, AGARI_TEMPLATE, answers=answers)
+    assert result.returncode == 0, result.stderr
+    text = out.read_text()
+    assert ("- **Answer:** Solo founders *(the session's suggestion, accepted by the owner as "
+            "shown)*") in text
+    assert ("- **Answer:** Not a CRM *(the session's suggestion, edited by the owner)*") in text
+    assert "- **Answer:** Plans scattered across five apps\n" in text
+
+
+def test_the_round_zero_line_no_longer_claims_every_answer_is_the_owners_own(tmp_path):
+    _, out = _run(tmp_path, PRD_TEMPLATE)
+    text = out.read_text()
+    assert "every answer below is the owner's own, given" not in text
+    assert ("Every answer below is the owner's own, except any marked as the session's "
+            "suggestion") in text
+
+
+def test_an_unknown_suggested_value_is_refused(tmp_path):
+    for value in ("maybe", None, ["accepted"], {"a": 1}):
+        result, out = _run(tmp_path, PRD_TEMPLATE,
+                           answers=[{"question": "Who?", "why": "x", "answer": "y",
+                                     "suggested": value}])
+        assert result.returncode == 2, (value, result.stderr)
+        assert not out.exists()
+
+
+def test_a_non_string_field_is_refused_not_crashed(tmp_path):
+    for bad in ({"question": "Who?", "why": "x", "answer": 3},
+                {"question": None, "why": "x", "answer": "y"}):
+        result, out = _run(tmp_path, PRD_TEMPLATE, answers=[bad])
+        assert result.returncode == 2, (bad, result.stderr)
+        assert not out.exists()

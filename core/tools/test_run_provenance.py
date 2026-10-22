@@ -2,8 +2,11 @@
 its run ID.
 
 Nothing here monkeypatches the module under test. The check reaches the log through one port,
-`LogSource`, handed to `run()` inside a `Reader`; the fake below stands in for it and records
-what it was asked. The real port is exercised on its own, against a file in `tmp_path`.
+`LogSource`, and reads it through one telemetry collaborator, both handed to `run()` inside a
+`Reader`; the fakes below stand in for them. The fake telemetry parses the receiver's lines the
+way the gateway's contract describes — records opaque, attributes resolved record first and
+resource second — so the package is not needed and the check's own decisions are what is tested.
+The real port is exercised on its own, against a file in `tmp_path`.
 
 Every log line is built here in the receiver's own shape — `{"body": {"resourceLogs": [...]}}`,
 one export batch per line — so the two placements the spec verified are both constructed
@@ -15,6 +18,7 @@ from __future__ import annotations
 
 import json
 import uuid
+from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
@@ -84,9 +88,57 @@ class FakeLogSource:
         return [line for line in self._lines if needle in line]
 
 
+@dataclass(frozen=True)
+class FakeRecord:
+    """An opaque log record: its own attributes and its resource's."""
+
+    attributes: dict
+    resource: dict
+
+
+@dataclass(frozen=True)
+class FakeLogRead:
+    records: tuple
+    skipped: int
+
+
+class FakeTelemetry:
+    """The two operations the check takes from the gateway, written by hand from its contract."""
+
+    def __init__(self) -> None:
+        self.parsed: list[list[str]] = []
+        self.looked_up: list[tuple[FakeRecord, str]] = []
+
+    @staticmethod
+    def _flat(attributes: list[dict]) -> dict:
+        return {item["key"]: item["value"]["stringValue"] for item in attributes}
+
+    def parse_logs(self, lines: list[str]) -> FakeLogRead:
+        self.parsed.append(list(lines))
+        records, skipped = [], 0
+        for line in lines:
+            try:
+                resources = json.loads(line)["body"]["resourceLogs"]
+            except (ValueError, KeyError, TypeError):
+                skipped += 1
+                continue
+            for resource in resources:
+                shared = self._flat(resource["resource"]["attributes"])
+                for scope in resource["scopeLogs"]:
+                    for record in scope["logRecords"]:
+                        records.append(FakeRecord(self._flat(record["attributes"]), shared))
+        return FakeLogRead(records=tuple(records), skipped=skipped)
+
+    def attribute_value(self, record: FakeRecord, key: str):
+        self.looked_up.append((record, key))
+        if key in record.attributes:
+            return record.attributes[key]
+        return record.resource.get(key)
+
+
 def check(argv: list[str], lines: list[str] | None) -> tuple[int, FakeLogSource]:
     source = FakeLogSource(lines)
-    reader = run_provenance.Reader(source=source, log_path=LOG_PATH)
+    reader = run_provenance.Reader(source=source, log_path=LOG_PATH, telemetry=FakeTelemetry())
     return run_provenance.run(argv, reader), source
 
 
@@ -328,11 +380,14 @@ def test_the_real_log_source_answers_none_for_an_absent_log(tmp_path):
     assert run_provenance.LogSource().lines_carrying(tmp_path / "logs.jsonl", "x") is None
 
 
-def test_build_reader_reads_the_receiver_log_under_home():
-    reader = run_provenance.build_reader()
+def test_build_reader_reads_the_receiver_log_under_home_with_the_given_telemetry():
+    telemetry = FakeTelemetry()
+
+    reader = run_provenance.build_reader(telemetry)
 
     assert isinstance(reader.source, run_provenance.LogSource)
     assert reader.log_path == Path.home() / ".kensaiapp" / "telemetry" / "logs.jsonl"
+    assert reader.telemetry is telemetry
 
 
 def test_run_over_the_real_port_finds_a_run_in_a_real_file(tmp_path, capsys):
@@ -343,7 +398,9 @@ def test_run_over_the_real_port_finds_a_run_in_a_real_file(tmp_path, capsys):
         + "\n",
         encoding="utf-8",
     )
-    reader = run_provenance.Reader(source=run_provenance.LogSource(), log_path=log)
+    reader = run_provenance.Reader(
+        source=run_provenance.LogSource(), log_path=log, telemetry=FakeTelemetry()
+    )
 
     code = run_provenance.run([run_id], reader)
 
@@ -370,7 +427,9 @@ def test_a_log_that_cannot_be_read_prints_no_telemetry_log(tmp_path, capsys):
     directory where the log file should be, read through the real port."""
     log = tmp_path / "logs.jsonl"
     log.mkdir()
-    reader = run_provenance.Reader(source=run_provenance.LogSource(), log_path=log)
+    reader = run_provenance.Reader(
+        source=run_provenance.LogSource(), log_path=log, telemetry=FakeTelemetry()
+    )
 
     code = run_provenance.run([str(uuid.uuid4())], reader)
 
@@ -378,3 +437,55 @@ def test_a_log_that_cannot_be_read_prints_no_telemetry_log(tmp_path, capsys):
     assert code == 1
     assert out.err == f"no telemetry log at {log}\n"
     assert out.out == ""
+
+
+# ── through the gateway (the telemetry collaborator is the only reader of the log) ──────
+
+
+def test_provenance_preserves_exact_id_and_refusal_order(capsys):
+    """Each refusal keeps its status and its precedence, and the exit set gains only `4`."""
+    assert {member.name: int(member) for member in run_provenance.Exit} == {
+        "FOUND": 0, "NOT_LANDED": 1, "USAGE": 2, "UNPROVABLE": 3, "UNAVAILABLE": 4,
+    }
+    run_id = str(uuid.uuid4())
+
+    usage, source = check([], [codex_line(run_id, provider="codex")])
+    assert (usage, source.asked) == (2, [])
+    capsys.readouterr()
+
+    no_log, _ = check([run_id], None)
+    assert no_log == 1
+    capsys.readouterr()
+
+    longer, _ = check([run_id], [codex_line(f"{run_id}-x", provider="codex")])
+    assert longer == 1
+    capsys.readouterr()
+
+    unprovable, _ = check([run_id], [codex_line(run_id, model="m")])
+    assert unprovable == 3
+
+
+def test_the_check_resolves_every_key_through_the_telemetry_collaborator():
+    run_id = str(uuid.uuid4())
+    telemetry = FakeTelemetry()
+    reader = run_provenance.Reader(
+        source=FakeLogSource([claude_line(run_id, provider="claude", model="m")]),
+        log_path=LOG_PATH,
+        telemetry=telemetry,
+    )
+
+    run_provenance.run([run_id], reader)
+
+    keys = [key for _, key in telemetry.looked_up]
+    assert keys[0] == run_provenance.RUN_ID_KEY
+    assert set(run_provenance.PROVENANCE_KEYS) <= set(keys)
+    assert len(telemetry.parsed) == 1
+
+
+def test_main_refuses_a_wrong_argument_count_before_any_wiring(capsys):
+    """The count is checked before the package is asked for: usage `2` holds with or without it."""
+    for argv in ([], ["one", "two"]):
+        assert run_provenance.main(argv) == 2
+        captured = capsys.readouterr()
+        assert captured.err == run_provenance.USAGE + "\n"
+        assert captured.out == ""

@@ -3,7 +3,8 @@ name: project-setup
 description: >-
   The front door for a project in a kensaiapp — one plain-language conversation that turns "I have an idea for a
   product" into a project whose definition is already running. It interviews the owner without
-  kensaiapp's vocabulary (no PRD, no Agari, no companion), stamps the project through
+  kensaiapp's vocabulary (no PRD, no Agari, no companion), one question at a time, offering a
+  suggested answer wherever the idea or the material already holds one, stamps the project through
   project-stamp, writes the owner's answers as the PRD's and the Agari's first round, commits them,
   and starts the chain that writes the PRD and then the Agari. Interactive, with the owner in the
   room; works the same in a host or a satellite. Use whenever someone wants to start, create, set
@@ -17,7 +18,7 @@ license: MIT
 metadata:
   author: Eyal Golan
   category: kensaiapp-setup
-  version: "1.1.2"
+  version: "1.2.0"
   created: "2026-10-04"
   risk: safe
   tags: kensaiapp, project, setup, interview, front-door
@@ -28,8 +29,9 @@ metadata:
 
 A person with a product idea should not have to know that a project is stamped, that a PRD comes
 before an Agari, or that a run parks its questions in a companion. This skill asks what only they
-can answer, in their words, and does the rest: it creates the project, writes their answers where
-the first runs read them, and starts those runs.
+can answer — suggesting an answer where it already has one, which they accept, change or replace —
+and does the rest: it creates the project, writes their answers where the first runs read them,
+and starts those runs.
 
 "New project" is the door's first verb; more join it later. It opens onto an instance that already
 exists — setting up the instance itself is a separate door.
@@ -45,7 +47,8 @@ unattended gates to its seat*). Commits carry `--role Product`.
 
 1. Name the project
 2. Screen 1 — what kind of project (four taps)
-3. Screen 2 — the product (seven questions in chat, three taps)
+3. Screen 2 — the product (seven questions in chat, three taps), each with a suggested answer where
+   there is one
 4. Confirm
 5. Set up the project
 6. Write the two companions
@@ -80,7 +83,22 @@ Then ask in chat for whatever a "yes" opened:
 
 ### 3. Screen 2 — the product
 
-Ask these **one at a time in chat**. Each answer is the owner's own; do not polish it.
+Ask these **one at a time in chat**, and wait for each answer before asking the next.
+
+**Suggest an answer where you have grounds for one.** The idea the owner has described, the material
+they pointed at — which can be detailed enough to answer most of these — and their earlier answers
+often already say what the answer is. Then put a short suggested answer under the question, say
+plainly that it is your suggestion, and let the owner accept it, change it or answer in their own
+words. Where nothing you hold answers the question, ask it bare. A guess with nothing under it is
+not a suggestion.
+
+**One question, one suggestion.** Never put the suggestions for the remaining questions in one
+message, even when you could draft them all or the owner says "suggest the rest". A wall of answers
+gets accepted unread, and the point of the interview is that each answer is looked at.
+
+Record what happened to each answer, because the writing runs must not mistake your words for the
+owner's: their own words as they gave them, unpolished; a suggestion taken as shown is `accepted`;
+a suggestion they changed is `edited`, with the changed text as the answer.
 
 | # | Ask | `why` (written into the item, never shown) | Goes to |
 |---|---|---|---|
@@ -92,7 +110,10 @@ Ask these **one at a time in chat**. Each answer is the owner's own; do not poli
 | 6 | How will you know it's working? | PRD: Goals, Success Metrics | PRD |
 | 7 | When is it finished — what has to be true for you to say "done"? | The terminus itself — the condition under which the product is done | Agari |
 
-Then one `AskUserQuestion` call:
+Then one `AskUserQuestion` call. Where you have grounds for an answer, put that option first and
+add "(Recommended)" to its label; otherwise keep the order below. A recommended option the owner
+picks is `accepted`; any other pick is their own answer. When question 9's answer is yes and you can
+name the services, suggest the names in chat the same way, and record them the same way.
 
 | # | Question | Options | `why` | Goes to |
 |---|---|---|---|---|
@@ -112,9 +133,10 @@ words rather than go on.
 
 ### 4. Confirm
 
-Show a short summary in plain words — the name, the four screen-1 answers, and the ten answers —
-and ask with `AskUserQuestion`: **Create it** · **Change something**. Nothing is written before
-**Create it**; that answer is also the consent to commit.
+Show a short summary in plain words — the name, the four screen-1 answers, and the ten answers,
+with the ones that came from your suggestion marked as such — and ask with `AskUserQuestion`:
+**Create it** · **Change something**. Nothing is written before **Create it**; that answer is also
+the consent to commit.
 
 ### 5. Set up the project
 
@@ -143,7 +165,8 @@ On exit 3 (the project exists) or exit 2 (a path mismatch), report the script's 
 ### 6. Write the two companions
 
 Write each document's answers to a JSON list of `{"question", "why", "answer"}` in a scratch file
-outside the repository, then render:
+outside the repository — adding `"suggested": "accepted"` or `"suggested": "edited"` to an answer that
+came from your suggestion, and nothing to one in the owner's own words — then render:
 
 ```bash
 W=<CORE>/../skills/interactive-product/.claude/skills/project-setup/scripts/write_companion.py
@@ -155,7 +178,8 @@ python3 $W --template <CORE>/templates/project-templates/agari_open_issues_templ
 
 `<Product path>` is the card's: `products/<slug>` for an internal product, the absolute path for an
 external one. The script keeps every heading of the template, puts the answers in bucket 1 as
-answered items, and refuses an existing file or an empty answer. Each answer is a round 0: the
+answered items, marks each answer that came from a suggestion after its text, and refuses an
+existing file, an empty answer or any other `suggested` value. Each answer is a round 0: the
 first run reads it as already answered and folds it in (`product-prd`'s own Step 2 says answers in
 the open-issues file resolve into the body).
 

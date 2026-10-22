@@ -63,6 +63,13 @@ HOW A DOCUMENT IS LAUNCHED
     bullet is launched as quoted once it validates. The owner's ruling, 2026-09-17, which also
     retired the per-skill launchers.
 
+    Every launcher but one detaches: it starts its run, leaves a watcher that calls the
+    launch's shim when the run ends, and exits. The card launcher runs in the foreground and
+    leaves no watcher, because its second half reads the card its first half writes — so a
+    card launch that exits 0 IS the run's end, and `_launch` finishes it itself, as the shim
+    would have with `completed`. Until 2026-10-21 nothing did, and a walk that reached the card
+    waited on its shim forever.
+
 THE PROVIDER A LAUNCH GOES TO
     The provider the walk was forced onto (`--provider`, kept on the state as `forced_provider`),
     else the one the instance's provider file (`.providers.toml` at its root) names for the launch's
@@ -131,7 +138,7 @@ import walk_stop
 from providers import ProviderFiles, ProvidersRefused
 from run_intelligence import PROVIDERS
 
-__version__ = "5.9.1"
+__version__ = "5.9.4"
 
 # The state file's own shape. `StateStore.load` refuses anything else by name rather than
 # raising out of the completion hook, because the hook's traceback is what killed a live
@@ -310,6 +317,15 @@ def resolve_document(path: str) -> DocumentSpec | None:
     stem = basename.rsplit(".", 1)[0] if "." in basename else basename
     for spec in DOCUMENT_REGISTRY.values():
         if spec.shape is Shape.FILE and spec.stem.lower() == stem.lower():
+            return spec
+    # A companion names the document it answers for. A self-answer report owes a round on the
+    # architecture companion by the companion's own path, because no one document is it — a
+    # live product, 2026-10-20, where reading that bullet as no document ended the walk
+    # `no_runnable_command` on a report that had routed the companion.
+    for spec in DOCUMENT_REGISTRY.values():
+        companion = spec.companion_stem or (
+            f"{spec.stem}_open_issues" if spec.shape is Shape.FILE else None)
+        if companion is not None and companion.lower() == stem.lower():
             return spec
     return None
 
@@ -1430,13 +1446,18 @@ class Chain:
         if awaited is not None and launch != awaited:
             return AdvanceResult(acted=False, ended=None)
 
+        self._finish(state, outcome)
+        self.store.save(state)
+        return AdvanceResult(acted=True, ended=state.ended)
+
+    def _finish(self, state: ChainState, outcome: str) -> None:
+        """The pending launch's end, on `state` as it stands: `advance`'s for a detached run, and
+        `_launch`'s own for a foreground one, which has no shim call to wait for."""
         pending = state.pending
         state.pending = None
         self.store.save(state)
         if not self._left_the_checkout_dirty(state, pending):
             self._step(state, outcome, pending)
-        self.store.save(state)
-        return AdvanceResult(acted=True, ended=state.ended)
 
     def _left_the_checkout_dirty(self, state: ChainState, pending: dict) -> bool:
         """Before anything else of the run's end is read, whatever its outcome: compare the
@@ -1805,7 +1826,7 @@ class Chain:
         env["DETACH_WATCHER_ON_COMPLETE"] = shim
         env, _ = walk_stop.prepare_launch(self.files, shim, env)
         # Task 3 — ties every document this walk launches to the same walk, and names the
-        # chain, in `instrument_run`'s own terms. Either key is simply absent when its state
+        # chain, in the terms `run_telemetry` reads. Either key is simply absent when its state
         # value is empty (a pre-task-3 state resumed under this engine, or an unnamed walk),
         # never an empty string a receiver would have to know means "nothing".
         # An empty value also removes whatever the engine's own environment carried, so a walk
@@ -1821,6 +1842,13 @@ class Chain:
             state.pending = None
             self._reach_end(state, CycleEnd.MACHINERY, spec,
                             reason=f"launcher exited {exit_code}")
+            return
+        if _is_card(validated):
+            # The card launcher ran in the foreground and left no watcher, so its exit is the
+            # run's end and nothing will ever call the shim (module header, § How a document is
+            # launched). Finished on this `state`, never through `advance`, which would load a
+            # copy the caller then overwrites with this one.
+            self._finish(state, "completed")
 
     def _reach_end(self, state: ChainState, end: CycleEnd, spec: DocumentSpec | None, *,
                    reason: str = "") -> None:

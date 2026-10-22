@@ -4,7 +4,7 @@
 WHY THIS EXISTS
 
 A launcher hands its run a model and an effort, and stamps the same three facts on the run's
-telemetry (`instrument_run.sh`'s `model=`, `effort=`, `source=`). Where they come from has one
+telemetry (`run_telemetry.sh`'s `model=`, `effort=`, `source=`). Where they come from has one
 precedence — the skill's `intelligence/` file, else a tier the caller named, else nothing — and
 that precedence used to live inline in the skill launcher alone. Twelve launchers now need it, so
 it lives here once, and a launcher hands its run and its stamp the one answer this prints: the
@@ -54,7 +54,7 @@ from typing import NoReturn
 import intelligence
 import model_assignment
 
-__version__ = "1.3.1"
+__version__ = "1.3.2"
 
 PROVIDERS = ("claude", "codex", "gemini", "hf", "ollama")
 

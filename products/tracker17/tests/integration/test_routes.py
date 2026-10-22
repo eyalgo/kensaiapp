@@ -4,8 +4,8 @@ Checks SRS FR-2 (only this machine's requests are answered), FR-10 and FR-11 (cr
 projects), FR-16 and FR-23 (the edit and the label actions are more actions every route check
 covers), NFR-4 (a request from another site is refused), NFR-8 (a failed save leaves the state as
 it was), AC-10, AC-12, AC-18 and AC-20. Change spec rules CP-16, CP-18 to CP-22, CP-25, CP-30 to
-CP-38, CP-80, CP-98, CP-169, CP-177, CP-206, CP-223 and CP-235 and NFDR QC-7, QC-8, QC-31,
-QC-32, QC-34, QC-35, QC-53, QC-54, QC-56 and QC-57 are the ones each test names. The operator-name
+CP-38, CP-80, CP-98, CP-169, CP-177, CP-206, CP-223, CP-235 and the cancel-confirmation change's CP-326
+and CP-339, and NFDR QC-7, QC-8, QC-31, QC-32, QC-34, QC-35, QC-53, QC-54, QC-56 and QC-57 are the ones each test names. The operator-name
 submission (FR-27) is one more action every route check covers. The People requests are checked in
 tests/integration/test_people_routes.py.
 """
@@ -18,6 +18,7 @@ from pathlib import Path
 from urllib.parse import urlencode
 
 import pytest
+from test_pages import Element, parse
 
 from application import Saver, Tracker, TrackerState
 from domain import empty_state
@@ -80,8 +81,10 @@ def post(site: Site, headers: dict[str, str] | None = None, **fields: str) -> Re
     return site.handle("POST", "/projects", {**(headers or SAME_ORIGIN), **FORM}, body)
 
 
-def page(response: Response) -> str:
-    assert response.status == 200
+def page(response: Response, status: int = 200) -> str:
+    """The body of a page answered with exactly this status; only a known pending confirmation
+    asks for anything but the default 200 (CP-343, design § 4)."""
+    assert response.status == status
     return response.body.decode("utf-8")
 
 
@@ -276,6 +279,7 @@ SAMPLE_ADDRESS = {
     "/tasks/[0-9]+/labels/remove": "/tasks/1/labels/remove",
     "/tasks/[0-9]+/comments": "/tasks/1/comments",
     "/tasks/[0-9]+/move": "/tasks/1/move",
+    "/tasks/[0-9]+/move/confirm": "/tasks/1/move/confirm",
     "/style.css": "/style.css",
 }
 SUBMITTED_BODY = {
@@ -289,6 +293,7 @@ SUBMITTED_BODY = {
     "/tasks/1/labels/remove": b"label=ui",
     "/tasks/1/comments": b"text=Looks+good",
     "/tasks/1/move": b"status=in-progress&place=list",
+    "/tasks/1/move/confirm": b"place=list",
 }
 AUDIT_OPERATOR_NAME = "Lee"
 
@@ -789,3 +794,291 @@ def test_recording_saver_comment_route_never_loads() -> None:
     get(site, "/tasks/1?comment_added=1")
     assert [name for name, _ in calls] == ["save"]
     assert all(isinstance(arguments[0], TrackerState) for _, arguments in calls)
+
+
+# --- The confirming move route and the pages' cache headers (cancel-confirmation, CP-339) -------
+
+CONFIRMING = "/tasks/1/move/confirm"
+
+
+class SwitchedRecordingSaver(RecordingSaver):
+    """Records every state it is handed, or raises while switched to fail."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.failing = False
+
+    def save(self, state: TrackerState) -> None:
+        if self.failing:
+            raise PermissionError("the disk said no")
+        super().save(state)
+
+
+def site_with_one_task(saver: Saver | None = None) -> tuple[Site, Tracker, RecordingSaver]:
+    recording = saver or RecordingSaver()
+    site, tracker = make_site(recording)
+    post(site, name="Alpha", description="seed")
+    tracker.add_task(1, "Seed task", "", "", "")
+    assert isinstance(recording, RecordingSaver)
+    return site, tracker, recording
+
+
+def confirming(site: Site, headers: dict[str, str], body: bytes = b"place=list") -> Response:
+    return site.handle("POST", CONFIRMING, {**headers, **FORM}, body)
+
+
+def test_the_confirming_address_is_not_read_by_a_get_and_leaves_the_state_alone() -> None:
+    """CP-339: a GET to the confirming address is the empty 404 and changes nothing."""
+    site, tracker, saver = site_with_one_task()
+    before = (tracker.project_tasks(1), len(saver.saved))
+    response = get(site, CONFIRMING)
+    assert response.status == 404 and response.body == pages.not_found_page().encode("utf-8")
+    assert (tracker.project_tasks(1), len(saver.saved)) == before
+    other = site.handle("PUT", CONFIRMING, {**SAME_ORIGIN, **FORM}, b"place=list")
+    assert other.status == 404 and other.body == b"" and len(saver.saved) == before[1]
+
+
+@pytest.mark.parametrize(
+    "marks",
+    [
+        {"Host": "evil.example:8017", "Sec-Fetch-Site": "same-origin"},
+        {"Host": HOST, "Sec-Fetch-Site": "cross-site"},
+        {"Host": HOST, "Sec-Fetch-Site": "same-site"},
+        {"Host": HOST, "Sec-Fetch-Site": "none"},
+        {"Host": HOST},
+    ],
+    ids=["wrong-host", "cross-site", "same-site", "none", "unmarked"],
+)
+def test_confirming_route_checks_origin_before_applying_the_move(marks: dict[str, str]) -> None:
+    """CP-339, QC-32: only a same-origin confirming submission is applied; each other mark is
+    refused with the saved data, state and save count as they were; same-origin is accepted, and
+    no response carries a cookie, or a script or meta policy."""
+    site, tracker, saver = site_with_one_task()
+    before = (tracker.project_tasks(1), len(saver.saved))
+    refused = confirming(site, marks)
+    assert refused.status == 403 and (tracker.project_tasks(1), len(saver.saved)) == before
+    assert header(refused, "Content-Security-Policy") == POLICY
+    assert header(refused, "Set-Cookie") is None
+    accepted = confirming(site, SAME_ORIGIN)
+    assert accepted.status == 303 and len(saver.saved) == before[1] + 1
+    assert header(accepted, "Content-Security-Policy") == POLICY
+    assert header(accepted, "Set-Cookie") is None
+    shown = get(site, header(accepted, "Location") or "").body.decode("utf-8")
+    assert "<script" not in shown and "<meta" not in shown.replace('<meta charset="utf-8">', "")
+
+
+CONFIRMATION = "move_task=1&move_confirm=cancelled"
+MOVE_ADDRESSES = ("/projects/1", "/tasks/1")
+
+
+STATUS_PATH = {
+    "todo": [],
+    "in-progress": ["in-progress"],
+    "done": ["in-progress", "done"],
+    "cancelled": ["cancelled"],
+}
+
+
+def site_with_two_tasks(status: str = "todo") -> tuple[Site, Tracker, RecordingSaver]:
+    """One project, the task the strip opens on in the given status, and a second task beside it."""
+    site, tracker, saver = site_with_one_task()
+    tracker.add_task(1, "Other task", "", "", "")
+    for step in STATUS_PATH[status]:
+        tracker.move_task(1, step)
+    return site, tracker, saver
+
+
+def classes(element: Element) -> list[str]:
+    return (element.attrs.get("class") or "").split()
+
+
+def strips_of(root: Element) -> list[Element]:
+    return [e for e in root.walk() if "confirm-strip" in classes(e)]
+
+
+def focus_owners(root: Element) -> list[Element]:
+    return [e for e in root.walk() if "autofocus" in e.attrs]
+
+
+@pytest.mark.parametrize("status", ["todo", "in-progress"])
+@pytest.mark.parametrize("address", MOVE_ADDRESSES)
+def test_pending_confirmation_response_matches_the_rendered_page(address: str, status: str) -> None:
+    """CP-343, CP-345: a GET showing one pending confirmation, from either allowed starting status
+    and on both pages, is answered with exactly 202; the sentence alone owns focus, the other row
+    keeps its ordinary controls, and the read changes neither the bytes, the state nor the saves."""
+    site, tracker, saver = site_with_two_tasks(status)
+    before = (tracker.project_tasks(1), len(saver.saved))
+    response = get(site, f"{address}?{CONFIRMATION}")
+    assert response.status == 202
+    assert header(response, "Cache-Control") == "no-store"
+    assert header(response, "Content-Security-Policy") == POLICY
+    assert header(response, "Set-Cookie") is None
+    root = parse(response.body.decode("utf-8"))
+    (strip,) = strips_of(root)
+    (owner,) = focus_owners(root)
+    assert owner.attrs["id"] == "confirm-sentence" and owner.parent is strip
+    if address == "/projects/1":
+        buttons = [
+            b.attrs["aria-label"] for b in root.find_all("button") if "aria-label" in b.attrs
+        ]
+        assert "Move 'Other task' to cancelled" in buttons
+        assert "Move 'Seed task' to cancelled" not in buttons
+    assert (tracker.project_tasks(1), len(saver.saved)) == before
+
+
+@pytest.mark.parametrize(
+    ("address", "status", "expected"),
+    [
+        ("/projects/1?move_task=1&move_back=cancelled", "todo", 200),
+        ("/tasks/1?move_task=1&move_back=cancelled", "todo", 200),
+        ("/projects/1?move_task=1&move_confirm=cancelled", "done", 200),
+        ("/tasks/1?move_task=1&move_confirm=cancelled", "done", 200),
+        ("/projects/1?move_task=1&move_confirm=cancelled", "cancelled", 200),
+        ("/tasks/1?move_task=1&move_confirm=cancelled", "cancelled", 200),
+        ("/tasks/1?move_task=1&move_refused=not-allowed&move_confirm=cancelled", "todo", 200),
+        ("/projects/1?move_task=1&move_failed=cancelled&move_confirm=cancelled", "todo", 200),
+        ("/tasks/1?move_task=1&moved=in-progress&move_confirm=cancelled", "todo", 200),
+        ("/tasks/1?move_task=1&move_confirm=bogus", "todo", 200),
+        ("/projects/1?move_task=1&move_confirm=", "todo", 200),
+        ("/tasks/1?move_confirm=cancelled", "todo", 200),
+        ("/projects/1?move_task=x&move_confirm=cancelled", "todo", 200),
+        ("/projects/1?move_task=1&move_confirm=bogus&move_confirm=cancelled", "todo", 200),
+        ("/projects/1?move_task=1&move_confirm=cancelled&move_confirm=bogus", "todo", 202),
+        ("/tasks/1?move_task=1&move_back=cancelled&move_confirm=cancelled", "todo", 202),
+        ("/tasks/1?move_task=2&move_confirm=cancelled", "todo", 200),
+        ("/projects/1?move_task=3&move_confirm=cancelled", "todo", 200),
+        ("/tasks/1?move_task=999&move_confirm=cancelled", "todo", 404),
+        ("/projects/1?move_task=999&move_confirm=cancelled", "todo", 404),
+    ],
+)
+def test_non_confirmation_move_views_keep_their_response_contract(
+    address: str, status: str, expected: int
+) -> None:
+    """CP-343, CP-345: 202 goes only to a confirmation this page actually renders. Back-out, a
+    saved status that refuses the move, a recognized outcome that wins, an unknown or empty value, a
+    missing or malformed identity, a task from another project and a different task on a task page
+    keep the existing 200 or 404; repeated values keep their first-value precedence."""
+    site, tracker, saver = site_with_two_tasks(status)
+    post(site, name="Beta", description="elsewhere")
+    tracker.add_task(2, "Foreign task", "", "", "")
+    foreign = tracker.project_tasks(2)[0].task.id
+    assert foreign == 3
+    before = (tracker.project_tasks(1), len(saver.saved))
+    response = get(site, address)
+    assert response.status == expected
+    if expected == 202:
+        assert len(strips_of(parse(response.body.decode("utf-8")))) == 1
+    elif expected == 200:
+        shown = parse(response.body.decode("utf-8"))
+        assert strips_of(shown) == []
+        assert len(focus_owners(shown)) <= 1
+    else:
+        assert response.body == pages.task_not_found_page().encode("utf-8")
+    assert (tracker.project_tasks(1), len(saver.saved)) == before
+
+
+NOT_STORED_ADDRESSES = [
+    ("/projects/1?move_task=1&move_confirm=cancelled", 202),
+    ("/tasks/1?move_task=1&move_confirm=cancelled", 202),
+    ("/projects/1?move_task=1&move_back=cancelled", 200),
+    ("/tasks/1?move_task=1&move_back=cancelled", 200),
+    ("/projects/1?moved=cancelled&move_task=1", 200),
+    ("/tasks/1?move_refused=not-allowed&move_task=1", 200),
+    ("/tasks/1?move_failed=cancelled&move_task=1", 200),
+]
+
+
+@pytest.mark.parametrize(("address", "expected"), NOT_STORED_ADDRESSES)
+def test_move_interaction_and_outcome_pages_are_not_stored(address: str, expected: int) -> None:
+    """Design § 3 A.3, CP-326, CP-343: a page carrying the interaction or its outcome says
+    no-store with the status the rendered page earns, and keeps the page policy and no cookie; the
+    same pages without the interaction query are the unchanged control, with no no-store."""
+    site, _, _ = site_with_one_task()
+    response = get(site, address)
+    assert response.status == expected
+    assert header(response, "Cache-Control") == "no-store"
+    assert header(response, "Content-Security-Policy") == POLICY
+    assert header(response, "Set-Cookie") is None
+    plain = get(site, address.split("?")[0])
+    assert plain.status == 200 and header(plain, "Cache-Control") is None
+
+
+def test_move_responses_do_not_clear_site_data() -> None:
+    """CP-346: no move response clears site data, cookies or caches: not an ordinary or a
+    confirming success, a first press, a refused move, an invalid status, a missing task, a failed
+    save on either submission path, a GET, a back-out or a rejected origin. Redirects keep their
+    Locations and outcomes; every path that saves nothing leaves the bytes, state and saves as
+    they were."""
+    for body, path in (
+        (b"status=in-progress&place=list", "/tasks/1/move"),
+        (b"place=list", CONFIRMING),
+    ):
+        site, tracker, saver = site_with_one_task()
+        saves = len(saver.saved)
+        done = site.handle("POST", path, {**SAME_ORIGIN, **FORM}, body)
+        assert done.status == 303 and len(saver.saved) == saves + 1
+        assert header(done, "Location") == (
+            f"/projects/1?moved={tracker.task(1).status.value}&move_task=1"
+        )
+        assert header(done, "Clear-Site-Data") is None and header(done, "Set-Cookie") is None
+    site, tracker, saver = site_with_one_task()
+    saves = len(saver.saved)
+    form = {**SAME_ORIGIN, **FORM}
+    quiet = [
+        site.handle("POST", "/tasks/1/move", form, b"status=cancelled&place=list"),
+        site.handle("POST", "/tasks/1/move", form, b"status=bogus&place=list"),
+        site.handle("POST", "/tasks/9/move", form, b"status=done&place=list"),
+        site.handle("POST", "/tasks/9/move/confirm", form, b"place=list"),
+        site.handle(
+            "POST", "/tasks/1/move", {**form, "Sec-Fetch-Site": "same-site"}, b"status=done"
+        ),
+        site.handle("POST", CONFIRMING, {**form, "Sec-Fetch-Site": "cross-site"}, b"place=list"),
+        get(site, "/tasks/1?move_task=1&move_confirm=cancelled"),
+        get(site, "/tasks/1?move_task=1&move_back=cancelled"),
+    ]
+    assert [r.status for r in quiet] == [303, 303, 303, 303, 403, 403, 202, 200]
+    assert header(quiet[0], "Location") == "/projects/1?move_task=1&move_confirm=cancelled"
+    assert len(saver.saved) == saves and tracker.task(1).status.value == "todo"
+    tracker.move_task(1, "cancelled")
+    saves = len(saver.saved)
+    after = [
+        site.handle("POST", "/tasks/1/move", form, b"status=cancelled"),
+        confirming(site, SAME_ORIGIN),
+    ]
+    assert len(saver.saved) == saves
+    switched = SwitchedRecordingSaver()
+    failing, _, _ = site_with_one_task(switched)
+    switched.failing = True
+    broken = [
+        failing.handle("POST", "/tasks/1/move", form, b"status=in-progress"),
+        failing.handle("POST", "/tasks/1/move/confirm", form, b"place=list"),
+    ]
+    for response in (*quiet, *after, *broken):
+        assert header(response, "Clear-Site-Data") is None, response
+        assert header(response, "Set-Cookie") is None, response
+    assert [r.status for r in (*after, *broken)] == [303, 303, 303, 303]
+    assert all(
+        "move_failed=" in (header(r, "Location") or "")
+        or "move_refused=" in (header(r, "Location") or "")
+        for r in (*after, *broken)
+    )
+
+
+@pytest.mark.parametrize("address", [f"{base}?{CONFIRMATION}" for base in MOVE_ADDRESSES])
+def test_move_pages_contain_no_executable_script(address: str) -> None:
+    """CP-345, QC-34: the pending confirmation and the refusal that replaces it carry no script
+    element, no event-handler attribute and no script URL, and each answers with the exact page
+    policy that refuses script and framing."""
+    site, tracker, _ = site_with_one_task()
+    for status in (None, "cancelled"):
+        if status is not None:
+            tracker.move_task(1, status)
+        response = get(site, address)
+        assert response.status == (202 if status is None else 200)
+        assert header(response, "Content-Security-Policy") == POLICY
+        assert "script-src 'none'" in POLICY and "frame-ancestors 'none'" in POLICY
+        for element in parse(response.body.decode("utf-8")).walk():
+            assert element.tag != "script"
+            for name, value in element.attrs.items():
+                assert not name.lower().startswith("on"), (element.tag, name)
+                assert "javascript:" not in (value or "").lower(), (element.tag, name)

@@ -23,7 +23,7 @@ when_to_use: >-
 license: MIT
 metadata:
   author: Eyal Golan
-  version: "2.5.0"
+  version: "2.6.0"
   created: "2026-09-02"
   category: journey
   tags: nemawashi, seeds, product-documents, sdd, principal-pm, journey
