@@ -422,9 +422,9 @@ def test_the_agent_flag_is_kept(run):
 
 
 # --- keep-awake (--keep-awake) -----------------------------------------------
-# The held path is the shared keep-awake block, proven behaviourally end to end in
-# core/launchers/seeds-from-idea/test_seeds_from_idea.py and proven to be the SAME block here by
-# core/tools/test_keep_awake_binding.py; what this file pins is this launcher's own arg-parse
+# The held path is the shared keep-awake block in core/tools/detach_watcher.sh, proven
+# behaviourally by that library's own suite, core/tools/test_detach_watcher.py, and proven to be
+# the SAME block here by core/tools/test_keep_awake_binding.py; what this file pins is this launcher's own arg-parse
 # recognizing the flag — the no-notifier note only prints when keep_awake was set.
 # (Until 2026-08-22 this comment pointed at test_launch_cold_read.py, which does not exist.)
 

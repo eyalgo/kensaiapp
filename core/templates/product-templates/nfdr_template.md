@@ -1,5 +1,5 @@
 ---
-version: "2.2.1"
+version: "2.3.0"
 ---
 <!-- The version above is template-file metadata; it is not copied into the instantiated document. -->
 
@@ -124,6 +124,7 @@ assumed: for skills, prompts and launchers they are the agent ones — injection
 exfiltration, excessive agency — not the web list.>
 
 - **QC-<n>:** <obligation> — *verified by:* <check | gate> *(traces to: …)*
+- **Advisory exception record:** <path where an exception for a dependency advisory the product does not reach is kept — read by the dependency audit — with the window an entry stands under (days from the advisory's publication, by severity) and how one is renewed. With no line here, `development-security` writes `checks/deps/advisory_exceptions.toml`.>
 
 ## 3. Authentication & access control
 

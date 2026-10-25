@@ -1,5 +1,5 @@
 ---
-version: "1.12.0"
+version: "1.12.1"
 ---
 
 # Cross-role contracts
@@ -97,7 +97,7 @@ When a role finishes a chunk of work and signals handoff to the next role, the r
 ### 7. Full delivery cycle (Architect → Tech Lead → Architect → merge)
 
 1. **Architect + Product** work together and produce a handoff doc in the agreed location.
-2. **Product opens a new Tech Lead session**, activating the handoff. The chain runs fully autonomous: Tech Lead plans and commits → Content Editor writes `change_text.md`, when the design says the change publishes text → Developer implements per task, red then green → Senior Engineer runs `development-code-integrity` and commits its report. No pauses for Product between role boundaries.
+2. **Product opens a new Tech Lead session**, activating the handoff. The chain runs fully autonomous: Tech Lead plans and commits → Content Editor writes `change_text.md`, when the design says the change publishes text → Developer implements per task, red then green → Senior Engineer runs `development-code-integrity` and commits its report → Senior Engineer runs `development-security` and commits its report. No pauses for Product between role boundaries.
 3. **Product opens a new Architect session**. Architect reads the branch diff against the dev instruction — adversarial lens (attack surface, edge cases, coverage gaps), not conformance. Tech Lead already checked conformance; Architect asks what the dev instruction missed.
 4. **ACCEPT** → Product merges or rebases the branch to main.
 5. **REJECT** → Architect produces a new handoff doc. Product opens a new Tech Lead session activating that handoff. Cycle repeats from step 2 until ACCEPT.

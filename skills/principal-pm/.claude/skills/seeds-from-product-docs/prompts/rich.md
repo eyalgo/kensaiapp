@@ -1,5 +1,5 @@
 ---
-version: "1.5.0"
+version: "1.6.0"
 ---
 
 # seeds-from-product-docs — the Principal PM's document-cutting lens
@@ -47,7 +47,12 @@ of, and between them they hold the whole of what is left to build:
   decision, each with what it **binds**. A decision recorded but not realized is a seed; a binding
   nothing enforces is a seed.
 - **The NFDR** — `<product>/docs/nfdr.md`. The quality obligations and their verification map. An
-  obligation with no verification, and a verification with nothing that runs it, are both seeds.
+  obligation with no verification, and a verification with nothing that runs it, are both seeds. So is
+  a line a sealed change's security report left under § *Left for the PM* that names work and that the
+  product, measured now, still does not meet. The pass reads them: list
+  `system/projects/<project>/journey/tobiishi/trail/*/security-report.md` and open each whose verdict is
+  `reported` or `stopped`. Each such line is a **security seed**: its § *What it is* says so, and its
+  § *Source* names the unit by its triple, `<project> · tobiishi · <key>`, and the report's line.
 
 **Every run makes the four-document pass, before it orders anything.** Check every FDR rule and
 product decision, every ADR decision and binding, and every NFDR obligation and its verification
@@ -85,7 +90,10 @@ carries a standing `*_open_issues.md` companion, say so and stop rather than cut
 that is about to move. **This is a fifth stop, and it is this lens's own** — the sibling's four
 (`<CORE>/prompts/principal_pm_cut_seeds.md` § *When you stop*) are about an idea, and its first case
 is a claim that does not hold, which a `Draft` document is not. A document set that has not settled
-is an input that is about to change, which no cut from an idea can meet. What the owner may rule
+is an input that is about to change, which no cut from an idea can meet. **A security seed is cut
+before this stop.** It rests on a security report's line and on the product as measured now, not on
+the NFDR's wording, so an NFDR that is not settled does not hold it: cut the security seeds, then stop
+on the rest. What the owner may rule
 instead is that a `Draft` input is enough for
 this cut; that ruling is theirs to give and yours to record in every seed drawn from it.
 
@@ -276,7 +284,8 @@ is most exposed to, because a document's section numbers read as a sequence and 
 
 **Where neither decides, a quality seed goes ahead of a feature seed.** The PM's pick ranks them
 that way (`<CORE>/docs/michi_agari.md` § *How we work — walking a project's journey*, step 1), so
-a cut that queues the features first proposes an order the pick will undo.
+a cut that queues the features first proposes an order the pick will undo. A security seed is a
+quality seed by that rule.
 
 **A first increment is the smallest thing that is worth having on its own**, and it is not the
 smallest thing you can do. The test is not size: it is whether someone can look at the system after

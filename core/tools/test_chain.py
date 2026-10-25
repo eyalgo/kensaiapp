@@ -863,12 +863,12 @@ class TestTheEngineTouchesNothingItWasNotGiven:
 
 # --- the delivered provider file: the three engines' own members and the launchers' ---------
 
-# The ten launchers whose provider the file names — the seven instance skill launchers by folder
+# The nine launchers whose provider the file names — the six instance skill launchers by folder
 # name, then the three flat scripts under core/tools/ by script name without `.sh` — listed here by
 # name, never read off the file's own keys, so an entry added to the file without a launcher behind
 # it fails below.
 LAUNCHER_NAMES = ("skill", "companion-self-answer", "cold-read", "launch-eval-fix",
-                  "launch-skill-evals", "product-card", "seeds-from-idea",
+                  "launch-skill-evals", "product-card",
                   "launch-apply-packet", "launch-audit", "launch-fix-author")
 
 
@@ -893,7 +893,7 @@ def _engines_own_members() -> list[providers.Member]:
 def test_the_delivered_file_holds_the_engines_members_and_the_launchers():
     members = _engines_own_members() + [providers.launcher(name) for name in LAUNCHER_NAMES]
 
-    assert len(members) == len(set(members)) == 29 + 10
+    assert len(members) == len(set(members)) == 30 + 9
     assert sorted(_delivered_entries()) == sorted(str(member) for member in members)
 
 

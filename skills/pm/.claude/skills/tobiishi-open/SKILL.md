@@ -7,7 +7,7 @@ description: |
 license: MIT
 argument-hint: <project>
 metadata:
-  version: "4.17.0"
+  version: "4.18.0"
   category: product
   risk: safe
   created: "2026-07-05"
@@ -265,9 +265,11 @@ Commit through the shared builder — read `<CORE>/doctrine/governance/commit_vi
 supply its variables, with **`--actor pm`** (the agent `launcher.md` launches this skill as — name it,
 never derive it) and `--skill tobiishi-open`. Never hand-write `git commit` or a trailer.
 
-The commit carries the `Shukuba:` trailer (topmost) per `<CORE>/doctrine/governance/commit_format.md`
-(`progress:` / `aside:`, or `none — <what this commit did>`); the remaining standard trailers follow
-the doctrine.
+The commit carries the `Shukuba:` trailer (topmost) per `<CORE>/doctrine/governance/commit_format.md`,
+naming the open station by its dated stem — the station file's name without `.md` — before the
+reading: `Shukuba: <YYYY-MM-DD>_<slug> — progress: <how this change request moves toward the
+station>`. The builder refuses a line that puts `progress:` where the station belongs. The remaining
+standard trailers follow the doctrine.
 
 **Do not run `<CORE>/launchers/chain-development/launcher.sh <project>`.** This skill stops at the placed change request; running the pipeline is the
 owner's next move.

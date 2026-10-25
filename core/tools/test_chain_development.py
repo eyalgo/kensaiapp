@@ -140,6 +140,8 @@ MARKER_BODY = ("Suite: green\n\nLanguage resolution:\n- python — declared in p
                f"{ENVIRONMENT_LINE}\n")
 # A report declaring a pass, and the environment of the run its verdict rests on.
 PASSING_REPORT = f"Integrity: pass\n\n{ENVIRONMENT_LINE}\n"
+# A security report declaring a pass. It carries no environment: none is read off it.
+PASSING_SECURITY_REPORT = "Security: clean\n"
 PRODUCERS = ("development-specs", "development-design", "development-plan",
              "development-implementation")
 
@@ -201,8 +203,8 @@ def audited_git(skills=PRODUCERS, marker=True) -> FakeGit:
 
 def test_the_steps_walk_the_pipeline_in_the_workflows_order():
     assert [entry.id for entry in cd.DEVELOPMENT_STEPS] == [
-        "specs", "design", "plan", "content", "implementation", "code-integrity", "audit",
-        "seal"]
+        "specs", "design", "plan", "content", "implementation", "code-integrity", "security",
+        "audit", "seal"]
 
 
 def test_providers_steps_holds_one_content_entry_and_the_rest_unchanged():
@@ -213,8 +215,8 @@ def test_providers_steps_holds_one_content_entry_and_the_rest_unchanged():
     assert steps.pop("content") in {"claude", "codex", "gemini"}
     assert steps == {"station": "claude", "change": "claude", "specs": "claude",
                      "design": "claude", "plan": "claude", "implementation": "claude",
-                     "code-integrity": "claude", "audit": "claude", "seal": "claude",
-                     "refine": "claude"}
+                     "code-integrity": "claude", "security": "claude", "audit": "claude",
+                     "seal": "claude", "refine": "claude"}
 
 
 def test_every_step_names_a_skill_that_declares_an_unattended_launch():
@@ -250,6 +252,7 @@ def test_every_step_declares_its_responsible_role():
         "content": "content-editor",
         "implementation": "developer",
         "code-integrity": "senior-engineer",
+        "security": "senior-engineer",
         "audit": "kensaiapp-auditor",
         "seal": "pm",
     }
@@ -264,8 +267,8 @@ def test_the_change_steps_are_the_two_journey_moves_ahead_of_the_pipeline_and_th
     route once the seal lands."""
     assert [entry.id for entry in cd.CHANGE_STEPS] == [
         "station", "change",
-        "specs", "design", "plan", "content", "implementation", "code-integrity", "audit", "seal",
-        "refine"]
+        "specs", "design", "plan", "content", "implementation", "code-integrity", "security",
+        "audit", "seal", "refine"]
     assert cd.CHANGE_STEPS[2:-1] == cd.DEVELOPMENT_STEPS
 
 
@@ -765,9 +768,10 @@ def _through(step_id: str) -> tuple[dict, FakeGit]:
     files = {f"{TOBIISHI}/{KEY}/change_request.md": "req"}
     for landed_id, artifact in (("specs", "change_spec.md"), ("design", "change_design.md"),
                                 ("plan", "tl_instruction.md"),
-                                ("code-integrity", "code-integrity-report.md")):
+                                ("code-integrity", "code-integrity-report.md"),
+                                ("security", "security-report.md")):
         if landed_id in landed:
-            content = {"code-integrity": PASSING_REPORT,
+            content = {"code-integrity": PASSING_REPORT, "security": PASSING_SECURITY_REPORT,
                        "design": NO_TEXT_DESIGN}.get(landed_id, "x")
             files[f"{BRANCH_CHANGE}/{artifact}"] = content
     git = audited_git(skills=PRODUCERS if "audit" in landed else (),
@@ -781,7 +785,8 @@ def _through(step_id: str) -> tuple[dict, FakeGit]:
     ("design", "plan"),
     ("plan", "implementation"),
     ("implementation", "code-integrity"),
-    ("code-integrity", "audit"),
+    ("code-integrity", "security"),
+    ("security", "audit"),
     ("audit", "seal"),
 ])
 def test_the_entry_step_is_the_first_whose_evidence_is_missing(landed_through, entry):
@@ -944,6 +949,9 @@ class FakeProcessTable:
 
     def start_time(self, pid: int) -> str | None:
         return self.starts.get(pid)
+
+    def started_at(self, pid: int) -> str | None:
+        return None
 
     def stop_group(self, pid: int) -> None:
         self.stopped.append(pid)
@@ -1197,8 +1205,10 @@ def test_a_forced_walk_never_reads_the_file(forced):
                 provider_port=ProviderText(None))
     land(walk.files, walk.git, "code-integrity")
     walk.advance("code-integrity")
+    land(walk.files, walk.git, "security")
+    walk.advance("security")
     assert {call["env"]["KENSAIAPP_AGENT_PROVIDER"] for call in walk.processes.calls} == {forced}
-    assert len(walk.processes.calls) == 5
+    assert len(walk.processes.calls) == 6
 
 
 def test_the_describe_plan_of_an_unforced_walk_carries_each_steps_provider_in_table_order():
@@ -1351,7 +1361,7 @@ def test_an_entry_removed_before_a_launch_halts_the_walk_naming_it():
 
 def test_a_valid_edit_is_taken_at_the_next_launch():
     """CP-283 (Ex 17): `seal` set to codex after the walk started puts seal on codex."""
-    walk = Walk(through="code-integrity")
+    walk = Walk(through="security")
     walk.provider_port.text = edited_text({"steps.seal": "codex"})
     for audited in step("audit").fans_out_over:
         land(walk.files, walk.git, "audit", audited)
@@ -1366,10 +1376,12 @@ def test_an_audit_fan_out_reads_once():
     between two of them — here the file changes after that read, and no run sees the change."""
     walk = Walk(through="implementation")
     land(walk.files, walk.git, "code-integrity")
+    walk.advance("code-integrity")
+    land(walk.files, walk.git, "security")
     before, reads = len(walk.processes.calls), walk.provider_port.reads
     walk.provider_port.then = [edited_text({"steps.audit": "gemini"})]
 
-    walk.advance("code-integrity")
+    walk.advance("security")
 
     audits = walk.processes.calls[before:]
     assert len(audits) == 4
@@ -1505,7 +1517,7 @@ def test_a_producer_launch_carries_role_without_audit_target():
 def test_each_audit_launch_carries_auditor_role_and_its_producer_target():
     """The four audit fan-out launches all carry the auditor role and each its own direct
     producer target (CP-1, CP-3, CP-4)."""
-    files, git = _through("code-integrity")
+    files, git = _through("security")
     processes = FakeProcesses()
 
     start(build(FakeFiles(files), git=git, processes=processes))
@@ -1527,7 +1539,7 @@ def test_code_integrity_and_seal_carry_their_roles():
     assert code_integrity_env["INSTRUMENT_RUN_ROLE"] == "senior-engineer"
     assert "INSTRUMENT_RUN_AUDIT_TARGET" not in code_integrity_env
 
-    files, git = _through("code-integrity")
+    files, git = _through("security")
     processes = FakeProcesses(codes=[1, 1, 1, 1, 0])
     start(build(FakeFiles(files), git=git, processes=processes))
     assert processes.launched[-1] == [SKILL_LAUNCHER, "tobiishi-seal", PROJECT, KEY]
@@ -1543,7 +1555,7 @@ def test_launch_argv_is_unchanged_by_telemetry_identity():
     start(build(FakeFiles(fresh_change()), processes=processes))
     assert processes.launched == [[SKILL_LAUNCHER, "development-specs", PROJECT]]
 
-    files, git = _through("code-integrity")
+    files, git = _through("security")
     processes = FakeProcesses()
     start(build(FakeFiles(files), git=git, processes=processes))
     assert processes.launched == [
@@ -1580,7 +1592,7 @@ def test_an_audit_target_the_engine_inherited_never_reaches_a_non_audit_launch()
     `build_chain` reads `os.environ`. So the engine's environ holds that audit's
     `INSTRUMENT_RUN_AUDIT_TARGET`, and the seal must not pass it on — the same leak
     `test_chain.py` pins for an inherited walk key."""
-    walk = Walk(through="code-integrity")
+    walk = Walk(through="security")
     for skill in PRODUCERS[:3]:
         land(walk.files, walk.git, "audit", skill)
         walk.advance(f"audit-{skill}")
@@ -1768,7 +1780,7 @@ def test_no_active_change_refuses_before_writing_or_launching_anything():
 
 
 def test_after_code_integrity_all_four_audits_launch_one_per_producer_step():
-    files, git = _through("code-integrity")
+    files, git = _through("security")
     processes = FakeProcesses()
     engine_files = FakeFiles(files)
 
@@ -1780,7 +1792,7 @@ def test_after_code_integrity_all_four_audits_launch_one_per_producer_step():
 
 
 def test_an_audit_launcher_failing_is_recorded_and_never_halts():
-    files, git = _through("code-integrity")
+    files, git = _through("security")
     engine_files = FakeFiles(files)
 
     start(build(engine_files, git=git, processes=FakeProcesses(codes=[0, 5, 0, 0])))
@@ -1792,7 +1804,7 @@ def test_an_audit_launcher_failing_is_recorded_and_never_halts():
 
 
 def test_when_every_audit_launcher_fails_the_seal_still_starts():
-    files, git = _through("code-integrity")
+    files, git = _through("security")
     processes = FakeProcesses(codes=[1, 1, 1, 1, 0])
 
     start(build(FakeFiles(files), git=git, processes=processes))
@@ -1815,7 +1827,8 @@ def describe(engine):
     (None, "specs"),
     ("specs", "design"),
     ("plan", "implementation"),
-    ("code-integrity", "audit"),
+    ("code-integrity", "security"),
+    ("security", "audit"),
     ("audit", "seal"),
 ])
 def test_describe_names_the_change_and_the_step_a_start_would_enter_at(landed_through, entry):
@@ -1892,10 +1905,11 @@ def land(files: FakeFiles, git: FakeGit, step_id: str, audited: str | None = Non
     """Put on the disk exactly what that step leaves when it succeeds."""
     artifacts = {"specs": "change_spec.md", "design": "change_design.md",
                  "plan": "tl_instruction.md", "content": "change_text.md",
-                 "code-integrity": "code-integrity-report.md"}
+                 "code-integrity": "code-integrity-report.md",
+                 "security": "security-report.md"}
     if step_id in artifacts:
-        content = {"code-integrity": PASSING_REPORT, "design": NO_TEXT_DESIGN}.get(step_id,
-                                                                                      "x")
+        content = {"code-integrity": PASSING_REPORT, "security": PASSING_SECURITY_REPORT,
+                   "design": NO_TEXT_DESIGN}.get(step_id, "x")
         files.write_text(f"{BRANCH_CHANGE}/{artifacts[step_id]}", content)
     elif step_id == "implementation":
         git.commits.setdefault(KEY, []).append(MARKER)
@@ -2402,8 +2416,10 @@ def test_advancing_holds_the_state_lock():
 def test_code_integrity_landing_fans_out_the_four_audits():
     walk = Walk(through="implementation")
     land(walk.files, walk.git, "code-integrity")
-
     walk.advance("code-integrity")
+    land(walk.files, walk.git, "security")
+
+    walk.advance("security")
 
     assert walk.skills_launched[-4:] == ["development-audit"] * 4
     assert set(walk.state["pending"]) == {f"audit-{skill}" for skill in PRODUCERS}
@@ -2463,6 +2479,8 @@ def test_a_later_quoted_stop_does_not_overrule_a_declared_pass():
                           f"{PASSING_REPORT}\nthe earlier run declared\nIntegrity: stopped\n")
 
     walk.advance("code-integrity")
+    land(walk.files, walk.git, "security")
+    walk.advance("security")
 
     assert walk.state["ended"] is None
     assert walk.skills_launched[-4:] == ["development-audit"] * 4
@@ -2485,6 +2503,8 @@ def test_a_verdict_dressed_in_markdown_still_declares_itself(body):
                           f"{body}\n{ENVIRONMENT_LINE}\n")
 
     walk.advance("code-integrity")
+    land(walk.files, walk.git, "security")
+    walk.advance("security")
 
     assert walk.state["ended"] is None
     assert walk.skills_launched[-4:] == ["development-audit"] * 4
@@ -2574,12 +2594,13 @@ def test_a_language_mention_without_its_colon_is_not_the_declaration():
     assert "stopped at implementation: missing-language" in walk.state["ended_reason"]
 
 
-def test_the_code_integrity_step_alone_declares_a_prefix():
-    """The prefix lives on `Step`, set only on the code-integrity entry — not a branch on
-    `step.id` inside `_settle`."""
+def test_the_two_senior_engineer_reports_alone_declare_a_prefix():
+    """The prefix lives on `Step`, set only on the code-integrity and security entries — not a
+    branch on `step.id` inside `_settle`."""
     assert step("code-integrity").declared_prefix == cd._INTEGRITY_PREFIX
+    assert step("security").declared_prefix == cd._SECURITY_PREFIX
     assert all(entry.declared_prefix == "" for entry in cd.DEVELOPMENT_STEPS
-               if entry.id != "code-integrity")
+               if entry.id not in {"code-integrity", "security"})
 
 
 def _skill_section(text: str, heading: str) -> str:
@@ -2608,7 +2629,7 @@ def test_the_integrity_skill_declares_the_verdict_the_chain_reads():
 
 
 def test_the_seal_waits_until_every_audit_run_has_ended():
-    walk = Walk(through="code-integrity")
+    walk = Walk(through="security")
     for skill in PRODUCERS[:3]:
         land(walk.files, walk.git, "audit", skill)
         walk.advance(f"audit-{skill}")
@@ -2622,7 +2643,7 @@ def test_the_seal_waits_until_every_audit_run_has_ended():
 
 
 def test_an_audit_that_failed_or_wrote_nothing_is_recorded_and_never_stops_the_walk():
-    walk = Walk(through="code-integrity")
+    walk = Walk(through="security")
     land(walk.files, walk.git, "audit", "development-specs")
     walk.advance("audit-development-specs")
     walk.advance("audit-development-design")                 # ended, no findings file
@@ -2664,7 +2685,8 @@ def test_a_whole_walk_runs_every_step_in_order_and_speaks_exactly_twice():
     """Start to sealed through the engine alone — the level `core/tools/test_chain.py`'s header
     names as the one its predecessor was missing."""
     walk = Walk()
-    for step_id in ("specs", "design", "plan", "implementation", "code-integrity"):
+    for step_id in ("specs", "design", "plan", "implementation", "code-integrity",
+                    "security"):
         land(walk.files, walk.git, step_id)
         walk.advance(step_id)
     for skill in PRODUCERS:
@@ -2675,7 +2697,7 @@ def test_a_whole_walk_runs_every_step_in_order_and_speaks_exactly_twice():
 
     assert walk.skills_launched == [
         "development-specs", "development-design", "development-plan",
-        "development-implementation", "development-code-integrity",
+        "development-implementation", "development-code-integrity", "development-security",
         "development-audit", "development-audit", "development-audit", "development-audit",
         "tobiishi-seal"]
     assert walk.state["ended"] == "sealed"
@@ -3089,7 +3111,8 @@ def test_every_argv_the_engine_builds_is_accepted_by_the_real_skill_launcher(tmp
     `launcher.md` files — so an argument count or shape a launcher.md does not declare is refused
     here, not on the first real walk."""
     walk = Walk()
-    for step_id in ("specs", "design", "plan", "implementation", "code-integrity"):
+    for step_id in ("specs", "design", "plan", "implementation", "code-integrity",
+                    "security"):
         land(walk.files, walk.git, step_id)
         walk.advance(step_id)
     for skill in PRODUCERS:
@@ -3103,7 +3126,7 @@ def test_every_argv_the_engine_builds_is_accepted_by_the_real_skill_launcher(tmp
     real_launcher = _REPO / "core" / "launchers" / "skill" / "launcher.sh"
     real_project = "example-product"
     instance = scratch_instance(tmp_path, real_project)
-    assert len(walk.processes.launched) == 10
+    assert len(walk.processes.launched) == 11
     for argv in walk.processes.launched:
         assert argv[0] == SKILL_LAUNCHER and argv[2] == PROJECT
         real = [str(real_launcher), argv[1], real_project, *argv[3:], "--keep-awake",
@@ -3263,6 +3286,8 @@ def test_a_whole_walk_reaches_sealed_against_a_real_repository_laid_down_by_the_
     - development-implementation Step 3: subject `developer: <key> — implementation complete`;
     - development-code-integrity: `code-integrity-report.md` in that same folder, declaring
       `Integrity: pass`;
+    - development-security: `security-report.md` in that same folder, declaring
+      `Security: clean`;
     - development-audit Step 0: branch `<key>__audit-<step>` cut from `<key>`, worktree
       `$REPO_ROOT/.worktrees/$AUDIT_BRANCH`, committing `flow_findings/<step>.md`;
     - tobiishi-seal Steps 1b-4: join each audit branch, `git mv` the folder to `trail/<key>`,
@@ -3318,6 +3343,9 @@ def test_a_whole_walk_reaches_sealed_against_a_real_repository_laid_down_by_the_
     commit_in(worktree, "code-integrity-report.md", f"senior engineer: {KEY} — integrity",
              content=PASSING_REPORT)
     chain.advance("code-integrity", "completed")
+    commit_in(worktree, "security-report.md", f"senior engineer: {KEY} — security",
+              content=PASSING_SECURITY_REPORT)
+    chain.advance("security", "completed")
 
     assert [argv[1:] for argv in processes.launched[-4:]] == [
         ["development-audit", PROJECT, KEY, skill] for skill in PRODUCERS]
@@ -3424,8 +3452,9 @@ def test_describe_and_start_answer_alike_on_every_shape_of_state_file(state_text
 
 
 @pytest.mark.parametrize("landed_through", [
-    None, "specs", "design", "plan", "implementation", "code-integrity", "audit"])
-def test_describe_and_start_agree_at_each_of_the_seven_entry_steps(landed_through):
+    None, "specs", "design", "plan", "implementation", "code-integrity", "security",
+    "audit"])
+def test_describe_and_start_agree_at_each_of_the_eight_entry_steps(landed_through):
     """Plan § Tests: "`describe` on each disk state returns the same entry as `start` launches".
     The implementer's agreement test covered four of the seven states."""
     files, git = _through(landed_through)
@@ -3777,7 +3806,8 @@ def test_describe_says_which_provider_each_step_would_run_on(tmp_path, capsys):
 
     steps = [step.id for step in cd.DEVELOPMENT_STEPS]
     assert own == ("providers=specs=claude design=claude plan=claude content=claude "
-                   "implementation=claude code-integrity=claude audit=claude seal=claude")
+                   "implementation=claude code-integrity=claude security=claude audit=claude "
+                   "seal=claude")
     assert forced == "providers=" + " ".join(f"{step}=codex" for step in steps)
 
 
@@ -3805,8 +3835,8 @@ def test_describe_over_the_change_table_prints_every_steps_provider(tmp_path, ca
     assert code == 0
     assert capsys.readouterr().out.splitlines()[2] == (
         "providers=station=claude change=claude specs=claude design=claude plan=claude "
-        "content=claude implementation=claude code-integrity=claude audit=claude seal=claude "
-        "refine=claude")
+        "content=claude implementation=claude code-integrity=claude security=claude audit=claude "
+        "seal=claude refine=claude")
 
 
 def test_describe_prints_what_a_copy_of_the_file_says(tmp_path, capsys):
@@ -4689,6 +4719,19 @@ def test_the_on_end_hook_of_an_unforced_walk_carries_no_provider():
     walk.engine().advance("seal", "completed")
 
     assert "KENSAIAPP_AGENT_PROVIDER" not in walk.hook_calls[0]["env"]
+    assert walk.hook_calls[0]["env"]["PATH"] == "/usr/bin"
+
+
+def test_the_on_end_hook_never_carries_the_walks_owners_mac_ask():
+    """The engine inherits the last step's launch environment, which holds the ask under a walk
+    started with it. The gate tool acts on the variable in any process, so the ask must not
+    outlive the walk into whatever the hook starts."""
+    walk = HookedWalk(environ={"PATH": "/usr/bin", "KENSAIAPP_GATE_OWNERS_MAC": "1"})
+    land(walk.files, walk.git, "seal")
+
+    walk.engine().advance("seal", "completed")
+
+    assert "KENSAIAPP_GATE_OWNERS_MAC" not in walk.hook_calls[0]["env"]
     assert walk.hook_calls[0]["env"]["PATH"] == "/usr/bin"
 
 
@@ -5714,6 +5757,70 @@ def test_a_start_reads_landing_commits_from_an_external_product_repo():
     assert _launched_after([], git=git) == [*_HEAD, "2"]
 
 
+def _current_task(commits: list, numbers=(1, 2, 3, 4, 5), *, git=None,
+                  product_path: str = "") -> tuple[int, int] | None:
+    """What the reader says a developer run is on, for a branch holding `commits` (newest first)
+    over an instruction listing `numbers`."""
+    disk = reader(files={f"{BRANCH_CHANGE}/tl_instruction.md": _instruction(*numbers)},
+                  git=git or FakeGit(commits={KEY: list(commits)}))
+    return disk.current_task(layout(), product_path)
+
+
+@pytest.mark.parametrize("commits, expected", [
+    ([], (1, 5)),
+    ([_task(1, "red")], (1, 5)),
+    ([_task(2, "red"), _task(1, "green"), _task(1, "red")], (2, 5)),
+    ([_task(3, "refactor"), _task(3, "green"), _task(2), _task(1, "green")], (4, 5)),
+    ([_pause(2), _task(2, "green"), _task(1, "green")], (3, 5)),
+], ids=["nothing-committed", "a-red-is-not-past-its-task", "a-green-moves-to-the-next",
+        "plain-and-refactor-land", "a-pause-is-not-a-task"])
+def test_the_current_task_is_the_one_after_the_last_landed(commits, expected):
+    assert _current_task(commits) == expected
+
+
+def test_a_deferred_task_is_behind_the_run():
+    commits = [_task(2, "deferred"), _task(2, "red"), _task(1, "green")]
+
+    assert _current_task(commits) == (3, 5)
+
+
+def test_a_task_skipped_past_does_not_hold_the_count_back():
+    # Task 2 deferred with only its red: once task 3 lands, the run is on task 4.
+    commits = [_task(3, "green"), _task(2, "red"), _task(1, "green")]
+
+    assert _current_task(commits) == (4, 5)
+
+
+def test_the_current_task_is_a_place_in_plan_order_not_a_task_number():
+    commits = [_task(30, "green")]
+
+    assert _current_task(commits, numbers=(10, 20, 30, 40)) == (4, 4)
+
+
+def test_a_task_heading_written_twice_is_counted_once():
+    assert _current_task([_task(1, "green")], numbers=(1, 2, 2, 3)) == (2, 3)
+
+
+def test_every_task_behind_the_run_reads_no_current_task():
+    commits = [MARKER, _task(2, "green"), _task(1, "green")]
+
+    assert _current_task(commits, numbers=(1, 2)) is None
+
+
+@pytest.mark.parametrize("files", [{}, {f"{BRANCH_CHANGE}/tl_instruction.md": "# nothing\n"}],
+                         ids=["unreadable", "no-task-heading"])
+def test_an_instruction_with_no_task_reads_no_current_task(files):
+    disk = reader(files=files, git=FakeGit(commits={KEY: [_task(1, "green")]}))
+
+    assert disk.current_task(layout(), "") is None
+
+
+def test_the_current_task_reads_an_external_product_repo():
+    git = FakeGit(repos={PRODUCT: {KEY: [_task(1, "green")]}, INSTANCE: {KEY: []}})
+
+    assert _current_task([], git=git, product_path=PRODUCT) == (2, 5)
+
+
 @pytest.mark.parametrize("product_path, read_from", [
     ("/instance-other", "product"),
     ("/instance/product", "instance"),
@@ -5902,9 +6009,11 @@ def test_repaired_change_with_new_integrity_pass_can_reach_audits():
     files.write_text(f"{BRANCH_CHANGE}/code-integrity-report.md", PASSING_REPORT)
 
     engine.advance("code-integrity", "completed")
+    files.write_text(f"{BRANCH_CHANGE}/security-report.md", PASSING_SECURITY_REPORT)
+    engine.advance("security", "completed")
 
     assert [args[1] for args in processes.launched] == [
-        "development-implementation", "development-code-integrity",
+        "development-implementation", "development-code-integrity", "development-security",
         *("development-audit" for _ in PRODUCERS)]
     assert saved(files)["ended"] is None
 
@@ -6206,6 +6315,8 @@ def test_a_pause_after_the_last_task_relaunches_and_the_walk_seals():
     assert walk.state["ended"] is None
     land(walk.files, walk.git, "code-integrity")
     walk.advance("code-integrity")
+    land(walk.files, walk.git, "security")
+    walk.advance("security")
     for audited in PRODUCERS:
         land(walk.files, walk.git, "audit", audited)
         walk.advance(f"audit-{audited}")
@@ -6215,7 +6326,7 @@ def test_a_pause_after_the_last_task_relaunches_and_the_walk_seals():
 
     assert walk.state["ended"] == "sealed", walk.state.get("ended_reason")
     assert walk.skills_launched == ["development-implementation", "development-implementation",
-                                    "development-code-integrity",
+                                    "development-code-integrity", "development-security",
                                     *("development-audit" for _ in PRODUCERS), "tobiishi-seal"]
 
 
@@ -7079,7 +7190,7 @@ def test_a_stop_ends_a_live_walk_stopping_its_watcher_then_its_run():
 
 
 def test_a_stop_stops_every_run_of_the_audit_fan_out():
-    walk = Walk(through="code-integrity")
+    walk = Walk(through="security")
     for index, skill in enumerate(PRODUCERS):
         record_identity(walk, f"audit-{skill}", run_pid=200 + 2 * index,
                         watcher_pid=201 + 2 * index)
@@ -7328,11 +7439,12 @@ def test_the_content_step_is_in_both_tables_with_the_content_editor_role():
         assert [entry.id for entry in table if entry.id != "content"] == [
             entry.id for entry in table if entry.id in
             {"station", "change", "specs", "design", "plan", "implementation",
-             "code-integrity", "audit", "seal", "refine"}]
-    seven = ["specs", "design", "plan", "implementation", "code-integrity", "audit", "seal"]
-    assert [entry.id for entry in cd.DEVELOPMENT_STEPS if entry.id != "content"] == seven
+             "code-integrity", "security", "audit", "seal", "refine"}]
+    eight = ["specs", "design", "plan", "implementation", "code-integrity", "security", "audit",
+             "seal"]
+    assert [entry.id for entry in cd.DEVELOPMENT_STEPS if entry.id != "content"] == eight
     assert [entry.id for entry in cd.CHANGE_STEPS if entry.id != "content"] == [
-        "station", "change", *seven, "refine"]
+        "station", "change", *eight, "refine"]
     assert cd.CHANGE_STEPS[2:-1] == cd.DEVELOPMENT_STEPS
 
 
@@ -7511,7 +7623,8 @@ def test_a_walk_halted_for_a_missing_verdict_resumes_once_the_line_is_added(desi
 
 @pytest.mark.parametrize("landed_through, entry", [
     pytest.param("implementation", "code-integrity", id="marker"),
-    pytest.param("code-integrity", "audit", id="integrity-report"),
+    pytest.param("code-integrity", "security", id="integrity-report"),
+    pytest.param("security", "audit", id="security-report"),
     pytest.param("audit", "seal", id="audits"),
 ])
 def test_a_change_past_the_content_step_is_never_entered_there(landed_through, entry):
@@ -7559,7 +7672,7 @@ def test_the_audit_fans_out_over_the_content_step_too():
 
 def test_a_no_text_change_audits_only_the_four_steps_it_ran():
     walk = Walk(through="design")
-    for step_id in ("plan", "implementation", "code-integrity"):
+    for step_id in ("plan", "implementation", "code-integrity", "security"):
         land(walk.files, walk.git, step_id)
         walk.advance(step_id)
     for skill in PRODUCERS:
@@ -7568,13 +7681,91 @@ def test_a_no_text_change_audits_only_the_four_steps_it_ran():
 
     assert walk.skills_launched == [
         "development-plan", "development-implementation", "development-code-integrity",
-        *["development-audit"] * 4, "tobiishi-seal"]
+        "development-security", *["development-audit"] * 4, "tobiishi-seal"]
     assert walk.state["ended"] is None
+
+
+AD_HOC_SPEC = ("# Change Spec\n\n**Behaviour:** changing\n"
+               "**Planned by:** ad-hoc-plan — stub spec; development-specs did not run on this change.\n")
+AD_HOC_DESIGN = ("# Change Design\n\n**Behaviour:** changing\n**Publishes text:** no\n"
+                 "**Planned by:** ad-hoc-plan — stub design; development-design did not run on this change.\n")
+
+
+def test_an_ad_hoc_planned_change_audits_neither_its_stub_spec_nor_its_stub_design():
+    walk = Walk(through="design")
+    walk.files.write_text(f"{BRANCH_CHANGE}/change_spec.md", AD_HOC_SPEC)
+    walk.files.write_text(f"{BRANCH_CHANGE}/change_design.md", AD_HOC_DESIGN)
+    for step_id in ("plan", "implementation", "code-integrity", "security"):
+        land(walk.files, walk.git, step_id)
+        walk.advance(step_id)
+    audited = [args[-1] for args in walk.processes.launched if args[1] == "development-audit"]
+
+    assert audited == ["development-plan", "development-implementation"]
+    for skill in audited:
+        land(walk.files, walk.git, "audit", skill)
+        walk.advance(f"audit-{skill}")
+    assert walk.skills_launched[-1] == "tobiishi-seal"
+    assert walk.state["ended"] is None
+
+
+def test_an_ad_hoc_planned_change_that_publishes_text_still_audits_its_text():
+    walk = Walk(through="design")
+    walk.files.write_text(f"{BRANCH_CHANGE}/change_spec.md", AD_HOC_SPEC)
+    walk.files.write_text(f"{BRANCH_CHANGE}/change_design.md",
+                          AD_HOC_DESIGN.replace("**Publishes text:** no",
+                                                "**Publishes text:** yes — the README"))
+    for step_id in ("plan", "content", "implementation", "code-integrity", "security"):
+        land(walk.files, walk.git, step_id)
+        walk.advance(step_id)
+    audited = [args[-1] for args in walk.processes.launched if args[1] == "development-audit"]
+
+    assert audited == ["development-plan", "development-content", "development-implementation"]
+
+
+def test_a_restart_at_the_audit_of_an_ad_hoc_change_waits_only_for_the_audits_it_runs():
+    files, git = _through("security")
+    files = FakeFiles(files)
+    files.write_text(f"{BRANCH_CHANGE}/change_spec.md", AD_HOC_SPEC)
+    files.write_text(f"{BRANCH_CHANGE}/change_design.md", AD_HOC_DESIGN)
+    reader = cd.DiskReader(files=files, git=git)
+    assert not reader.is_done(layout(), step("audit"))
+    for skill in ("development-plan", "development-implementation"):
+        land(files, git, "audit", skill)
+
+    assert reader.is_done(layout(), step("audit"))
+
+
+@pytest.mark.parametrize("planned_by", [
+    "**Planned by:** development-specs",
+    "**Planned by:** ad-hoc-planner — not the skill",
+    "**Planned by:**",
+    "Planned by ad-hoc-plan, with no colon",
+])
+def test_only_a_planned_by_line_naming_ad_hoc_plan_marks_a_stub(planned_by):
+    files, git = _through("design")
+    files = FakeFiles(files)
+    files.write_text(f"{BRANCH_CHANGE}/change_spec.md", f"# Change Spec\n\n{planned_by}\n")
+    reader = cd.DiskReader(files=files, git=git)
+
+    assert not reader.stubbed(layout(), "development-specs")
+    assert "development-specs" in reader.audited(layout(), step("audit"))
+
+
+def test_a_planned_by_line_marks_only_the_spec_and_design_steps():
+    files, git = _through("design")
+    files = FakeFiles(files)
+    for artifact in ("change_spec.md", "change_design.md", "tl_instruction.md"):
+        files.write_text(f"{BRANCH_CHANGE}/{artifact}", "**Planned by:** ad-hoc-plan — x\n")
+    reader = cd.DiskReader(files=files, git=git)
+
+    assert reader.stubbed(layout(), "development-specs")
+    assert reader.stubbed(layout(), "development-design")
+    assert not reader.stubbed(layout(), "development-plan")
 
 
 def test_a_text_change_audits_its_text_as_a_fifth_run():
     walk = _advanced_past_plan(TEXT_DESIGN)
-    for step_id in ("content", "implementation", "code-integrity"):
+    for step_id in ("content", "implementation", "code-integrity", "security"):
         land(walk.files, walk.git, step_id)
         walk.advance(step_id)
     audited = [args[-1] for args in walk.processes.launched if args[1] == "development-audit"]
@@ -7672,7 +7863,7 @@ def test_a_dirty_bare_developer_run_gets_no_missing_marker_recovery():
 
 
 def test_an_audit_run_that_leaves_the_product_checkout_dirtier_halts_the_walk():
-    walk = Walk(through="code-integrity", checkout=FakeCheckout([], [], [], [], DIRTY))
+    walk = Walk(through="security", checkout=FakeCheckout([], [], [], [], DIRTY))
 
     walk.advance(f"audit-{PRODUCERS[0]}")
 
@@ -7866,6 +8057,8 @@ def test_a_mention_that_is_not_a_declaration_does_not_declare(line):
 
 
 def test_the_first_environment_declaration_wins_over_a_later_one():
+    # CP-780 retires the good-then-bad acceptance: every declared kind is read, so a later bad
+    # declaration refuses as an earlier one does.
     bad_then_good = ("Environment: unresolved — the runner cannot be read\n"
                      "Environment: owners-mac — no CI\n")
     good_then_bad = ("Environment: owners-mac — no CI\n"
@@ -7873,8 +8066,61 @@ def test_the_first_environment_declaration_wins_over_a_later_one():
 
     assert MISSING_ENVIRONMENT in _reason(_marker_walk(_ENV_HEAD + bad_then_good))
     assert MISSING_ENVIRONMENT in _reason(_report_walk("Integrity: pass\n" + bad_then_good))
-    assert _went_on(_marker_walk(_ENV_HEAD + good_then_bad))
-    assert _went_on(_report_walk("Integrity: pass\n" + good_then_bad))
+    assert MISSING_ENVIRONMENT in _reason(_marker_walk(_ENV_HEAD + good_then_bad))
+    assert MISSING_ENVIRONMENT in _reason(_report_walk("Integrity: pass\n" + good_then_bad))
+
+
+_CELL = "Environment: container — python:{v}, arm64\n"
+_THREE_CELLS = "".join(_CELL.format(v=v) for v in ("3.11", "3.12", "3.13"))
+
+
+def test_each_marker_and_report_environment_kind_is_validated():
+    # Several valid declarations pass, duplicates and emphasis included.
+    dressed = "**Environment: container — python:3.12, arm64**\n"
+    for declared in (_THREE_CELLS, _THREE_CELLS + _THREE_CELLS, dressed + _THREE_CELLS):
+        assert _went_on(_marker_walk(_ENV_HEAD + declared))
+        assert _went_on(_report_walk("Integrity: pass\n" + declared))
+
+    # A bad kind refuses in the first, middle or last position; a mention declares nothing.
+    for bad in ("", "Environment:", "Environment: unresolved — x", "Environment: Container — y",
+                "Environment: vm — z"):
+        for position in range(3):
+            cells = [_CELL.format(v=v) for v in ("3.11", "3.12", "3.13")]
+            cells[position] = bad + "\n" if bad else "Environment:\n"
+            declared = "".join(cells)
+            reason = _reason(_marker_walk(_ENV_HEAD + declared))
+            assert MISSING_ENVIRONMENT in reason, (bad, position)
+            assert MISSING_ENVIRONMENT in _reason(
+                _report_walk("Integrity: pass\n" + declared)), (bad, position)
+    mention = "- Environment: unresolved — a bullet\n> Environment: Container — a quote\n"
+    assert _went_on(_marker_walk(_ENV_HEAD + _THREE_CELLS + mention))
+    assert _went_on(_report_walk("Integrity: pass\n" + _THREE_CELLS + mention))
+
+
+def test_environment_validation_is_still_last_over_several_declarations():
+    bad_cells = _CELL.format(v="3.11") + "Environment: unresolved — x\n"
+
+    assert "red-suite" in _reason(_marker_walk("Suite: red\n\nLanguage resolution:\n- python — "
+                                               "declared in project.md\n" + bad_cells))
+    assert "missing-integrity" in _reason(_report_walk("Integrity: passed\n" + bad_cells))
+    assert MISSING_ENVIRONMENT in _reason(_marker_walk(_ENV_HEAD + bad_cells))
+
+
+def test_none_beside_other_kinds_obeys_the_card_for_marker_and_report():
+    mixed = "Environment: none — no suite\n" + _CELL.format(v="3.12")
+    assert MISSING_ENVIRONMENT in _reason(_marker_walk(_ENV_HEAD + mixed))
+    assert MISSING_ENVIRONMENT in _reason(_report_walk("Integrity: pass\n" + mixed))
+    assert _went_on(_marker_walk(_NO_SUITE_MARKER + "Environment: none — no suite\n",
+                                 card=_NO_COMMAND_CARD))
+
+
+def test_environment_reader_returns_every_declared_kind_and_keeps_the_singular_query():
+    walk = _marker_walk(_ENV_HEAD + _THREE_CELLS)
+    reader = cd.DiskReader(files=walk.files, git=walk.git)
+    change = layout()
+
+    assert reader.marker_environment_kinds(change) == ["container"] * 3
+    assert reader.marker_environment_kind(change) == "container"
 
 
 # `none` is a kind only beside the card on main that has no command.
@@ -8024,6 +8270,141 @@ def test_a_re_close_is_not_grandfathered_by_the_marker_it_supersedes():
     assert f"stopped at implementation: {MISSING_ENVIRONMENT}" in _reason(walk)
 
 
+# --- a not-ready environment halts by name, ahead of the verdicts a missing run would read -------
+
+NOT_READY = "environment-not-ready"
+_NOT_READY_LINE = ("Environment: not-ready — python:3.12, arm64: "
+                   "the python packet states no install\n")
+_RED_HEAD = "Suite: red\n\nLanguage resolution:\n- python — declared in project.md\n"
+
+
+def test_marker_with_a_not_ready_line_halts_environment_not_ready():
+    walk = _marker_walk(_RED_HEAD + _CELL.format(v="3.12") + _NOT_READY_LINE)
+
+    assert f"stopped at implementation: {NOT_READY}" in _reason(walk)
+    assert "red-suite" not in _reason(walk)
+
+
+def test_not_ready_halts_even_beside_suite_green():
+    walk = _marker_walk(_ENV_HEAD + _CELL.format(v="3.12") + _NOT_READY_LINE)
+
+    assert f"stopped at implementation: {NOT_READY}" in _reason(walk)
+
+
+def test_report_with_a_not_ready_line_halts_before_integrity_stopped():
+    walk = _report_walk("Integrity: stopped\n" + _CELL.format(v="3.12") + _NOT_READY_LINE)
+
+    assert f"stopped at code-integrity: {NOT_READY}" in _reason(walk)
+    assert "integrity-stopped" not in _reason(walk)
+
+
+def test_a_dressed_not_ready_line_counts():
+    dressed = ("**Environment: not-ready — python:3.12, arm64: "
+               "the python packet states no install**\n")
+
+    assert NOT_READY in _reason(_marker_walk(_ENV_HEAD + dressed))
+    assert NOT_READY in _reason(_report_walk("Integrity: pass\n" + dressed))
+
+
+def test_a_marker_without_not_ready_keeps_todays_verdicts():
+    # A regression guard: green on main.
+    assert "red-suite" in _reason(_marker_walk(_RED_HEAD + _CELL.format(v="3.12")))
+    assert MISSING_ENVIRONMENT in _reason(
+        _marker_walk(_ENV_HEAD + "Environment: unresolved — the runner cannot be read\n"))
+    assert _went_on(_marker_walk(_ENV_HEAD + _CELL.format(v="3.12")))
+
+
+def test_describe_refuses_a_relaunch_past_a_not_ready_marker():
+    marker = _ENV_HEAD + _NOT_READY_LINE
+    disk, git = _world_beyond("seal", steps=cd.DEVELOPMENT_STEPS, marker=marker)
+
+    with pytest.raises(cd.ChainRefused, match=f"stopped at implementation: {NOT_READY}"):
+        describe(build(FakeFiles(dict(disk)), git=git, steps=cd.DEVELOPMENT_STEPS))
+
+
+# --- only the first run of `Environment:` / `Failing:` lines is read (CP-854 to CP-857) -----
+
+_MENTION = "`Environment:` lines are the bare lines at the top of this report.\n"
+_REPORT_BLOCK = ("Environment: container — python:3.11, amd64\n"
+                 "Environment: container — python:3.11, arm64\n"
+                 "Environment: container — python:3.12, amd64\n"
+                 "Environment: container — python:3.12, arm64\n"
+                 "Environment: macos-guest — a-guest\n")
+
+
+def test_a_report_whose_block_is_followed_by_a_wrapped_mention_walks_on():
+    # The real report's shape: the verdict, the block of five, prose, and a wrapped line opening
+    # with the quoted prefix. On main that line read as a sixth kind, `lines`.
+    report = "Integrity: pass\n" + _REPORT_BLOCK + "\nThe chain reads the head; the\n" + _MENTION
+
+    assert _went_on(_report_walk(report))
+
+
+def test_a_marker_whose_block_is_followed_by_a_wrapped_mention_walks_on():
+    marker = _ENV_HEAD + _THREE_CELLS + "\nProse about the run; the\n" + _MENTION
+
+    walk = _marker_walk(marker)
+
+    assert _went_on(walk)
+    reader = cd.DiskReader(files=walk.files, git=walk.git)
+    assert reader.marker_environment_kinds(layout()) == ["container"] * 3
+
+
+def test_a_bad_line_inside_the_first_run_still_halts():
+    unresolved = "Environment: unresolved — the runner cannot be read\n"
+    for line, reason in ((unresolved, MISSING_ENVIRONMENT), (_NOT_READY_LINE, NOT_READY)):
+        block = _CELL.format(v="3.12") + line + _CELL.format(v="3.13")
+        assert reason in _reason(_marker_walk(_ENV_HEAD + block + "\nprose\n" + _MENTION)), line
+        assert reason in _reason(
+            _report_walk("Integrity: pass\n" + block + "\nprose\n" + _MENTION)), line
+
+
+def test_a_bad_line_after_the_first_run_halts_nothing():
+    unresolved = "Environment: unresolved — the runner cannot be read\n"
+    for line in (unresolved, _NOT_READY_LINE):
+        after = _THREE_CELLS + "\nprose\n" + line
+        assert _went_on(_marker_walk(_ENV_HEAD + after)), line
+        assert _went_on(_report_walk("Integrity: pass\n" + after)), line
+
+
+@pytest.mark.parametrize("line", [
+    *(environment for environment in _NOT_ENVIRONMENTS if environment),
+    # A mention written directly under the block, with no line between, is inside the run
+    # (CP-854, CP-856): its kind, `lines`, is judged, and it halts.
+    _MENTION.rstrip("\n"),
+])
+def test_a_line_naming_no_kind_inside_the_first_run_still_halts(line):
+    # CP-857: every line inside the run is judged as today, whatever its position in it.
+    block = _CELL.format(v="3.12") + line + "\n" + _CELL.format(v="3.13")
+    assert MISSING_ENVIRONMENT in _reason(_marker_walk(_ENV_HEAD + block + "\nprose\n"))
+    assert MISSING_ENVIRONMENT in _reason(_report_walk("Integrity: pass\n" + block + "\nprose\n"))
+
+
+def test_a_later_failing_mention_does_not_keep_a_red():
+    marker = _marker_with(_DEFERRED_THREE.strip(),
+                          "Failing: tests/test_bundle.py::test_cp_15 — task 3",
+                          "Each case is named; the",
+                          "`Failing:` lines name each failing case.")
+
+    walk = _walk_with_marker(marker)
+    walk.advance("implementation")
+
+    assert walk.state["ended"] is None
+    assert walk.skills_launched[-1] == "development-code-integrity"
+
+
+def test_a_failing_line_inside_the_run_naming_no_deferred_task_still_halts():
+    marker = _marker_with(_DEFERRED_THREE.strip(),
+                          "Failing: tests/test_a.py::test_a — task 3",
+                          "Failing: tests/test_b.py::test_b — task 1",
+                          "A later prose line.")
+
+    walk = _walk_with_marker(marker)
+    walk.advance("implementation")
+
+    assert "stopped at implementation: red-suite" in walk.state["ended_reason"]
+
+
 def test_positive_fixture_updates_preserve_existing_assertions():
     # The shared passing fixtures name an environment, so every earlier positive test still
     # reaches the end it asserted; the failing-record fixtures are untouched.
@@ -8039,7 +8420,7 @@ def test_positive_fixture_updates_preserve_existing_assertions():
 
 
 ASK_VARIABLE = "KENSAIAPP_GATE_OWNERS_MAC"
-_ASK_CONSUMERS = ("implementation", "code-integrity", "seal")
+_ASK_CONSUMERS = ("implementation", "code-integrity", "security", "seal")
 
 
 def _a_walk_state(**overrides) -> "cd.WalkState":
@@ -8091,11 +8472,13 @@ def test_only_gate_consumers_receive_stored_ask(steps, step_id):
 def test_every_audit_run_drops_an_inherited_ask_even_when_the_walk_asked():
     walk = Walk(through="implementation", gate_owners_mac=True)
     land(walk.files, walk.git, "code-integrity")
+    walk.advance("code-integrity")
+    land(walk.files, walk.git, "security")
     inherited = {"PATH": "/usr/bin", ASK_VARIABLE: "1"}
     before = len(walk.processes.calls)
 
     build(walk.files, git=walk.git, processes=walk.processes, notifier=walk.notifier,
-          lock=walk.lock, environ=inherited).advance("code-integrity", "completed")
+          lock=walk.lock, environ=inherited).advance("security", "completed")
 
     audits = walk.processes.calls[before:]
     assert len(audits) == 4
@@ -8847,7 +9230,7 @@ def test_an_empty_tracked_inventory_is_a_valid_snapshot(tmp_path):
 
 
 # --- a body another change left behind cannot close this one ------------------------------------
-# The kasanari shape, through the real connection: A's gate run is made by the real gate CLI over a
+# The leaked-body shape, through the real connection: A's gate run is made by the real gate CLI over a
 # fake suite process, its record is kept by the real store, and the closing commit is attempted by
 # the real builder in a real repository. The chain then reads that repository's real history; only
 # its disk, its processes and its notifier stay scripted around the commit.
@@ -8989,3 +9372,659 @@ def test_matching_green_body_really_closes_the_same_chain_setup(tmp_path, route)
     walk, _ = _settle(repo)
     assert walk.state["suite"] == "green" and walk.state["ended"] is None
     assert walk.skills_launched[-1] == "development-code-integrity"
+
+
+# --- a Linux matrix, through the real gate, run store, builder and chain (CP-781, CP-785) -----
+
+from test_gate_suite import (  # noqa: E402
+    CELL_DECLARATIONS, MATRIX_CI_TEXT, Events, FakeWorkspaces, MatrixProcesses, matrix_inputs)
+
+MATRIX_TABLES = [cd.DEVELOPMENT_STEPS, cd.CHANGE_STEPS]
+MATRIX_TABLE_IDS = ["development-table", "change-table"]
+
+
+def _matrix_checkout(tmp_path: Path) -> Path:
+    """The real change checkout, with the product's CI file on `main` and on the branch."""
+    repo = _change_checkout(tmp_path)
+    ci = repo / CI_FILE
+    ci.parent.mkdir(parents=True)
+    ci.write_text(MATRIX_CI_TEXT)
+    _repo_git(repo, "add", "-A")
+    _repo_git(repo, "commit", "-q", "-m", "ci")
+    _repo_git(repo, "branch", "-f", "main", KEY)
+    return repo
+
+
+def _run_the_matrix_gate(repo: Path, store, tmp_path: Path, statuses=(0, 0, 0)) -> int:
+    events = Events()
+    results = {f"python:{tag}": gate_suite.Completed(status, f"python:{tag} out\n", "")
+               for tag, status in zip(("3.11", "3.12", "3.13"), statuses)}
+    inputs = tmp_path / "matrix-inputs.json"
+    inputs.write_text(json.dumps(matrix_inputs()))
+    paths = {"kind": "relative", "product_worktree": str(repo), "pipeline_worktree": str(repo),
+             "code_worktree": str(repo), "product_repo": str(repo), "product_path": ".claude",
+             "instance_worktree": str(repo)}
+    host = gate_suite.Host(files=gate_suite._RealFiles(), contract=lambda *_: paths,
+                           processes=MatrixProcesses(events, results), new_token=lambda: "tok",
+                           core_root=CORE_ROOT, guest_lock=None, run_records=store,
+                           workspaces=FakeWorkspaces(events))
+    return gate_suite.main(
+        ["run", "--worktree", str(repo), "--project", REAL_GATE_PROJECT, "--key", KEY,
+         "--gate", "developer", "--inputs", str(inputs)],
+        host=host, stdout=io.StringIO(), stderr=io.StringIO())
+
+
+def _matrix_marker(*declarations: str) -> str:
+    return ("Suite: green\n\nLanguage resolution:\n- python — declared in project.md\n\n"
+            + "".join(f"{line}\n" for line in declarations))
+
+
+def _settle_matrix(repo: Path, steps) -> Walk:
+    walk = Walk(through="plan") if steps is cd.DEVELOPMENT_STEPS else _change_walk()
+    walk.git = RealRepoGit(repo)
+    walk.files.write_text(f"{BRANCH_CHANGE}/tl_instruction.md", _instruction(1, 2))
+    walk.advance("implementation")
+    return walk
+
+
+@pytest.mark.parametrize("steps", MATRIX_TABLES, ids=MATRIX_TABLE_IDS)
+def test_three_cell_gate_builder_chain_walk_and_mismatch_halt(tmp_path, steps):
+    # The production pre-check resolves the three-version CI and the walk launches implementation.
+    change = RealChange(tmp_path / "pre", ".", worktree_files={CI_FILE: MATRIX_CI_TEXT})
+    change.plan(_plan_with(matrix_inputs()))
+    pre = Guarded(steps, "start", RealCheck(change))
+    assert change.check().answer is gate_suite.CheckAnswer.RESOLVES
+    assert pre.state["ended"] is None and pre.launched[-1] == "development-implementation"
+
+    # The gate runs every cell; its stored declarations are the three actual lines.
+    repo = _matrix_checkout(tmp_path)
+    store = gate_suite.FileRunRecords(tmp_path / "gate-runs")
+    assert _run_the_matrix_gate(repo, store, tmp_path) == 0
+    shared = tmp_path / "shared"
+    shared.mkdir()
+
+    # A marker carrying all three lines is committed by the real builder and the chain goes on to
+    # code integrity.
+    whole = _matrix_marker(*CELL_DECLARATIONS)
+    assert _attempt_the_closing_commit(repo, store, "file", whole, shared) == 0
+    landed = _settle_matrix(repo, steps)
+    assert landed.state["suite"] == "green" and landed.state["ended"] is None
+    assert landed.skills_launched[-1] == "development-code-integrity"
+
+    # A marker missing a cell, or naming a different one, is refused: no marker lands, the
+    # one recovery is spent, and implementation halts with code integrity never launched.
+    different = [CELL_DECLARATIONS[0], CELL_DECLARATIONS[1],
+                 "Environment: container — python:3.14, arm64"]
+    for name, lines in (("missing", CELL_DECLARATIONS[:2]), ("different", different)):
+        (tmp_path / name).mkdir()
+        other = _matrix_checkout(tmp_path / name)
+        other_store = gate_suite.FileRunRecords(tmp_path / name / "gate-runs")
+        assert _run_the_matrix_gate(other, other_store, tmp_path / name) == 0
+        assert _attempt_the_closing_commit(
+            other, other_store, "file", _matrix_marker(*lines), shared) != 0
+        assert "implementation complete" not in _repo_git(other, "log", "--format=%s",
+                                                          f"main..{KEY}")
+        walk = _settle_matrix(other, steps)
+        walk.advance("implementation-recovery")
+        assert walk.state["ended"] == "halted" and "closing marker" in walk.state["ended_reason"]
+        assert "development-code-integrity" not in walk.skills_launched
+
+
+# --- mixed cells, through the existing readers (CP-791, CP-792, design T14) -------------------
+
+from test_gate_suite import (  # noqa: E402
+    GUEST_LINES, LINUX_LINES, MIXED_CI_TEXT, MIXED_VERSIONS, mixed_raw)
+
+MIXED_DECLARATIONS = [*LINUX_LINES, *GUEST_LINES]
+_MIXED_KINDS = ["container", "container", "macos-guest"]
+
+
+@pytest.mark.parametrize("steps", MATRIX_TABLES, ids=MATRIX_TABLE_IDS)
+def test_mixed_evidence_check_allows_implementation_launch(tmp_path, steps):
+    # The production check, over real sourced mixed evidence, resolves the two-platform CI, and the
+    # walk then launches implementation instead of stopping for an environment decision.
+    change = RealChange(tmp_path, ".", worktree_files={CI_FILE: MIXED_CI_TEXT})
+    change.plan(_plan_with(mixed_raw(versions=MIXED_VERSIONS)))
+
+    answer = change.check()
+    guarded = Guarded(steps, "start", RealCheck(change))
+
+    assert answer.answer is gate_suite.CheckAnswer.RESOLVES and answer.status == 0
+    assert guarded.state["ended"] is None
+    assert guarded.launched[-1] == "development-implementation"
+
+
+def test_marker_and_integrity_report_accept_all_mixed_kinds():
+    # CP-792/T14: two container and one versioned guest declaration pass each reader, and every
+    # declaration is read, so a bad kind refuses in any of the three positions.
+    declared = "".join(f"{line}\n" for line in MIXED_DECLARATIONS)
+    assert _went_on(_marker_walk(_ENV_HEAD + declared))
+    assert _went_on(_report_walk("Integrity: pass\n" + declared))
+    walk = _marker_walk(_ENV_HEAD + declared)
+    reader = cd.DiskReader(files=walk.files, git=walk.git)
+    assert reader.marker_environment_kinds(layout()) == _MIXED_KINDS
+
+    for bad in ("Environment: unresolved — x", "Environment: Container — y",
+                "Environment: vm — z", "Environment:"):
+        for position in range(len(MIXED_DECLARATIONS)):
+            lines = list(MIXED_DECLARATIONS)
+            lines[position] = bad
+            broken = "".join(f"{line}\n" for line in lines)
+            assert MISSING_ENVIRONMENT in _reason(_marker_walk(_ENV_HEAD + broken)), (bad, position)
+            assert MISSING_ENVIRONMENT in _reason(
+                _report_walk("Integrity: pass\n" + broken)), (bad, position)
+
+
+# --- the security step (development-security), 2026-10-23 --------------------------------------
+
+
+def _security_walk(report: str | None = PASSING_SECURITY_REPORT, **start_arguments) -> "Walk":
+    """A walk whose code-integrity has landed and passed, advanced into the security step; the
+    security report is written only when `report` is not `None`."""
+    walk = Walk(through="implementation", **start_arguments)
+    land(walk.files, walk.git, "code-integrity")
+    walk.advance("code-integrity")
+    if report is not None:
+        walk.files.write_text(f"{BRANCH_CHANGE}/security-report.md", report)
+    return walk
+
+
+def test_the_security_step_is_the_senior_engineers_between_integrity_and_audit():
+    for table in (cd.DEVELOPMENT_STEPS, cd.CHANGE_STEPS):
+        ids = [entry.id for entry in table]
+        at = ids.index("security")
+
+        assert ids[at - 1] == "code-integrity" and ids[at + 1] == "audit"
+        security = table[at]
+        assert (security.skill, security.role, security.artifact) == (
+            "development-security", "senior-engineer", "security-report.md")
+
+
+def test_code_integrity_landing_launches_the_security_step_and_no_audit():
+    walk = Walk(through="implementation")
+    land(walk.files, walk.git, "code-integrity")
+
+    walk.advance("code-integrity")
+
+    assert walk.processes.launched[-1] == [SKILL_LAUNCHER, "development-security", PROJECT, KEY]
+    assert "development-audit" not in walk.skills_launched
+
+
+@pytest.mark.parametrize("declared", ["Security: clean", "Security: fixed", "Security: reported",
+                                      "**Security: clean**", "`Security: fixed`",
+                                      "*Security: reported*", "__Security: clean__"])
+def test_a_passing_security_verdict_launches_the_audit_fan_out(declared):
+    walk = _security_walk(f"{declared}\n")
+
+    walk.advance("security")
+
+    assert walk.skills_launched[-4:] == ["development-audit"] * 4
+    assert walk.state["ended"] is None
+
+
+def test_a_stopped_security_verdict_halts_before_the_audit():
+    walk = _security_walk("Security: stopped\n")
+
+    walk.advance("security")
+
+    assert walk.state["ended"] == "halted"
+    assert "stopped at security: security-stopped" in walk.state["ended_reason"]
+    assert "development-audit" not in walk.skills_launched
+
+
+@pytest.mark.parametrize("report", ["Security: Clean\n", "Security: done\n", "Security:\n",
+                                    "no such line here\n"],
+                         ids=["capitalised", "other-word", "no-value", "no-line"])
+def test_any_other_security_value_or_no_line_halts_missing_security(report):
+    walk = _security_walk(report)
+
+    walk.advance("security")
+
+    assert walk.state["ended"] == "halted"
+    assert "stopped at security: missing-security" in walk.state["ended_reason"]
+    assert "development-audit" not in walk.skills_launched
+
+
+def test_a_security_run_that_leaves_no_report_halts_naming_it():
+    walk = _security_walk(None)
+
+    walk.advance("security")
+
+    assert walk.state["ended"] == "halted"
+    assert ("stopped at security: no security-report.md after the run ended"
+            in walk.state["ended_reason"])
+    assert "development-audit" not in walk.skills_launched
+
+
+def test_a_security_run_that_leaves_a_halt_report_halts_naming_it():
+    """CP-829, its other half: a security run that wrote `halt_report.md` and no security report
+    halts naming the halt report, as every artifact step does, and no audit is launched."""
+    walk = _security_walk(None)
+    report = f"{BRANCH_CHANGE}/halt_report.md"
+    walk.files.write_text(report, "The change could not be resolved.")
+
+    walk.advance("security")
+
+    assert walk.state["ended"] == "halted"
+    assert f"stopped at security: halt_report.md at {report}" in walk.state["ended_reason"]
+    assert "development-audit" not in walk.skills_launched
+
+
+@pytest.mark.parametrize("report, reason", [
+    ("Security: stopped\n", "security-stopped"),
+    ("no such line here\n", "missing-security"),
+])
+def test_a_relaunch_over_a_bad_security_verdict_refuses(report, reason):
+    files, git = _through("audit")
+    files[f"{BRANCH_CHANGE}/security-report.md"] = report
+    disk = FakeFiles(files)
+    before = dict(disk.files)
+    processes, notifier = FakeProcesses(), FakeNotifier()
+
+    with pytest.raises(cd.ChainRefused, match=f"stopped at security: {reason}"):
+        start(build(disk, git=git, processes=processes, notifier=notifier))
+    with pytest.raises(cd.ChainRefused, match=f"stopped at security: {reason}"):
+        describe(build(FakeFiles(files), git=git))
+
+    assert disk.files == before
+    assert processes.calls == []
+    assert notifier.messages == []
+
+
+def test_a_bad_integrity_verdict_beside_a_bad_security_verdict_is_the_one_named():
+    files, git = _through("audit")
+    files[f"{BRANCH_CHANGE}/code-integrity-report.md"] = "Integrity: stopped\n"
+    files[f"{BRANCH_CHANGE}/security-report.md"] = "Security: stopped\n"
+
+    with pytest.raises(cd.ChainRefused, match="stopped at code-integrity") as started:
+        start(build(FakeFiles(files), git=git))
+    with pytest.raises(cd.ChainRefused, match="stopped at code-integrity") as described:
+        describe(build(FakeFiles(files), git=git))
+
+    assert "security" not in str(started.value)
+    assert "security" not in str(described.value)
+
+
+def test_the_security_launch_carries_the_owners_ask_only_when_the_walk_does():
+    asked = Walk(through="implementation", gate_owners_mac=True)
+    land(asked.files, asked.git, "code-integrity")
+    asked.advance("code-integrity")
+    stale = Walk(through="implementation")
+    land(stale.files, stale.git, "code-integrity")
+    build(stale.files, git=stale.git, processes=stale.processes, notifier=stale.notifier,
+          lock=stale.lock, environ={"PATH": "/usr/bin", ASK_VARIABLE: "1"}).advance(
+        "code-integrity", "completed")
+
+    assert asked.processes.launched[-1][1] == "development-security"
+    assert asked.processes.calls[-1]["env"].get(ASK_VARIABLE) == "1"
+    assert stale.processes.launched[-1][1] == "development-security"
+    assert ASK_VARIABLE not in stale.processes.calls[-1]["env"]
+
+
+# --- a red that is `main`'s: the reader's three questions (CP-860, CP-862) ---------------------
+
+
+REPAIR_DIR = f"{INSTANCE}/system/projects/{PROJECT}/docs/dependency-repair"
+REPAIR_WORKTREE_DIR = (f"{INSTANCE}/.worktrees/2026-10-24_dependency-repair"
+                       f"/system/projects/{PROJECT}/docs/dependency-repair")
+
+
+def _card_with_product_path(product_path: str) -> str:
+    return (f"# Project Context — {PROJECT}\n\n**Product path:** {product_path}   "
+            "<!-- relative → internal · absolute → external -->\n"
+            "**Test command:** pytest\n")
+
+
+def test_has_nfdr_reads_the_card_product_path_on_main():
+    """A relative `Product path:` is read from the instance root, an absolute one as written."""
+    inside = {CARD: _card_with_product_path("core/tools"),
+              f"{INSTANCE}/core/tools/docs/nfdr.md": "nfdr"}
+    assert reader(inside).has_nfdr(layout()) is True
+
+    no_nfdr = {CARD: _card_with_product_path("core/tools"),
+               f"{INSTANCE}/core/tools/docs/SDD.md": "sdd"}
+    assert reader(no_nfdr).has_nfdr(layout()) is False
+
+    outside = {CARD: _card_with_product_path("/product"), "/product/docs/nfdr.md": "n"}
+    assert reader(outside).has_nfdr(layout()) is True
+
+    unreadable_card = {f"{INSTANCE}/core/tools/docs/nfdr.md": "nfdr"}
+    assert reader(unreadable_card).has_nfdr(layout()) is False
+
+
+def test_repair_reports_lists_main_and_repair_worktrees():
+    """A report on main and one in a `_dependency-repair` worktree are both listed; a file not
+    ending `_report.md` and a worktree not named for a repair are not."""
+    main_report = f"{REPAIR_DIR}/2026-10-23_dependency-repair_report.md"
+    worktree_report = f"{REPAIR_WORKTREE_DIR}/2026-10-24_dependency-repair_report.md"
+    files = {
+        main_report: "Repair: merged\n",
+        worktree_report: "Repair: unmerged\n",
+        f"{REPAIR_DIR}/notes.md": "not a report",
+        f"{INSTANCE}/.worktrees/2026-10-24_other/system/projects/{PROJECT}/docs/dependency-repair"
+        "/2026-10-24_other_report.md": "Repair: merged\n",
+        f"{WORKTREE}/system/projects/{PROJECT}/docs/dependency-repair/x_report.md": "x",
+    }
+
+    assert reader(files).repair_reports(layout()) == sorted([main_report, worktree_report])
+    assert reader({}).repair_reports(layout()) == []
+
+
+@pytest.mark.parametrize("line, word", [
+    ("Repair: merged", "merged"),
+    ("**Repair:** unmerged", "unmerged"),
+    ("Repair: stopped — a question for the owner", "stopped"),
+])
+def test_repair_verdict_reads_the_first_word_of_the_repair_line(line, word):
+    path = f"{REPAIR_DIR}/r_report.md"
+    files = {path: f"# Report\n\n{line}\n"}
+    assert reader(files).repair_verdict(path) == word
+
+
+def test_repair_verdict_of_a_report_with_no_repair_line_or_no_file_is_none():
+    path = f"{REPAIR_DIR}/r_report.md"
+    assert reader({path: "# Report\n\nnothing declared\n"}).repair_verdict(path) is None
+    assert reader({}).repair_verdict(path) is None
+
+
+# --- a red that is `main`'s: the walk launches the repair and reads its end (CP-860–CP-866) ----
+
+
+_RED_BODY = "Suite: red\n\nLanguage resolution:\n- python\n"
+_OLD_REPORT = f"{REPAIR_DIR}/2026-10-01_dependency-repair_report.md"
+_NEW_REPORT = f"{REPAIR_DIR}/2026-10-24_dependency-repair_report.md"
+_NEW_WORKTREE_REPORT = f"{REPAIR_WORKTREE_DIR}/2026-10-24_dependency-repair_report.md"
+_IN_INSTANCE_PRODUCT = f"{INSTANCE}/core/tools"
+_ADVANCE = ["python3", f"{CORE}/tools/commit_builder.py", "--repo", WORKTREE, "advance",
+            "--from", "main", "--actor", "senior-engineer", "--surface", "Claude Code"]
+_REPAIR_LAUNCH = [SKILL_LAUNCHER, "dependency-repair", PROJECT]
+
+
+def _implementation_launch() -> list[str]:
+    return [SKILL_LAUNCHER, step("implementation").skill, PROJECT, KEY]
+
+
+def _red_walk(*, nfdr: bool = True, product_path: str = PRODUCT) -> Walk:
+    """A walk whose implementation run has just closed on `Suite: red`, no deferral owning it."""
+    walk = Walk(through="plan", product_path=product_path)
+    land(walk.files, walk.git, "implementation")
+    walk.git.bodies[MARKER[0]] = _RED_BODY
+    walk.files.write_text(CARD, _card_with_product_path(product_path))
+    if nfdr:
+        walk.files.write_text(f"{product_path}/docs/nfdr.md", "nfdr")
+    walk.files.write_text(_OLD_REPORT, "Repair: merged\n")
+    return walk
+
+
+def _repairing(**arguments) -> Walk:
+    """The red walk once its marker has been read and `dependency-repair` is out."""
+    walk = _red_walk(**arguments)
+    walk.advance("implementation")
+    return walk
+
+
+def _reclose(walk: Walk, body: str) -> None:
+    """The developer's re-close: a newer marker on the branch, declaring `body`."""
+    newer = ("d4e5f6", f"developer: {KEY} — implementation complete")
+    walk.git.commits[KEY].insert(0, newer)
+    walk.git.bodies[newer[0]] = body
+
+
+def test_a_red_marker_on_a_product_with_no_nfdr_halts_red_suite_at_once():
+    walk = _red_walk(nfdr=False)
+
+    walk.advance("implementation")
+
+    assert walk.state["ended"] == "halted"
+    assert walk.state["ended_reason"] == "stopped at implementation: red-suite"
+    assert "dependency-repair" not in walk.skills_launched
+
+
+def test_a_red_marker_on_an_nfdr_product_launches_dependency_repair():
+    walk = _repairing()
+
+    assert walk.processes.launched[-1] == _REPAIR_LAUNCH
+    assert walk.state["ended"] is None
+    assert "repair" in walk.state["pending"]
+    assert walk.state["pending"]["repair"]["step"] == "repair"
+
+
+def test_the_repair_is_a_senior_engineer_run_and_no_step_the_tables_hold():
+    walk = _repairing()
+
+    assert walk.processes.calls[-1]["env"]["INSTRUMENT_RUN_ROLE"] == "senior-engineer"
+    assert "repair" not in [entry.id for entry in cd.DEVELOPMENT_STEPS + cd.CHANGE_STEPS]
+    assert "dependency-repair" not in [entry.skill for entry in cd.DEVELOPMENT_STEPS
+                                       + cd.CHANGE_STEPS]
+
+
+def test_a_merged_repair_advances_the_change_and_relaunches_implementation():
+    walk = _repairing(product_path=_IN_INSTANCE_PRODUCT)
+    walk.files.write_text(_NEW_REPORT, "Repair: merged\n")
+
+    walk.advance("repair")
+
+    *_, advance, relaunch = walk.processes.calls
+    assert advance["argv"] == _ADVANCE
+    assert advance["cwd"] == WORKTREE
+    assert relaunch["argv"] == _implementation_launch()
+    assert walk.state["ended"] is None
+    assert "implementation" in walk.state["pending"]
+
+
+def test_a_merged_repair_on_an_external_product_advances_its_worktree_too():
+    walk = _repairing()
+    walk.files.write_text(_NEW_REPORT, "Repair: merged\n")
+
+    walk.advance("repair")
+
+    *_, instance_advance, product_advance, relaunch = walk.processes.calls
+    assert (instance_advance["argv"], instance_advance["cwd"]) == (_ADVANCE, WORKTREE)
+    product_worktree = f"{PRODUCT}/.worktrees/{KEY}"
+    assert product_advance["argv"] == _ADVANCE[:3] + [product_worktree] + _ADVANCE[4:]
+    assert product_advance["cwd"] == product_worktree
+    assert relaunch["argv"] == _implementation_launch()
+
+
+def test_a_green_re_close_after_a_merged_repair_walks_on():
+    walk = _repairing(product_path=_IN_INSTANCE_PRODUCT)
+    walk.files.write_text(_NEW_REPORT, "Repair: merged\n")
+    walk.advance("repair")
+    _reclose(walk, MARKER_BODY)
+
+    walk.advance("implementation")
+
+    assert walk.state["ended"] is None
+    assert walk.skills_launched[-1] == "development-code-integrity"
+
+
+@pytest.mark.parametrize("word, report", [
+    ("unmerged", _NEW_WORKTREE_REPORT),
+    ("stopped", _NEW_REPORT),
+])
+def test_an_unmerged_or_stopped_repair_halts_naming_its_report(word, report):
+    walk = _repairing()
+    walk.files.write_text(report, f"Repair: {word}\n")
+
+    walk.advance("repair")
+
+    assert walk.state["ended"] == "halted"
+    assert walk.state["ended_reason"] == (
+        f"stopped at implementation: red-suite — dependency-repair {word}: {report}")
+    assert walk.skills_launched[-1] == "dependency-repair"
+
+
+def test_a_repair_report_with_no_verdict_line_halts_saying_so():
+    walk = _repairing()
+    walk.files.write_text(_NEW_REPORT, "# report with no verdict line\n")
+
+    walk.advance("repair")
+
+    assert walk.state["ended_reason"] == (
+        f"stopped at implementation: red-suite — dependency-repair declared no verdict: "
+        f"{_NEW_REPORT}")
+
+
+def test_a_repair_that_wrote_no_report_halts_red_suite():
+    """The older report was there at launch, so it is not this run's."""
+    walk = _repairing()
+
+    walk.advance("repair")
+
+    assert walk.state["ended"] == "halted"
+    assert walk.state["ended_reason"] == "stopped at implementation: red-suite"
+    assert walk.skills_launched[-1] == "dependency-repair"
+
+
+def test_a_second_red_after_a_repair_halts_red_suite():
+    walk = _repairing(product_path=_IN_INSTANCE_PRODUCT)
+    walk.files.write_text(_NEW_REPORT, "Repair: merged\n")
+    walk.advance("repair")
+    _reclose(walk, _RED_BODY)
+
+    walk.advance("implementation")
+
+    assert walk.state["ended"] == "halted"
+    assert walk.state["ended_reason"] == "stopped at implementation: red-suite"
+    assert walk.skills_launched.count("dependency-repair") == 1
+
+
+def test_a_refused_advance_halts_and_relaunches_nothing():
+    walk = _repairing(product_path=_IN_INSTANCE_PRODUCT)
+    walk.files.write_text(_NEW_REPORT, "Repair: merged\n")
+    walk.processes.codes = [3]
+    launched_before = len(walk.processes.calls)
+
+    walk.advance("repair")
+
+    assert walk.state["ended"] == "halted"
+    assert walk.state["ended_reason"] == (
+        "stopped at implementation: red-suite — main's advance refused after "
+        "dependency-repair merged (exit 3)")
+    assert [call["argv"] for call in walk.processes.calls[launched_before:]] == [_ADVANCE]
+
+
+def test_a_repair_run_that_failed_halts_red_suite():
+    walk = _repairing()
+    walk.files.write_text(_NEW_REPORT, "Repair: merged\n")
+
+    walk.advance("repair", "failed")
+
+    assert walk.state["ended"] == "halted"
+    assert walk.state["ended_reason"] == "stopped at implementation: red-suite"
+    assert walk.skills_launched[-1] == "dependency-repair"
+
+
+def test_a_state_without_the_repair_fields_still_loads():
+    saved_state = _repairing().state
+    for name in ("repairs", "repair_reports_before"):
+        assert name in saved_state
+        del saved_state[name]
+
+    loaded = cd.WalkState.from_json(saved_state)
+
+    assert loaded.repairs == 0
+    assert loaded.repair_reports_before == []
+
+
+def test_a_card_with_an_empty_product_path_has_no_nfdr():
+    """An empty value is no product, not the instance root's own `docs/`."""
+    files = {CARD: _card_with_product_path(""), f"{INSTANCE}/docs/nfdr.md": "nfdr"}
+
+    assert reader(files).has_nfdr(layout()) is False
+
+
+def test_one_merged_report_among_several_new_ones_does_not_hide_one_that_is_not():
+    """Which of two new reports is the run's own is not decided by their names' order."""
+    walk = _repairing()
+    unmerged = f"{REPAIR_DIR}/2026-10-24_dependency-repair_report.md"
+    walk.files.write_text(unmerged, "Repair: unmerged\n")
+    walk.files.write_text(f"{REPAIR_DIR}/2026-10-24_dependency-repair-2_report.md",
+                          "Repair: merged\n")
+
+    walk.advance("repair")
+
+    assert walk.state["ended_reason"] == (
+        f"stopped at implementation: red-suite — dependency-repair unmerged: {unmerged}")
+
+
+@pytest.mark.parametrize("provider, surface", [
+    ("claude", "Claude Code"),
+    ("codex", "Codex"),
+    ("gemini", "Gemini"),
+    # `hf` and `ollama` are Claude Code aimed at another endpoint (`agent_run.py` `HfAdapter`,
+    # `OllamaAdapter`), so Claude Code is what runs there.
+    ("hf", "Claude Code"),
+    ("ollama", "Claude Code"),
+])
+def test_a_merged_repair_advances_on_every_provider_the_file_accepts(provider, surface):
+    """CP-863 holds whichever provider the repair ran on: every provider the provider file
+    accepts takes `main`'s advance and the re-close, with the surface that provider runs as."""
+    walk = _red_walk(product_path=_IN_INSTANCE_PRODUCT)
+    walk.provider_port.text = edited_text({"steps.code-integrity": provider})
+    walk.advance("implementation")
+    walk.files.write_text(_NEW_REPORT, "Repair: merged\n")
+
+    walk.advance("repair")
+
+    *_, advance, relaunch = walk.processes.calls
+    assert advance["argv"] == _ADVANCE[:-1] + [surface]
+    assert relaunch["argv"] == _implementation_launch()
+    assert walk.state["ended"] is None
+
+
+def test_a_red_owned_by_deferrals_on_an_nfdr_product_walks_on_with_no_repair():
+    """CP-860 launches the repair only on a marker that would halt `red-suite`: a red the
+    deferrals own walks on, NFDR or not."""
+    walk = _red_walk(product_path=_IN_INSTANCE_PRODUCT)
+    walk.git.bodies[MARKER[0]] = _marker_with(
+        _DEFERRED_THREE.strip(), "Failing: tests/test_bundle.py::test_cp_15 — task 3")
+
+    walk.advance("implementation")
+
+    assert walk.state["ended"] is None
+    assert "dependency-repair" not in walk.skills_launched
+    assert walk.skills_launched[-1] == "development-code-integrity"
+
+
+def test_a_not_ready_red_marker_on_an_nfdr_product_halts_by_its_environment_with_no_repair():
+    """Every other halt reason is unchanged (the spec's Out of Scope): a red beside a not-ready
+    environment never ran its suite, so it halts by the environment and launches no repair."""
+    walk = _red_walk(product_path=_IN_INSTANCE_PRODUCT)
+    walk.git.bodies[MARKER[0]] = _RED_HEAD + _CELL.format(v="3.12") + _NOT_READY_LINE
+
+    walk.advance("implementation")
+
+    assert walk.state["ended"] == "halted"
+    assert walk.state["ended_reason"].startswith(f"stopped at implementation: {NOT_READY}")
+    assert "dependency-repair" not in walk.skills_launched
+
+
+def test_an_nfdr_only_on_the_change_branch_launches_no_repair():
+    """CP-860 reads the NFDR on `main`: one the change's own branch adds is not `main`'s."""
+    walk = _red_walk(nfdr=False, product_path=_IN_INSTANCE_PRODUCT)
+    walk.files.write_text(f"{WORKTREE}/core/tools/docs/nfdr.md", "nfdr on the branch")
+
+    walk.advance("implementation")
+
+    assert walk.state["ended_reason"] == "stopped at implementation: red-suite"
+    assert "dependency-repair" not in walk.skills_launched
+
+
+def test_a_refused_advance_in_the_products_worktree_halts_and_relaunches_nothing():
+    """CP-866 holds in each repository the change commits in: the instance's advance landed, the
+    external product's was refused, and nothing is relaunched."""
+    walk = _repairing()
+    walk.files.write_text(_NEW_REPORT, "Repair: merged\n")
+    walk.processes.codes = [0, 4]
+    launched_before = len(walk.processes.calls)
+
+    walk.advance("repair")
+
+    assert walk.state["ended"] == "halted"
+    assert walk.state["ended_reason"] == (
+        "stopped at implementation: red-suite — main's advance refused after "
+        "dependency-repair merged (exit 4)")
+    after = [call["argv"] for call in walk.processes.calls[launched_before:]]
+    assert len(after) == 2
+    assert all("advance" in argv for argv in after)

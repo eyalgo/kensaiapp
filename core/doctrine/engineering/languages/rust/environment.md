@@ -1,5 +1,5 @@
 ---
-version: "1.2.0"
+version: "1.3.0"
 ---
 
 # Rust — gate environment
@@ -30,6 +30,10 @@ image is taken at the toolchain that file names. This answer adds no version or 
   `docker.io/library/rust`, at the toolchain `rust-toolchain.toml` names, by the command
   `languages/README.md` § Gate environment defaults gives.
 
+Nothing is installed in either environment at each run. The image and the base carry rustup, and rustup installs the toolchain `rust-toolchain.toml` names at the first `cargo` a gate runs (§ In the macOS guest).
+
+**Container install:** none
+
 ## In the macOS guest
 
 | Tool | Folder |
@@ -57,3 +61,5 @@ is located at $HOME/.cargo/bin" (the installation guide above), and the guest's 
 `tart exec` runs a non-login shell whose PATH is `/bin:/usr/bin:/usr/sbin:/usr/local/bin:/opt/homebrew/bin`,
 so the profile line the installer writes never reaches it. `<CORE>/tools/gate_suite.py` puts the
 folder this table names ahead of that PATH, for its probe and for the suite.
+
+**Guest install:** none

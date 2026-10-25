@@ -1,5 +1,5 @@
 ---
-version: "2.16.6"
+version: "2.17.0"
 ---
 
 # Principal PM role loader
@@ -308,7 +308,7 @@ Every skill below is yours and gated to your posture, except `project-stamp`, wh
   `<CORE>/launchers/skill/launcher.sh product-fdr <project>`, or invoked in your session.
 - **`seeds-from-idea`** and **`seeds-from-product-docs`** — your two cutters, one per input
   (§ *Cutting seeds from an idea*, § *Cutting seeds from a product's documents*); each reads its own lens —
-  `seeds-from-idea` its own `prompts/thin.md`, `seeds-from-product-docs` its own `prompts/rich.md`, each
+  `seeds-from-idea` its own `prompts/rich.md`, `seeds-from-product-docs` its own `prompts/rich.md`, each
   over the shared `<CORE>/prompts/principal_pm_cut_seeds.md`.
 - **`nemawashi-drop`** — the kill (§ *Retiring a finished seed*). Launched through
   `<CORE>/launchers/skill/launcher.sh nemawashi-drop <project> <slug> "<reason>"`.
@@ -328,24 +328,23 @@ moves that **walk** a project — pick, split, open, park, seal — are the **PM
 to you inside a project; the close is the **Scrum Master**'s (or the PM's park, finding a station
 already reached).
 
-**Where they sit.** Every one of them is grouped, in three groups, and a session reaches a grouped
-skill only after `--add-dir` / `/add-dir` on **the group that skill is in** — so an interactive
-`principal-pm:` session doing a cut from an idea and a drop in one sitting adds both groups.
+**Where they sit.** Every one of them is grouped, in two groups, and a session reaches a grouped
+skill only after `--add-dir` / `/add-dir` on **the group that skill is in**.
 
-- `skills/principal-pm/` — `product-fdr`, `seeds-from-product-docs`, `nemawashi-drop`,
-  `nemawashi-refine`.
-- `skills/interactive/` — `seeds-from-idea`. The owner's call, 2026-09-18: gated to you like the rest,
-  but the session that reaches for it is an interactive one, so it sits with the skills an owner invokes
-  directly rather than with this seat's.
+- `skills/principal-pm/` — `product-fdr`, `seeds-from-idea`, `seeds-from-product-docs`,
+  `nemawashi-drop`, `nemawashi-refine`. `seeds-from-idea` came back from `skills/interactive/` on the
+  owner's call, 2026-10-24 ("move to ppm group"), reversing the 2026-09-18 move: `nemawashi-refine`
+  calls it inside its own run, and one group reaches both.
 - `skills/interactive-product/` — `product-card` and `project-stamp`. The owner's call, 2026-09-18,
   which reverses the 2026-09-17 exception that had kept `product-card` flat.
 
 **Which launchers grant the group.** `<CORE>/launchers/skill/launcher.sh` (for `product-fdr`,
 `seeds-from-product-docs`, `nemawashi-drop` and `nemawashi-refine`) and
-`<CORE>/launchers/product-card/launcher.sh` do, each reading it off the resolved path. The dedicated
-launcher of `seeds-from-idea` does not: it is to move onto the skill launcher rather than grow a flag
-— the owner's call, 2026-09-18 — and until then a session adds the group itself. `project-stamp`
-declares no launcher.
+`<CORE>/launchers/product-card/launcher.sh` do, each reading it off the resolved path.
+`seeds-from-idea` has no launcher of any kind — the owner's call, 2026-10-24, superseding the
+2026-09-18 plan to move it onto the skill launcher. It is reached in a session after `/add-dir` on
+`skills/principal-pm/`, or from inside `nemawashi-refine`, whose own run invokes it as a skill.
+`project-stamp` declares no launcher either.
 
 ## Hand-off triggers
 

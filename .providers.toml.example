@@ -20,9 +20,8 @@
 # --provider <name> on an engine (or KENSAIAPP_AGENT_PROVIDER exported to its launcher) forces
 # every launch onto that provider, and then .providers.toml is not read at all. Seven launchers
 # accept that force: the five chain launchers (chain-product, chain-agari, chain-change,
-# chain-development, build-idea), skill and companion-self-answer. The other eight never read it:
-# cold-read, launch-eval-fix, launch-skill-evals, product-card, seeds-from-idea and the three
-# kaizen tool scripts.
+# chain-development, build-idea), skill and companion-self-answer. The other seven never read it:
+# cold-read, launch-eval-fix, launch-skill-evals, product-card and the three kaizen tool scripts.
 #
 # An entry an engine or launcher needs and .providers.toml lacks is refused by name, never
 # defaulted; so is a value that is not a known provider (claude, codex, gemini, hf, ollama) and a file
@@ -55,6 +54,7 @@ plan = "claude"
 content = "claude"
 implementation = "claude"
 code-integrity = "claude"
+security = "claude"
 audit = "claude"
 seal = "claude"
 refine = "claude"
@@ -75,10 +75,9 @@ refine = "claude"
 no-document = "claude"
 
 # The instance skill launchers under core/launchers/, keyed by the launcher's folder name, and the
-# three kaizen scripts under core/tools/, keyed by the script's name without `.sh`. The eight that
+# three kaizen scripts under core/tools/, keyed by the script's name without `.sh`. The seven that
 # run only on Claude (cold-read, launch-eval-fix, launch-skill-evals, product-card,
-# seeds-from-idea, launch-apply-packet, launch-audit, launch-fix-author) refuse an entry naming
-# anything else.
+# launch-apply-packet, launch-audit, launch-fix-author) refuse an entry naming anything else.
 [launchers]
 skill = "claude"
 companion-self-answer = "claude"
@@ -86,7 +85,6 @@ cold-read = "claude"
 launch-eval-fix = "claude"
 launch-skill-evals = "claude"
 product-card = "claude"
-seeds-from-idea = "claude"
 launch-apply-packet = "claude"
 launch-audit = "claude"
 launch-fix-author = "claude"

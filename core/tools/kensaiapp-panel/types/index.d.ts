@@ -10,6 +10,12 @@ export type BoardRow = {
   readonly status: string
   readonly reason: string
   readonly started_at: string
+  /** When the step a running walk is on started; '' where none is recorded. */
+  readonly step_started_at: string
+  /** Which of its plan's tasks a walk's implementation run is on, by place; 0 where none is read. */
+  readonly task: number
+  /** How many tasks that plan lists; 0 where none is read. */
+  readonly tasks: number
 }
 
 /** A change unit opened for the current station, wherever it now sits. */

@@ -1,5 +1,5 @@
 ---
-version: "1.1.2"
+version: "1.1.3"
 ---
 
 # TypeScript — toolchain
@@ -61,7 +61,9 @@ lockfile change drops the transitive package that was carrying it.
 The pnpm version is pinned in `package.json` `packageManager`, which Corepack reads. Corepack "is
 distributed with Node.js from version 14.19.0 up to (but not including) 25.0.0"
 (https://github.com/nodejs/corepack), so on the Active LTS line `corepack enable` is the whole
-setup, and from Node.js 25 onward Corepack is installed first with `npm install -g corepack`.
+setup, and from Node.js 25 onward Corepack is installed first with `npm install -g --force corepack`.
+The `--force` is there because the official `node:25` image already holds a `yarn` link, and a
+plain install stops on it with "File exists: /usr/local/bin/yarn".
 
 ## TypeScript — the compiler package
 

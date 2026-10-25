@@ -255,14 +255,14 @@ def test_the_core_carries_no_provider_file():
 
 def test_the_example_is_the_delivered_file():
     """CP-488: the template at the root parses and holds every member the three engines and the
-    ten launchers ask for."""
+    nine launchers ask for."""
     import build_idea
     import chain
     import chain_development
 
     table = tomllib.loads(EXAMPLE_FILE.read_text(encoding="utf-8"))
     launchers = ("skill", "companion-self-answer", "cold-read", "launch-eval-fix",
-                 "launch-skill-evals", "product-card", "seeds-from-idea", "launch-apply-packet",
+                 "launch-skill-evals", "product-card", "launch-apply-packet",
                  "launch-audit", "launch-fix-author")
 
     assert set(chain.DOCUMENT_REGISTRY) <= set(table["documents"])
@@ -272,7 +272,7 @@ def test_the_example_is_the_delivered_file():
     assert set(build_idea._SKILL_ROWS) <= set(table["build-idea"])
     assert "no-document" in table["owed-items"]
     assert set(launchers) <= set(table["launchers"])
-    assert len(launchers) == 10
+    assert len(launchers) == 9
 
 
 # --- the reader answers for an instance root it is given -----------------------------------------
@@ -371,7 +371,7 @@ def test_a_force_bypasses_a_non_utf8_file(tmp_path, force):
 # --- the launchers' entries, and the command-line face a bash launcher reads them through --------
 
 LAUNCHER_NAMES = ("skill", "companion-self-answer", "cold-read", "launch-eval-fix",
-                  "launch-skill-evals", "product-card", "seeds-from-idea")
+                  "launch-skill-evals", "product-card")
 
 LAUNCHERS_CLAUDE = "[launchers]\n" + "".join(f'{name} = "claude"\n' for name in LAUNCHER_NAMES)
 

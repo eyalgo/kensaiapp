@@ -251,7 +251,8 @@ def test_the_usage_line_and_the_usage_block_name_every_flag(run):
 
     header = _SCRIPT.read_text().split("set -euo pipefail", 1)[0]
     usage = header.split("# USAGE", 1)[1]
-    for flag in ("--provider", "--dry-run", "--keep-awake", "--context-cap", "--chain-ended", "--stop"):
+    for flag in ("--provider", "--dry-run", "--keep-awake", "--context-cap", "--gate-owners-mac",
+                 "--chain-ended", "--stop"):
         assert flag in result.stderr and flag in usage, flag
 
 
@@ -381,6 +382,64 @@ def test_unknown_provider_is_refused_before_the_engine(run):
 
     assert result.returncode != 0
     assert "provider must be claude, codex, gemini, hf or ollama (got 'other')" in result.stderr
+    assert run.engine_argv() == []
+
+
+# --- --gate-owners-mac ----------------------------------------------------------------------
+#
+# The owner's ask, which the queue puts on every chain-change row. A walk's end hook passes it when
+# that walk had the ask, so the next change's walk has it too.
+
+
+def test_the_owners_mac_ask_is_passed_to_the_engine_and_said(run):
+    run.project("example-product")
+
+    result = run("example-product", "--gate-owners-mac")
+
+    assert result.returncode == 0, result.stderr
+    assert "--gate-owners-mac" in run.engine_argv()
+    assert "build-idea: owner's Mac ask=on" in result.stdout
+
+
+def test_no_ask_is_passed_unless_one_is_given(run):
+    run.project("example-product")
+
+    result = run("example-product")
+
+    assert "--gate-owners-mac" not in run.engine_argv()
+    assert "owner's Mac ask" not in result.stdout
+
+
+def test_the_walks_end_hook_carries_the_ask_into_the_queue(run):
+    """The start a sealed walk's end makes, with the walk's ask, is the hook's own start."""
+    run.project("example-product")
+
+    result = run("example-product", "--gate-owners-mac", "--chain-ended", "sealed")
+
+    assert result.returncode == 0, result.stderr
+    argv = run.engine_argv()
+    assert "--gate-owners-mac" in argv and "--by-hook" in argv
+
+
+def test_the_dry_run_prints_the_ask_it_would_pass(run):
+    run.project("example-product")
+
+    result = run("example-product", "--gate-owners-mac", "--dry-run")
+
+    assert result.returncode == 0, result.stderr
+    command = shlex.split(next(line for line in result.stdout.splitlines()
+                               if line.strip().startswith("python3")))
+    assert "--gate-owners-mac" in command
+    assert run.engine_argv() == []
+
+
+def test_a_stop_takes_no_ask(run):
+    run.project("example-product")
+
+    result = run("example-product", "--stop", "--gate-owners-mac")
+
+    assert result.returncode != 0
+    assert "--gate-owners-mac" in result.stderr
     assert run.engine_argv() == []
 
 
@@ -539,6 +598,7 @@ REAL_ENGINE_TOOLS = (
     "providers.py", "run_intelligence.py", "agent_run.py", "hook_wiring.py", "intelligence.py",
     "model_assignment.py", "task_context.py", "env_file.py", "completion_shim.py", "walk_stop.py",
     "pin.py", "pin_run.sh", "pin_host_changed.py", "product_checkout.py", "development_path.py",
+    "record_declarations.py",
 )
 REMOVED_ENTRY = "pick a seed"
 PICK_ENTRY = f'build-idea."{REMOVED_ENTRY}"'
@@ -1732,7 +1792,7 @@ def test_a_card_with_no_product_path_passes_none(run):
 _HF_USAGE = (
     "build-idea: usage: <CORE>/launchers/build-idea/launcher.sh <project> [<unit-key>]"
     " [--provider claude|codex|gemini|hf|ollama] [--dry-run] [--keep-awake]"
-    " [--context-cap <tokens>] [--chain-ended <end>] | <project> --stop"
+    " [--context-cap <tokens>] [--gate-owners-mac] [--chain-ended <end>] | <project> --stop"
 )
 _HF_HEADER_USAGE = (
     "<CORE>/launchers/build-idea/launcher.sh"

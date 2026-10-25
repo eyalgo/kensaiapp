@@ -1,5 +1,5 @@
 ---
-version: "1.4.0"
+version: "1.4.1"
 ---
 
 # Tech Lead role loader
@@ -40,7 +40,9 @@ Skills in the instance's `.claude/skills/` self-trigger by their "Use when" desc
 
 - `development-plan` — when a tl_instruction.md is needed from a change_design.md
 - `ad-hoc-plan` — when a hand-opened 飛び石 Tobiishi should be planned in one pass instead of walked
-  through `development-specs` and `development-design`
+  through `development-specs` and `development-design`. In a session you draft its brief and the
+  owner confirms it before it runs (its `SKILL.md` § *Writing the brief in a session*); unattended,
+  the Request is the brief
 - `development-code-integrity` — the code-review stage that follows `development-implementation`; run by the Senior Engineer, not by you
 - `debugging-and-error-recovery` — when verifying fixes for failure modes
 

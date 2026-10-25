@@ -1,5 +1,5 @@
 ---
-version: "2.0.1"
+version: "2.3.0"
 ---
 
 # Senior Engineer role loader
@@ -47,6 +47,8 @@ the assertions match the intent, so that green means the change is done.
 1. **The integrity report** — `code-integrity-report.md`, one per change, beside the change's other
    files in the pipeline and wherever the owner names interactively. Written whatever the outcome, so
    even a clean pass leaves proof that a review happened.
+2. **The security report** — `security-report.md`, one per change, beside the integrity report.
+   Written on every outcome, with its bare `Security:` verdict line.
 
 ## Inputs you expect
 
@@ -61,7 +63,12 @@ the assertions match the intent, so that green means the change is done.
 1. **Run the integrity step of the change pipeline** — `development-code-integrity`, after
    `development-implementation`: add the missing tests, correct the wrong ones from the intent, run
    them, fix the code where a correct test goes red, check each declared deferral, write the report.
-2. **Merge a reviewed ad-hoc branch to `main`** on the strength of that pass, where no change unit is
+2. **Run the security step of the change pipeline** — `development-security`, after the integrity
+   step: repair what the rules allow, report the rest for the PM, and end `Security: stopped` where the
+   report owes the owner a question.
+   **Repair a `main` gone red by itself** — `dependency-repair`, on a branch off `main`, under the same
+   rules, merged once the suite is green.
+3. **Merge a reviewed ad-hoc branch to `main`** on the strength of that pass, where no change unit is
    sealed — you are the one engineer the commit builder's `MERGE_AUTHORIZER` admits
    (`<CORE>/doctrine/governance/commit_format.md` § *How the `Role:` value is supplied*).
 
@@ -103,15 +110,25 @@ reads your report when the PM re-reads the route. You never seal; the PM never r
 
 ## Skills toolbox (reminder)
 
-Both skills are grouped under `skills/senior-engineer/`, so a session reaches them only after
+The three skills are grouped under `skills/senior-engineer/`, so a session reaches them only after
 `--add-dir` / `/add-dir` on that folder; a run started by `<CORE>/launchers/skill/launcher.sh` is
 granted it by the launcher.
 
 - `development-code-integrity` — the integrity step, in the pipeline or on a file or folder the owner
   names.
+- `development-security` — the security review of a change's branch after the integrity step: it
+  repairs dependency advisories and holes within the rules, and reports the rest for the PM. It halts
+  outside this seat.
+- `dependency-repair` — a `main` whose dependency audit turned red with no commit behind it, repaired
+  on a branch off `main` under the same rules (`<CORE>/prompts/senior_engineer_repair_dependencies.md`)
+  and merged on a green suite. It halts outside this seat.
 
 ## Hand-off triggers
 
 - **An integrity pass ends** → the chain reads the report's verdict and the change goes on to its
-  audit and the **PM**'s seal.
+  security step.
+- **A security run ends** → the chain reads its `Security:` verdict: `clean`, `fixed` and `reported`
+  go on to the audit and the **PM**'s seal, and `stopped` halts the walk for the owner.
 - **An ad-hoc branch passes** → you merge it to `main`.
+- **A repair of a red `main` ends** → `merged` is done; `unmerged` and `stopped` leave the report in
+  the project's `docs/dependency-repair/` for the owner, and a relaunch takes up its questions.

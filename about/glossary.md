@@ -17,7 +17,7 @@ ends.
 - **The journey:** [Journey](#journey) · [Nemawashi](#nemawashi) · [Seedbed](#seedbed) · [Seed](#seed) · [Shukuba](#shukuba) · [Station](#station) · [Reached-when](#reached-when) · [Tobiishi](#tobiishi) · [Change](#change) · [Change request](#change-request) · [Cut](#cut) · [Pick](#pick) · [Unpick](#unpick) · [Open](#open) · [Refine](#refine) · [Next moves](#next-moves) · [Seal](#seal) · [Park](#park) · [Close](#close) · [Retire](#retire) · [Drop](#drop) · [Trail](#trail)
 - **The roles:** [PM](#pm) · [Principal PM](#principal-pm) · [Scrum Master](#scrum-master) · [CPO](#cpo) · [CTO](#cto) · [CDO](#cdo) · [Content Manager](#content-manager) · [Principal Architect](#principal-architect) · [Product Owner](#product-owner) · [PO](#po) · [Architect](#architect) · [Tech Lead](#tech-lead) · [Content Editor](#content-editor) · [Developer](#developer) · [Senior Engineer](#senior-engineer) · [Auditor](#auditor) · [QA](#qa) · [Teacher](#teacher) · [Delegate](#delegate) · [Brief](#brief)
 - **The documents:** [PRD](#prd) · [SRS](#srs) · [UXD](#uxd) · [DESIGN](#design) · [CONTENT](#content) · [SDD](#sdd) · [FDR](#fdr) · [NFDR](#nfdr) · [ADR](#adr) · [Companion](#companion) · [Answering run](#answering-run) · [Seat](#seat) · [Settled](#settled) · [What-left file](#what-left-file) · [Code skeleton](#code-skeleton)
-- **The runs and their settings:** [Launcher](#launcher) · [Chain](#chain) · [Documents chain](#documents-chain) · [Change chain](#change-chain) · [Spine](#spine) · [Walk](#walk) · [Pipeline](#pipeline) · [Ask](#ask) · [Spec](#spec) · [Design](#design-1) · [Plan](#plan) · [Content](#content-1) · [Build](#build) · [Prove](#prove) · [Audit](#audit) · [Queue](#queue) · [Companion sweep](#companion-sweep) · [Seven ends](#seven-ends) · [Halt report](#halt-report) · [Pin](#pin) · [Context cap](#context-cap) · [Provider](#provider) · [Intelligence](#intelligence) · [Tier](#tier) · [Language packet](#language-packet) · [Gate](#gate) · [Gate environment](#gate-environment) · [Finding](#finding) · [Panel](#panel) · [Journey page](#journey-page) · [Notifier](#notifier) · [Receiver](#receiver) · [ID](#id) · [Kaizen](#kaizen) · [Lens](#lens) · [Cold read](#cold-read) · [Fix packet](#fix-packet) · [Fix-author](#fix-author) · [Fixer](#fixer) · [Ratify](#ratify)
+- **The runs and their settings:** [Launcher](#launcher) · [Chain](#chain) · [Documents chain](#documents-chain) · [Change chain](#change-chain) · [Spine](#spine) · [Walk](#walk) · [Pipeline](#pipeline) · [Ask](#ask) · [Spec](#spec) · [Design](#design-1) · [Plan](#plan) · [Content](#content-1) · [Build](#build) · [Prove](#prove) · [Security](#security) · [Audit](#audit) · [Queue](#queue) · [Companion sweep](#companion-sweep) · [Seven ends](#seven-ends) · [Halt report](#halt-report) · [Pin](#pin) · [Context cap](#context-cap) · [Provider](#provider) · [Intelligence](#intelligence) · [Tier](#tier) · [Language packet](#language-packet) · [Gate](#gate) · [Gate environment](#gate-environment) · [Finding](#finding) · [Panel](#panel) · [Journey page](#journey-page) · [Notifier](#notifier) · [Receiver](#receiver) · [ID](#id) · [Kaizen](#kaizen) · [Lens](#lens) · [Cold read](#cold-read) · [Fix packet](#fix-packet) · [Fix-author](#fix-author) · [Fixer](#fixer) · [Ratify](#ratify)
 - **The journey, told two ways:** [The journey in KensaiApp's terms](#the-journey-in-kensaiapps-terms) · [The journey in industry, ticketing and Jira terms](#the-journey-in-industry-ticketing-and-jira-terms)
 
 ## Instance
@@ -232,7 +232,8 @@ change. It is the pipeline's first input.
 ## Cut
 
 To cut is to turn an idea, or a product's settled documents, into seeds. The Principal PM cuts them,
-with `seeds-from-idea` for an idea and `seeds-from-product-docs` for the documents. Each seed carries
+with `seeds-from-idea` for an idea and `seeds-from-product-docs` for the documents. An idea arrives
+as a brief: your own words, and the files they rest on, quoted, which you confirm before the cut. Each seed carries
 its proposed station checklist, is owned by a project and lands in that project's `unpicked/` pool.
 `seeds-from-idea` can also write to the instance's own seedbed.
 
@@ -240,8 +241,10 @@ its proposed station checklist, is owned by a project and lands in that project'
 
 To pick is to choose the one seed to walk now. The PM picks with `nemawashi-pick`, which lifts the
 seed from `unpicked/` to the seedbed's root, and no other seed moves. A pick is refused while another
-seed sits at the root. The PM then re-cuts the picked seed's checklist into the stations to walk,
-with `stations-from-seed`.
+seed sits at the root. A quality seed, such as one for tests, CI or security, is picked before a
+feature seed, unless you stated another order outright
+([Quality and security come first](how-it-works.md#quality-and-security-come-first)). The PM then
+re-cuts the picked seed's checklist into the stations to walk, with `stations-from-seed`.
 
 ## Unpick
 
@@ -257,7 +260,10 @@ Tobiishi with `tobiishi-open`. `chain-change` makes either move that is not made
 
 To refine is to re-read the route after work lands. After each sealed change, the PM runs
 `shukuba-refine`. It re-reads the route against what the change left and what moved upstream, and
-writes a report with recommendations and the next moves. After a seed is retired, the Principal PM
+writes a report with recommendations and the next moves. It can change the stations ahead, park one
+or drop a halted change, but never what was asked for
+([The route is re-decided after every change](how-it-works.md#the-route-is-re-decided-after-every-change)).
+After a seed is retired, the Principal PM
 runs `nemawashi-refine`. It works through every recommendation left in the seed's folder and
 re-reads the pool of candidate seeds.
 
@@ -378,7 +384,7 @@ system that already exists. Design is the pipeline's step after the spec.
 
 The Tech Lead turns a change's design into an executable plan for the Developer, filling the gaps
 the design leaves. It is accountable for what ships between the Architect's design and the
-Developer's code. It also plans a change you open by hand, with `ad-hoc-plan`.
+Developer's code. It also plans a change you open by hand, with `ad-hoc-plan`, from a brief you confirm.
 
 ## Content Editor
 
@@ -398,13 +404,15 @@ each task from its failing tests, and it delivers only when all the tests pass.
 The Senior Engineer reviews the Developer's code and proves that it does what the change intends. It
 adds the tests the intent implies and nobody wrote, corrects a test that was read off the code
 instead of the intent, and fixes the code where a correct test fails. Its step, code-integrity,
-leaves `code-integrity-report.md` and comes before the audit and the seal.
+leaves `code-integrity-report.md`. The Senior Engineer then runs the security step, which comes
+before the audit and the seal.
 
 ## Auditor
 
 The Auditor reads work it did not produce and lists the defects it finds as findings. It never
 fixes them. In the pipeline it writes one findings file for each step it reviews,
-`flow_findings/<step>.md`, and its findings never stop the change. In a kaizen round, each auditor
+`flow_findings/<step>.md`. It checks KensaiApp rather than the product: how well each step did its
+job. So its findings never stop the change; the PM reads them first at the next refine. In a kaizen round, each auditor
 reads with one lens. Its agent is `kensaiapp-auditor`.
 
 ## QA
@@ -567,7 +575,7 @@ reason, such as `settled`, `sealed` or `stopped`.
 ## Pipeline
 
 The pipeline is the fixed sequence every change goes through: specs, design, plan, content,
-implementation, code-integrity, audit and seal. Each step is a separate agent run, in its own role,
+implementation, code-integrity, security, audit and seal. Each step is a separate agent run, in its own role,
 and a program, not a model, decides which step runs next. The README's section
 [How a change moves](../README.md#how-a-change-moves) names implementation Build and code-integrity
 Prove, and shows what each step leaves.
@@ -610,10 +618,22 @@ before the code it checks, and makes the closing commit.
 Prove is the README's name for the code-integrity step: the Senior Engineer proves that the code
 does what the change intends, and leaves `code-integrity-report.md`.
 
+## Security
+
+Security is the pipeline's step after Prove: the Senior Engineer runs the product's dependency audit
+and reads the change's code for security holes, with `development-security`. It fixes what its rules
+allow, writes an exception for an advisory the product does not reach, and reports the rest for the
+PM. It leaves `security-report.md`, whose first line is `clean`, `fixed`, `reported` or `stopped`.
+Only `stopped` halts the walk: a fix needs a move the step may not make, and the questions go to you.
+It is a first iteration ([How it works](how-it-works.md#three-checks-on-every-change)).
+
 ## Audit
 
-Audit is the pipeline's step after Prove: the Auditor reviews the spec, the design, the plan, the
-content where it ran, and the code, each in a run of its own. Its findings never stop the change.
+Audit is the pipeline's step after Security: the Auditor reviews the spec, the design, the plan, the
+content where it ran, and the code, each in a run of its own, for how well each step did its job. It
+checks KensaiApp, not the product, so its findings never stop the change. The next refine takes the
+product's issues among them back into the plan; one about a skill is raised to improve that skill
+([Where what the checks find goes](how-it-works.md#where-what-the-checks-find-goes)).
 
 ## Queue
 
@@ -705,7 +725,9 @@ report declaring `Integrity: pass`. A failed one halts the walk.
 
 A gate environment is where a product's tests and other gates run. The product's CI decides it: a
 Podman container when the CI runs on Linux, a macOS guest under Tart when it runs on macOS or the
-product holds Swift, and your own Mac for a product with no CI. `--gate-owners-mac` on a change chain asks for your Mac instead.
+product holds Swift, and your own Mac for a product with no CI. Where the CI runs a matrix, each
+version gets an environment of its own. `--gate-owners-mac` on a change chain, or on `build-idea`,
+asks for your Mac instead.
 
 ## Finding
 
@@ -713,13 +735,14 @@ A finding is a defect in KensaiApp itself, such as in a skill, a prompt, a rule,
 launcher, noticed while doing something else. A small one is fixed in place, on the branch where it
 was found, and a larger one becomes a seed. One that is not fixed is written to
 `docs/findings/<date>_<slug>.md`. The audit step's findings are a separate kind, kept in each
-change's `flow_findings/`.
+change's `flow_findings/` ([Two kinds of finding](how-it-works.md#two-kinds-of-finding)).
 
 ## Panel
 
 The panel is a pane in a Claude Code session, opened with `/kensaiapp-panel`. It lists the chains
 waiting on you and the chains running now, under the headings `WAITING ON YOU` and `RUNNING NOW`, with
-each one's seed, station, walk and step, and when that walk started. It reads them again every 15 seconds. It is a Claude Code plugin in `core/tools/kensaiapp-panel/`, and
+each one's seed, station, walk and step: how long a running walk has run and its step has been on,
+with the plan's task during the build, and when a waiting walk started. It reads them again every 15 seconds. It is a Claude Code plugin in `core/tools/kensaiapp-panel/`, and
 you turn it on yourself.
 
 ## Journey page
@@ -803,7 +826,8 @@ hold the gate.
    one, walked in sequence, each one leg of that idea's route.
 4. Walk the station through the pipeline. The building inside a station runs as one or more
    Tobiishi, which are change units. The PM opens each with `tobiishi-open`, and the chain carries it
-   end to end: specs → design → plan → content → implementation → code-integrity → audit → seal. A
+   end to end: specs → design → plan → content → implementation → code-integrity → security → audit →
+   seal. A
    station may take several Tobiishi before its reached-when is met.
 5. Seal each change unit. Each change unit is sealed by `tobiishi-seal`, and it lands sealed on
    `main`.

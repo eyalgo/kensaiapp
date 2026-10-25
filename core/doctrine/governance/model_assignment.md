@@ -1,12 +1,12 @@
 ---
-version: "3.1.2"
+version: "3.2.0"
 ---
 
 # Model assignment
 
 The four stable Kensaiapp tiers, how each binds to a provider, and how a run with **no skill behind
-it** chooses one. **Fable / Opus / Sonnet / Haiku are stable Kensaiapp tiers, not universal provider
-model IDs.** This file is the policy; provider bindings are mechanism, resolved by
+it** chooses one and, from an interactive session, how it is started. **Fable / Opus / Sonnet /
+Haiku are stable Kensaiapp tiers, not universal provider model IDs.** This file is the policy; provider bindings are mechanism, resolved by
 `<CORE>/tools/model_assignment.py`. The `AGENT_ROLE` map in `<CORE>/tools/commit_builder.py` records
 the role independently.
 
@@ -57,6 +57,15 @@ rather than a role, on the tiers above:
 - **One checkable transformation at volume** → the cheap tier (Haiku).
 - Caveat: an autonomous **tool-loop** wants at least the worker tier even when each step is simple —
   driving the loop is itself judgment.
+
+**Where an interactive session would start the provider's built-in general-purpose agent, it runs
+`agent-invoke` instead**, which starts `delegate` with the tier chosen above — the owner's call,
+2026-10-23. The rule holds on every provider. The skill is in the `interactive` group, and where that
+group lives and how a session loads it is `kensaiapp_structure.md` § Skills. When the session does not
+have `agent-invoke`, the group is not loaded: suggest the owner load it before any agent starts, and
+wait for the answer. If the owner declines, the work is done inline, never by the built-in agent. A
+read-only search agent and a posture agent are not this case and start as before, and work a
+launcher or a pipeline stage already owns keeps its own launch, as the skill's `when_to_use` says.
 
 **Recording the model it ran on.** A no-slot run has no declared model to inherit, so the model it
 *actually* ran must be self-reported in its commit — per `commit_format.md` §Filling the model. This

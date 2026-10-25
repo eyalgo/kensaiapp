@@ -28,7 +28,7 @@ WHY IT STANDS BESIDE `chain.py` RATHER THAN EXTENDING IT
 
 THE TWO TABLES, AND WHY THEY ARE BOTH HERE
     `DEVELOPMENT_STEPS` is the pipeline `chain-development` walks. `CHANGE_STEPS` is the same
-    eight behind `shukuba-open` and `tobiishi-open` and ahead of `shukuba-refine`. It is the walk
+    nine behind `shukuba-open` and `tobiishi-open` and ahead of `shukuba-refine`. It is the walk
     `chain-change` enters, which needs no station and no change request to already be there. When
     the sealed change serves a station, the walk does not end until the route has been re-read
     after the seal. When it serves none, the walk ends `sealed` at the seal. `--steps` says which a
@@ -159,11 +159,12 @@ import development_path
 import gate_suite
 import product_checkout
 import providers
+import record_declarations
 import walk_stop
 from chain import PROVIDERS, Files, IdSource, Notifier, Processes, run_end_hook, with_provider
 from providers import ProviderFiles, ProvidersRefused
 
-__version__ = "3.15.1"
+__version__ = "3.22.0"
 
 
 class ChainRefused(Exception):
@@ -236,23 +237,27 @@ class Step:
 # the file's mere presence as the step landing (`skills/senior-engineer/.claude/skills/
 # development-code-integrity/SKILL.md` § Always write the `code-integrity-report`, § When to
 # STOP: both never-omitted lines start with this literal prefix, whatever the outcome).
-_INTEGRITY_PREFIX = "Integrity:"
+_INTEGRITY_PREFIX = record_declarations.INTEGRITY.prefix
 _INTEGRITY_REPORT = "code-integrity-report.md"
 
-# The markdown wrappers a declared line can arrive dressed in. Both bodies the scan below reads are
-# markdown written by a model, and every place the skills name a declared line shows it inside
-# backticks — so `**Integrity: pass**` is the natural way to write one. A walk was halted
-# `missing-integrity` by exactly that, on a green suite the step had just proved (a `chain-change`
-# walk, 2026-09-17). The line is undressed before its prefix is matched; what counts as a
-# value is not widened by an inch — `Integrity: Pass` and `Integrity: passed` still halt.
-_EMPHASIS = "*_`"
+# The security report's declared line, the same shape as the integrity one (`skills/senior-engineer/
+# .claude/skills/development-security/SKILL.md`). `clean`, `fixed` and `reported` pass; `stopped`
+# halts; any other value, or no line, is `missing-security`. No environment is read off this report.
+_SECURITY_PREFIX = record_declarations.SECURITY.prefix
+_SECURITY_REPORT = "security-report.md"
+_SECURITY_PASSING = frozenset({"clean", "fixed", "reported"})
+
+# The characters a value reading undresses with — the parser's own (`record_declarations`, which
+# states why a declared line is undressed before its prefix is matched).
+_EMPHASIS = record_declarations.EMPHASIS
 
 # Whether a change publishes text, as `development-design` stamps it in the design's header
 # (`skills/architect/.claude/skills/development-design/SKILL.md` § Output): `yes` runs the
 # `content` step, `no` passes it, and the verdict is decided upstream of the Content Editor, never
 # by it (`core/roles/loaders/content_editor_global.md` § Non-responsibilities).
-_PUBLISHES_TEXT = RunsWhen(artifact="change_design.md", prefix="Publishes text:", runs="yes",
-                           passes="no")
+_PUBLISHES_TEXT = RunsWhen(
+    artifact="change_design.md", prefix=record_declarations.PUBLISHES_TEXT.prefix, runs="yes",
+    passes="no")
 
 DEVELOPMENT_STEPS: tuple[Step, ...] = (
     Step("specs", "development-specs", "product-owner", Evidence.CHANGE_FILE, "change_spec.md",
@@ -264,15 +269,41 @@ DEVELOPMENT_STEPS: tuple[Step, ...] = (
     Step("implementation", "development-implementation", "developer", Evidence.MARKER_COMMIT),
     Step("code-integrity", "development-code-integrity", "senior-engineer", Evidence.CHANGE_FILE,
          _INTEGRITY_REPORT, declared_prefix=_INTEGRITY_PREFIX),
+    Step("security", "development-security", "senior-engineer", Evidence.CHANGE_FILE,
+         _SECURITY_REPORT, declared_prefix=_SECURITY_PREFIX),
     Step("audit", "development-audit", "kensaiapp-auditor", Evidence.AUDIT_FINDINGS, gates=False,
          fans_out_over=("development-specs", "development-design", "development-plan",
                         "development-content", "development-implementation")),
     Step("seal", "tobiishi-seal", "pm", Evidence.SEALED),
 )
 
+# `dependency-repair`, launched when a closing marker's red is not the change's own (CP-860). Held
+# outside both tables on purpose: it is never a step a walk enters at or counts, only one the
+# engine launches from `_settle` and resolves in `_advance`, so the chain-launched skill set, the
+# provider file's `steps` entries and every table's order stay as they were. It takes no key — it
+# coins its own (`dependency-repair/SKILL.md` § *1. Open the repair's branch*) — and its evidence
+# is a report, so the launch is read by `repair_reports`, never by `is_done`.
+_RED_SUITE = "red-suite"
+_MERGED = "merged"
+# The `Surface:` an advance carries, by the provider the repair ran on (`commit_format.md` §
+# Surface tracking). `hf` and `ollama` are Claude Code aimed at another endpoint
+# (`agent_run.py` `HfAdapter`, `OllamaAdapter`), so their surface is Claude Code's. A provider
+# with no surface here is a refusal, never a guess.
+_SURFACES = {"claude": "Claude Code", "codex": "Codex", "gemini": "Gemini",
+             "hf": "Claude Code", "ollama": "Claude Code"}
+_REPAIR_STEP = Step("repair", "dependency-repair", "senior-engineer", Evidence.CHANGE_FILE,
+                    takes_key=False)
+
 # The step each gated skill is, so the audit can leave out a step the change passed: a no-text
 # change has no `change_text.md` to audit (`DiskReader.audited`).
 _GATED_BY_SKILL = {entry.skill: entry for entry in DEVELOPMENT_STEPS if entry.runs_when}
+
+# The two producer steps `ad-hoc-plan` stands in for, and the stub each leaves in their place. A stub
+# says so on its `Planned by:` line, and its step is not audited: `development-specs` and
+# `development-design` did not run, so there is no run of theirs to read — the owner's call,
+# 2026-10-24 (`skills/tech-lead/.claude/skills/ad-hoc-plan/SKILL.md` § *Step 5*).
+_STUBBED_BY = "ad-hoc-plan"
+_STUB_ARTIFACT = {"development-specs": "change_spec.md", "development-design": "change_design.md"}
 
 # `chain-change`'s table: the same pipeline, entered at the two PM moves that `chain-development`
 # requires a caller to have made by hand. Both take no key — `station` runs before one exists and
@@ -305,32 +336,44 @@ _DEVELOPER_PREFIX = "developer:"
 # The closing marker's own never-omitted lines
 # (`skills/developer/.claude/skills/development-implementation/SKILL.md` Step 3): the literal prefix
 # each one's declaration starts with.
-_SUITE_PREFIX = "Suite:"
+_SUITE_PREFIX = record_declarations.SUITE.prefix
 # A product with no code has no suite. Its project card says so with `Test command: none`
 # (`core/templates/project_template.md`), and only then may the marker declare `Suite: none`.
 # The whole value must be `none`, with the inline comment cut off first and code or bold markup
 # ignored. So `none` written only inside the comment does not count, and neither does a stand-in
 # such as `none yet — set once the SDD settles`.
 _CARD_TEST_COMMAND = re.compile(r"^\*\*Test command:\*\*(.*)$", re.MULTILINE)
+_CARD_PRODUCT_PATH = re.compile(r"^\*\*Product path:\*\*(.*)$", re.MULTILINE)
+# Where `dependency-repair` leaves its report (`skills/senior-engineer/.claude/skills/
+# dependency-repair/SKILL.md` § The report), and the worktrees an unmerged repair leaves it in:
+# the repair coins its own key, `<YYYY-MM-DD>_dependency-repair[-n]`.
+_REPAIR_REPORT_DIR = "docs/dependency-repair"
+_REPAIR_REPORT_SUFFIX = "_report.md"
+_REPAIR_WORKTREE = re.compile(r"^\d{4}-\d{2}-\d{2}_dependency-repair")
 _NO_SUITE = "none"
 # The environment a gate's suite ran in (`core/tools/gate_suite.py`): one declared line in the
 # closing marker and in a passing integrity report. The kind is the line's first word, and only
 # these four are an environment — `unresolved` names a run that never happened. `none` is the
 # card's own no-suite answer and passes only where `Suite: none` would (`card_has_no_suite`).
-_ENVIRONMENT_PREFIX = "Environment:"
+# `not-ready` is a fifth first word and not a kind: it is the gate's declaration that an
+# environment was not ready to run the suite, so it halts the walk by name (`_bad_verdict`)
+# and is never in the set.
+_ENVIRONMENT_PREFIX = record_declarations.ENVIRONMENT.prefix
 _ENVIRONMENT_KINDS = frozenset({"macos-guest", "container", "owners-mac", _NO_SUITE})
+_NOT_READY = "not-ready"
+_NOT_READY_REASON = "environment-not-ready"
 # The language line is `Language resolution:`, or the same words with a parenthesised label
 # before the colon. A close after two pauses carried each pause's record under `Language
 # resolution (tasks 1 to 3, from <pause SHA>):`, and an exact prefix read that as no record at all,
 # halting a finished, green change as missing-language (2026-10-01). The skill now asks
 # for one plain heading; this keeps a labelled one from reading as absent.
-_LANGUAGE_WORDS = "Language resolution"
+_LANGUAGE_WORDS = record_declarations.LANGUAGE_RESOLUTION.prefix
 _LANGUAGE_HEADING = re.compile(_LANGUAGE_WORDS + r"(?:\s*\([^)]*\))?:")
 # The two lines a marker carries when the developer deferred a task it could not land
 # (`skills/developer/.claude/skills/development-implementation/SKILL.md` Step 3): `Deferred: task <N> — …` names the
 # task, and `Failing: <case id> — task <N>` (or `— no task`) names the task a failing case is in.
-_DEFERRED_PREFIX = "Deferred:"
-_FAILING_PREFIX = "Failing:"
+_DEFERRED_PREFIX = record_declarations.DEFERRED.prefix
+_FAILING_PREFIX = record_declarations.FAILING.prefix
 # The first whole `task <N>` after a line's prefix. `\b` on both sides, so `task 3` never reads a
 # `task 30`, and `task x` reads no number at all.
 _TASK_TOKEN = re.compile(r"\btask (\d+)\b")
@@ -348,6 +391,10 @@ _SUFFIX_SEPARATOR = " — "
 # (`skills/developer/.claude/skills/test-driven-development/SKILL.md`,
 # `developer: <slug> — red`, called with the slug `task <N> <slug>`). Exactly this word.
 _RED_SUFFIX = "red"
+# The last ` — ` suffix of the commit holding a deferred task's partial code
+# (`skills/developer/.claude/skills/development-implementation/SKILL.md` § Deferring a task,
+# `developer: task <N> <slug> — deferred`). Exactly this word.
+_DEFERRED_SUFFIX = "deferred"
 # A heading of one task in `tl_instruction.md`: `### Task <N>: <title>`, the number a whole token.
 _TASK_HEADING = re.compile(r"^### Task (\d+)\b", re.MULTILINE)
 # Any markdown heading: its `#` run is its level, and what follows the space is its title.
@@ -381,17 +428,17 @@ _ONE_COMMIT_MARKERS: tuple[str, ...] = (
 _RELANE_NOTE = re.compile(
     r"^- Task (\d+) (?:no red \(lane d(?:[,;][^)]*)?\)"
     r"|red at baseline \(lane f(?:[,;][^)]*)?\))\s*—(.*)$")
-_RELANE_NOTE_START = "- Task "
+_RELANE_NOTE_START = record_declarations.RELANE_NOTE.prefix
 # The largest context, in tokens, a developer run may carry before it is told to pause
 # (`.claude/hooks/context_cap.py`). A walk carries its own on the state, so a resumed walk keeps the
 # cap it started with; this is what a start with no `--context-cap` records.
 DEFAULT_CONTEXT_CAP = 250000
 # The environment variable the hook reads. Set for the implementation step alone (`_launch_run`).
 _CONTEXT_CAP_VARIABLE = "KENSAIAPP_CONTEXT_CAP"
-# The owner's ask to run the gates' suites on their own Mac. Set for the three steps that run a
+# The owner's ask to run the gates' suites on their own Mac. Set for the four steps that run a
 # card's suite, and only when this walk's owner start carried the ask (`WalkState.gate_owners_mac`).
-_GATE_OWNERS_MAC_VARIABLE = "KENSAIAPP_GATE_OWNERS_MAC"
-_GATE_CONSUMER_STEPS = frozenset({"implementation", "code-integrity", "seal"})
+_GATE_OWNERS_MAC_VARIABLE = gate_suite.OWNERS_MAC_VARIABLE
+_GATE_CONSUMER_STEPS = frozenset({"implementation", "code-integrity", "security", "seal"})
 
 # The two stops the environment check can end an implementation launch with. The words are
 # `change_text.md`'s, section *The walk's decision-owed stop message*.
@@ -663,20 +710,22 @@ class DiskReader:
         body = self.files.read_text(os.path.join(change.branch_change_folder, gate.artifact))
         if body is None:
             return f"no {gate.artifact}"
-        declared = self._first_declared_line(body, gate.prefix)
+        declared = record_declarations.parse(body).one(record_declarations.BY_PREFIX[gate.prefix])
         if declared is None:
             return f'no "{gate.prefix}" line'
-        return f'"{declared}", which is neither {gate.runs} nor {gate.passes}'
+        return f'"{declared.text}", which is neither {gate.runs} nor {gate.passes}'
 
     def _declared_word(self, change: ChangeLayout, gate: RunsWhen) -> str | None:
         """The first word of the gate line's value, undressed — `None` when the artifact or the
-        line is absent, `""` when the line carries no value. The same scan `declared_verdict` and
-        `suite_verdict` make, so `**Publishes text:** no` reads as `no`."""
+        line is absent, `""` when the line carries no value. Read through the parsed record's
+        `PUBLISHES_TEXT` row, as `declared_verdict` and `suite_verdict` read theirs, so
+        `**Publishes text:** no` reads as `no`."""
         body = self.files.read_text(os.path.join(change.branch_change_folder, gate.artifact))
-        declared = None if body is None else self._first_declared_line(body, gate.prefix)
+        declared = None if body is None else record_declarations.parse(body).one(
+            record_declarations.BY_PREFIX[gate.prefix])
         if declared is None:
             return None
-        value = declared[len(gate.prefix):].strip().strip(_EMPHASIS).split(maxsplit=1)
+        value = declared.text[len(gate.prefix):].strip().strip(_EMPHASIS).split(maxsplit=1)
         return value[0].strip(_EMPHASIS) if value else ""
 
     def reclosed_after_integrity(self, change: ChangeLayout) -> bool:
@@ -792,6 +841,29 @@ class DiskReader:
         if unlanded is None:
             return tasks[-1]
         return None if unlanded == tasks[0] else unlanded - 1
+
+    def current_task(self, change: ChangeLayout, product_path: str) -> tuple[int, int] | None:
+        """Which task of `tl_instruction.md` a developer run is on, as `(place, count)`: the place,
+        in plan order, of the task after the furthest one that has a landing or a deferred commit,
+        and how many tasks the plan lists. `None` when the instruction is unreadable or lists
+        none, or when every task is behind the run — it is closing, not on a task.
+
+        A task deferred with only its red commit has nothing that says it is behind the run, so
+        it reads as the current task until a later one lands."""
+        text = self.files.read_text(os.path.join(change.branch_change_folder, "tl_instruction.md"))
+        tasks = list(dict.fromkeys(int(number) for number in _TASK_HEADING.findall(text or "")))
+        if not tasks:
+            return None
+        behind = set()
+        for _sha, subject in self.git.commits_ahead(self.code_repo(change, product_path), _MAIN,
+                                                    change.key):
+            task = _TASK_COMMIT.match(subject)
+            if task and (self._lands(task.group(2))
+                         or self._last_suffix(task.group(2)) == _DEFERRED_SUFFIX):
+                behind.add(int(task.group(1)))
+        furthest = max((place for place, number in enumerate(tasks, 1) if number in behind),
+                       default=0)
+        return None if furthest == len(tasks) else (furthest + 1, len(tasks))
 
     def tdd_lane_tasks(self, change: ChangeLayout) -> list[int] | None:
         """The TDD-lane tasks of the change's own `tl_instruction.md` on the branch, in plan order:
@@ -927,7 +999,7 @@ class DiskReader:
         """The closing marker's declared `Suite:` value — `"green"`, `"red"`, `"none"` (passes
         only when `main`'s card reads `Test command: none`, `card_has_no_suite`), or `None` when the marker
         carries no such line at all (or there is no marker yet)."""
-        declared = self._declared_line(change, _SUITE_PREFIX)
+        declared = self._marker_record(change).one(record_declarations.SUITE)
         if declared is None:
             return None
         # The verdict is the value's FIRST WORD. The developer writes this body by hand and
@@ -935,26 +1007,41 @@ class DiskReader:
         # exact read calls no verdict at all and halts a finished change as missing-suite (twice on
         # 2026-09-22). What follows the verdict is the record, and it never changes what was
         # declared: a dressed `red` still halts.
-        value = declared[len(_SUITE_PREFIX):].strip().split(maxsplit=1)
+        value = declared.text[len(_SUITE_PREFIX):].strip().split(maxsplit=1)
         return value[0].strip("*_`") if value else ""
 
+    def marker_environment_kinds(self, change: ChangeLayout) -> list[str]:
+        """The kind of each `Environment:` line in the closing marker's first run of consecutive
+        `Environment:` lines, in order — one per container cell a gate ran. Empty when the marker
+        declares none. Read from the same parsed record `suite_verdict` reads, so a dressed line
+        declares and a mention does not. Nor does a line that opens with `Environment:` after the
+        first run has ended."""
+        return [self._environment_kind(line.text)
+                for line in self._marker_record(change).read(record_declarations.ENVIRONMENT)]
+
+    def report_environment_kinds(self, change: ChangeLayout, step: Step) -> list[str]:
+        """The kind of each `Environment:` line in the first run of consecutive `Environment:`
+        lines in the step's own report, in order. A line that opens with `Environment:` after that
+        run has ended declares nothing."""
+        report = self._change_file_record(change, step.artifact)
+        return [] if report is None else [
+            self._environment_kind(line.text)
+            for line in report.read(record_declarations.ENVIRONMENT)]
+
     def marker_environment_kind(self, change: ChangeLayout) -> str | None:
-        """The kind of the closing marker's first `Environment:` line, or `None` when it has none
-        — the same scan `suite_verdict` makes, so a dressed line declares and a mention does
-        not."""
-        return self._environment_kind(self._declared_line(change, _ENVIRONMENT_PREFIX))
+        """The kind of the closing marker's first `Environment:` line, or `None` when it has
+        none. A compatibility query: the verdict reads `marker_environment_kinds`."""
+        kinds = self.marker_environment_kinds(change)
+        return kinds[0] if kinds else None
 
     def report_environment_kind(self, change: ChangeLayout, step: Step) -> str | None:
         """The kind of the first `Environment:` line in `step`'s own report, or `None`."""
-        body = self.files.read_text(os.path.join(change.branch_change_folder, step.artifact))
-        return None if body is None else self._environment_kind(
-            self._first_declared_line(body, _ENVIRONMENT_PREFIX))
+        kinds = self.report_environment_kinds(change, step)
+        return kinds[0] if kinds else None
 
     @staticmethod
-    def _environment_kind(declared: str | None) -> str | None:
+    def _environment_kind(declared: str) -> str:
         """The first word of the declaration's value, case kept — `""` when the line has none."""
-        if declared is None:
-            return None
         value = declared[len(_ENVIRONMENT_PREFIX):].strip().strip(_EMPHASIS).split(maxsplit=1)
         return value[0].strip(_EMPHASIS) if value else ""
 
@@ -972,32 +1059,79 @@ class DiskReader:
         value = found.group(1).split("<!--", 1)[0].strip().strip("*_`").strip()
         return value.lower() == _NO_SUITE
 
+    def has_nfdr(self, change: ChangeLayout) -> bool:
+        """Whether `docs/nfdr.md` exists under the card's `Product path:` on `main`. A relative
+        path is read from the instance root, an absolute one as written. `main`'s card and not
+        the branch's, for `card_has_no_suite`'s reason. A card that cannot be read, or has no such
+        line, names no product, so the answer is False and `dependency-repair` is not launched."""
+        card = self.files.read_text(os.path.join(change.instance_root, "system", "projects",
+                                                 change.project, "project.md"))
+        found = _CARD_PRODUCT_PATH.search(card or "")
+        if found is None:
+            return False
+        value = found.group(1).split("<!--", 1)[0].strip().strip(_EMPHASIS).strip()
+        if not value:
+            return False
+        product = os.path.join(change.instance_root, value)  # an absolute `value` wins the join
+        return self.files.is_file(os.path.join(product, "docs", "nfdr.md"))
+
+    def repair_reports(self, change: ChangeLayout) -> list[str]:
+        """The sorted path of every `*_report.md` under `system/projects/<project>/docs/
+        dependency-repair/` that exists now: in the instance's main checkout, and in each
+        `.worktrees/<YYYY-MM-DD>_dependency-repair*` worktree of it, where an unmerged repair
+        leaves its report (CP-862)."""
+        relative = os.path.join("system", "projects", change.project, _REPAIR_REPORT_DIR)
+        roots = [change.instance_root]
+        worktrees = os.path.join(change.instance_root, ".worktrees")
+        roots += [os.path.join(worktrees, entry) for entry in self.files.list_dir(worktrees)
+                  if _REPAIR_WORKTREE.match(entry)]
+        reports = []
+        for root in roots:
+            folder = os.path.join(root, relative)
+            reports += [os.path.join(folder, entry) for entry in self.files.list_dir(folder)
+                        if entry.endswith(_REPAIR_REPORT_SUFFIX)
+                        and self.files.is_file(os.path.join(folder, entry))]
+        return sorted(reports)
+
+    def repair_verdict(self, path: str) -> str | None:
+        """The first word of the report's `Repair:` line, undressed, or `None` when the report
+        cannot be read or carries no such line (CP-862). A line with no value reads `""`."""
+        body = self.files.read_text(path)
+        declared = None if body is None else record_declarations.parse(body).one(
+            record_declarations.REPAIR)
+        if declared is None:
+            return None
+        value = declared.text[len(record_declarations.REPAIR.prefix):].strip().strip(
+            _EMPHASIS).split(maxsplit=1)
+        return value[0].strip(_EMPHASIS) if value else ""
+
     def language_resolved(self, change: ChangeLayout) -> bool:
         """Whether the closing marker declares a `Language resolution:` line at all — the
-        same line scan `suite_verdict` uses, over the same body, matched by `_LANGUAGE_HEADING`
-        so a labelled heading counts as the declaration it is."""
-        return any(_LANGUAGE_HEADING.match(line) for line
-                   in self._declared_lines_of_marker(change, _LANGUAGE_WORDS))
+        `LANGUAGE_RESOLUTION` row of the parsed record `suite_verdict` reads, matched by
+        `_LANGUAGE_HEADING` so a labelled heading counts as the declaration it is."""
+        return any(_LANGUAGE_HEADING.match(line.text) for line
+                   in self._marker_record(change).read(record_declarations.LANGUAGE_RESOLUTION))
 
     def declared_verdict(self, change: ChangeLayout, step: Step) -> str | None:
         """The value of the first line in `step`'s own report that starts with its
         `declared_prefix`, or `None` when the report carries no such line — a step whose
         `declared_prefix` is empty never reports one. Reads the report through the same
-        `files.read_text` path `is_done` already checks, scanned by the same line-prefix rule
-        `_declared_line` applies to a commit body, so there is only one scan to trust."""
+        `files.read_text` path `is_done` already checks, parsed by the same
+        `record_declarations.parse` a commit body goes through, and takes the row of the step's
+        prefix from `BY_PREFIX`, so there is only one scan to trust."""
         if not step.declared_prefix:
             return None
-        path = os.path.join(change.branch_change_folder, step.artifact)
-        body = self.files.read_text(path)
-        if body is None:
+        report = self._change_file_record(change, step.artifact)
+        if report is None:
             return None
-        declared = self._first_declared_line(body, step.declared_prefix)
-        return None if declared is None else declared[len(step.declared_prefix):].strip()
+        declared = report.one(record_declarations.BY_PREFIX[step.declared_prefix])
+        return None if declared is None else declared.text[len(step.declared_prefix):].strip()
 
     def deferrals(self, change: ChangeLayout) -> list[str]:
         """Every `Deferred:` line of the closing marker's body, undressed, in body order — `[]`
         when there is no marker. One line per deferred task, whatever its reason."""
-        return self._declared_lines_of_marker(change, _DEFERRED_PREFIX)
+        return [line.text
+                for line in self._marker_record(change).read(record_declarations.DEFERRED)]
 
     def relaned_tasks(self, change: ChangeLayout) -> set[int]:
         """The tasks the closing marker's body re-lanes: every line in `_RELANE_NOTE`'s form.
@@ -1005,59 +1139,61 @@ class DiskReader:
         than by locating the `Developer Review Notes` section, which has no fixed end in a marker
         body."""
         relaned = set()
-        for line in self._declared_lines_of_marker(change, _RELANE_NOTE_START):
-            note = _RELANE_NOTE.match(line)
+        for line in self._marker_record(change).read(record_declarations.RELANE_NOTE):
+            note = _RELANE_NOTE.match(line.text)
             # A note with no reason records none, so it re-lanes nothing (CP-190).
             if note and note.group(2).strip().strip(_EMPHASIS).strip():
                 relaned.add(int(note.group(1)))
         return relaned
 
     def failing_cases(self, change: ChangeLayout) -> list[str]:
-        """Every `Failing:` line of the closing marker's body, undressed, in body order — `[]`
-        when there is no marker. The engine runs no tests, so these lines are the only way the
-        marker shows which task a red case belongs to."""
-        return self._declared_lines_of_marker(change, _FAILING_PREFIX)
+        """Each `Failing:` line in the first run of consecutive `Failing:` lines in the closing
+        marker's body, undressed, in body order, and none when there is no marker. The engine runs
+        no tests, so these lines are the only way the marker shows which task a red case belongs
+        to. A line that opens with `Failing:` after that run has ended declares no case."""
+        return [line.text
+                for line in self._marker_record(change).read(record_declarations.FAILING)]
 
-    def _declared_line(self, change: ChangeLayout, prefix: str) -> str | None:
-        """The first line of the closing marker's body whose undressed form starts with
-        `prefix`, or `None`. Scanned by literal line prefix, never a regex over the whole
-        body — a mention inside `Developer Review Notes` elsewhere in the body must not read
-        as the declaration."""
-        declared = self._declared_lines_of_marker(change, prefix)
-        return declared[0] if declared else None
-
-    def _declared_lines_of_marker(self, change: ChangeLayout, prefix: str) -> list[str]:
+    def _marker_record(self, change: ChangeLayout) -> record_declarations.ParsedRecord:
+        """The closing marker's body, parsed — an empty record when there is no marker. A field is
+        asked of it by its row, never by a bare prefix: a mention inside `Developer Review Notes`
+        elsewhere in the body must not read as the declaration, and the row says where a
+        declaration may appear."""
         sha = self.marker_commit(change)
         if sha is None:
-            return []
-        return self._declared_lines(self.git.commit_body(change.instance_root, sha), prefix)
+            return record_declarations.parse("")
+        return record_declarations.parse(self.git.commit_body(change.instance_root, sha))
 
-    @staticmethod
-    def _declared_lines(body: str, prefix: str) -> list[str]:
-        """Every line of `body` whose undressed form starts with `prefix`, undressed, in order.
-        The one scan `_first_declared_line`, and through it `_declared_line` (a commit body) and
-        `declared_verdict` (a report's file text), run — one parser, however many lines a caller
-        wants, so the marker's `Suite:` line, the report's `Integrity:` line and the marker's
-        `Deferred:` lines all read past the same wrappers.
-
-        It is the undressed line that comes back, and that half carries the fix: callers take the
-        value with `declared[len(prefix):].strip()`, so a returned `**Integrity: pass**` would hand
-        them `pass**` and halt exactly as the raw line did."""
-        undressed = (line.strip().strip(_EMPHASIS).strip() for line in body.splitlines())
-        return [line for line in undressed if line.startswith(prefix)]
-
-    @staticmethod
-    def _first_declared_line(body: str, prefix: str) -> str | None:
-        """The first line `_declared_lines` finds, or `None`."""
-        declared = DiskReader._declared_lines(body, prefix)
-        return declared[0] if declared else None
+    def _change_file_record(self, change: ChangeLayout,
+                            name: str) -> record_declarations.ParsedRecord | None:
+        """A file of the change folder on the branch, parsed — `None` when the file is absent."""
+        body = self.files.read_text(os.path.join(change.branch_change_folder, name))
+        return None if body is None else record_declarations.parse(body)
 
     def audited(self, change: ChangeLayout, step: Step) -> tuple[str, ...]:
         """The steps `step` audits on this change: its `fans_out_over`, less a gated step the
-        change's own records do not run, which produced nothing to read."""
+        change's own records do not run, which produced nothing to read, and less a step whose
+        artifact is `ad-hoc-plan`'s stub, which no run of that step wrote."""
         return tuple(skill for skill in step.fans_out_over
-                     if skill not in _GATED_BY_SKILL
-                     or self.run_verdict(change, _GATED_BY_SKILL[skill]) is RunVerdict.RUN)
+                     if (skill not in _GATED_BY_SKILL
+                         or self.run_verdict(change, _GATED_BY_SKILL[skill]) is RunVerdict.RUN)
+                     and not self.stubbed(change, skill))
+
+    def stubbed(self, change: ChangeLayout, skill: str) -> bool:
+        """Whether the change branch's copy of `skill`'s artifact is `ad-hoc-plan`'s stub: its
+        `Planned by:` line's first word is exactly `ad-hoc-plan`. A step with no stub, a missing
+        file or a missing line is not stubbed, so it is audited as before."""
+        artifact = _STUB_ARTIFACT.get(skill)
+        if artifact is None:
+            return False
+        body = self.files.read_text(os.path.join(change.branch_change_folder, artifact))
+        declared = None if body is None else record_declarations.parse(body).one(
+            record_declarations.PLANNED_BY)
+        if declared is None:
+            return False
+        value = declared.text[len(record_declarations.PLANNED_BY.prefix):].strip().strip(
+            _EMPHASIS).split(maxsplit=1)
+        return bool(value) and value[0].strip(_EMPHASIS) == _STUBBED_BY
 
     def audit_done(self, change: ChangeLayout, audited_skill: str) -> bool:
         return self.git.branch_has_path(change.instance_root, change.audit_branch(audited_skill),
@@ -1189,9 +1325,15 @@ class WalkState:
     # runs on its own. Defaulted, so an older state file still loads.
     forced_provider: str = ""
     # The owner's ask, made at this walk's start, to run the gates' suites on their own Mac. Only a
-    # fresh owner start sets it — no card, product record or inherited variable does — and every
-    # later launch of the walk reads it from here. Defaulted, so an older state file still loads.
+    # fresh start carrying `--gate-owners-mac` sets it — the owner's, or a build-idea queue's that
+    # holds the ask — and no card, product record or inherited variable does; every later launch
+    # of the walk reads it from here. Defaulted, so an older state file still loads.
     gate_owners_mac: bool = False
+    # How many times this walk launched `dependency-repair` (CP-861: at most one), and the reports
+    # that existed when it did, so its own is the one that is new (CP-862). Both defaulted, so an
+    # older state file still loads.
+    repairs: int = 0
+    repair_reports_before: list = field(default_factory=list)
     schema_version: int = STATE_SCHEMA
 
     def to_json(self) -> dict:
@@ -1634,12 +1776,15 @@ class DevelopmentChain:
             return AdvanceResult(acted=False, ended=None)
         self.store.save(state)
 
-        step = next(candidate for candidate in self.steps if candidate.id == entry["step"])
+        step = next(candidate for candidate in (*self.steps, _REPAIR_STEP)
+                    if candidate.id == entry["step"])
         change = ChangeLayout(state.instance_root, state.project, state.key)
         if self._left_the_checkout_dirty(state, step, entry):
             self.store.save(state)
             return AdvanceResult(acted=True, ended=state.ended)
-        if step.gates:
+        if step is _REPAIR_STEP:
+            self._settle_repair(state, change, outcome)
+        elif step.gates:
             self._settle(state, change, step, outcome)
         else:
             self._settle_audit(state, change, step, entry["audited"], outcome)
@@ -1699,6 +1844,8 @@ class DevelopmentChain:
             return
         reason = self._bad_verdict(change, step, state.product_path)
         if reason is not None:
+            if self._launch_repair(state, change, step, reason):
+                return
             self._halt(state, step, reason)
             return
         if step.evidence is Evidence.CHANGE_OPEN:
@@ -1710,6 +1857,92 @@ class DevelopmentChain:
             self._record_marker(state, change)
         state.history.append(f"{step.id} landed")
         self._after(state, change, step)
+
+    def _launch_repair(self, state: WalkState, change: ChangeLayout, step: Step,
+                       reason: str) -> bool:
+        """Launch `dependency-repair` in place of halting `red-suite`, and say whether it did
+        (CP-860, CP-861). The engine runs no tests, so it cannot tell a red that is `main`'s from
+        the change's own; the repair's audit on `main` is what does, and it writes no report when
+        the red is not `main`'s (CP-865). Only a marker's `red-suite`, only a product whose NFDR is
+        on `main`, and only the walk's first."""
+        if (reason != _RED_SUITE or step.evidence is not Evidence.MARKER_COMMIT
+                or state.repairs != 0 or not self.reader.has_nfdr(change)):
+            return False
+        provider = self._repair_provider_or_halt(state)
+        if provider is None:
+            return True
+        state.repair_reports_before = self.reader.repair_reports(change)
+        state.repairs += 1
+        state.history.append(f"{step.id} red — launching {_REPAIR_STEP.skill}")
+        self.notifier.send(f"{self._headline(state)} — {step.id} red — launching "
+                           f"{_REPAIR_STEP.skill}")
+        self._launch_run(state, change, _REPAIR_STEP, audited=None, run=_REPAIR_STEP.id,
+                         provider=provider)
+        return True
+
+    def _repair_provider_or_halt(self, state: WalkState) -> str | None:
+        """The provider the repair runs on, or `None` once the walk has halted naming what the
+        provider file lacks. The repair is no table step with an entry of its own in the provider
+        file, so it takes the entry of the first step that runs as its seat."""
+        seat = next(candidate for candidate in self.steps if candidate.role == _REPAIR_STEP.role)
+        return self._provider_or_halt(state, seat)
+
+    def _settle_repair(self, state: WalkState, change: ChangeLayout, outcome: str) -> None:
+        """The repair has ended (CP-862–CP-866). It is the marker step's red the walk is
+        answering, so every halt is named at that step."""
+        marker_step = next(candidate for candidate in self.steps
+                           if candidate.evidence is Evidence.MARKER_COMMIT)
+        if outcome not in _FINISHED:
+            self._halt(state, marker_step, _RED_SUITE)
+            return
+        before = set(state.repair_reports_before)
+        new = [path for path in self.reader.repair_reports(change) if path not in before]
+        if not new:
+            self._halt(state, marker_step, _RED_SUITE)
+            return
+        # One run writes one report. Should several be new, none is trusted over another: the
+        # repair is merged only if every one says so, and the halt names the first that does not.
+        for report in new:
+            word = self.reader.repair_verdict(report)
+            if word != _MERGED:
+                self._halt(state, marker_step, f"{_RED_SUITE} — {_REPAIR_STEP.skill} "
+                                               f"{word or 'declared no verdict'}: {report}")
+                return
+        provider = self._repair_provider_or_halt(state)
+        if provider is None:
+            return
+        refusal = self._advance_onto_main(state, change, provider)
+        if refusal is not None:
+            self._halt(state, marker_step, f"{_RED_SUITE} — main's advance refused after "
+                                           f"{_REPAIR_STEP.skill} {_MERGED} ({refusal})")
+            return
+        state.history.append(f"{_REPAIR_STEP.id} {_MERGED} — re-closing")
+        self.notifier.send(f"{self._headline(state)} — {_REPAIR_STEP.skill} {_MERGED} — "
+                           f"{marker_step.id} re-closing")
+        self._launch_run(state, change, marker_step, audited=None)
+
+    def _advance_onto_main(self, state: WalkState, change: ChangeLayout,
+                           provider: str) -> str | None:
+        """Take `main`'s advance onto the change's branch in each repository the change commits
+        in: the instance's worktree, then an external product's (CP-863). Why it was refused, as
+        a word for the halt reason, or `None` when every advance landed. The first refusal stops
+        it, so a later repository is never advanced past a refused one."""
+        surface = _SURFACES.get(provider)
+        if surface is None:
+            return f"no surface for provider {provider}"
+        worktrees = [change.worktree]
+        product = self.reader.code_repo(change, state.product_path)
+        if product != change.instance_root:
+            worktrees.append(os.path.join(product, ".worktrees", change.key))
+        for worktree in worktrees:
+            exit_code = self.processes.run(
+                ["python3", os.path.join(state.core_dir, "tools", "commit_builder.py"),
+                 "--repo", worktree, "advance", "--from", _MAIN, "--actor", _REPAIR_STEP.role,
+                 "--surface", surface],
+                cwd=worktree, env=with_provider(self.environ, provider))
+            if exit_code != 0:
+                return f"exit {exit_code}"
+        return None
 
     def _record_marker(self, state: WalkState, change: ChangeLayout) -> None:
         """What the closing marker declared, kept on the state for the sealed message."""
@@ -1803,20 +2036,33 @@ class DevelopmentChain:
         landed; `describe` raises on it for every step before the entry it would otherwise walk
         past silently — one method, so the reasons and their order have one owner.
 
-        The closing marker's reasons come first — `red-suite`, `missing-suite`,
+        `environment-not-ready` is checked first, at the head of the marker branch and of the
+        integrity branch: a not-ready environment never ran the suite, so the verdict beside it
+        (`red-suite`, `integrity-stopped`) would name the wrong cause.
+
+        The closing marker's other reasons come next — `red-suite`, `missing-suite`,
         `missing-language` — and only a marker passing all three has its tasks' commit shape
         read (`_commit_shape_verdict`), on the repo `product_path` puts the per-task commits in.
         `missing-environment` is last, for the marker and for the report alike: only a record that
         passed everything above it is read for the environment it names."""
-        if step.declared_prefix:
+        if step.declared_prefix == _SECURITY_PREFIX:
+            verdict = self.reader.declared_verdict(change, step)
+            if verdict == "stopped":
+                return "security-stopped"
+            return None if verdict in _SECURITY_PASSING else "missing-security"
+        if step.declared_prefix == _INTEGRITY_PREFIX:
+            if _NOT_READY in self.reader.report_environment_kinds(change, step):
+                return _NOT_READY_REASON
             verdict = self.reader.declared_verdict(change, step)
             if verdict == "stopped":
                 return "integrity-stopped"
             if verdict != "pass":
                 return "missing-integrity"
             return self._environment_verdict(change,
-                                             self.reader.report_environment_kind(change, step))
+                                             self.reader.report_environment_kinds(change, step))
         if step.evidence is Evidence.MARKER_COMMIT:
+            if _NOT_READY in self.reader.marker_environment_kinds(change):
+                return _NOT_READY_REASON
             suite = self.reader.suite_verdict(change)
             if suite == "red":
                 if not self._red_is_deferred(change):
@@ -1831,16 +2077,17 @@ class DevelopmentChain:
                 return "missing-language"
             return (self._commit_shape_verdict(change, product_path)
                     or self._environment_verdict(change,
-                                                 self.reader.marker_environment_kind(change)))
+                                                 self.reader.marker_environment_kinds(change)))
         return None
 
-    def _environment_verdict(self, change: ChangeLayout, kind: str | None) -> str | None:
-        """`missing-environment` unless a record that passed every other check names one of the
-        environment kinds. The kind is not checked against a fresh resolution, and `none` — a run
-        that issued no suite — passes only where the card on `main` has no command."""
-        if kind not in _ENVIRONMENT_KINDS:
+    def _environment_verdict(self, change: ChangeLayout, kinds: list[str]) -> str | None:
+        """`missing-environment` unless a record that passed every other check declares at least
+        one environment and every declared kind is one of the environment kinds. The kinds are not
+        checked against a fresh resolution, and `none` — a run that issued no suite — passes
+        only where the card on `main` has no command."""
+        if not kinds or any(kind not in _ENVIRONMENT_KINDS for kind in kinds):
             return "missing-environment"
-        if kind == _NO_SUITE and not self.reader.card_has_no_suite(change):
+        if _NO_SUITE in kinds and not self.reader.card_has_no_suite(change):
             return "missing-environment"
         return None
 
@@ -2122,8 +2369,12 @@ class DevelopmentChain:
         if due is None:
             return
         hook, end, cwd, headline, forced_provider = due
+        # The engine inherits the last step's launch environment, so the owner's ask is removed
+        # here as at every launch that is not a suite step: the ask never outlives its walk.
+        env = with_provider(self.environ, forced_provider)
+        env.pop(_GATE_OWNERS_MAC_VARIABLE, None)
         run_end_hook(hook, end, cwd=cwd, processes=self.processes, notifier=self.notifier,
-                     headline=headline, env=with_provider(self.environ, forced_provider))
+                     headline=headline, env=env)
 
     def _sealed_summary(self, state: WalkState) -> str:
         audits = "; ".join(f"{skill}: {result}" for skill, result in sorted(state.audits.items()))

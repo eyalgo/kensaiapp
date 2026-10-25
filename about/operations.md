@@ -8,8 +8,9 @@ sessions, providers, launchers, more than one instance, findings and the additio
 `/kensaiapp-panel` opens a pane in your Claude Code session that lists the chains waiting on
 you, and the ones running now ([step 5](../README.md#5-turn-on-the-panel) turns it on). For each project it shows
 the seed being walked and the seed's route as a tree: the stations already reached, the one being
-walked with its change, the step that change is on and how long ago it started, and the stations not
-opened yet.
+walked with its change, the step that change is on, how long it has been on it and, during the build,
+which task of the plan it is on, and the stations not opened yet. A running walk shows how long it
+has run in all; a waiting one, how long ago it started.
 
 <p align="center"><img src="images/panel-route-waiting-and-running.png" alt="The KensaiApp pane. Under WAITING ON YOU, the project ka-telemetry: its seed, the release kensaiapp runs on is public and meets every release bar, with four stations reached and two not opened yet, and its walk, the readme says what runs, stopped at build-idea 10 hours ago on an act owed by the owner: walk that station yourself, then resume build-idea. Under RUNNING NOW, the project ka-reader: three stations reached, the fourth being walked, its change in the code-integrity step, started 2 hours ago, and one station not opened yet." width="70%"></p>
 <p align="center"><sub>The pane from <code>/kensaiapp-panel</code>: one project waiting on its owner, one running, each with its route. A real session, 2026-10-21. ka-reader and ka-telemetry are two projects being built with KensaiApp.</sub></p>
@@ -82,7 +83,6 @@ The `interactive` group holds the skills meant for a session with you:
 |---|---|
 | `agent-invoke` | Hands work to an agent that runs in the background ([Delegating work](#delegating-work)) |
 | `companion-answer` | Walks a document's open questions with you, one at a time, and writes your answers in |
-| `seeds-from-idea` | Cuts one idea into seeds, in the project that owns it or in the instance's seedbed |
 | `session-close` | Moves what a session produced onto the files that keep it |
 | `skill-creator` | Creates or changes a skill |
 | `skill-evals-creator`, `skill-evals-trigger` | Write a skill's evals, and tune when it triggers |
@@ -137,6 +137,11 @@ moves. It is work in progress. It needs the change opened first: one open change
 with its change request committed. The PM's `tobiishi-open` writes one, or you can write it by hand.
 The product can live inside the instance or in its own repository.
 
+The plan starts from a brief, `ad_hoc_plan_brief.md` in the change's folder. In a session, the
+session drafts it and puts it to you before anything else: your own words, and each file they rest
+on, quoted. A quote that is not at its lines stops the plan. You confirm it, and it is committed on
+`main` before the plan runs. Unattended, the change request is the brief.
+
 ```text
 /add-dir skills/pm
 > pm: tobiishi-open for my-app
@@ -146,7 +151,10 @@ The product can live inside the instance or in its own repository.
 ```
 
 The skill opens the change's branch and working folder itself. It writes a short spec, a short design
-and a full plan for the developer, commits them, and names the next command without running it:
+and a full plan for the developer, commits them, and names the next command without running it.
+Every run leaves `ad_hoc_plan_report.md` beside the brief: what it did with each line of what you
+asked, and why it stopped if it did. The audit of such a change reviews its plan, content and code,
+not the short spec and design:
 
 ```bash
 core/launchers/chain-development/launcher.sh my-app
@@ -156,12 +164,18 @@ core/launchers/chain-development/launcher.sh my-app
 
 `seeds-from-idea` does for one idea what `seeds-from-product-docs` does for a project's documents:
 the Principal PM cuts it into seeds, each with its station checklist and a trace back to the idea,
-in the project that owns it, or in the instance's own seedbed.
+in the project that owns it, or in the instance's own seedbed. It runs in a session, with no
+launcher.
 
 ```text
-/add-dir skills/interactive
-> ppm: seeds-from-idea <the idea, or a path to a note>
+/add-dir skills/principal-pm
+> ppm: seeds-from-idea <the idea, in your own words>
 ```
+
+The idea arrives as a brief. The session drafts it and puts it to you: your own words, and each file
+they rest on, quoted. A quote that is not at its lines stops the cut. You confirm the brief, and it
+is committed with the seeds, in the project's `docs/seeds-from-idea/`. Each seed quotes the part of
+your words it carries.
 
 A new seed waits to be picked. Pick one as the PM, then start the change chain, and the journey
 walks itself from there:
@@ -198,7 +212,7 @@ you start `build-idea` again by hand, give the flag again: a start without it re
 
 Exporting `KENSAIAPP_AGENT_PROVIDER` before a launch forces one provider as the flag does. These
 launchers run on Claude only, whatever the flag or the variable says: `cold-read`, `launch-eval-fix`,
-`launch-skill-evals`, `product-card`, `seeds-from-idea`, `launch-apply-packet`, `launch-audit` and
+`launch-skill-evals`, `product-card`, `launch-apply-packet`, `launch-audit` and
 `launch-fix-author`.
 
 KensaiApp is tested and mostly run on Claude. The other providers can be part of the loops, with
@@ -215,7 +229,6 @@ core/launchers/chain-change/launcher.sh <project>        # one change, ask to se
 core/launchers/build-idea/launcher.sh <project>          # a refine's next moves, as a queue
 core/launchers/chain-product/launcher.sh <project>       # a project's product documents
 core/launchers/chain-agari/launcher.sh <project>         # a project's PRD and definition of done
-core/launchers/seeds-from-idea/launcher.sh <idea-path>   # one idea cut into seeds
 core/launchers/skill/launcher.sh <skill> [<argument>...] # any skill that has a launcher.md
 core/launchers/cold-read/launcher.sh ...                 # blind cold reads over a skill's own stack
 ```
@@ -252,7 +265,9 @@ set -a; . ./.env; set +a
 
 ## Findings
 
-Findings are where KensaiApp records the defects it finds in itself. The chains write them, and the
+Findings are where KensaiApp records the defects it finds in itself. The audit's findings about a
+change are a different kind; [Two kinds of finding](how-it-works.md#two-kinds-of-finding) sets the two
+side by side. The chains write them, and the
 PM and the Principal PM work from them: the PM reads each change's audit findings when it refines the
 station, and the Principal PM files the defects it finds when it refines the seedbed. Findings are
 also how KensaiApp's own defects get fixed, by hand for now.
@@ -307,14 +322,20 @@ Each packet also names the container image or virtual machine its gates run in, 
 ### Testing in isolation
 
 A product's tests run where its continuous integration runs, not on whatever machine started the
-walk. The developer's run, the senior engineer's proof and the seal each run the product's test
-command in the environment the product's CI calls for, and each records which environment that was:
+walk. The developer's run, the senior engineer's proof, the security step and the seal each run the
+product's test command in the environment the product's CI calls for, and each records which
+environment that was:
 
 | The product's CI runs on | Its tests run in |
 |---|---|
 | Linux | A Podman container, from the image the language's packet names |
 | macOS, or the product holds Swift | A macOS virtual machine, under Tart |
 | No CI | Your own Mac |
+
+Where the CI runs a matrix, each version in it gets a container of its own. A matrix that mixes Linux
+and macOS also runs its newest version once in the macOS virtual machine. Before the tests, each
+environment installs the product's languages and dependencies; when that install fails, the walk
+halts as `environment-not-ready`, before any test runs.
 
 On a Mac, Podman runs its containers inside a virtual machine of its own, which `podman machine init`
 creates once. A product's own decision files can override its language's default. To run a walk's
@@ -324,7 +345,13 @@ tests on your own Mac anyway, ask for it when you start the walk:
 core/launchers/chain-change/launcher.sh my-app --gate-owners-mac
 ```
 
-The ask is kept with the walk, so a resume keeps it.
+The ask is kept with the walk, so a resume keeps it. When the walk ends, it hands the ask to
+`build-idea`, which puts it on every change walk it starts. Starting `build-idea` again by hand
+without the flag drops the ask:
+
+```bash
+core/launchers/build-idea/launcher.sh my-app --gate-owners-mac
+```
 
 Only the tests run in a container or a virtual machine. The agents themselves run on your machine.
 

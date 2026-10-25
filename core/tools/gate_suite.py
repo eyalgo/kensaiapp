@@ -35,7 +35,9 @@ TWO SEAMS IN ONE MODULE
 
     A refusal is a value with no execution target, never a fallback to another environment, and the
     owner's Mac is returned in exactly three cases: the product has no CI, the product's own
-    decision files choose it, or the owner asked.
+    decision files choose it, or the owner asked. The ask is `--owners-mac`, or
+    `OWNERS_MAC_VARIABLE` set to exactly `1` in the environment the host was given — a managed
+    walk's launch context — so a run that misses the recipe's ask still lands where the owner asked.
 
     In the macOS guest the share is how the run proves the guest reaches its checkout, never what
     it builds from: the suite runs in a copy streamed from the host onto the guest's own disk
@@ -48,21 +50,24 @@ import argparse
 import contextlib
 import fcntl
 import hashlib
+import io
 import json
 import os
 import re
 import shlex
+import shutil
 import subprocess
 import sys
 import tempfile
 import uuid
-from collections.abc import Callable, Iterator, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field, replace
 from enum import Enum
 from pathlib import Path, PurePosixPath
 from typing import TextIO
 
-__version__ = "1.7.0"
+__version__ = "1.13.0"
 
 PACKET_ROOT = Path("doctrine") / "engineering" / "languages"
 REGISTRY_FILE = PACKET_ROOT / "README.md"
@@ -103,7 +108,6 @@ class RefusalCase(str, Enum):
     not."""
 
     OTHER_PLATFORM = "a"
-    MIXED_PLATFORMS = "b"
     NO_CONTAINER_DEFAULT = "c"
     CONFLICTING_IMAGES = "d"
     UNDETERMINED_VERSION = "e"
@@ -178,6 +182,7 @@ class Candidate:
     tag: str | None
     version_known: bool
     failed: tuple[Source, ...]
+    tag_source: Source | None = None
 
 
 @dataclass(frozen=True)
@@ -200,12 +205,35 @@ class Guest:
 
 @dataclass(frozen=True)
 class GuestTool:
-    """What a language's packet names for the macOS guest: the tool its gates run with, and the
-    folder that holds it when the guest's own PATH does not (`None`)."""
+    """What a language's packet names for the macOS guest: the tool its gates run with, the
+    folder that holds it when the guest's own PATH does not (`None`), and the further folders a
+    cell of a mixed gate may find the tool at a version of its own in (`version_folders`)."""
 
     language: str
     tool: str
     folder: str | None
+    version_folders: tuple[str, ...] = ()
+
+
+class InstallNone(Enum):
+    """A packet's install line that says `none`: the language needs no install there. Distinct
+    from `None`, a packet that states no install at all."""
+
+    NONE = "none"
+
+
+NO_INSTALL = InstallNone.NONE
+
+
+@dataclass(frozen=True)
+class LanguageInstall:
+    """What a language's packet states it installs before the suite, for a container and for the
+    macOS guest. Each side is one shell command, `NO_INSTALL` (the packet says `none`), or `None`
+    (the packet states no install for that kind of environment)."""
+
+    language: str
+    container: str | InstallNone | None
+    guest: str | InstallNone | None
 
 
 @dataclass(frozen=True)
@@ -225,6 +253,7 @@ class GateRequest:
     guest: Guest | None
     guest_tools: tuple[GuestTool, ...] = ()
     conflicting_decisions: bool = False
+    installs: tuple[LanguageInstall, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -234,6 +263,26 @@ class Resolved:
     tag: str | None
     architecture: Architecture | None
     owners_mac_cause: OwnersMacCause | None
+    # The CI lines that state this container's version, every one validated. Provenance only: two
+    # containers are the same container whatever lines state them, so it takes no part in equality.
+    sources: tuple[Source, ...] = field(default=(), compare=False)
+    # The version the product's CI states for a macOS guest cell of a mixed CI, exactly as stated.
+    # `None` for every other environment, a one-guest environment included.
+    ci_version: str | None = None
+
+
+@dataclass(frozen=True)
+class ResolvedMatrix:
+    """Two or more cells, in run order: a container for each version the product's Linux CI states
+    for its languages and, on a CI that runs on both macOS and Linux, one macOS guest cell at the
+    newest of those versions. The containers keep the order each version first appears among the
+    candidates; the platforms keep the order the CI's runners first name them."""
+
+    targets: tuple[Resolved, ...]
+
+    def __post_init__(self) -> None:
+        if len(self.targets) < 2:
+            raise ValueError("a matrix holds two or more cells; one environment is a Resolved")
 
 
 @dataclass(frozen=True)
@@ -290,20 +339,70 @@ def resolve_languages(*, declared: list[str] | None, invoked: list[str] | None,
 
 GUEST_SECTION = "## In the macOS guest"
 _GUEST_ROW = re.compile(r"^\|\s*`([^`]+)`\s*\|\s*(?:`([^`]+)`|\u2014)\s*\|\s*$")
+_VERSIONED_FOLDERS = re.compile(r"^\*\*Versioned Python folders:\*\*(.*)$")
+_VERSIONED_LANGUAGE = "python"
 
 
 def guest_tool(language: str, packet_text: str | None) -> GuestTool | None:
     """The tool a packet's `## In the macOS guest` table names, or `None` when the packet has no
-    such table — a language with no guest default. The table is that section's and no other's."""
+    such table — a language with no guest default. The table is that section's and no other's.
+    The Python packet's section may also hold a `**Versioned Python folders:**` line of absolute
+    folders in backticks; they are data, and no other language's section is read for one."""
     in_section = False
+    row = None
+    folders: tuple[str, ...] = ()
     for line in (packet_text or "").splitlines():
         if line.startswith("## "):
             in_section = line.strip() == GUEST_SECTION
             continue
-        found = _GUEST_ROW.match(line.strip()) if in_section else None
-        if found:
-            return GuestTool(language, found.group(1), found.group(2))
+        if not in_section:
+            continue
+        found = _GUEST_ROW.match(line.strip())
+        if found and row is None:
+            row = found
+        listed = _VERSIONED_FOLDERS.match(line.strip())
+        if listed and language == _VERSIONED_LANGUAGE:
+            folders = tuple(folder for folder in re.findall(r"`([^`]+)`", listed.group(1))
+                            if folder.startswith("/"))
+    if row is None:
+        return None
+    return GuestTool(language, row.group(1), row.group(2), folders)
+
+
+PROVISIONING_SECTION = "## Provisioning"
+_INSTALL_LINE = re.compile(r"^\*\*(Container|Guest) install:\*\*(.*)$")
+_INSTALL_COMMAND = re.compile(r"^`([^`]+)`$")
+_INSTALL_SECTION = {"Container": PROVISIONING_SECTION, "Guest": GUEST_SECTION}
+
+
+def _install_value(text: str) -> str | InstallNone | None:
+    value = text.strip()
+    if value == InstallNone.NONE.value:
+        return NO_INSTALL
+    found = _INSTALL_COMMAND.match(value)
+    if found and found.group(1).strip():
+        return found.group(1).strip()
     return None
+
+
+def language_install(language: str, packet_text: str | None) -> LanguageInstall:
+    """The install lines a packet states: `**Container install:**` only under `## Provisioning`,
+    `**Guest install:**` only under `## In the macOS guest` (CP-833). The value is one command in
+    one pair of backticks or the bare word `none`; any other value, a line in another section, or
+    no line states no install, which is `None`."""
+    sides: dict[str, str | InstallNone | None] = {"Container": None, "Guest": None}
+    seen: set[str] = set()
+    section = ""
+    for line in (packet_text or "").splitlines():
+        if line.startswith("## "):
+            section = line.strip()
+            continue
+        found = _INSTALL_LINE.match(line.strip())
+        if not found or _INSTALL_SECTION[found.group(1)] != section or found.group(1) in seen:
+            continue
+        seen.add(found.group(1))
+        sides[found.group(1)] = _install_value(found.group(2))
+    return LanguageInstall(language, sides["Container"], sides["Guest"])
 
 
 # --- the loader: untrusted facts in, source-checked findings out ----------------------------------
@@ -422,7 +521,7 @@ def _candidate(raw: object, checker: _Checker) -> Candidate:
     failed = checker.failed(image_source, tag_source)
     version_known = (bool(tag) and tag.lower() != _LATEST_TAG and image_source is not None
                      and tag_source is not None and not failed and tag in tag_source.anchor)
-    return Candidate(language, image, tag, version_known, failed)
+    return Candidate(language, image, tag, version_known, failed, tag_source)
 
 
 def _share(raw: object, position: int) -> Share:
@@ -508,9 +607,9 @@ def parse_request(raw: dict | None, *, files, product_checkout: Path, language_r
     else:
         override = _override(decisions.get("override"), checker)
     guest = _mapping(raw.get("guest"), "guest")
-    named = (guest_tool(language, files.read_text(
-        core_root / PACKET_ROOT / language / "environment.md"))
-        for language in languages.languages)
+    packets = {language: files.read_text(core_root / PACKET_ROOT / language / "environment.md")
+               for language in languages.languages}
+    named = (guest_tool(language, text) for language, text in packets.items())
     return GateRequest(
         project=project, languages=languages, ci=_ci_finding(raw.get("ci"), checker),
         override=override,
@@ -518,7 +617,8 @@ def parse_request(raw: dict | None, *, files, product_checkout: Path, language_r
         candidates=tuple(_candidate(item, checker) for item in raw.get("candidates") or []),
         guest=Guest(guest["name"], _shares(guest.get("shares"))) if guest.get("name") else None,
         guest_tools=tuple(tool for tool in named if tool is not None),
-        conflicting_decisions=isinstance(current, RecordConflict))
+        conflicting_decisions=isinstance(current, RecordConflict),
+        installs=tuple(language_install(language, text) for language, text in packets.items()))
 
 
 # --- resolution (CP-615 to CP-620), pure ----------------------------------------------------------
@@ -568,9 +668,10 @@ def _container(request: GateRequest, image: str, tag: str,
     return Resolved(EnvironmentKind.CONTAINER, image, tag, architecture, None)
 
 
-def _resolve_linux(request: GateRequest) -> Resolved | Refused:
-    # Every candidate a language was given is kept: a CI matrix can give one language several
-    # versions, and keeping only the first or the last would pick a version CI never chose.
+def _resolve_linux(request: GateRequest) -> Resolved | ResolvedMatrix | Refused:
+    """CP-767 to CP-769: one container for each version the candidates state, when the candidates
+    name one image and every resolved language is given the same set of versions. Every
+    candidate's evidence is validated before any two are called one container."""
     by_language: dict[str, list[Candidate]] = {}
     for candidate in request.candidates:
         by_language.setdefault(candidate.language, []).append(candidate)
@@ -587,18 +688,62 @@ def _resolve_linux(request: GateRequest) -> Resolved | Refused:
         return _refuse(request, RefusalCase.UNDETERMINED_VERSION, image=unversioned[0].image,
                        failed_sources=_unique(source for candidate in unversioned
                                               for source in candidate.failed))
-    for language in languages:
-        versions = {(candidate.image, candidate.tag) for candidate in by_language[language]}
-        if len(versions) > 1:
-            return _refuse(request, RefusalCase.UNDETERMINED_VERSION,
-                           image=by_language[language][0].image)
-    if len({(candidate.image, candidate.tag) for candidate in chosen}) > 1:
+    version_sets = {language: {(candidate.image, candidate.tag) for candidate in
+                               by_language[language]} for language in languages}
+    if len({candidate.image for candidate in chosen}) > 1 \
+            or len({frozenset(found) for found in version_sets.values()}) > 1:
         return _refuse(request, RefusalCase.CONFLICTING_IMAGES, candidate_images=tuple(
             (candidate.image, candidate.tag, candidate.language) for candidate in chosen))
-    return _container(request, chosen[0].image, chosen[0].tag, None)
+    # Sets decide membership; the output order is the original candidates' first occurrences.
+    resolved_languages = set(languages)
+    supporting: dict[tuple[str, str], list[Source]] = {}
+    for candidate in request.candidates:
+        if candidate.language in resolved_languages:
+            supporting.setdefault((candidate.image, candidate.tag), []).append(
+                candidate.tag_source)
+    targets = []
+    for (image, tag), sources in supporting.items():
+        target = _container(request, image, tag, None)
+        if isinstance(target, Refused):
+            return target
+        targets.append(replace(target, sources=_unique(sources)))
+    return targets[0] if len(targets) == 1 else ResolvedMatrix(tuple(targets))
 
 
-def resolve_environment(request: GateRequest, *, owners_ask: bool) -> Resolved | Refused:
+def _resolve_mixed(request: GateRequest,
+                   platforms: tuple[str, ...]) -> ResolvedMatrix | Refused:
+    """CP-788: the Linux side is decided as a Linux-only CI is, its refusals standing for the whole
+    gate; then every language's guest tool must be named. The guest runs once, at the newest
+    version the Linux cells give, because its suites run one at a time; the platforms keep the
+    order the runners first name them."""
+    linux = _resolve_linux(request)
+    if isinstance(linux, Refused):
+        return linux
+    guest = _resolve_guest(request)
+    if isinstance(guest, Refused):
+        return guest
+    containers = cells_of(linux)
+    newest = max(containers, key=lambda cell: _version_key(cell.tag))
+    guests = (replace(guest, ci_version=newest.tag, sources=newest.sources),)
+    return ResolvedMatrix(tuple(cell for platform in platforms
+                                for cell in (containers if platform == PLATFORM_LINUX else guests)))
+
+
+def _version_key(tag: str | None) -> tuple[int, ...]:
+    """A version tag's numbers, in order, so `3.9` sorts below `3.14`."""
+    return tuple(int(number) for number in re.findall(r"\d+", tag or ""))
+
+
+def cells_of(outcome: Resolved | ResolvedMatrix | Refused) -> tuple[Resolved, ...]:
+    """The environments an outcome runs, in order: one for a single environment, every cell of a
+    matrix, none for a refusal. How execution and the check read either success shape."""
+    if isinstance(outcome, ResolvedMatrix):
+        return outcome.targets
+    return (outcome,) if isinstance(outcome, Resolved) else ()
+
+
+def resolve_environment(request: GateRequest, *,
+                        owners_ask: bool) -> Resolved | ResolvedMatrix | Refused:
     """CP-615 to CP-620. The owner's ask is an argument of its own — nothing in `request` can
     carry one — and outranks every other branch, a refusal included."""
     if owners_ask:
@@ -616,7 +761,7 @@ def resolve_environment(request: GateRequest, *, owners_ask: bool) -> Resolved |
     if set(platforms) - {PLATFORM_MACOS, PLATFORM_LINUX}:
         return _refuse(request, RefusalCase.OTHER_PLATFORM, platforms=platforms)
     if len(platforms) > 1:
-        return _refuse(request, RefusalCase.MIXED_PLATFORMS, platforms=platforms)
+        return _resolve_mixed(request, platforms)
     if platforms == (PLATFORM_MACOS,):
         return _resolve_guest(request)
     return _resolve_linux(request)
@@ -631,6 +776,8 @@ PROJECT_CARD = Path("system") / "projects"
 TOKEN_PREFIX = ".gate_suite_token_"
 # Where a guest run's copy of its checkout lives: the guest's own disk, outside every share.
 GUEST_SCRATCH_PREFIX = "/tmp/kensaiapp-gate-suite-"
+# Where a matrix run keeps each container's private copy of the checkout, on the host.
+CELL_PREFIX = "kensaiapp-gate-suite-cell-"
 # The build folder each package manifest keeps beside it, left out of the copy: build output
 # (SwiftPM's, Cargo's) holds the absolute paths it was built at, and a build in the copy makes its
 # own. Only the folder beside a tracked manifest is left out — never a source folder of that name.
@@ -659,6 +806,7 @@ CONFLICT_WAY = ("To run it, change the environment entries in § 8 of the produc
                 "architecture, or have the owner ask for the owner's Mac.")
 
 _CARD_LINE = re.compile(r"^\s*\**Test command:\**\s*(.*)$")
+_CARD_DEPENDENCIES = re.compile(r"^\s*\**Dependencies command:\**\s*(.*)$")
 _CARD_COMMENT = re.compile(r"\s*<!--.*?(?:-->|$)")
 _SKILL_NAME = re.compile(r"[a-z][a-z0-9]*(?:-[a-z0-9]+)+")
 
@@ -933,11 +1081,17 @@ class Host:
     `contract(worktree, project, key)` is the development-path contract; `processes` has `probe`
     (a readiness check), `issue` (the suite) and `pipe` (one host process's output fed to another's
     input, the guest copy) — separate calls, so a probe is never a suite issue;
-    `guest_lock.hold()` is the blocking, exclusive context one guest run lives in;
+    `guest_lock.hold()` is the blocking, exclusive context one guest run lives in, taken once for a
+    one-guest run and once for each macOS cell of a matrix;
     `record_reader` reads the product's committed decision (`read_decision_record`) — a host with
     none resolves from the sourced inputs alone; `run_records` keeps what a completed `run` printed
     (`FileRunRecords`) — a host with none records nothing, which is what keeps every existing
-    `Host` construction and every direct `run_gate` call as it was."""
+    `Host` construction and every direct `run_gate` call as it was; `workspaces.checkout(source)`
+    is the context one container cell of a matrix runs in — a private copy of the checkout at
+    `source`, its path given on entry and the copy removed on exit (`CheckoutCopies`) — a host with
+    none cannot run a matrix. A macOS cell takes no workspace: its copy is streamed onto the
+    guest's own disk. `environ` is the environment `run` reads the launch context's ask from
+    (`OWNERS_MAC_VARIABLE`) — a host given none has no ask there, whatever the process holds."""
 
     files: object
     contract: Callable[[str, str, str], dict]
@@ -947,12 +1101,60 @@ class Host:
     guest_lock: object
     record_reader: object | None = None
     run_records: object | None = None
+    workspaces: object | None = None
+    environ: Mapping[str, str] = field(default_factory=dict)
+
+
+# The owner's ask carried by a managed walk's launch context: set to exactly `1` for the steps
+# that run a card's suite (`chain_development.py`). Any other value, and an unset one, is no ask.
+OWNERS_MAC_VARIABLE = "KENSAIAPP_GATE_OWNERS_MAC"
+
+
+def launch_context_asks(environ: Mapping[str, str]) -> bool:
+    return environ.get(OWNERS_MAC_VARIABLE) == "1"
+
+
+class NotReadyCause(str, Enum):
+    """The four reasons an environment is not ready (CP-837); none of them is a failing suite."""
+
+    NO_INSTALL = "no-install"
+    INSTALL_FAILED = "install-failed"
+    DEPENDENCIES_FAILED = "dependencies-failed"
+    TEST_TOOL_NOT_FOUND = "test-tool-not-found"
+
+
+@dataclass(frozen=True)
+class NotReady:
+    """An environment that was not ready: the cause, the kind of environment, and the language
+    the two install causes name (`None` for the other two)."""
+
+    cause: NotReadyCause
+    kind: EnvironmentKind
+    language: str | None = None
+
+
+@dataclass(frozen=True)
+class CellResult:
+    """One cell of a matrix, a container or a versioned macOS guest: where it ran (`line` is its
+    declaration) and what its run returned. A macOS cell's `stdout` and `stderr` include its
+    diagnostics, kept whole for the replay."""
+
+    target: Resolved
+    line: str
+    status: int
+    stdout: str
+    stderr: str
+    not_ready: NotReady | None = None
 
 
 @dataclass(frozen=True)
 class GateResult:
     """What the run did: the line it printed first, the command and directory it was given, the
-    exit status it ends with, whatever the suite wrote, and whether a suite was issued at all."""
+    exit status it ends with, whatever the suite wrote, and whether a suite was issued at all.
+    A matrix run names every line it declared (`environment_lines`) and each cell's result
+    (`cells`, container or macOS guest), in cell order, with `environment_line` the first
+    declaration; a single run's
+    `environment_lines` is its one line and its `cells` are none."""
 
     environment_line: str
     command: str
@@ -961,6 +1163,13 @@ class GateResult:
     stdout: str
     stderr: str
     suite_issued: bool
+    environment_lines: tuple[str, ...] | None = None
+    cells: tuple[CellResult, ...] = ()
+    not_ready: NotReady | None = None
+
+    def __post_init__(self) -> None:
+        if self.environment_lines is None:
+            object.__setattr__(self, "environment_lines", (self.environment_line,))
 
 
 class _NotReady(Exception):
@@ -985,6 +1194,21 @@ def read_card_command(card_text: str) -> str | None:
                 and "`" not in value[1:-1]:
             value = value[1:-1].strip()
         return value or None
+    return None
+
+
+def read_card_dependencies(card_text: str) -> str | None:
+    """The card's `Dependencies command:` read the way `Test command:` is (CP-834). `None` for
+    `none` in any case, an empty value, or a card with no such line."""
+    for line in card_text.splitlines():
+        found = _CARD_DEPENDENCIES.match(line)
+        if not found:
+            continue
+        value = _CARD_COMMENT.sub("", found.group(1)).strip()
+        if len(value) > 1 and value.startswith("`") and value.endswith("`") \
+                and "`" not in value[1:-1]:
+            value = value[1:-1].strip()
+        return None if not value or value.lower() == "none" else value
     return None
 
 
@@ -1018,9 +1242,14 @@ def environment_line(resolved: Resolved, guest: Guest | None) -> str:
     if resolved.kind is EnvironmentKind.OWNERS_MAC:
         return f"Environment: owners-mac {DASH} {resolved.owners_mac_cause.value}"
     if resolved.kind is EnvironmentKind.MACOS_GUEST:
-        return f"Environment: macos-guest {DASH} {guest.name if guest else 'no guest given'}"
-    return (f"Environment: container {DASH} {resolved.image}:{resolved.tag}, "
-            f"{resolved.architecture.value}")
+        line = f"Environment: macos-guest {DASH} {guest.name if guest else 'no guest given'}"
+        return line if resolved.ci_version is None else f"{line}, toolchain {resolved.ci_version}"
+    return f"Environment: container {DASH} {container_text(resolved)}"
+
+
+def container_text(resolved: Resolved) -> str:
+    """A container as the gate prints it everywhere: `{image}:{tag}, {architecture}`."""
+    return f"{resolved.image}:{resolved.tag}, {resolved.architecture.value}"
 
 
 def refusal_case_text(refused: Refused, *, failed_override_source: Source | None = None) -> str:
@@ -1030,8 +1259,6 @@ def refusal_case_text(refused: Refused, *, failed_override_source: Source | None
     case = refused.case
     if case is RefusalCase.OTHER_PLATFORM:
         return f"the product's CI runs on a platform other than macOS or Linux, {NO_OVERRIDE}"
-    if case is RefusalCase.MIXED_PLATFORMS:
-        return f"the product's CI runs on both macOS and Linux, {NO_OVERRIDE}"
     if case is RefusalCase.NO_CONTAINER_DEFAULT and not refused.languages_without_default:
         return ("the product's CI runs on Linux, no container default can be chosen because no "
                 f"language was resolved for the product, {NO_OVERRIDE}")
@@ -1141,6 +1368,140 @@ def guest_argv(guest: Guest, command: str, folder: str,
             _on_path(tools, f"cd {shlex.quote(folder)} && {command}")]
 
 
+# --- what runs in an environment, and when it was not ready (CP-835 to CP-840) --------------------
+
+# The status a failed install or dependencies command exits the shell with. The stage line, never
+# this status, tells it from the test command's own exit.
+STAGE_STATUS = 97
+_INSTALL_STAGE = "install "
+_DEPENDENCIES_STAGE = "dependencies"
+_TEST_TOOL_NOT_FOUND_STATUS = 127
+
+
+def compose_shell(installs: Sequence[tuple[str, str]], dependencies: str | None, command: str,
+                  token: str) -> str:
+    """The shell an environment issues: one outer group holding each install (a `(language,
+    command)` pair, in order) and the dependencies command, then the test command. Each is a brace
+    group in the one shell, so an `export` reaches the test command, and one that fails names its
+    stage with `token` on standard error and exits the shell. With nothing to add the result is
+    `command` exactly."""
+    stages = [(f"{_INSTALL_STAGE}{language}", line) for language, line in installs]
+    if dependencies:
+        stages.append((_DEPENDENCIES_STAGE, dependencies))
+    if not stages:
+        return command
+    groups = "\n".join(
+        f"{{ {line}\n}} || {{ echo {shlex.quote(f'{token} {words}')} >&2; exit {STAGE_STATUS}; }}"
+        for words, line in stages)
+    return f"{{ {groups}\n{command}\n}}"
+
+
+def _side(kind: EnvironmentKind) -> str:
+    return "container" if kind is EnvironmentKind.CONTAINER else "guest"
+
+
+@dataclass(frozen=True)
+class _Stages:
+    """What runs before the test command in each environment: every resolved language's stated
+    installs and the card's dependencies command."""
+
+    installs: tuple[LanguageInstall, ...] = ()
+    dependencies: str | None = None
+
+    def commands(self, kind: EnvironmentKind) -> list[tuple[str, str]]:
+        """The installs for `kind`, in language order, each distinct command once."""
+        found: list[tuple[str, str]] = []
+        for item in self.installs:
+            value = getattr(item, _side(kind))
+            if isinstance(value, str) and all(value != command for _, command in found):
+                found.append((item.language, value))
+        return found
+
+    def missing(self, kind: EnvironmentKind) -> str | None:
+        """The first language whose packet states no install for `kind`."""
+        return next((item.language for item in self.installs
+                     if getattr(item, _side(kind)) is None), None)
+
+    def shell(self, kind: EnvironmentKind, command: str, token: str) -> str:
+        return compose_shell(self.commands(kind), self.dependencies, command, token)
+
+
+_NO_STAGES = _Stages()
+
+
+def _stage_of(completed: Completed, token: str) -> str | None:
+    """The stage this run's token names on a line of standard error, if it names one."""
+    for line in completed.stderr.splitlines():
+        words = line.rstrip()
+        if words == f"{token} {_DEPENDENCIES_STAGE}" or words.startswith(
+                f"{token} {_INSTALL_STAGE}"):
+            return words[len(token) + 1:]
+    return None
+
+
+def not_ready_cause(completed: Completed, token: str) -> NotReadyCause | None:
+    """Why a completed run was not ready, if it was. The token's stage line decides first;
+    otherwise status 127 does (CP-837)."""
+    stage = _stage_of(completed, token)
+    if stage == _DEPENDENCIES_STAGE:
+        return NotReadyCause.DEPENDENCIES_FAILED
+    if stage is not None:
+        return NotReadyCause.INSTALL_FAILED
+    if completed.status == _TEST_TOOL_NOT_FOUND_STATUS:
+        return NotReadyCause.TEST_TOOL_NOT_FOUND
+    return None
+
+
+def failing_language(completed: Completed, token: str) -> str | None:
+    stage = _stage_of(completed, token)
+    if stage is None or not stage.startswith(_INSTALL_STAGE):
+        return None
+    return stage[len(_INSTALL_STAGE):]
+
+
+def _without_stage_lines(text: str, token: str) -> str:
+    return "".join(line for line in text.splitlines(keepends=True)
+                   if not (line.rstrip() == f"{token} {_DEPENDENCIES_STAGE}"
+                           or line.startswith(f"{token} {_INSTALL_STAGE}")))
+
+
+def not_ready_words(not_ready: NotReady) -> str:
+    """The cause as the not-ready lines word it."""
+    side = _side(not_ready.kind)
+    cause = not_ready.cause
+    if cause is NotReadyCause.NO_INSTALL:
+        return f"the {not_ready.language} packet states no {side} install"
+    if cause is NotReadyCause.INSTALL_FAILED:
+        return f"the {not_ready.language} {side} install failed"
+    if cause is NotReadyCause.DEPENDENCIES_FAILED:
+        return "the card's dependencies command failed"
+    return ("the test command exited 127, the status the shell gives a command it cannot "
+            "find")
+
+
+def not_ready_line(environment: str, not_ready: NotReady) -> str:
+    """The `Environment: not-ready` line for the environment `environment` declared: the text
+    after `{DASH} ` on its own line, then the cause."""
+    detail = environment.partition(f" {DASH} ")[2]
+    return f"Environment: not-ready {DASH} {detail} {DASH} {not_ready_words(not_ready)}"
+
+
+def _guest_where(guest: Guest | None, version: str | None) -> str:
+    text = f"the macOS guest {guest.name if guest else 'no guest given'}"
+    return text if version is None else f"{text}, toolchain {version}"
+
+
+def _where(target: Resolved, guest: Guest | None) -> str:
+    if target.kind is EnvironmentKind.MACOS_GUEST:
+        return _guest_where(guest, target.ci_version)
+    return container_text(target)
+
+
+def _not_ready_report(where: str, not_ready: NotReady) -> str:
+    return (f"gate_suite: the environment was not ready for the suite in {where}, because "
+            f"{not_ready_words(not_ready)}.")
+
+
 # --- readiness (CP-622): probes only, never a start, never a fallback -----------------------------
 
 
@@ -1199,21 +1560,115 @@ def _check_guest_share(host: Host, guest: Guest, cwd: str, folder: str, token_na
                         f"checkout, {cwd}.", _last_stderr_line(found))
 
 
-def _check_guest_tools(host: Host, guest: Guest, tools: Sequence[GuestTool]) -> None:
+def _where_looked(tool: GuestTool) -> str:
+    """Where a refusal says the guest was searched for `tool`."""
+    searched = f"in {tool.folder} or on the guest's PATH" if tool.folder else (
+        "on the guest's PATH")
+    if not tool.version_folders:
+        return searched
+    own = f"in {tool.folder}, " if tool.folder else ""
+    return (f"{own}on the guest's PATH or in any of these folders: "
+            f"{', '.join(tool.version_folders)}")
+
+
+def _check_guest_tools(host: Host, guest: Guest, tools: Sequence[GuestTool], *,
+                       by_version: bool = False) -> None:
     """Each language's tool, looked for in the guest as the suite will look for it — so a guest
     built without a toolchain stops the run here, before a suite whose `command not found` would
-    read as a failing test."""
+    read as a failing test. A tool whose cells are found by version (`by_version`, for a tool with
+    `version_folders`) is looked for by `_check_guest_versions` alone, since the guest's own PATH
+    need not hold any of the Pythons a cell can use."""
     for tool in tools:
+        if by_version and tool.version_folders:
+            continue
         found = _probe(host, ["tart", "exec", guest.name, "sh", "-c",
                               _on_path((tool,), f"command -v {shlex.quote(tool.tool)}")],
                        "gate_suite: tart was not found on PATH, so the macOS guest cannot be "
                        "reached.")
         if found.status != 0:
-            where = f"in {tool.folder} or on the guest's PATH" if tool.folder \
-                else "on the guest's PATH"
             raise _NotReady(f"gate_suite: the macOS guest {guest.name} has no {tool.tool}, the "
-                            f"tool {tool.language}'s gates run with, {where}.",
+                            f"tool {tool.language}'s gates run with, {_where_looked(tool)}.",
                             _last_stderr_line(found))
+
+
+_VERSION_IN_REPORT = re.compile(r"(?<![\w.])v?(\d+(?:\.\d+)*)")
+
+
+def _reported_parts(report: Completed) -> tuple[str, ...] | None:
+    """The dot-separated parts of the version a tool's `--version` gives: the first number in the
+    first line it wrote, a labelled (`Python 3.12.4`) or `v`-prefixed (`v22.3.0`) report alike.
+    `None` for a tool that answered with an error, or gave no version. A number written further
+    along the line (a build, a header) is never the tool's version."""
+    if report.status != 0:
+        return None
+    for text in (report.stdout, report.stderr):
+        lines = [line for line in text.splitlines() if line.strip()]
+        found = _VERSION_IN_REPORT.search(lines[0]) if lines else None
+        if found:
+            return tuple(found.group(1).split("."))
+    return None
+
+
+def _reports_version(report: Completed, version: str) -> bool:
+    """CP-794: the tool reports `version` when its parts, as text, begin with every part of it."""
+    parts = _reported_parts(report)
+    required = tuple(version.split("."))
+    return parts is not None and parts[:len(required)] == required
+
+
+def _lookups(tool: GuestTool) -> list[GuestTool]:
+    """The descriptors a version is looked for with, in the order tried: the guest's own lookup,
+    then each of the packet's further folders. A folder is run by its own location, so an absent
+    one cannot be answered for by a tool further along the guest's PATH."""
+    ordinary = replace(tool, version_folders=())
+    return [ordinary, *(replace(tool, folder=folder, version_folders=())
+                        for folder in tool.version_folders)]
+
+
+def _version_probe(guest: Guest, tool: GuestTool, ordinary: bool) -> list[str]:
+    if ordinary:
+        command = _on_path((tool,), f"{shlex.quote(tool.tool)} --version")
+    else:
+        located = shlex.quote(f"{tool.folder}/{tool.tool}")
+        command = f"test -x {located} && {located} --version"
+    return ["tart", "exec", guest.name, "sh", "-c", command]
+
+
+def _check_guest_versions(host: Host, guest: Guest, tools: Sequence[GuestTool],
+                          versions: Sequence[str]) -> dict[str, tuple[GuestTool, ...]]:
+    """Every macOS cell's version, in cell order: each tool reports it, the tool looked for as the
+    suite will look for it. Each location is asked once. Nothing is installed or switched: a tool
+    at another version, with no version, or that does not answer is a refusal naming the version.
+
+    Returns, for each requested version, the descriptor of each tool that reported it: the tool
+    itself, or — for a tool with `version_folders` — the lookup whose own report matched, which the
+    cell's suite is then given."""
+    reports: dict[tuple[str, str | None, bool], Completed] = {}
+    chosen: dict[str, tuple[GuestTool, ...]] = {}
+    for version in versions:
+        selected = []
+        for tool in tools:
+            lookups = _lookups(tool)
+            matched = None
+            for position, lookup in enumerate(lookups):
+                key = (lookup.tool, lookup.folder, position == 0)
+                if key not in reports:
+                    reports[key] = _probe(
+                        host, _version_probe(guest, lookup, position == 0),
+                        "gate_suite: tart was not found on PATH, so the macOS guest cannot be "
+                        "reached.")
+                if _reports_version(reports[key], version):
+                    matched = lookup
+                    break
+            if matched is None:
+                first = reports[(tool.tool, tool.folder, True)]
+                raise _NotReady(f"gate_suite: the macOS guest {guest.name} has no {tool.tool} at "
+                                f"version {version}, the version the product's CI states for "
+                                f"{tool.language}, {_where_looked(tool)}.",
+                                _last_stderr_line(first) if first.status != 0 else None)
+            selected.append(matched)
+        chosen[version] = tuple(selected)
+    return chosen
 
 
 def build_output(tracked: Sequence[str]) -> list[str]:
@@ -1304,7 +1759,14 @@ def _remove_guest_copy(host: Host, guest: Guest, scratch: str, err: TextIO) -> N
 
 
 def _declare(out: TextIO, line: str) -> None:
-    out.write(line + "\n")
+    """One `Environment:` line, printed first. A stream that keeps declarations apart from the rest
+    of what it forwards (`_Forwarding.declare`) is handed the line as a declaration; a plain
+    stream is just written to."""
+    declare = getattr(out, "declare", None)
+    if declare is not None:
+        declare(line)
+    else:
+        out.write(line + "\n")
     out.flush()
 
 
@@ -1313,8 +1775,9 @@ def _fail(err: TextIO, lines: list[str]) -> None:
     err.flush()
 
 
-def _stopped(*, line: str, command: str, cwd: str, status: int = REFUSAL_STATUS) -> GateResult:
-    return GateResult(line, command, cwd, status, "", "", False)
+def _stopped(*, line: str, command: str, cwd: str, status: int = REFUSAL_STATUS,
+             lines: tuple[str, ...] | None = None) -> GateResult:
+    return GateResult(line, command, cwd, status, "", "", False, lines)
 
 
 def _unreachable(err: TextIO, problem: _NotReady) -> None:
@@ -1335,36 +1798,315 @@ def _issue(host: Host, argv: list[str], cwd: str, line: str, command: str,
                       completed.stderr, True)
 
 
-def _run_in_guest(host: Host, guest: Guest, folder: str, command: str, cwd: str, line: str,
-                  out: TextIO, err: TextIO, tools: Sequence[GuestTool] = ()) -> GateResult:
-    """One guest run, from before its first guest process to after its token and its guest-local
-    copy are removed, inside the host-wide lock (CP-641): another guest run waits until this one
-    has left. The suite runs in a copy of the checkout on the guest's own disk
-    (`_copy_to_guest_disk`)."""
-    token = host.new_token()
+def _not_issued(line: str, command: str, cwd: str, out: TextIO, err: TextIO,
+                not_ready: NotReady, where: str, *, single: bool) -> GateResult:
+    """An environment whose packet states no install: nothing is issued. A single run declares it
+    and says so on standard error; a matrix cell is declared later, by the replay."""
+    if not single:
+        return GateResult(line, command, cwd, REFUSAL_STATUS, "", "", False, not_ready=not_ready)
+    declared = not_ready_line(line, not_ready)
+    _declare(out, declared)
+    report = f"{_not_ready_report(where, not_ready)}\n{CLOSING_LINE}\n"
+    err.write(report)
+    err.flush()
+    return GateResult(line, command, cwd, REFUSAL_STATUS, "", report, False, (line, declared),
+                      not_ready=not_ready)
+
+
+def _issue_in(host: Host, argv: list[str], cwd: str, line: str, command: str, out: TextIO,
+              err: TextIO, *, token: str, kind: EnvironmentKind, where: str,
+              single: bool) -> GateResult:
+    """`_issue`, reading the completed run for a not-ready environment by `token`. A single run
+    declares it before any output and ends standard error with its reason; a matrix cell keeps
+    its output and leaves the declaring to the replay."""
+    completed = host.processes.issue(argv, cwd=cwd)
+    cause = not_ready_cause(completed, token)
+    if cause is None:
+        out.write(completed.stdout)
+        err.write(completed.stderr)
+        out.flush()
+        err.flush()
+        return GateResult(line, command, cwd, completed.status, completed.stdout,
+                          completed.stderr, True)
+    language = failing_language(completed, token)
+    not_ready = NotReady(cause, kind, language)
+    shown = _without_stage_lines(completed.stderr, token)
+    suite_ran = cause is NotReadyCause.TEST_TOOL_NOT_FOUND
+    stdout, stderr = (completed.stdout, shown) if suite_ran or not single else (
+        "", completed.stdout + shown)
+    lines = None
+    if single:
+        declared = not_ready_line(line, not_ready)
+        _declare(out, declared)
+        lines = (line, declared)
+    out.write(stdout)
+    err.write(stderr)
+    if single:
+        report = f"{_not_ready_report(where, not_ready)}\n" + ("" if suite_ran
+                                                                else f"{CLOSING_LINE}\n")
+        stderr += report
+        err.write(report)
+    out.flush()
+    err.flush()
+    return GateResult(line, command, cwd, REFUSAL_STATUS, stdout, stderr, True, lines,
+                      not_ready=not_ready)
+
+
+def _guest_cell(host: Host, guest: Guest, folder: str, command: str, cwd: str, line: str,
+                out: TextIO, err: TextIO, tools: Sequence[GuestTool] = (), *,
+                versions: Sequence[str] = (), barrier: Callable[[], None] | None = None,
+                version: str | None = None,
+                selected: dict[str, tuple[GuestTool, ...]] | None = None,
+                stages: _Stages = _NO_STAGES, single: bool = False,
+                token: str | None = None) -> GateResult:
+    """One guest run's body, from before its first guest process to after its token and its
+    guest-local copy are removed. The caller holds the host-wide lock (CP-641): another guest run
+    waits until it has left. The suite runs in a copy of the checkout on the guest's own disk
+    (`_copy_to_guest_disk`).
+
+    A matrix's first cell is also the gate's preflight: it checks `versions`, every macOS cell's,
+    and calls `barrier` once everything has passed. A check that fails before `barrier` is the
+    whole gate's failure and is raised; one that fails after it is this cell's alone, said on
+    `err` as a one-guest run says it.
+
+    `selected` is the gate invocation's own map from a cell version to the tools that reported it.
+    The preflight fills it; every cell, the first included, issues its suite with the tools its
+    `version` maps to, so the interpreter that passed the check is the one the suite runs with."""
+    selected = {} if selected is None else selected
+    token = host.new_token() if token is None else token
     token_name = f"{TOKEN_PREFIX}{token}"
     token_path = Path(cwd) / token_name
     scratch = f"{GUEST_SCRATCH_PREFIX}{token}"
     copied = False
-    with host.guest_lock.hold():
+    preflighting = barrier is not None
+    try:
+        _check_guest_before_share(host, guest)
+        host.files.write_text(token_path, token_name)
+        _check_guest_share(host, guest, cwd, folder, token_name)
+        _check_guest_tools(host, guest, selected.get(version, tools), by_version=bool(versions))
+        selected.update(_check_guest_versions(host, guest, tools, versions))
+        if barrier is not None:
+            preflighting = False
+            barrier()
+        where = _guest_where(guest, version)
+        missing = stages.missing(EnvironmentKind.MACOS_GUEST)
+        if missing is not None:
+            return _not_issued(line, command, cwd, out, err,
+                               NotReady(NotReadyCause.NO_INSTALL, EnvironmentKind.MACOS_GUEST,
+                                        missing), where, single=single)
+        copied = True
+        _copy_to_guest_disk(host, guest, cwd, scratch)
+        shell = stages.shell(EnvironmentKind.MACOS_GUEST, command, token)
+        return _issue_in(host, guest_argv(guest, shell, scratch, selected.get(version, tools)),
+                         cwd, line, command, out, err, token=token,
+                         kind=EnvironmentKind.MACOS_GUEST, where=where, single=single)
+    except _NotReady as problem:
+        if preflighting:
+            raise
+        _unreachable(err, problem)
+        return _stopped(line=line, command=command, cwd=cwd)
+    finally:
         try:
-            _check_guest_before_share(host, guest)
-            host.files.write_text(token_path, token_name)
-            _check_guest_share(host, guest, cwd, folder, token_name)
-            _check_guest_tools(host, guest, tools)
-            copied = True
-            _copy_to_guest_disk(host, guest, cwd, scratch)
-            return _issue(host, guest_argv(guest, command, scratch, tools), cwd, line, command,
-                          out, err)
-        except _NotReady as problem:
-            _unreachable(err, problem)
-            return _stopped(line=line, command=command, cwd=cwd)
+            if copied:
+                _remove_guest_copy(host, guest, scratch, err)
         finally:
+            host.files.remove(token_path)
+
+
+def _run_in_guest(host: Host, guest: Guest, folder: str, command: str, cwd: str, line: str,
+                  out: TextIO, err: TextIO, tools: Sequence[GuestTool] = (), *,
+                  stages: _Stages = _NO_STAGES) -> GateResult:
+    """A one-guest run: its body inside one hold of the host-wide lock."""
+    with host.guest_lock.hold():
+        return _guest_cell(host, guest, folder, command, cwd, line, out, err, tools,
+                           stages=stages, single=True)
+
+
+class _CopyFailed(Exception):
+    """A container's private copy of the checkout could not be made."""
+
+    def __init__(self, target: Resolved, reason: str) -> None:
+        super().__init__(reason)
+        self.target = target
+        self.reason = reason
+
+
+class _Cells:
+    """The private checkout of each container of a matrix, made in cell order and let go in the
+    reverse of it once the run is done with them, however it ended."""
+
+    def __init__(self, host: Host, err: TextIO) -> None:
+        self._host, self._err = host, err
+        self._held: list[tuple[Resolved, str, contextlib.ExitStack]] = []
+
+    def make(self, targets: Sequence[Resolved], source: str) -> list[str]:
+        for target in targets:
+            stack = contextlib.ExitStack()
             try:
-                if copied:
-                    _remove_guest_copy(host, guest, scratch, err)
-            finally:
-                host.files.remove(token_path)
+                path = stack.enter_context(self._host.workspaces.checkout(source))
+            except OSError as error:
+                raise _CopyFailed(target, error.strerror or str(error)) from error
+            self._held.append((target, path, stack))
+        return [path for _, path, _ in self._held]
+
+    def release(self) -> None:
+        while self._held:
+            target, path, stack = self._held.pop()
+            try:
+                stack.close()
+            except OSError:
+                _fail(self._err, [f"gate_suite: the private copy of this run's checkout for the "
+                                  f"run in {container_text(target)}, at {path}, could not be "
+                                  f"removed."])
+
+
+def _copy_failed(err: TextIO, problem: _CopyFailed) -> None:
+    lines = [f"gate_suite: this run's checkout could not be copied to a private folder for the "
+             f"run in {container_text(problem.target)}."]
+    if problem.reason:
+        lines.append(f"The copy reported: {problem.reason}")
+    _fail(err, [*lines, CLOSING_LINE])
+
+
+def _result_line(cell: CellResult, guest: Guest | None = None) -> str:
+    where = _where(cell.target, guest)
+    if cell.not_ready is not None:
+        return f"gate_suite: the run in {where} neither passed nor failed, because the " \
+               f"environment was not ready."
+    if cell.status == 0:
+        return f"gate_suite: the run in {where} passed."
+    return f"gate_suite: the run in {where} failed with exit status {cell.status}."
+
+
+def _guest_cell_result(host: Host, guest: Guest, folder: str, command: str, cwd: str,
+                       target: Resolved, line: str, tools: Sequence[GuestTool], *,
+                       versions: Sequence[str] = (),
+                       barrier: Callable[[], None] | None = None,
+                       selected: dict[str, tuple[GuestTool, ...]] | None = None,
+                       stages: _Stages = _NO_STAGES, token: str | None = None) -> CellResult:
+    """One macOS cell, in a hold of its own. Its streams are kept apart, so the cell's output and
+    diagnostics are replayed with the others', in cell order."""
+    out, err = io.StringIO(), io.StringIO()
+    with host.guest_lock.hold():
+        done = _guest_cell(host, guest, folder, command, cwd, line, out, err, tools,
+                           versions=versions, barrier=barrier, version=target.ci_version,
+                           selected=selected, stages=stages, token=token)
+    return CellResult(target, line, done.status, out.getvalue(), err.getvalue(), done.not_ready)
+
+
+def _container_cell(target: Resolved, line: str, done: Completed, token: str) -> CellResult:
+    """One container cell's result: its run as it came back, or a not-ready cell when `token`
+    names a failed stage or the test command exited 127."""
+    cause = not_ready_cause(done, token)
+    if cause is None:
+        return CellResult(target, line, done.status, done.stdout, done.stderr)
+    return CellResult(target, line, REFUSAL_STATUS, done.stdout,
+                      _without_stage_lines(done.stderr, token),
+                      NotReady(cause, EnvironmentKind.CONTAINER, failing_language(done, token)))
+
+
+def _replay(cells: Sequence[CellResult], command: str, cwd: str, lines: tuple[str, ...],
+            out: TextIO, err: TextIO, guest: Guest | None = None) -> GateResult:
+    """Each cell's complete output in cell order, then one result line per cell, each on a line of
+    its own. The run's status is the first failure's in cell order, never in the order the suites
+    finished. Before any cell's output, one `Environment: not-ready` line for each cell that was not
+    ready, in cell order."""
+    declared = tuple(not_ready_line(cell.line, cell.not_ready) for cell in cells
+                     if cell.not_ready is not None)
+    for line in declared:
+        _declare(out, line)
+    stdout = "".join(cell.stdout for cell in cells)
+    out.write(stdout)
+    stderr = "".join(cell.stderr for cell in cells)
+    err.write(stderr)
+    if stdout and not stdout.endswith("\n"):
+        out.write("\n")
+    out.write("".join(_result_line(cell, guest) + "\n" for cell in cells))
+    out.flush()
+    err.flush()
+    status = next((cell.status for cell in cells if cell.status != 0), 0)
+    return GateResult(lines[0], command, cwd, status, stdout, stderr, True, (*lines, *declared),
+                      tuple(cells))
+
+
+def _run_matrix(host: Host, matrix: ResolvedMatrix, guest: Guest | None, command: str, cwd: str,
+                out: TextIO, err: TextIO, tools: Sequence[GuestTool] = (), *,
+                stages: _Stages = _NO_STAGES) -> GateResult:
+    """A matrix run: every cell's line declared first, then — before any suite — the checks that
+    hold for the whole gate and every container's private checkout. The containers' suites are all
+    issued at once; the macOS cells run one after another, each in a hold of the guest lock of its
+    own, the first hold carrying the gate's checks. Every cell's result is kept by its position, so
+    what is replayed is in cell order whatever order the cells finished in."""
+    lines = tuple(environment_line(target, guest) for target in matrix.targets)
+    for line in lines:
+        _declare(out, line)
+    if host.workspaces is None:
+        raise GateError("a run in several containers needs the host's workspaces, and this host "
+                        "has none")
+    containers = [(position, target) for position, target in enumerate(matrix.targets)
+                  if target.kind is EnvironmentKind.CONTAINER]
+    guests = [(position, target) for position, target in enumerate(matrix.targets)
+              if target.kind is EnvironmentKind.MACOS_GUEST]
+    cells = _Cells(host, err)
+    try:
+        if containers:
+            _check_podman(host)
+        folder = None
+        if guests:
+            if guest is None:
+                raise _NotReady("gate_suite: this run was given no macOS guest to run in.")
+            folder = map_run_folder(guest.shares, cwd)
+            if folder is None:
+                _fail(err, unshared_lines(guest, cwd))
+                return _stopped(line=lines[0], command=command, cwd=cwd, lines=lines)
+        paths = cells.make([target for _, target in containers], cwd)
+        results: dict[int, CellResult] = {}
+        # Every guest cell's token is drawn before any container's, so the guests hold the tokens
+        # a run with no containers would hand them.
+        guest_tokens = [host.new_token() for _ in guests]
+        missing = stages.missing(EnvironmentKind.CONTAINER)
+        issuable = []
+        for (position, target), path in zip(containers, paths):
+            if missing is not None:
+                results[position] = CellResult(
+                    target, lines[position], REFUSAL_STATUS, "", "",
+                    NotReady(NotReadyCause.NO_INSTALL, EnvironmentKind.CONTAINER, missing))
+            else:
+                issuable.append((position, target, path, host.new_token()))
+        with ThreadPoolExecutor(max_workers=max(1, len(containers))) as pool:
+            pending: list[tuple[int, Resolved, object, str]] = []
+
+            def submit() -> None:
+                pending.extend(
+                    (position, target, pool.submit(
+                        host.processes.issue,
+                        container_argv(target, stages.shell(EnvironmentKind.CONTAINER, command,
+                                                            token), path),
+                        cwd=path), token)
+                    for position, target, path, token in issuable)
+
+            if not guests:
+                submit()
+            versions = tuple(target.ci_version for _, target in guests)
+            selected: dict[str, tuple[GuestTool, ...]] = {}
+            for turn, (position, target) in enumerate(guests):
+                results[position] = _guest_cell_result(
+                    host, guest, folder, command, cwd, target, lines[position], tools,
+                    versions=versions if turn == 0 else (),
+                    barrier=submit if turn == 0 else None, selected=selected, stages=stages,
+                    token=guest_tokens[turn])
+            for position, target, work, token in pending:
+                results[position] = _container_cell(target, lines[position], work.result(),
+                                                    token)
+        return _replay([results[position] for position in range(len(matrix.targets))], command,
+                       cwd, lines, out, err, guest)
+    except _NotReady as problem:
+        _unreachable(err, problem)
+    except _CopyFailed as problem:
+        _copy_failed(err, problem)
+    finally:
+        cells.release()
+    return _stopped(line=lines[0], command=command, cwd=cwd, lines=lines)
 
 
 def run_gate(*, gate: Gate | str, worktree: str, project: str, key: str, inputs: dict | None,
@@ -1411,15 +2153,29 @@ def run_gate(*, gate: Gate | str, worktree: str, project: str, key: str, inputs:
         _fail(err, refusal_lines(resolved, case_text=case_text))
         return _stopped(line=line, command=command, cwd=cwd)
 
+    if isinstance(resolved, ResolvedMatrix):
+        return _run_matrix(host, resolved, request.guest, command, cwd, out, err,
+                           request.guest_tools,
+                           stages=_Stages(request.installs, read_card_dependencies(card)))
     line = environment_line(resolved, request.guest)
     _declare(out, line)
+    stages = _Stages(request.installs, read_card_dependencies(card))
     try:
         if resolved.kind is EnvironmentKind.OWNERS_MAC:
             return _issue(host, mac_argv(command), cwd, line, command, out, err)
         if resolved.kind is EnvironmentKind.CONTAINER:
             _check_podman(host)
-            return _issue(host, container_argv(resolved, command, cwd), cwd, line, command,
-                          out, err)
+            where = container_text(resolved)
+            missing = stages.missing(EnvironmentKind.CONTAINER)
+            if missing is not None:
+                return _not_issued(line, command, cwd, out, err,
+                                   NotReady(NotReadyCause.NO_INSTALL, EnvironmentKind.CONTAINER,
+                                            missing), where, single=True)
+            token = host.new_token()
+            shell = stages.shell(EnvironmentKind.CONTAINER, command, token)
+            return _issue_in(host, container_argv(resolved, shell, cwd), cwd, line, command,
+                             out, err, token=token, kind=EnvironmentKind.CONTAINER, where=where,
+                             single=True)
         if request.guest is None:
             raise _NotReady("gate_suite: this run was given no macOS guest to run in.")
         folder = map_run_folder(request.guest.shares, cwd)
@@ -1427,7 +2183,7 @@ def run_gate(*, gate: Gate | str, worktree: str, project: str, key: str, inputs:
             _fail(err, unshared_lines(request.guest, cwd))
             return _stopped(line=line, command=command, cwd=cwd)
         return _run_in_guest(host, request.guest, folder, command, cwd, line, out, err,
-                             request.guest_tools)
+                             request.guest_tools, stages=stages)
     except _NotReady as problem:
         _unreachable(err, problem)
         return _stopped(line=line, command=command, cwd=cwd)
@@ -1438,15 +2194,20 @@ def run_gate(*, gate: Gate | str, worktree: str, project: str, key: str, inputs:
 # ==================================================================================================
 
 RUN_RECORDS_NAMESPACE = "kensaiapp-gate-runs"
-ENVIRONMENT_PREFIX = "Environment:"
 
 
 @dataclass(frozen=True)
 class GateRun:
     """One completed `run`, as its caller saw it: the change key, the checkout this copy answers
-    for, the first `Environment:` line printed on stdout (None when none was), every character
-    forwarded to each stream, and the status returned. Disposable runtime evidence, never a
-    committed artifact — distinct from `DecisionRecord`, the product's committed decision."""
+    for, the `Environment:` lines the run declared (`environment_lines`, in the order it declared
+    them), every character forwarded to each stream, and the status returned. Disposable runtime
+    evidence, never a committed artifact — distinct from `DecisionRecord`, the product's committed
+    decision.
+
+    `environment_line` is the first declaration only, kept so a record built or read the way it
+    always was keeps its meaning: a record that names no `environment_lines` has them made from
+    that one string (none when it is None). Lines named explicitly, none included, are the whole
+    answer — they are never rebuilt from the singular string or from the stored output."""
 
     key: str
     checkout: str
@@ -1454,6 +2215,16 @@ class GateRun:
     stdout: str
     stderr: str
     status: int
+    environment_lines: tuple[str, ...] | None = None
+
+    def __post_init__(self) -> None:
+        if self.environment_lines is None:
+            lines = (self.environment_line,) if self.environment_line is not None else ()
+        else:
+            lines = tuple(self.environment_lines)
+        object.__setattr__(self, "environment_lines", lines)
+        if self.environment_line is None and lines:
+            object.__setattr__(self, "environment_line", lines[0])
 
 
 def canonical_checkout(path: str | Path) -> str:
@@ -1491,8 +2262,10 @@ class FileRunRecords:
         try:
             with staged:
                 json.dump({"key": run.key, "checkout": run.checkout,
-                           "environment_line": run.environment_line, "stdout": run.stdout,
-                           "stderr": run.stderr, "status": run.status}, staged)
+                           "environment_line": run.environment_line,
+                           "environment_lines": list(run.environment_lines),
+                           "stdout": run.stdout, "stderr": run.stderr, "status": run.status},
+                          staged)
             self._replace(staged.name, str(destination))
         except BaseException:
             Path(staged.name).unlink(missing_ok=True)
@@ -1504,10 +2277,22 @@ class FileRunRecords:
         try:
             found = json.loads(self.path_for(wanted, key).read_text(encoding="utf-8"))
             run = GateRun(found["key"], found["checkout"], found["environment_line"],
-                          found["stdout"], found["stderr"], found["status"])
+                          found["stdout"], found["stderr"], found["status"],
+                          _stored_lines(found))
         except (OSError, ValueError, KeyError, TypeError):
             return None
         return run if (run.checkout, run.key) == (wanted, key) else None
+
+
+def _stored_lines(found: dict) -> tuple[str, ...] | None:
+    """The array a stored record names, or None for a record written before there was one. An
+    array of anything but strings is a record this tool did not write."""
+    if "environment_lines" not in found:
+        return None
+    lines = found["environment_lines"]
+    if not isinstance(lines, list) or not all(isinstance(line, str) for line in lines):
+        raise TypeError("the record's environment_lines is not a list of strings")
+    return tuple(lines)
 
 
 def default_run_records() -> FileRunRecords:
@@ -1515,11 +2300,18 @@ def default_run_records() -> FileRunRecords:
 
 
 class _Forwarding:
-    """A stream that writes through to the one it wraps, unchanged, and keeps what it wrote."""
+    """A stream that writes through to the one it wraps, unchanged, and keeps what it wrote — and,
+    apart from that, the lines the gate declared through `declare`. What a suite wrote is only ever
+    forwarded, so output that looks like a declaration is never taken for one."""
 
     def __init__(self, stream: TextIO) -> None:
         self._stream = stream
         self.written: list[str] = []
+        self.declared: list[str] = []
+
+    def declare(self, line: str) -> None:
+        self.declared.append(line)
+        self.write(line + "\n")
 
     def write(self, text: str) -> int:
         count = self._stream.write(text)
@@ -1555,10 +2347,9 @@ class _RunRecording:
     def publish(self, store, key: str, status: int) -> None:
         if store is None or not self.checkouts:
             return
-        stdout = "".join(self.out.written)
-        declarations = [line for line in stdout.split("\n") if line.startswith(ENVIRONMENT_PREFIX)]
-        run = GateRun(key=key, checkout="", environment_line=declarations[0] if declarations
-                      else None, stdout=stdout, stderr="".join(self.err.written), status=status)
+        run = GateRun(key=key, checkout="", environment_line=None,
+                      stdout="".join(self.out.written), stderr="".join(self.err.written),
+                      status=status, environment_lines=tuple(self.out.declared))
         try:
             store.publish(run, self.checkouts)
         except OSError:
@@ -1575,7 +2366,7 @@ _CARD_PRODUCT_PATH = re.compile(r"^\s*\**Product path:\**\s*(.*)$")
 # The refusals only a recorded environment settles: with no override recorded, the readable CI and
 # the languages' packet defaults still name no environment (CP-704).
 OWED_CASES = frozenset({
-    RefusalCase.OTHER_PLATFORM, RefusalCase.MIXED_PLATFORMS, RefusalCase.NO_CONTAINER_DEFAULT,
+    RefusalCase.OTHER_PLATFORM, RefusalCase.NO_CONTAINER_DEFAULT,
     RefusalCase.CONFLICTING_IMAGES, RefusalCase.UNDETERMINED_VERSION,
     RefusalCase.NO_GUEST_DEFAULT})
 PATHS_FIELDS = ("project", "key", "instance_worktree", "product_path", "product_worktree",
@@ -1683,17 +2474,14 @@ def _undetermined_languages(request: GateRequest) -> list[str]:
     for found in request.candidates:
         by_language.setdefault(found.language, []).append(found)
     return [language for language in _unique(request.languages.languages)
-            if any(not found.version_known for found in by_language.get(language, ()))
-            or len({(found.image, found.tag) for found in by_language.get(language, ())}) > 1]
+            if any(not found.version_known for found in by_language.get(language, ()))]
 
 
 def _owed_detail(request: GateRequest, refused: Refused) -> str:
     """What the defaults could not settle, with its subjects in resolved-language order."""
     case = refused.case
-    if case in (RefusalCase.OTHER_PLATFORM, RefusalCase.MIXED_PLATFORMS):
-        kind = ("a platform other than macOS or Linux" if case is RefusalCase.OTHER_PLATFORM
-                else "both macOS and Linux")
-        return (f"the product's CI runs on {kind}, its platforms are "
+    if case is RefusalCase.OTHER_PLATFORM:
+        return ("the product's CI runs on a platform other than macOS or Linux, its platforms are "
                 f"{', '.join(refused.platforms)}, {NO_OVERRIDE}")
     if case is RefusalCase.CONFLICTING_IMAGES:
         languages = _languages_in_order(request, (language for _image, _tag, language
@@ -1708,17 +2496,38 @@ def _owed_detail(request: GateRequest, refused: Refused) -> str:
         refused, languages_without_default=tuple(ordered.split(", ")) if ordered else ()))
 
 
+def _cell_text(cell: Resolved) -> str:
+    if cell.kind is EnvironmentKind.MACOS_GUEST:
+        return f"the macOS guest, toolchain {cell.ci_version}"
+    return container_text(cell)
+
+
+def _matrix_detail(matrix: ResolvedMatrix) -> str:
+    cells = "; ".join(_cell_text(target) for target in matrix.targets)
+    kinds = _unique(target.kind for target in matrix.targets)
+    if len(kinds) == 1:
+        return (f"container: the product's gates run in {len(matrix.targets)} containers, one for "
+                f"each version its CI states: {cells}")
+    if kinds[0] is EnvironmentKind.CONTAINER:
+        return ("container and macos-guest: the product's gates run in a container for each "
+                f"version its CI states and in the macOS guest at the newest: {cells}")
+    return ("macos-guest and container: the product's gates run in the macOS guest at the newest "
+            f"version its CI states and in a container for each: {cells}")
+
+
 def _resolved_detail(resolved: Resolved) -> str:
     if resolved.kind is EnvironmentKind.MACOS_GUEST:
         return GUEST_DETAIL
     if resolved.kind is EnvironmentKind.CONTAINER:
-        return (f"container: the product's gates run in {resolved.image}:{resolved.tag}, "
-                f"{resolved.architecture.value}")
+        return f"container: the product's gates run in {container_text(resolved)}"
     return OWNERS_MAC_DETAIL[resolved.owners_mac_cause]
 
 
-def _classify(request: GateRequest, outcome: Resolved | Refused) -> tuple[CheckAnswer, str]:
+def _classify(request: GateRequest,
+              outcome: Resolved | ResolvedMatrix | Refused) -> tuple[CheckAnswer, str]:
     """The shared resolver's outcome as one of the three answers; no second decision tree."""
+    if isinstance(outcome, ResolvedMatrix):
+        return CheckAnswer.RESOLVES, _matrix_detail(outcome)
     if isinstance(outcome, Resolved):
         return CheckAnswer.RESOLVES, _resolved_detail(outcome)
     if outcome.case in OWED_CASES and request.override is None:
@@ -1893,12 +2702,64 @@ class FileGuestLock:
                          f"be taken, at {self.path}: {error.strerror or error}")
 
 
+class CheckoutCopies:
+    """The real cell workspaces: `checkout(source)` is a context holding a private copy of the
+    checkout at `source` — its working files as they are now, the uncommitted and the untracked
+    included — in a folder of its own, removed when the context ends.
+
+    Nothing in a copy is shared with the checkout or with another copy: files are copied, never
+    linked. A checkout whose `.git` is a pointer file (a linked worktree) names git data a copy
+    must not write to, so its copy gets a `.git` folder instead: the repository's shared data,
+    with the worktree's own state laid over it — a repository of its own, on the same branch and
+    the same index (the same shape `_copy_to_guest_disk` gives the macOS guest)."""
+
+    def __init__(self, files) -> None:
+        self._files = files
+
+    @contextlib.contextmanager
+    def checkout(self, source: str) -> Iterator[str]:
+        folder = Path(tempfile.mkdtemp(prefix=CELL_PREFIX))
+        try:
+            self._copy(Path(source), folder)
+            yield str(folder)
+        finally:
+            shutil.rmtree(folder)
+
+    def _copy(self, source: Path, folder: Path) -> None:
+        linked = self._files.linked_git_dirs(source)
+        # Only the checkout's own `.git` is replaced, as the guest copy replaces it (`^./.git`): a
+        # repository nested inside the checkout is one of its inputs and keeps its git data.
+        shutil.copytree(source, folder, symlinks=True, dirs_exist_ok=True,
+                        ignore=_leaving_out(source, (".git",)) if linked is not None else None)
+        if linked is None:
+            return
+        git_dir, common_dir = linked
+        own_state = () if git_dir == common_dir else MAIN_CHECKOUT_STATE
+        shutil.copytree(common_dir, folder / ".git", symlinks=True, dirs_exist_ok=True,
+                        ignore=_leaving_out(common_dir, ("worktrees", *own_state)))
+        if git_dir != common_dir:
+            shutil.copytree(git_dir, folder / ".git", symlinks=True, dirs_exist_ok=True,
+                            ignore=_leaving_out(git_dir, ("commondir", "gitdir")))
+
+
+def _leaving_out(root: Path, relative: Sequence[str]):
+    """A `shutil.copytree` ignore function leaving out each path, given relative to `root`."""
+    left_out = {str(root / path) for path in relative}
+
+    def ignore(folder: str, names: list[str]) -> set[str]:
+        return {name for name in names if str(Path(folder) / name) in left_out}
+
+    return ignore
+
+
 def build_host() -> Host:
     core_root = Path(__file__).resolve().parent.parent
-    return Host(files=_RealFiles(), contract=_real_contract, processes=_RealProcesses(),
+    files = _RealFiles()
+    return Host(files=files, contract=_real_contract, processes=_RealProcesses(),
                 new_token=lambda: uuid.uuid4().hex, core_root=core_root,
                 guest_lock=FileGuestLock(Path(GUEST_LOCK_PATH)), record_reader=GitRecordReader(),
-                run_records=default_run_records())
+                run_records=default_run_records(), workspaces=CheckoutCopies(files),
+                environ=os.environ)
 
 
 def build_check_host() -> CheckHost:
@@ -2015,10 +2876,14 @@ def _main_run(args: argparse.Namespace, host: Host, out: TextIO, err: TextIO) ->
     """`run` through its CLI: the gate's own output and status, and the record of them kept once
     the status is known — also for a handled error, once the checkout is."""
     recording = _RunRecording(out, err)
+    asked = args.owners_mac or launch_context_asks(host.environ)
     try:
-        raw = _read_json(host.files, args.inputs, "inputs file") if args.inputs else None
+        # The ask needs no evidence, so evidence handed in beside it is never read: a run that
+        # missed the ask and built a malformed inputs file still lands where the owner asked.
+        raw = _read_json(host.files, args.inputs, "inputs file") \
+            if args.inputs and not asked else None
         status = run_gate(gate=args.gate, worktree=args.worktree, project=args.project,
-                          key=args.key, inputs=raw, owners_ask=args.owners_mac,
+                          key=args.key, inputs=raw, owners_ask=asked,
                           host=recording.watching(host), out=recording.out,
                           err=recording.err).status
     except (GateError, InputError) as error:

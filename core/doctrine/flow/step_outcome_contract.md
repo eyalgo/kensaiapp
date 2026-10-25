@@ -1,5 +1,5 @@
 ---
-version: "2.6.2"
+version: "2.10.1"
 ---
 
 # Step outcome contract
@@ -65,17 +65,19 @@ Every flow-* subagent ends its run by returning this object as its final output:
 The chain (`core/tools/chain_development.py`) never receives the message above. It reads the same
 outcome off **declared lines** that the steps already write into their artifacts. The closing marker
 carries `Suite:`, `Language resolution:` and `Environment:`, with its `Deferred:` and `Failing:`
-lines beside them. The code-integrity report carries `Integrity:` and an `Environment:` line of its
-own. The design carries `Publishes text:`, which the chain reads before the step that line gates
-runs. Each is read from the place the list below names:
+lines beside them. The code-integrity report carries `Integrity:` and its own `Environment:` lines.
+Each of the two carries one `Environment:` line for each environment its gate run printed: one for a
+run in one environment, and one per container for a run in several. The design carries
+`Publishes text:`, which the chain reads before the step that line gates runs. Each is read from
+the place the list below names:
 
 - **`Suite:`** and **`Language resolution:`** are read from the body of the newest commit in
   `main..<key>` whose subject contains `implementation complete` — development-implementation's
   closing marker (`.claude/skills/development-implementation/SKILL.md` Step 3). Newest, because the
   chain walks `git log`'s own order (`chain_development.py`'s `DiskReader.marker_commit`, over
   `Git.commits_ahead`), so a re-implementation's later marker is the one read.
-- **`Deferred:`** and **`Failing:`** lines are read from that same marker body, every one of them,
-  in body order (`chain_development.py`'s `DiskReader.deferrals` and `DiskReader.failing_cases`). A
+- **`Deferred:`** and **`Failing:`** lines are read from that same marker body,
+  in body order (`chain_development.py`'s `DiskReader.deferrals` and `DiskReader.failing_cases`). Every `Deferred:` line is read, wherever it stands in the body. The `Failing:` lines are read only from their first block (§ *The scan*), so a line after that block that counts for `Failing:`, such as a wrapped sentence that begins with a quoted `` `Failing:` ``, is not one of the marker's `Failing:` lines. A
   `Deferred:` line is the developer's declaration that it could not land a task (`Deferred: task <N>
   — <the blocked case> — <record>`, or `— depends on task <M> —`); a `Failing:` line names a failing
   case and the task it belongs to (`Failing: <case id> — task <N>`, or `— no task`). The chain reads
@@ -93,32 +95,38 @@ runs. Each is read from the place the list below names:
   `Deferred:` line or a re-lane note is not judged.
 - **`Integrity:`** is read from the first line of `code-integrity-report.md`, on the change branch,
   that starts with it.
-- **`Environment:`** is read from two places. The first is the closing marker's body: the same
-  newest `implementation complete` commit the `Suite:` line is read from (`chain_development.py`'s
-  `DiskReader.marker_environment_kind`). The second is `code-integrity-report.md` on the change
-  branch (`DiskReader.report_environment_kind`). In each place the declaration is the first line the
-  scan below counts. The line records the environment the step's suite ran in, as
-  `core/tools/gate_suite.py` prints it. Its kind is the value's first word, and it must be exactly
-  `macos-guest`, `container`, `owners-mac` or `none` (`chain_development.py`'s
-  `_ENVIRONMENT_KINDS`). Any other first word halts `missing-environment`, and that includes
-  `unresolved`, the word the gate prints when no environment resolved. An empty value halts it too,
-  and so does a record with no `Environment:` line. `none` passes only where the project card on
-  `main` reads `Test command: none` (`DiskReader.card_has_no_suite`). Beside a card on `main` that
-  names a command, or a card that cannot be read, `Environment: none` halts `missing-environment`.
+- **`Environment:`** is read from two places, and in each of them only the first block of `Environment:` lines is read (§ *The scan*). A line after that block that counts for `Environment:`, such as a wrapped sentence that begins with a quoted `` `Environment:` ``, is not one of the record's `Environment:` lines. The
+  first is the closing marker's body: the same newest `implementation complete` commit the `Suite:`
+  line is read from (`chain_development.py`'s `DiskReader.marker_environment_kinds`). The second is
+  `code-integrity-report.md` on the change branch (`DiskReader.report_environment_kinds`). Each
+  line records one environment the step's suite ran in, as `core/tools/gate_suite.py` prints it, and
+  the collection of them is the record. The singular accessors, `marker_environment_kind` and
+  `report_environment_kind`, stay as queries for the first declaration and decide nothing. A line's
+  kind is the value's first word, and it must be exactly `macos-guest`, `container`, `owners-mac` or
+  `none` (`chain_development.py`'s `_ENVIRONMENT_KINDS`). The record passes only when it holds at
+  least one declaration and every kind passes. `not-ready` is not a kind. It is the gate's declaration that an environment was not ready (`core/doctrine/engineering/languages/README.md` § Gate environment defaults), and a line whose first word is `not-ready`, anywhere in the first block, halts `environment-not-ready`. Any other first word, anywhere in the first block, halts `missing-environment`, and that includes `unresolved`, the word the gate prints when no environment resolved. An empty value halts it too, and so does a record with no `Environment:`
+  line. `none` passes only where the project card on `main` reads `Test command: none`
+  (`DiskReader.card_has_no_suite`). Beside a card on `main` that names a command, or a card that
+  cannot be read, an `Environment: none` line halts `missing-environment`. Which lines a record must
+  carry is the commit builder's to compare with the gate run, not the chain's: the chain reads what is
+  on disk and validates each kind, and re-resolves nothing.
 - **`Publishes text:`** is read from the first line of `change_design.md`, on the change branch, that
   starts with it, when the walk reaches the `content` step. Its value is read by first word, which must be
   exactly `yes` (run the step) or `no` (pass it with no launch). `Yes`, `maybe`, an empty value, a missing
   line and a missing file are none of these, and the walk halts `missing-text-verdict` before any launch
   (`chain_development.py`'s `DiskReader.run_verdict`). Adding the line and starting again resumes it.
 
-**The scan.** A line counts only when it is the first line, read top to bottom, whose own start
-matches the prefix — after `*`, `_` and `` ` `` are stripped from both ends of the line
-(`chain_development.py`'s `_EMPHASIS`). A mention of the prefix elsewhere in the line, or in a later
-line, does not count. Stripping the wrapping characters means `**Integrity: pass**` is read as
-`Integrity: pass`; it does not widen what counts as the value that follows the prefix — `Integrity:
-Pass` is a different string from `Integrity: pass` and still fails the pass check below
-(`chain_development.py`'s `DiskReader._declared_lines` and `DiskReader._first_declared_line`, the
-one scan every declared line goes through). Some lines are read more loosely than that. The `Suite:`
+**The scan.** `core/tools/record_declarations.py` parses a record's text once, with `parse`, into an
+immutable `ParsedRecord`. The chain's `DiskReader` and `commit_builder.py` both read their declared
+lines from it. Its table `FIELDS` has one row per declared field, and the row owns that field's prefix,
+where in a record its lines may appear, and how many of its lines are read. This paragraph states none
+of those, so the table is the one place to look. A line counts for a field when its own start matches
+the row's prefix, after whitespace and then `*`, `_` and `` ` `` are stripped from both ends of the line
+and whitespace is stripped again (`record_declarations.py`'s `EMPHASIS` and `parse`). A mention of the
+prefix elsewhere in a line does not count. A line that counts is not always read. Where the table places a field at its first block, which the table calls its first run, only the first line that counts for the field and the lines directly after it that also count are read. The first line after them that does not count ends the read, whether it is blank, prose, a heading or a bullet. Stripping the wrapping characters means `**Integrity: pass**`
+is read as `Integrity: pass`. It does not widen what counts as the value that follows the prefix:
+`Integrity: Pass` is a different string from `Integrity: pass` and still fails the pass check below.
+Some lines are read more loosely than that. The `Suite:`
 verdict is the value's first word, so `Suite: green — 5083 passed` declares `green`; what follows is
 the record and never changes the verdict (`chain_development.py`'s `DiskReader.suite_verdict`). The
 `Environment:` kind is the value's first word in the same way, so `**Environment: container —
@@ -132,9 +140,10 @@ finished, green change does not halt on it.
 line and every `Failing:` line names a task that some `Deferred:` line names, or `Suite: none` where
 the project card on `main` reads `Test command: none` (a product with no code, so no suite); a
 `Language resolution:` line, labelled or not, present with any value; on that marker, a red commit
-older than its oldest landing for every judged TDD-lane task that landed; `Integrity: pass`; and on
-the marker and on `code-integrity-report.md` alike, an `Environment:` line whose kind passes (the
-`Environment:` entry above). A `Deferred:` line is a declaration the chain reads, not a halt and not
+older than its oldest landing for every judged TDD-lane task that landed; `Integrity: pass`; on
+`security-report.md`, `Security: clean`, `Security: fixed` or `Security: reported`; and on
+the marker and on `code-integrity-report.md` alike, a nonempty collection of `Environment:` lines
+whose kinds all pass (the `Environment:` entry above). A `Deferred:` line is a declaration the chain reads, not a halt and not
 the origin of one: with a green suite it changes nothing but leaving its task out of the
 commit-shape read, and a `Deferred:` line whose task cannot be read defers nothing.
 
@@ -142,27 +151,32 @@ commit-shape read, and a `Deferred:` line whose task cannot be read defers nothi
 
 | Halt | On disk |
 |---|---|
-| `red-suite` | `Suite: red` not wholly owned by deferred tasks |
+| `environment-not-ready` | on the closing marker or on `code-integrity-report.md`: any `Environment:` line whose first word is `not-ready` |
+| `red-suite` | `Suite: red` not wholly owned by deferred tasks, on a product whose `docs/nfdr.md` is absent from `main`, or after the walk's one `dependency-repair` has run. On a product with an NFDR the chain launches `dependency-repair` first, once, and reads its new report's `Repair:` line: `merged` takes `main`'s advance onto the branch and re-closes the change; no new report halts as plain `red-suite`; any other word halts as `red-suite — dependency-repair <word>: <report>`; a refused advance halts as `red-suite — main's advance refused after dependency-repair merged (<why>)` |
 | `missing-suite` | `Suite: none` beside a card on `main` that names a command or cannot be read; any other `Suite:` value; or no `Suite:` line |
 | `missing-language` | no `Language resolution:` line, labelled or plain |
 | `missing-red-commit — task <N>[, …]` | a TDD-lane task, neither deferred nor re-laned, landed with no red commit older than its first landing — every such task named once, ascending |
 | `unreadable-plan` | `tl_instruction.md` on the branch unreadable when the check runs |
 | `integrity-stopped` | `Integrity: stopped` |
 | `missing-integrity` | any other `Integrity:` value, or no `Integrity:` line |
-| `missing-environment` | on the closing marker or on `code-integrity-report.md`: no `Environment:` line, an empty value, or a first word other than `macos-guest`, `container`, `owners-mac` or `none`, `unresolved` included; or `Environment: none` beside a card on `main` that names a command or cannot be read |
+| `security-stopped` | `Security: stopped` |
+| `missing-security` | any other `Security:` value than `clean`, `fixed`, `reported` or `stopped`, or no `Security:` line |
+| `missing-environment` | on the closing marker or on `code-integrity-report.md`: no `Environment:` line, or any one line with an empty value or a first word other than `macos-guest`, `container`, `owners-mac`, `none` or `not-ready`, `unresolved` included; or any `Environment: none` line beside a card on `main` that names a command or cannot be read |
 | `missing-text-verdict` | `change_design.md` with no `Publishes text:` line, a first word that is neither `yes` nor `no`, or no such file, when the walk reaches `content`; the engine writes a `halt_report.md` and launches nothing |
 
 No value the code does not read produces a halt this table does not list.
 
+A closing marker that lacks a line the gate run printed, or carries one it did not, is refused by the
+commit builder before it commits (`core/tools/commit_builder.py`), so no marker exists. The walk then
+takes its existing missing-marker path, one recovery and then the implementation halt. The refusal is
+not a halt reason of the chain's, and the comparison is not the chain's policy.
+
 `core/tools/chain_development.py` is the reader. Its `DevelopmentChain._bad_verdict` method owns
 every reason in the table except `missing-text-verdict`, and it owns their order.
 `missing-text-verdict` is the gate in `DevelopmentChain._launch_step`, which runs before a step
-launches and so before `_bad_verdict` has an artifact to judge. On the closing marker,
-`_bad_verdict` checks `red-suite`, `missing-suite` and `missing-language` first. Only a marker that
-passes those three has its commit shape read, through `_commit_shape_verdict`, which returns
-`unreadable-plan` or `missing-red-commit`. `missing-environment` is checked last. On the marker it
-is reached only after the commit shape passes. On `code-integrity-report.md` it is reached only once
-the report reads `Integrity: pass`, after `integrity-stopped` and `missing-integrity`.
+launches and so before `_bad_verdict` has an artifact to judge. On the closing marker, `_bad_verdict` checks `environment-not-ready` first, then `red-suite`, `missing-suite` and `missing-language`. Only a marker that passes those four has its commit shape read, through `_commit_shape_verdict`, which returns `unreadable-plan` or `missing-red-commit`. `missing-environment` is checked last. On the marker it
+is reached only after the commit shape passes. On `code-integrity-report.md`, `environment-not-ready` is checked first, before `integrity-stopped`, and `missing-environment` is reached only once the report reads `Integrity: pass`, after `integrity-stopped` and `missing-integrity`. The security report's two reasons, `security-stopped` and `missing-security`, come after the integrity report's, and no
+`Environment:` line is read on it.
 `DevelopmentChain.describe`, which `start` calls first, refuses a relaunch: it calls `_bad_verdict`
 for each step before the entry it would otherwise resume at, and raises rather than passing silently
 over a step that declared a bad verdict. `describe` takes the product path the start takes, so a dry

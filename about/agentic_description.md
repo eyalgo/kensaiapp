@@ -50,6 +50,11 @@ The program's gates read what the runs left:
   code. Otherwise the walk halts.
 - The senior engineer's report must declare `Integrity: pass` and name the environment the tests
   ran in. Otherwise the walk halts.
+- The security report must declare `clean`, `fixed` or `reported`. `stopped`, or no such line, halts
+  the walk.
+- A red closing commit on a product with an NFDR first starts `dependency-repair` once, for a main
+  branch an advisory turned red with no commit behind it. The walk halts only when the repair does
+  not merge.
 - A run that leaves new uncommitted changes in the product's checkout halts the walk at its step,
   and nothing is relaunched over them.
 
@@ -136,19 +141,26 @@ behaviour to test, lands in one plain commit.
 ## Review by a separate agent
 
 The auditor reviews the spec, the design, the plan, the content step where it ran, and the
-implementation, each in a run of its own. The runs are started together, which matches what
+implementation, each in a run of its own. It judges how well each step of the pipeline did its job,
+not whether the product is right (`skills/kensaiapp-auditor/.claude/skills/development-audit/SKILL.md`). For a change planned by hand with `ad-hoc-plan`, it reviews
+the plan, the content and the implementation, not the short spec and design. The runs are started together, which matches what
 Anthropic calls parallelization by sectioning: "Breaking a task into independent subtasks run in
 parallel" ([Building effective agents](https://www.anthropic.com/research/building-effective-agents)).
 
-The audit is not a gate. Its findings are kept on branches of their own and joined into the change
-at the seal. The PM reads them when it refines the station, and they can change the stations that
-follow. No step sends a sealed change back to be reworked from its findings. Retry and loop-back
+The audit is not a gate, because it checks KensaiApp rather than the product. Its findings are kept
+on branches of their own and joined into the change at the seal. The PM reads them first when it
+refines the station, with the code-integrity and security reports. A product issue among them goes
+back into the plan: the stations that follow can be re-cut, parked or dropped, or work left for the
+Principal PM. A finding about a skill is raised to improve that skill
+([Where what the checks find goes](how-it-works.md#where-what-the-checks-find-goes)). No step sends a sealed change back to be reworked from its findings. Retry and loop-back
 routing are recorded in `core/doctrine/flow/folder_state_handoff.md` as forward design, not as built.
 So the audit is not the evaluator-optimizer loop Anthropic describes, where one call generates and
 another gives feedback "in a loop".
 
 The senior engineer's proof is the review that does gate the change
-([A workflow, not an agent choosing its path](#a-workflow-not-an-agent-choosing-its-path)).
+([A workflow, not an agent choosing its path](#a-workflow-not-an-agent-choosing-its-path)). Its
+security review, between the proof and the audit, fixes what its rules allow and halts the walk
+only on a fix it may not make.
 
 ## Human in the loop
 
@@ -324,8 +336,8 @@ A git worktree is one of "multiple working trees attached to the same repository
 
 Each change gets its own branch and worktree, made by `core/tools/create_change_worktree.py`, which
 checks every repository it will touch before it changes any of them. A product's tests run where its
-CI runs: a Podman container, a macOS virtual machine, or your own Mac when the product has no CI or
-you ask for it ([Testing in isolation](operations.md#testing-in-isolation)).
+CI runs: a Podman container, one for each version of a matrix, a macOS virtual machine, or your own
+Mac when the product has no CI or you ask for it ([Testing in isolation](operations.md#testing-in-isolation)).
 
 The agents themselves run on your machine, not in a container. The shared core holds a contract for
 running autonomous sessions in a Docker sandbox, which binds a run that skips permission checks

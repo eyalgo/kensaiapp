@@ -1087,21 +1087,22 @@ def test_the_launcher_sweep_finds_every_launcher_that_sources_the_shared_home():
     `core/launchers/seeds-from-product-docs/` was deleted, the skill launching through
     `core/launchers/skill/` from its `launcher.md` — and is **7** on 2026-09-30, when
     `core/launchers/kensaiapp-writing-bar/` was deleted the same way — and is **5** later that
-    day, when `core/launchers/experience-visual/` and `core/launchers/experience-voice/` were too.
-    Each declares `DETACH_LIB` the same way every
-    sibling in this set does, so all four join the sweep rather than breaking it. Verified by grepping every `launcher.sh` for the exact `DETACH_LIB=`
+    day, when `core/launchers/experience-visual/` and `core/launchers/experience-voice/` were too —
+    and is **3** on 2026-10-24, when `core/launchers/seeds-from-idea/` was deleted, the skill having
+    no launcher of its own. Each declares `DETACH_LIB` the same way every
+    sibling in this set does, so all three join the sweep rather than breaking it. Verified by grepping every `launcher.sh` for the exact `DETACH_LIB=`
     assignment naming `detach_watcher.sh`.
     """
     launchers_dir = _LIB.resolve().parents[1] / "launchers"
     found = _launchers_declaring_the_shared_detach_home(launchers_dir)
     names = sorted(p.parent.name for p in found)
 
-    assert len(names) == 4, f"expected 4 launchers declaring the shared home, found {len(names)}: {names}"
+    assert len(names) == 3, f"expected 3 launchers declaring the shared home, found {len(names)}: {names}"
     assert "product-card" not in names, (
         "product-card reaches core/tools/ through its WATCHER default only — it declares no "
         "DETACH_LIB and must not be swept in as a caller of this library"
     )
-    assert "cold-read" in names and "seeds-from-idea" in names, (
+    assert "cold-read" in names and "launch-eval-fix" in names, (
         "two known callers are missing from the sweep — the predicate is not matching real "
         "declarations"
     )
@@ -1762,13 +1763,13 @@ def test_the_library_neither_uses_nor_documents_a_bare_pid_wait(call):
 # The launchers that source this library and bind the single-watcher keep-awake, re-measured
 # 2026-09-30 by the declaration `_declares_the_shared_detach_home` reads, once the last three of
 # the 2026-08-22 set (`kensaiapp-writing-bar`, `experience-visual`, `experience-voice`) were deleted
-# that day; `cold-read` sources it too and is held below as the fan-out caller. Named rather than
+# that day, and once more on 2026-10-24, when `seeds-from-idea`'s was deleted; `cold-read` sources
+# it too and is held below as the fan-out caller. Named rather than
 # merely counted: the claim is that each of THESE inherits the fix, and a set that shrinks
 # silently would still satisfy a count.
 _LIBRARY_CALLERS = {
     "launch-eval-fix",
     "launch-skill-evals",
-    "seeds-from-idea",
 }
 
 

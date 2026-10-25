@@ -1,5 +1,5 @@
 ---
-version: "1.6.0"
+version: "1.8.0"
 ---
 
 # nemawashi-refine — the judgment
@@ -32,13 +32,21 @@ which, with its reason and its source:
 | **docs cut** | What it asks is work a product document **already states** — a behaviour, a binding or a slice the SDD, FDR, an ADR or the NFDR sets — and no candidate carries it. Nothing goes on a companion: the document is not owed a change. The answer is the docs cut, named as a next move (§ *Whether a docs cut is owed*); cite the lines that state the work. |
 | **carried by a candidate** | A candidate in `unpicked/` already covers the ask, or covers it once modified. Name the candidate; the modification, if any, is a candidate move below. |
 | **drop** | The ask is to drop a seed, and the seed is a candidate in `unpicked/` the walk has overtaken, ruled out or superseded. The drop is a candidate move below. |
-| **cut from an idea** | The ask is for work no product document should state — hygiene, tooling, discovered work in the instance itself — that this project owns, and no candidate carries it. Work another project owns is a route across projects. Write the idea as `seeds-from-idea` takes it: what the work is, why now, what the walk found, and the source. |
+| **cut from an idea** | The ask is for work no product document should state — hygiene, tooling, discovered work in the instance itself — that this project owns, and no candidate carries it. Work another project owns is a route across projects. Write it as the brief `seeds-from-idea` takes (its `templates/brief.md`): the recommendation quoted at its lines as the ask, what the walk found as evidence, each quoted, and what this run already swept. For a security recommendation, its `## Security source` names the unit by its triple and quotes the report's line, or the seed loses its flag. |
 | **route across projects** | The ask spans projects. Nothing here acts on another project's seedbed; name it as a next move for a `principal-pm:` session. |
 | **ignored** | The ask no longer holds — the walk answered it, a later unit reversed it — or it is not this seat's. An ask a document already states is a **docs cut**, never an ignore. The reason is the answer; an ignored item with no reason is the silence this run exists to prevent. |
 
 An ask for a **retire** is answered by the retire that already happened when it names this seed, and is
 ignored with that reason. One naming another seed is not this run's — the retire is the Scrum Master's,
 after that seed is walked — and is ignored with that reason.
+
+**A recommendation to cut a security seed** — what a change's `security-report.md` left for the PM — is
+never a companion item, and is the one exception to that row's default: a hole is a defect in the
+product, not something a document owes a statement of (the owner's ruling, 2026-10-23). It is a **docs
+cut** where the unit sealed and the NFDR names the threat class or the check the line falls under, with
+those NFDR lines cited. Otherwise it is **cut from an idea** — the second exception, since it is product
+work — and that includes a line from a unit that did not seal, whose report is not on `main` for the
+docs cut to read. Either way the answer names the unit by its triple and the report's line.
 
 **Two recommendations asking the same thing get the same answer**, and the report says the second
 follows the first.
@@ -138,7 +146,7 @@ absolute path, which a project a release ships may not name.
 |---|---|---|---|
 | sweep the product's companions | this run wrote a companion item, or a product companion is live with every item answered and not yet folded, and no chain is in flight, and the project card's **Definition:** is not none | owner | `<CORE>/launchers/chain-product/launcher.sh <project>` when the project card's **Definition:** is full; `<CORE>/launchers/chain-agari/launcher.sh <project>` when it is prd-agari; no sweep row when it is none |
 | cut from the product's documents | § *Whether a docs cut is owed* says so | Principal PM | `<CORE>/launchers/skill/launcher.sh seeds-from-product-docs <project>` |
-| re-run a halted cut | `seeds-from-idea` halted in this run, or was not reachable in it | Principal PM | the halt's own named re-run; none when it was not reachable — a `principal-pm:` session, on that recommendation |
+| re-run a halted cut | `seeds-from-idea` halted in this run | Principal PM | the halt's own named re-run |
 | route across projects | a recommendation was answered that way | Principal PM | none — a `principal-pm:` session, on that recommendation |
 | pick a seed | the seedbed root is empty, and the pool is not or a docs cut above will fill it | PM | `<CORE>/launchers/skill/launcher.sh nemawashi-pick <project>` |
 | cut the route | a pick above is owed | PM | `<CORE>/launchers/skill/launcher.sh stations-from-seed <project>` |

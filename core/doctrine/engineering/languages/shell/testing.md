@@ -1,5 +1,5 @@
 ---
-version: "1.0.7"
+version: "1.0.8"
 ---
 
 # Shell — testing
@@ -88,10 +88,12 @@ and runs the script itself:
   handed (`printf '%s\n' "$@" > "$CLAUDE_ARGV_LOG"`), a `caffeinate` stub, a Python watcher stub
   reached through the launcher's own `LAUNCH_<X>_WATCHER` override, and a notifier stub through
   `LAUNCH_<X>_NOTIFIER`. `HOME` is redirected into `tmp_path` too.
-- **A path with no env override is exercised for real.** `core/launchers/seeds-from-idea/launcher.sh`
+- **A path with no env override is exercised for real.** `core/launchers/launch-eval-fix/launcher.sh`
   has no override for the shared library, so every passing launch in its suite exercises the real
-  `detach_watcher.sh` at its real relative depth — `test_keep_awake_reaches_the_shared_home` among
-  them. `experience-voice`'s suite stated this in so many words until it was retired on 2026-09-30.
+  `detach_watcher.sh` at its real relative depth. Its suite states this in so many words, in
+  `test_detach_watcher_is_found_at_its_resolved_home_when_nothing_overrides_it`: "every passing launch
+  in this suite already runs against the real `core/tools/detach_watcher.sh` at its real relative
+  depth".
 - **A backgrounded step is polled, not slept on.** The watcher is detached with `&`, so the fixture
   retries reading its log — "The launch backgrounds the watcher (`&`), so it may still be starting when
   the launcher exits. Give it a moment before concluding it never ran."

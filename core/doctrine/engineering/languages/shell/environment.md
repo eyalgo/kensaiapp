@@ -1,5 +1,5 @@
 ---
-version: "1.2.0"
+version: "1.3.1"
 ---
 
 # Shell — gate environment
@@ -29,9 +29,9 @@ offers.
 Start a container from the image of CI's distribution, at CI's release, by the command
 `languages/README.md` § Gate environment defaults gives. Where CI's distribution is Ubuntu, that
 image is `docker.io/library/ubuntu`. This file names no image for any other distribution. The parse
-gate needs bash in the image. The suite is written in Python and run with pytest (`testing.md` § The
-tool is pytest, and the tests are written in Python), so `python3` and pytest are installed in the
-container before the suite runs.
+gate needs bash in the image. The suite is written in Python and run with pytest (`testing.md` § The tool is pytest, and the tests are written in Python), and the Ubuntu image carries neither, so the container install below installs both from Ubuntu's own packages before the suite runs. The line is written for Ubuntu, the one distribution this file names an image for. `DEBIAN_FRONTEND=noninteractive` keeps a package's setup from asking a question no one is there to answer: debconf's `noninteractive` frontend "never interacts with you at all" (`man 7 debconf`).
+
+**Container install:** `apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq python3 python3-pytest`
 
 Where `languages/README.md` § Gate environment defaults sends the gates to the macOS guest instead,
 that guest is set up as `swift/environment.md` § macOS guest provisioning states.
@@ -43,5 +43,9 @@ that guest is set up as `swift/environment.md` § macOS guest provisioning state
 | `bash` | — |
 
 The image carries it: inside the guest, `command -v bash` prints `/bin/bash`, a folder on the
-guest's own PATH. So there is no install step. It is the Mac's bash 3.2, not CI's bash 5, which the
+guest's own PATH. So bash needs no install step in the base. It is the Mac's bash 3.2, not CI's bash 5, which the
 container default exists to avoid; a product that sends shell's gates to the guest takes that.
+
+**The suite still needs pytest, which the guest's `python3` lacks.** Measured 2026-10-23 in `kensai-macos`: `/usr/bin/python3 -c "import pytest"` printed `ModuleNotFoundError`. The guest install below is the one `python/environment.md` § In the macOS guest states and explains. It is written out again here because `<CORE>/tools/gate_suite.py` reads each packet's own line.
+
+**Guest install:** `PIP_BREAK_SYSTEM_PACKAGES=1 python3 -m pip install --quiet pytest && export PATH="$(python3 -m site --user-base)/bin:$PATH"`

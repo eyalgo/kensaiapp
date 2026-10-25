@@ -1,4 +1,4 @@
-"""Tests for what the three gate consumers adopt from `core/prompts/gate_suite.md`.
+"""Tests for what the four gate consumers adopt from `core/prompts/gate_suite.md`.
 
 A consumer does not call the gate tool through a helper of its own: the recipe, and each skill that
 adopts it, carries the executable block. These tests pull that block out of the file the skills
@@ -23,6 +23,7 @@ import pytest
 
 import chain_development as cd
 import gate_suite
+import record_declarations
 from test_gate_suite import (
     CARD_COMMAND,
     CHECK_INPUTS,
@@ -456,7 +457,8 @@ def test_integrity_final_run_supplies_leading_environment():
     report = "\n".join(["# Code integrity report", "", "Integrity: pass", final.first_line, "",
                         "## Tests run", "", *bullets, ""])
 
-    declared = cd.DiskReader._declared_lines(report, "Environment:")
+    declared = [line.text for line in
+                record_declarations.parse(report).read(record_declarations.ENVIRONMENT)]
     assert declared == [final.first_line]
     assert cd.DiskReader._environment_kind(declared[0]) == "owners-mac"
     assert all(line in report for _status, line in earlier)
@@ -505,6 +507,44 @@ def test_integrity_interactive_runner_discovery_is_preserved():
     assert "the card's `Test command:` as a managed gate" in text
     assert "gate_suite.py" not in text[text.index("**Interactive mode:** infer"):
                                        text.index("**Language packets")]
+
+
+# ==================================================================================================
+# The security run (development-security)
+# ==================================================================================================
+
+SECURITY_SKILL = (CORE_ROOT.parent / "skills" / "senior-engineer" / ".claude" / "skills"
+                  / "development-security" / "SKILL.md")
+
+
+def test_security_adopted_invocation_runs_each_environment_under_the_code_integrity_gate():
+    # The tool has no gate of the security step's own; the skill passes `code-integrity`, the step
+    # it follows, and says so (`core/prompts/gate_suite.md`).
+    assert set(invocation_blocks(SECURITY_SKILL)) == {"invocation"}
+    for environment, (make_raw, line) in ENVIRONMENTS.items():
+        harness = Harness()
+
+        status = run_adopted(harness, "invocation", "unused-gate-label", make_raw(),
+                             path=SECURITY_SKILL)
+
+        argv_run = adopted_argv("invocation", "unused-gate-label", SECURITY_SKILL)
+        assert argv_run[argv_run.index("--gate") + 1] == "code-integrity"
+        assert status == 0, environment
+        assert harness.first_line == line
+        [(argv, _cwd)] = harness.processes.issued
+        assert CARD_COMMAND in " ".join(argv)
+
+
+def test_security_copies_environment_lines_as_bullets_and_a_failure_undoes_the_fix():
+    text = SECURITY_SKILL.read_text()
+    assert "into the report as a bullet, never as a bare line" in text
+    assert "A red or refused run means the change it was proving" in text
+    assert "`development-security`" in RECIPE.read_text()
+
+    refused = Harness()
+    assert run_adopted(refused, "invocation", "x", raw_input(ci=CI_UNREADABLE),
+                       path=SECURITY_SKILL) != 0
+    assert refused.processes.issued == []
 
 
 # ==================================================================================================
@@ -777,3 +817,110 @@ def test_adopted_guest_call_refuses_an_unshared_run(gate):
     assert lines[-1] == _CLOSING
     assert harness.processes.probes == [] and harness.processes.issued == []
     assert harness.lock.holds == 0
+
+
+# --- a Linux matrix, through the adopted calls (CP-782 to CP-784) ---------------------------------
+
+from test_gate_suite import (  # noqa: E402
+    CELL_CONTAINERS, CELL_DECLARATIONS, CELL_REFS, CI_FILE, MATRIX_CI_TEXT, failed_line,
+    matrix_harness, matrix_inputs, passed_line, stored_run)
+
+ADOPTERS = (("recipe", RECIPE, "developer"), ("developer", DEVELOPER_SKILL, "developer"),
+            ("integrity", INTEGRITY_SKILL, "code-integrity"),
+            ("security", SECURITY_SKILL, "code-integrity"), ("seal", SEAL_SKILL, "seal"))
+
+
+@pytest.mark.parametrize("name, path, gate", ADOPTERS, ids=[entry[0] for entry in ADOPTERS])
+def test_adopted_gate_calls_run_every_linux_cell(name, path, gate):
+    assert "invocation" in invocation_blocks(path)
+    argv = adopted_argv("invocation", gate, path)
+    assert argv[argv.index("--gate") + 1] == gate
+
+    harness = matrix_harness()
+    assert run_adopted(harness, "invocation", gate, matrix_inputs(), path=path) == 0
+
+    # Every sourced cell ran, and the leading block of declarations is the complete one.
+    assert harness.out.getvalue().splitlines()[:3] == CELL_DECLARATIONS
+    assert [argv_[-4] for argv_, _ in harness.processes.issued] == list(CELL_REFS)
+    for cell in CELL_CONTAINERS:
+        assert passed_line(cell) in harness.out.getvalue()
+
+    # A one-cell call keeps its single declaration and gains no matrix line.
+    single = Harness()
+    assert run_adopted(single, "invocation", gate, container_raw(), path=path) == 0
+    assert single.first_line == "Environment: container — python:3.12, arm64"
+    assert single.out.getvalue().count("Environment:") == 1
+    assert "gate_suite: the run in" not in single.out.getvalue()
+
+
+def test_the_seal_still_takes_only_the_first_line_of_the_leading_block():
+    harness = matrix_harness()
+    run_adopted(harness, "invocation", "seal", matrix_inputs(), path=SEAL_SKILL)
+
+    sealed, _calls = run_seal_action({"environment_line": harness.first_line})
+
+    assert harness.first_line == CELL_DECLARATIONS[0]
+    assert sealed.count("Environment:") == 1 and CELL_DECLARATIONS[0] in sealed
+
+
+def test_adopted_matrix_call_keeps_status_and_trusted_declarations(tmp_path):
+    store = gate_suite.FileRunRecords(tmp_path / "runs")
+    spoof = "Environment: container — python:9.9, arm64"
+    harness = matrix_harness({
+        CELL_REFS[0]: gate_suite.Completed(0, f"{spoof}\nout\n", f"{spoof}\n"),
+        CELL_REFS[1]: gate_suite.Completed(4, "boom\n", ""),
+        CELL_REFS[2]: gate_suite.Completed(0, "fine\n", "")}, store)
+
+    status = run_adopted(harness, "invocation", "developer", matrix_inputs())
+
+    assert status == 4
+    found = stored_run(harness, store)
+    # The prefix the gate bounds is the three stored declarations, whatever a suite printed.
+    assert found.environment_lines == tuple(CELL_DECLARATIONS) and found.status == 4
+    assert found.stdout.splitlines()[:3] == CELL_DECLARATIONS
+    assert found.stdout.count(spoof) == 1 and failed_line(CELL_CONTAINERS[1], 4) in found.stdout
+
+
+def test_adopted_matrix_check_resolves_without_running():
+    argv = check_argv()
+    harness = CheckHarness(product_files={CI_FILE: MATRIX_CI_TEXT})
+    stage_record(harness, None)
+    harness.stage({**matrix_inputs(), "guest": None})
+
+    got = gate_suite.main(argv, check_host=harness.host, host_factory=forbidden_host,
+                          stdout=harness.out, stderr=harness.err)
+
+    assert got == 0 and harness.err.getvalue() == ""
+    printed = harness.out.getvalue()
+    assert printed.startswith(f"{RESOLVES} {DASH} ")
+    assert [printed.index(f"python:{tag}") for tag in ("3.11", "3.12", "3.13")] == sorted(
+        printed.index(f"python:{tag}") for tag in ("3.11", "3.12", "3.13"))
+    assert "Environment:" not in printed
+
+
+# --- a not-ready environment is read by the three skills that run the gate ----------------------
+
+
+def test_developer_skill_states_the_not_ready_write_up():
+    text = unwrapped(DEVELOPER_SKILL.read_text())
+
+    assert "The environment was not ready. It reported: {reason}" in text
+    assert "environment-not-ready" in text
+
+
+def test_integrity_skill_reads_not_ready_as_stopped():
+    text = unwrapped(INTEGRITY_SKILL.read_text())
+
+    assert "An environment that was not ready, including one whose test command exited 127, " \
+           "is `Integrity: stopped` too." in text
+    assert "environment-not-ready" in text
+
+
+def test_seal_halts_on_a_not_ready_line_read_by_the_prompt():
+    text = unwrapped(SEAL_SKILL.read_text())
+    rule = text[text.index("An environment that was not ready is no suite result either."):]
+    rule = rule[:rule.index("**The environment line.**")]
+
+    assert "`Environment: not-ready`" in rule
+    assert "`deliver-precondition-failed`" in rule
+    assert "§ *Reading the run's lines*" in rule

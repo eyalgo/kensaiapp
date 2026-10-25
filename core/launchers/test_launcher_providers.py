@@ -1,4 +1,4 @@
-"""The seven skill launchers take their provider from the instance's own provider file, and refuse
+"""The six skill launchers take their provider from the instance's own provider file, and refuse
 by name when it cannot give one — proved the same way for every launcher, from one builder.
 
 WHY THIS EXISTS
@@ -6,7 +6,7 @@ WHY THIS EXISTS
     and `core/tools/providers.py` is its only reader. A launcher with its entry missing, or naming a
     provider it cannot run, must refuse before any agent run starts and before any completion
     watcher is spawned; a dry run refuses exactly where the launch would. That is one behaviour
-    seven times over, so the cases are parametrized over `LAUNCHERS` rather than written into seven
+    six times over, so the cases are parametrized over `LAUNCHERS` rather than written into six
     suites, and each launcher's own suite keeps the cases that are about its own command line.
 
     A launcher is run from a copy of the host (`provenance_test_support.isolated_host`): the real
@@ -79,9 +79,6 @@ class Launcher:
     # A launcher that checks its project card before it reads the provider file is given one:
     # the name of a project whose card the copy places under its instance.
     card: str = ""
-    # Files, relative to the copy's instance, a launch needs to exist so that nothing before the
-    # provider read can be the reason it stops: an idea the launcher is pointed at.
-    files: tuple[str, ...] = ()
 
 
 LAUNCHERS = (
@@ -93,11 +90,6 @@ LAUNCHERS = (
     Launcher("launch-eval-fix", ("demo-skill",)),
     Launcher("launch-skill-evals", ("demo-skill",)),
     Launcher("product-card", ("product-planning",), card="product-planning"),
-    Launcher(
-        "seeds-from-idea",
-        ("system/nemawashi/2026-10-01_an-idea.md",),
-        files=("system/nemawashi/2026-10-01_an-idea.md",),
-    ),
 )
 FORCIBLE = tuple(launcher for launcher in LAUNCHERS if launcher.forcible)
 NOT_FORCIBLE = tuple(launcher for launcher in LAUNCHERS if not launcher.forcible)
@@ -138,10 +130,6 @@ class Copy:
             (bin_dir / stub).chmod(0o755)
         for watcher in _RECORDING_STUBS:
             (self.tools / watcher).write_text(_WATCHER_STUB)
-        for relative in launcher.files:
-            placed = self.cwd / relative
-            placed.parent.mkdir(parents=True, exist_ok=True)
-            placed.write_text("# an idea\n")
         if launcher.card:
             project_dir = self.cwd / "system" / "projects" / launcher.card
             project_dir.mkdir(parents=True)
@@ -377,17 +365,16 @@ def test_a_launcher_in_a_pin_reads_the_live_instance_file(make_copy, launcher):
 
 
 # --- the whole set --------------------------------------------------------------------------------
-# What holds across all seven launchers at once, and so cannot be said before the last of them has
+# What holds across all six launchers at once, and so cannot be said before the last of them has
 # changed. The per-launcher cases above are each launcher's own proof; these are the set's.
 
-_SEVEN = (
+_SIX = (
     "skill",
     "companion-self-answer",
     "cold-read",
     "launch-eval-fix",
     "launch-skill-evals",
     "product-card",
-    "seeds-from-idea",
 )
 # A launcher that names `claude` as the provider it launches under — a literal after
 # `--provider` or `provider=`, or a `:-claude}` default.
@@ -408,12 +395,12 @@ def _source_files(root: Path, suffixes: tuple[str, ...]):
 
 # The three kaizen tool scripts are launchers of the same reader, keyed by their name without
 # `.sh`; their own suites (`core/tools/test_launch_*.py`) prove their launches.
-_TEN = (*_SEVEN, "launch-apply-packet", "launch-audit", "launch-fix-author")
+_NINE = (*_SIX, "launch-apply-packet", "launch-audit", "launch-fix-author")
 
 
-@pytest.mark.parametrize("name", _TEN)
-def test_each_of_the_ten_entries_resolves_to_claude(name, tmp_path):
-    """CP-488: the delivered template names `claude` for all ten, read from an instance root
+@pytest.mark.parametrize("name", _NINE)
+def test_each_of_the_nine_entries_resolves_to_claude(name, tmp_path):
+    """CP-488: the delivered template names `claude` for all nine, read from an instance root
     holding a copy of it."""
     (tmp_path / ".providers.toml").write_text(_DELIVERED, encoding="utf-8")
 
@@ -426,8 +413,8 @@ def test_each_of_the_ten_entries_resolves_to_claude(name, tmp_path):
     assert (result.returncode, result.stdout) == (0, "claude\n"), result.stderr
 
 
-def test_the_proof_covers_the_seven_launchers_the_set_names():
-    assert {launcher.name for launcher in LAUNCHERS} == set(_SEVEN)
+def test_the_proof_covers_the_six_launchers_the_set_names():
+    assert {launcher.name for launcher in LAUNCHERS} == set(_SIX)
 
 
 def test_no_launcher_names_claude_as_a_default_or_a_literal():
@@ -441,7 +428,7 @@ def test_no_launcher_names_claude_as_a_default_or_a_literal():
 
     assert hits == []
     scanned_names = {path.parent.name for path in scanned if path.name == "launcher.sh"}
-    assert set(_SEVEN) <= scanned_names, "the scan did not reach every launcher it is about"
+    assert set(_SIX) <= scanned_names, "the scan did not reach every launcher it is about"
 
 
 # A string that is the file's name or a path ending in it — what code opens — and not a sentence

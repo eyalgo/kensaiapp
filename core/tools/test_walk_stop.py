@@ -13,7 +13,9 @@ import os
 import signal
 import subprocess
 import sys
+from datetime import datetime, timedelta
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import pytest
 
@@ -41,14 +43,20 @@ class FakeFiles:
 
 
 class FakeTable:
-    """A recording `ProcessTable`: pid → start, and every `stop_group` call in order."""
+    """A recording `ProcessTable`: pid → start, pid → `started_at`, and every `stop_group` call in
+    order."""
 
-    def __init__(self, starts: dict[int, str | None] | None = None) -> None:
+    def __init__(self, starts: dict[int, str | None] | None = None,
+                 started: dict[int, str] | None = None) -> None:
         self.starts = dict(starts or {})
+        self.started = dict(started or {})
         self.stopped: list[int] = []
 
     def start_time(self, pid: int) -> str | None:
         return self.starts.get(pid)
+
+    def started_at(self, pid: int) -> str | None:
+        return self.started.get(pid)
 
     def stop_group(self, pid: int) -> None:
         self.stopped.append(pid)
@@ -146,10 +154,12 @@ def test_the_record_cli_round_trips_through_read_identity(tmp_path):
 
         assert result.returncode == 0, result.stderr
         assert identity == walk_stop.LaunchIdentity(
-            run=walk_stop.ProcessIdentity(run.pid, table.start_time(run.pid)),
-            watcher=walk_stop.ProcessIdentity(watcher.pid, table.start_time(watcher.pid)))
+            run=walk_stop.ProcessIdentity(run.pid, table.start_time(run.pid), table.started_at(run.pid)),
+            watcher=walk_stop.ProcessIdentity(watcher.pid, table.start_time(watcher.pid),
+                                              table.started_at(watcher.pid)))
         assert identity.run.start is not None
         assert identity.watcher.start is not None
+        assert identity.run.started_at is not None and identity.watcher.started_at is not None
 
 
 def test_record_names_a_pid_with_no_process_with_a_null_start(tmp_path):
@@ -167,8 +177,52 @@ def test_record_names_a_pid_with_no_process_with_a_null_start(tmp_path):
 
     assert first.returncode == 0 and second.returncode == 0
     assert json.loads(target.read_text()) == {
-        "run": {"pid": process.pid, "start": None}, "watcher": None}
+        "run": {"pid": process.pid, "start": None, "started_at": None}, "watcher": None}
     assert json.loads(bare.read_text()) == {"run": None, "watcher": None}
+
+
+def test_started_at_names_the_moment_in_utc_whatever_the_callers_zone_and_language(monkeypatch):
+    with sleeping_process() as process:
+        monkeypatch.setenv("TZ", "America/New_York")
+        monkeypatch.setenv("LC_ALL", "de_DE.UTF-8")
+        started = walk_stop.ProcessTable().started_at(process.pid)
+        tokyo = subprocess.run(["ps", "-o", "lstart=", "-p", str(process.pid)], capture_output=True,
+                               text=True, env={**os.environ, "LC_ALL": "C", "TZ": "Asia/Tokyo"})
+
+    expected = datetime.strptime(" ".join(tokyo.stdout.split()), walk_stop.LSTART_FORMAT) \
+        .replace(tzinfo=ZoneInfo("Asia/Tokyo"))
+    assert started is not None
+    assert datetime.fromisoformat(started) == expected
+    assert datetime.fromisoformat(started).utcoffset() == timedelta(0)
+
+
+def test_started_at_of_no_process_is_none():
+    process = subprocess.Popen(["true"])
+    process.wait()
+
+    assert walk_stop.ProcessTable().started_at(process.pid) is None
+
+
+def test_identity_text_records_each_processs_started_at():
+    table = FakeTable({11: "Fri Oct 23 09:19:05 2026"}, {11: "2026-10-23T07:19:05+00:00"})
+
+    assert json.loads(walk_stop.identity_text(table, 11, 12)) == {
+        "run": {"pid": 11, "start": "Fri Oct 23 09:19:05 2026", "started_at": "2026-10-23T07:19:05+00:00"},
+        "watcher": {"pid": 12, "start": None, "started_at": None}}
+
+
+def test_a_file_written_before_started_at_reads_with_it_none():
+    identity = walk_stop.read_identity(files_holding(run=(11, "Fri Oct 23 09:19:05 2026")), IDENTITY_FILE)
+
+    assert identity == walk_stop.LaunchIdentity(
+        run=walk_stop.ProcessIdentity(11, "Fri Oct 23 09:19:05 2026", None), watcher=None)
+
+
+def test_a_started_at_that_is_not_text_is_malformed():
+    files = FakeFiles({IDENTITY_FILE: json.dumps(
+        {"run": {"pid": 11, "start": "Fri Oct 23 09:19:05 2026", "started_at": 5}, "watcher": None})})
+
+    assert walk_stop.read_identity(files, IDENTITY_FILE) is None
 
 
 # --- fakes -------------------------------------------------------------------

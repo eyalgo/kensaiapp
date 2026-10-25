@@ -165,9 +165,10 @@ from typing import Literal
 
 import gate_suite
 import pin
+import record_declarations
 import skill_path
 
-__version__ = "1.25.0"
+__version__ = "1.27.1"
 
 Op = Literal["commit", "merge", "advance"]
 
@@ -330,8 +331,8 @@ def _directional_referent(directional: str) -> tuple[str, str] | None:
     at its start (leading whitespace tolerated); no token after the colon;
     a token of `none` (the project/instance hasn't reached this referent
     yet — `commit_format.md` §Directional trailer); a token ending `:`
-    (a bare `progress:`/`aside:`/`serves:` with no slug, the form
-    `tobiishi-seal` SKILL.md:156 prescribes); or a token lowercasing to one
+    (a bare `progress:`/`aside:`/`serves:` with no slug — on `Shukuba:` and
+    `Agari:` a malformed line `_unnamed_referent_refusal` refuses); or a token lowercasing to one
     of `_DIRECTIONAL_SKIP_TOKENS` (a reading word with no colon, e.g.
     `Shukuba: progress — x`). Otherwise `(form, token)`, the token returned
     verbatim as the first whitespace-delimited word after the colon — a
@@ -481,19 +482,53 @@ def _resolve_shukuba(repo: str, token: str) -> DirectionalResolution:
     )
 
 
+def _unnamed_referent_refusal(directional: str) -> str | None:
+    """The refusal for a `Shukuba:`/`Agari:` line that puts a reading where
+    its station or project belongs, or `None`. Pure — the shape alone
+    decides it."""
+    match = _DIRECTIONAL_FORM_RE.match(directional)
+    if match is None or match.group(1) == "Michi":
+        return None
+    form, token = match.group(1), match.group(2)
+    if token.rstrip(":").lower() not in _DIRECTIONAL_SKIP_TOKENS:
+        return None
+    referent = "station" if form == "Shukuba" else "project"
+    shape = "<YYYY-MM-DD>_<slug>" if form == "Shukuba" else "<project>"
+    lines = [
+        f"commit_builder: refusing to commit — {form}: names no {referent}: {directional.strip()!r}.",
+        f"Write {form}: {shape} — progress: <how>, or — aside: <why>.",
+    ]
+    if form == "Shukuba":
+        lines.append(
+            "With no station open, write Agari: <project> — progress: <how>, "
+            "or — aside: <why>, instead."
+        )
+    return "\n".join(lines)
+
+
 def _directional_refusal(repo: str, directional: str) -> str | None:
     """Whether a `--directional` line's referent should refuse the commit —
     mirroring `_staged_set_guard_refusal` / `_bump_refusal`'s house shape: a
     function returning the message to print, or `None` to proceed.
 
     A line `_directional_referent` cannot parse, or that carries no referent
-    at all (`none`, a bare `progress:`/`aside:`/`serves:`), returns `None`
-    immediately — there is nothing to check. Otherwise the parsed form
+    at all (`none`, or `Michi:`'s bare `aside:`), returns `None` immediately
+    — there is nothing to check. Otherwise the parsed form
     dispatches to its own resolver, and the message is built **only** for
     `MISSING` — `RESOLVES` and `UNCHECKABLE` both proceed silently, per
     `commit_format.md`'s never-block rule: this refuses a referent that IS
     present and does NOT exist, never a referent this check merely could not
-    verify."""
+    verify.
+
+    One shape is refused before any referent is read: a `Shukuba:` or
+    `Agari:` line whose first word is a reading (`progress:`, `aside:`)
+    where the station or project belongs. `commit_format.md` gives those
+    two forms no state without a referent — only `Agari: none` — so the
+    line is malformed, whatever the tree holds. `Michi: aside:` is the one
+    reading that legally stands first, and it is left alone."""
+    unnamed = _unnamed_referent_refusal(directional)
+    if unnamed is not None:
+        return unnamed
     parsed = _directional_referent(directional)
     if parsed is None:
         return None
@@ -2293,7 +2328,6 @@ def _remove_body_file(path: str) -> None:
 
 
 _CLOSING_MARKER_PHRASE = "implementation complete"
-_DECLARATION_EMPHASIS = "*_`"
 _NO_GATE_ENVIRONMENT = "(the gate run printed no Environment: line)"
 _MARKER_REFUSAL_FIRST_LINE = (
     "commit_builder: refusing to commit — the closing marker does not match this change's "
@@ -2306,23 +2340,72 @@ _MARKER_WAYS_OUT = (
 )
 
 
-def _declared_lines(body: str, prefix: str) -> list[tuple[str, str]]:
-    """`(line as written, line with its emphasis and whitespace removed)` for every body line
-    that starts with `prefix` once stripped, in body order — the chain's reading of a marker's
-    declared lines (`DiskReader._declared_lines`), kept here without importing the chain."""
-    found = []
-    for line in body.splitlines():
-        stripped = line.strip().strip(_DECLARATION_EMPHASIS).strip()
-        if stripped.startswith(prefix):
-            found.append((line, stripped))
-    return found
+def _declared_pairs(
+    record: record_declarations.ParsedRecord, field: record_declarations.Field
+) -> list[tuple[str, str]]:
+    """`(line as written, line with its emphasis and whitespace removed)` for each line of the
+    parsed record that declares `field`, in body order — the form the refusal's helpers take."""
+    return [(line.raw, line.text) for line in record.read(field)]
 
 
 def _failing_case_id(stripped_line: str) -> str:
     """The text after `Failing:`, trimmed, up to the line's last ` — ` (the whole remainder when
     there is none), trimmed again."""
-    remainder = stripped_line[len("Failing:"):].strip()
+    remainder = stripped_line[len(record_declarations.FAILING.prefix):].strip()
     return (remainder.rsplit(" — ", 1)[0] if " — " in remainder else remainder).strip()
+
+
+_MARKER_WAYS_OUT_SEVERAL = (
+    "Ways out: take every Environment: line and each failing case id from this change's last "
+    "gate run, then commit again. If the body was read from a file, check that this run wrote "
+    "it. A body another change left behind carries that change's lines, not this one's."
+)
+
+
+def _indented(lines) -> list[str]:
+    return [f"  {line}" for line in lines]
+
+
+def _single_environment_blocks(
+    environments: list[tuple[str, str]], run: "gate_suite.GateRun"
+) -> list[str]:
+    """The refusal's environment block for a run that printed no `Environment:` line or one."""
+    printed = run.environment_lines[0] if run.environment_lines else None
+    gate_line = printed if printed is not None else _NO_GATE_ENVIRONMENT
+    if not environments:
+        return ["The marker has no Environment: line. The gate run printed:", f"  {gate_line}"]
+    differing = [raw for raw, stripped in environments if stripped != printed]
+    if not differing:
+        return []
+    return [
+        "The marker's Environment: line differs from the one the gate run printed.",
+        *(f"  marker:   {raw}" for raw in differing),
+        f"  gate run: {gate_line}",
+    ]
+
+
+def _several_environment_blocks(
+    environments: list[tuple[str, str]], run: "gate_suite.GateRun"
+) -> list[str]:
+    """The refusal's environment blocks for a run of several containers: the marker's declared
+    lines against the run's as sets — order and repetition are not compared — naming each line
+    the marker lacks, in the run's order, then each it carries that the run did not print, in the
+    marker's order and as the marker writes it, each once."""
+    printed = list(dict.fromkeys(run.environment_lines))
+    if not environments:
+        return [f"The marker has no Environment: line. The gate run printed these "
+                f"{len(printed)}:", *_indented(printed)]
+    declared = {stripped for _, stripped in environments}
+    missing = [line for line in printed if line not in declared]
+    extra = list(dict.fromkeys(raw for raw, stripped in environments if stripped not in printed))
+    blocks: list[str] = []
+    if missing:
+        blocks += ["These Environment: lines from the gate run are missing from the marker:",
+                   *_indented(missing)]
+    if extra:
+        blocks += ["These Environment: lines in the marker are not ones the gate run printed:",
+                   *_indented(extra)]
+    return blocks
 
 
 def _closing_marker_refusal(
@@ -2330,23 +2413,16 @@ def _closing_marker_refusal(
 ) -> str | None:
     """The refusal for a closing marker whose `Environment:` or `Failing:` lines contradict the
     gate run, naming every failing check, or None when it matches. Judged before anything is
-    staged; `Suite:` and the completeness of the `Failing:` lines are not judged."""
-    gate_line = run.environment_line if run.environment_line is not None else _NO_GATE_ENVIRONMENT
-    blocks: list[str] = []
+    staged; `Suite:` and the completeness of the `Failing:` lines are not judged. A run of two or
+    more containers is judged as a whole set of lines; a run of none or one keeps its
+    single-line judgement and wording."""
+    several = len(run.environment_lines) > 1
+    record = record_declarations.parse(body)
+    environments = _declared_pairs(record, record_declarations.ENVIRONMENT)
+    blocks = (_several_environment_blocks if several else _single_environment_blocks)(
+        environments, run)
 
-    environments = _declared_lines(body, "Environment:")
-    if not environments:
-        blocks += ["The marker has no Environment: line. The gate run printed:", f"  {gate_line}"]
-    else:
-        differing = [raw for raw, stripped in environments if stripped != run.environment_line]
-        if differing:
-            blocks += [
-                "The marker's Environment: line differs from the one the gate run printed.",
-                *(f"  marker:   {raw}" for raw in differing),
-                f"  gate run: {gate_line}",
-            ]
-
-    failing = _declared_lines(body, "Failing:")
+    failing = _declared_pairs(record, record_declarations.FAILING)
     if failing and run.status == 0:
         blocks += [
             "The gate run exited 0, so the marker must carry no Failing: line. It carries:",
@@ -2369,7 +2445,7 @@ def _closing_marker_refusal(
         *blocks,
         "Nothing was staged and no commit was made. HEAD and the index are as they were.",
         *([f"The body file '{body_file}' is left in place."] if body_file is not None else []),
-        _MARKER_WAYS_OUT,
+        _MARKER_WAYS_OUT_SEVERAL if several else _MARKER_WAYS_OUT,
     ])
 
 
@@ -2433,8 +2509,9 @@ def _build_arg_parser() -> argparse.ArgumentParser:
             "the full Shukuba:/Agari:/Michi: line, already resolved by the "
             "caller. A referent that IS present (a project name, a Way slug, "
             "a station slug) is resolved against --repo's own journey and "
-            "refused if it does not exist; none/progress:/aside:/serves: "
-            "carry no referent and are never checked"
+            "refused if it does not exist; none and Michi's aside: carry no "
+            "referent and are never checked, and a Shukuba:/Agari: line with "
+            "progress: or aside: where the name belongs is refused"
         ),
     )
     commit_parser.add_argument("--surface", required=True)
@@ -2703,6 +2780,18 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         ),
     )
 
+    check_parser = subparsers.add_parser(
+        "check-directional",
+        help="judge a --directional line as commit would, and commit nothing",
+    )
+    check_parser.add_argument(
+        "--directional",
+        required=True,
+        help="the full Shukuba:/Agari:/Michi: line a later commit will carry. Exits 0 when "
+             "commit would take it, else prints commit's refusal and exits 1 — for a caller "
+             "that commits only after an effect it cannot undo, such as the seal's product merge",
+    )
+
     markers_parser = subparsers.add_parser(
         "markers",
         help="print each path's version marker (form, line, semver), out of _locate_marker",
@@ -2832,6 +2921,13 @@ def main(
         if committed == 0 and args.body_file is not None:
             _remove_body_file(args.body_file)
         return committed
+
+    if args.op == "check-directional":
+        refusal = _directional_refusal(args.repo, args.directional)
+        if refusal is not None:
+            print(refusal, file=sys.stderr)
+            return 1
+        return 0
 
     if args.op == "markers":
         if args.base is not None:

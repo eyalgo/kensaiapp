@@ -77,14 +77,16 @@ def test_record_writes_the_identity_file_when_the_variable_is_set(tmp_path):
 
         recorded = walk_stop.read_identity(walk_stop.DiskFiles(), str(identity))
         start = walk_stop.ProcessTable().start_time(live.pid)
+        started_at = walk_stop.ProcessTable().started_at(live.pid)
     finally:
         live.kill()
         live.wait()
 
     assert result.returncode == 0, result.stderr
     assert "rc=0" in result.stdout
+    assert started_at is not None
     assert recorded == walk_stop.LaunchIdentity(
-        run=walk_stop.ProcessIdentity(live.pid, start), watcher=None)
+        run=walk_stop.ProcessIdentity(live.pid, start, started_at), watcher=None)
 
 
 def test_record_names_the_watcher_when_the_watcher_pid_is_set(tmp_path):

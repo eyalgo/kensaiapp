@@ -2,7 +2,7 @@
 name: shukuba-refine
 description: >-
   PM-posture skill the PM runs, in a pm session or as the pm agent, after a change unit lands or halts. It reads what the unit left (its flow
-  findings, its code-integrity report, the developer's closing commit and its `Deferred:` lines, any deferred_decisions.md, the
+  findings, its code-integrity report, its security report, the developer's closing commit and its `Deferred:` lines, any deferred_decisions.md, the
   corrections its plan owed to records outside its reach, and the work its spec handed on) and what moved in the product's upstream documents since the unit's seed was cut, then acts on the
   project's route with six moves (modify a seed, modify a station, park a station,
   un-pick the active seed to free the slot, raise a companion item on an upstream document, drop a
@@ -22,7 +22,7 @@ when_to_use: >-
 license: MIT
 metadata:
   author: Eyal Golan
-  version: "2.9.1"
+  version: "2.11.0"
   created: "2026-09-10"
   category: journey
   tags: shukuba, nemawashi, tobiishi, review, pm, journey
@@ -122,6 +122,7 @@ is built for:
 | The unit's folder | `journey/tobiishi/trail/<key>/` | `journey/tobiishi/<key>/` on `main` and on branch `<key>` | `system/projects/<project>/docs/<key>/` |
 | Flow findings | `<folder>/flow_findings/<step>.md` | the same, read off branch `<key>` | not produced — state absent |
 | Integrity report | `<folder>/code-integrity-report.md` | the same, read off branch `<key>` | `<folder>/code-integrity-report.md` |
+| Security report | `<folder>/security-report.md` | the same, read off branch `<key>` | `<folder>/security-report.md` |
 | Deferred decisions | `<folder>/deferred_decisions.md`, if any | the same, read off branch `<key>` | not produced — state absent |
 | Deferred lines | the lines that **begin** `Deferred:` in the developer's closing commit (the commit the `Developer's closing commit` row resolves); when there are none, state them absent | the same, if the unit reached a closing commit | the same |
 | Corrections owed | `<folder>/tl_instruction.md` § *Corrections owed while there*, if any | the same, read off branch `<key>` | not produced — state absent |

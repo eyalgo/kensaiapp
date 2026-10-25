@@ -1,5 +1,5 @@
 ---
-version: "1.47.0"
+version: "1.48.0"
 ---
 
 # Task map — where to look, by what you're about to do
@@ -56,6 +56,7 @@ adding a row, read the destination's opening declaration and check it answers **
 | Commit anything | `commit_format.md` | governance |  |
 | Set or change the model and effort a chain skill runs on | `skill_intelligence.md` | governance |  |
 | Pick a model for an ad-hoc / `--bg` run, an `agent-invoke` run, or any run with no skill's intelligence file behind it | `model_assignment.md` | governance |  |
+| Start a general-purpose agent from an interactive session — the skill that starts it instead, and what to do when that skill is not loaded | `model_assignment.md` | governance |  |
 | Restate a fact that already lives in another file | `single_source.md` | governance |  |
 | Cite one of our own records — a report, an audit, a handoff — for a load-bearing claim | `single_source.md` | governance | unprompted |
 | Point at a journey artifact — a 根回し Nemawashi seed, a 宿場 Shukuba station, a 飛び石 Tobiishi | `single_source.md` | governance | unprompted |

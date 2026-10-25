@@ -1,5 +1,5 @@
 ---
-version: "1.6.0"
+version: "1.7.0"
 ---
 <!-- The version above is template-file metadata; it is not copied into the instantiated document. -->
 <!-- The shape of one tl_instruction.md, in document order. development-plan owns every rule about
@@ -8,6 +8,8 @@ version: "1.6.0"
 
 # Tech Lead instruction — <slug>: <description>
 
+**Category:** <copied verbatim from `change_design.md`>
+**Behaviour:** <copied verbatim from `change_design.md`>
 **Product root:** <the product's folder, relative to the change worktree; an absolute path only for a product outside the instance> — every path below is relative to it.
 **Scope:** <one-line scope description>
 

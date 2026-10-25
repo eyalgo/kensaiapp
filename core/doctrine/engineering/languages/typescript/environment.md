@@ -1,5 +1,5 @@
 ---
-version: "1.2.0"
+version: "1.3.1"
 ---
 
 # TypeScript — gate environment
@@ -30,8 +30,9 @@ product's CI runs.
 Start a container from the official Node image, `docker.io/library/node`, tagged with CI's Node
 version, by the command `languages/README.md` § Gate environment defaults gives. Set pnpm up in it
 as `toolchain.md` § Package manager — pnpm states: `corepack enable`, preceded by
-`npm install -g corepack` on Node.js 25 or later. Then install the product's dependencies with pnpm
-before a gate runs.
+`npm install -g --force corepack` on Node.js 25 or later. The container install below does that before a gate runs. Its `COREPACK_ENABLE_DOWNLOAD_PROMPT=0` keeps Corepack from prompting before it downloads pnpm, since no one is there to answer. The product's own dependencies are not this packet's. The product names their install on its project card as its `**Dependencies command:**`, which for a pnpm product is `pnpm install --frozen-lockfile`, and `<CORE>/tools/gate_suite.py` runs it after this install (`languages/README.md` § Gate environment defaults).
+
+**Container install:** `export COREPACK_ENABLE_DOWNLOAD_PROMPT=0 && if [ "$(node -p 'process.versions.node.split(".")[0]')" -ge 25 ]; then npm install -g --force corepack; fi && corepack enable`
 
 Browser tests run in a second container, started the same way from Playwright's published image, with
 pnpm set up and the dependencies installed in it the same way.
@@ -46,6 +47,9 @@ that guest is set up as `swift/environment.md` § macOS guest provisioning state
 | `node` | — |
 
 The image carries it: inside the guest, `command -v node` prints `/opt/homebrew/bin/node`, a folder
-on the guest's own PATH. So there is no install step. `node --version` prints `v24.21.0`. That is
-the image's Node, not CI's, and nothing holds it to CI's version yet. `tsc` is not in the image; the
-product's own dependencies supply it.
+on the guest's own PATH. So node needs no install step in the base. `node --version` prints `v24.21.0`. That is
+the image's Node, not CI's, and nothing holds it to CI's version yet. `tsc` is not in the image. The product's own dependencies supply it, through the card's `**Dependencies command:**`.
+
+**pnpm is set up at each run, by the guest install below, the same command as the container's.** The image's Node is 24, below 25, so the line skips the Corepack install there (`toolchain.md` § Package manager — pnpm).
+
+**Guest install:** `export COREPACK_ENABLE_DOWNLOAD_PROMPT=0 && if [ "$(node -p 'process.versions.node.split(".")[0]')" -ge 25 ]; then npm install -g --force corepack; fi && corepack enable`

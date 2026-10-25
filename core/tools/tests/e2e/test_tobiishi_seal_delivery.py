@@ -130,6 +130,10 @@ class Managed:
     def log(self):
         return [json.loads(line) for line in self.events.read_text().splitlines()]
 
+    def effects(self):
+        """The builder calls that could change a repository; none before delivery starts."""
+        return [e for e in self.log() if not read_only(e)] if self.events.exists() else []
+
     def assert_landed(self, outcome, prepared):
         assert outcome["status"] == "ok", outcome
         assert outcome["audit_cleanup_eligible"] is True
@@ -151,7 +155,7 @@ class Managed:
                 self.scenario.tips[role], tip,
             ]
             self.scenario.assert_cleaned(role)
-        events = [e for e in self.log() if "--check-only" not in e["argv"]]
+        events = [e for e in self.log() if not read_only(e)]
         assert sum("commit" in e["argv"] for e in events) == 1
         assert sum("merge" in e["argv"] for e in events) == len(self.scenario.repos)
         assert prepared.directory.is_dir()
@@ -177,6 +181,11 @@ class RecordingProcesses:
         if self.unavailable and argv[0] == "git":
             return subprocess.CompletedProcess(argv, 128, "", "observation unavailable")
         return self.real.run(argv, cwd=cwd)
+
+
+def read_only(event):
+    """A builder call that changes nothing: a merge's check, or the directional's."""
+    return "--check-only" in event["argv"] or "check-directional" in event["argv"]
 
 
 def terminal(roles, code="delivery-failed"):
@@ -224,7 +233,7 @@ def test_fixed_caller_delivers_product_before_seal_and_instance(tmp_path, recipe
     managed = Managed(tmp_path, fixed=True)
     outcome, prepared = managed.invoke(recipe)
     managed.assert_landed(outcome, prepared)
-    effects = [e for e in managed.log() if "--check-only" not in e["argv"]]
+    effects = [e for e in managed.log() if not read_only(e)]
     assert ["seal" if "commit" in e["argv"] else
             next(role for role, repo in managed.scenario.repos.items() if str(repo) == e["argv"][1])
             for e in effects] == ["product", "seal", "instance"]
@@ -277,7 +286,7 @@ def test_caller_preserves_the_complete_contract_and_role_records(tmp_path, recip
         managed.config["contract"]
     )
     assert json.loads((prepared.directory / "merges.json").read_text()) == managed.config["merges"]
-    assert not managed.events.exists()
+    assert not managed.effects()
     for field in ("kind", "code_repo", "pipeline_repo", "code_worktree", "pipeline_worktree",
                   "delivery_repos"):
         assert field in json.loads((prepared.directory / "contract.json").read_text())
@@ -347,7 +356,7 @@ def test_caller_materializes_the_action_from_the_adopted_source(tmp_path, recipe
     assert (prepared.directory / "action.py").read_text() == extract(
         adopted.read_text(), "caller-seal-action"
     )
-    assert not managed.events.exists()
+    assert not managed.effects()
     adopted.unlink()
     outcome = caller.deliver(prepared)
     managed.assert_landed(outcome, prepared)
@@ -776,7 +785,7 @@ def test_input_lifetime_is_rejected_before_effects(tmp_path, recipe):
     managed.save()
     with pytest.raises(ValueError, match="survive cleanup"):
         managed.caller(recipe).prepare(managed.config_path)
-    assert not managed.events.exists()
+    assert not managed.effects()
     assert managed.active.is_dir()
 
 
@@ -854,7 +863,7 @@ def test_fixed_caller_rejects_incomplete_or_reordered_delivery_roles(tmp_path, r
 
     assert_halt(outcome, "delivery-failed", stdout, exit_code)
     assert outcome["landing_proved"] is False
-    assert not managed.events.exists()
+    assert not managed.effects()
     assert sum("--contract" in argv for argv, _ in port.calls) == 1
 
 
@@ -991,7 +1000,7 @@ def test_caller_cli_reports_a_preparation_refusal_in_a_halt_report(tmp_path):
     assert Path(outcome["halt_report"]) == managed.active / "halt_report.md"
     assert "caller-seal-action" in Path(outcome["halt_report"]).read_text()
     assert outcome["halt_report"] in result.stderr
-    assert not managed.scenario.log()
+    assert not managed.effects()
     managed.scenario.assert_recovery("instance")
 
 
@@ -1017,3 +1026,38 @@ def test_audit_cleanup_preserves_all_state_when_registered_identity_is_unusable(
     assert (git(repo, "show-ref").stdout,
             git(repo, "worktree", "list", "--porcelain", "-z").stdout,
             git(repo, "rev-parse", "HEAD").stdout) == before
+
+
+@pytest.mark.parametrize("fixed", [False, True])
+def test_caller_refuses_a_refused_directional_before_any_merge(tmp_path, fixed):
+    managed = Managed(tmp_path, fixed=fixed)
+    managed.config["bookkeeping"]["directional"] = "Shukuba: progress: sealed " + KEY
+    managed.save()
+    script = tmp_path / "caller.py"
+    script.write_text(extract(SKILL.read_text(), "caller-delivery"))
+    result = subprocess.run([sys.executable, str(script), str(managed.config_path)],
+                            cwd=tmp_path, capture_output=True, text=True)
+    assert result.returncode == 1, result.stderr
+    outcome = json.loads(result.stdout)
+    assert outcome["halt_reason"] == "deliver-precondition-failed"
+    assert outcome["delivered"] == "none"
+    assert "names no station" in outcome["observations"]["stderr"]
+    assert [e["argv"][-3] for e in managed.log()] == ["check-directional"]
+    assert not managed.effects()
+    for role in managed.scenario.repos:
+        managed.scenario.assert_recovery(role)
+
+
+def test_caller_checks_the_directional_before_the_first_merge(tmp_path, recipe):
+    managed = Managed(tmp_path, fixed=True)
+    outcome, prepared = managed.invoke(recipe)
+    managed.assert_landed(outcome, prepared)
+    calls = [e["argv"] for e in managed.log()]
+    check = next(at for at, argv in enumerate(calls) if "check-directional" in argv)
+    first_merge = next(at for at, argv in enumerate(calls)
+                       if "merge" in argv and "--check-only" not in argv)
+    assert check < first_merge
+    assert calls[check][calls[check].index("--directional") + 1] == \
+        managed.config["bookkeeping"]["directional"]
+    assert calls[check][calls[check].index("--repo") + 1] == \
+        managed.config["contract"]["instance_worktree"]

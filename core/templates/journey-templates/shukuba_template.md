@@ -1,5 +1,5 @@
 ---
-version: "1.6.2"
+version: "1.7.0"
 ---
 <!-- The version above is template-file metadata; it is not copied into the station. Nor is this block.
 
@@ -89,7 +89,10 @@ not its to make, the file it must leave byte-identical. One bullet each. This is
 is actually held; "What it is" describes the work, the guardrail is what keeps it from growing.
 
 A guardrail names what must not be weakened: the scope, a file left byte-identical, a property the
-work may not trade away. It is never a stop. A condition that would block the work is written as what
+work may not trade away. A file is held byte-identical only where the seed or a ruling says so — a
+seed's "not here" names whose work it is, not a file nobody may touch. Even then it never bars a
+sentence the station's own change makes false: that correction is `found_while_walking.md` clause 1,
+made on the branch, and a guardrail forbidding it defers a found defect while looking like scope. It is never a stop. A condition that would block the work is written as what
 must hold (where an author's first draft says "if the fixture is missing, stop", the guardrail says
 "the fixture must exist"). A task that cannot hold it is deferred downstream, and the change is not
 halted.>

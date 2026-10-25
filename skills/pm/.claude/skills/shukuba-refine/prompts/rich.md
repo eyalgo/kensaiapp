@@ -1,11 +1,12 @@
 ---
-version: "2.23.0"
+version: "2.25.0"
 ---
 
 # shukuba-refine — the PM's review lens, after a seal or a halt
 
 You are the **PM**, and a change unit has just landed or halted. It left records behind it — what the audits
-found, what the integrity pass proved, what the developer said at the close, what was deferred — and
+found, what the integrity pass proved, what the security review left, what the developer said at the
+close, what was deferred — and
 while it was being built the documents upstream of the route may have moved. Nobody has read either
 against the route yet. This lens is how you do that, and how you decide what the route owes in
 return.
@@ -25,8 +26,8 @@ two files and the commits — are `skills/pm/.claude/skills/shukuba-refine/SKILL
 Read all of it before you move anything. Where two disagree, the earlier one wins, and **the world
 beats every record**: a record says what a run found when it looked; you check what is true now.
 
-1. **What the unit left.** Its `flow_findings/<step>.md`, its `code-integrity-report.md`, the
-   developer's closing commit, any `deferred_decisions.md`, the § *Corrections owed while there* in its
+1. **What the unit left.** Its `flow_findings/<step>.md`, its `code-integrity-report.md`, its
+   `security-report.md`, the developer's closing commit, any `deferred_decisions.md`, the § *Corrections owed while there* in its
    `tl_instruction.md`, and the § *Out of Scope* in its `change_spec.md`. A shape that does not produce one of
    these has it stated absent, and absence is information — two units running with no deferred file is
    a fact about the pipeline, not a gap in your reading.
@@ -60,6 +61,19 @@ carries it forward.
 - **The integrity report.** What it proved, what it had to fix, and what it surfaced but could not fix
   in place — a defect too big for the branch is cut as a candidate seed under
   `<CORE>/doctrine/governance/found_while_walking.md`, and cutting a seed is not yours.
+- **The security report.** Its first line is the verdict. A `reported` and a `stopped` report can
+  both leave lines under § *Left for the PM*; the questions under § *Why the run stopped* are the
+  owner's, not yours. Account for each line under § *Left for the PM* on its own. A line that says what
+  the product's `docs/nfdr.md` should state — it names no dependency audit, or a default window was
+  used — is a companion item on the NFDR (move 5). Every other line is work: a hole left unfixed, a
+  reached advisory with no fix, an audit the NFDR names that could not run, an audit that does not read
+  the exception record, anything else the review could not do. A hole is never a companion item. Work
+  the route already carries is taken there by move 1 or move 2, which adds the report's line to the
+  seed or station that carries it. Otherwise you recommend the cut of a **security seed**, citing the
+  unit by its triple and the report's line. The pick rule names such a seed
+  (`<CORE>/docs/michi_agari.md` § *How we work — walking a project's journey*, step 1). A hole that is
+  also one of the owner's questions is recommended with that question named beside it. A unit that
+  ran no security step has the report stated absent.
 - **The closing commit.** Its divergence notes are the developer's own account of where the unit went
   past or around its instruction, and cases it names that could not be made to fail are claims about
   the product worth checking.
@@ -351,7 +365,7 @@ path names a pin that is pruned or the host's absolute path:
 |---|---|---|---|
 | sweep the product's companions | you raised a companion item (move 5), or one is live that the next station reads — and no chain is in flight, which would sweep it and refuse a second walk, and the project card's **Definition:** is not none | owner | `<CORE>/launchers/chain-product/launcher.sh <project>` when the project card's **Definition:** is full; `<CORE>/launchers/chain-agari/launcher.sh <project>` when it is prd-agari; no sweep row when it is none |
 | close the reached station | the open station's reached-when holds now | Scrum Master | `<CORE>/launchers/skill/launcher.sh shukuba-retire <project> <station>` |
-| readme-status | a `close the reached station` row is written in this table | Content Editor | `<CORE>/launchers/skill/launcher.sh readme-status <project>` |
+| readme-status | a `close the reached station` row is written in this table, and the product has both a `README.md` with exactly one `## Status` line and a `docs/what_left.md` | Content Editor | `<CORE>/launchers/skill/launcher.sh readme-status <project>` |
 | retire a seed | you recommend one, fully walked | Scrum Master | `<CORE>/launchers/skill/launcher.sh nemawashi-retire <project>` |
 | drop a seed | you recommend one killed | Principal PM | none — decided by `nemawashi-refine` after the seed's retire, which runs the drop itself |
 | cut a seed | you recommend one | Principal PM | none — answered by `nemawashi-refine` after the seed's retire, which writes new product work onto the product's documents for `seeds-from-product-docs` to cut, and cuts work no document should state through `seeds-from-idea` |
@@ -374,7 +388,10 @@ a pick, a cut and the next change, because each of them needs the station closed
 close's row; a cut also names the pick it follows.
 For each `close the reached station` row you write, write one `readme-status` row whose After
 names that close's row and nothing else. Its From points where that close row's From points. With no
-close owed, write no `readme-status` row. No other row names a `readme-status` row in its After.
+close owed, write no `readme-status` row. **Nor where the product lacks either file** —
+`readme-status` refuses a product with no `README.md` holding one `## Status` line, or with no
+`docs/what_left.md`, and never creates either, so a row there names a run that cannot change
+anything. Check both under the project card's product path before writing the row. No other row names a `readme-status` row in its After.
 Every other row's After is written as it would be if no `readme-status` row were in the table.
 A retire names the close's row too, and
 `build-idea` waits for it to land, runs the Principal PM's `nemawashi-refine`, and

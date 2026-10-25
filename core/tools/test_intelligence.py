@@ -260,7 +260,7 @@ _OPUS, _SONNET, _FABLE = "claude-opus-5-5", "claude-sonnet-5-5", "claude-fable-5
 _HAIKU = "claude-haiku-5-5"
 HIGH, MEDIUM, LOW = agent_run.Effort.HIGH, agent_run.Effort.MEDIUM, agent_run.Effort.LOW
 
-# The 27 chain skills that carry `intelligence/claude.md`, with the values CP-171 states —
+# The 28 chain skills that carry `intelligence/claude.md`, with the values CP-171 states —
 # written out, never derived. nemawashi-retire departs from CP-171: Haiku, the owner's call of
 # 2026-10-16.
 _CLAUDE_INTELLIGENCE = {
@@ -275,6 +275,7 @@ _CLAUDE_INTELLIGENCE = {
     "development-design": (_OPUS, HIGH),
     "development-implementation": (_SONNET, MEDIUM),
     "development-code-integrity": (_OPUS, HIGH),
+    "development-security": (_FABLE, MEDIUM),
     "shukuba-refine": (_OPUS, MEDIUM),
     "nemawashi-refine": (_OPUS, MEDIUM),
     "product-content": (_SONNET, MEDIUM),
@@ -293,7 +294,7 @@ _CLAUDE_INTELLIGENCE = {
     "product-sdd": (_FABLE, HIGH),
 }
 
-# The 28 skills the chains launch: the 27 above, plus the one that carries no folder.
+# The 29 skills the chains launch: the 28 above, plus the one that carries no folder.
 _CHAIN_LAUNCHED = frozenset(_CLAUDE_INTELLIGENCE) | {"companion-self-answer"}
 
 # The skills outside the chains that carry a folder, which `skill_intelligence.md` § *Scope*
@@ -304,6 +305,7 @@ _OUT_OF_CHAIN_INTELLIGENCE = {
     "experience-voice": (_SONNET, MEDIUM),
     "first-what-left": (_OPUS, HIGH),
     "ad-hoc-plan": (_OPUS, MEDIUM),
+    "dependency-repair": (_HAIKU, MEDIUM),
 }
 
 
@@ -324,17 +326,17 @@ def _engine_launched_skills() -> set[str]:
     return documents | steps | kinds | {"companion-self-answer"}
 
 
-def test_the_chain_launched_set_is_the_twenty_eight_skills():
+def test_the_chain_launched_set_is_the_twenty_nine_skills():
     derived = _engine_launched_skills()
 
-    assert len(_CHAIN_LAUNCHED) == 28
+    assert len(_CHAIN_LAUNCHED) == 29
     assert "readme-status" in derived
     assert derived == _CHAIN_LAUNCHED
 
 
 def test_the_expected_claude_intelligence_map_includes_readme_status():
     assert _CLAUDE_INTELLIGENCE["readme-status"] == (_SONNET, MEDIUM)
-    assert len(_CLAUDE_INTELLIGENCE) == 27
+    assert len(_CLAUDE_INTELLIGENCE) == 28
 
 
 @pytest.mark.parametrize("provider", ["claude", "codex", "gemini", "ollama"])

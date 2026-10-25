@@ -11,7 +11,7 @@ description: |
   Do not use for an earlier stage or an interactive hand-driven merge.
 license: MIT
 metadata:
-  version: "4.6.0"
+  version: "4.8.0"
   category: delivery
   risk: safe
 ---
@@ -216,6 +216,7 @@ output and error files in the stable directory Step 2 names, outside every deliv
   standard error and the `Environment:` line, with no join, no seal and no merge. Never run the card's
   command by hand, and never fall back to another environment. A failed suite keeps the rule above:
   the tool's exit is the suite's, and the deferral matching applies to it unchanged.
+- **An environment that was not ready is no suite result either.** Read the run's lines by `<CORE>/prompts/gate_suite.md` § *Reading the run's lines*. When any of them begins `Environment: not-ready`, the run is not a failed suite, whatever its exit, and the deferral matching never applies to it. Halt `deliver-precondition-failed`, quoting that line, with no join, no seal and no merge. The environment line rule below does not change for such a run, because a run that was not ready seals nothing.
 
 **The environment line.** The printed line is kept as `environment_line` in Step 2's bookkeeping,
 written to the caller configuration in the stable directory before any delivery worktree can be
@@ -344,7 +345,9 @@ Bookkeeping requires `date` (the run's seal date), `deferred` (the validated ord
 developer's or the integrity run's), `directional` (the full resolved directional line), `surface`, `co_authored_by` and
 `reasoning_effort` (the supplied resolved runtime effort). Include `claude_session` only when the
 run supplies one. Resolve `directional` under `<CORE>/doctrine/governance/commit_format.md`
-§ Directional trailer; preserve its literal value.
+§ Directional trailer; preserve its literal value. Preparation hands it to the builder's
+`check-directional` before the tool runs, because the seal commits only after a product merge: a
+line the builder would refuse halts `deliver-precondition-failed` with nothing merged.
 
 Invoke the materialized block with the configuration path as one literal argument:
 
@@ -355,7 +358,7 @@ python3 "/absolute/stable/caller-delivery.py" "/absolute/stable/configuration.js
 The script creates and retains one absolute temporary directory. It copies the complete contract
 and independent merge records without schema defaults, materializes the adopted action and action
 configuration, and creates `seal.json` with an absolute Python executable and literal action argv.
-Preparation executes no action. The actual tool invocation in `Caller.prepare` supplies
+Preparation executes no action; its one builder call is the read-only directional check. The actual tool invocation in `Caller.prepare` supplies
 `--contract`, `--merges`, `--seal-action` and explicit `--builder`; `Caller.deliver` runs it once
 from the stable temporary directory. Keep that directory, its input/configuration/action files,
 `before.json`, `invocation.json`, `seal-evidence.json` and `result.json` through outcome handling.
@@ -702,6 +705,15 @@ class Caller:
                 removed = Path(value).resolve()
                 if any(location.is_relative_to(removed) for location in (directory, core)):
                     raise ValueError("caller inputs, executable and builder must survive cleanup")
+        # The seal commits after the product merge, so a directional the builder would refuse
+        # is refused here, while nothing has landed.
+        check = self.processes.run(
+            [sys.executable, str(builder), "--repo", contract["instance_worktree"],
+             "check-directional", "--directional", configuration["bookkeeping"]["directional"]],
+            cwd=directory,
+        )
+        if check.returncode:
+            raise ValueError(f"bookkeeping.directional refused: {check.stderr.strip()}")
         for name in ("contract", "merges"):
             self._json(directory / f"{name}.json", configuration[name])
         source = self.files.read(Path(configuration["caller_source"]))

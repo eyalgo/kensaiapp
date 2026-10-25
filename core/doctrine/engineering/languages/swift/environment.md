@@ -1,5 +1,5 @@
 ---
-version: "2.1.0"
+version: "2.2.0"
 ---
 
 # Swift — gate environment
@@ -31,6 +31,14 @@ of 2026-10-14.
 this packet names, so it states its environment in its own decision files
 (`languages/README.md` § Gate environment defaults).
 
+## Provisioning
+
+Swift has no container default (§ Default and CI alignment). A product whose own decision files send Swift's gates to a container names that container's image there (`languages/README.md` § Gate environment defaults). On this reading an image chosen to build Swift already carries the toolchain, so nothing is installed in it at each run.
+
+**Container install:** none
+
+Where Swift's gates run in the macOS guest, that guest is set up as § macOS guest provisioning below states.
+
 ## In the macOS guest
 
 | Tool | Folder |
@@ -38,7 +46,9 @@ this packet names, so it states its environment in its own decision files
 | `swift` | — |
 
 The image carries it: inside the guest, `command -v swift` prints `/usr/bin/swift`, a folder on the
-guest's own PATH. So there is no install step.
+guest's own PATH. So swift needs no install step, in the base or at each run.
+
+**Guest install:** none
 
 ## macOS guest provisioning
 
@@ -83,7 +93,7 @@ same option). A checkout is reached inside the guest at its path under its share
    **Then install into the base the tools of the languages the cards declare, and no others.** The
    languages are the `Languages:` of each project card whose product's CI runs on macOS. For each
    one, its packet's § In the macOS guest names the tool its gates run with and the step that
-   installs it. A Swift-only card adds nothing, because the image already carries Swift. A card
+   installs that tool into the base. The same section's `**Guest install:**` line is not that step. `<CORE>/tools/gate_suite.py` runs that line in the running guest at every run, and never in the base (`languages/README.md` § Gate environment defaults). A Swift-only card adds nothing, because the image already carries Swift. A card
    that declares Rust adds rustup. A language no card declares is not installed.
 
    `<CORE>/tools/gate_suite.py` looks in the guest, before it issues a suite, for the tool of each
@@ -215,8 +225,7 @@ same option). A checkout is reached inside the guest at its path under its share
 
    **What the tool reports as the environment's failure, and what it does not.** A copy that fails
    is reported as the environment's failure, and no suite is issued, so a broken copy never reads as
-   a red suite. A failure inside the gate command itself is the gate command's exit, whatever caused
-   it. The tool does not read a build's output to tell the environment's errors from the code's.
+   a red suite. A guest install or a dependencies command that fails, and a test command that exits 127, are reported as an environment that was not ready, never as a red suite (`languages/README.md` § Gate environment defaults). Any other failure inside the gate command is the gate command's exit, whatever caused it. The tool does not read a build's output to tell the environment's errors from the code's.
 
 5. **Reset the guest to the base when it drifts.** Caches and tools that runs leave behind are
    cleared by deleting the guest and re-cloning it from the base. Unload the agent first, because

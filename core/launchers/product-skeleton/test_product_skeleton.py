@@ -3,7 +3,8 @@
 **The model was the `seeds-from-product-docs` launcher**, read 2026-09-02 and removed 2026-09-25, for
 the argument surface and card resolution this launcher shares with every sibling: `--instance-root`
 first, one positional that is a PROJECT NAME (never a path — the shape check is the exact inverse
-of `seeds-from-idea`'s bare-word rule), the project resolved through
+of the bare-word rule the `seeds-from-idea` launcher held until it was removed on 2026-10-24), the
+project resolved through
 `system/projects/<project>/project.md`, and its `Product path:` line read through the trailing HTML
 comment exactly as every sibling reads it.
 

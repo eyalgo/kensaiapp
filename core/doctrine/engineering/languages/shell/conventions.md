@@ -1,5 +1,5 @@
 ---
-version: "1.1.9"
+version: "1.1.10"
 ---
 
 # Shell — conventions
@@ -97,7 +97,7 @@ open this way, and nothing else sits between the shebang and the options line.
   cross-launcher name, nested inside the per-launcher one:
   `NOTIFIER="${LAUNCH_CONTENT_NOTIFIER:-${KENSAIAPP_NOTIFIER:-}}"`. All 18 `.sh` files name it.
 - **A path a caller may need to stub gets an override; a path nobody would stub gets none.**
-  `core/launchers/seeds-from-idea/launcher.sh` states the rule where it applies it: the shared library
+  `core/launchers/launch-eval-fix/launcher.sh` states the rule where it applies it: the shared library
   path has "No env override: unlike $WATCHER, no test or caller ever wants a stub in its place, only
   the real file at its real relative depth."
 

@@ -1,5 +1,5 @@
 ---
-version: "1.2.0"
+version: "1.3.0"
 ---
 
 # JavaScript — gate environment
@@ -33,6 +33,8 @@ dependency" (`quality_gates.md` § The two gates).
 Where `languages/README.md` § Gate environment defaults sends the gates to the macOS guest instead,
 that guest is set up as `swift/environment.md` § macOS guest provisioning states.
 
+**Container install:** none
+
 ## In the macOS guest
 
 | Tool | Folder |
@@ -40,5 +42,7 @@ that guest is set up as `swift/environment.md` § macOS guest provisioning state
 | `node` | — |
 
 The image carries it: inside the guest, `command -v node` prints `/opt/homebrew/bin/node`, a folder
-on the guest's own PATH. So there is no install step. `node --version` prints `v24.21.0`. That is
+on the guest's own PATH. So there is no install step, in the base or at each run. `node --version` prints `v24.21.0`. That is
 the image's Node, not CI's, and nothing holds it to CI's version yet.
+
+**Guest install:** none

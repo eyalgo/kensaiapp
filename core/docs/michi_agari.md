@@ -1,5 +1,5 @@
 ---
-version: "2.21.0"
+version: "2.23.1"
 ---
 
 # The Michi / Agari system — how kensaiapp expresses direction
@@ -128,10 +128,11 @@ One turn of the loop:
    first act on the picked seed. A divergence from the proposal is logged in the seed.
 
    **Quality comes before features at the pick.** When a seed that makes the product's footing
-   hold — its tests, its harness, its CI, a tree left clean — competes with a feature seed, the PM
-   picks the quality seed, even where a queued or implied feature order put the feature first. The
+   hold — its tests, its harness, its CI, its security, a tree left clean — competes with a feature
+   seed, the PM picks the quality seed, even where a queued or implied feature order put the feature
+   first. A seed cut to close what a change's security report left for the PM is a quality seed. The
    pick says so in one line and is not raised to the owner. An order the owner stated outright still
-   wins. The owner's call of 2026-10-21.
+   wins. The owner's call of 2026-10-21; security named in it 2026-10-23.
 
 2. **Open a station — 宿場 Shukuba.** The **PM** opens the current station: a concrete stretch of
    work with its own reached-when. **Exactly one** station is active at a time. A single idea usually
@@ -141,7 +142,7 @@ One turn of the loop:
 3. **Development — walk the station through the pipeline.** The building inside a station runs as one
    or more 飛び石 Tobiishi (change units). Each is opened (`tobiishi-open`, PM) and carried
    end-to-end by the chain (`core/launchers/chain-development/launcher.sh` → `core/tools/chain_development.py`)
-   (specs → design → plan → content → implementation → code-integrity → audit → seal),
+   (specs → design → plan → content → implementation → code-integrity → security → audit → seal),
    landing sealed-on-main (each change unit is **sealed** by `tobiishi-seal`). A station may take
    several Tobiishi before its reached-when is met.
 
@@ -174,6 +175,17 @@ One turn of the loop:
    answering the recommendations `shukuba-refine` left in the folder it moves into `trail/` is the
    Principal PM's, the owner's call of 2026-09-12, made after the move, the owner's call of
    2026-09-25.
+
+   **What the audit finds is answered here, not in the walk.** The audit is not a gate
+   (`<CORE>/../skills/pm/.claude/skills/tobiishi-seal/SKILL.md` § *Step 1b — Join the audit branches*), so a change
+   it faults still seals. Its findings, with the code-integrity report and the security report, are what `shukuba-refine`
+   reads first, and its moves are the response: the route re-cut, a station parked or a halted unit dropped
+   where the work cannot go on as written, a question raised on an upstream document. What the PM may
+   not move goes to the Principal PM as a recommendation, and `nemawashi-refine` answers it. Which
+   finding gets which move is `shukuba-refine`'s prompt, § *Read the unit before the route* and
+   § *The six moves*. The response lands one unit later, never inside the change it faults. A finding
+   about the machinery rather than the product — a skill, a prompt, the pipeline — is not the PM's to
+   move on, and no step reads it yet.
 
    **A walk is not the only way an idea leaves the root.** One killed instead — ruled out or
    superseded — is **dropped** to `nemawashi/drop/` (`nemawashi-drop`), and one set down unfinished is
@@ -237,7 +249,7 @@ and grounds the FDR; it does not dictate what is seeded.
 | Answer the retired seed and re-read the pool | **Principal PM** (`nemawashi-refine`, gated to that seat) | every recommendation processed, candidates kept, modified or dropped, companion items on product documents → `system/projects/<project>/docs/nemawashi-refine/<seed>_report.md`. Project level only |
 
 This table is the **planning tier's**, and its hand-off is complete at the spec. From `change_spec`
-onward the change runs through the rest of the change pipeline (design → plan → content → implementation → code-integrity → audit → seal) and
+onward the change runs through the rest of the change pipeline (design → plan → content → implementation → code-integrity → security → audit → seal) and
 the station is closed by the seat the table's close row names — see the loop above. The last five rows sit after that stretch,
 or leave it: the route is re-read once a unit has landed, the station is closed once its
 reached-when is met, a unit that will not be finished is dropped instead of sealed, and the seed is

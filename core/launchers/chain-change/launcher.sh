@@ -3,6 +3,8 @@
 # launcher.sh (chain-change) — the owner's one command for a change unit's whole life, from the
 # station that names it to the seal that lands it on main, and on to the shukuba-refine run after
 # it when the unit serves a station.
+# Version: 2.10.0 — the owner's Mac ask carries from a walk to the next change's walk
+# Version: 2.9.0 — the gate tool reads a walk's owner's-Mac ask itself, so a run cannot drop it
 # Version: 2.8.0 — a gate run states its environment — gate_suite tool, environment declaration gate, owner-ask option
 # Version: 2.7.3 — the queue ends clean after a walk with no station
 # Version: 2.7.2 — a walk with no station ends sealed — the chain's end-of-walk rule, its tests and the walk's text
@@ -80,8 +82,9 @@
 #   started nothing on any other end. A walk whose unit serves no station ends sealed with no
 #   refine report, because such a unit is owed none. build-idea then starts nothing, says that the
 #   unit serves no station, and exits 0. A unit that serves a station and has no refine report is
-#   still refused. The command is the same for every walk and is not an argument: nothing here
-#   lets a caller point the end somewhere else.
+#   still refused. A walk started with --gate-owners-mac puts that flag before --chain-ended, so
+#   the queue it starts puts the ask on the next change's walk. The command is not an argument:
+#   nothing here lets a caller point the end somewhere else.
 #
 # WHAT RUNS BEFORE THE CHANGE WALK
 #   Every start reads the card's **Definition:** line and runs the definition walk it names
@@ -181,7 +184,7 @@
 #                   engine's own default applies.
 #                   Never handed to a definition walk.
 #     --gate-owners-mac
-#                   the owner's ask to run the card's test command on the owner's Mac in the walk's developer, code-integrity and seal runs, in place of the environment the product resolves to. Without it, those runs use the owner's Mac only when the product has no CI. No card field, product record or exported variable sets it. The ask is kept on the walk's state, so an advance, a resume or a recovery keeps it. Never handed to a definition walk. A start that waits on a definition walk keeps the ask in its pending-launch record, so the change walk started after it has the ask.
+#                   the owner's ask to run the card's test command on the owner's Mac in the walk's developer, code-integrity, security and seal runs, in place of the environment the product resolves to. Without it, those runs use the owner's Mac only when the product has no CI. No card field, product record or exported variable sets it. The ask is kept on the walk's state, so an advance, a resume or a recovery keeps it. The walk's end hands it to build-idea, which puts it on the next change's walk. Never handed to a definition walk. A start that waits on a definition walk keeps the ask in its pending-launch record, so the change walk started after it has the ask.
 #
 #   <CORE>/launchers/chain-change/launcher.sh <project> --stop
 #     --stop        stop the walk: the engine stops every run in flight, watcher first, signalling
@@ -338,20 +341,27 @@ if [ -n "$stop" ]; then
   exit "$rc"
 fi
 
-# The command the walk's end runs, as ONE string the engine splits the way a shell does. Each word
-# is quoted for that split — printf '%q' is the quoting shlex.split undoes — so a <CORE> whose path
-# holds a space arrives as one word and not as two, the second a command that does not exist. The
-# trailing space printf leaves is stripped, and the engine appends the end after it.
-on_end="$(printf '%q ' "$CORE_DIR/launchers/build-idea/launcher.sh" "$project" --chain-ended)"
-on_end="${on_end% }"
-
 # The one place the change walk's engine command is built — for a start that walks the change at
 # once and for the end hook that continues a definition-first launch alike — so the change walk the
 # hook starts is the one the same launch would start under none, by construction. Arguments: product
 # path, provider force, keep-awake, context cap, notifier, the owner's ask. An empty value omits its
 # flag. Fills `change_argv`.
 build_change_argv() {
-  local product="$1" force="$2" awake="$3" cap="$4" notifier="$5" ask="${6:-}"
+  local product="$1" force="$2" awake="$3" cap="$4" notifier="$5" ask="${6:-}" on_end
+  # The command the walk's end runs, as ONE string the engine splits the way a shell does. Each
+  # word is quoted for that split — printf '%q' is the quoting shlex.split undoes — so a <CORE>
+  # whose path holds a space arrives as one word and not as two, the second a command that does
+  # not exist. The trailing space printf leaves is stripped, and the engine appends the end after
+  # it, so the ask goes before --chain-ended. The ask is handed on, so the next change's walk the
+  # queue starts has it; it is built here from the ask given, because the definition walk's end
+  # hook is a fresh invocation that takes the ask from the pending-launch record, not a flag.
+  if [ -n "$ask" ]; then
+    on_end="$(printf '%q ' "$CORE_DIR/launchers/build-idea/launcher.sh" "$project" \
+      --gate-owners-mac --chain-ended)"
+  else
+    on_end="$(printf '%q ' "$CORE_DIR/launchers/build-idea/launcher.sh" "$project" --chain-ended)"
+  fi
+  on_end="${on_end% }"
   change_argv=(python3 "$CHAIN_SCRIPT" --start "$state_path"
     --instance-root "$INSTANCE_ROOT" --product-path "$product"
     --project "$project" --core-dir "$CORE_DIR" --shim-dir "$log_dir" --steps "$STEPS"

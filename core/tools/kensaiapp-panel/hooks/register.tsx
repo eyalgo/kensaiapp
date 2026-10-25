@@ -25,8 +25,10 @@ const DEPTH_INDENT = 2
 const WALK_INDENT = 4
 
 // Every string a person reads that is not a row's own text. Each is `change_text.md`'s, verbatim,
-// but the seed, station, walk and skill labels, the scroll markers, the route's marks and the fix
-// line, which came after it.
+// but the seed, station, walk and skill labels, the scroll markers, the route's marks, the fix
+// line, the ages and the task, which came after it: a running walk reads `running total 33m` and
+// its step `implementation for 2m (Task 3 of 7)`, a waiting walk `started 3h ago`, where
+// `change_text.md` had one `{n}m ago` at the line's end.
 const TEXT = {
   commandMenu: "Read this instance's chains again and open the kensaiapp pane",
   empty: 'nothing',
@@ -35,9 +37,13 @@ const TEXT = {
   openedNotShown: (reason: string) => `The kensaiapp pane is open but not shown yet: ${reason}`,
   waitingHeading: (count: number) => `WAITING ON YOU (${count})`,
   runningHeading: (count: number) => `RUNNING NOW (${count})`,
-  minutesAgo: (count: number) => `${count}m ago`,
-  hoursAgo: (count: number) => `${count}h ago`,
-  daysAgo: (count: number) => `${count}d ago`,
+  minutes: (count: number) => `${count}m`,
+  hours: (count: number) => `${count}h`,
+  days: (count: number) => `${count}d`,
+  runningTotal: (elapsed: string) => `running total ${elapsed}`,
+  started: (elapsed: string) => `started ${elapsed} ago`,
+  stepFor: (step: string, elapsed: string) => `${step} for ${elapsed}`,
+  onTask: (step: string, task: number, tasks: number) => `${step} (Task ${task} of ${tasks})`,
   seed: (title: string) => `seed: ${title}`,
   station: (title: string) => `station: ${title}`,
   walk: (title: string) => `walk: ${title}`,
@@ -65,65 +71,84 @@ type Line = {
 
 // The board as the pane's lines, top to bottom.
 function boardLines(board: Board, now: number): Line[] {
-  // What the row is doing: its launcher, why it waits, its step and its age.
-  const doing = (one: BoardRow, isWaiting: boolean, withLauncher: boolean): string[] =>
-    [withLauncher ? one.launcher : '', isWaiting ? one.status : '', one.step, age(one.started_at, now)]
-      .filter(Boolean)
   // A skill run on the station of a walk waiting on you is that walk's fix: it reads under the
-  // walk, not as a running row of its own.
+  // walk, not as a running row of its own, and while it runs the walk is live work, so it reads
+  // under Running now rather than Waiting on you — still halted, with why and when it started.
   const isSkill = (one: BoardRow) => one.launcher === SKILL_LAUNCHER
   const fixTarget = (one: BoardRow): BoardRow | undefined =>
     isSkill(one) && one.station
       ? board.waiting.find(walker => walker.key && walker.project === one.project && walker.station === one.station)
       : undefined
-  const running = board.running.filter(one => fixTarget(one) === undefined)
-  // Under a waiting row: why it waits, dimmed, then each skill run fixing it — live work, so not.
-  const waitLines = (one: BoardRow, isWaiting: boolean, indent: number): Line[] =>
-    isWaiting
+  const fixesOf = (one: BoardRow) => board.running.filter(fix => fixTarget(fix) === one)
+  const waiting = board.waiting.filter(one => fixesOf(one).length === 0)
+  // A fixed walk takes the place of its first fix, so Running now keeps the reader's newest-first order.
+  const running = board.running.flatMap(one => {
+    const walker = fixTarget(one)
+    if (walker === undefined) return [one]
+    return fixesOf(walker)[0] === one ? [walker] : []
+  })
+  const halted = (one: BoardRow) => board.waiting.includes(one)
+
+  // What the row is doing: its launcher, why it waits, how long its walk has run (or, halted, when
+  // it started), and its step with how long that step has run and, where the reader names one, the
+  // task of its plan the run is on. Both ages count to now.
+  const doing = (one: BoardRow, withLauncher: boolean): string[] => {
+    const walkAge = elapsed(one.started_at, now)
+    const stepAge = elapsed(one.step_started_at, now)
+    const step = one.step && stepAge ? TEXT.stepFor(one.step, stepAge) : one.step
+    return [
+      withLauncher ? one.launcher : '',
+      halted(one) ? one.status : '',
+      walkAge && (halted(one) ? TEXT.started(walkAge) : TEXT.runningTotal(walkAge)),
+      step && one.task && one.tasks ? TEXT.onTask(step, one.task, one.tasks) : step,
+    ].filter(Boolean)
+  }
+  // Under a halted row: why it waits, dimmed, then each skill run fixing it — live work, so not.
+  const waitLines = (one: BoardRow, indent: number): Line[] =>
+    halted(one)
       ? [
           ...(one.reason ? [{ text: one.reason, dimColor: true, indent }] : []),
-          ...board.running
-            .filter(fix => fixTarget(fix) === one)
-            .map(fix => ({
-              text: [TEXT.fixing(fix.walk), ...doing(fix, false, true)].join(DETAIL_SEPARATOR),
-              indent,
-            })),
+          ...fixesOf(one).map(fix => ({
+            text: [TEXT.fixing(fix.walk), ...doing(fix, true)].join(DETAIL_SEPARATOR),
+            indent,
+          })),
         ]
       : []
 
   // The row's place on the journey, each line only where the reader found it. A project with a
   // route has its seed named there, so the row never repeats it; where the route also has a
   // current station, the row names only its walk.
-  const row = (one: BoardRow, isWaiting: boolean, hasRoute: boolean, routeNamesStation: boolean): Line[] => {
+  const row = (one: BoardRow, hasRoute: boolean, routeNamesStation: boolean): Line[] => {
     const place = [
       hasRoute ? '' : one.seed && TEXT.seed(one.seed),
       routeNamesStation ? '' : one.station && TEXT.station(one.station),
       one.walk && (isSkill(one) ? TEXT.skill(one.walk) : TEXT.walk(one.walk)),
     ].filter(Boolean)
+    const detail = doing(one, !isSkill(one)).join(DETAIL_SEPARATOR)
     return [
       ...place.map(text => ({ text, indent: ROW_INDENT })),
-      { text: doing(one, isWaiting, !isSkill(one)).join(DETAIL_SEPARATOR), dimColor: true, indent: ROW_INDENT },
-      ...waitLines(one, isWaiting, ROW_INDENT),
+      ...(detail ? [{ text: detail, dimColor: true, indent: ROW_INDENT }] : []),
+      ...waitLines(one, ROW_INDENT),
     ]
   }
 
   // The seed, its checklist, and under the current station its walks; under any other station only
   // a walk a row is still on, as after its station has closed. A walk a row is on, open or already
   // sealed or dropped, reads on one line with what that row is doing, the launcher named when it
-  // waits on you; a second row on it follows beneath. Without an open walk the current station
+  // is halted; a second row on it follows beneath. Without an open walk the current station
   // shows that the next walk is owed, and with no station open the route shows, before its first
   // unreached item, that the next station is.
-  const routeLines = (route: Route, rows: readonly BoardRow[], isWaiting: boolean): Line[] => {
+  const routeLines = (route: Route, rows: readonly BoardRow[]): Line[] => {
     const walkLines = (walk: RouteWalk, indent: number): Line[] => {
       const [first, ...more] = rows.filter(one => one.key === walk.key)
       const head = [`${TEXT.walkMark[walk.state]} ${walk.name}`, TEXT.walkState[walk.state],
-        ...(first ? doing(first, isWaiting, isWaiting) : [])]
+        ...(first ? doing(first, halted(first)) : [])]
       return [
         { text: head.filter(Boolean).join(DETAIL_SEPARATOR), dimColor: walk.state !== 'open' && !first, indent },
-        ...(first ? waitLines(first, isWaiting, indent + ROW_INDENT) : []),
+        ...(first ? waitLines(first, indent + ROW_INDENT) : []),
         ...more.flatMap(one => [
-          { text: doing(one, isWaiting, true).join(DETAIL_SEPARATOR), dimColor: true, indent: indent + ROW_INDENT },
-          ...waitLines(one, isWaiting, indent + ROW_INDENT),
+          { text: doing(one, true).join(DETAIL_SEPARATOR), dimColor: true, indent: indent + ROW_INDENT },
+          ...waitLines(one, indent + ROW_INDENT),
         ]),
       ]
     }
@@ -168,23 +193,23 @@ function boardLines(board: Board, now: number): Line[] {
     const walking = (rows: readonly BoardRow[], keys: ReadonlySet<string>) =>
       rows.some(one => one.project === route.project && keys.has(one.key))
     for (const keys of [currentKeysOf(route), drawnKeysOf(route)]) {
-      if (walking(board.waiting, keys)) return true
+      if (walking(waiting, keys)) return true
       if (walking(running, keys)) return false
     }
-    return board.waiting.some(one => one.project === route.project)
+    return waiting.some(one => one.project === route.project)
   }
 
   // A project's rows: in the section that draws its route, the route, with each row on one of its
   // walks on that walk's line and every other row below it; elsewhere, rows alone.
   const projectLines = (project: string, rows: readonly BoardRow[], isWaiting: boolean): Line[] => {
     const route = board.routes.find(one => one.project === project)
-    if (route === undefined) return rows.flatMap(one => row(one, isWaiting, false, false))
+    if (route === undefined) return rows.flatMap(one => row(one, false, false))
     const namesPlace = route.stations.some(stop => stop.state === 'current')
-    if (drawsRouteIn(route) !== isWaiting) return rows.flatMap(one => row(one, isWaiting, true, namesPlace))
+    if (drawsRouteIn(route) !== isWaiting) return rows.flatMap(one => row(one, true, namesPlace))
     const drawnKeys = drawnKeysOf(route)
     return [
-      ...routeLines(route, rows, isWaiting),
-      ...rows.filter(one => !drawnKeys.has(one.key)).flatMap(one => row(one, isWaiting, true, namesPlace)),
+      ...routeLines(route, rows),
+      ...rows.filter(one => !drawnKeys.has(one.key)).flatMap(one => row(one, true, namesPlace)),
     ]
   }
 
@@ -206,7 +231,7 @@ function boardLines(board: Board, now: number): Line[] {
   return [
     { text: board.instance ?? '', bold: true },
     { text: ' ' },
-    ...section(TEXT.waitingHeading(board.waiting.length), board.waiting, true),
+    ...section(TEXT.waitingHeading(waiting.length), waiting, true),
     { text: ' ' },
     ...section(TEXT.runningHeading(running.length), running, false),
   ]
@@ -261,14 +286,15 @@ const UNREAD: PaneState = { board: null, hasFailed: false, isOpen: false }
 // The pane's own state lives in `$.state`, because a hot reload loses a module's variables.
 const pane = atom({ plugin: 'kensaiapp-panel', key: 'pane' } as const, UNREAD)
 
-function age(startedAt: string, now: number): string {
-  const elapsedMs = now - Date.parse(startedAt)
+// How long since `startedAt`, or '' where it is missing, unreadable or still ahead.
+function elapsed(startedAt: string | undefined, now: number): string {
+  const elapsedMs = now - Date.parse(startedAt ?? '')
   if (!Number.isFinite(elapsedMs) || elapsedMs < 0) return ''
   const minutes = Math.floor(elapsedMs / MS_PER_MINUTE)
-  if (minutes < MINUTES_PER_HOUR) return TEXT.minutesAgo(minutes)
+  if (minutes < MINUTES_PER_HOUR) return TEXT.minutes(minutes)
   const hours = Math.floor(minutes / MINUTES_PER_HOUR)
-  if (hours < HOURS_SHOWN_AS_HOURS) return TEXT.hoursAgo(hours)
-  return TEXT.daysAgo(Math.floor(hours / HOURS_PER_DAY))
+  if (hours < HOURS_SHOWN_AS_HOURS) return TEXT.hours(hours)
+  return TEXT.days(Math.floor(hours / HOURS_PER_DAY))
 }
 
 function parseBoard(stdout: string): Board | null {

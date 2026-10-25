@@ -30,6 +30,7 @@ import build_idea as bi
 import chain
 import chain_development as cd
 import completion_shim
+import gate_suite as gs
 import product_checkout
 import providers
 import walk_stop
@@ -6118,3 +6119,117 @@ def test_a_report_present_hook_start_with_a_malformed_report_is_refused_as_befor
 
     assert not hasattr(refused.value, "layout")
     assert STATE not in queue.files.files and not queue.processes.calls
+
+
+# --- the owner's Mac ask: kept on the queue, put on every chain-change row ----------------------
+
+
+def test_a_chain_change_row_carries_the_owners_mac_ask():
+    queue = Queue(row(1, CHANGE))
+
+    queue.start(gate_owners_mac=True)
+
+    assert queue.processes.launched[0][-3:] == ["--context-cap", "250000", "--gate-owners-mac"]
+
+
+def test_a_queue_without_the_ask_puts_none_on_its_chain_change_row():
+    queue = Queue(row(1, CHANGE))
+
+    queue.start()
+
+    assert "--gate-owners-mac" not in queue.processes.launched[0]
+
+
+@pytest.mark.parametrize("move", [CLOSE, PICK, CUT_ROUTE, SWEEP])
+def test_a_row_that_is_not_a_chain_change_carries_no_ask(move):
+    """A skill row has no gate, and the sweep runs `chain-product`, which refuses the flag."""
+    queue = Queue(row(1, move))
+
+    queue.start(gate_owners_mac=True)
+
+    assert all("--gate-owners-mac" not in argv for argv in queue.processes.launched)
+
+
+def test_the_ask_travels_as_a_flag_never_in_the_environment():
+    """The gate tool reads the variable itself, so a queue never puts it on a launch."""
+    queue = Queue(row(1, CLOSE), row(2, CHANGE, after="1"))
+
+    queue.start(gate_owners_mac=True)
+    queue.close_station()
+    queue.advance(1)
+
+    assert all(gs.OWNERS_MAC_VARIABLE not in call["env"] for call in queue.processes.calls)
+
+
+def test_every_start_states_the_ask_so_a_resume_can_lift_it():
+    """The start a walk's end makes passes the flag when that walk had the ask; an owner's plain
+    resume passes none, and the queue's next chain-change walk has none."""
+    queue = Queue(row(1, CLOSE), row(2, CHANGE, after="1"))
+    queue.start(gate_owners_mac=True)
+    queue.stop()
+    queue.close_station()
+    queue.advance(1)
+
+    queue.start()
+
+    assert queue.state["gate_owners_mac"] is False
+    assert "--gate-owners-mac" not in queue.processes.launched[-1]
+
+
+def test_a_queue_state_round_trip_keeps_the_ask_and_an_older_file_loads_without_it():
+    state = bi.QueueState(project=PROJECT, gate_owners_mac=True)
+
+    assert bi.QueueState.from_json(state.to_json()).gate_owners_mac is True
+
+    older = state.to_json()
+    del older["gate_owners_mac"]
+    assert bi.QueueState.from_json(older).gate_owners_mac is False
+
+
+def test_main_start_records_the_ask_only_when_given(tmp_path):
+    root = real_instance(tmp_path, row(1, DROP))
+    state_path = root / "system" / "logs" / "state.json"
+
+    assert bi.main(start_args(root, "--gate-owners-mac")) == 0
+    assert json.loads(state_path.read_text())["gate_owners_mac"] is True
+
+    fresh = real_instance(tmp_path / "second", row(1, DROP))
+    assert bi.main(start_args(fresh)) == 0
+    assert json.loads(
+        (fresh / "system" / "logs" / "state.json").read_text())["gate_owners_mac"] is False
+
+
+def test_the_owners_act_resume_hint_restates_the_ask_the_queue_holds():
+    """A resume lifts the ask unless it restates it, so the queue's own hint restates it."""
+    queue = Queue(row(1, OWNER, command=WALK_YOURSELF))
+
+    queue.start(gate_owners_mac=True)
+
+    assert queue.notifier.messages[-1].splitlines()[0].endswith(
+        f"once it is made, resume with: {RESUME} --gate-owners-mac")
+
+
+def test_the_stops_resume_hint_restates_the_ask_the_queue_holds():
+    queue = Queue(row(1, CLOSE), row(2, PICK, after="1"))
+    queue.start(gate_owners_mac=True)
+
+    said = queue.stop()
+
+    assert f"Resume with: {RESUME} --gate-owners-mac" in said
+
+
+def test_a_suppressed_hook_starts_resume_hint_restates_that_walks_ask():
+    """The walk had the ask, and the only way back the system offers must not drop it."""
+    queue = stopped_mid_way(row(1, CLOSE), row(2, PICK, after="1"))
+
+    queue.start(by_hook=True, gate_owners_mac=True)
+
+    assert f"run {RESUME} --gate-owners-mac to resume" in queue.notifier.messages[-1]
+
+
+def test_a_resume_hint_names_no_ask_the_queue_does_not_hold():
+    queue = Queue(row(1, OWNER, command=WALK_YOURSELF))
+
+    queue.start()
+
+    assert "--gate-owners-mac" not in queue.notifier.messages[-1]

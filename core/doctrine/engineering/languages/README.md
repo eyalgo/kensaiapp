@@ -1,5 +1,5 @@
 ---
-version: "2.8.0"
+version: "2.11.0"
 ---
 
 # Language packets — the per-language engineering-practice family
@@ -136,7 +136,7 @@ and a recordable one; a rule that cannot be checked is not.
 ## Gate environment defaults
 
 These defaults hold for every language. Each packet's `environment.md` points at this section and
-restates none of it. All of them are the owner's ruling of 2026-10-14. A packet's own answer picks
+restates none of it. All of them but the last four are the owner's ruling of 2026-10-14. The last four follow from the owner's direction of 2026-10-23 that every environment a suite runs in installs what the suite needs, and from the owner's call of the same day that a product names its own dependencies on its project card. A packet's own answer picks
 only its language's guest or image, and states how that one is provisioned and held to CI.
 
 - **The product's CI runner decides the environment.** A product whose CI runs on macOS runs the
@@ -148,7 +148,18 @@ only its language's guest or image, and states how that one is provisioned and h
   and one row: the tool in backticks, then either the folder that holds it, in backticks, or `—`
   (an em dash) where the guest's own PATH already reaches it. `<CORE>/tools/gate_suite.py` reads
   that row and no other shape, and reads a packet whose section is written any other way as naming
-  no guest tool. A product whose CI runs on
+  no guest tool.
+  The Python packet's section may also hold one line beside its table:
+  `**Versioned Python folders:**`, then absolute folders in the guest, each in backticks and
+  separated by commas. `<CORE>/tools/gate_suite.py` reads that line only in that section of
+  `python/environment.md`, and uses the folders only for a gate whose product's CI runs on both
+  macOS and Linux. For the newest Python version that CI states, `<CORE>/tools/gate_suite.py` looks
+  on the guest's own PATH and in those folders for a `python3` that reports the version, and runs
+  the guest's suite with the `python3` it found. A gate whose product's CI runs on macOS only never
+  searches the folders. A Python packet with no such line names no extra folders. The folders the
+  line holds, and the step that installs a Python in each, are `python/environment.md` § In the
+  macOS guest's.
+  A product whose CI runs on
   Linux runs each language's gates in that language's container default, which its
   `environment.md` names.
 - **A product's own decision files may override a language's default**, and they outrank every packet
@@ -166,6 +177,16 @@ only its language's guest or image, and states how that one is provisioned and h
   6.1.3). The owner's Mac is arm64: `/bin/bash --version` prints `arm64-apple-darwin25`
   (`shell/toolchain.md` § The runtime is bash 3.2). A product that asks for amd64 adds
   `--arch amd64`.
+- **Every environment a suite runs in gets its languages' installs and the product's dependencies before the test command.** A packet states its container install as one line in its `## Provisioning` section, and its guest install as one line in its `## In the macOS guest` section. The line is `**Container install:**` or `**Guest install:**`, then either one command in backticks or the word `none`. A language that needs no install writes `none`. `<CORE>/tools/gate_suite.py` reads those two lines and no other shape, and only in those two sections. A packet whose line is missing, sits in another section, or holds any other value states no install for that environment. The product names its own dependencies on its project card as `**Dependencies command:**`, a shell command or `none` (`<CORE>/templates/project_template.md`). A card without the line reads as `none`. In a container, in the macOS guest and in each cell of a matrix, the tool runs these in one shell, in the directory the test command runs in: each resolved language's install for that kind of environment, in the order the languages resolved, each distinct command once, then the dependencies command, then the test command. A `none` adds nothing. Because all of them run in one shell, a variable an install or the dependencies command exports reaches the test command. Where nothing is added, the test command runs exactly as the card writes it. On the owner's Mac no install and no dependencies command runs, and the test command runs alone on the host.
+- **An environment that was not ready is reported as not ready, never as a failing suite.** It is not ready for exactly one of four causes:
+  - a resolved language's packet states no install for that kind of environment, and nothing is run there;
+  - a language's install exits non-zero, and the test command is not run;
+  - the dependencies command exits non-zero, and the test command is not run;
+  - the test command exits 127, the status the shell gives a command it cannot find, after every install and the dependencies command passed.
+
+  `<CORE>/tools/gate_suite.py` tells an install's or the dependencies command's failure from the test command's own exit by a line naming a token new to each run, not by the exit status alone. It declares such an environment on a line of its own, `Environment: not-ready — `, followed by the environment and the cause, and that environment's run counts as status 1. In a matrix each cell is judged on its own, and the other cells run and report as they otherwise would. The chain halts `environment-not-ready` on that line (`<CORE>/doctrine/flow/step_outcome_contract.md`).
+- **A guest install lands in the running guest, at every run, and never in the base.** Resetting the guest from the base (`swift/environment.md` § macOS guest provisioning, step 5) clears it, and the next run installs it again. The base carries only the tools of the languages the cards declare.
+- **A single container's dependencies command writes into the real checkout.** A run in one container mounts the checkout itself, so what the dependencies command writes there, such as an `egg-info` or a `node_modules` folder, stays in the checkout, as the `__pycache__` the suite writes already does. A run in the macOS guest, and every cell of a matrix, works in a copy of the checkout, and what it writes goes with the copy.
 
 A gate runs in a container started from the product's checkout root. `<image>` is the image the
 language's `environment.md` names. `<gate command>` is a command from that language's Quality gates
@@ -183,7 +204,7 @@ container, and `-w` makes it the working directory. `--rm` removes the container
 
 - **Add a language** — create `languages/<language>/`, write its `README.md` naming all seven
   concerns, write the files whose answers already exist, and add the registry row above — all in one
-  commit. A row and its folder travel together; neither lands without the other.
+  commit. A row and its folder travel together; neither lands without the other. Its `environment.md` states the language's container install and guest install, `none` included, in the two lines § Gate environment defaults gives, so `<CORE>/tools/gate_suite.py` installs what the language's suite needs with no change to the tool.
 - **Add a concern's answer later** — write the file, and change that concern's entry in the
   language's router from its outside owner or the floor to the new file, in one commit.
 - **Version** — every file under a language's packet is doctrine, so each carries its own

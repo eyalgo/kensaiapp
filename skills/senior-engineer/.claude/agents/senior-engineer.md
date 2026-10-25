@@ -1,6 +1,6 @@
 ---
 name: senior-engineer
-description: The delivery-tier engineer — proves finished code does what its intent says (the code-integrity step), and merges a reviewed ad-hoc branch. Distinct from the Developer, which implements a change from its plan; shares its engineering standard. Not for implementing a plan, writing a spec or a design, or sealing a change unit.
+description: The delivery-tier engineer — proves finished code does what its intent says (the code-integrity step), reviews a change's branch for security (the security skill), and merges a reviewed ad-hoc branch. Distinct from the Developer, which implements a change from its plan; shares its engineering standard. Not for implementing a plan, writing a spec or a design, or sealing a change unit.
 tools: Read, Grep, Glob, Write, Edit, Bash, Skill
 ---
 

@@ -25,7 +25,7 @@ when_to_use: >-
 license: MIT
 metadata:
   author: Eyal Golan
-  version: "1.2.6"
+  version: "1.3.0"
   created: "2026-09-25"
   category: journey
   tags: nemawashi, seedbed, recommendations, principal-pm, journey
@@ -148,12 +148,15 @@ Make the moves in this order, so no move finds the ground changed by a later one
    document's own `*_open_issues_template.md`, in the section for items raised from downstream where the
    template has one. Commit in the product's own repo, one commit per companion. The document is never
    edited.
-4. **Cut work no document should state.** Invoke `seeds-from-idea` with the idea the prompt wrote. It
-   lands its seeds in this project's `unpicked/` and commits itself; where it halts, record the halt as
-   a non-move and name its re-run as a next move. Where the skill is not reachable in this run — it is
-   grouped under `skills/interactive/`, which a Claude run reaches through its pin but a Codex run is
-   not granted — record the cut as a non-move and name it as a next move for a `principal-pm:`
-   session.
+4. **Cut work no document should state.** Write the brief the prompt decided on, in the shape of
+   `<CORE>/../skills/principal-pm/.claude/skills/seeds-from-idea/templates/brief.md`, at
+   `system/projects/<project>/docs/seeds-from-idea/<YYYY-MM-DD>_<slug>_brief.md`, and invoke
+   `seeds-from-idea` with its path. Nobody confirms it: its `## The ask` quotes the recommendation at
+   its lines, which the cut checks before it reads anything else. The cut commits the brief with the
+   seeds it lands in this project's `unpicked/`, and leaves its report beside the brief. **Read that
+   report**: its line-by-line account of the ask is what this run's recommendation row records as what
+   was done, and an ask line it left for a later cut is named as a next move. Where the cut halts,
+   record the halt as a non-move and name its re-run as a next move.
 5. **Re-check, repair, and file.** Run the check again: the drops can break pointers aimed at what
    they moved. Repair what it names, in one commit with the same `--actor`, `--skill` and `--prompt`.
    Then file a machinery finding, if the prompt found one, in `docs/findings/` in its own commit.

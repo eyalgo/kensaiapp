@@ -38,6 +38,19 @@ WHAT IT DECIDES
     the launch's identity file). Its run is running while that launch is live, and in neither list
     otherwise: a single run's end is reported by its own watcher, and no walk waits on it.
 
+    A running walk's row also carries when its current step started: the earliest start among
+    the launches it waits on, read from each launch's identity file (`walk_stop`), which records
+    the run's process start, or the watcher's where the run's is missing. A launch recorded with
+    `started_at` gives that; one recorded before it existed gives its `ps` text read as English in
+    the machine's local time, and none where that text does not read. A waiting row, a skill run
+    and a walk between launches carry none.
+
+    A running development walk on its implementation step also carries which task of the plan
+    the developer run is on, and how many the plan lists, as `chain_development` reads them off
+    the change's branch (`DiskReader.current_task`); the reader is handed that reading. Every
+    other row carries `0` for both, as does a walk whose plan cannot be read or whose run is past
+    its last task.
+
     The quiet ends are built from the engines' own enums, so a renamed value fails at import
     rather than leaking a walk into the wrong list.
 
@@ -79,7 +92,7 @@ import chain_development
 import journey_status
 import walk_stop
 
-__version__ = "1.10.0"
+__version__ = "1.13.0"
 
 QUIET_ENDS = frozenset(end.value for end in (
     chain_development.Ended.SEALED, chain_development.Ended.STOPPED,
@@ -102,6 +115,10 @@ CLOSED_CHANGE_FOLDERS = ("trail", "drop")
 HEADING_PREFIX = "# "
 HEADING_SEPARATOR = " — "
 NO_START_TIME = float("-inf")
+# The step whose runs work through a plan's tasks, named by the skill it runs so a renamed step
+# fails at import.
+IMPLEMENTATION_STEP = next(step.id for step in chain_development.DEVELOPMENT_STEPS
+                           if step.skill == "development-implementation")
 
 _LAUNCHER_PATH = re.compile(r"[^\s`'\"(]*core/launchers/([\w-]+)/launcher\.sh")
 _MARKDOWN_PATH = re.compile(r"[^\s`'\"(),;]+\.md\b")
@@ -119,8 +136,13 @@ INDENT_PER_DEPTH = 2
 HISTORY_TIMEOUT_SECONDS = 10
 
 LaunchState = Callable[[str], walk_stop.LaunchState]
+# An identity path in, when that launch's run started out (ISO 8601), or "" where none is recorded.
+LaunchStart = Callable[[str], str]
 # Per change key, the station its opening commit names, for one project of one instance.
 OpenedStations = Callable[[Path, str], dict[str, str]]
+# The instance root, a project, a change key and the walk's product path in; the developer run's
+# `(place, count)` among its plan's tasks out, or `None` where none is read.
+TaskProgress = Callable[[Path, str, str, str], tuple[int, int] | None]
 
 
 class WalkKind(Enum):
@@ -147,6 +169,9 @@ class Row:
     status: str
     reason: str
     started_at: str
+    step_started_at: str
+    task: int
+    tasks: int
 
 
 class StopState(str, Enum):
@@ -207,7 +232,8 @@ def find_instance_root(start: Path) -> Path | None:
     return next((folder for folder in folders if (folder / "kensaiapp.md").is_file()), None)
 
 
-def read_board(root: Path, launch_state: LaunchState, opened_stations: OpenedStations) -> Board:
+def read_board(root: Path, launch_state: LaunchState, opened_stations: OpenedStations,
+               launch_start: LaunchStart, task_progress: TaskProgress) -> Board:
     waiting: list[Row] = []
     running: list[Row] = []
     walks = []
@@ -232,12 +258,16 @@ def read_board(root: Path, launch_state: LaunchState, opened_stations: OpenedSta
         if verdict is None:
             continue
         project = str(state.get("project") or "")
+        task, tasks = (0, 0) if verdict.waiting else _task_progress(root, kind, state,
+                                                                    task_progress)
         row = Row(launcher=_launcher_name(kind, state), project=project,
                   seed=_seed(root, project, str(state.get("seed") or "")),
                   station=_station(root, project, str(state.get("station") or "")),
                   walk=_walk(state), key=str(state.get("key") or ""),
                   step=_step(kind, state), status=verdict.status,
-                  reason=verdict.reason, started_at=str(state.get("started_at") or ""))
+                  reason=verdict.reason, started_at=str(state.get("started_at") or ""),
+                  step_started_at="" if verdict.waiting else _step_start(state, launch_start),
+                  task=task, tasks=tasks)
         (waiting if verdict.waiting else running).append(row)
     running.extend(_live_skill_runs(root, launch_state))
     waiting.sort(key=_newest_first, reverse=True)
@@ -351,7 +381,8 @@ def _live_skill_runs(root: Path, launch_state: LaunchState) -> list[Row]:
         rows.append(Row(launcher=SKILL_LAUNCHER, project=project, seed=_seed(root, project, ""),
                         station=_station(root, project, ""), walk=str(record["skill"]), key="",
                         step="",
-                        status="", reason="", started_at=str(record.get("started_at") or "")))
+                        status="", reason="", started_at=str(record.get("started_at") or ""),
+                        step_started_at="", task=0, tasks=0))
     return rows
 
 
@@ -401,6 +432,31 @@ def _judge(root: Path, state: dict, launch_state: LaunchState) -> _Verdict | Non
     if launches and all(one is walk_stop.LaunchState.GONE for one in launches):
         return _Verdict(True, walk_stop.LaunchState.GONE.value, "")
     return _Verdict(False, "", "")
+
+
+def _step_start(state: dict, launch_start: LaunchStart) -> str:
+    """The earliest recorded start among the launches the walk waits on, else ""."""
+    starts = [start for start in (launch_start(str(launch["identity"]))
+                                  for launch in _launches(state.get("pending"))
+                                  if launch.get("identity"))
+              if _timestamp(start) != NO_START_TIME]
+    return min(starts, key=_timestamp, default="")
+
+
+def _task_progress(root: Path, kind: WalkKind, state: dict,
+                   task_progress: TaskProgress) -> tuple[int, int]:
+    """The developer run's place among its plan's tasks and their count, for a development walk
+    with a launch out on its implementation step; `(0, 0)` for every other walk and where none is
+    read. A launch's step is the one its entry records, not its run's name: the chain relaunches a
+    developer run that ended with no marker as `implementation-recovery`."""
+    pending = state.get("pending")
+    key = str(state.get("key") or "")
+    if (kind is not WalkKind.CHAIN_DEVELOPMENT or not key
+            or not any(launch.get("step") == IMPLEMENTATION_STEP
+                       for launch in _launches(pending))):
+        return 0, 0
+    project = str(state.get("project") or "")
+    return task_progress(root, project, key, str(state.get("product_path") or "")) or (0, 0)
 
 
 def _launch_state(launch: dict, launch_state: LaunchState) -> walk_stop.LaunchState:
@@ -618,7 +674,8 @@ def main(argv: list[str] | None = None) -> int:
     if root is None:
         print(_as_json(None, None))
         return 0
-    print(_as_json(root.name, read_board(root, build_launch_state(), build_opened_stations())))
+    print(_as_json(root.name, read_board(root, build_launch_state(), build_opened_stations(),
+                                         build_launch_start(), build_task_progress())))
     return 0
 
 
@@ -647,6 +704,38 @@ def git_opened_stations(root: Path, project: str) -> dict[str, str]:
     return stations
 
 
+def development_task(reader: chain_development.DiskReader, root: Path, project: str, key: str,
+                     product_path: str) -> tuple[int, int] | None:
+    """The developer run's place among its plan's tasks and their count, read off the change's
+    branch by the chain's own reader. A git that cannot be run or read reads no task, so the
+    board is still printed."""
+    change = chain_development.ChangeLayout(str(root), project, key)
+    try:
+        return reader.current_task(change, product_path)
+    except (OSError, subprocess.SubprocessError, UnicodeDecodeError):
+        return None
+
+
+def launch_started_at(files: walk_stop.DiskFiles, identity: str) -> str:
+    """When the launch's run started, else its watcher, as ISO 8601: the recorded `started_at`,
+    else, for a file written before it, the `ps -o lstart=` text read as the machine's local time."""
+    recorded = walk_stop.read_identity(files, identity)
+    if recorded is None:
+        return ""
+    for process in (recorded.run, recorded.watcher):
+        if process is None:
+            continue
+        if process.started_at and _timestamp(process.started_at) != NO_START_TIME:
+            return process.started_at
+        if process.start:
+            try:
+                return datetime.strptime(" ".join(process.start.split()),
+                                         walk_stop.LSTART_FORMAT).astimezone().isoformat()
+            except ValueError:
+                continue
+    return ""
+
+
 # The composition root: the only place the real filesystem, process table and git history are
 # constructed.
 def build_launch_state() -> LaunchState:
@@ -656,6 +745,17 @@ def build_launch_state() -> LaunchState:
 
 def build_opened_stations() -> OpenedStations:
     return git_opened_stations
+
+
+def build_launch_start() -> LaunchStart:
+    files = walk_stop.DiskFiles()
+    return lambda identity: launch_started_at(files, identity)
+
+
+def build_task_progress() -> TaskProgress:
+    reader = chain_development.DiskReader(files=chain.Files(), git=chain_development.Git())
+    return lambda root, project, key, product_path: development_task(reader, root, project, key,
+                                                                     product_path)
 
 
 if __name__ == "__main__":

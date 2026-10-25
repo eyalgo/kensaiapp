@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 516" width="960" height="516" role="img" aria-labelledby="t d" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
 <title id="t">KensaiApp overview</title>
-<desc id="d">Three stacked bands. Product intent: PRD, then Definition of done, then Product documents. Journey: Seed, then Station, then Change. One change: Ask (PM), Spec (Product owner), Design (Architect), Plan (Tech lead), Content (Content editor, optional), Build (Developer), Prove (Senior engineer), Audit (Auditor), Seal (PM). Below them: Lands in git: documents, code, tests, findings, the trail of each change. On the side: Owner: direction and the calls only you can make. Program: decides what runs next. Roles: one job each.</desc>
+<desc id="d">Three stacked bands. Product intent: PRD, then Definition of done, then Product documents. Journey: Seed, then Station, then Change. One change: Ask (PM), Spec (Product owner), Design (Architect), Plan (Tech lead), Content (Content editor, optional), Build (Developer), Prove (Senior engineer), Security (Senior engineer), Audit (Auditor), Seal (PM). Below them: Lands in git: documents, code, tests, findings, the trail of each change. On the side: Owner: direction and the calls only you can make. Program: decides what runs next. Roles: one job each.</desc>
 <defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#57606a"/></marker><marker id="ahc" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#848d97"/></marker></defs>
 <rect x="8" y="8" width="780" height="108" rx="12" fill="#f6f8fa" stroke="#d0d7de" stroke-width="1.5"/>
 <text x="24" y="34" font-size="15" font-weight="600" fill="#0550ae">Product intent</text>
@@ -26,44 +26,49 @@
 <line x1="666" y1="254" x2="666" y2="280" stroke="#848d97" stroke-width="1.6" marker-end="url(#ahc)"/>
 <rect x="8" y="284" width="780" height="152" rx="12" fill="#f6f8fa" stroke="#d0d7de" stroke-width="1.5"/>
 <text x="24" y="310" font-size="15" font-weight="600" fill="#0550ae">One change</text>
-<rect x="24.0" y="324" width="72" height="76" rx="8" fill="#ffffff" stroke="#0969da" stroke-width="1.5"/>
-<text x="60.0" y="350" font-size="14" font-weight="600" fill="#1f2328" text-anchor="middle">Ask</text>
-<text x="60.0" y="377" font-size="13" fill="#57606a" text-anchor="middle">PM</text>
-<line x1="99.0" y1="362.0" x2="105.5" y2="362.0" stroke="#57606a" stroke-width="1.6" marker-end="url(#ah)"/>
-<rect x="108.5" y="324" width="72" height="76" rx="8" fill="#ffffff" stroke="#0969da" stroke-width="1.5"/>
-<text x="144.5" y="350" font-size="14" font-weight="600" fill="#1f2328" text-anchor="middle">Spec</text>
-<text x="144.5" y="371" font-size="13" fill="#57606a" text-anchor="middle">Product</text>
-<text x="144.5" y="387" font-size="13" fill="#57606a" text-anchor="middle">owner</text>
-<line x1="183.5" y1="362.0" x2="190.0" y2="362.0" stroke="#57606a" stroke-width="1.6" marker-end="url(#ah)"/>
-<rect x="193.0" y="324" width="72" height="76" rx="8" fill="#ffffff" stroke="#0969da" stroke-width="1.5"/>
-<text x="229.0" y="350" font-size="14" font-weight="600" fill="#1f2328" text-anchor="middle">Design</text>
-<text x="229.0" y="377" font-size="13" fill="#57606a" text-anchor="middle">Architect</text>
-<line x1="268.0" y1="362.0" x2="274.5" y2="362.0" stroke="#57606a" stroke-width="1.6" marker-end="url(#ah)"/>
-<rect x="277.5" y="324" width="72" height="76" rx="8" fill="#ffffff" stroke="#0969da" stroke-width="1.5"/>
-<text x="313.5" y="350" font-size="14" font-weight="600" fill="#1f2328" text-anchor="middle">Plan</text>
-<text x="313.5" y="377" font-size="13" fill="#57606a" text-anchor="middle">Tech lead</text>
-<line x1="352.5" y1="362.0" x2="359.0" y2="362.0" stroke="#57606a" stroke-width="1.6" stroke-dasharray="4 3" marker-end="url(#ah)"/>
-<rect x="362.0" y="324" width="72" height="76" rx="8" fill="#f6f8fa" stroke="#0969da" stroke-width="1.5" stroke-dasharray="5 4"/>
-<text x="398.0" y="350" font-size="14" font-weight="600" fill="#1f2328" text-anchor="middle">Content</text>
-<text x="398.0" y="371" font-size="13" fill="#57606a" text-anchor="middle">Content</text>
-<text x="398.0" y="387" font-size="13" fill="#57606a" text-anchor="middle">editor</text>
-<line x1="437.0" y1="362.0" x2="443.5" y2="362.0" stroke="#57606a" stroke-width="1.6" stroke-dasharray="4 3" marker-end="url(#ah)"/>
-<rect x="446.5" y="324" width="72" height="76" rx="8" fill="#ffffff" stroke="#0969da" stroke-width="1.5"/>
-<text x="482.5" y="350" font-size="14" font-weight="600" fill="#1f2328" text-anchor="middle">Build</text>
-<text x="482.5" y="377" font-size="13" fill="#57606a" text-anchor="middle">Developer</text>
-<line x1="521.5" y1="362.0" x2="528.0" y2="362.0" stroke="#57606a" stroke-width="1.6" marker-end="url(#ah)"/>
-<rect x="531.0" y="324" width="72" height="76" rx="8" fill="#ffffff" stroke="#0969da" stroke-width="1.5"/>
-<text x="567.0" y="350" font-size="14" font-weight="600" fill="#1f2328" text-anchor="middle">Prove</text>
-<text x="567.0" y="371" font-size="13" fill="#57606a" text-anchor="middle">Senior</text>
-<text x="567.0" y="387" font-size="13" fill="#57606a" text-anchor="middle">engineer</text>
-<line x1="606.0" y1="362.0" x2="612.5" y2="362.0" stroke="#57606a" stroke-width="1.6" marker-end="url(#ah)"/>
-<rect x="615.5" y="324" width="72" height="76" rx="8" fill="#ffffff" stroke="#0969da" stroke-width="1.5"/>
-<text x="651.5" y="350" font-size="14" font-weight="600" fill="#1f2328" text-anchor="middle">Audit</text>
-<text x="651.5" y="377" font-size="13" fill="#57606a" text-anchor="middle">Auditor</text>
-<line x1="690.5" y1="362.0" x2="697.0" y2="362.0" stroke="#57606a" stroke-width="1.6" marker-end="url(#ah)"/>
-<rect x="700.0" y="324" width="72" height="76" rx="8" fill="#ffffff" stroke="#0969da" stroke-width="1.5"/>
-<text x="736.0" y="350" font-size="14" font-weight="600" fill="#1f2328" text-anchor="middle">Seal</text>
-<text x="736.0" y="377" font-size="13" fill="#57606a" text-anchor="middle">PM</text>
+<rect x="24.0" y="324" width="67" height="76" rx="8" fill="#ffffff" stroke="#0969da" stroke-width="1.5"/>
+<text x="57.5" y="350" font-size="14" font-weight="600" fill="#1f2328" text-anchor="middle">Ask</text>
+<text x="57.5" y="377" font-size="13" fill="#57606a" text-anchor="middle">PM</text>
+<line x1="92.0" y1="362.0" x2="98.2" y2="362.0" stroke="#57606a" stroke-width="1.6" marker-end="url(#ah)"/>
+<rect x="99.7" y="324" width="67" height="76" rx="8" fill="#ffffff" stroke="#0969da" stroke-width="1.5"/>
+<text x="133.2" y="350" font-size="14" font-weight="600" fill="#1f2328" text-anchor="middle">Spec</text>
+<text x="133.2" y="371" font-size="13" fill="#57606a" text-anchor="middle">Product</text>
+<text x="133.2" y="387" font-size="13" fill="#57606a" text-anchor="middle">owner</text>
+<line x1="167.7" y1="362.0" x2="173.8" y2="362.0" stroke="#57606a" stroke-width="1.6" marker-end="url(#ah)"/>
+<rect x="175.3" y="324" width="67" height="76" rx="8" fill="#ffffff" stroke="#0969da" stroke-width="1.5"/>
+<text x="208.8" y="350" font-size="14" font-weight="600" fill="#1f2328" text-anchor="middle">Design</text>
+<text x="208.8" y="377" font-size="13" fill="#57606a" text-anchor="middle">Architect</text>
+<line x1="243.3" y1="362.0" x2="249.5" y2="362.0" stroke="#57606a" stroke-width="1.6" marker-end="url(#ah)"/>
+<rect x="251.0" y="324" width="67" height="76" rx="8" fill="#ffffff" stroke="#0969da" stroke-width="1.5"/>
+<text x="284.5" y="350" font-size="14" font-weight="600" fill="#1f2328" text-anchor="middle">Plan</text>
+<text x="284.5" y="377" font-size="13" fill="#57606a" text-anchor="middle">Tech lead</text>
+<line x1="319.0" y1="362.0" x2="325.2" y2="362.0" stroke="#57606a" stroke-width="1.6" stroke-dasharray="4 3" marker-end="url(#ah)"/>
+<rect x="326.7" y="324" width="67" height="76" rx="8" fill="#f6f8fa" stroke="#0969da" stroke-width="1.5" stroke-dasharray="5 4"/>
+<text x="360.2" y="350" font-size="14" font-weight="600" fill="#1f2328" text-anchor="middle">Content</text>
+<text x="360.2" y="371" font-size="13" fill="#57606a" text-anchor="middle">Content</text>
+<text x="360.2" y="387" font-size="13" fill="#57606a" text-anchor="middle">editor</text>
+<line x1="394.7" y1="362.0" x2="400.8" y2="362.0" stroke="#57606a" stroke-width="1.6" stroke-dasharray="4 3" marker-end="url(#ah)"/>
+<rect x="402.3" y="324" width="67" height="76" rx="8" fill="#ffffff" stroke="#0969da" stroke-width="1.5"/>
+<text x="435.8" y="350" font-size="14" font-weight="600" fill="#1f2328" text-anchor="middle">Build</text>
+<text x="435.8" y="377" font-size="13" fill="#57606a" text-anchor="middle">Developer</text>
+<line x1="470.3" y1="362.0" x2="476.5" y2="362.0" stroke="#57606a" stroke-width="1.6" marker-end="url(#ah)"/>
+<rect x="478.0" y="324" width="67" height="76" rx="8" fill="#ffffff" stroke="#0969da" stroke-width="1.5"/>
+<text x="511.5" y="350" font-size="14" font-weight="600" fill="#1f2328" text-anchor="middle">Prove</text>
+<text x="511.5" y="371" font-size="13" fill="#57606a" text-anchor="middle">Senior</text>
+<text x="511.5" y="387" font-size="13" fill="#57606a" text-anchor="middle">engineer</text>
+<line x1="546.0" y1="362.0" x2="552.2" y2="362.0" stroke="#57606a" stroke-width="1.6" marker-end="url(#ah)"/>
+<rect x="553.7" y="324" width="67" height="76" rx="8" fill="#ffffff" stroke="#0969da" stroke-width="1.5"/>
+<text x="587.2" y="350" font-size="14" font-weight="600" fill="#1f2328" text-anchor="middle">Security</text>
+<text x="587.2" y="371" font-size="13" fill="#57606a" text-anchor="middle">Senior</text>
+<text x="587.2" y="387" font-size="13" fill="#57606a" text-anchor="middle">engineer</text>
+<line x1="621.7" y1="362.0" x2="627.8" y2="362.0" stroke="#57606a" stroke-width="1.6" marker-end="url(#ah)"/>
+<rect x="629.3" y="324" width="67" height="76" rx="8" fill="#ffffff" stroke="#0969da" stroke-width="1.5"/>
+<text x="662.8" y="350" font-size="14" font-weight="600" fill="#1f2328" text-anchor="middle">Audit</text>
+<text x="662.8" y="377" font-size="13" fill="#57606a" text-anchor="middle">Auditor</text>
+<line x1="697.3" y1="362.0" x2="703.5" y2="362.0" stroke="#57606a" stroke-width="1.6" marker-end="url(#ah)"/>
+<rect x="705.0" y="324" width="67" height="76" rx="8" fill="#ffffff" stroke="#0969da" stroke-width="1.5"/>
+<text x="738.5" y="350" font-size="14" font-weight="600" fill="#1f2328" text-anchor="middle">Seal</text>
+<text x="738.5" y="377" font-size="13" fill="#57606a" text-anchor="middle">PM</text>
 <text x="24" y="424" font-size="13" fill="#57606a">Dashed: Content runs only when the change's design says it publishes text.</text>
 <rect x="8" y="456" width="944" height="52" rx="12" fill="#24292f" stroke="#848d97" stroke-width="1.5"/>
 <text x="480" y="487" font-size="15" fill="#ffffff" text-anchor="middle"><tspan font-weight="600">Lands in git:</tspan> documents, code, tests, findings, the trail of each change.</text>

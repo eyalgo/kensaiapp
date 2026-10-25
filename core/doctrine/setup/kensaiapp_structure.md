@@ -1,5 +1,5 @@
 ---
-version: "2.184.0"
+version: "2.193.2"
 ---
 
 # kensaiapp-instance structure manifest
@@ -196,6 +196,11 @@ Consumed by whatever stamps a kensaiapp:
   the host, that the host's reading of it is by hand, that a file here is never the repair, and when
   and how a finding moves to `resolved/` are `governance/found_while_walking.md` § *Where a surfaced
   defect is written down*'s** — this row owns the path and what an entry names, and no more.
+- `docs/seeds-from-idea/` — `[create]` on demand — an idea cut's brief when the seeds it produced land in
+  the instance seedbed, or when the cut was left to decide the owner: `<YYYY-MM-DD>_<slug>_brief.md`, and
+  its `_report.md` beside it.
+  A cut whose owning project is named keeps its brief in that project's `docs/seeds-from-idea/`
+  instead (§2).
 
 ### Native `.claude/` layer — the instance's own project-scoped Claude Code config
 
@@ -346,6 +351,13 @@ The flow family — the change pipeline (9):
 - `skills/pm/.claude/skills/tobiishi-open/` — the FDR-optional front door: places the `change_request.md`. **Gated to PM posture**, and the only member of this family that is — with a station open it derives the change from that station's reached-when and commits with no owner in the room, which is what earns the gate (§ *A skill that acts unattended gates to its seat* in `authoring_layers.md`). With no station it opens nothing and asks nothing — it reads the project's journey state, names the one next move that state determines, and returns. That is **routing, not refusal**: a project with no route yet is handed one named next action inside itself rather than being turned away, which is what the menu of candidate changes standing here until 2026-09-06 was protecting, and what a menu was the wrong shape for. Grouped, so a session reaches it only after `--add-dir` / `/add-dir` on `skills/pm/`; a run started by `<CORE>/launchers/skill/launcher.sh` is granted that group by the launcher
 - `skills/kensaiapp-auditor/.claude/skills/development-audit/` — per-stage fresh-eyes audit (writes `flow_findings/<step>.md`, one file per audited step). Grouped under the agent the chain runs it as — the owner's call, 2026-10-03 — so a session reaches it only after `--add-dir` / `/add-dir` on `skills/kensaiapp-auditor/`; a run started by `<CORE>/launchers/skill/launcher.sh` is granted that group by the launcher
 
+The security review (1) — beside the flow family rather than in its count, because the chain does not
+launch it yet; it joins the family when the chain runs it as a step:
+- `skills/senior-engineer/.claude/skills/development-security/` — reviews a change's branch after its code-integrity step: it runs the dependency audit the product's NFDR names, repairs advisories and code holes within the owner's rules, excepts an advisory the product does not reach, and reports the rest for the PM in `security-report.md`. Thin over its own `prompts/rich.md`. **Gated to Senior Engineer posture.** Declares an unattended launch in `launcher.md`, taking `<project> <key>`, with its `intelligence/` beside it, which the skill launcher reads (`<CORE>/doctrine/governance/skill_intelligence.md` § *Scope*); the chain runs it as its `security` step, after `code-integrity`. Grouped, so a session reaches it only after `--add-dir` / `/add-dir` on `skills/senior-engineer/`
+
+The repair of a red `main` (1) — not a step of the chain's tables; a Senior Engineer runs it on `main` itself, and the chain launches it once when a closing marker's red is no deferral's and the product has an NFDR:
+- `skills/senior-engineer/.claude/skills/dependency-repair/` — repairs a product's `main` gone red by itself: on a branch off `main` it runs the dependency audit the NFDR names, answers every advisory by `<CORE>/prompts/senior_engineer_repair_dependencies.md`, writes `system/projects/<project>/docs/dependency-repair/<key>_report.md`, and merges on a green suite. **Gated to Senior Engineer posture.** Declares an unattended launch in `launcher.md`, taking `<project>`, with its `intelligence/` beside it (Haiku on Claude, `gpt-6-luna` on Codex, both medium — the owner's call, 2026-10-24); the chain launches it on a red closing marker no deferral owns, on a product with an NFDR (`core/tools/chain_development.py`), and halts or re-closes the change by its report. Grouped, so a session reaches it only after `--add-dir` / `/add-dir` on `skills/senior-engineer/`
+
 Shared by every producer skill, in `<CORE>` rather than in a skills root (Read on demand):
 - `<CORE>/doctrine/governance/commit_via_builder.md` — the producer-commit-through-the-builder recipe, beside `commit_format.md`. The audit checks the file itself, since the citing skills break without it.
 
@@ -367,7 +379,7 @@ Shared by every skill that moves a journey item, in `<CORE>` beside `michi_agari
 
 The seedbed's producers (2) — where the six above *move* a journey item, these *write* new ones.
 Their shared run mechanics are `<CORE>/prompts/principal_pm_cut_seeds_run.md`. They differ in their input:
-- `skills/interactive/.claude/skills/seeds-from-idea/` — the **idea** cutter: one idea in — something said in passing, a note, a seed someone else wrote — and 根回し Nemawashi seeds out, each landing in the owning project's `unpicked/` pool (or the instance seedbed) with its own station checklist and its trace back to the idea. Thin over its own `prompts/thin.md`, which extends `<CORE>/prompts/principal_pm_cut_seeds.md`. The one of the two whose input is itself a journey artifact, which earns it two moves the other has no use for: picking or un-picking that idea-seed, and leaving its retire — made by hand at instance level — to wait on the cut being approved. It writes seeds and never a station — opening one is a later move, made from the seed's own checklist item. **Gated to Principal PM posture, and grouped under `skills/interactive/` rather than under that seat** — the owner's call, 2026-09-18: the gate says whose judgment the run is, the group says which session reaches for it, and for a cutter those are different answers. Its sibling `seeds-from-product-docs` stays under the seat. So a session reaches this one only after `--add-dir` / `/add-dir` on `skills/interactive/`; its dedicated launcher does not grant it yet, on the owner's 2026-09-18 ruling that it moves onto `<CORE>/launchers/skill/launcher.sh`
+- `skills/principal-pm/.claude/skills/seeds-from-idea/` — the **idea** cutter: one idea in — something said in passing, a note, a seed someone else wrote — and 根回し Nemawashi seeds out, each landing in the owning project's `unpicked/` pool (or the instance seedbed) with its own station checklist and its trace back to the idea. Thin over its own `prompts/rich.md`, which extends `<CORE>/prompts/principal_pm_cut_seeds.md`. The one of the two whose input is itself a journey artifact, which earns it two moves the other has no use for: picking or un-picking that idea-seed, and leaving its retire — made by hand at instance level — to wait on the cut being approved. It writes seeds and never a station — opening one is a later move, made from the seed's own checklist item. **Gated to Principal PM posture, and grouped under that seat beside its sibling** — the owner's call, 2026-10-24, reversing the 2026-09-18 move to `skills/interactive/`: `nemawashi-refine` calls it inside its own run, and one group reaches both. So a session reaches it only after `--add-dir` / `/add-dir` on `skills/principal-pm/`. It has **no launcher of any kind** — the owner's call, 2026-10-24, superseding the 2026-09-18 plan to move it onto `<CORE>/launchers/skill/launcher.sh`: it runs in an owner's session, or inside `nemawashi-refine`'s own unattended run, which invokes it as a skill.
 - `skills/principal-pm/.claude/skills/seeds-from-product-docs/` — the same seat's **document** cutter: a product's settled `docs/SDD.md`, `docs/fdr.md`, `docs/adr/` and `docs/nfdr.md` in, seeds out, landing in the owning project's `unpicked/` pool. Thin over `<CORE>/../skills/principal-pm/.claude/skills/seeds-from-product-docs/prompts/rich.md`. What it adds over its sibling is resolving *which* product to cut — the project from the invocation, the product path from that project's `project.md`, which may sit outside the instance — and a settled-input check before the lens is applied. It yields four kinds of seed, and the **upstream** kind owes a second write the sibling has no equivalent of: the item raised on the owing document's own `*_open_issues.md` companion, by hand, which the seed then tracks until it is folded in. Like its sibling it writes seeds and never a station, and it picks nothing it produced. Declares an unattended launch in `launcher.md`, taking `<project>`. Grouped, so a session reaches it only after `--add-dir` / `/add-dir` on `skills/principal-pm/`; a run started by `<CORE>/launchers/skill/launcher.sh` is granted that group by the launcher
 
 Shared by every cutter, in `<CORE>` beside the two cut prompts (Read on demand):
@@ -531,8 +543,9 @@ The instance + kaizen family (7):
 
 The engineering-practice family (7):
 - `skills/tech-lead/.claude/skills/ad-hoc-plan/` — the plan half of the ad-hoc pair: a hand-opened
-  飛び石 Tobiishi planned end to end in one pass — a thin `change_spec.md`, a thin `change_design.md`
-  and a full `tl_instruction.md` in the shape `development-plan` produces — so the chain can
+  飛び石 Tobiishi planned end to end in one pass — a stub `change_spec.md`, a stub `change_design.md`
+  and a full `tl_instruction.md` planned by `<CORE>/prompts/tech_lead_create_tl_instruction.md`, the
+  body `development-plan` follows too, with a report beside them — so the chain can
   carry it from the content step, or from implementation when the change publishes no text, onward.
   It plans a product in this repository or in its own. **Gated to Tech Lead posture**, and grouped
   under its seat beside its pipeline sibling `development-plan` — the owner's call, 2026-10-17,
@@ -645,9 +658,8 @@ to move it out of this layer.
   and raises naming the file when the provider's file is missing or malformed. Its command line
   answers the launchers in shell — `model=` and `effort=` on exit 0, silent exit 3 for an absent
   folder, exit 4 naming a missing file, exit 2 naming a malformed one. The launchers that read a skill's file
-  reach it through `run_intelligence.py`, below: the skill and companion launchers, and the two that
-  run a skill of their own
-  (`product-card`, `seeds-from-idea`).
+  reach it through `run_intelligence.py`, below: the skill and companion launchers, and the one that
+  runs a skill of its own (`product-card`).
 - `<CORE>/tools/run_intelligence.py` — `[create]` — the one resolution of a run's model and effort,
   and of where they came from. It composes `intelligence.py`'s `read` and `model_assignment.py`'s
   `resolve`. It reads no environment and spawns nothing. Its command line is `--provider
@@ -794,7 +806,8 @@ to move it out of this layer.
   `chain-product` passes the flag through.
 - `core/tools/providers.py` — `[create]` — the one reader of the provider file, and the rule a launch follows. The provider file is `.providers.toml` at the root of the instance a launch is for (§ Root, `.providers.toml.example`), and it names the provider every chain launch, instance skill launcher and kaizen tool script (`launch-apply-packet.sh`, `launch-audit.sh`, `launch-fix-author.sh`) goes to. It names one for each member of the three engines — `[documents]` (`chain.py`'s registry), `[steps]` (the development and change walks' steps, one entry per step for both), `[build-idea]` (the queue's skill rows) and `[owed-items]` (`no-document`, the product chain's launch for an owed item that names no document) — and for the launchers: `[launchers]` (one entry per instance skill launcher, keyed by its folder name, and one per kaizen tool script, keyed by its name without `.sh`). The module owns the file's name, its format, the member names and the rule: the provider a walk was forced onto (`--provider`), else the file's entry for the launch's member, else a refusal naming the entry or the file — never a default. A missing file is refused naming its path and `cp .providers.toml.example .providers.toml`, and the example is never read in its place. The instance root is the one an engine was started or described with (`--instance-root`), or the one a launcher resolved and hands to `providers.py launcher --instance-root`. No file under `<CORE>` is read for a provider, so a satellite's launch reads the satellite's own file, and a walk running from a pin reads the live instance file. An unforced start checks every member the engine can launch, and each launch reads the file again as it stands then, so an edit reaches a walk that is already running. An entry no engine asks for is ignored.
 - `core/tools/chain_development.py` — `[create]` — the development chain engine: walks the
-  change pipeline's eight steps (specs, design, plan, content, implementation, code-integrity, the
+  change pipeline's nine steps (specs, design, plan, content, implementation, code-integrity,
+  security, the
   `development-audit` fan-out — four runs, or five when the change publishes text — seal) as one detached `claude --print` run per step, each started through
   `core/launchers/skill/launcher.sh` from that skill's own `launcher.md`, and advanced by the
   completion event. **It decides a step is done from disk, never from a message a run returns**,
@@ -819,7 +832,7 @@ to move it out of this layer.
   which change a start would carry and the step it would enter at — or why it would refuse — from
   the **same checks** `start` makes, and writes, launches, locks and sends nothing; the launcher's
   `--dry-run` is its one caller. It holds **two step tables**, and `--steps` says which walk a
-  start is: `development`, the eight above, and `change`, the same eight behind `shukuba-open` and
+  start is: `development`, the nine above, and `change`, the same nine behind `shukuba-open` and
   `tobiishi-open` and ahead of `shukuba-refine` — the walk `core/launchers/chain-change/` enters.
   The flag names a literal the engine holds; a caller composes neither. A `change` walk starts with
   **no key** — `tobiishi-open` is what makes one — so the key is read off the disk the moment that
@@ -905,6 +918,10 @@ to move it out of this layer.
 - `core/tools/brief_gaps.py` — `[create]` — reads every `delegate-report.md` in the repo and prints
   what each run recorded about its own brief. Computed, never maintained, so it cannot drift from the
   reports it reads. `agent-invoke` § Step 4 runs it before a brief is written.
+- `core/tools/check_brief_quotes.py` — `[create]` — names every citation in a brief file whose quoted
+  text is not at its lines, through `.claude/hooks/brief_anchor_guard.py`'s own check rather than a
+  copy of it. `seeds-from-idea` runs it on its brief before it cuts, and `ad-hoc-plan` before it
+  plans; each stops on any line it prints.
 - `core/tools/journey_status.py` — `[create]` — reads an instance's own journey state
   (`system/nemawashi/`, `system/shukuba/`, and each project's `journey/`) and renders one
   self-contained HTML page naming every place the repo has drifted from `core/docs/michi_agari.md`'s
@@ -1108,41 +1125,6 @@ watcher path is the one a migration can get wrong without noticing; both still h
   path, the watcher's CORE_DIR-resolved default-path with the override deliberately
   unset, and all four seat-resolution outcomes — plus a seat grep that does not misread an
   `--agent` mentioned only in a comment — on a fixture tree.
-- `core/launchers/seeds-from-idea/launcher.sh` — `[create]` — the run launcher for the
-  **posture-neutral-shaped but Principal-PM-gated** `seeds-from-idea` skill: builds a FIXED
-  `claude --bg` prompt (`--agent principal-pm`, the one seat the skill gates to — no seat
-  resolution to build, unlike `companion-self-answer`) over a **single positional**: a path to
-  the idea being cut. Unlike every `product-*`/`companion-self-answer` sibling, that positional
-  is a path, never a project name — the skill's three inputs are a seed, a file, or a live
-  session, and only the two path-shaped ones become an argument form. A bare word (no `/`, no
-  leading `.`) is refused outright rather than read as a slug — there is no per-slug folder
-  convention for an idea the way the retired `ad-hoc-flow` had one for a proposal. The owning project is
-  **derived from the path** rather than typed: when the idea sits under
-  `system/projects/<project>/…`, that segment names the project whose card supplies
-  `Product path:` — stripped through its trailing HTML comment, the same external-vs-internal
-  `--add-dir` split every sibling makes — for the same `--add-dir` this launcher passes. An idea
-  at instance level, or a derived project with no card (or no `Product path:` line), gets no
-  `--add-dir` rather than a refusal — cutting an idea does not require it to already belong to an
-  existing project's product. It opens no worktree and creates no branch — the skill opens its
-  own, branched from local `main`, so this launcher only starts the run, and neither requires nor
-  assumes that the caller is already inside a worktree. Passes **`--reporter generic`** (no
-  `seeds-from-idea` reporter is registered in `core/tools/reporters.py`) and detaches its
-  completion watcher through `core/tools/detach_watcher.sh` (reached via `CORE_DIR`, resolved from
-  this folder's own location). Same core-shared contract as its neighbours (`--instance-root` overrides the instance
-  root, `KENSAIAPP_NOTIFIER` for the notifier); invoked
-  `<CORE>/launchers/seeds-from-idea/launcher.sh <idea-path>` from the instance root. Created
-  2026-08-30 under the bare-identity name — no relocation, so no provenance sentence.
-- `core/launchers/seeds-from-idea/test_seeds_from_idea.py` — `[create]` — its contract-test
-  suite, flat beside the launcher. Named for the identity rather than `test_launcher.py`, per the
-  uniqueness rule above. Pins the single-positional argument contract (no args, more than one
-  positional, trailing prose, a nonexistent path and a bare word all refused before any process
-  spawns), the path-derived project resolution and its external-vs-internal `--add-dir` split
-  (including an instance-level idea deriving none, and a derived project with no card read
-  best-effort rather than refused), the fixed prompt on a real launch (never paired only with
-  `--dry-run`), `--agent principal-pm`, no worktree or branch ever created (a source-text
-  negative and an effect-based check over a fixture instance), the `--reporter` value asserted
-  against the real `REGISTRY` in `core/tools/reporters.py`, the completion watch sourced rather
-  than hand-copied, and the launch line's agent-id-to-`--name` fallback.
 - `core/launchers/chain-product/launcher.sh` — `[create]` — the entry command for a product's whole
   document chain: the spine literal `"PRD,Agari,SRS,UXD,DESIGN,CONTENT,SDD,FDR,ADR,NFDR"` — both
   tiers, so a companion opened on either is swept by one walk — and the name literal `"product"`;
@@ -1669,11 +1651,22 @@ seed tests of `core/roles/loaders/principal_pm_global.md` nor the seed shape of
   a **re**-cut needs and a one-shot idea cut does not. It restates neither that sibling — grounding, the sweep's outcomes, the four stops,
   the no-interview rule, the re-run fold and the tone are read there — nor the file loop, which is
   `<CORE>/prompts/principal_pm_cut_seeds_run.md`'s.
-- `skills/interactive/.claude/skills/seeds-from-idea/prompts/thin.md` — the idea cutter's own lens, read by
+- `skills/principal-pm/.claude/skills/seeds-from-idea/prompts/rich.md` — the idea cutter's own lens, read by
   `seeds-from-idea` before `core/prompts/principal_pm_cut_seeds.md`, which it extends. It tightens three things for an
   idea cut only: one seed unless the idea's own words name more, a routing seed only when the owner asks for one,
   and no input from a `drop/` folder, a revert or a dropped attempt as grounding or a proof subject. It sits
   beside the skill rather than in the shared lens because `seeds-from-product-docs` reads that lens too.
+- `core/prompts/tech_lead_create_tl_instruction.md` — the Tech Lead's planning body, read by
+  `development-plan` and `ad-hoc-plan`: how a `tl_instruction.md` is reviewed, cut into tasks,
+  written and committed once the change's spec and design are in its worktree. The two skills differ
+  in how they reach that point — the pipeline's spec and design, or stubs `ad-hoc-plan` writes from a
+  brief — and in nothing they plan by. The plan's shape stays `development-plan`'s
+  `references/tl_instruction_template.md`.
+- `core/prompts/senior_engineer_repair_dependencies.md` — the Senior Engineer's rules for answering a
+  product's dependency advisories: the edge of a repair, the audit the NFDR names, the owner's repair
+  rulings quoted word for word, the one answer each advisory takes, the exception record and its upkeep
+  row, and how a forbidden move waits for the end. Read by `development-security` on a change's branch
+  and by `dependency-repair` on a branch off a red `main`.
 - `core/prompts/principal_pm_cut_seeds_run.md` — the run shape both cut prompts share, read by
   `seeds-from-idea` and `seeds-from-product-docs` beside their method prompt. What it carries is stated
   once, in the skills layer's cutter block above.
@@ -1916,6 +1909,11 @@ Kaizen / other:
   read by its heading, and the `**Verdict:**` field read anywhere. Which one fails which way is the
   template's own note at its head, and it is the file to edit — a heading changed here without it is
   a notification that quietly stops saying what the run did.
+- `core/templates/brief_template.md` — `[create]` — the common part of a brief, the checked input a
+  skill takes in place of a loose idea: the quote rules, the `none` rule, and the five sections every
+  brief carries. Read by a model, never alone: each skill that takes a brief has its own template,
+  which names this one and adds its own sections — `seeds-from-idea`'s and `ad-hoc-plan`'s
+  `templates/brief.md`. It also holds the rules a session drafts a brief by. Flat: it belongs to no one scope.
 
 ### Doctrine layer — the vendored foundation store under `core/doctrine/`
 
@@ -1996,8 +1994,8 @@ by name, because that file owns the names and this section owns which kinds may 
 
 The instance carries three things of its own at app level — a **bearing** (`michi.md`), a
 **seedbed** (`nemawashi/`) and a **router station** (`shukuba/`). All three sit **directly under
-`system/`** (siblings). Once there is upkeep to hold, handed over by a project or asked for by the
-owner, a fourth file sits beside them: the **upkeep register** (`upkeep.md`), which is not a journey
+`system/`** (siblings). Once there is upkeep to hold, handed over by a project, asked for by the
+owner, or owed by an exception a run records that lapses on a date, a fourth file sits beside them: the **upkeep register** (`upkeep.md`), which is not a journey
 item. There is **no `system/queues/`
 folder** in the canonical instance:
 
@@ -2036,7 +2034,8 @@ folder** in the canonical instance:
   this one only *coordinates* across projects and is never walked. There is no `parked/` here: a router
   station has one destination, `trail/`.
 - `system/upkeep.md` — the instance's **upkeep register** — `[user]`, written the first time a project
-  hands over upkeep or the owner asks for a standing task. It holds the recurring work that outlives a
+  hands over upkeep, the owner asks for a standing task, or a run records an exception that lapses on
+  a date (the security skill's advisory exceptions). It holds the recurring work that outlives a
   project's Agari: re-checks on a cadence, and corrections due when the world changes. Each task gets one
   row naming the rule it serves, its cadence, when it was last done, when it is next due, and what
   reminds the owner. None of the three above can hold this work. The Michi is a declaration, a seed is
@@ -2085,6 +2084,12 @@ the definition chain a project starts with, stamped rather than hand-written.
   project has something to keep; never created empty. `docs/nemawashi-refine/<seed>_report.md` is the
   Principal PM's answer to a retired seed, written by `nemawashi-refine` — here and not in the seed,
   because the seed is in `trail/` by then.
+  `docs/seeds-from-idea/<YYYY-MM-DD>_<slug>_brief.md` is an idea cut's input, in the shape of
+  `seeds-from-idea`'s `templates/brief.md`, which extends `<CORE>/templates/brief_template.md`. It is
+  committed with the seeds it produced — the owner's call, 2026-10-24, so every cut keeps its input
+  on record. Its `_report.md` sits beside it, in that skill's
+  `templates/report.md` shape: what the cut did with each line of the ask, read by `nemawashi-refine`
+  when the cut ran inside it.
 - `system/projects/<name>/contexts/CONTEXT_PM.md` — the project's **per-project PM context** — `[create]`,
   stamped from `templates/context_template.md`. Holds **one item**: this project's current change from the
   PM's view (scope / FDR-fit / product-fit) — PM memory, **not** a journey mirror. Sits below the two PM
@@ -2147,7 +2152,10 @@ the definition chain a project starts with, stamped rather than hand-written.
     - `journey/tobiishi/<key>/` — the active Tobiishi (`<key>` = `<YYYY-MM-DD>_<slug>`) — `[user]`
       (pipeline-authored, never created by setup). Holds the change arc, in order:
       `change_request.md` → `change_spec.md` → `change_design.md` → `tl_instruction.md` →
-      `change_text.md` → `flow_findings/` → code → `code-integrity-report.md`.
+      `change_text.md` → `flow_findings/` → code → `code-integrity-report.md` → `security-report.md`.
+      A change planned by `ad-hoc-plan` from a brief also holds `ad_hoc_plan_brief.md`, its input,
+      beside `change_request.md`, and an `ad-hoc-plan` run leaves `ad_hoc_plan_report.md` there,
+      save the three stops its `SKILL.md` § *The run's report* names.
     - `journey/tobiishi/trail/` — crossed stones: sealed Tobiishi moved here on seal — `[create]`
       (directory stub).
     - `journey/tobiishi/drop/` — Tobiishi dropped **unsealed** by `tobiishi-drop`, whole and unedited.
@@ -2354,7 +2362,8 @@ removed entry with `git log -p -- <product>/docs/what_left.md`.
 The Content Editor run that removes an entry is `readme-status`. After each station close, a
 product's what-left file shrinks at the `build-idea` queue's `readme-status` row. `shukuba-refine`
 writes one `readme-status` row after each `close the reached station` row in its report's
-`## Next moves` table. The queue starts that row only once the close it follows has landed.
+`## Next moves` table, for a product that has both a what-left file and a README with one `## Status`
+line; for one lacking either it writes none, since the run would refuse it. The queue starts that row only once the close it follows has landed.
 
 **Reducing the file belongs to that run alone, and reducing is all that run does to the file.** It
 never adds an entry and never rewords one. No one else removes an entry, whether or not its thing

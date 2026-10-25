@@ -218,6 +218,9 @@ The run reached a call only you can make, usually about what the product should 
   settle it. Make the decision in the document it belongs to, then run `chain-change` again.
 - If the change should not be made after all, run `core/launchers/skill/launcher.sh shukuba-refine
   <project>`. The PM reviews the stopped change and decides whether to drop it.
+- The security step stopped (`security-stopped`). Its `security-report.md`, in the change's folder,
+  says under *Why the run stopped* which fix it needs, which record forbids it and what it would do if
+  allowed. Make the call in that record, then run `chain-change` again.
 - `build-idea` stopped at a row for the owner's act. That row names a station only you walk, or a
   question for you. Do what it asks, then run `core/launchers/build-idea/launcher.sh <project>`
   again.
@@ -256,6 +259,17 @@ failed before the change began (`red-suite`), a product checkout missing what it
 small defect already on the main branch, or files a run left behind in the product checkout. Fix it
 on the product's main branch, or fix the project's test command, then run the launcher again.
 
+A main branch can also turn red with no commit behind it, when the product's dependency audit reads
+an advisory published after the last green run. For a product with an NFDR, the chain then first
+starts `dependency-repair` once, before it stops. It repairs the advisories on a branch off main, by
+the security step's rules, and merges once the suite is green; the walk then carries on from main.
+It stops as `red-suite` only when the repair did not merge. You can also start it yourself:
+`core/launchers/skill/launcher.sh dependency-repair <project>`.
+
+When a gate environment cannot install the product's languages or dependencies, the walk stops as
+`environment-not-ready`, before any test runs. Fix the install the product's CI describes, then run
+the launcher again.
+
 One stop comes before the implementation starts: `environment-decision-owed`. The product's tests
 have no place to run that KensaiApp can work out, so the product owes a decision on where its gates
 run. Record it in the product's decision files (its `docs/nfdr.md`, § 8) on the product's main
@@ -291,8 +305,8 @@ The file and the flag are in the operations guide's section
 - An unforced launch with no `.providers.toml` at the instance root, or with no entry for what it
   launches, is refused, naming what is missing. Nothing falls back to a default.
 - These launchers run on Claude only: `cold-read`, `launch-eval-fix`, `launch-skill-evals`,
-  `product-card`, `seeds-from-idea`, and the kaizen scripts `launch-apply-packet`, `launch-audit`
-  and `launch-fix-author`.
+  `product-card`, and the kaizen scripts `launch-apply-packet`, `launch-audit` and
+  `launch-fix-author`.
 
 The rules for each entry are in the opening comments of `.providers.toml.example`.
 

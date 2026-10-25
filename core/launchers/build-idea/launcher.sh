@@ -2,6 +2,7 @@
 #
 # launcher.sh (build-idea) — the owner's one command for the moves a shukuba-refine report leaves
 # owed: it reads the report's `## Next moves` table and runs it as a queue.
+# Version: 2.10.0 — the owner's Mac ask carries from a walk to the next change's walk
 # Version: 2.9.1 — the queue ends clean after a walk with no station
 # Version: 2.9.0 — the close names its station and lands only in trail/; a bad Next-moves Command cell fails only its own row; journey_names owns a station's name
 # Version: 2.8.2 — a build-idea queue waits on a live walk and continues when it ends — a refused hand-off waits, an ended walk releases the hold, a detached watcher wakes the queue
@@ -135,10 +136,18 @@
 #   from this launcher, and it is refused here, before the engine or its --describe runs, unless it
 #   is a positive integer. A queue that is resumed keeps the cap it started with.
 #
+# THE OWNER'S MAC ASK
+#   --gate-owners-mac is the owner's ask that a walk's test gate run on the owner's Mac, as
+#   chain-change's own flag of that name is. The queue records it and puts it on every chain-change
+#   row it launches, so the next change's walk has it. A chain-change walk that had the ask ends by
+#   starting this launcher with the flag, so a queue a walk's end starts has it too. Every start
+#   states it, as it states the force: a resume without the flag lifts it.
+#
 # USAGE
 #   <CORE>/launchers/build-idea/launcher.sh <project> [<unit-key>] [--provider claude|codex|gemini|hf|ollama]
 #                                           [--dry-run] [--keep-awake]
-#                                           [--context-cap <tokens>] [--chain-ended <end>]
+#                                           [--context-cap <tokens>] [--gate-owners-mac]
+#                                           [--chain-ended <end>]
 #   <CORE>/launchers/build-idea/launcher.sh <project> --stop
 #     (run from the instance root)
 #     <project>     a project under system/projects/<project>/
@@ -165,6 +174,10 @@
 #                   the context, in tokens, past which the developer's run pauses and a fresh one
 #                   continues; a positive integer, put on every chain-change row the queue starts
 #                   and kept by a resumed queue. Omitted, the engine's own default applies.
+#     --gate-owners-mac
+#                   the owner's ask, put on every chain-change row the queue starts, so each
+#                   change's walk runs its test gate on the owner's Mac. Stated by every start, a
+#                   resume included; a chain-change walk that had the ask passes it on its end.
 #     --chain-ended <end>
 #                   what a chain-change walk passes when it ends. sealed starts the queue as the
 #                   hook's own start, which a standing stop suppresses. A sealed unit that serves no
@@ -172,7 +185,8 @@
 #                   exits 0. Anything else prints that nothing was started and exits 0
 #     --stop        stop the runs in flight and end the queue at once, printing what it stopped; a
 #                   chain row is stopped through that chain's own --stop. Takes no unit key,
-#                   --dry-run or --chain-ended, and exits with the engine's status
+#                   --dry-run, --gate-owners-mac or --chain-ended, and exits with the engine's
+#                   status
 #
 set -euo pipefail
 
@@ -207,6 +221,7 @@ dry_run=""
 keep_awake=""
 context_cap=""
 context_cap_given=""
+gate_owners_mac=""
 chain_ended=""
 stop=""
 # The force: the flag, else an exported KENSAIAPP_AGENT_PROVIDER, else none. Passed to the engine
@@ -219,6 +234,7 @@ while [ $# -gt 0 ]; do
     --dry-run)     dry_run=1 ;;
     --keep-awake)  keep_awake=1 ;;
     --stop)        stop=1 ;;
+    --gate-owners-mac) gate_owners_mac=1 ;;
     --provider)    [ $# -ge 2 ] || die "--provider needs claude, codex, gemini, hf or ollama"
                    provider="$2"; shift ;;
     --provider=*)  provider="${1#--provider=}" ;;
@@ -233,7 +249,7 @@ while [ $# -gt 0 ]; do
   esac
   shift
 done
-[ -n "$project" ] || die "usage: <CORE>/launchers/build-idea/launcher.sh <project> [<unit-key>] [--provider claude|codex|gemini|hf|ollama] [--dry-run] [--keep-awake] [--context-cap <tokens>] [--chain-ended <end>] | <project> --stop"
+[ -n "$project" ] || die "usage: <CORE>/launchers/build-idea/launcher.sh <project> [<unit-key>] [--provider claude|codex|gemini|hf|ollama] [--dry-run] [--keep-awake] [--context-cap <tokens>] [--gate-owners-mac] [--chain-ended <end>] | <project> --stop"
 case "$provider" in ""|claude|codex|gemini|hf|ollama) ;; *) die "provider must be claude, codex, gemini, hf or ollama (got '$provider')" ;; esac
 if [ -n "$context_cap_given" ]; then
   case "$context_cap" in
@@ -241,8 +257,9 @@ if [ -n "$context_cap_given" ]; then
   esac
   [ "$((10#$context_cap))" -gt 0 ] || die "--context-cap '$context_cap' is not a positive integer of tokens"
 fi
-if [ -n "$stop" ] && { [ -n "$unit_key" ] || [ -n "$dry_run" ] || [ -n "$chain_ended" ]; }; then
-  die "usage: <CORE>/launchers/build-idea/launcher.sh <project> --stop — a stop takes no unit key, --dry-run or --chain-ended"
+if [ -n "$stop" ] && { [ -n "$unit_key" ] || [ -n "$dry_run" ] || [ -n "$gate_owners_mac" ] \
+    || [ -n "$chain_ended" ]; }; then
+  die "usage: <CORE>/launchers/build-idea/launcher.sh <project> --stop — a stop takes no unit key, --dry-run, --gate-owners-mac or --chain-ended"
 fi
 
 project_md="$INSTANCE_ROOT/system/projects/$project/project.md"
@@ -284,6 +301,7 @@ if [ -n "$provider" ]; then
 else
   echo "build-idea: provider=each row's own"
 fi
+[ -z "$gate_owners_mac" ] || echo "build-idea: owner's Mac ask=on (every chain-change row)"
 
 # --- hand the queue to the engine, through its --start CLI ---------------------------
 #   set -- / "$@" is the corpus's own way of building a command so --dry-run can print exactly
@@ -296,6 +314,7 @@ set -- python3 "$CHAIN_SCRIPT" --start "$state_path" \
 [ -n "$context_cap" ] && set -- "$@" --context-cap "$context_cap"
 [ -n "$product_path" ] && set -- "$@" --product-path "$product_path"
 [ -n "$provider" ] && set -- "$@" --provider "$provider"
+[ -n "$gate_owners_mac" ] && set -- "$@" --gate-owners-mac
 # The walk's own end reaches this launcher with --chain-ended, and only that start is the hook's:
 # the engine does nothing for it while the owner's stop stands. A start the owner types is never it.
 [ -n "$chain_ended" ] && set -- "$@" --by-hook

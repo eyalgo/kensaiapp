@@ -11,7 +11,9 @@ So the contract, stated here once. A launch names an identity file beside its sh
 `DETACHED_RUN_IDENTITY_FILE`; the run launcher records the run's and the watcher's pid in it, each
 with the process's start time (`record`, below). A stop reads the file back and signals a process
 only while its pid still has the recorded start time, so a pid the system has recycled is never
-signalled.
+signalled. That start is `ps`'s own text, which the shell watchers read the same way; beside it each
+process carries `started_at`, the same moment as ISO 8601 in UTC, for a reader that needs a time
+rather than a match. A file written before `started_at` existed reads with it `None`.
 
 This module imports only the standard library and no engine, so every engine and `watch_process.py`
 import it without a cycle. `process_alive` and `stop_lingering` live here for the same reason: the
@@ -29,10 +31,11 @@ import signal
 import subprocess
 import sys
 import time
+from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 
 IDENTITY_VARIABLE = "DETACHED_RUN_IDENTITY_FILE"
 STOPPED = "stopped"
@@ -45,6 +48,11 @@ _INHERITED_RUN_VARIABLES = (
 )
 
 _NOTHING_WAS_WAITING = "no launch was waiting"
+
+# `ps -o lstart=` read in the C locale with the clock in UTC, so its text parses the same on every
+# machine and names one moment whatever the local zone or its daylight saving.
+_FIXED_CLOCK = {"LC_ALL": "C", "TZ": "UTC0"}
+LSTART_FORMAT = "%a %b %d %H:%M:%S %Y"
 
 
 class DiskFiles:
@@ -127,6 +135,23 @@ class ProcessTable:
         text = _collapse(result.stdout)
         return text if result.returncode == 0 and text else None
 
+    def started_at(self, pid: int) -> str | None:
+        """When `pid` started, as ISO 8601 in UTC; `None` when there is no such process or `ps`
+        prints a start this cannot read."""
+        try:
+            result = subprocess.run(
+                ["ps", "-o", "lstart=", "-p", str(pid)], capture_output=True, text=True,
+                env={**os.environ, **_FIXED_CLOCK})
+        except OSError:
+            return None
+        text = _collapse(result.stdout)
+        if result.returncode != 0 or not text:
+            return None
+        try:
+            return datetime.strptime(text, LSTART_FORMAT).replace(tzinfo=timezone.utc).isoformat()
+        except ValueError:
+            return None
+
     def stop_group(self, pid: int) -> None:
         stop_lingering(pid, grace_seconds=0.0)
 
@@ -135,6 +160,7 @@ class ProcessTable:
 class ProcessIdentity:
     pid: int
     start: str | None
+    started_at: str | None = None
 
 
 @dataclasses.dataclass(frozen=True)
@@ -169,11 +195,12 @@ def prepare_launch(files: DiskFiles, shim_path: str, env: dict) -> tuple[dict, s
 def _part(table: ProcessTable, pid: int | None) -> dict | None:
     if pid is None:
         return None
-    return {"pid": pid, "start": table.start_time(pid)}
+    return {"pid": pid, "start": table.start_time(pid), "started_at": table.started_at(pid)}
 
 
 def identity_text(table: ProcessTable, run_pid: int | None, watcher_pid: int | None) -> str:
-    """The identity file's JSON. A pid with no process is recorded with a null start."""
+    """The identity file's JSON. A pid with no process is recorded with a null start and
+    `started_at`."""
     return json.dumps({"run": _part(table, run_pid), "watcher": _part(table, watcher_pid)})
 
 
@@ -182,10 +209,10 @@ def _identity_part(value: object) -> ProcessIdentity | None:
         return None
     if not isinstance(value, dict) or type(value.get("pid")) is not int or "start" not in value:
         raise ValueError("malformed process identity")
-    start = value["start"]
-    if start is not None and not isinstance(start, str):
+    start, started_at = value["start"], value.get("started_at")
+    if any(one is not None and not isinstance(one, str) for one in (start, started_at)):
         raise ValueError("malformed process start time")
-    return ProcessIdentity(value["pid"], start)
+    return ProcessIdentity(value["pid"], start, started_at)
 
 
 def read_identity(files: DiskFiles, path: str) -> LaunchIdentity | None:

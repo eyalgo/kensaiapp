@@ -1,5 +1,5 @@
 ---
-version: "1.7.1"
+version: "1.8.0"
 ---
 
 # The Flow — the change pipeline
@@ -40,7 +40,8 @@ each is written from; this file does not restate it.
 | 4 | Content Editor | `development-content` | `change_spec.md` + `change_design.md` (its `Publishes text:` line) + `CONTENT.md` + the writing bar | `change_text.md` |
 | 5 | Developer | `development-implementation` | `tl_instruction.md` + `change_text.md` when Stage 4 ran + `change_design.md` (cross-check) + `SDD.md` § 3 + `project.md` (execution context) | code (green suite) |
 | 6 | Senior Engineer | `development-code-integrity` | Stage-5 code + `change_spec.md` + `SDD.md` § 3 | `code-integrity-report.md` + green suite |
-| 7 | PM | `tobiishi-seal` | the change key + Stage-6 green suite | take `main`'s advance + suite green on it, then seal (result + move `<key>/` to `trail/` on branch) + `--no-ff` merge to `main` |
+| 7 | Senior Engineer | `development-security` | the Stage-6 code | `security-report.md` (its `Security:` line) |
+| 8 | PM | `tobiishi-seal` | the change key + Stage-6 green suite | take `main`'s advance + suite green on it, then seal (result + move `<key>/` to `trail/` on branch) + `--no-ff` merge to `main` |
 
 **Stage 4 runs only for a change that publishes text.** The architect writes a `Publishes text:` line in
 `change_design.md`, and the chain reads its first word when the walk reaches the step. `yes` runs the
@@ -54,7 +55,7 @@ A product with no code has no suite. Its card reads `Test command: none`, and wh
 
 The flow carries **one Tobiishi at a time**: each stage adds its artifact to the Tobiishi, the
 developer writes code into the codebase (Stage 5), the Senior Engineer proves it against its intent
-(Stage 6), and `tobiishi-seal` merges it (Stage 7). How the
+(Stage 6), the Senior Engineer reviews its security (Stage 7), and `tobiishi-seal` merges it (Stage 8). How the
 Tobiishi's artifacts pass between stages: `folder_state_handoff.md`.
 
 ## Code goes where the parts table puts it

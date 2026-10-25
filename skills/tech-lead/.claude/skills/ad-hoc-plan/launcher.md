@@ -7,9 +7,10 @@ own header.
 
 **Agent:** tech-lead
 **Arguments:** <project>
-**Prompt:** invoke the ad-hoc-plan skill for the {project} project.
+**Prompt:** invoke the ad-hoc-plan skill for the {project} project, unattended.
 
 `tech-lead` is the one seat the skill runs in (`SKILL.md` § *Posture*). The model and effort it runs on are `intelligence/<provider>.md`'s, beside this file. The prompt names the project and nothing else: the change it
 plans is the single active Tobiishi under that project's `journey/tobiishi/`, which the skill resolves
-itself at Step 1. The skill's optional idea is not an argument. Unattended there are no owner words to
-pass, and where none is given "the Request is the idea" (`SKILL.md` § *Inputs*).
+itself at Step 1. The brief is not an argument. Unattended there is no owner to confirm one, so the
+Request is the brief, and the prompt's "unattended" is what tells the run so; a brief already
+committed in the change folder is read either way (`SKILL.md` § *Inputs*).

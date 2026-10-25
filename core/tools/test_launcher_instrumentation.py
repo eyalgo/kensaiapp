@@ -329,10 +329,15 @@ def _no_subject_problems(launchers_dir: Path = _LAUNCHERS_DIR) -> list[str]:
 
 
 def test_a_launcher_owing_no_usage_key_carries_exactly_the_four_provenance_keys():
-    """The negative half: a launcher owing no subject key (`seeds-from-idea`) hands over the four
-    provenance keys every run is stamped with, and nothing else — it must not grow a subject key
-    (`project=`, `document=`, `skill=`, `target_instance=`) by copying a sibling that has one. The
-    keys are read as shell words off the call's own line, so a comment never supplies one."""
+    """The negative half: a launcher owing no subject key hands over the four provenance keys every
+    run is stamped with, and nothing else — it must not grow a subject key (`project=`,
+    `document=`, `skill=`, `target_instance=`) by copying a sibling that has one. The keys are read
+    as shell words off the call's own line, so a comment never supplies one.
+
+    No launcher on disk owes no subject key since 2026-10-24, when the last one, `seeds-from-idea`'s,
+    was deleted — the skill has no launcher of its own. On the real tree this reads nothing, then,
+    and it holds the next such launcher the day it lands; that the rule catches one is proved on
+    constructed launchers by `test_no_subject_usage_requires_only_provenance`."""
     problems = _no_subject_problems()
     assert not problems, (
         "these launchers owe no subject key per their own usage line, but their instrumenting "
@@ -343,14 +348,15 @@ def test_a_launcher_owing_no_usage_key_carries_exactly_the_four_provenance_keys(
 
 # --- The fleet sweep — every instrumented launcher stamps its provenance -------------------
 
-# Seven launchers, every one calling `run_telemetry`: the skill launcher, and the six of the eleven
+# Six launchers, every one calling `run_telemetry`: the skill launcher, and the five of the eleven
 # that gained the four keys beside it still on disk. `kensaiapp-writing-bar`'s, `experience-visual`'s
 # and `experience-voice`'s were deleted on 2026-09-30, each skill launching through the skill
 # launcher from its `launcher.md`, and `product-sdd`'s on 2026-10-03 with the three-seat runner it
-# launched, and `ratify`'s the same day. A count, not a list: which launchers call an instrumenting
+# launched, and `ratify`'s the same day, and `seeds-from-idea`'s on 2026-10-24, the skill having no
+# launcher of its own. A count, not a list: which launchers call an instrumenting
 # function is read from disk, and this number is what stops a broken glob or a predicate that
 # matches nothing from reading as every launcher complying.
-_INSTRUMENTED_LAUNCHER_COUNT = 7
+_INSTRUMENTED_LAUNCHER_COUNT = 6
 
 
 def _instrumented_launchers(launchers_dir: Path = _LAUNCHERS_DIR) -> dict[Path, list[str]]:
@@ -393,9 +399,9 @@ def test_every_launcher_with_an_instrumenting_call_carries_the_four_provenance_k
     )
 
 
-def test_the_call_sweep_finds_seven_launchers():
+def test_the_call_sweep_finds_six_launchers():
     """A silent filter passes everything: a sweep that found nothing would pass the rule above.
-    Seven is the skill launcher and the six other launchers that spawn a run, each calling
+    Six is the skill launcher and the five other launchers that spawn a run, each calling
     `run_telemetry`. A new instrumented launcher moves this number, deliberately, in the same
     commit that makes it one."""
     found = sorted(str(path.relative_to(_REPO)) for path in _instrumented_launchers())
@@ -409,8 +415,8 @@ def test_the_call_sweep_finds_seven_launchers():
     )
 
 
-def test_all_seven_real_launchers_use_the_shared_helper():
-    """The migration is complete on the real tree: disk enumeration finds exactly seven, each one
+def test_all_six_real_launchers_use_the_shared_helper():
+    """The migration is complete on the real tree: disk enumeration finds exactly six, each one
     resolves its library to the helper at the path the next test checks."""
     launchers = _instrumented_launchers()
 
@@ -508,10 +514,10 @@ def test_a_call_sweep_discovers_the_call_on_disk(tmp_path: Path):
     assert [p.parent.name for p in _instrumented_launchers(tmp_path)] == ["caller"]
 
 
-def test_the_call_sweep_keeps_seven_launchers_including_skill():
+def test_the_call_sweep_keeps_six_launchers_including_skill():
     found = {str(path.relative_to(_REPO)) for path in _instrumented_launchers()}
 
-    assert len(found) == _INSTRUMENTED_LAUNCHER_COUNT == 7, sorted(found)
+    assert len(found) == _INSTRUMENTED_LAUNCHER_COUNT == 6, sorted(found)
     assert "core/launchers/skill/launcher.sh" in found
     assert "core/launchers/companion-self-answer/launcher.sh" in found
 

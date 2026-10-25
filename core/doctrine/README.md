@@ -1,5 +1,5 @@
 ---
-version: "1.31.0"
+version: "1.31.1"
 ---
 
 # Project doctrine directory
@@ -20,7 +20,7 @@ resolvable via this index — they are not all relative paths.)
 - `doctrine_structure.md` — how doctrine is structured, classified, revised (the meta layer)
 - `versioning.md` — which artifacts carry a `version:` and which must not (who reads the file decides), the marker's form per kind, and the bump semantics
 - `skill_intelligence.md` — a chain run's model and effort are set by the skill it runs, never by the role: each skill's `intelligence/<provider>.md`, in that vendor's terms; a missing file refuses the launch
-- `model_assignment.md` — the four Kensaiapp tiers and their provider bindings, and how a run with no skill behind it (ratification, ad-hoc subagents, `agent-invoke`, eval executors and graders) chooses its model — why by tier
+- `model_assignment.md` — the four Kensaiapp tiers and their provider bindings, and how a run with no skill behind it (ratification, ad-hoc subagents, `agent-invoke`, eval executors and graders) chooses its model — why by tier — and that an interactive session starts a general-purpose agent through `agent-invoke`
 - `ai_responsibility.md` — the AI-driven-decisions vs mechanical-rules boundary (OS-level body)
 - `unsettled_inputs.md` — a run derived from an unsettled input never halts, records every input and the status it carried, in one fixed header line; why a companion escalation is not a record
 - `where_taste_appears.md` — the aesthetic call is made in the run that owns it and never upstream; what a document that does not own the call may say instead

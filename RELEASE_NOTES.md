@@ -3,6 +3,39 @@
 What each release of KensaiApp changed, newest first. Releases are numbered 0.x until v1; a 0.x
 release makes no promise of stability, as the README's section "What it does not promise" says.
 
+## 0.4.0 — 2026-10-25
+
+### KensaiApp
+
+- A new step in every change, Security, between Prove and Audit: the senior engineer runs the
+  product's dependency audit and reads the change's code for security holes. It fixes what its rules
+  allow, writes an exception for an advisory the product does not reach, and reports the rest for the
+  PM. It stops the walk only when a fix needs a move it may not make. It is a first iteration.
+- **If you set up a clone of an earlier release**, add `security = "claude"` under `[steps]` in your
+  `.providers.toml`, as `.providers.toml.example` now has it: a step with no entry is refused by name.
+- `dependency-repair`: when a product's main branch turns red with no commit behind it, because its
+  dependency audit reads an advisory published since the last green run, the chain repairs it once on
+  a branch and merges it before it stops the walk.
+- A new stop, `environment-not-ready`, when a test environment cannot install the product's languages
+  or dependencies, before any test runs.
+- Where a product's CI runs a matrix, each version gets its own test container.
+- `--gate-owners-mac` carries from a walk to the queue after it, and `build-idea` takes it.
+- `seeds-from-idea` runs in a session, from the `principal-pm` group, and has no launcher. An idea
+  arrives as a brief you confirm, with the files it rests on quoted and checked.
+- `ad-hoc-plan` starts from a brief you confirm, and every run leaves a report beside it.
+- The panel shows how long a walk and its step have run, and which task of the plan the build is on.
+
+### The front door
+
+- A new guide, How it works: the three checks on a change, where what they find goes, the PM's review
+  of the route, the two kinds of finding, when a walk stops for you, and what a change costs.
+- The pipeline in the README and the overview diagram show the Security step.
+- The audit is described as what it is: a check of how well each of KensaiApp's steps did its job,
+  not of the product, which is why it does not stop a change.
+- What KensaiApp does not promise is said more plainly, and the README says it may support other
+  workflows with the right adjustments.
+- ka-telemetry's entry links what building it cost.
+
 ## 0.3.0 — 2026-10-22
 
 ### KensaiApp

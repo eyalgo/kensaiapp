@@ -3,7 +3,7 @@
 Layer 5 throughout (`<CORE>/doctrine/engineering/languages/shell/testing.md` § The layers) — the real
 script through its real entry point, with the outside world stubbed. Two things are stubbed and
 nothing else: a fake `claude` on `PATH` that records the argv it was handed, in the shape
-`core/launchers/seeds-from-idea/test_seeds_from_idea.py` uses one; and the skeleton launcher, reached through
+`core/launchers/launch-eval-fix/test_launch_eval_fix.py` uses one; and the skeleton launcher, reached through
 `LAUNCH_PRODUCT_CARD_SKELETON`, which records its own argv and replays a scripted stdout so a test
 can say what its dry run found.
 

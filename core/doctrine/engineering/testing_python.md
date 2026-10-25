@@ -1,5 +1,5 @@
 ---
-version: "2.2.0"
+version: "2.3.0"
 name: testing-python
 description: Python implementation of testing_doctrine.md. Tooling and file conventions for layers 1–6. Layer 7 is answered elsewhere.
 ---
@@ -29,6 +29,7 @@ Layers 1–4 share a single `pytest tests/` invocation (excluding `e2e/`). Layer
 - **Layer 5 lives in `tests/e2e/`.** Separate invocation so layers 1–4 can run fast without full-system overhead.
 - **Layer 4 has no standing Python tool.** Most Python products in this system are CLIs and omit the layer entirely with rationale in `docs/nfdr.md`, per `testing_doctrine.md`. A Python product that *does* have a UI records its component-test tool in `docs/nfdr.md` § 9 — this overlay does not pick one, because there is no single Python answer to pick.
 - **The seam is a hand-written fake passed to the constructor — not `monkeypatch.setattr` on the module under test.** `testing_doctrine.md` § *Layers 1–5* states the rule; in Python it reads: one plain class per port, each recording what it received, wired through the unit's constructor by a small helper, and asserted on by that record. `<CORE>/tools/test_chain.py` is the worked file — the fakes at `:24-116`, the wiring helper `build()` at `:164`, and `:206`, `assert processes.launched == [producer("product-fdr")]`, on the exact ordered `argv` the injected process port received. Its own header states the rule and why it is possible (`:11-12`, *"Nothing here monkeypatches the module under test. Every collaborator the engine uses is handed to it through its constructor"*). The shape that makes it possible is `languages/python/conventions.md` § *Constructs*, not this file's.
+- **A test that needs a normal user skips when it runs as root.** A gate's container runs the suite as root, as the official `python` image and a CI's container jobs do (`languages/python/environment.md` § Provisioning). Root reads a file whatever its mode, so a test whose subject is a file it cannot open or a folder it cannot list skips that part when `os.geteuid() == 0`, with a reason saying so, and runs it in full anywhere else. A fake uid passed to the code under test does not count: the check reads the real process's user.
 - **Measured 2026-09-01, that file is the exception rather than the corpus's habit**, which is why the rule above is stated rather than assumed: `grep -rE 'monkeypatch\.(setattr|setenv|delenv|delattr|chdir|syspath_prepend)' core/tools/ core/launchers/ .claude/hooks/ | wc -l` returns **104** call sites, **93** of them `setattr`, spread over ten of the **52** test files under those roots plus `core/tools/conftest.py`. `monkeypatch.setenv` for the environment a process inherits is not what this rule is about; `monkeypatch.setattr` standing in for a seam the unit does not offer is.
 
 ---

@@ -1,5 +1,5 @@
 ---
-version: "1.9.1"
+version: "1.10.0"
 ---
 <!-- The version above is template-file metadata; it is not copied into the report. Nor is this block.
 
@@ -51,6 +51,7 @@ Station `<station-slug>` (<root | trail/ | parked/>). Seed `<seed-slug>`.*
 |---|---|---|
 | flow findings | <path, one row per step, or "absent — <why>"> | <blocking / change-local / skill-general counts, and what each blocking one names> |
 | code-integrity report | <path, or "absent — <why>"> | <verdict, and anything it surfaced but did not fix> |
+| security report | <path, or "absent — <why>"> | <verdict, and each line of § Left for the PM with what it became: a companion item on the NFDR, a security seed recommended, or the route line that carries it> |
 | developer's closing commit | <SHA, or "absent — <why>"> | <its divergence notes, in a line> |
 | deferred decisions | <path, or "absent — <why>"> | <each entry and whether it still has an owner> |
 | the closing commit's `Deferred:` lines | <SHA, or "absent — <why>"> | <each line and where the refine routed it: (a) the companion item raised, (b) the next change's spec, or read as a (c) finding> |

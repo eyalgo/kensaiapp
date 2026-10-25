@@ -707,7 +707,7 @@ def test_every_shipped_skill_commits_as_the_agent_its_declaration_launches():
         for md in _shipped_launcher_mds()
         if md.parent.name.startswith("development-") or md.parent.name in ("tobiishi-open", "nemawashi-drop")
     ]
-    assert len(naming) == 9, naming
+    assert len(naming) == 10, naming
     for md in _shipped_launcher_mds():
         agent = _field(md.read_text(), "Agent")
         named = _named_actors(md.parent / "SKILL.md")

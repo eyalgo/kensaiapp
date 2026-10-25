@@ -6,13 +6,13 @@
 
 <p>
 <img alt="Runs on Claude Code" src="https://img.shields.io/badge/runs%20on-Claude%20Code-d97757?style=flat-square">
-<img alt="Version 0.3.0" src="https://img.shields.io/badge/version-0.3.0-2da44e?style=flat-square">
+<img alt="Version 0.4.0" src="https://img.shields.io/badge/version-0.4.0-2da44e?style=flat-square">
 <img alt="Uses Python 3.13 or later" src="https://img.shields.io/badge/python-3.13%2B-3776ab?style=flat-square">
 <img alt="Licence: MIT" src="https://img.shields.io/badge/licence-MIT-0969da?style=flat-square">
 </p>
 
-<p><a href="#who-it-is-for">Who it is for</a> · <a href="#how-a-change-moves">How a change moves</a> · <a href="#getting-started">Getting started</a> · <a href="#one-change-from-request-to-patch">One change, from request to patch</a> · <a href="#examples">Examples</a> · <a href="#built-with-kensaiapp">Built with KensaiApp</a> · <a href="about/architecture.md">Architecture overview</a> · <a href="about/operations.md">Operations guide</a> · <a href="#still-changing">Still changing</a></p>
-<p><img src="about/images/overview.svg" alt="KensaiApp in three stacked bands. Product intent: PRD, then definition of done, then product documents. Journey: seed, then station, then change. One change: Ask by the PM, Spec by the product owner, Design by the architect, Plan by the tech lead, Content by the content editor, only when the change publishes text, Build by the developer, Prove by the senior engineer, Audit by the auditor, Seal by the PM. Below them: lands in git: documents, code, tests, findings, the trail of each change. On the side: the owner gives direction and makes the calls only you can make; a program decides what runs next; each role has one job." width="100%"></p>
+<p><a href="#who-it-is-for">Who it is for</a> · <a href="#how-a-change-moves">How a change moves</a> · <a href="about/how-it-works.md">How it works</a> · <a href="#getting-started">Getting started</a> · <a href="#one-change-from-request-to-patch">One change, from request to patch</a> · <a href="#examples">Examples</a> · <a href="#built-with-kensaiapp">Built with KensaiApp</a> · <a href="about/architecture.md">Architecture overview</a> · <a href="about/operations.md">Operations guide</a> · <a href="#still-changing">Still changing</a></p>
+<p><img src="about/images/overview.svg" alt="KensaiApp in three stacked bands. Product intent: PRD, then definition of done, then product documents. Journey: seed, then station, then change. One change: Ask by the PM, Spec by the product owner, Design by the architect, Plan by the tech lead, Content by the content editor, only when the change publishes text, Build by the developer, Prove by the senior engineer, Security by the senior engineer, Audit by the auditor, Seal by the PM. Below them: lands in git: documents, code, tests, findings, the trail of each change. On the side: the owner gives direction and makes the calls only you can make; a program decides what runs next; each role has one job." width="100%"></p>
 </div>
 
 KensaiApp started as an experimental private project, which grew into a public one. It was built as
@@ -35,6 +35,8 @@ It is maintained privately, so there is no promise of support and no roadmap.
 The [how-to guide](about/how-to.md) adds step-by-step detail to this README, for when you need it. The
 [glossary](about/glossary.md) explains each word, and the
 [agentic description](about/agentic_description.md) maps KensaiApp onto agentic-engineering terms.
+[How it works](about/how-it-works.md) explains how a change is checked, what follows the checks and how
+the next step is decided.
 The [architecture overview](about/architecture.md) says how KensaiApp is organised, what the journey's
 Japanese names mean, how a project gets from its documents to its done, and which rules the system
 enforces. The [operations guide](about/operations.md) covers running it: where things stand,
@@ -47,12 +49,17 @@ KensaiApp was written for its author's own use, and it has not been compared wit
 solutions. In its author's view, it can still help two groups: people looking for a spec-driven,
 multi-agent system that builds apps, and AI and software engineers looking for ideas.
 
+The author believes that, with the right adjustments, it can support other workflows too, not only
+automating the software development lifecycle.
+
 ### What it does not promise
 
-There is no support, no stability promise and no roadmap. Issues are welcome as input, but a
-reported problem may not be fixed quickly. Outside contributions are not accepted for now, maybe later.
+KensaiApp is maintained privately, so it comes without formal support: there is no promised timeline
+for a fix, no stability promise and no roadmap. Issues are welcome: open one for a problem you hit or
+an idea you have, and it will be read. Outside contributions, pull requests included, are not accepted for now, maybe later.
 
-KensaiApp's output has not been evaluated against the output of another way of working.
+KensaiApp's output has not been evaluated against the output of another way of working, such as a
+developer working without it.
 
 ## How a change moves
 
@@ -71,11 +78,11 @@ ASK             SPEC            DESIGN          PLAN            CONTENT *
 └───────────┘   └───────────┘   └───────────┘   └───────────┘   └───────────┘
                                                                       │
                                                                       ▼
-                SEAL            AUDIT           PROVE           BUILD
-                ┌───────────┐   ┌───────────┐   ┌───────────┐   ┌───────────┐
-                │ PM        │◀──│ Auditor   │◀──│ Senior    │◀──│ Developer │
-                │           │   │           │   │ engineer  │   │           │
-                └───────────┘   └───────────┘   └───────────┘   └───────────┘
+SEAL            AUDIT           SECURITY        PROVE           BUILD
+┌───────────┐   ┌───────────┐   ┌───────────┐   ┌───────────┐   ┌───────────┐
+│ PM        │◀──│ Auditor   │◀──│ Senior    │◀──│ Senior    │◀──│ Developer │
+│           │   │           │   │ engineer  │   │ engineer  │   │           │
+└───────────┘   └───────────┘   └───────────┘   └───────────┘   └───────────┘
 
 * the content step runs only when the change's design says it publishes text
 ```
@@ -89,11 +96,12 @@ ASK             SPEC            DESIGN          PLAN            CONTENT *
 | Content | Content editor | The exact words the change puts in front of a person |
 | Build | Developer | The code, each test written before the code it checks |
 | Prove | Senior engineer | Proof that the code does what the change intends, with the tests nobody wrote |
-| Audit | Auditor | One findings file per step it reviews; it lists defects and never fixes them |
+| Security | Senior engineer | A security report: the product's dependency audit answered, and the change's code read for security holes, fixed where its rules allow |
+| Audit | Auditor | One findings file per step it reviews: how well that step did its job. It checks KensaiApp, not the product, and never fixes what it finds |
 | Seal | PM | The change merged into `main`, and its folder moved to where sealed changes are kept |
 
-The audit never stops a change from moving on. Its findings are kept on branches of their own and
-joined into the change at the seal.
+[How it works](about/how-it-works.md) explains the three checks, where what they find goes and how
+the next step is decided.
 
 ## How the work is kept in check
 
@@ -107,8 +115,10 @@ Each point is stated in full in the section it links to.
   kept where sealed changes are kept, so its files can be read afterwards
   ([One change, from request to patch](#one-change-from-request-to-patch)).
 - The developer writes the code, each test before the code it checks. The senior engineer proves that
-  the code does what the change intends. The auditor lists the defects it finds in each step it
-  reviews, and never fixes them ([How a change moves](#how-a-change-moves)).
+  the code does what the change intends, and then reviews it for security. The auditor lists the
+  defects it finds in how each step did its job, and never fixes them ([How a change moves](#how-a-change-moves)).
+- What the checks find is read before the next change: the route ahead can change, but what was asked
+  for, and the product's documents, do not ([How it works](about/how-it-works.md#the-route-is-re-decided-after-every-change)).
 - A walk stops when it needs you, for an act only you can do or a question only you can answer, when
   a step fails, or when you stop it ([From requirements to a product](about/architecture.md#from-requirements-to-a-product)).
 - Some rules are held by code rather than by the model: hooks, a commit check and the launchers.
@@ -271,7 +281,8 @@ Products KensaiApp built that are published on their own.
 - [ka-telemetry](https://github.com/eyalgo/ka-telemetry): per-agent tokens, time and cost for Claude
   Code, from its telemetry and transcripts, on your own machine. A Python command-line tool and
   library, on PyPI as [`ka-telemetry`](https://pypi.org/project/ka-telemetry/). KensaiApp's own
-  telemetry and context cap run on it ([step 6](#6-collect-telemetry)).
+  telemetry and context cap run on it ([step 6](#6-collect-telemetry)). What building it cost, in
+  Claude runs, tokens and money, is in its [build cost report](https://github.com/eyalgo/ka-telemetry/blob/main/docs/build_cost.md).
 
 ## Still changing
 
@@ -310,6 +321,7 @@ published work, each under its own licence; [NOTICE](NOTICE) lists them.
 <a href="about/how-to.md">How-to guide</a> ·
 <a href="about/glossary.md">Glossary</a> ·
 <a href="about/agentic_description.md">Agentic description</a> ·
+<a href="about/how-it-works.md">How it works</a> ·
 <a href="about/architecture.md">Architecture overview</a> ·
 <a href="about/operations.md">Operations guide</a> ·
 <a href="LICENSE">Licence</a> ·

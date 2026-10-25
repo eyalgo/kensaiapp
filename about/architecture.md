@@ -84,7 +84,10 @@ documents to its definition of done, and after the first launch it walks itself:
    the change through [the pipeline](../README.md#how-a-change-moves) to the seal (`tobiishi-seal`). A station that is not reached can be
    parked (`shukuba-park`) and opened again later.
 4. After every sealed change, the PM refines the station (`shukuba-refine`) and writes the next moves:
-   another change, or closing the station.
+   another change, or closing the station. The route is decided again each time, from what the
+   change found: the stations ahead can be re-cut, reordered, parked or dropped, but what was asked
+   for and the product's documents do not move
+   ([The route is re-decided after every change](how-it-works.md#the-route-is-re-decided-after-every-change)).
 5. The Scrum Master closes a station once it is reached (`shukuba-retire`). When a seed's checklist is
    walked, the Scrum Master retires the seed (`nemawashi-retire`), and the Principal PM refines the
    seedbed (`nemawashi-refine`): a new cut from the documents, or the next pick.
@@ -160,7 +163,6 @@ Each part of the journey above has a launcher:
 | `chain-change` | One change: open a station if none is open, open the change, the pipeline, the seal and the refine. At its end it starts `build-idea` |
 | `build-idea` | The next moves a refine wrote, run as a queue: close a station, retire a seed, pick, cut, or the next change, which starts `chain-change` again |
 | `chain-development` | The pipeline from the spec on, for a change whose request already exists |
-| `seeds-from-idea` | One idea cut into seeds |
 | `product-card` | The card's fields, the product README and the code skeleton |
 
 A documents chain walks a spine: the ordered list of documents its launcher hands to the chain engine.

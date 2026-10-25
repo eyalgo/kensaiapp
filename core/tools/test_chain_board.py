@@ -2,24 +2,27 @@
 
 Every case reads real files under `tmp_path`: an instance root holds `kensaiapp.md` and
 `system/logs/*-state.json` in the three engines' shapes, and station and seed files where a
-case needs them. The one collaborator the reader is handed, `launch_state`, is a fake that answers from a
-dict and records what it was asked. Every project, instance and station name here is invented.
+case needs them. The collaborators the reader is handed, `launch_state`, the history and
+`launch_start`, are fakes that answer from a dict and record what they were asked. Every project, instance and station name here is invented.
 """
 
 from __future__ import annotations
 
 import json
+import os
 import subprocess
+from datetime import datetime
 from pathlib import Path
 
 import pytest
 
 import chain_board
+import walk_stop
 from walk_stop import LaunchState
 
 STARTED = "2026-03-01T10:00:00+00:00"
 ROW_KEYS = {"launcher", "project", "seed", "station", "walk", "key", "step", "status", "reason",
-            "started_at"}
+            "started_at", "step_started_at", "task", "tasks"}
 
 
 class FakeLaunches:
@@ -45,6 +48,32 @@ class FakeOpenings:
     def __call__(self, root: Path, project: str) -> dict[str, str]:
         self.asked.append(project)
         return dict(self.stations)
+
+
+class FakeStarts:
+    """`launch_start` as the reader is handed it: an identity path in, its run's start out."""
+
+    def __init__(self, starts: dict[str, str] | None = None) -> None:
+        self.starts = dict(starts or {})
+        self.asked: list[str] = []
+
+    def __call__(self, identity: str) -> str:
+        self.asked.append(identity)
+        return self.starts.get(identity, "")
+
+
+class FakeTasks:
+    """`task_progress` as the reader is handed it: `(root, project, key, product_path)` in, the
+    answer recorded for that key out — `None` for a key with none. Records what it was asked."""
+
+    def __init__(self, progress: dict[str, tuple[int, int] | None] | None = None) -> None:
+        self.progress = dict(progress or {})
+        self.asked: list[tuple[Path, str, str, str]] = []
+
+    def __call__(self, root: Path, project: str, key: str,
+                 product_path: str) -> tuple[int, int] | None:
+        self.asked.append((root, project, key, product_path))
+        return self.progress.get(key)
 
 
 def make_instance(base: Path, name: str) -> Path:
@@ -77,12 +106,19 @@ def one_launch(identity: str) -> dict:
     return {"identity": identity, "kind": "producer"}
 
 
+def developer_launch(identity: str = "/logs/a.identity.json") -> dict:
+    """A development walk's launch on its implementation step, as the chain records it."""
+    return {"step": "implementation", "audited": None, "identity": identity}
+
+
 def waiting_rows(root: Path, launches: FakeLaunches | None = None) -> list[chain_board.Row]:
-    return chain_board.read_board(root, launches or FakeLaunches(), FakeOpenings()).waiting
+    return chain_board.read_board(root, launches or FakeLaunches(), FakeOpenings(),
+                                  FakeStarts(), FakeTasks()).waiting
 
 
 def running_rows(root: Path, launches: FakeLaunches | None = None) -> list[chain_board.Row]:
-    return chain_board.read_board(root, launches or FakeLaunches(), FakeOpenings()).running
+    return chain_board.read_board(root, launches or FakeLaunches(), FakeOpenings(),
+                                  FakeStarts(), FakeTasks()).running
 
 
 def write_station(root: Path, project: str, folder: str, station: str, heading: str) -> None:
@@ -101,8 +137,8 @@ def test_reading_one_instance_returns_no_row_of_another(tmp_path):
                 build_idea_walk("beta-proj", ended="halted", ended_reason="stuck"))
     write_state(beta, "chain-change-beta-proj-state.json", development_walk("beta-proj"))
 
-    first = chain_board.read_board(alpha, FakeLaunches(), FakeOpenings())
-    second = chain_board.read_board(beta, FakeLaunches(), FakeOpenings())
+    first = chain_board.read_board(alpha, FakeLaunches(), FakeOpenings(), FakeStarts(), FakeTasks())
+    second = chain_board.read_board(beta, FakeLaunches(), FakeOpenings(), FakeStarts(), FakeTasks())
 
     assert [row.project for row in first.waiting + first.running] == ["alpha-proj", "alpha-proj"]
     assert [row.project for row in second.waiting + second.running] == ["beta-proj", "beta-proj"]
@@ -119,7 +155,7 @@ def test_every_quiet_end_lands_in_neither_list(tmp_path, builder, end):
     root = make_instance(tmp_path, "inst")
     write_state(root, "walk-state.json", builder(ended=end, ended_reason="over"))
 
-    board = chain_board.read_board(root, FakeLaunches(), FakeOpenings())
+    board = chain_board.read_board(root, FakeLaunches(), FakeOpenings(), FakeStarts(), FakeTasks())
 
     assert (board.waiting, board.running) == ([], [])
 
@@ -133,7 +169,7 @@ def test_every_other_end_waits_on_the_owner(tmp_path, builder, end):
     root = make_instance(tmp_path, "inst")
     write_state(root, "walk-state.json", builder(ended=end, ended_reason=f"the reason for {end}"))
 
-    board = chain_board.read_board(root, FakeLaunches(), FakeOpenings())
+    board = chain_board.read_board(root, FakeLaunches(), FakeOpenings(), FakeStarts(), FakeTasks())
 
     assert board.running == []
     assert [(row.status, row.reason) for row in board.waiting] == [(end, f"the reason for {end}")]
@@ -156,7 +192,7 @@ def test_a_walk_whose_launches_are_all_gone_waits_with_status_gone(tmp_path):
     launches = FakeLaunches({"/logs/a.identity.json": LaunchState.GONE,
                              "/logs/b.identity.json": LaunchState.GONE})
 
-    board = chain_board.read_board(root, launches, FakeOpenings())
+    board = chain_board.read_board(root, launches, FakeOpenings(), FakeStarts(), FakeTasks())
 
     assert [row.status for row in board.waiting] == [LaunchState.GONE.value]
     assert board.running == []
@@ -170,7 +206,7 @@ def test_a_walk_with_a_live_launch_is_running(tmp_path):
     launches = FakeLaunches({"/logs/a.identity.json": LaunchState.LIVE,
                              "/logs/b.identity.json": LaunchState.GONE})
 
-    board = chain_board.read_board(root, launches, FakeOpenings())
+    board = chain_board.read_board(root, launches, FakeOpenings(), FakeStarts(), FakeTasks())
 
     assert board.waiting == []
     assert [(row.status, row.reason) for row in board.running] == [("", "")]
@@ -182,7 +218,7 @@ def test_a_walk_with_an_unrecorded_launch_is_running(tmp_path):
                 development_walk(pending={"design": one_launch("/logs/a.identity.json")}))
     launches = FakeLaunches({"/logs/a.identity.json": LaunchState.UNRECORDED})
 
-    board = chain_board.read_board(root, launches, FakeOpenings())
+    board = chain_board.read_board(root, launches, FakeOpenings(), FakeStarts(), FakeTasks())
 
     assert (len(board.waiting), len(board.running)) == (0, 1)
 
@@ -191,7 +227,7 @@ def test_a_walk_waiting_on_no_launch_is_running(tmp_path):
     root = make_instance(tmp_path, "inst")
     write_state(root, "walk-state.json", development_walk(pending={}))
 
-    board = chain_board.read_board(root, FakeLaunches(), FakeOpenings())
+    board = chain_board.read_board(root, FakeLaunches(), FakeOpenings(), FakeStarts(), FakeTasks())
 
     assert (len(board.waiting), len(board.running)) == (0, 1)
 
@@ -201,7 +237,7 @@ def test_a_launch_with_no_identity_is_unrecorded_and_never_asked_about(tmp_path)
     write_state(root, "walk-state.json", development_walk(pending={"design": {"step": "design"}}))
     launches = FakeLaunches()
 
-    board = chain_board.read_board(root, launches, FakeOpenings())
+    board = chain_board.read_board(root, launches, FakeOpenings(), FakeStarts(), FakeTasks())
 
     assert launches.asked == []
     assert (len(board.waiting), len(board.running)) == (0, 1)
@@ -213,7 +249,7 @@ def test_a_chain_walk_with_a_single_pending_launch_is_judged_by_it(tmp_path):
     write_state(root, "walk-state.json", product_walk(pending=pending))
     launches = FakeLaunches({"/logs/solo.identity.json": LaunchState.GONE})
 
-    board = chain_board.read_board(root, launches, FakeOpenings())
+    board = chain_board.read_board(root, launches, FakeOpenings(), FakeStarts(), FakeTasks())
 
     assert launches.asked == ["/logs/solo.identity.json"]
     assert [row.status for row in board.waiting] == ["gone"]
@@ -501,7 +537,7 @@ def test_an_owner_owed_build_idea_a_later_chain_hands_back_to_is_in_neither_list
     write_state(root, "b-state.json", development_walk(
         on_end=HANDS_BACK, started_at="2026-03-01T11:00:00+00:00"))
 
-    board = chain_board.read_board(root, FakeLaunches(), FakeOpenings())
+    board = chain_board.read_board(root, FakeLaunches(), FakeOpenings(), FakeStarts(), FakeTasks())
 
     assert board.waiting == []
     assert [row.launcher for row in board.running] == ["chain-change"]
@@ -599,7 +635,7 @@ def test_a_halted_change_walk_a_later_development_walk_took_up_is_in_neither_lis
     write_state(root, "chain-development-widgets-state.json", development_walk(
         chain_name="development", key=CHANGE, ended="sealed", started_at=LATER))
 
-    board = chain_board.read_board(root, FakeLaunches(), FakeOpenings())
+    board = chain_board.read_board(root, FakeLaunches(), FakeOpenings(), FakeStarts(), FakeTasks())
 
     assert (board.waiting, board.running) == ([], [])
 
@@ -611,7 +647,7 @@ def test_the_later_walk_is_the_row_while_it_runs(tmp_path):
     write_state(root, "chain-development-widgets-state.json",
                 development_walk(chain_name="development", key=CHANGE, started_at=LATER))
 
-    board = chain_board.read_board(root, FakeLaunches(), FakeOpenings())
+    board = chain_board.read_board(root, FakeLaunches(), FakeOpenings(), FakeStarts(), FakeTasks())
 
     assert board.waiting == []
     assert [row.launcher for row in board.running] == ["chain-development"]
@@ -633,7 +669,7 @@ def test_a_halted_change_walk_over_a_sealed_or_dropped_unit_is_in_neither_list(t
         started_at=LATER))
     close_change(root, "widgets", folder, CHANGE)
 
-    board = chain_board.read_board(root, FakeLaunches(), FakeOpenings())
+    board = chain_board.read_board(root, FakeLaunches(), FakeOpenings(), FakeStarts(), FakeTasks())
 
     assert (board.waiting, board.running) == ([], [])
 
@@ -710,7 +746,7 @@ def test_a_development_walk_halted_before_its_change_existed_is_moved_past_by_a_
                 development_walk(ended="halted", ended_reason=KEYLESS_HALT))
     write_state(root, "later-state.json", later(started_at=LATER))
 
-    board = chain_board.read_board(root, FakeLaunches(), FakeOpenings())
+    board = chain_board.read_board(root, FakeLaunches(), FakeOpenings(), FakeStarts(), FakeTasks())
 
     assert board.waiting == []
     assert len(board.running) == 1
@@ -774,7 +810,7 @@ def test_a_stopped_definition_walk_a_later_walk_on_its_project_moved_past_is_in_
                 product_walk(ended=end, ended_reason="the launched run produced nothing"))
     write_state(root, "later-state.json", later(started_at=LATER))
 
-    board = chain_board.read_board(root, FakeLaunches(), FakeOpenings())
+    board = chain_board.read_board(root, FakeLaunches(), FakeOpenings(), FakeStarts(), FakeTasks())
 
     assert board.waiting == []
     assert len(board.running) == 1
@@ -838,7 +874,7 @@ def test_a_skill_run_that_is_not_live_is_in_neither_list(tmp_path, state):
     write_skill_run(root, "skill-shukuba-refine@widgets.run.json")
     launches = FakeLaunches({"/logs/run.identity.json": state})
 
-    board = chain_board.read_board(root, launches, FakeOpenings())
+    board = chain_board.read_board(root, launches, FakeOpenings(), FakeStarts(), FakeTasks())
 
     assert (board.waiting, board.running) == ([], [])
 
@@ -849,7 +885,7 @@ def test_a_skill_run_record_naming_no_identity_is_skipped_and_never_asked_about(
     (root / "system" / "logs" / "skill-broken.run.json").write_text("{not json")
     launches = FakeLaunches()
 
-    board = chain_board.read_board(root, launches, FakeOpenings())
+    board = chain_board.read_board(root, launches, FakeOpenings(), FakeStarts(), FakeTasks())
 
     assert (board.running, launches.asked) == ([], [])
 
@@ -998,7 +1034,7 @@ def test_unreadable_and_foreign_files_are_skipped(tmp_path):
     (logs / "held-state.json.lock").write_text(json.dumps(build_idea_walk(ended="halted")))
     write_state(root, "foreign-state.json", {"project": "widgets", "ended": "halted"})
 
-    board = chain_board.read_board(root, FakeLaunches(), FakeOpenings())
+    board = chain_board.read_board(root, FakeLaunches(), FakeOpenings(), FakeStarts(), FakeTasks())
 
     assert (board.waiting, board.running) == ([], [])
 
@@ -1054,7 +1090,8 @@ def write_unit(journey: Path, folder: str, key: str) -> None:
 def board_with_route(root: Path, openings: FakeOpenings | None = None) -> chain_board.Board:
     write_state(root, "chain-change-widgets-state.json",
                 development_walk(key="2026-03-03_ship-one"))
-    return chain_board.read_board(root, FakeLaunches(), openings or FakeOpenings())
+    return chain_board.read_board(root, FakeLaunches(), openings or FakeOpenings(),
+                                  FakeStarts(), FakeTasks())
 
 
 def test_a_route_reads_the_seed_checklist_as_reached_current_and_ahead(tmp_path):
@@ -1256,7 +1293,8 @@ def test_the_route_is_read_again_on_every_read(tmp_path):
         "- [ ] the-widgets-sing — they make a sound\n",
         "- [ ] the-widgets-dance — a re-cut stop\n- [ ] the-widgets-sing — they make a sound\n"))
 
-    stations = chain_board.read_board(root, FakeLaunches(), FakeOpenings()).routes[0].stations
+    stations = chain_board.read_board(root, FakeLaunches(), FakeOpenings(),
+                                      FakeStarts(), FakeTasks()).routes[0].stations
 
     assert [stop.name for stop in stations][-2:] == ["the-widgets-dance", "the-widgets-sing"]
 
@@ -1368,3 +1406,252 @@ def test_an_unticked_item_whose_station_is_parked_reads_parked(tmp_path):
 
     assert [(stop.name, stop.state.value) for stop in stations][:2] == [
         ("the-first-widget", "reached"), ("the-widgets-ship", "parked")]
+
+
+def test_a_running_walk_carries_the_earliest_start_among_its_launches(tmp_path):
+    root = make_instance(tmp_path, "inst")
+    pending = {"audit-specs": one_launch("/logs/a.identity.json"),
+               "audit-plan": one_launch("/logs/b.identity.json"),
+               "audit-design": one_launch("/logs/c.identity.json")}
+    write_state(root, "walk-state.json", development_walk(pending=pending))
+    launches = FakeLaunches({path: LaunchState.LIVE for path in
+                             ("/logs/a.identity.json", "/logs/b.identity.json", "/logs/c.identity.json")})
+    starts = FakeStarts({"/logs/a.identity.json": "2026-03-01T12:05:00+00:00",
+                         "/logs/b.identity.json": "2026-03-01T12:01:00+00:00"})
+
+    (row,) = chain_board.read_board(root, launches, FakeOpenings(), starts, FakeTasks()).running
+
+    assert row.step_started_at == "2026-03-01T12:01:00+00:00"
+    assert row.started_at == STARTED
+    assert sorted(starts.asked) == ["/logs/a.identity.json", "/logs/b.identity.json",
+                                    "/logs/c.identity.json"]
+
+
+def test_a_definition_walk_carries_its_one_launchs_start(tmp_path):
+    root = make_instance(tmp_path, "inst")
+    write_state(root, "walk-state.json",
+                product_walk(pending={"document": "docs/SDD.md", **one_launch("/logs/a.identity.json")}))
+    launches = FakeLaunches({"/logs/a.identity.json": LaunchState.LIVE})
+    starts = FakeStarts({"/logs/a.identity.json": "2026-03-01T12:01:00+00:00"})
+
+    (row,) = chain_board.read_board(root, launches, FakeOpenings(), starts, FakeTasks()).running
+
+    assert row.step_started_at == "2026-03-01T12:01:00+00:00"
+
+
+def test_a_running_walk_between_launches_carries_no_step_start(tmp_path):
+    root = make_instance(tmp_path, "inst")
+    write_state(root, "walk-state.json", development_walk(pending={}))
+
+    (row,) = chain_board.read_board(root, FakeLaunches(), FakeOpenings(),
+                                    FakeStarts(), FakeTasks()).running
+
+    assert row.step_started_at == ""
+
+
+def test_a_waiting_walk_carries_no_step_start(tmp_path):
+    root = make_instance(tmp_path, "inst")
+    write_state(root, "gone-state.json",
+                development_walk("gone", pending={"design": one_launch("/logs/a.identity.json")}))
+    write_state(root, "halted-state.json", build_idea_walk("halted", ended="halted"))
+    launches = FakeLaunches({"/logs/a.identity.json": LaunchState.GONE})
+    starts = FakeStarts({"/logs/a.identity.json": "2026-03-01T12:01:00+00:00"})
+
+    board = chain_board.read_board(root, launches, FakeOpenings(), starts, FakeTasks())
+
+    assert [(row.project, row.step_started_at) for row in board.waiting] == [("gone", ""), ("halted", "")]
+
+
+def test_a_skill_run_carries_no_step_start(tmp_path):
+    root = make_instance(tmp_path, "inst")
+    write_skill_run(root, "skill-shukuba-refine@widgets.run.json")
+    launches = FakeLaunches({"/logs/run.identity.json": LaunchState.LIVE})
+    starts = FakeStarts({"/logs/run.identity.json": "2026-03-01T12:01:00+00:00"})
+
+    (row,) = chain_board.read_board(root, launches, FakeOpenings(), starts, FakeTasks()).running
+
+    assert row.step_started_at == ""
+
+
+KEY = "2026-03-03_ship-one"
+
+
+def test_a_walk_on_its_implementation_step_carries_the_task_its_run_is_on(tmp_path):
+    root = make_instance(tmp_path, "inst")
+    write_state(root, "walk-state.json", development_walk(
+        key=KEY, product_path="/products/widgets",
+        pending={"implementation": developer_launch()}))
+    tasks = FakeTasks({KEY: (3, 7)})
+
+    (row,) = chain_board.read_board(root, FakeLaunches({"/logs/a.identity.json": LaunchState.LIVE}),
+                                    FakeOpenings(), FakeStarts(), tasks).running
+
+    assert (row.task, row.tasks) == (3, 7)
+    assert tasks.asked == [(root, "widgets", KEY, "/products/widgets")]
+
+
+def test_a_recovered_developer_run_carries_its_task_too(tmp_path):
+    root = make_instance(tmp_path, "inst")
+    write_state(root, "walk-state.json", development_walk(
+        key=KEY, pending={"implementation-recovery": developer_launch()}))
+
+    (row,) = chain_board.read_board(root, FakeLaunches({"/logs/a.identity.json": LaunchState.LIVE}),
+                                    FakeOpenings(), FakeStarts(), FakeTasks({KEY: (2, 4)})).running
+
+    assert (row.task, row.tasks) == (2, 4)
+
+
+@pytest.mark.parametrize("walk", [
+    development_walk(key=KEY, pending={"design": {**developer_launch(), "step": "design"}}),
+    development_walk(key=KEY, pending={"implementation": one_launch("/logs/a.identity.json")}),
+    development_walk(pending={"implementation": developer_launch()}),
+    build_idea_walk(key=KEY, pending={"1": one_launch("/logs/a.identity.json")},
+                    rows=[{"number": "1", "move": "implementation"}]),
+    product_walk(pending={"document": "implementation", **one_launch("/logs/a.identity.json")}),
+], ids=["another-step", "a-run-named-for-the-step-on-no-step", "no-change-key",
+        "a-build-idea-walk", "a-definition-walk"])
+def test_a_walk_not_on_a_changes_implementation_step_carries_no_task(tmp_path, walk):
+    root = make_instance(tmp_path, "inst")
+    write_state(root, "walk-state.json", walk)
+    tasks = FakeTasks({KEY: (3, 7)})
+
+    (row,) = chain_board.read_board(root, FakeLaunches({"/logs/a.identity.json": LaunchState.LIVE}),
+                                    FakeOpenings(), FakeStarts(), tasks).running
+
+    assert (row.task, row.tasks) == (0, 0)
+    assert tasks.asked == []
+
+
+def test_a_waiting_walk_on_its_implementation_step_carries_no_task(tmp_path):
+    root = make_instance(tmp_path, "inst")
+    write_state(root, "walk-state.json", development_walk(
+        key=KEY, pending={"implementation": developer_launch()}))
+    tasks = FakeTasks({KEY: (3, 7)})
+
+    (row,) = chain_board.read_board(root, FakeLaunches({"/logs/a.identity.json": LaunchState.GONE}),
+                                    FakeOpenings(), FakeStarts(), tasks).waiting
+
+    assert (row.task, row.tasks) == (0, 0)
+    assert tasks.asked == []
+
+
+def test_a_plan_with_no_task_read_carries_no_task(tmp_path):
+    root = make_instance(tmp_path, "inst")
+    write_state(root, "walk-state.json",
+                development_walk(key=KEY, pending={"implementation": {"step": "implementation"}}))
+
+    (row,) = chain_board.read_board(root, FakeLaunches(), FakeOpenings(), FakeStarts(),
+                                    FakeTasks()).running
+
+    assert (row.task, row.tasks) == (0, 0)
+
+
+def test_the_cli_reads_the_task_off_the_changes_branch(tmp_path, capsys):
+    root = make_instance(tmp_path, "inst")
+    git = ["git", "-C", str(root), "-c", "user.name=t", "-c", "user.email=t@t"]
+    subprocess.run([*git, "init", "-q", "-b", "main"], check=True)
+    subprocess.run([*git, "commit", "-q", "--allow-empty", "-m", "base"], check=True)
+    worktree = root / ".worktrees" / KEY
+    subprocess.run([*git, "worktree", "add", "-q", "-b", KEY, str(worktree)], check=True)
+    change = worktree / "system" / "projects" / "widgets" / "journey" / "tobiishi" / KEY
+    change.mkdir(parents=True)
+    (change / "tl_instruction.md").write_text(
+        "".join(f"### Task {number}: a task\n\n" for number in (1, 2, 3)))
+    in_worktree = ["git", "-C", str(worktree), "-c", "user.name=t", "-c", "user.email=t@t"]
+    subprocess.run([*in_worktree, "commit", "-q", "--allow-empty", "-m",
+                    "developer: task 1 first — green"], check=True)
+    write_state(root, "walk-state.json",
+                development_walk(key=KEY, pending={"implementation": {"step": "implementation"}}))
+
+    chain_board.main([str(root)])
+
+    (row,) = json.loads(capsys.readouterr().out)["running"]
+    assert (row["task"], row["tasks"]) == (2, 3)
+
+
+class FailingReader:
+    """A chain reader whose git cannot be run, or whose plan cannot be read: `current_task`
+    raises `failure`."""
+
+    def __init__(self, failure: Exception) -> None:
+        self.failure = failure
+
+    def current_task(self, change, product_path: str):
+        raise self.failure
+
+
+@pytest.mark.parametrize("failure", [
+    FileNotFoundError("git"), subprocess.TimeoutExpired("git", 10),
+    UnicodeDecodeError("utf-8", b"\xff", 0, 1, "invalid start byte"),
+], ids=["no-git", "a-subprocess-error", "a-plan-not-utf-8"])
+def test_a_read_that_fails_reads_no_task(tmp_path, failure):
+    reader = FailingReader(failure)
+
+    assert chain_board.development_task(reader, tmp_path, "widgets", KEY, "") is None
+
+
+def write_identity(tmp_path: Path, text: str) -> str:
+    path = tmp_path / "run.identity.json"
+    path.write_text(text)
+    return str(path)
+
+
+def local(text: str) -> str:
+    return datetime.strptime(text, "%a %b %d %H:%M:%S %Y").astimezone().isoformat()
+
+
+def test_a_launch_start_is_its_runs_ps_start_in_local_time(tmp_path):
+    identity = write_identity(tmp_path, json.dumps({
+        "run": {"pid": 11, "start": "Fri Oct 23  9:19:05 2026"},
+        "watcher": {"pid": 12, "start": "Fri Oct 23 09:20:00 2026"}}))
+
+    started = chain_board.launch_started_at(walk_stop.DiskFiles(), identity)
+
+    assert started == local("Fri Oct 23 09:19:05 2026")
+    assert datetime.fromisoformat(started).tzinfo is not None
+
+
+def test_a_launch_with_no_run_start_takes_its_watchers(tmp_path):
+    identity = write_identity(tmp_path, json.dumps({
+        "run": {"pid": 11, "start": None}, "watcher": {"pid": 12, "start": "Fri Oct 23 09:20:00 2026"}}))
+
+    assert chain_board.launch_started_at(walk_stop.DiskFiles(), identity) == local(
+        "Fri Oct 23 09:20:00 2026")
+
+
+@pytest.mark.parametrize("text", ["", "{not json", json.dumps({"run": None, "watcher": None}),
+                                  json.dumps({"run": {"pid": 11, "start": "yesterday"}, "watcher": None})])
+def test_a_launch_with_no_readable_start_has_none(tmp_path, text):
+    assert chain_board.launch_started_at(walk_stop.DiskFiles(), write_identity(tmp_path, text)) == ""
+
+
+def test_the_cli_reads_a_live_launchs_start_from_its_identity_file(tmp_path, capsys):
+    root = make_instance(tmp_path, "inst")
+    identity = root / "system" / "logs" / "a.identity.json"
+    identity.write_text(walk_stop.identity_text(walk_stop.ProcessTable(), os.getpid(), None))
+    write_state(root, "walk-state.json",
+                development_walk(pending={"design": one_launch(str(identity))}))
+
+    chain_board.main([str(root)])
+
+    (row,) = json.loads(capsys.readouterr().out)["running"]
+    recorded = json.loads(identity.read_text())["run"]
+    assert row["step_started_at"] == recorded["started_at"]
+    assert datetime.fromisoformat(row["step_started_at"]) == datetime.fromisoformat(
+        local(" ".join(recorded["start"].split())))
+
+
+def test_a_launch_start_prefers_its_recorded_started_at_over_the_ps_text(tmp_path):
+    identity = write_identity(tmp_path, json.dumps({
+        "run": {"pid": 11, "start": "Mi. 21 Okt. 16:57:58 2026", "started_at": "2026-10-21T14:57:58+00:00"},
+        "watcher": None}))
+
+    assert chain_board.launch_started_at(walk_stop.DiskFiles(), identity) == "2026-10-21T14:57:58+00:00"
+
+
+def test_a_started_at_that_does_not_read_falls_back_to_the_ps_text(tmp_path):
+    identity = write_identity(tmp_path, json.dumps({
+        "run": {"pid": 11, "start": "Fri Oct 23 09:19:05 2026", "started_at": "soon"}, "watcher": None}))
+
+    assert chain_board.launch_started_at(walk_stop.DiskFiles(), identity) == local(
+        "Fri Oct 23 09:19:05 2026")

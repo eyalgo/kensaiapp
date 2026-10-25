@@ -47,6 +47,16 @@ THE PROVIDER A ROW GOES TO
     has the variable removed when the queue is unforced, so the nested chain runs each step on
     its own provider and not on the previous row's.
 
+THE OWNER'S MAC ASK
+    `--gate-owners-mac` is the owner's ask that a walk's test gate run on the owner's Mac
+    (`chain-change`'s `--gate-owners-mac`). It is kept on the state as `gate_owners_mac` and put
+    on every `chain-change` row the queue launches, that launcher alone, so the next change's walk
+    has the ask the sealed one had. Every start states it, a resume included, as it states the
+    force: the start a `chain-change` walk's end makes passes the flag when that walk had the ask,
+    and an owner's plain resume passes none and lifts it, which is why every resume hint the
+    queue sends restates the ask it holds. It travels as a flag and never in the
+    environment, because the gate tool reads `KENSAIAPP_GATE_OWNERS_MAC` itself.
+
 THE PRODUCT CHECKOUT
     `_launch` reads the product checkout — the lines `git status --porcelain
     --untracked-files=all` prints for the state's `product_path`, the reading the seal's preflight
@@ -106,7 +116,7 @@ from chain_development import (_FINISHED, DEFAULT_CONTEXT_CAP, AdvanceResult,
 from chain_development import StateStore as WalkStateStore
 from providers import ProviderFiles, ProvidersRefused
 
-__version__ = "2.13.0"
+__version__ = "2.14.0"
 
 
 # --- the kinds a row can be ---------------------------------------------------------------------
@@ -149,18 +159,18 @@ class Kind:
     """One row of the kind table. `arguments` may hold `<project>` and `<station>`, filled at
     `expected_argv`;
     `role` is the seat whose move it is, the value a run's telemetry is tagged with.
-    `takes_context_cap` is True for the launcher that accepts `--context-cap` — `chain-change`
-    alone. It is a fact of the launcher rather than of the disposition: `chain-product` is a
-    `RUN_CHAIN` row too, and refuses a flag it does not know. The provider a `RUN_SKILL` row runs
-    on is not the table's: the instance's `.providers.toml` names it, under `build-idea."<kind>"`
-    (§ THE PROVIDER A ROW GOES TO)."""
+    `takes_chain_change_flags` is True for the launcher that accepts `--context-cap` and
+    `--gate-owners-mac` — `chain-change` alone. It is a fact of the launcher rather than of the
+    disposition: `chain-product` is a `RUN_CHAIN` row too, and refuses a flag it does not know.
+    The provider a `RUN_SKILL` row runs on is not the table's: the instance's `.providers.toml`
+    names it, under `build-idea."<kind>"` (§ THE PROVIDER A ROW GOES TO)."""
 
     disposition: Disposition
     launcher: str = ""
     arguments: tuple[str, ...] = ()
     role: str = ""
     landed: Landed = Landed.NONE
-    takes_context_cap: bool = False
+    takes_chain_change_flags: bool = False
 
 
 # The two refine prompts own report kinds; `refine a seed` is the engine's retirement
@@ -181,7 +191,7 @@ KINDS: dict[str, Kind] = {
     "cut the route": Kind(
         Disposition.RUN_SKILL, "skill", ("stations-from-seed", _PROJECT), "pm", Landed.ROUTE_CUT),
     "walk the next change": Kind(Disposition.HAND_OFF, "chain-change", (_PROJECT,),
-                                 takes_context_cap=True),
+                                 takes_chain_change_flags=True),
     "the owner's act": Kind(Disposition.OWNER),
     "retire a seed": Kind(Disposition.RUN_SKILL, "skill", ("nemawashi-retire", _PROJECT),
                           "scrum-master", Landed.SEED_RETIRED),
@@ -570,6 +580,9 @@ class QueueState:
     # when each runs on its own. Stated by every start, a resume included: the start a
     # `chain-change` walk's end makes carries the force in its environment and so restates it.
     forced_provider: str = ""
+    # The owner's ask that every `chain-change` row's walk gate on the owner's Mac. Stated by every
+    # start, as the force is (§ THE OWNER'S MAC ASK).
+    gate_owners_mac: bool = False
     # The product the project builds, read by the launcher off its card. A pick waits for the
     # product chain while one of its documents has a live companion; "" checks nothing.
     product_path: str = ""
@@ -921,7 +934,7 @@ class BuildIdea:
               key: str = "", notifier_command: str = "", keep_awake: bool = False,
               started_at: str = "", by_hook: bool = False,
               context_cap: int = DEFAULT_CONTEXT_CAP, product_path: str = "",
-              forced_provider: str = "") -> AdvanceResult:
+              forced_provider: str = "", gate_owners_mac: bool = False) -> AdvanceResult:
         """Begin a queue on the sealed unit's report, every row that waits on nothing launched and
         the rest left to `advance`. A report the state file already records, unchanged since, is
         RESUMED instead: the record says what landed, the disk says what landed since, and only
@@ -935,7 +948,7 @@ class BuildIdea:
             if by_hook and existing.get("stop_requested"):
                 self.notifier.send(
                     f"{project}: build-idea is stopped — chain-change's end did not restart it; "
-                    f"run {self._resume_command(core_dir, project)} to resume")
+                    f"run {self._resume_command(core_dir, project, gate_owners_mac)} to resume")
                 return AdvanceResult(acted=False, ended=existing.get("ended"))
             if existing.get("stop_requested"):
                 # A plain start means "no longer stopped", even when a live walk means it cannot
@@ -961,6 +974,7 @@ class BuildIdea:
             # that dropped its path must not leave the queue checking a stale one.
             state.product_path = product_path
             state.forced_provider = forced_provider
+            state.gate_owners_mac = gate_owners_mac
             self.store.save(state)
             self.log.append(self._log_path(state),
                             f"build_idea: started queue={state.queue_id} key={state.key} "
@@ -1120,7 +1134,8 @@ class BuildIdea:
             walk = ChainStateStore(self.files, state.waiting_on_walk).raw()
             if walk_is_live(walk):
                 return AdvanceResult(acted=False, ended=state.ended)
-            resume = self._resume_command(state.core_dir or self._default_core(), state.project)
+            resume = self._resume_command(state.core_dir or self._default_core(), state.project,
+                                          state.gate_owners_mac)
             if walk.get("ended") == walk_stop.STOPPED:
                 self.notifier.send(f"{self._headline(state)} — still waiting on a walk — "
                                    f"{state.waiting_on_walk} was stopped, so the queue does not "
@@ -1167,7 +1182,8 @@ class BuildIdea:
                      else QueueState(project=project, instance_root=instance_root))
             state.stop_requested, state.stop_requested_at = True, requested_at
             live = existing and state.ended is None and state.rows
-            resume = self._resume_command(state.core_dir or self._default_core(), project)
+            resume = self._resume_command(state.core_dir or self._default_core(), project,
+                                          state.gate_owners_mac)
             headline = self._headline(state)
             if not live:
                 said = (f"{headline} — stop recorded; no queue is live — the loop will not "
@@ -1212,8 +1228,12 @@ class BuildIdea:
         return os.path.dirname(os.path.dirname(self.engine_path))
 
     @staticmethod
-    def _resume_command(core_dir: str, project: str) -> str:
-        return f"{os.path.join(core_dir, 'launchers', 'build-idea', 'launcher.sh')} {project}"
+    def _resume_command(core_dir: str, project: str, gate_owners_mac: bool = False) -> str:
+        """The start that resumes this queue. Every start states the ask, so the hint restates
+        the one the queue holds, and an owner who follows it keeps the ask (§ THE OWNER'S MAC
+        ASK)."""
+        command = f"{os.path.join(core_dir, 'launchers', 'build-idea', 'launcher.sh')} {project}"
+        return f"{command} --gate-owners-mac" if gate_owners_mac else command
 
     def _card_text(self, instance_root: str, project: str) -> str | None:
         """The project card as the disk holds it now, `None` when there is none. Read fresh by
@@ -1763,8 +1783,10 @@ class BuildIdea:
                 # would otherwise split in two, the hook would never run, and the row would wait
                 # for ever.
                 argv += ["--on-end", shlex.quote(self._write_shim(state, number))]
-        if kind.takes_context_cap:
+        if kind.takes_chain_change_flags:
             argv += ["--context-cap", str(state.context_cap)]
+            if state.gate_owners_mac:
+                argv.append("--gate-owners-mac")
         if state.keep_awake:
             argv.append("--keep-awake")
         if kind.landed is Landed.SEED_REFINED:
@@ -1832,7 +1854,8 @@ class BuildIdea:
                 for entry in by_status[RowStatus.FAILED])
         elif state.waiting_on_walk:
             end = QueueEnd.WAITING_ON_A_WALK
-            resume = self._resume_command(state.core_dir or self._default_core(), state.project)
+            resume = self._resume_command(state.core_dir or self._default_core(), state.project,
+                                          state.gate_owners_mac)
             still_walking = (f"waiting on a walk — {state.waiting_on_walk} is still walking, so "
                              f"nothing more was started.")
             what = (f"{still_walking} The queue is watching that walk and continues by itself "
@@ -1844,7 +1867,8 @@ class BuildIdea:
                     f"no longer walking, resume with: {resume}")
         elif owner_rows:
             end = QueueEnd.OWNER_OWED
-            resume = self._resume_command(state.core_dir or self._default_core(), state.project)
+            resume = self._resume_command(state.core_dir or self._default_core(), state.project,
+                                          state.gate_owners_mac)
             what = ("owner's act owed — "
                     + "; ".join(f"{entry['number']}. {entry['command']}" for entry in owner_rows)
                     + f" — once it is made, resume with: {resume}")
@@ -2017,6 +2041,10 @@ def main(argv: list[str] | None = None) -> int:
                              "provider, over the one .providers.toml at the instance root "
                              "names, which is then not read; read with --start and "
                              "--describe")
+    parser.add_argument("--gate-owners-mac", action="store_true",
+                        help="the owner's ask that every chain-change row's walk run its test "
+                             "gate on the owner's Mac; read with --start, and stated by every "
+                             "start, a resume included")
     parser.add_argument("--by-hook", action="store_true",
                         help="this start is the one chain-change's end makes: it does nothing "
                              "while a stop stands")
@@ -2129,7 +2157,8 @@ def main(argv: list[str] | None = None) -> int:
                              started_at=datetime.now(timezone.utc).isoformat(),
                              by_hook=args.by_hook, context_cap=args.context_cap,
                              product_path=args.product_path,
-                             forced_provider=args.provider)
+                             forced_provider=args.provider,
+                             gate_owners_mac=args.gate_owners_mac)
     except QueueRefused as exc:
         print(f"build_idea: {exc}", file=sys.stderr)
         queue.notifier.send(f"build-idea refused to start — {exc}")

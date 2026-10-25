@@ -25,12 +25,11 @@ the global posture governs alone.
 
 ## Hand-off spine
 
-The change pipeline is folder-derived (no per-role inbox). One change travels through
-`system/projects/<name>/journey/tobiishi/<key>/` as the chain runs one role per step:
-
-development-specs (product-owner) → development-design (architect) → development-plan (tech-lead) →
-development-content (content-editor) → development-implementation (developer) → development-code-integrity (senior-engineer) →
-development-audit (the pipeline auditor, not a gate) → tobiishi-seal (pm).
+The change pipeline is folder-derived (no per-role inbox): one change travels through
+`system/projects/<name>/journey/tobiishi/<key>/` as the chain runs one role per step. Which steps
+run, in what order and on which seat is `<CORE>/doctrine/flow/development_flow.md` § *The stages*;
+this file does not restate it. How the handoff works is `<CORE>/roles/CROSS_ROLE.md` § *8. Handoff
+is folder-derived*.
 
 QA is not a step; it is forked on a committed artifact, outside the chain.
 

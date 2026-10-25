@@ -3,6 +3,7 @@
 # launcher.sh (product-skeleton) — the owner-run command that gives a product its skeleton,
 # deterministically, once its foundation step has settled. No AI runs here.
 #
+# Version: 1.9.1 — the idea cut reads the owner's words, not its own — a checked brief, a report beside it, back in the Principal PM group, no launcher
 # Version: 1.9.0 — re-running the card leaves a built product's code alone — the skeleton places a frame whole or not at all
 # Version: 1.8.3 — each prompt one skill reads moves under that skill as prompts/rich.md
 # Version: 1.8.2 — the neutrality check reads fixtures and .claude/, declares platform names, and repairs fixture hits itself; the ratify launcher is deleted
@@ -22,7 +23,8 @@
 #   The argument surface and card resolution follow the shape the `seeds-from-product-docs`
 #   launcher had until it was removed on 2026-09-25, the skill launching through
 #   `core/launchers/skill/`: one positional that is a PROJECT
-#   NAME (a path is refused, the exact inverse of `seeds-from-idea`'s bare-word rule),
+#   NAME (a path is refused, the exact inverse of the bare-word rule the `seeds-from-idea`
+#   launcher held until it was removed on 2026-10-24),
 #   `--instance-root <dir>` accepted first, `--dry-run`, the project card resolved through
 #   `system/projects/<project>/project.md`, and its `Product path:` line read through the trailing
 #   HTML comment exactly as every sibling reads it.

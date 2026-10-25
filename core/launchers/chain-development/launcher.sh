@@ -3,6 +3,7 @@
 # launcher.sh (chain-development) — the owner's one command for the change pipeline, walked
 # as a chain of step launchers.
 #
+# Version: 1.10.0 — the gate tool reads a walk's owner's-Mac ask itself, so a run cannot drop it
 # Version: 1.9.0 — a gate run states its environment — gate_suite tool, environment declaration gate, owner-ask option
 # Version: 1.8.1 — launchers and launch scripts take a portable mktemp template, so they run on Linux
 # Version: 1.8.0 — ollama is a provider — a launch can run on the owner's local Ollama models
@@ -61,7 +62,7 @@
 #                   launched and the walk goes on in the detached runs. Each step launcher already
 #                   owns the mechanism through core/tools/detach_watcher.sh.
 #     --gate-owners-mac
-#                   the owner's ask to run the card's test command on the owner's Mac in the walk's developer, code-integrity and seal runs, in place of the environment the product resolves to. Without it, those runs use the owner's Mac only when the product has no CI. No card field, product record or exported variable sets it. The ask is kept on the walk's state, so an advance, a resume or a recovery keeps it.
+#                   the owner's ask to run the card's test command on the owner's Mac in the walk's developer, code-integrity, security and seal runs, in place of the environment the product resolves to. Without it, those runs use the owner's Mac only when the product has no CI. No card field, product record or exported variable sets it. The ask is kept on the walk's state, so an advance, a resume or a recovery keeps it.
 #
 #   <CORE>/launchers/chain-development/launcher.sh <project> --stop
 #     --stop        stop the walk: the engine stops every run in flight, watcher first, signalling

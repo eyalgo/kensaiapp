@@ -1,6 +1,6 @@
 # shukuba-refine
 
-When a change unit lands or halts, it leaves audits, an integrity report, a closing commit with its `Deferred:` lines, sometimes a
+When a change unit lands or halts, it leaves audits, an integrity report, a security report, a closing commit with its `Deferred:` lines, sometimes a
 deferred-decisions file, the corrections its plan owed to records it could not edit, and the work its
 spec handed on — and the documents upstream of the route may have moved while it was built.
 Nothing else reads either against the project's route. This skill is the PM's review after a seal or a halt: it

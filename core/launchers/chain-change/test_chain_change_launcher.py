@@ -357,6 +357,34 @@ def test_the_on_end_is_given_beside_a_notifier_and_keep_awake_and_stays_one_argu
     assert argv[argv.index("--on-end") + 1].endswith("--chain-ended")
 
 
+def test_a_walk_with_the_owners_mac_ask_hands_it_to_build_idea(run):
+    """The ask reaches the next change's walk through the queue the end starts. The end is
+    appended after `--chain-ended`, so the ask sits before it."""
+    run.project("example-product")
+
+    run("example-product", "--gate-owners-mac")
+
+    assert shlex.split(run.value("--on-end")) == [
+        f"{run.core_dir}/launchers/build-idea/launcher.sh", "example-product",
+        "--gate-owners-mac", "--chain-ended"]
+
+
+@pytest.mark.parametrize("definition", ["full", "prd-agari"])
+def test_a_definition_first_walk_with_the_ask_hands_it_to_build_idea(run, definition):
+    """The change walk the definition walk's end starts is the `none` launch's, its build-idea hook
+    and its ask included, though the hook's own invocation takes no ask flag."""
+    run.env["KENSAIAPP_NOTIFIER"] = "/bin/echo"
+    run.project("example-product")
+    baseline, launched = _start_and_baseline(run, definition, "--gate-owners-mac")
+    assert launched.returncode == 0, launched.stderr
+
+    fired = run.fire(run.definition_calls(_SIBLING_OF[definition])[0], "settled")
+
+    assert fired.returncode == 0, fired.stderr
+    assert run.change_starts() == [baseline]
+    assert "--gate-owners-mac" in shlex.split(_flag_value(baseline, "--on-end"))
+
+
 def test_the_dry_run_prints_the_on_end(run):
     run.project("example-product")
 

@@ -3954,14 +3954,14 @@ def test_directional_referent_michi_none_is_not_a_referent():
 
 
 def test_directional_referent_shukuba_none_is_not_a_referent():
-    # The form `tobiishi-seal` SKILL.md:157 prescribes.
+    # Retired by `commit_format.md` in favour of `Agari:`; it names no referent.
     assert commit_builder._directional_referent(
         "Shukuba: none — sealed 2026-08-01_x"
     ) is None
 
 
 def test_directional_referent_shukuba_bare_progress_is_not_a_referent():
-    # The form `tobiishi-seal` SKILL.md:156 prescribes.
+    # No referent to resolve; `_unnamed_referent_refusal` refuses the shape.
     assert commit_builder._directional_referent(
         "Shukuba: progress: sealed 2026-08-01_x"
     ) is None
@@ -4310,8 +4310,9 @@ def test_resolve_shukuba_non_md_file_matching_the_token_is_missing(tmp_path):
 
 # ── _directional_refusal — the parser and the three resolvers composed into
 #    the builder's house refusal shape: a message to print, or None to
-#    proceed. Refuses ONLY on MISSING; RESOLVES, UNCHECKABLE and an
-#    unparseable directional all proceed. ────────────────────────────────────
+#    proceed. Refuses on MISSING, and on a Shukuba:/Agari: line with a
+#    reading where its station or project belongs; RESOLVES, UNCHECKABLE and
+#    an unparseable directional all proceed. ─────────────────────────────────
 
 _REFUSAL_PREFIX = "commit_builder: refusing to commit —"
 
@@ -4324,6 +4325,42 @@ def test_directional_refusal_none_when_reading_not_a_referent(tmp_path):
     assert commit_builder._directional_refusal(
         str(tmp_path), "Shukuba: none — x"
     ) is None
+
+
+@pytest.mark.parametrize("directional", [
+    "Shukuba: progress: check-names-invalid-metric-values",
+    "Shukuba: aside: hygiene",
+    "Shukuba: progress — x",
+    "Agari: progress: defines the done",
+    "Agari: aside: hygiene",
+])
+def test_directional_refusal_when_shukuba_or_agari_names_nothing(tmp_path, directional):
+    # The 2026-10-24 tobiishi-open commit in a satellite wrote the first line,
+    # and the panel could not place the change under its station. A Shukuba:
+    # or Agari: line names its station or project before its reading.
+    refusal = commit_builder._directional_refusal(str(tmp_path), directional)
+    assert refusal is not None
+    assert refusal.splitlines()[0].startswith(_REFUSAL_PREFIX)
+    form = directional.split(":")[0]
+    assert "names no " in refusal
+    assert f"{form}: <" in refusal
+
+
+def test_directional_refusal_shukuba_naming_nothing_names_the_agari_fallback(tmp_path):
+    # A committer who wrote `Shukuba: aside:` may have no station open; the
+    # refusal names the line doctrine gives that case, not only a station.
+    refusal = commit_builder._directional_refusal(str(tmp_path), "Shukuba: aside: hygiene")
+    assert "Agari: <project> — " in refusal
+    agari_refusal = commit_builder._directional_refusal(str(tmp_path), "Agari: aside: hygiene")
+    assert "With no station open" not in agari_refusal
+
+
+@pytest.mark.parametrize("directional", [
+    "Michi: aside: hygiene",
+    "Agari: none — x",
+])
+def test_directional_refusal_none_for_the_forms_that_name_nothing_legally(tmp_path, directional):
+    assert commit_builder._directional_refusal(str(tmp_path), directional) is None
 
 
 def test_directional_refusal_none_when_resolves(tmp_path):
@@ -4520,6 +4557,44 @@ def test_directional_wiring_cli_good_referent_lands_canonical_trailers(tmp_path,
     ]
 
 
+@pytest.mark.parametrize("directional", [
+    "Agari: tools — progress: defines the done",
+    "Agari: tools — aside: hygiene",
+    "Agari: none — stamps the project",
+    "Michi: sharpen — serves: walks the Way",
+    "Michi: aside: hygiene",
+    "Michi: none — stamps the instance",
+])
+def test_directional_wiring_cli_no_open_station_commits_with_agari_or_michi(
+        tmp_path, monkeypatch, directional):
+    # With no station open, a commit names the project's Agari or the
+    # instance's Michi instead; refusing a Shukuba: line that names no
+    # station must leave every one of those forms committing.
+    _init_repo(tmp_path)
+    monkeypatch.setattr(commit_builder, "instance_repo_root", lambda: tmp_path)
+    _write_agari(tmp_path / "system" / "projects", "tools")
+    shukuba = tmp_path / "system" / "projects" / "tools" / "journey" / "shukuba"
+    shukuba.mkdir(parents=True)
+    (shukuba / "README.md").write_text("# Shukuba\n")
+    _write_michi(tmp_path / "system", ["sharpen"])
+    (tmp_path / "work.txt").write_text("work\n")
+
+    exit_code = commit_builder.main([
+        "--repo", str(tmp_path),
+        "commit",
+        "--subject", "developer: work",
+        "--actor", "developer",
+        "--add", "work.txt",
+        "--directional", directional,
+        "--surface", "Claude Code",
+        "--co-authored-by", CO_AUTHORED_BY,
+    ])
+
+    assert exit_code == 0
+    trailer_block = _commit_body(tmp_path).strip().split("\n\n")[-1]
+    assert trailer_block.splitlines()[0] == directional
+
+
 def test_directional_wiring_cli_no_system_dir_at_all_is_never_refused(tmp_path):
     # The shape every other CLI test in this file uses — no system/projects/
     # at all means UNCHECKABLE, never a refusal. This is why the whole
@@ -4559,6 +4634,28 @@ def test_directional_wiring_cli_bad_shukuba_refuses(tmp_path, capsys):
 
     assert exit_code != 0
     assert "not-a-real-slug" in capsys.readouterr().err
+
+
+def test_directional_wiring_cli_shukuba_naming_no_station_refuses(tmp_path, capsys):
+    _init_repo(tmp_path)
+    head = ["git", "-C", str(tmp_path), "rev-parse", "HEAD"]
+    head_before = subprocess.run(head, capture_output=True, text=True, check=True).stdout
+    (tmp_path / "work.txt").write_text("work\n")
+
+    exit_code = commit_builder.main([
+        "--repo", str(tmp_path),
+        "commit",
+        "--subject", "pm: open the change",
+        "--actor", "pm",
+        "--add", "work.txt",
+        "--directional", "Shukuba: progress: check-names-invalid-metric-values",
+        "--surface", "Claude Code",
+        "--co-authored-by", CO_AUTHORED_BY,
+    ])
+
+    assert exit_code != 0
+    assert "names no station" in capsys.readouterr().err
+    assert subprocess.run(head, capture_output=True, text=True, check=True).stdout == head_before
 
 
 def test_directional_wiring_cli_bad_michi_refuses(tmp_path, capsys):
@@ -7879,6 +7976,91 @@ def test_red_gate_accepts_only_literal_reported_case_ids(tmp_path, capsys):
         f"  {bad[3]}", "    case id looked for: "]
 
 
+# Only the first run of consecutive `Environment:` / `Failing:` lines is the marker's declaration
+# (CP-854, CP-855): a later prose line opening with the quoted prefix is not read.
+
+MENTION_OF_ENVIRONMENT = "`Environment:` lines are the bare lines at the top of this record."
+MENTION_OF_FAILING = "`Failing:` lines name each failing case, one per line."
+
+
+def test_a_marker_block_followed_by_a_wrapped_environment_mention_commits(tmp_path):
+    repo, store = _change_repo(tmp_path / "repo"), _gate_store(tmp_path)
+    _record_gate_run(store, repo)
+
+    body = _marker_body("Suite: green", GATE_ENVIRONMENT, "", "The marker's head is read by the",
+                        MENTION_OF_ENVIRONMENT)
+
+    assert _close(repo, store, ["--body", body]) == 0
+
+
+def test_a_mismatching_environment_line_inside_the_run_is_still_refused(tmp_path, capsys):
+    repo, store = _change_repo(tmp_path / "repo"), _gate_store(tmp_path)
+    _record_gate_run(store, repo)
+    before = _state(repo)
+
+    exit_code = _close(repo, store, ["--body", _marker_body(
+        "Suite: green", GATE_ENVIRONMENT, OTHER_ENVIRONMENT, "", MENTION_OF_ENVIRONMENT)])
+    lines = _refusal_lines(capsys)
+
+    assert exit_code != 0 and _state(repo) == before
+    assert lines[0] == REFUSAL_FIRST_LINE
+    assert f"  marker:   {OTHER_ENVIRONMENT}" in lines
+    assert f"  gate run: {GATE_ENVIRONMENT}" in lines
+
+
+def test_an_environment_line_after_the_run_is_not_read_even_if_it_mismatches(tmp_path):
+    repo, store = _change_repo(tmp_path / "repo"), _gate_store(tmp_path)
+    _record_gate_run(store, repo)
+
+    body = _marker_body("Suite: green", GATE_ENVIRONMENT, "", "A note.", OTHER_ENVIRONMENT)
+
+    assert _close(repo, store, ["--body", body]) == 0
+
+
+def test_a_failing_mention_after_the_run_on_a_red_gate_commits(tmp_path):
+    repo, store = _change_repo(tmp_path / "repo"), _gate_store(tmp_path)
+    _record_gate_run(store, repo, status=1,
+                     stdout=f"{GATE_ENVIRONMENT}\nFAILED tests/test_a.py::test_one - boom\n")
+
+    body = _marker_body(GATE_ENVIRONMENT, "Failing: tests/test_a.py::test_one — task 1", "",
+                        "Every red case is named; the", MENTION_OF_FAILING)
+
+    assert _close(repo, store, ["--body", body]) == 0
+
+
+def test_a_failing_mention_that_opens_a_green_markers_only_block_is_still_refused(
+        tmp_path, capsys):
+    # The rule's limit (change_spec.md, Out of Scope): with no real `Failing:` line before it, a
+    # prose line opening with the quoted prefix is the first match and starts the run.
+    repo, store = _change_repo(tmp_path / "repo"), _gate_store(tmp_path)
+    _record_gate_run(store, repo, status=0)
+
+    exit_code = _close(repo, store, ["--body", _marker_body(
+        "Suite: green", GATE_ENVIRONMENT, "", MENTION_OF_FAILING)])
+
+    assert exit_code != 0
+    assert ("The gate run exited 0, so the marker must carry no Failing: line. It carries:"
+            in _refusal_lines(capsys))
+
+
+def test_a_failing_line_inside_the_run_naming_an_absent_case_is_still_refused(tmp_path, capsys):
+    repo, store = _change_repo(tmp_path / "repo"), _gate_store(tmp_path)
+    _record_gate_run(store, repo, status=1,
+                     stdout=f"{GATE_ENVIRONMENT}\nFAILED tests/test_a.py::test_one - boom\n")
+    before = _state(repo)
+
+    exit_code = _close(repo, store, ["--body", _marker_body(
+        GATE_ENVIRONMENT, "Failing: tests/test_a.py::test_one — task 1",
+        "Failing: tests/test_gone.py::test_two — task 2", "", MENTION_OF_FAILING)])
+    lines = _refusal_lines(capsys)
+
+    assert exit_code != 0 and _state(repo) == before
+    at = lines.index("These Failing: lines name a case that appears nowhere in the gate run's "
+                     "output:")
+    assert lines[at + 1:at + 3] == ["  Failing: tests/test_gone.py::test_two — task 2",
+                                    "    case id looked for: tests/test_gone.py::test_two"]
+
+
 def test_marker_refusal_reports_all_failed_checks(tmp_path, capsys):
     repo, store = _change_repo(tmp_path / "repo"), _gate_store(tmp_path)
     _record_gate_run(store, repo, status=2, stdout=f"{GATE_ENVIRONMENT}\nFAILED t.py::good\n")
@@ -8118,3 +8300,347 @@ def test_a_gate_run_that_printed_no_environment_line_is_shown_as_such(tmp_path, 
         f"  {NO_GATE_ENVIRONMENT}",
     ]
     assert _state(bare) == before
+
+
+# ── a closing marker against a run of several containers (change_text.md § The closing-marker
+# refusal messages) ──────────────────────────────────────────────────────────────────────────────
+# A run that printed two or more `Environment:` lines is closed by a marker that carries every one
+# of them: the builder compares the marker's lines with the run's as sets, names each line missing
+# and each line the run did not print, and changes nothing when it refuses.
+
+CELLS = [f"Environment: container — python:{tag}, arm64" for tag in ("3.11", "3.12", "3.13")]
+MATRIX_WAYS_OUT = (
+    "Ways out: take every Environment: line and each failing case id from this change's last "
+    "gate run, then commit again. If the body was read from a file, check that this run wrote it. "
+    "A body another change left behind carries that change's lines, not this one's.")
+
+
+def _record_matrix_run(store, repo: Path, lines=CELLS, *, status: int = 0,
+                       stdout: str | None = None, stderr: str = "",
+                       key: str = CHANGE_KEY) -> None:
+    printed = stdout if stdout is not None else (
+        "".join(f"{line}\n" for line in lines) + "5 passed\n")
+    store.publish(
+        gate_suite.GateRun(key=key, checkout=str(repo), environment_line=None, stdout=printed,
+                           stderr=stderr, status=status, environment_lines=tuple(lines)),
+        [str(repo)])
+
+
+def _matrix_close(tmp_path, name: str, body: str, route: str = "inline", *extra: str,
+                  stdout: str | None = None, stderr: str = "", status: int = 0, record=None):
+    repo, store = _change_repo(tmp_path / name), _gate_store(tmp_path / name)
+    if record is not None:
+        record(store, repo)
+    else:
+        _record_matrix_run(store, repo, stdout=stdout, stderr=stderr, status=status)
+    source = _body_file(tmp_path, body, name=f"{name}.txt")
+    args = ["--body-file", str(source)] if route == "file" else ["--body", body.rstrip("\n")]
+    return repo, source, _close(repo, store, args, *extra)
+
+
+@pytest.mark.parametrize("route", ["inline", "file"])
+def test_three_cell_marker_matches_and_missing_or_different_cell_never_commits(
+        tmp_path, capsys, route):
+    repo, source, exit_code = _matrix_close(
+        tmp_path, "whole", _marker_body("Suite: green", *CELLS), route)
+    assert exit_code == 0 and all(line in _commit_body(repo) for line in CELLS)
+    assert _git_out(repo, "log", "-1", "--format=%s").strip() == MARKER_SUBJECT
+    assert source.exists() is (route == "inline")
+
+    different = [CELLS[0], CELLS[1], "Environment: container — python:3.14, arm64"]
+    for name, lines in (("missing", CELLS[:2]), ("different", different)):
+        repo, source, exit_code = _matrix_close(
+            tmp_path, name, _marker_body("Suite: green", *lines), route)
+        assert exit_code != 0
+        assert _git_out(repo, "log", "--format=%s").count("implementation complete") == 0
+        assert route == "inline" or source.exists()
+    capsys.readouterr()
+
+
+def test_marker_set_equality_ignores_order_duplicates_and_markup(tmp_path):
+    shuffled = _marker_body(f"**`{CELLS[2]}`**", f"  _{CELLS[0]}_  ", CELLS[1], CELLS[0],
+                            CELLS[2], "Suite: green")
+    repo, _, exit_code = _matrix_close(tmp_path, "markup", shuffled)
+    assert exit_code == 0
+
+
+def _matrix_refusal(tmp_path, capsys, name, marker_lines, *, take_index=False, route="file",
+                    stdout=None, stderr="", status=0, extra_lines=(), record=None):
+    repo, store = _change_repo(tmp_path / name), _gate_store(tmp_path / name)
+    if record is not None:
+        record(store, repo)
+    else:
+        _record_matrix_run(store, repo, stdout=stdout, stderr=stderr, status=status)
+    (repo / "staged.txt").write_text("staged\n")
+    subprocess.run(["git", "-C", str(repo), "add", "staged.txt"], check=True)
+    (repo / "candidate.txt").write_text("candidate\n")
+    body = _marker_body("Suite: green", *marker_lines, *extra_lines)
+    source = _body_file(tmp_path, body, name=f"{name}.txt")
+    args = ["--body-file", str(source)] if route == "file" else ["--body", body.rstrip("\n")]
+    before = _state(repo)
+    index_bytes = _git_out(repo, "diff", "--cached")
+    flags = ["--take-index"] if take_index else ["--staged", "staged.txt"]
+
+    exit_code = _close(repo, store, args, "--add", "candidate.txt", *flags, allow_empty=False)
+    lines = _refusal_lines(capsys)
+
+    assert exit_code != 0 and lines[0] == REFUSAL_FIRST_LINE
+    assert _state(repo)[:2] == before[:2] and _git_out(repo, "diff", "--cached") == index_bytes
+    assert (repo / "candidate.txt").read_text() == "candidate\n"
+    if route == "file":
+        assert source.read_bytes() == body.encode()
+    return lines, source
+
+
+def printed(lines: list[str]) -> list[str]:
+    return [f"  {line}" for line in lines]
+
+
+def closing_lines(source: Path | None) -> list[str]:
+    return [NOTHING_STAGED_MARKER,
+            *([f"The body file '{source}' is left in place."] if source is not None else []),
+            MATRIX_WAYS_OUT]
+
+
+@pytest.mark.parametrize("take_index", [False, True])
+def test_marker_refusal_names_every_cause_and_changes_nothing(tmp_path, capsys, take_index):
+    lines, source = _matrix_refusal(tmp_path, capsys, "none", [], take_index=take_index)
+    assert lines == [REFUSAL_FIRST_LINE, "The marker has no Environment: line. The gate run "
+                     "printed these 3:", *printed(CELLS), *closing_lines(source)]
+
+    lines, source = _matrix_refusal(tmp_path, capsys, "one", [CELLS[0], CELLS[2]],
+                                    take_index=take_index)
+    assert lines == [REFUSAL_FIRST_LINE, "These Environment: lines from the gate run are missing "
+                     "from the marker:", *printed([CELLS[1]]), *closing_lines(source)]
+
+    lines, source = _matrix_refusal(tmp_path, capsys, "several", [CELLS[1]], route="inline",
+                                    take_index=take_index)
+    assert lines == [REFUSAL_FIRST_LINE, "These Environment: lines from the gate run are missing "
+                     "from the marker:", *printed([CELLS[0], CELLS[2]]), *closing_lines(None)]
+
+    stray = "Environment: container — python:3.14, arm64"
+    wrapped = f"**`{stray}`**"
+    lines, source = _matrix_refusal(tmp_path, capsys, "extra", [*CELLS, wrapped, wrapped, stray],
+                                    take_index=take_index)
+    assert lines == [REFUSAL_FIRST_LINE, "These Environment: lines in the marker are not ones the "
+                     "gate run printed:", *printed([wrapped, stray]), *closing_lines(source)]
+
+    lines, source = _matrix_refusal(tmp_path, capsys, "both", [CELLS[0], stray],
+                                    take_index=take_index)
+    assert lines == [
+        REFUSAL_FIRST_LINE, "These Environment: lines from the gate run are missing from the "
+        "marker:", *printed(CELLS[1:]), "These Environment: lines in the marker are not ones the "
+        "gate run printed:", *printed([stray]), *closing_lines(source)]
+
+
+NOT_READY_RUN = ["Environment: container — python:3.12, arm64",
+                 "Environment: not-ready — python:3.12, arm64 — the test command exited 127, "
+                 "the status the shell gives a command it cannot find"]
+
+
+def _record_not_ready_run(store, repo: Path) -> None:
+    _record_matrix_run(store, repo, NOT_READY_RUN, status=1,
+                       stdout="".join(f"{line}\n" for line in NOT_READY_RUN) + "suite out\n",
+                       stderr="sh: 1: pytest: not found\n")
+
+
+def test_a_marker_leaving_out_the_not_ready_line_is_refused(tmp_path, capsys):
+    # CP-838: a single environment that was not ready printed two lines, and the builder refuses a
+    # marker that carries the environment's own line but not the `not-ready` one.
+    lines, source = _matrix_refusal(tmp_path, capsys, "left-out", NOT_READY_RUN[:1],
+                                    record=_record_not_ready_run)
+    assert lines == [REFUSAL_FIRST_LINE, "These Environment: lines from the gate run are missing "
+                     "from the marker:", *printed(NOT_READY_RUN[1:]), *closing_lines(source)]
+
+    repo, _, exit_code = _matrix_close(tmp_path, "both-lines",
+                                       _marker_body("Suite: red", *NOT_READY_RUN),
+                                       record=_record_not_ready_run)
+    assert exit_code == 0 and all(line in _commit_body(repo) for line in NOT_READY_RUN)
+
+
+def test_legacy_marker_refusal_text_is_unchanged(tmp_path, capsys):
+    # A run of one container, or of none: the refusals read as they always did.
+    repo, store = _change_repo(tmp_path / "one"), _gate_store(tmp_path / "one")
+    _record_matrix_run(store, repo, [GATE_ENVIRONMENT])
+    source = _body_file(tmp_path, _marker_body(OTHER_ENVIRONMENT), name="one.txt")
+    assert _close(repo, store, ["--body-file", str(source)]) != 0
+    assert _refusal_lines(capsys) == [
+        REFUSAL_FIRST_LINE,
+        "The marker's Environment: line differs from the one the gate run printed.",
+        f"  marker:   {OTHER_ENVIRONMENT}", f"  gate run: {GATE_ENVIRONMENT}",
+        NOTHING_STAGED_MARKER, f"The body file '{source}' is left in place.", MARKER_WAYS_OUT]
+
+    bare, store = _change_repo(tmp_path / "bare"), _gate_store(tmp_path / "bare")
+    _record_matrix_run(store, bare, [])
+    assert _close(bare, store, ["--body", _marker_body("Suite: green")]) != 0
+    assert _refusal_lines(capsys) == [
+        REFUSAL_FIRST_LINE, "The marker has no Environment: line. The gate run printed:",
+        f"  {NO_GATE_ENVIRONMENT}", NOTHING_STAGED_MARKER, MARKER_WAYS_OUT]
+
+
+def test_failing_cases_are_checked_across_every_cells_streams(tmp_path, capsys):
+    stdout = "".join(f"{line}\n" for line in CELLS) + "FAILED tests/a.py::one\n"
+    stderr = "ERROR tests/b.py::two\n"
+    ok = ["Failing: tests/a.py::one — task 1", "Failing: tests/b.py::two — task 2"]
+    repo, _, exit_code = _matrix_close(
+        tmp_path, "ok", _marker_body("Suite: red", *CELLS, *ok), stdout=stdout, stderr=stderr,
+        status=1)
+    assert exit_code == 0
+
+    # Aggregate success rejects any Failing: line.
+    lines, source = _matrix_refusal(tmp_path, capsys, "green", CELLS, extra_lines=ok[:1],
+                                    stdout=stdout)
+    at = lines.index("The gate run exited 0, so the marker must carry no Failing: line. "
+                     "It carries:")
+    assert lines[at + 1] == f"  {ok[0]}" and lines[-1] == MATRIX_WAYS_OUT
+
+    # An absent id, a blank one, and a missing environment line are named together.
+    bad = ["Failing: tests/c.py::three — task 3", "Failing:"]
+    lines, source = _matrix_refusal(tmp_path, capsys, "absent", CELLS[:2], extra_lines=bad,
+                                    stdout=stdout, stderr=stderr, status=1)
+    assert lines == [
+        REFUSAL_FIRST_LINE, "These Environment: lines from the gate run are missing from the "
+        "marker:", f"  {CELLS[2]}",
+        "These Failing: lines name a case that appears nowhere in the gate run's output:",
+        f"  {bad[0]}", "    case id looked for: tests/c.py::three", f"  {bad[1]}",
+        "    case id looked for: ", *closing_lines(source)]
+
+    # A failing case alone on a multi-cell run still gets the plural way out.
+    lines, source = _matrix_refusal(tmp_path, capsys, "case-only", CELLS, extra_lines=bad[:1],
+                                    stdout=stdout, stderr=stderr, status=1)
+    assert lines[-1] == MATRIX_WAYS_OUT and lines[1].startswith("These Failing: lines")
+
+
+# ── a closing marker against a mixed run: containers and macOS guests (CP-801, design T13) ──────
+# The run is a real completed one: the gate's own recording layer kept it, and the builder reads it
+# back from that store. Only the host under the gate is a fake.
+
+import dataclasses  # noqa: E402
+import test_gate_suite as gate_tests  # noqa: E402
+
+MIXED_CELLS = [*gate_tests.LINUX_LINES, *gate_tests.GUEST_LINES]
+
+
+def _record_completed_mixed_run(store, repo: Path, *, results=None, key: str = CHANGE_KEY) -> None:
+    """Run the mixed gate on the fake host with `store` as its run store, then keep what it stored
+    for this change's checkout, as the gate does for a real one."""
+    harness = gate_tests.mixed_harness(store=store, results=results)
+    status = gate_tests.run_recorded(
+        harness, inputs=gate_tests.mixed_raw(versions=gate_tests.MIXED_VERSIONS))
+    stored = store.latest(gate_tests.WORKTREE, "key1")
+    assert stored.environment_lines == tuple(MIXED_CELLS) and stored.status == status
+    store.publish(dataclasses.replace(stored, key=key), [str(repo)])
+
+
+@pytest.mark.parametrize("route", ["inline", "file"])
+@pytest.mark.parametrize("failed", [False, True], ids=["passed", "completed-failed"])
+def test_mixed_run_marker_with_every_declaration_commits(tmp_path, route, failed):
+    # CP-801/T13: all three declarations, the one guest's among them, close the change by the
+    # inline and the file route, whether the run passed or completed with a failed cell.
+    results = {"guest-0": gate_suite.Completed(3, "guest-0 failed\n", "")} if failed else None
+    repo, source, exit_code = _matrix_close(
+        tmp_path, "mixed", _marker_body("Suite: green", *MIXED_CELLS), route,
+        record=lambda store, repo: _record_completed_mixed_run(store, repo, results=results))
+
+    assert exit_code == 0
+    assert all(line in _commit_body(repo) for line in MIXED_CELLS)
+    assert _git_out(repo, "log", "-1", "--format=%s").strip() == MARKER_SUBJECT
+    assert source.exists() is (route == "inline")
+
+
+@pytest.mark.parametrize("route", ["inline", "file"])
+def test_missing_guest_version_declaration_refuses_without_mutation(tmp_path, capsys, route):
+    # The guest's line is omitted and the container lines stay: the refusal names that line alone,
+    # and repeating a retained line does not stand in for it.
+    lost = gate_tests.GUEST_LINES[0]
+    for name, lines in (("omitted", MIXED_CELLS[:2]),
+                        ("repeated", [*MIXED_CELLS[:2], MIXED_CELLS[1], MIXED_CELLS[1]])):
+        lines_out, source = _matrix_refusal(
+            tmp_path, capsys, name, lines, route=route, record=_record_completed_mixed_run)
+        assert lines_out == [
+            REFUSAL_FIRST_LINE, "These Environment: lines from the gate run are missing from "
+            "the marker:", *printed([lost]),
+            *closing_lines(source if route == "file" else None)]
+
+
+def test_a_matrix_marker_block_followed_by_a_wrapped_environment_mention_commits(tmp_path):
+    # CP-854 on the several-container path, the shape the real report had: the run's lines as one
+    # block, then prose whose wrapped line opens with the quoted prefix. The mention is not read,
+    # so it is not a line "the gate run did not print".
+    body = _marker_body("Suite: green", *CELLS, "", "The marker's head is read by the",
+                        MENTION_OF_ENVIRONMENT)
+    for route in ("inline", "file"):
+        _, _, exit_code = _matrix_close(tmp_path, f"mention-{route}", body, route)
+        assert exit_code == 0, route
+
+
+def test_mixed_marker_preserves_set_comparison(tmp_path, capsys):
+    # Order, repetition and the markup the builder already strips keep their meaning; a line the
+    # run did not print still refuses, and is named as one.
+    first, second, third = MIXED_CELLS
+    shuffled = _marker_body(f"**`{third}`**", f"  _{first}_  ", second, first, second, third,
+                            "Suite: green")
+    _, _, exit_code = _matrix_close(tmp_path, "markup", shuffled,
+                                    record=_record_completed_mixed_run)
+    assert exit_code == 0
+
+    stray = f"Environment: macos-guest {gate_tests.DASH} {gate_tests.GUEST_NAME}, toolchain 3.12"
+    lines, source = _matrix_refusal(tmp_path, capsys, "extra", [*MIXED_CELLS, stray],
+                                    record=_record_completed_mixed_run)
+    assert lines == [REFUSAL_FIRST_LINE, "These Environment: lines in the marker are not ones the "
+                     "gate run printed:", *printed([stray]), *closing_lines(source)]
+
+
+# ── check-directional — a directional line judged without a commit, so a caller that commits
+#    late (the seal, after its product merge) can refuse the line before anything lands. ──────
+
+def test_check_directional_accepts_a_line_that_names_its_station(tmp_path, capsys):
+    shukuba = tmp_path / "system" / "projects" / "tools" / "journey" / "shukuba"
+    shukuba.mkdir(parents=True)
+    (shukuba / "2026-10-24_x.md").write_text("# x\n")
+
+    exit_code = commit_builder.main([
+        "--repo", str(tmp_path), "check-directional",
+        "--directional", "Shukuba: 2026-10-24_x — progress: sealed",
+    ])
+
+    assert exit_code == 0
+    assert capsys.readouterr().err == ""
+
+
+@pytest.mark.parametrize("directional", [
+    "Shukuba: progress: sealed 2026-10-24_x",
+    "Shukuba: 2026-10-24_not-a-station — progress: sealed",
+])
+def test_check_directional_refuses_what_commit_refuses(tmp_path, capsys, directional):
+    _init_repo(tmp_path)
+    (tmp_path / "system" / "projects" / "tools").mkdir(parents=True)
+    (tmp_path / "work.txt").write_text("work\n")
+
+    exit_code = commit_builder.main([
+        "--repo", str(tmp_path), "check-directional", "--directional", directional,
+    ])
+    checked = capsys.readouterr().err
+    commit_exit = commit_builder.main([
+        "--repo", str(tmp_path), "commit", "--subject", "pm: x", "--actor", "pm",
+        "--add", "work.txt", "--directional", directional, "--surface", "Claude Code",
+    ])
+
+    assert exit_code == 1
+    assert checked.startswith(_REFUSAL_PREFIX)
+    assert commit_exit == 1
+    assert capsys.readouterr().err == checked
+
+
+def test_check_directional_changes_nothing(tmp_path):
+    _init_repo(tmp_path)
+    (tmp_path / "work.txt").write_text("work\n")
+    status = ["git", "-C", str(tmp_path), "status", "--porcelain"]
+    before = subprocess.run(status, capture_output=True, text=True, check=True).stdout
+
+    commit_builder.main([
+        "--repo", str(tmp_path), "check-directional",
+        "--directional", "Shukuba: progress: x",
+    ])
+
+    assert subprocess.run(status, capture_output=True, text=True, check=True).stdout == before

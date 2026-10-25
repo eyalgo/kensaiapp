@@ -1,6 +1,6 @@
 {
   "name": "kensaiapp-panel",
-  "version": "1.4.1",
+  "version": "1.7.0",
   "description": "Side pane: this instance's chains waiting on you and running now, each walking project's route beside them",
   "types": "./types/index.d.ts"
 }

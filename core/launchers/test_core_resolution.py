@@ -33,7 +33,11 @@ import pytest
 
 _LAUNCHERS_DIR = Path(__file__).resolve().parent
 _CORE_DIR = _LAUNCHERS_DIR.parent
-_MODEL_LAUNCHER = _LAUNCHERS_DIR / "seeds-from-idea" / "launcher.sh"
+# The real launcher this file runs end to end, standing in for "a launcher.sh": one that detaches its
+# completion watcher through the shared home and defaults that watcher to `<CORE>/tools/watch_agent.py`.
+# `launch-eval-fix` since 2026-10-24, when `seeds-from-idea`'s launcher — the stand-in until then —
+# was deleted, the skill having no launcher of its own.
+_MODEL_LAUNCHER = _LAUNCHERS_DIR / "launch-eval-fix" / "launcher.sh"
 _DETACH_LIB = _CORE_DIR / "tools" / "detach_watcher.sh"
 _REAL_WATCHER = _CORE_DIR / "tools" / "watch_agent.py"
 # The delivered provider file: the tracked template at the instance root, which a case copies
@@ -75,19 +79,20 @@ def _every_launcher_script() -> list[Path]:
     """Every `launcher.sh` under `core/launchers`, at any depth. `rglob`, never `glob("*/…")`:
     a launcher at the newly permitted `core/launchers/development/<step>/` is a level below what
     a flat glob reaches, and a contract sweep blind to the home the rule was widened for would
-    report compliance it never checked. The floor is a positive control — 13 launchers exist
+    report compliance it never checked. The floor is a positive control — 12 launchers exist
     today (the three-seat product-sdd runner's was deleted on 2026-10-03; ten per-skill and chain
     launchers were retired on 2026-09-17, and chain-change arrived the same day;
     ad-hoc-flow was retired on 2026-09-18, and build-idea joined on 2026-09-18; seeds-from-product-docs's was
     retired on 2026-09-25, the skill launching from its launcher.md; kensaiapp-writing-bar's,
     experience-visual's and experience-voice's were retired on 2026-09-30 the same way, and
-    chain-agari arrived on 2026-10-04), so a smaller read means the glob or the tree moved, not
+    chain-agari arrived on 2026-10-04; seeds-from-idea's was deleted on 2026-10-24, the skill
+    having no launcher of its own), so a smaller read means the glob or the tree moved, not
     that the fleet complies. It is
     a floor rather than an equality because a nested step launcher is expected to arrive and must
     join this contract rather than break it."""
     scripts = sorted(_LAUNCHERS_DIR.rglob("launcher.sh"))
-    assert len(scripts) >= 13, (
-        f"expected at least the 13 known launcher.sh files, found {len(scripts)} — this sweep "
+    assert len(scripts) >= 12, (
+        f"expected at least the 12 known launcher.sh files, found {len(scripts)} — this sweep "
         f"would pass over an incomplete set"
     )
     return scripts
@@ -247,12 +252,12 @@ def test_every_launcher_refuses_before_it_reads_the_core_it_could_not_resolve():
 def test_a_launcher_with_no_launchers_ancestor_exits_non_zero_naming_the_assumption(tmp_path):
     """CP-4: a `launcher.sh` whose own directory has no `launchers/` ancestor exits non-zero,
     writes one stderr line naming the missing ancestor and the directory it ran from, and
-    spawns nothing. Uses `seeds-from-idea/launcher.sh` unmodified — the guard fires before the
-    script reads a single argument or spawns anything, so no stub of any kind is needed."""
+    spawns nothing. Uses the stand-in launcher (`_MODEL_LAUNCHER`) unmodified — the guard fires
+    before the script reads a single argument or spawns anything, so no stub of any kind is needed."""
     orphan_dir = tmp_path / "somewhere" / "with" / "not_even" / "one" / "ancestor"
     orphan_dir.mkdir(parents=True)
     orphan_script = orphan_dir / "launcher.sh"
-    shutil.copy(_LAUNCHERS_DIR / "seeds-from-idea" / "launcher.sh", orphan_script)
+    shutil.copy(_MODEL_LAUNCHER, orphan_script)
     orphan_script.chmod(0o755)
 
     bin_dir = tmp_path / "bin"
@@ -279,10 +284,12 @@ def test_a_launcher_with_no_launchers_ancestor_exits_non_zero_naming_the_assumpt
 @pytest.fixture
 def _nested_synthetic_core(tmp_path):
     """A whole synthetic `<CORE>` under `tmp_path`: `core/launchers/development/<step>/launcher.sh`
-    copied from the real `seeds-from-idea/launcher.sh`, the real `detach_watcher.sh`
+    copied from the real stand-in launcher (`_MODEL_LAUNCHER`), the real `detach_watcher.sh`
     (sourced by the copy, so it must be the real behaviour, not a stub), and a recording
     `watch_agent.py` stub standing in for the real one — the one file this fixture does NOT copy
-    real, because the whole point is to observe whether it gets spawned."""
+    real, because the whole point is to observe whether it gets spawned. The instance it launches
+    for holds the one thing that launcher needs before it reaches its watcher: a skill with a
+    settled eval round (a `benchmark.md`) for it to act on."""
     core = tmp_path / "core"
     step_dir = core / "launchers" / "development" / "specs"
     step_dir.mkdir(parents=True)
@@ -298,9 +305,9 @@ def _nested_synthetic_core(tmp_path):
     # build shells out to `agent_run.py`, which imports `model_assignment` and `task_context`; and
     # the run's provenance is resolved by `run_intelligence.py`, which imports `intelligence` and
     # `model_assignment`; the launcher's provider is read by `providers.py` from the instance's
-    # own `.providers.toml`, which this fixture writes at the instance root.
-    # `skill_path.py` is deliberately absent: the launcher's own skill then
-    # does not resolve, which it treats as `default`, never as a refusal.
+    # own `.providers.toml`, which this fixture writes at the instance root; the skill it acts on
+    # is resolved by `skill_path.py`, and the round lock it stands down for is read by
+    # `evals_round_lock.py` — both real, so the launch the watcher follows is the real one.
     for tool in (
         "pin.py",
         "pin_run.sh",
@@ -312,6 +319,8 @@ def _nested_synthetic_core(tmp_path):
         "run_intelligence.py",
         "intelligence.py",
         "providers.py",
+        "skill_path.py",
+        "evals_round_lock.py",
     ):
         shutil.copy(_CORE_DIR / "tools" / tool, tools_dir / tool)
     # `tmp_path/core` is marked as its own pin, so `pin_enter` (rule 1) finds itself already
@@ -335,15 +344,14 @@ def _nested_synthetic_core(tmp_path):
     )
 
     instance_root = tmp_path / "instance"
-    project_dir = instance_root / "system" / "projects" / "some-project"
-    project_dir.mkdir(parents=True)
+    instance_root.mkdir()
     shutil.copy(_PROVIDER_EXAMPLE, instance_root / ".providers.toml")
-    (project_dir / "project.md").write_text(
-        "# some-project\n\n**Product path:** products/thing\n"
+    skill = "demo-skill"
+    settled_round = (
+        instance_root / ".claude" / "skills" / skill / "evals" / "workspace" / "iteration-1"
     )
-    idea = project_dir / "journey" / "nemawashi" / "unpicked" / "an-idea.md"
-    idea.parent.mkdir(parents=True)
-    idea.write_text("# an idea\n")
+    settled_round.mkdir(parents=True)
+    (settled_round / "benchmark.md").write_text("# benchmark 1\n")
 
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
@@ -365,9 +373,12 @@ def _nested_synthetic_core(tmp_path):
     (tmp_path / "home").mkdir()
     # The watcher override is deliberately left UNSET — CP-3 is about the launcher's own
     # default, not a test-supplied stand-in for it.
-    env.pop("LAUNCH_SEEDS_FROM_IDEA_WATCHER", None)
-    env["LAUNCH_SEEDS_FROM_IDEA_NOTIFIER"] = str(notifier_stub)
+    env.pop("LAUNCH_EVAL_FIX_WATCHER", None)
+    env["LAUNCH_EVAL_FIX_NOTIFIER"] = str(notifier_stub)
     env.pop("KENSAIAPP_NOTIFIER", None)
+    # The round lock is read for real, at a path nothing occupies, so the launch never consults
+    # this machine's own lock and never stands down for a round running on it.
+    env["KENSAIAPP_EVALS_LOCK"] = str(tmp_path / "no-round-lock.json")
 
     def _watcher_argv():
         for _ in range(50):
@@ -382,7 +393,7 @@ def _nested_synthetic_core(tmp_path):
         {
             "script": nested_script,
             "instance_root": instance_root,
-            "idea": str(idea.relative_to(instance_root)),
+            "skill": skill,
             "env": env,
             "watcher_argv": staticmethod(_watcher_argv),
             "real_watcher_home": tools_dir / "watch_agent.py",
@@ -579,8 +590,8 @@ def test_no_launcher_builds_a_claude_command_itself():
 
 
 def test_the_fleet_is_all_counted():
-    """Task 21: the two sweeps above both read the same fleet — thirteen `launcher.sh` files and
-    three `launch-*.sh` scripts (`tl_instruction.md`'s own header count) — so a filter that
+    """Task 21: the two sweeps above both read the same fleet — twelve `launcher.sh` files and
+    three `launch-*.sh` scripts — so a filter that
     matches nothing (a moved tree, a renamed glob) fails loudly rather than passing vacuously over
     an empty read."""
     launchers = _every_launcher_script()
@@ -606,7 +617,7 @@ def test_a_nested_launcher_spawns_the_real_watcher_with_the_override_unset(_nest
     """
     fixture = _nested_synthetic_core
     result = subprocess.run(
-        [str(fixture.script), fixture.idea],
+        [str(fixture.script), fixture.skill],
         cwd=str(fixture.instance_root),
         capture_output=True,
         text=True,

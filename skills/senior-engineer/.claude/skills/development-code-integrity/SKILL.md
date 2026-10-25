@@ -6,7 +6,7 @@ description: |
   Do not use for: product-correctness sign-off (that is acceptance / QA), redesigning code, or authoring a change spec.
 license: MIT
 metadata:
-  version: "2.6.0"
+  version: "2.9.0"
   category: execution
   risk: safe
 ---
@@ -202,8 +202,8 @@ python3 "<CORE>/tools/gate_suite.py" run \
 
 Where the owner's ask applies, the recipe's second call replaces the first, with `--gate code-integrity`. An interactive run keeps its own discovery of the test runner (above): only a run that issues the card's `Test command:` as a managed gate — the chain's own launch of this step — uses the tool.
 
-- **Keep every run's first printed line.** The run whose result the `Integrity:` verdict rests on — the last full-card run — has its line copied whole into the report as the bare `Environment:` line (§ *Always write the `code-integrity-report`*). Each earlier run's line goes in the test evidence as a bullet, never as a bare line.
-- **Failure is stated as a failure.** Whatever the environment, a refusal or an unreachable environment is `Integrity: stopped`, never `Integrity: pass`: no suite ran. The report carries the `Environment:` line the tool printed and `The test command was not run. It reported: {reason}`, where `{reason}` is the first line the tool wrote to standard error. Note that a failed suite is Step 3's red, not a stop. Never run the card's command by hand to get a result.
+- **Keep every run's `Environment:` lines.** Read them by `<CORE>/prompts/gate_suite.md` § *Reading the run's lines*. The run whose result the `Integrity:` verdict rests on — the last full-card run — has every `Environment:` line it printed copied whole into the report, each as a bare line (§ *Always write the `code-integrity-report`*). Each earlier run's lines go in the test evidence as bullets, one bullet per line, never as bare lines.
+- **Failure is stated as a failure.** Whatever the environment, a refusal or an unreachable environment is `Integrity: stopped`, never `Integrity: pass`: no suite ran. The report carries the `Environment:` lines the tool printed and `The test command was not run. It reported: {reason}`, where `{reason}` is the first line the tool wrote to standard error. Note that a failed suite is Step 3's red, not a stop. Never run the card's command by hand to get a result. An environment that was not ready, including one whose test command exited 127, is `Integrity: stopped` too. The tool prints an `Environment: not-ready — …` line for it, and the report carries that line bare, copied whole with the tool's other `Environment:` lines. It is never Step 3's red, because a run whose environment was not ready is not a failed suite. The chain halts `environment-not-ready` on a report that carries such a line, ahead of `integrity-stopped`.
 - **A card with no suite** takes `Environment: none — no suite`, with nothing probed or run.
 
 ### 3. Green or red
@@ -258,10 +258,10 @@ Whatever the outcome, write a committed file named `code-integrity-report.md`. I
   # Code integrity report
 
   Integrity: <pass | stopped>
-  Environment: <the first line the verdict-producing run printed, copied whole>
+  Environment: <one line the verdict-producing run printed, copied whole; one bare line for each it printed, in the order printed>
   ```
 
-  **Write it bare, once.** It is the only `Environment:` line the chain reads, and it is the first one it finds, so no earlier run's line may stand as a bare line. A card with no suite writes `Environment: none — no suite`. A run that stopped before it ran the test command writes `Environment: none — the run stopped before the test command ran` and says in the report why no suite ran; it never copies an environment from another record or another run. Every earlier full-card run goes in the test evidence as `- An earlier run of the test command exited {status} and printed `{line}`.`, in the order the runs happened. A run that was refused or could not reach its environment adds the line `The test command was not run. It reported: {reason}`.
+  **Write them bare, each once.** The chain reads only the first block of consecutive `Environment:` lines in the report, and halts when any one of them fails. Write the lines of the run the verdict rests on as that block, one directly after another under `Integrity:`, because an `Environment:` line set apart from them is not read. No earlier run's line may stand as a bare line, because a bare one written above the block would start the block the chain reads. A card with no suite writes `Environment: none — no suite`. A run that stopped before it ran the test command writes `Environment: none — the run stopped before the test command ran` and says in the report why no suite ran; it never copies an environment from another record or another run. Every earlier full-card run goes in the test evidence with one bullet for each `Environment:` line it printed, each written `- An earlier run of the test command exited {status} and printed `{line}`.`, in the order the runs happened and, within a run, in the order it printed them. A run that was refused or could not reach its environment adds the line `The test command was not run. It reported: {reason}`.
 - **The deferrals** (workflow mode) — each marker `Deferred:` line quoted verbatim, with the result of each of the four checks (task exists · no landing commit · case in the tree or dependency deferred · record exists). **None** when the marker carries none — written on every workflow run, so "no deferrals" reads differently from "never looked". An unreal deferral is named here with the check it failed.
 - **What was reviewed** — the file or folder, and the code under it.
 - **The intent it was checked against** — which spec files / owner expectations were the reference.
