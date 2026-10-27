@@ -44,6 +44,7 @@ from domain import (
 
 TODAY = date(2026, 10, 6)
 CREATED = datetime(2026, 10, 1, 9, 0, tzinfo=UTC)
+NO_FILTER = FilterInput()
 ASCENDING = ("ascending",)
 DESCENDING = ("descending",)
 
@@ -89,13 +90,13 @@ def sort_of(field: str, direction: str = "") -> SortInput:
 
 
 def ordered(
-    state: TrackerState, sort_fields: SortInput, fields: FilterInput = FilterInput()
+    state: TrackerState, sort_fields: SortInput, fields: FilterInput = NO_FILTER
 ) -> list[int]:
     return [task.id for task in sort_project_tasks(state, 1, fields, sort_fields, TODAY).tasks]
 
 
 def refused(
-    state: TrackerState, sort_fields: SortInput, fields: FilterInput = FilterInput()
+    state: TrackerState, sort_fields: SortInput, fields: FilterInput = NO_FILTER
 ) -> ProjectListRefused:
     with pytest.raises(ProjectListRefused) as caught:
         sort_project_tasks(state, 1, fields, sort_fields, TODAY)
@@ -206,7 +207,11 @@ def test_created_sort_with_equal_recorded_times_still_follows_identity() -> None
         (SortInput(direction=ASCENDING), SortKey.DUE_DATE, SortDirection.ASCENDING),
         (SortInput(direction=DESCENDING), SortKey.DUE_DATE, SortDirection.DESCENDING),
         (SortInput(field=("",), direction=DESCENDING), SortKey.DUE_DATE, SortDirection.DESCENDING),
-        (SortInput(field=("priority",), direction=("",)), SortKey.PRIORITY, SortDirection.ASCENDING),
+        (
+            SortInput(field=("priority",), direction=("",)),
+            SortKey.PRIORITY,
+            SortDirection.ASCENDING,
+        ),
         (
             SortInput(field=("created_time",), direction=DESCENDING),
             SortKey.CREATED_TIME,
@@ -242,9 +247,7 @@ def test_a_direction_alone_sorts_by_due_date_in_that_direction() -> None:
 
 
 def test_a_field_alone_sorts_ascending() -> None:
-    state = make_state(
-        make_task(1, priority=Priority.HIGH), make_task(2, priority=Priority.LOW)
-    )
+    state = make_state(make_task(1, priority=Priority.HIGH), make_task(2, priority=Priority.LOW))
     assert ordered(state, SortInput(field=("priority",))) == [2, 1]
 
 
@@ -271,9 +274,7 @@ def test_sort_request_uses_nonempty_raw_choices(sort_fields: SortInput, requeste
 
 def test_count_is_requested_by_a_filter_alone_a_sort_alone_or_both() -> None:
     state = make_state(make_task(1), make_task(2, status=TaskStatus.DONE))
-    filter_only = sort_project_tasks(
-        state, 1, FilterInput(status=("done",)), SortInput(), TODAY
-    )
+    filter_only = sort_project_tasks(state, 1, FilterInput(status=("done",)), SortInput(), TODAY)
     sort_only = sort_project_tasks(state, 1, FilterInput(), sort_of("title"), TODAY)
     both = sort_project_tasks(
         state, 1, FilterInput(status=("done",)), sort_of("title", "descending"), TODAY
@@ -357,7 +358,8 @@ def test_sort_ignores_other_projects_tasks() -> None:
 
 
 @pytest.mark.parametrize(
-    "token", ["colour", "Title", "TITLE", " title", "title ", "due-date", "due date", "x", "Due_Date"]
+    "token",
+    ["colour", "Title", "TITLE", " title", "title ", "due-date", "due date", "x", "Due_Date"],
 )
 def test_sort_refuses_unknown_field_tokens_by_concrete_type(token: str) -> None:
     problem = refused(make_state(make_task(1)), SortInput(field=(token,)))
@@ -476,9 +478,7 @@ def test_zero_matches_still_validate_sort() -> None:
 def test_a_valid_zero_match_result_has_no_requested_count_and_no_tasks() -> None:
     state = make_state(make_task(1))
     for sort_fields in (SortInput(), sort_of("title", "descending")):
-        selection = sort_project_tasks(
-            state, 1, FilterInput(status=("done",)), sort_fields, TODAY
-        )
+        selection = sort_project_tasks(state, 1, FilterInput(status=("done",)), sort_fields, TODAY)
         assert selection.tasks == ()
         assert selection.match_count == 0
         assert selection.task_count == 1
@@ -506,9 +506,7 @@ def test_empty_project_ignores_all_choices(sort_fields: SortInput, fields: Filte
 
 
 def test_sort_handles_empty_singleton_and_repeated_reads_without_mutation() -> None:
-    state = make_state(
-        make_task(3, title="c"), make_task(1, title="a"), make_task(2, title="b")
-    )
+    state = make_state(make_task(3, title="c"), make_task(1, title="a"), make_task(2, title="b"))
     before_tasks = state.tasks
     first = ordered(state, sort_of("title", "descending"))
     second = ordered(state, sort_of("title", "descending"))
