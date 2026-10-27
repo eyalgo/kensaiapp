@@ -2,8 +2,8 @@
 
 **Status:** Settled
 **Owner:** CTO — writes every part; the CPO and the CDO decide the parts the lane table names, through `SDD_open_issues.md` items carrying their `Seat:`
-**Version:** 11 — the eighth answered round folded in (`products/tracker17/docs/trail/sdd/cycle-8.md`), two items the PM raised from the product's code and from the UXD and one a `companion-self-answer` run raised from § 11 read against the suite, all three answered in the CTO's seat. § 4 gains RT-11, the history-admission boundary: a page that shows a pending confirmation of a move to `cancelled` is answered 202 and every other move page 200, each with `Cache-Control: no-store`; § 9 TO-8 and § 11 R-12 surface the decision and its browser dependence, and RT-8's last sentence is scoped to a finished outcome. § 6 `status-moves`'s behaviour bar has the overtaken move name the moves the page now shows and offer no reload, and names the refusal reached by an address with no press; § 4 EX-4 says where that refusal sits; § 10 RC-4 records the UXD moving to version 8. § 11 R-2 counts the confirmation case verified, by four tests at `9b05680c7`, and § Open Questions keeps the assistive-technology case alone. RN-49 to RN-52 record the round. The header's *Inputs read* catches up with PRD version 7 and NFDR version 13, neither of which moves a line of this document (RN-52). Nothing is left open
-**Inputs read:** PRD Settled (version 7) · SRS Settled (version 6) · UXD Settled (version 8; no `products/tracker17/docs/UXD_open_issues.md` beside it) · Agari no Status line (`agari_template.md` carries none) · tracker17 doctrine no Status line (stamped, unfilled) · writing_bar Settled · ADR-0001 to ADR-0009 Accepted and NFDR Settled (version 13, its header; `products/tracker17/docs/architecture_open_issues.md` is also present, opened on 2026-10-20 in the CTO's seat with its one item, § 2.1, unanswered) (downstream; read for the decisions already recorded, as the authoring lens says, never as a source) · FDR Settled (version 4; downstream, read to check what the answered round says does not move, not a source) · the product's code and tests the answered round cites (read to verify each citation on disk, not sources)
+**Version:** 12 — the ninth answered round folded in (`products/tracker17/docs/trail/sdd/cycle-9.md`), one item the PM raised from the product's filter form against § 4 RT-8, answered in the CTO's seat. RT-8 defines the word it binds on: a submission is a form sent with `method="post"`, a request for a change; a form sent with `method="get"` is a read, answered with the page at the address the browser built, 200, with no redirect, as the filter form is today, and § 11 R-10's bound reaches its values. RT-11 names ADR-0010, which now records it, and § 12 counts ten records. The UXD moved to version 9 after version 11 read it at 8, and § 10 RC-5 records it: § 6 `status-moves`'s overtaken-move refusal states the task's current status and claims no change, UX-F4's words. RN-53 to RN-55 record the round. Nothing is left open. At 11: the eighth answered round folded in (`products/tracker17/docs/trail/sdd/cycle-8.md`), two items the PM raised from the product's code and from the UXD and one a `companion-self-answer` run raised from § 11 read against the suite, all three answered in the CTO's seat. § 4 gains RT-11, the history-admission boundary: a page that shows a pending confirmation of a move to `cancelled` is answered 202 and every other move page 200, each with `Cache-Control: no-store`; § 9 TO-8 and § 11 R-12 surface the decision and its browser dependence, and RT-8's last sentence is scoped to a finished outcome. § 6 `status-moves`'s behaviour bar has the overtaken move name the moves the page now shows and offer no reload, and names the refusal reached by an address with no press; § 4 EX-4 says where that refusal sits; § 10 RC-4 records the UXD moving to version 8. § 11 R-2 counts the confirmation case verified, by four tests at `<a commit not in the public history>`, and § Open Questions keeps the assistive-technology case alone. RN-49 to RN-52 record the round. The header's *Inputs read* catches up with PRD version 7 and NFDR version 13, neither of which moves a line of this document (RN-52). Nothing is left open
+**Inputs read:** PRD Settled (version 7) · SRS Settled (version 6) · UXD Settled (version 9; no `products/tracker17/docs/UXD_open_issues.md` beside it) · Agari no Status line (`agari_template.md` carries none) · tracker17 doctrine no Status line (stamped, unfilled) · writing_bar Settled · ADR-0001 to ADR-0010 Accepted and NFDR Settled (version 15, its header; `products/tracker17/docs/architecture_open_issues.md` is also present, opened on 2026-10-27 by the PM with its one item, § 3.1, unanswered) (downstream; read for the decisions already recorded, as the authoring lens says, never as a source) · FDR Settled (version 4, its header; downstream, read to check what the answered round says does not move, not a source) · the product's code and tests the answered round cites (read to verify each citation on disk, not sources)
 
 > The SDD is the technical **how**, and it ends in a **cut**. It states the architecture the rest of
 > the system builds against — derived from the PRD (the *what and why*), the SRS (the system-level
@@ -327,21 +327,45 @@ written so that a slice breaking it could be named.
   the operator changed, and an assignee left as the page showed it is never refused for being off
   the list (SRS NFR-3, "for that field"; UXD UX-F9). *(serves SRS NFR-3, NFR-6; UXD UX-I7, UX-F9)*
   *(why, RN-32)*
-- **RT-8: Only a form submission changes the tracker state.** Following a link or reloading a page
-  never does. Every submission is answered by sending the browser to a page address, so reload,
-  back and forward never repeat an action. What that page says about the action travels in the
+- **RT-8: Only a form submission changes the tracker state.** A submission, here and wherever this
+  document uses the word, is a form sent with `method="post"`: a request that asks the tracker for
+  a change. Following a link or reloading a page never changes the state. Every submission is
+  answered by sending the browser to a page address, so reload, back and forward never repeat an
+  action. A form sent with `method="get"` is not a submission. The browser puts its values into a
+  page address (§ 4 EX-3; UXD UX-I7) and the tracker answers that address with the page, 200, as it
+  answers a link: it changes nothing, saves nothing, and is marked like any page request under
+  SEC-2, so it opens from a bookmark. It takes no redirect, because the redirect exists so that an
+  action is never repeated, and a read repeated is what UX-I7 asks for. A refusal of such a form —
+  a range whose from-date is after its to-date (SRS FR-34), a name not on the list (FR-33), a value
+  its control cannot hold — is answered with the page at the asked address, 200, with no list, the
+  reason beside the control and focus on the first refused control (EX-4); the address already
+  carries what was typed, so no address is built for it. A move submitted from a narrowed list
+  carries the list's choices in its form, and its redirect lands on the narrowed address
+  (`web/routes.py`, `_carried_filters`): the `post` takes the redirect, and the `get` it lands on is
+  a read. The forms this reaches are the filter form (`web/pages.py`, the `method="get"` form
+  `_filter_area` builds) and the sort controls and the All tasks list's controls when
+  `narrow-and-sort` adds them; the Summary's linked counts (UXD UX-F6) are links. The word has to
+  be defined because the HTML standard's form submission algorithm covers a `get` form too: for
+  `http` and `https` its GET column is "Mutate action URL", "Set parsed action's query component to
+  query", then "Plan to navigate to parsed action"
+  (https://html.spec.whatwg.org/multipage/form-control-infrastructure.html, re-read 2026-10-27),
+  and UXD UX-I6's "Enter submits the form the focus is in" uses the browser's verb for every form,
+  Apply included. Read with the browser's word this condition is false of the product, and read
+  with this document's it is true. What that page says about the action travels in the
   address and nowhere else, as RT-7 requires: the place the page opens at, what a completion line
   names, and, after a refusal or a failure, the reason and what was typed. One refusal is the
   exception. After `domain` refuses a value as longer than its field's maximum (RT-10), the address
   carries the reason and the place and nothing that was typed, because that text is what an address
   cannot hold. No form of the tracker's own can reach that refusal, so UXD UX-I3's "Everything the
   operator typed stays in the form" holds on every form. One function in `web` builds every such
-  address. A reload of that page, or a return to it through back, shows the same line at the same
+  address, the redirects that `post` forms are answered with; a `get` form's address is the
+  browser's. A reload of that page, or a return to it through back, shows the same line at the same
   place when the address names a finished outcome: a completion line, a refusal or a failure. A
   page whose address asks for a pending step is built from the saved state on every load (RT-7)
   and shows what the state now allows, which RT-11 and UXD UX-F4 state. *(serves SRS NFR-4; UXD
-  § 4, "the browser's back, forward and reload buttons work on every one"; UXD UX-I3, UX-I4)*
-  *(why, RN-21, RN-24, RN-25; the scope, `trail/sdd/cycle-8.md` § 5.1; why, RN-49)*
+  § 4, "the browser's back, forward and reload buttons work on every one"; UXD UX-I3, UX-I4, UX-I7)*
+  *(why, RN-21, RN-24, RN-25; the scope, `trail/sdd/cycle-8.md` § 5.1; why, RN-49; the word, and
+  the `get` form: `trail/sdd/cycle-9.md` § 5.1; why, RN-53)*
 - **RT-9: A page that opens at the place of an action sets keyboard focus there with the HTML
   `autofocus` attribute, and its address carries no fragment.** The HTML standard says the
   attribute "applies to all elements, not just to form controls", and its steps skip a document
@@ -421,7 +445,9 @@ written so that a slice breaking it could be named.
   `test_move_interaction_and_outcome_pages_are_not_stored`; `tests/e2e/test_moves.py`,
   `test_history_matrix_revalidates_current_saved_status` and
   `test_real_history_traversal_revalidates_the_confirmation`; 67 passed in `tests/e2e/` in a
-  fresh clone at `9b05680c7`. *(serves SRS NFR-3, NFR-4, NFR-13; UXD § 4, "the browser's back,
+  fresh clone at `<a commit not in the public history>`. The Principal Architect records the decision as
+  `products/tracker17/docs/adr/0010-pending-confirmation-answered-202-move-pages-not-stored.md`
+  and binds it as `products/tracker17/docs/nfdr.md` QC-63. *(serves SRS NFR-3, NFR-4, NFR-13; UXD § 4, "the browser's back,
   forward and reload buttons work on every one"; UX-F4, UX-I3; § 4 RT-7, RT-8, EX-2, EX-6, SEC-3;
   § 9 TO-2)* *(confirmed with an addition: `trail/sdd/cycle-8.md` § 5.1; why, RN-49)*
 
@@ -879,16 +905,17 @@ exits 0 and `pytest tests/e2e/` exits 0.
     focus where UX-I2 places it. A double press on the first button never confirms, on a list
     scrolled part-way too. Backing out returns focus to the restored button. A first press for a
     move the task no longer allows is refused with no confirmation. A move pressed after another
-    tab moved the task is refused, says the task's status has changed and names the moves the page
-    now shows, or none for a final status, and offers no reload, because the list or the task's
-    page it lands on is built after the refusal and already shows the current status and the moves
-    it allows (UX-I3, UX-F4). A move refusal reached by an address and no press — the address that
+    tab moved the task is refused, states the task's current status and the moves that status
+    allows, or that there are none for a final status, claims no change, and offers no reload,
+    because the list or the task's page it lands on is built after the refusal and already shows
+    the current status and the moves it allows (UX-I3, UX-F4). A move refusal reached by an address and no press — the address that
     shows the confirmation of a move to `cancelled`, or the one that backs out of it, opened again
     by a reload, by Back or from a bookmark once the task is in `done` or `cancelled`, on a
     project's Tasks view and on the task's page alike — shows where the confirmation would have
     been, beside the task's status, says what is true now, names no action and offers no reload
     (UX-F4, UX-I3). A task moved to `done` or `cancelled` is no longer marked overdue. *(the two
-    refusals: `trail/sdd/cycle-8.md` § 5.2; why, RN-50)*
+    refusals: `trail/sdd/cycle-8.md` § 5.2; why, RN-50; the overtaken move's words, UXD version 9:
+    § 10 RC-5; why, RN-54)*
   - *Command.* Both suites pass, including a test for every allowed move, every refused move and a
     move to the status a task already has (SRS FR-18), the out-of-date move of AC-12, and AC-13's
     third case. End-to-end tests show where focus lands in the confirmation and on backing out,
@@ -1293,6 +1320,30 @@ both.*
   and whether its assignee refusal lines still offer a reload are changes to strings, which the UXD
   and `products/tracker17/docs/CONTENT.md` own (UXD RN-34; CONTENT RN-26), not to this document.
 
+### RC-5 — 2026-10-27 — the UXD had the overtaken move's refusal claim a change it no longer claims
+
+- **Prior assumption:** § 6 `status-moves`'s behaviour bar, as RC-4 left it against UXD version 8,
+  had a move pressed after another tab moved the task refused with a line that "says the task's
+  status has changed".
+- **Observed reality:** UXD version 9 (commit `<a commit not in the public history>`, 2026-10-21) has every refusal state
+  what holds when its page is built and claim no event before it (UX-I3, "never an event before
+  it"; RN-35). UX-F4's overtaken-move reason "states the task's current status and the moves that
+  status allows, or that there are none when the status is final, and claims no change". Read on
+  2026-10-27 by the round that folded `trail/sdd/cycle-9.md`, which caught the header's *Inputs
+  read* up from version 8.
+- **Retained:** every slice, slug, *Delivers*, fence, order and § 7 edge. S-4's command half, "the
+  out-of-date move of AC-12", which still names the test. § 4 EX-4 and RT-11. `tasks-in-a-project`'s
+  "the last as out of date": UX-F9 at version 9 still refuses that save "under UX-I3 as out of date"
+  and has the reason say the name is not on the list, which the bar does not contradict.
+- **Changed:** S-4's behaviour line, the one clause: the refusal "states the task's current status
+  and the moves that status allows, or that there are none for a final status, claims no change".
+  The seat whose ground moved is the CDO's, and the change is the UXD's text.
+- **Stopped:** nothing.
+- **Still unresolved:** the product's own line for that refusal, `web/pages.py`, `_CHANGED`, still
+  reads "has changed to", read on 2026-10-27. That is a string, which the UXD and
+  `products/tracker17/docs/CONTENT.md` own (UXD RN-35), not this document's, and no slice's bar
+  here names the words.
+
 ## 11. Technical risks
 
 - **R-1: Saving the whole state is too slow at full volume.** — *shows up as* `python3
@@ -1406,7 +1457,11 @@ both.*
   followed by `self.send_error(HTTPStatus.REQUEST_URI_TOO_LONG)`. — *shows up as* a page that
   fails to open after a form is refused, or after something with a very long name is deleted. —
   *response* § 4 RT-10 holds every text field under a length whose address fits, and RT-8 keeps
-  typed text out of the address after the one refusal where it would not. A failure that is not a
+  typed text out of the address after the one refusal where it would not. A `get` form's values travel in the address too (§ 4 RT-8), and the bound reaches them
+  as it reaches a redirect: the filter's seven keys, a status, a priority, a name or a label held
+  under RT-10's 200 characters, two dates and one flag, stay under 6,000 of the 65,536 bytes, and
+  an address hand-typed with a key repeated is a request the tracker's own pages did not send,
+  the boundary RT-8 already draws for the over-long refusal. A failure that is not a
   refusal carries what was typed (§ 4 OB-3), and on this reading it follows a value `domain`
   accepted: `application` applies the rule before it saves (§ 4 SD-2), and the save is where such a
   failure arises.
@@ -1441,7 +1496,7 @@ rewrite here.
 **Below.** This document authors no ADR. The architecturally significant decisions are surfaced in
 three places and no fourth: § 2's shape table, § 9's trade-offs and the SDD Review Notes. The
 Principal Architect records them. The records are `products/tracker17/docs/adr/`, ADR-0001 to
-ADR-0009, and `products/tracker17/docs/nfdr.md`. Where a condition in § 4 and an entry in `nfdr.md`
+ADR-0010, and `products/tracker17/docs/nfdr.md`. Where a condition in § 4 and an entry in `nfdr.md`
 disagree, the § 4 statement wins and the entry is re-derived, because downstream is rebuilt from
 upstream and never the reverse (`<CORE>/templates/product-templates/sdd_template.md` § 4). This
 document designs no individual change. It names no file inside a part beyond the feature entry points of
@@ -2326,6 +2381,92 @@ a draft, that note now says so and names the note that carries the answer.
   RN-26 alone, because what this round changed states a response condition and a refusal's
   placement and names no word a page shows or a value the stylesheet sets, and RN-50 names the one
   note that owns the refusal's words.
+- **RN-53:** *(CTO)* *(changed)* § 4 RT-8 defines the word it binds on — a submission is a form sent
+  with `method="post"`, a request that asks the tracker for a change — and says that a form sent
+  with `method="get"` is a read, answered with the page at the address the browser built, 200,
+  with no redirect; § 11 R-10 says its bound reaches such a form's values — *because* RT-8's "Every
+  submission is answered by sending the browser to a page address" was false of a form on disk:
+  the project page's filter form is sent with `method="get"` (`web/pages.py`, the form
+  `_filter_area` builds) and Apply, its reload and Clear are answered with the project page, 200,
+  saving nothing (`tests/integration/test_routes.py`,
+  `test_filter_apply_reload_and_clear_are_pages_that_save_and_set_nothing`). The PM raised it from
+  the product after the filter form landed (`trail/sdd/cycle-9.md` § 5.1), and the answer, given
+  in the CTO's seat, defined the word rather than owing the form a redirect, with the reasoning in
+  `products/tracker17/docs/trail/sdd/self_answer-12.md` § 5.1. The purpose RT-8 states decides it:
+  the redirect exists so that an action is never repeated, a `get` form changes nothing, and a
+  read repeated is what UXD UX-I7 asks for by name. The opposite reading would move settled text:
+  SEC-2 marks a request from a bookmark `none`, "so a page opens on it and a submission does not",
+  and UX-I7 and EX-3 require a bookmarked narrowed list to open, so a `get` form that counted as a
+  submission would be refused where the UXD has it open. The product keys the same check on the
+  route's kind, every `post` route a submission and every `get` route a page (`web/routes.py`,
+  `ROUTES`, and `handle`'s `route.kind == SUBMISSION`), and
+  `tests/integration/test_filter_routes.py`,
+  `test_filter_get_preserves_route_security_and_state_contracts`, refuses a cross-site filter GET
+  while sending Apply with no `same-origin` mark. The word had to be defined, and not only the
+  narrow reading written, because the HTML standard's form submission algorithm covers a `get`
+  form and UX-I6 uses the browser's verb for every form, so a reader holding the standard's word
+  reaches the opposite conclusion for a stated reason. EX-2's "a link or a form submission" holds
+  under this reading without a change to the CDO's clause: RT-8 now says a `get` form is answered
+  as a link is, and EX-2's point, that every interaction is answered by a whole page with no script,
+  is what the `get` form realizes (EX-3). Nothing settled moves: SRS NFR-4, FR-31 to FR-36; UXD § 4,
+  UX-F5, UX-I3, UX-I6, UX-I7, UX-I9; § 4 RT-7, RT-11 ("the GET schedules, saves and records
+  nothing"), SEC-2, EX-2 to EX-4; § 9 TO-7; no slice's *Reached when*, fence or place moves, so this
+  is a correction to RT-8's words and not a re-cut under § 10. The same sentence in
+  `products/tracker17/docs/adr/0006-last-action-travels-in-the-page-address.md` § Decision and
+  `products/tracker17/docs/nfdr.md` QC-7 is the Principal Architect's and sits on
+  `products/tracker17/docs/architecture_open_issues.md` § 3.1, raised by the PM the same day; § 12
+  says § 4 wins where the two disagree and the entry is re-derived, so nothing is raised from here.
+  *(re: § 4 RT-8; § 11 R-10; source: SRS NFR-4, FR-33, FR-34; UXD UX-I6, UX-I7, UX-F6)*
+- **RN-54:** *(CDO)* *(changed)* § 6 `status-moves`'s behaviour bar has the move pressed after
+  another tab moved the task refused with a line that states the task's current status and the
+  moves that status allows, or that there are none for a final status, and claims no change, where
+  it said the line "says the task's status has changed" — *because* the UXD moved after version 11
+  read it at version 8: version 9 (commit `<a commit not in the public history>`) has every refusal state what holds when its
+  page is built and claim no event before it (UX-I3, RN-35), and UX-F4's overtaken-move reason now
+  "claims no change". An upstream change is the legitimate reason for a change to settled content,
+  and § 10 RC-5 records it with the CDO's ground moved; it retains every slice, slug, *Delivers*,
+  fence, order and § 7 edge, the command half of S-4's bar, EX-4, RT-11 and `tasks-in-a-project`'s
+  "the last as out of date", which UX-F9 at version 9 still says. No item was raised: the UXD is
+  settled at version 9 with no companion beside it, so the call is settled by the input, and the
+  round that read it is this one. The product's own line for the refusal, `web/pages.py`,
+  `_CHANGED`, still reads "has changed to" on 2026-10-27; that is a string the UXD and
+  `products/tracker17/docs/CONTENT.md` own (UXD RN-35), and RC-5 names it as left where it occurs.
+  *(re: § 6 `status-moves`; § 10 RC-5; source: UXD UX-F4, UX-I3, RN-35)*
+- **RN-55:** *(CTO)* *(added)* The round that folded the ninth answered round read these things
+  beyond the inputs RN-16, RN-23, RN-27, RN-30, RN-33, RN-37, RN-40, RN-44, RN-46, RN-48 and RN-52
+  list. It read `products/tracker17/docs/SDD_open_issues.md` as intake found it, committed at
+  `9f324007c` with its one answer slot filled, and
+  `products/tracker17/docs/trail/sdd/self_answer-12.md`, the reasoning behind the answer. It read
+  `web/pages.py` (the `method="get"` filter form in `_filter_area`, and every other form's method,
+  which is `post`), `web/routes.py` (`ROUTES`, the `SUBMISSION` check in `handle`,
+  `_carried_filters`), `tests/integration/test_routes.py`
+  (`test_filter_apply_reload_and_clear_are_pages_that_save_and_set_nothing`) and
+  `tests/integration/test_filter_routes.py`
+  (`test_filter_get_preserves_route_security_and_state_contracts`), to verify on disk each line the
+  answer cites, and found each as stated. It did not re-read the HTML standard:
+  `self_answer-12.md`'s Header records the form submission algorithm at its source on 2026-10-27,
+  and RT-8 cites it as that record does. It read `products/tracker17/docs/UXD.md`'s header, § 4,
+  UX-F3, UX-F4, UX-F5, UX-F9, UX-I3, UX-I6, UX-I7, UX-S4, UX-S6, RN-33, RN-34 and RN-35, and `git
+  log` on it, which places version 9 at `<a commit not in the public history>` on 2026-10-21; what version 9 moved is RC-5's.
+  It read `products/tracker17/docs/PRD.md` whole, at version 7 as version 11 read it, and
+  `products/tracker17/docs/SRS.md` whole, at version 6, with FR-33, FR-34 and FR-36 for the
+  refusals RT-8 now names. It read `products/tracker17/docs/fdr.md`'s header, at version 4. It read
+  `products/tracker17/docs/nfdr.md`'s header, at version 15 (commit `<a commit not in the public history>`), and QC-7;
+  `products/tracker17/docs/adr/README.md` and
+  `products/tracker17/docs/adr/0010-pending-confirmation-answered-202-move-pages-not-stored.md`
+  whole, Accepted on 2026-10-21 (commit `<a commit not in the public history>`), which RT-11 now names; and
+  `products/tracker17/docs/architecture_open_issues.md` whole, which the PM opened on 2026-10-27
+  with its one item, § 3.1, on ADR-0006 and QC-7, unanswered. It ran `git diff --stat <a commit not in the public history>
+  HEAD -- products/tracker17 ':!products/tracker17/docs'` at `9f324007c`, which lists 25 files,
+  `web/routes.py` and `web/style.css` among them: the filter form landed after the commit RT-11
+  and § 11 R-2 name, so the counts they state stay tied to that commit as they are written, and the
+  citations this round verified are at `HEAD`. It ran no suite: the item is about what RT-8's words
+  mean against a form that exists, every claim rests on code and tests read at `HEAD`, and this
+  round changed no code. It did not read `products/tracker17/docs/DESIGN.md` or
+  `products/tracker17/docs/CONTENT.md`: what this round changed defines a word, states a bound's
+  reach and follows the UXD's words for one refusal, and names no word a page shows or a value the
+  stylesheet sets; the one string RC-5 notes is named as the UXD's and CONTENT's, not read against
+  either.
 
 ---
 
