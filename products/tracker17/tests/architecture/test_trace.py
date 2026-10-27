@@ -539,6 +539,7 @@ SORTING_CHECKING_TESTS = (
     "tests/integration/test_sort_tracker.py",
     "tests/integration/test_sort_pages.py",
     "tests/integration/test_sort_routes.py",
+    "tests/integration/test_sort_move_routes.py",
     "tests/integration/test_routes.py",
     "tests/e2e/test_sorting.py",
     "tests/architecture/test_trace.py",
