@@ -13,7 +13,8 @@ web/style.css, which decode the address, map each refusal type to its reason and
 
 Checked by: tests/unit/test_filtering.py (the rules), tests/integration/test_filter_tracker.py (the
 read through the Tracker), tests/integration/test_filter_routes.py (the request),
-tests/integration/test_filter_pages.py (the page), tests/e2e/test_filters.py (the browser), and
+tests/integration/test_filter_pages.py (the page), tests/integration/test_filter_move_routes.py
+(the moves pressed on a filtered list), tests/e2e/test_filters.py (the browser), and
 tests/architecture/test_trace.py and tests/architecture/test_shapes.py (the entry and the shape).
 """
 

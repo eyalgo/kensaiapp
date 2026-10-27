@@ -496,6 +496,7 @@ FILTERING_CHECKING_TESTS = (
     "tests/integration/test_filter_tracker.py",
     "tests/integration/test_filter_pages.py",
     "tests/integration/test_filter_routes.py",
+    "tests/integration/test_filter_move_routes.py",
     "tests/e2e/test_filters.py",
     "tests/architecture/test_trace.py",
     "tests/architecture/test_shapes.py",

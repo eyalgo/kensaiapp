@@ -172,3 +172,49 @@ def test_confirmation_opens_under_a_trigger_at_the_pages_bottom(
     assert "moved=" not in page.url
     assert (location / "tracker.json").read_bytes() == before
     context.close()
+
+
+@pytest.mark.parametrize(
+    ("query", "title", "status", "last_match"),
+    [
+        ("filter_status=todo", "Fix bug", "in-progress", False),
+        ("filter_overdue=on", "Write docs", "done", True),
+    ],
+)
+def test_off_list_completion_focus_enters_the_list_section(
+    trackers,
+    location: Path,
+    scriptless: Page,
+    query: str,
+    title: str,
+    status: str,
+    last_match: bool,
+) -> None:
+    """CP-408, T9: with scripting off, moving a task out of the filtered list lands on the list
+    section holding focus, the line above the results in view, and no focus on the line itself,
+    including when the moved task was the last match and the no-match state follows."""
+    seeded(location)
+    running = trackers.start(location)
+    scriptless.goto(f"{running.address}/projects/1?{query}")
+    # A todo task is moved to done by way of in-progress; the row stays while it still matches.
+    for step in (["in-progress"] if status == "done" else []) + [status]:
+        scriptless.locator(f"button[aria-label=\"Move '{title}' to {step}\"]").click()
+        scriptless.wait_for_url(lambda url, step=step: f"moved={step}" in url)
+    section = scriptless.locator("#task-list")
+    expect(section).to_be_focused()
+    assert section.get_attribute("aria-describedby") == "move-line"
+    assert scriptless.evaluate("document.activeElement.id") == "task-list"
+    assert scriptless.evaluate("document.activeElement.closest('#move-line') === null")
+    expect(scriptless.locator("#move-line")).to_be_in_viewport()
+    assert scriptless.inner_text("#move-line") == (
+        f"You moved '{title}' to {status}, and it no longer matches this filter, "
+        "so it has left this list."
+    )
+    assert title not in listed(scriptless)
+    if last_match:
+        assert listed(scriptless) == []
+        expect(scriptless.locator("#filter-no-match")).to_be_visible()
+        assert scriptless.evaluate(
+            "document.getElementById('move-line').compareDocumentPosition("
+            "document.getElementById('filter-no-match')) & Node.DOCUMENT_POSITION_FOLLOWING"
+        )

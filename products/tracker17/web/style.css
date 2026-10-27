@@ -381,6 +381,7 @@ h1:focus,
 h2:focus,
 .assignee-name:focus,
 .confirm-sentence:focus,
+.list-section:focus,
 .comment-list li:focus {
   outline: 2px solid var(--primary);
   outline-offset: 2px;

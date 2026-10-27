@@ -350,3 +350,44 @@ def test_names_and_labels_round_trip_as_text(tmp_path: Path, special: str) -> No
     assert shown.find_all("i") == [] and shown.find_all("b") == []
     raw = page(get(world.site, f"/projects/1?filter_label={encoded}"))
     assert "<i>" not in raw
+
+
+def test_list_move_forms_carry_exactly_the_filter_choices_as_hidden_fields(tmp_path: Path) -> None:
+    """CP-407, T8: each row's move form, and the open confirmation's two forms, send the seven
+    filter keys back as the address held them, with nothing else beside the move's own fields."""
+    world = three_task_world(tmp_path)
+    root = project(world, "filter_priority=high&filter_label=&junk=x")
+    forms = [f for f in root.find_all("form") if str(f.attrs.get("action")).endswith("/move")]
+    assert forms
+    for form in forms:
+        hidden = [
+            (e.attrs.get("name"), e.attrs.get("value"))
+            for e in form.find_all("input")
+            if e.attrs.get("type") == "hidden"
+        ]
+        assert ("filter_priority", "high") in hidden and ("filter_label", "") in hidden
+        assert {name for name, _ in hidden} <= {"status", "place", *FIELD_NAMES}
+
+    opened = project(world, "filter_priority=high&move_task=1&move_confirm=cancelled", 202)
+    (strip,) = [e for e in opened.walk() if "confirm-strip" in (e.attrs.get("class") or "")]
+    for form in strip.find_all("form"):
+        pairs = [(e.attrs.get("name"), e.attrs.get("value")) for e in form.find_all("input")]
+        assert ("filter_priority", "high") in pairs
+
+
+def test_a_line_about_a_task_off_the_list_stands_above_the_results(tmp_path: Path) -> None:
+    """CP-408, CP-409, T8: the line comes before the count and the table, and before the no-match
+    state, inside the list section that is described by it; the created line gives way to it."""
+    world = three_task_world(tmp_path)
+    root = project(world, "created&filter_status=done&move_task=1&moved=done")
+    order = [e.attrs.get("id") for e in root.walk() if e.attrs.get("id")]
+    assert order.index("move-line") < order.index("filter-no-match")
+    section = root.by_id("task-list")
+    assert section is not None and section.attrs.get("aria-describedby") == "move-line"
+    assert root.by_id("move-line") in list(section.walk())
+    assert root.find_all("table") == []
+    assert root.by_id("created-line") is None
+
+    listed = project(world, "filter_priority=low&move_task=1&moved=done")
+    tags = [e.tag for e in listed.walk() if e.attrs.get("id") == "move-line" or e.tag == "table"]
+    assert tags == ["p", "table"]

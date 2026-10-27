@@ -372,7 +372,7 @@ def test_filtered_move_responses_keep_history_contract(tmp_path: Path) -> None:
     carried = [("filter_status", "todo")]
     submissions = [
         press(world, 1, "in-progress", carried),
-        press(world, 1, "cancelled", carried),
+        press(world, 2, "cancelled", carried),
         confirm(world, 3, carried),
     ]
     for submission in submissions:
@@ -381,6 +381,13 @@ def test_filtered_move_responses_keep_history_contract(tmp_path: Path) -> None:
         answered = get(world.site, location(submission))
         assert answered.status == status and no_store(answered)
         assert header(answered, "Clear-Site-Data") is None
+    # Task 1 has left the todo list, so a confirmation address for it renders none: 200, not 202.
+    off_list = get(world.site, location(press(world, 1, "cancelled", carried)))
+    assert off_list.status == 200 and no_store(off_list)
+    assert header(off_list, "Clear-Site-Data") is None
+    assert [
+        e for e in parse(page(off_list)).walk() if "confirm-strip" in (e.attrs.get("class") or "")
+    ] == []
     gone = get(
         world.site,
         "/projects/1?" + urlencode([("move_task", "99"), ("move_confirm", "cancelled"), *carried]),
@@ -411,7 +418,7 @@ def test_special_filter_values_survive_move_and_confirmation(tmp_path: Path) -> 
         if e.tag == "input" and e.attrs.get("type") == "hidden"
     ]
     assert all(pair in hidden for pair in carried)
-    assert "<b>" not in page(answered)
+    assert "<b>" not in page(answered, answered.status)
 
     repeated = [("filter_label", label), ("filter_label", label)]
     refused = press(world, 1, "in-progress", repeated)

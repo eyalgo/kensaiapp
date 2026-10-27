@@ -37,6 +37,7 @@ from application import (
     OperatorNameNotSet,
     Project,
     ProjectNotFound,
+    ProjectTaskList,
     Task,
     TaskFields,
     TaskNotFound,
@@ -180,6 +181,16 @@ def _filter_input(values: Mapping[str, list[str]]) -> FilterInput:
     return FilterInput(
         **{field.value: tuple(values.get(FILTER_PREFIX + field.value, ())) for field in FilterField}
     )
+
+
+def _carried_filters(values: Mapping[str, list[str]]) -> dict[str, str | tuple[str, ...]]:
+    """The filter keys a move form carries back to its list, every value kept as sent, in control
+    order. A key the form lacks is left out; nothing else the form carries is read."""
+    return {
+        key: tuple(values[key])
+        for key in (FILTER_PREFIX + field.value for field in FilterField)
+        if key in values
+    }
 
 
 def _closed(vocabulary: type[Code], value: str) -> Code | None:
@@ -470,11 +481,14 @@ class Site:
     def _project_page(self, project: Project, query: Mapping[str, list[str]]) -> Response:
         """Read the add form's outcome from the address and build the page; it changes nothing."""
         listing = self._tracker.project_task_list(project.id, _filter_input(query))
-        tasks = {row.task.id: row.task for row in listing.rows}
-        move = self._move_view(query, tasks.get)
+        move = self._move_view(query, lambda found: self._project_task(project, found))
         if move is None:
             return Site._html(pages.task_not_found_page(), HTTPStatus.NOT_FOUND)
         move_outcome, move_interaction = move
+        shown = {row.task.id for row in listing.rows}
+        if move_interaction is not None and move_interaction.task_id not in shown:
+            # A confirmation is offered only on a row the page shows.
+            move_interaction = None
         return self._html(
             pages.project_page(
                 project,
@@ -486,10 +500,34 @@ class Site:
                 allowed_moves=self._tracker.allowed_moves,
                 move_outcome=move_outcome,
                 move_interaction=move_interaction,
+                off_list_task=self._off_list_task(project, listing, move_outcome, shown),
             ),
             Site._pending_status(move_interaction),
             extra=self._stored_as_asked(query),
         )
+
+    def _project_task(self, project: Project, identity: int) -> Task | None:
+        """The task with this identity when it belongs to this project, shown or not."""
+        task = self._tracker.task(identity)
+        return task if task is not None and task.project_id == project.id else None
+
+    def _off_list_task(
+        self,
+        project: Project,
+        listing: ProjectTaskList,
+        outcome: pages.MoveOutcome,
+        shown: set[int],
+    ) -> Task | None:
+        """The task a move outcome is about when it is this project's and the list does not show it.
+
+        Membership is the read model's selected identities; no filter rule is tested here. A refused
+        filter has no list, so it has no such task.
+        """
+        if listing.problems or outcome.task_id is None or outcome.task_id in shown:
+            return None
+        if outcome.refusal is None and outcome.failed is None and outcome.moved is None:
+            return None
+        return self._project_task(project, outcome.task_id)
 
     @staticmethod
     def _task_form(query: Mapping[str, list[str]]) -> pages.TaskForm:
@@ -757,7 +795,15 @@ class Site:
             if _first(form, "place") == pages.MOVE_PLACE_LIST
             else task_address
         )
-        about = {"move_task": str(identity)}
+        on_list = _first(form, "place") == pages.MOVE_PLACE_LIST
+        carried = _carried_filters(form) if on_list else {}
+        about: dict[str, str | tuple[str, ...]] = {"move_task": str(identity), **carried}
+        if (
+            on_list
+            and self._tracker.project_task_list(task.project_id, _filter_input(form)).problems
+        ):
+            # A malformed filter stops the move before it can save or open a confirmation (CP-405).
+            return self._redirect(place, **about)
         if status == TaskStatus.CANCELLED.value and not confirming:
             if TaskStatus.CANCELLED in self._tracker.allowed_moves(task.status):
                 return self._redirect(place, **about, move_confirm=TaskStatus.CANCELLED.value)
