@@ -23,3 +23,10 @@ What this change held back, for `shukuba-refine` to place after the unit lands. 
 **Why not this change:** the request rules it out: "no summary"
 **Owner:** none — for shukuba-refine
 **Status:** open
+
+## CP-435's separate count for a valid filter with zero matches — reading set aside by development-design (2026-10-28)
+**Spec lines:** sibling `change_spec.md`, CP-435, the requirement for a number whenever a filter field is set, restricted here to its zero-match case
+**Conflict:** `products/tracker17/tests/integration/test_filter_pages.py:162-176`, `test_no_matches_keeps_choices_and_clear_without_an_empty_project_message`, preserves the no-count empty state; `products/tracker17/web/pages.py:1210-1215`, `_filtered_list`, shows the no-match sentence instead. The request keeps filter behavior unchanged, and CP-456 releases no change to this test.
+**Reading taken:** retain the existing empty-state sentence and Clear without a separate numeric count, with or without a sort choice. Apply CP-435's count to nonempty filtered or sorted results. Sorting still preserves the filter's membership and orders every match, and sort-only results still display their count. Adding a zero count, or altering the existing test to allow it, would change a filter contract the request keeps.
+**Owner:** none — for shukuba-refine
+**Status:** open
