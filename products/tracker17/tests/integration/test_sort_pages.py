@@ -33,7 +33,9 @@ pytestmark = pytest.mark.usefixtures("utc_zone")
 
 
 def selected_values(root: Element, name: str) -> list[str]:
-    return [o.attrs["value"] for o in control(root, name).find_all("option") if "selected" in o.attrs]
+    return [
+        o.attrs["value"] for o in control(root, name).find_all("option") if "selected" in o.attrs
+    ]
 
 
 def attempts(root: Element, identifier: str) -> list[str]:
@@ -49,8 +51,13 @@ def test_nonempty_list_offers_nine_labelled_controls_in_one_form(tmp_path: Path)
     form = filter_form(root)
     named = [e.attrs["name"] for e in form.walk() if e.tag in ("select", "input")]
     assert named == [*FIELD_NAMES, *SORT_NAMES]
-    assert [control(root, name).attrs["id"] for name in SORT_NAMES] == ["sort-field", "sort-direction"]
-    assert [labelled(root, identifier) for identifier in ("sort-field", "sort-direction")] == SORT_LABELS
+    assert [control(root, name).attrs["id"] for name in SORT_NAMES] == [
+        "sort-field",
+        "sort-direction",
+    ]
+    assert [
+        labelled(root, identifier) for identifier in ("sort-field", "sort-direction")
+    ] == SORT_LABELS
     field = control(root, "sort_field")
     assert field.tag == "select"
     assert [(o.attrs["value"], o.text()) for o in field.find_all("option")] == [
@@ -82,7 +89,11 @@ def test_an_empty_project_has_no_controls_even_with_malformed_sort_choices(tmp_p
     """CP-426, T5: the first-task page, with no sort control and no refusal, for valid and malformed
     sort choices alike."""
     world = make_world(tmp_path)
-    for query in ("", "sort_field=title", "sort_field=colour&sort_direction=up&sort_direction=down"):
+    for query in (
+        "",
+        "sort_field=title",
+        "sort_field=colour&sort_direction=up&sort_direction=down",
+    ):
         root = project(world, query)
         assert [f.attrs.get("method") for f in root.find_all("form")] == ["post"], query
         assert root.find_all("table") == [] and "no tasks yet" in root.text(), query
@@ -154,7 +165,10 @@ def test_zero_matches_keeps_the_existing_empty_state_with_or_without_a_sort(tmp_
     """CP-435 reading, CP-401, T6: a valid filter that matches nothing shows the filter's sentence
     and Clear, no table, no separate count and no first-task invitation."""
     world = three_task_world(tmp_path)
-    for query in ("filter_label=Bug", "filter_label=Bug&sort_field=title&sort_direction=descending"):
+    for query in (
+        "filter_label=Bug",
+        "filter_label=Bug&sort_field=title&sort_direction=descending",
+    ):
         root = project(world, query)
         assert "No tasks match this filter. Press Clear to see every task." in root.text(), query
         assert root.find_all("table") == [] and "no tasks yet" not in root.text(), query
@@ -167,8 +181,10 @@ REFUSED = [
     (
         "sort_field=colour",
         "sort_field",
-        "Sort by can't be 'colour', because the list doesn't sort by that. "
-        "Pick Due date, Priority, Created time or Title.",
+        (
+            "Sort by can't be 'colour', because the list doesn't sort by that. "
+            "Pick Due date, Priority, Created time or Title."
+        ),
     ),
     (
         "sort_field=Title",
@@ -183,8 +199,10 @@ REFUSED = [
     (
         "sort_direction=sideways",
         "sort_direction",
-        "Direction can't be 'sideways', because the list doesn't sort that way. "
-        "Pick Ascending or Descending.",
+        (
+            "Direction can't be 'sideways', because the list doesn't sort that way. "
+            "Pick Ascending or Descending."
+        ),
     ),
     (
         "sort_direction=Ascending",
@@ -297,4 +315,3 @@ def test_applying_a_sort_adds_no_message(tmp_path: Path) -> None:
     text = root.text().lower()
     assert "applied" not in text and "saved" not in text and "sorted" not in text
     assert rows_of(root) == ["Write docs", "Ship", "Fix bug"]
-

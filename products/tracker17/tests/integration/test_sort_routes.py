@@ -216,7 +216,9 @@ def test_values_are_decoded_whole_and_unnormalized(tmp_path: Path) -> None:
     """CP-441, design 3 C: no alias, no case change and no trimming; a percent-encoded token reaches
     the domain exactly, and a plus sign is a space as in any form."""
     world = sort_world(tmp_path)
-    accepted = sorted_page(world, urlencode({"sort_field": "title", "sort_direction": "descending"}))
+    accepted = sorted_page(
+        world, urlencode({"sort_field": "title", "sort_direction": "descending"})
+    )
     assert listed(accepted) == [4, 5, 1, 2, 3]
     for token in ("TITLE", "title+", "%74itle%20", "created", "created-time"):
         assert sorted_page(world, f"sort_field={token}").find_all("table") == [], token

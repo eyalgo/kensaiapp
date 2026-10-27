@@ -12,7 +12,9 @@ web/pages.py, which decode the address, map each refusal type to its reason and 
 Nothing here reads a clock or a file: today arrives as an argument.
 
 Checked by: tests/unit/test_sorting.py (the rules), tests/integration/test_sort_tracker.py (the
-read the application projects), and tests/architecture/test_trace.py and
+read the application projects), tests/integration/test_sort_pages.py and
+tests/integration/test_sort_routes.py (the page and the request), tests/integration/test_routes.py
+(the route walks), tests/e2e/test_sorting.py (the browser), and tests/architecture/test_trace.py and
 tests/architecture/test_shapes.py (the entry and the shape).
 """
 

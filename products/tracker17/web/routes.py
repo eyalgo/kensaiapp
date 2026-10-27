@@ -38,6 +38,8 @@ from application import (
     Project,
     ProjectNotFound,
     ProjectTaskList,
+    SortControl,
+    SortInput,
     Task,
     TaskFields,
     TaskNotFound,
@@ -75,6 +77,7 @@ CONFIRM_MOVE_PATTERN = re.compile(r"/tasks/([0-9]+)/move/confirm")
 NOT_STORED = ("Cache-Control", "no-store")
 SHOWN_PREFIX = "shown_"
 FILTER_PREFIX = "filter_"
+SORT_PREFIX = "sort_"
 TASK_FIELDS = ("title", "priority", "assignee", "due_date")
 EDIT_FAILED = "save"
 OPERATOR_NAME_FAILED = "save"
@@ -180,6 +183,20 @@ def _filter_input(values: Mapping[str, list[str]]) -> FilterInput:
     """
     return FilterInput(
         **{field.value: tuple(values.get(FILTER_PREFIX + field.value, ())) for field in FilterField}
+    )
+
+
+def _sort_input(values: Mapping[str, list[str]]) -> SortInput:
+    """The two sort keys an address carries, every value of each kept as sent: blank values stay,
+    repeats stay, and nothing is trimmed, folded or aliased (CP-441).
+
+    A key the address lacks is an empty tuple; any other key is not a sort and is not read.
+    """
+    return SortInput(
+        **{
+            control.value: tuple(values.get(SORT_PREFIX + control.value, ()))
+            for control in SortControl
+        }
     )
 
 
@@ -480,7 +497,9 @@ class Site:
 
     def _project_page(self, project: Project, query: Mapping[str, list[str]]) -> Response:
         """Read the add form's outcome from the address and build the page; it changes nothing."""
-        listing = self._tracker.project_task_list(project.id, _filter_input(query))
+        listing = self._tracker.project_task_list(
+            project.id, _filter_input(query), sort_fields=_sort_input(query)
+        )
         move = self._move_view(query, lambda found: self._project_task(project, found))
         if move is None:
             return Site._html(pages.task_not_found_page(), HTTPStatus.NOT_FOUND)
