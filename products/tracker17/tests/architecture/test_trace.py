@@ -536,6 +536,7 @@ SORTING_PARTICIPANTS = (
 )
 SORTING_CHECKING_TESTS = (
     "tests/unit/test_sorting.py",
+    "tests/integration/test_sort_tracker.py",
     "tests/architecture/test_trace.py",
     "tests/architecture/test_shapes.py",
 )
