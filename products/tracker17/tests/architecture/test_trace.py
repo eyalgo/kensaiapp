@@ -31,6 +31,7 @@ LANDED_FEATURE_WORDS = [
     "due_dates",
     "comments",
     "filtering",
+    "sorting",
 ]
 PATH = re.compile(r"(?<![\w/.<-])((?:[A-Za-z0-9_.-]+/)*[A-Za-z0-9_-]+\.(?:py|css|md|toml|txt))\b")
 REQUIREMENT = re.compile(r"\b(?:NFR|FR|DR|AC|C)-\d+\b")
@@ -522,5 +523,41 @@ def test_filtering_entry_has_requirements_and_participants() -> None:
         assert named_requirements(docstring_of(module)), checking
         assert unknown_requirements(docstring_of(module)) == [], checking
     assert "filtering" in LANDED_FEATURE_WORDS
+    assert missing_paths(text) == []
+    assert unknown_requirements(text) == []
+
+
+SORTING_REQUIREMENTS = {"FR-36", "FR-39", "NFR-9"}
+SORTING_PARTICIPANTS = (
+    "application/tracker.py",
+    "application/__init__.py",
+    "web/routes.py",
+    "web/pages.py",
+)
+SORTING_CHECKING_TESTS = (
+    "tests/unit/test_sorting.py",
+    "tests/architecture/test_trace.py",
+    "tests/architecture/test_shapes.py",
+)
+
+
+def test_sorting_entry_has_requirements_participants_and_checks() -> None:
+    """QC-11, CP-446: the Sorting entry names FR-36, the application and web modules that take part
+    and the checking test files that exist, and `sorting` is landed.
+
+    Each later task of the change adds the checking module it writes.
+    """
+    text = entry_docstring("sorting")
+    paths = named_paths(text)
+    assert SORTING_REQUIREMENTS <= set(named_requirements(text))
+    for participant in SORTING_PARTICIPANTS:
+        assert participant in paths, participant
+    for checking in SORTING_CHECKING_TESTS:
+        assert checking in paths, checking
+        module = PRODUCT_ROOT / checking
+        assert module.is_file(), checking
+        assert named_requirements(docstring_of(module)), checking
+        assert unknown_requirements(docstring_of(module)) == [], checking
+    assert "sorting" in LANDED_FEATURE_WORDS
     assert missing_paths(text) == []
     assert unknown_requirements(text) == []
