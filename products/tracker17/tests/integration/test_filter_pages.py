@@ -313,6 +313,35 @@ def test_malformed_and_repeated_attempts_remain_visible(tmp_path: Path) -> None:
     assert rows_of(corrected) == ["Write docs"] and focused(corrected) == []
 
 
+def shown_in_field(root: Element, name: str) -> list[str]:
+    """The values the field shows as sent: its selected option, or its retained attempt."""
+    picked = [
+        o.attrs["value"] for o in control(root, name).find_all("option") if "selected" in o.attrs
+    ]
+    area = root.by_id(f"{name.replace('_', '-')}-attempt")
+    kept = [child.text() for child in area.walk() if child.tag == "span"] if area else []
+    return [value for value in picked if value] + kept
+
+
+def test_a_refused_filter_keeps_every_choice_as_sent(tmp_path: Path) -> None:
+    """CP-405: on a refusal the controls hold the choices as sent, the refused ones and every field
+    beside them that was not refused, so the operator corrects one field rather than all of them."""
+    root = project(
+        three_task_world(tmp_path),
+        "filter_status=blocked&filter_priority=high&filter_assignee=Dana&filter_label=bug"
+        "&filter_due_from=2026-10-01&filter_due_to=2026-02-30&filter_overdue=on",
+    )
+    assert root.find_all("table") == []
+    assert shown_in_field(root, "filter_status") == ["blocked"]
+    assert shown_in_field(root, "filter_priority") == ["high"]
+    assert shown_in_field(root, "filter_assignee") == ["Dana"]
+    assert shown_in_field(root, "filter_label") == ["bug"]
+    assert control(root, "filter_due_from").attrs["value"] == "2026-10-01"
+    assert "2026-02-30" in shown_in_field(root, "filter_due_to")
+    assert "checked" in control(root, "filter_overdue").attrs
+    assert [e.attrs.get("name") for e in focused(root)] == ["filter_status"]
+
+
 def test_a_removed_assignee_is_refused_even_when_a_task_still_carries_it(tmp_path: Path) -> None:
     """CP-403, T6: choices use the current list, so an old address shows the assignee reason."""
     world = three_task_world(tmp_path)

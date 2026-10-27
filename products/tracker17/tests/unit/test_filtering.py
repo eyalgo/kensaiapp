@@ -511,6 +511,7 @@ def test_a_filter_narrows_only_when_a_choice_is_set():
     for field, value in (
         ("status", "todo"),
         ("priority", "high"),
+        ("assignee", "dana"),
         ("label", "x"),
         ("overdue", "on"),
         ("due_from", "2026-10-01"),
