@@ -23,15 +23,15 @@ The key was the caller's; `tracker17`'s PM context names the same unit as `Seale
 | flow findings | same unit, `flow_findings/development-content.md` | clean |
 | flow findings | same unit, `flow_findings/development-implementation.md` | 0 blocking, 5 change-local: `_WITHHELD_MOVES` lets `web` filter the offered set (→ Moves row 1); red-by-rule notes, a paraphrased quote, the unrun e2e layer (→ Moves row 1), the `__version__` reason (→ Considered row 6) |
 | code-integrity report | same unit, `code-integrity-report.md` | `Integrity: pass`, 1170 passed; fixed two defects in `tests/e2e/test_moves.py` by reading only; § Not verified: that file has never run, Chromium would not start (→ Moves row 1) |
-| developer's closing commit | `0f39503` | Divergences: `__version__` not added to product modules (upheld by integrity, Calls made 2); e2e not run; no other |
+| developer's closing commit | `<a commit not in the public history>` | Divergences: `__version__` not added to product modules (upheld by integrity, Calls made 2); e2e not run; no other |
 | deferred decisions | same unit, `deferred_decisions.md` | 6 entries. `cancelled` button + confirmation → owned by seed line `cancel-confirmation`; out-of-date refusal → `out-of-date-move`; overdue on filter/summary/All tasks → `tracker17 · nemawashi · 2026-10-11_narrow-and-sort` (line 18, 19) and `tracker17 · nemawashi · 2026-10-11_project-summary` (line 18); CP-315 timed run → `move-timed-run`; CP-318 and CP-316 readings → consumed by the design, nothing owed. Every entry has an owner |
-| the closing commit's `Deferred:` lines | `0f39503` | absent — `git log -1 --format=%B 0f39503 \| grep -n '^Deferred:'` prints nothing; integrity report § Deferrals agrees |
+| the closing commit's `Deferred:` lines | `<a commit not in the public history>` | absent — `git log -1 --format=%B <a commit not in the public history> \| grep -n '^Deferred:'` prints nothing; integrity report § Deferrals agrees |
 | corrections owed | same unit, `tl_instruction.md` § Corrections owed while there | Two *Owed outside this change's reach* lines, NFDR QC-48 and SDD TS-5 → non-move, Considered row 4 |
 | work handed on | same unit, `change_spec.md` § Out of Scope | `cancelled` + confirmation → `cancel-confirmation`; out-of-date wording → `out-of-date-move`; filter/summary/All tasks → `narrow-and-sort`, `project-summary`; delete confirmations → `tracker17 · nemawashi · 2026-10-11_delete-and-rename`; e2e tests for moves, saved-data rule, undo → fences, nothing handed on |
 
 ## Upstream
 
-`git log --since=2026-10-19T09:29:47+02:00 --name-status -- products/tracker17/docs/` (the seed's first commit, `e77c12b`) lists only `e77c12b`, the instance import that added every file. Nothing under `docs/` moved since. `find products/tracker17/docs -name '*_open_issues.md'` prints nothing: no live companion.
+`git log --since=2026-10-19T09:29:47+02:00 --name-status -- products/tracker17/docs/` (the seed's first commit, `<a commit not in the public history>`) lists only `<a commit not in the public history>`, the instance import that added every file. Nothing under `docs/` moved since. `find products/tracker17/docs -name '*_open_issues.md'` prints nothing: no live companion.
 
 ## Held
 
@@ -41,7 +41,7 @@ None. `system/logs/chain-tracker17-state.json` has `ended: settled`, `pending: n
 
 | Move | On | Why | Source | Commit |
 |---|---|---|---|---|
-| 1. modify a seed | `tracker17 · nemawashi · 2026-10-07_status-moves` (line 18, line 27) | Two things the unit left have no owner: the pages' filter that withholds `cancelled` must go once the button exists, or `web` keeps a second rule about the offered moves; and `tests/e2e/test_moves.py` has never run. `cancel-confirmation` is the station that builds the button and writes the next browser tests, so it carries both. Re-aim 1 of this station | `products/tracker17/web/pages.py:603-609`; implementation flow finding 1; code-integrity report § Not verified; this run: `pytest products/tracker17/tests/e2e/` in a clone at `2117033` → `2 passed, 34 errors`, `libglib-2.0.so.0: cannot open shared object file` | `aa5df9e` |
+| 1. modify a seed | `tracker17 · nemawashi · 2026-10-07_status-moves` (line 18, line 27) | Two things the unit left have no owner: the pages' filter that withholds `cancelled` must go once the button exists, or `web` keeps a second rule about the offered moves; and `tests/e2e/test_moves.py` has never run. `cancel-confirmation` is the station that builds the button and writes the next browser tests, so it carries both. Re-aim 1 of this station | `products/tracker17/web/pages.py:603-609`; implementation flow finding 1; code-integrity report § Not verified; this run: `pytest products/tracker17/tests/e2e/` in a clone at `2117033` → `2 passed, 34 errors`, `libglib-2.0.so.0: cannot open shared object file` | `<a commit not in the public history>` |
 
 ## Considered, not moved
 
@@ -57,4 +57,4 @@ None. `system/logs/chain-tracker17-state.json` has `ended: settled`, `pending: n
 
 ## Absent
 
-Halt report — not produced by a sealed unit. `Deferred:` lines — none in `0f39503`. No live `*_open_issues.md` in the product.
+Halt report — not produced by a sealed unit. `Deferred:` lines — none in `<a commit not in the public history>`. No live `*_open_issues.md` in the product.
