@@ -87,7 +87,7 @@ main > ul,
 main > p,
 main > form,
 main > .sheet,
-main > table,
+main > .table-scroll,
 main > dl {
   margin: 0 0 16px;
   padding: 24px;
@@ -265,25 +265,42 @@ button.move-button:hover {
 }
 
 /* The confirmation (DESIGN.md confirm-strip): the sentence covers the spot the button stood in and
-   is at least as tall; the controls follow below it. */
+   is at least as tall; the controls follow below it, to the right of that spot. The sentence's box
+   runs down behind the controls, so it is as tall as the whole strip. A page that opens with the
+   strip is taller than the one the press came from, and a press made at the page's bottom lands
+   with the strip shifted up by the height it added; the sentence still reaches the first button's
+   whole spot then, and a click there hits the sentence, never a control. */
 .confirm-strip {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
+  display: grid;
+  grid-template-columns: 6.5rem auto;
+  justify-content: start;
+  align-items: start;
   gap: 8px;
   width: 18rem;
 }
 
 .confirm-strip form {
-  flex: 0 0 auto;
+  position: relative;
+  z-index: 1;
+  grid-column: 2;
 }
 
+.confirm-strip form:first-of-type {
+  grid-row: 2;
+}
+
+.confirm-strip form:last-of-type {
+  grid-row: 3;
+}
+
+/* The bottom padding is the two controls and the gaps around them: the confirming control's 28px,
+   the back-out control's 36px and two 8px gaps. */
 .confirm-sentence {
-  flex: 0 0 100%;
+  grid-area: 1 / 1 / 4 / 3;
   box-sizing: border-box;
   min-height: 28px;
   margin: 0;
-  padding: 4px 8px;
+  padding: 4px 8px 80px;
   background: var(--surface-sunk);
   color: var(--ink);
   font-size: 0.9375rem;
@@ -364,14 +381,20 @@ h1:focus,
 h2:focus,
 .assignee-name:focus,
 .confirm-sentence:focus,
+.list-section:focus,
 .comment-list li:focus {
   outline: 2px solid var(--primary);
   outline-offset: 2px;
 }
 
 /* The task list: a plain table on a sheet, header cells set apart by weight. */
-main > table {
-  width: calc(100% - 0px);
+main > .table-scroll {
+  padding: 0;
+  overflow-x: auto;
+}
+
+.table-scroll > table {
+  width: 100%;
   border-collapse: collapse;
   background: var(--surface);
 }
@@ -446,4 +469,78 @@ form:focus {
 
 .sheet > .notice {
   margin: 0 0 16px;
+}
+
+/* The filter controls: a wrapping row above the task table, each control a label above its field,
+   then Apply and Clear. Under 30rem, which is 400% zoom on a 1280px window, the fields stack. */
+.filter-form {
+  max-width: none;
+  padding: 16px 24px 8px;
+}
+
+.filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 12px;
+}
+
+.filter-field {
+  flex: 1 1 8rem;
+  min-width: 0;
+  max-width: 100%;
+  margin-bottom: 8px;
+}
+
+.filter-field select,
+.filter-field input[type="date"] {
+  max-width: 100%;
+}
+
+@media (max-width: 30rem) {
+  .filter-field {
+    flex-basis: 100%;
+  }
+}
+
+.filter-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+a.button-link {
+  display: inline-flex;
+  align-items: center;
+  height: 36px;
+  min-width: 24px;
+  padding: 0 16px;
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--ink-muted);
+  border-radius: 4px;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+a.button-link:hover {
+  background: var(--surface-sunk);
+}
+
+/* A value the address carried that no control can hold, shown as it came. */
+.attempt {
+  margin: 0 0 4px;
+}
+
+.attempted {
+  display: inline-block;
+  min-width: 1.5rem;
+  min-height: 1.5em;
+  margin: 0 8px 4px 0;
+  padding: 0 8px;
+  border: 1px solid var(--ink-muted);
+  border-radius: 4px;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
 }

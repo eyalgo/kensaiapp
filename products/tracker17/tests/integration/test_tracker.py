@@ -152,3 +152,22 @@ def test_the_names_web_needs_are_reexported():
         "comment",
     }
     assert Clock is not None and Saver is not None and Project is not None
+
+
+def test_a_filter_query_hands_the_recording_saver_no_call():
+    """CP-413, CP-417: reading a project's task list, valid, refused or cleared, never saves."""
+    from application import FilterInput
+
+    saver = RecordingSaver()
+    tracker = _tracker(saver)
+    tracker.create_project("Alpha", "")
+    tracker.add_task(1, "Seed")
+    saved = len(saver.saved)
+    for fields in (
+        FilterInput(status=("todo",)),
+        FilterInput(status=("blocked",)),
+        FilterInput(status=("todo", "done")),
+        FilterInput(),
+    ):
+        tracker.project_task_list(1, fields)
+    assert len(saver.saved) == saved

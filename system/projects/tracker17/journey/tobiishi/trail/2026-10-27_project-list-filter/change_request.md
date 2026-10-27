@@ -6,3 +6,6 @@
 **Category:** feature
 **Behaviour:** changing
 **Classified because:** the station adds filter controls, a new `domain/filtering.py`, new refusals and a changed list page, which add to the FDR-level contract (SRS FR-32 to FR-35), so Behaviour is `changing` and the Category is `feature`.
+
+**Sealed:** 2026-10-27 — accepted; merged to `main` via `--no-ff`.
+Environment: owners-mac — no CI

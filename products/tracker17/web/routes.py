@@ -26,6 +26,8 @@ from application import (
     BlankName,
     BlankTitle,
     EmptyLabel,
+    FilterField,
+    FilterInput,
     InvalidDueDate,
     InvalidPriority,
     InvalidTaskStatus,
@@ -35,6 +37,7 @@ from application import (
     OperatorNameNotSet,
     Project,
     ProjectNotFound,
+    ProjectTaskList,
     Task,
     TaskFields,
     TaskNotFound,
@@ -71,6 +74,7 @@ MOVE_PATTERN = re.compile(r"/tasks/([0-9]+)/move")
 CONFIRM_MOVE_PATTERN = re.compile(r"/tasks/([0-9]+)/move/confirm")
 NOT_STORED = ("Cache-Control", "no-store")
 SHOWN_PREFIX = "shown_"
+FILTER_PREFIX = "filter_"
 TASK_FIELDS = ("title", "priority", "assignee", "due_date")
 EDIT_FAILED = "save"
 OPERATOR_NAME_FAILED = "save"
@@ -119,12 +123,15 @@ def _respond(status: int, body: bytes = b"", *extra: tuple[str, str]) -> Respons
     return Response(status, (*extra, ("Content-Security-Policy", PAGE_POLICY)), body)
 
 
-def _address(path: str, *flags: str, **query: str) -> str:
+def _address(path: str, *flags: str, **query: str | tuple[str, ...]) -> str:
     """The one place an address is built, for every redirect a submission answers with (RT-8).
 
-    A flag is a bare word in the query (`?created`); a value is a `key=value` pair.
+    A flag is a bare word in the query (`?created`); a value is a `key=value` pair. A tuple is a
+    key repeated once for each value in it, in order and with empty values kept, as the filter's
+    carried choices need.
     """
-    parts = [*flags, urlencode(query)] if query else list(flags)
+    encoded = urlencode(query, doseq=True)
+    parts = [*flags, encoded] if encoded else list(flags)
     return f"{path}?{'&'.join(parts)}" if parts else path
 
 
@@ -164,6 +171,26 @@ def _carried(submitted: TaskFields, shown: TaskFields) -> dict[str, str]:
         {SHOWN_PREFIX + name: value for name, value in asdict(shown).items() if value is not None}
     )
     return carried
+
+
+def _filter_input(values: Mapping[str, list[str]]) -> FilterInput:
+    """The seven filter keys an address carries, every value of each kept as sent (CP-405).
+
+    A key the address lacks is an empty tuple; any other key is not a filter and is not read.
+    """
+    return FilterInput(
+        **{field.value: tuple(values.get(FILTER_PREFIX + field.value, ())) for field in FilterField}
+    )
+
+
+def _carried_filters(values: Mapping[str, list[str]]) -> dict[str, str | tuple[str, ...]]:
+    """The filter keys a move form carries back to its list, every value kept as sent, in control
+    order. A key the form lacks is left out; nothing else the form carries is read."""
+    return {
+        key: tuple(values[key])
+        for key in (FILTER_PREFIX + field.value for field in FilterField)
+        if key in values
+    }
 
 
 def _closed(vocabulary: type[Code], value: str) -> Code | None:
@@ -453,26 +480,54 @@ class Site:
 
     def _project_page(self, project: Project, query: Mapping[str, list[str]]) -> Response:
         """Read the add form's outcome from the address and build the page; it changes nothing."""
-        rows = self._tracker.project_tasks(project.id)
-        tasks = {row.task.id: row.task for row in rows}
-        move = self._move_view(query, tasks.get)
+        listing = self._tracker.project_task_list(project.id, _filter_input(query))
+        move = self._move_view(query, lambda found: self._project_task(project, found))
         if move is None:
             return Site._html(pages.task_not_found_page(), HTTPStatus.NOT_FOUND)
         move_outcome, move_interaction = move
+        shown = {row.task.id for row in listing.rows}
+        if move_interaction is not None and move_interaction.task_id not in shown:
+            # A confirmation is offered only on a row the page shows.
+            move_interaction = None
         return self._html(
             pages.project_page(
                 project,
-                rows,
+                listing.rows,
                 self._tracker.assignees(),
+                listing=listing,
                 form=self._task_form(query),
                 created="created" in query,
                 allowed_moves=self._tracker.allowed_moves,
                 move_outcome=move_outcome,
                 move_interaction=move_interaction,
+                off_list_task=self._off_list_task(project, listing, move_outcome, shown),
             ),
             Site._pending_status(move_interaction),
             extra=self._stored_as_asked(query),
         )
+
+    def _project_task(self, project: Project, identity: int) -> Task | None:
+        """The task with this identity when it belongs to this project, shown or not."""
+        task = self._tracker.task(identity)
+        return task if task is not None and task.project_id == project.id else None
+
+    def _off_list_task(
+        self,
+        project: Project,
+        listing: ProjectTaskList,
+        outcome: pages.MoveOutcome,
+        shown: set[int],
+    ) -> Task | None:
+        """The task a move outcome is about when it is this project's and the list does not show it.
+
+        Membership is the read model's selected identities; no filter rule is tested here. A refused
+        filter has no list, so it has no such task.
+        """
+        if listing.problems or outcome.task_id is None or outcome.task_id in shown:
+            return None
+        if outcome.refusal is None and outcome.failed is None and outcome.moved is None:
+            return None
+        return self._project_task(project, outcome.task_id)
 
     @staticmethod
     def _task_form(query: Mapping[str, list[str]]) -> pages.TaskForm:
@@ -740,7 +795,15 @@ class Site:
             if _first(form, "place") == pages.MOVE_PLACE_LIST
             else task_address
         )
-        about = {"move_task": str(identity)}
+        on_list = _first(form, "place") == pages.MOVE_PLACE_LIST
+        carried = _carried_filters(form) if on_list else {}
+        about: dict[str, str | tuple[str, ...]] = {"move_task": str(identity), **carried}
+        if (
+            on_list
+            and self._tracker.project_task_list(task.project_id, _filter_input(form)).problems
+        ):
+            # A malformed filter stops the move before it can save or open a confirmation (CP-405).
+            return self._redirect(place, **about)
         if status == TaskStatus.CANCELLED.value and not confirming:
             if TaskStatus.CANCELLED in self._tracker.allowed_moves(task.status):
                 return self._redirect(place, **about, move_confirm=TaskStatus.CANCELLED.value)
@@ -900,7 +963,7 @@ class Site:
             return failed()
 
     @staticmethod
-    def _redirect(path: str, *flags: str, **query: str) -> Response:
+    def _redirect(path: str, *flags: str, **query: str | tuple[str, ...]) -> Response:
         return _respond(HTTPStatus.SEE_OTHER, b"", ("Location", _address(path, *flags, **query)))
 
     @staticmethod

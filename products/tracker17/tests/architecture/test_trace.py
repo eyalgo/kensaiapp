@@ -30,6 +30,7 @@ LANDED_FEATURE_WORDS = [
     "labels",
     "due_dates",
     "comments",
+    "filtering",
 ]
 PATH = re.compile(r"(?<![\w/.<-])((?:[A-Za-z0-9_.-]+/)*[A-Za-z0-9_-]+\.(?:py|css|md|toml|txt))\b")
 REQUIREMENT = re.compile(r"\b(?:NFR|FR|DR|AC|C)-\d+\b")
@@ -484,5 +485,42 @@ def test_workflow_entry_names_every_participating_module_and_check() -> None:
         assert module.is_file(), checking
         assert named_requirements(docstring_of(module)), checking
         assert unknown_requirements(docstring_of(module)) == [], checking
+    assert missing_paths(text) == []
+    assert unknown_requirements(text) == []
+
+
+FILTERING_REQUIREMENTS = {"FR-32", "FR-33", "FR-34", "FR-35"}
+FILTERING_PARTICIPANTS = ("application/tracker.py", "web/routes.py", "web/pages.py")
+FILTERING_CHECKING_TESTS = (
+    "tests/unit/test_filtering.py",
+    "tests/integration/test_filter_tracker.py",
+    "tests/integration/test_filter_pages.py",
+    "tests/integration/test_filter_routes.py",
+    "tests/integration/test_filter_move_routes.py",
+    "tests/e2e/test_filters.py",
+    "tests/architecture/test_trace.py",
+    "tests/architecture/test_shapes.py",
+)
+
+
+def test_filtering_entry_has_requirements_and_participants() -> None:
+    """QC-11, CP-412, CP-423: the Filtering entry names FR-32 to FR-35, the application and web
+    modules that take part and the checking test files that exist, and `filtering` is landed.
+
+    Each later task of the change adds the participant or the checking module it writes.
+    """
+    text = entry_docstring("filtering")
+    paths = named_paths(text)
+    assert FILTERING_REQUIREMENTS <= set(named_requirements(text))
+    for participant in FILTERING_PARTICIPANTS:
+        assert participant in paths, participant
+    assert any(path.startswith("web/") for path in paths)
+    for checking in FILTERING_CHECKING_TESTS:
+        assert checking in paths, checking
+        module = PRODUCT_ROOT / checking
+        assert module.is_file(), checking
+        assert named_requirements(docstring_of(module)), checking
+        assert unknown_requirements(docstring_of(module)) == [], checking
+    assert "filtering" in LANDED_FEATURE_WORDS
     assert missing_paths(text) == []
     assert unknown_requirements(text) == []

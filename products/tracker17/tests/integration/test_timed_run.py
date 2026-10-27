@@ -2,10 +2,10 @@
 
 Checks SRS NFR-1 (an action stays fast with 1,000 tasks of 20 comments each, editing a task's fields
 included, a label added or removed too, the operator's name saved, a comment added, a name added
-to or removed from the assignee list, and a task moved from `todo` to `in-progress`) and AC-15 (the
-response time). Change spec rules CP-143 (the add), CP-179 (the edit), CP-208 (the label add and
+to or removed from the assignee list, a task moved from `todo` to `in-progress`, and a project
+list filtered by a status, which realizes FR-32) and AC-15 (the response time). Change spec rules CP-143 (the add), CP-179 (the edit), CP-208 (the label add and
 remove), CP-237 (the name save), CP-276 to CP-289 (the comment add and the assignee add and remove)
-and CP-371 to CP-392 (the status move) and NFDR QC-48 are the ones each test names. The harness is
+CP-371 to CP-392 (the status move) and CP-418 to CP-423 (the status filter) and NFDR QC-48 are the ones each test names. The harness is
 tests/timed_run.py; it is loaded by its path and handed its own collaborators (a request site, a
 timer, a location), so no product name is patched. A script that only exits 0 could time the wrong
 path, so these tests prove it exercises the real one and refuses a wrong one.
@@ -16,11 +16,12 @@ from __future__ import annotations
 import contextlib
 import importlib.util
 import io
+import json
 import re
 import sys
 from collections.abc import Callable, Iterator
 from dataclasses import replace
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from html import escape
 from pathlib import Path
 from types import ModuleType
@@ -410,7 +411,15 @@ def test_timed_run_fails_when_only_the_edit_fails(
     label_ticks = (0.0, 0.1, 0.2, 0.3) * 2
     status = harness.main(
         tmp_path,
-        Ticks(*add_ticks, *edit_ticks, *label_ticks, *QUICK, *NEW_ACTIONS_QUICK, *MOVE_QUICK),
+        Ticks(
+            *add_ticks,
+            *edit_ticks,
+            *label_ticks,
+            *QUICK,
+            *NEW_ACTIONS_QUICK,
+            *MOVE_QUICK,
+            *FILTER_QUICK,
+        ),
     )
 
     over = [line.split(":")[0] for line in capsys.readouterr().out.splitlines() if "over" in line]
@@ -706,7 +715,9 @@ def test_timed_run_fails_when_only_a_label_action_fails(
     """CP-208: the run exits non-zero on a label action's verdict alone."""
     quick = (0.0, 0.1, 0.2, 0.3)
     slow_total = (0.0, 0.5, 1.0, 1.5)
-    ticks = Ticks(*quick, *quick, *slow_total, *quick, *quick, *NEW_ACTIONS_QUICK, *MOVE_QUICK)
+    ticks = Ticks(
+        *quick, *quick, *slow_total, *quick, *quick, *NEW_ACTIONS_QUICK, *MOVE_QUICK, *FILTER_QUICK
+    )
 
     status = harness.main(tmp_path, ticks)
 
@@ -741,6 +752,7 @@ QUICK = (0.0, 0.1, 0.2, 0.3)
 NEW_ACTIONS_QUICK = (*QUICK, *QUICK, *QUICK)
 # The status move's four readings, taken after every earlier action's: all under the limit.
 MOVE_QUICK = QUICK
+FILTER_QUICK = QUICK
 NAME_LABEL = "set your name at 1000 tasks"
 NAME_LANDING_LABEL = "name landing page at 1000 tasks"
 NAME_ADDRESS = "/operator-name"
@@ -947,7 +959,8 @@ def test_full_timed_run_fails_when_only_name_measurement_fails(
     for position, name_ticks in enumerate(((0.0, 1.5, 2.0, 2.1), (0.0, 0.1, 0.2, 1.5))):
         old = (*QUICK, *QUICK, *QUICK, *QUICK)
         status = harness.main(
-            tmp_path / str(position), Ticks(*old, *name_ticks, *NEW_ACTIONS_QUICK, *MOVE_QUICK)
+            tmp_path / str(position),
+            Ticks(*old, *name_ticks, *NEW_ACTIONS_QUICK, *MOVE_QUICK, *FILTER_QUICK),
         )
         lines = capsys.readouterr().out.splitlines()
         over = [line.split(":")[0] for line in lines if "over" in line]
@@ -2049,9 +2062,10 @@ def _run_readings(**slow: tuple[float, float, float, float]) -> Ticks:
     """The timer readings of one whole run: every action under the limit, except those named.
 
     The five old actions read first, in the order the run times them, then the comment add, the
-    assignee add, the assignee remove and the status move, as the run appends them.
+    assignee add, the assignee remove, the status move and the status filter, as the run appends
+    them.
     """
-    order = ("comment", "assignee add", "assignee remove", "move")
+    order = ("comment", "assignee add", "assignee remove", "move", "filter")
     new = [slow.get(name, QUICK) for name in order]
     return Ticks(*QUICK * OLD_ACTION_READINGS, *[value for each in new for value in each])
 
@@ -2086,6 +2100,7 @@ def test_timed_run_appends_exactly_three_ordered_action_blocks(whole_run) -> Non
         *OLD_RUN_LABELS,
         *NEW_RUN_LABELS,
         *MOVE_RUN_LABELS,
+        *FILTER_RUN_LABELS,
     ]
     assert "over" not in "\n".join(lines) and "refused" not in "\n".join(lines)
 
@@ -2281,6 +2296,12 @@ MOVE_LABELS = (
     "move total at 1000 tasks",
 )
 MOVE_RUN_LABELS = ("move fixture", *MOVE_LABELS)
+FILTER_LABELS = (
+    "filter a task list at 1000 tasks",
+    "filter landing page at 1000 tasks",
+    "filter total at 1000 tasks",
+)
+FILTER_RUN_LABELS = ("filter fixture", *FILTER_LABELS)
 MOVE_OPERATOR = "Jordan Rivera"
 MOVE_ASSIGNEES = ("Zed Quinn", "Mara Lopez")
 
@@ -2802,17 +2823,24 @@ EARLIER_FIXTURES = (
 def test_timed_run_appends_exact_move_block_and_nothing_after(
     harness: ModuleType, whole_run, tmp_path: Path
 ) -> None:
-    """T10, CP-373, CP-375, CP-381: after every older line, the move's four lines and no footer."""
+    """T10, CP-373, CP-375, CP-381, CP-423: every older line, the move's four lines, then exactly the
+    filter's four and no footer."""
     _, status, lines, _, _ = whole_run
     _, fresh = harness.open_task_volume(SavedData(tmp_path / "fresh"))
 
     assert status == 0
-    assert [line.split(":")[0] for line in lines[:-4]] == [*OLD_RUN_LABELS, *NEW_RUN_LABELS]
-    assert lines[-4:] == [
+    assert [line.split(":")[0] for line in lines[:-8]] == [*OLD_RUN_LABELS, *NEW_RUN_LABELS]
+    assert lines[-8:-4] == [
         harness.move_fixture_report(fresh),
         "move a task at 1000 tasks: 100.0 ms",
         "move landing page at 1000 tasks: 100.0 ms",
         "move total at 1000 tasks: 200.0 ms",
+    ]
+    assert lines[-4:] == [
+        harness.filter_fixture_report(fresh),
+        "filter a task list at 1000 tasks: 100.0 ms",
+        "filter landing page at 1000 tasks: 100.0 ms",
+        "filter total at 1000 tasks: 200.0 ms",
     ]
 
 
@@ -2879,3 +2907,330 @@ def test_timed_run_propagates_move_submission_and_landing_timing_failures(
     lines = capsys.readouterr().out.splitlines()
     assert [line.split(":")[0] for line in lines if "over" in line] == expected
     assert status == 1
+
+
+# --- The status filter appended to the whole run (CP-418 to CP-423) -------------------------------
+
+FILTER_ADDRESS = (
+    "/projects/1?filter_status=in-progress&filter_priority=&filter_assignee=&filter_label="
+    "&filter_due_from=&filter_due_to="
+)
+
+
+def _in_progress_ids(state) -> list[int]:
+    """The ids of the fixture's `in-progress` tasks, in the order a project list shows them."""
+    held = [t for t in state.tasks if t.status is TaskStatus.IN_PROGRESS]
+    return [
+        t.id for t in sorted(held, key=lambda t: (t.due_date is None, t.due_date or date.min, t.id))
+    ]
+
+
+def _filter_page(ids: list[int], count: int | None = None) -> Response:
+    """A project list as the product writes it: one title link per id, under the count line."""
+    shown = len(ids) if count is None else count
+    words = "1 task matches this filter." if shown == 1 else f"{shown} tasks match this filter."
+    rows = "".join(
+        f'<tr><td><a class="pre-wrap" href="/tasks/{each}" aria-label="t">t</a></td></tr>'
+        for each in ids
+    )
+    return _page(f'<p class="match-count" id="filter-count">{words}</p><table>{rows}</table>')
+
+
+def _filter_fixture(harness: ModuleType, location: Path, state=None):
+    return _move_fixture(harness, location, state)
+
+
+def test_timed_filter_uses_independent_loaded_fixture(
+    harness: ModuleType, whole_run, tmp_path: Path
+) -> None:
+    """T12, CP-418: a location of its own under the run's directory, saved data as seeded, both
+    requests same-origin GETs, and the product's data directory as the run found it."""
+    directory, _, _, before, after = whole_run
+    filtered = SavedData(directory / "filter-volume")
+    _, seeded = harness.open_task_volume(SavedData(tmp_path / "fresh"))
+    assert filtered.load() == seeded
+    earlier = {directory / name for name in (*EARLIER_FIXTURES, "move-volume")}
+    assert filtered.location not in earlier and filtered.location.parent == directory
+    assert after == before
+
+    site, saved_data, _ = _filter_fixture(harness, tmp_path / "recorded")
+    recording = Intercept(site)
+    harness.measure_task_filter(site=recording, saved_data=saved_data, timer=Ticks(*QUICK))
+    assert [(m, t) for m, t, _, _ in recording.requests] == [
+        ("GET", FILTER_ADDRESS),
+        ("GET", FILTER_ADDRESS),
+    ]
+    for _, _, headers, body in recording.requests:
+        assert headers["Sec-Fetch-Site"] == "same-origin" and body == b""
+
+
+def test_timed_filter_reports_loaded_counts_and_first_displayed_lengths(
+    harness: ModuleType, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """T12, CP-419: counts, matching number and the title and first comment of the first listed
+    match, not the first stored; the report prints nothing."""
+    shrunk = _shrunk(harness.seeded_state(), tasks=300, comments=3)
+    first = _in_progress_ids(shrunk)[0]
+    note = replace(find_task(shrunk, first).comments[0], text="Note 😀")  # type: ignore[union-attr]
+    varied = _with_task(
+        shrunk,
+        first,
+        title="Plan 😀😀",
+        comments=(note, *find_task(shrunk, first).comments[1:]),  # type: ignore[union-attr]
+    )
+    varied = replace(varied, tasks=tuple(reversed(varied.tasks)))
+    _, _, loaded = _filter_fixture(harness, tmp_path, varied)
+    stored_first = next(t for t in loaded.tasks if t.status is TaskStatus.IN_PROGRESS).id
+    assert first != stored_first
+    capsys.readouterr()
+
+    report = harness.filter_fixture_report(loaded)
+
+    assert capsys.readouterr().out == ""
+    assert report == (
+        "filter fixture: 300 tasks, 3 comments each (900 in all); "
+        f"title of 7 characters, comment of 6 characters; status in-progress, "
+        f"{len(_in_progress_ids(loaded))} matching"
+    )
+    _, fresh = harness.open_task_volume(SavedData(tmp_path / "fresh"))
+    assert harness.filter_fixture_report(fresh).endswith("status in-progress, 250 matching")
+
+
+REFUSED_APPLIES = {
+    "field refusal, a 200 without a result": _page('<p id="filter-status-reason">No.</p>'),
+    "action failure": Response(500, (), b"<p>The tracker couldn't.</p>"),
+    "not found": Response(404, (), b""),
+    "forbidden": Response(403, (), b""),
+}
+
+
+@pytest.mark.parametrize("apply", REFUSED_APPLIES.values(), ids=REFUSED_APPLIES.keys())
+def test_timed_filter_rejects_refused_or_failed_apply(
+    harness: ModuleType, tmp_path: Path, capsys: pytest.CaptureFixture[str], apply: Response
+) -> None:
+    """T12, CP-421: no reload is requested, its row is zero and failed, and the total is Apply's."""
+    site, saved_data, _ = _filter_fixture(harness, tmp_path)
+    recording = Intercept(site, lambda m, t: apply)
+
+    results = harness.measure_task_filter(
+        site=recording, saved_data=saved_data, timer=Ticks(0.0, 0.7)
+    )
+
+    assert len(recording.requests) == 1
+    assert [r.created for r in results] == [False, False, False]
+    assert [r.seconds for r in results] == [pytest.approx(0.7), 0.0, pytest.approx(0.7)]
+    capsys.readouterr()
+    assert harness.verdict(results, LIMIT) == 1
+    assert capsys.readouterr().out.splitlines() == [
+        "filter a task list at 1000 tasks: 700.0 ms — refused or failed",
+        "filter landing page at 1000 tasks: 0.0 ms — refused or failed",
+        "filter total at 1000 tasks: 700.0 ms — refused or failed",
+    ]
+
+
+def test_timed_filter_times_apply_and_reload_destinations(
+    harness: ModuleType, tmp_path: Path
+) -> None:
+    """T12, CP-420: a real GET Apply is reloaded at its own address; a redirect the seam supplies
+    is reloaded at its Location; the four reads sit around the two requests alone."""
+    site, saved_data, _ = _filter_fixture(harness, tmp_path / "plain")
+    log = EventLog()
+    results = harness.measure_task_filter(
+        site=log.site(site), saved_data=saved_data, timer=log.timer(0.0, 0.1, 50.0, 50.2)
+    )
+    assert log.events == ["tick", "GET", "tick", "tick", "GET", "tick"]
+    assert [r.seconds for r in results] == [
+        pytest.approx(0.1),
+        pytest.approx(0.2),
+        pytest.approx(0.3),
+    ]
+    assert all(r.created for r in results)
+
+    elsewhere = "/projects/1?filter_status=in-progress"
+    site, saved_data, _ = _filter_fixture(harness, tmp_path / "redirected")
+    recording = Intercept(site, lambda m, t: _found(elsewhere) if t == FILTER_ADDRESS else None)
+    results = harness.measure_task_filter(
+        site=recording, saved_data=saved_data, timer=Ticks(*QUICK)
+    )
+    assert [t for _, t, _, _ in recording.requests] == [FILTER_ADDRESS, elsewhere]
+    assert all(r.created for r in results)
+
+
+def _second_get(landing: Response) -> Callable[[str, str], Response | None]:
+    """Answer only the second request, the reload, with this page."""
+    seen: list[str] = []
+
+    def answer(method: str, target: str) -> Response | None:
+        seen.append(target)
+        return landing if len(seen) == 2 else None
+
+    return answer
+
+
+def _landing_cases(matching: list[int]) -> dict[str, Response]:
+    other = next(n for n in range(1, 1001) if n not in matching)
+    return {
+        "non-200 with the right page": Response(404, (), _filter_page(matching).body),
+        "one extra nonmatch": _filter_page([*matching, other], count=len(matching)),
+        "one missing match": _filter_page(matching[:-1], count=len(matching)),
+        "a duplicate match row": _filter_page([*matching, matching[0]], count=len(matching)),
+        "a duplicate in place of a match": _filter_page(
+            [*matching[:-1], matching[0]], count=len(matching)
+        ),
+        "a wrong matching identity": _filter_page([*matching[:-1], other], count=len(matching)),
+        "a wrong displayed count": _filter_page(matching, count=len(matching) + 1),
+        "no count line": _page(_filter_page(matching).body.decode().split("</p>", 1)[1]),
+    }
+
+
+def test_timed_filter_rejects_inexact_landing(harness: ModuleType, tmp_path: Path) -> None:
+    """T12, CP-421, CP-422: each wrong landing fails the landing and the total, never the Apply."""
+    _, _, loaded = _filter_fixture(harness, tmp_path / "ids")
+    matching = _in_progress_ids(loaded)
+    assert len(matching) == 250
+    for name, landing in _landing_cases(matching).items():
+        site, saved_data, _ = _filter_fixture(harness, tmp_path / name.replace(" ", "-"))
+        results = harness.measure_task_filter(
+            site=Intercept(site, _second_get(landing)), saved_data=saved_data, timer=Ticks(*QUICK)
+        )
+        assert [r.created for r in results] == [True, False, False], name
+        assert harness.verdict(results, LIMIT) == 1, name
+    site, saved_data, _ = _filter_fixture(harness, tmp_path / "control")
+    results = harness.measure_task_filter(
+        site=Intercept(site, _second_get(_filter_page(matching))),
+        saved_data=saved_data,
+        timer=Ticks(*QUICK),
+    )
+    assert [r.created for r in results] == [True, True, True]
+
+
+def _rewritten_bytes(saved_data: SavedData) -> None:
+    """The same saved data written with other bytes: equivalent when decoded."""
+    path = saved_data.location / SAVED_FILE
+    path.write_bytes(json.dumps(json.loads(path.read_bytes()), indent=1).encode("utf-8"))
+
+
+def test_timed_filter_detects_saved_byte_changes(harness: ModuleType, tmp_path: Path) -> None:
+    """T12, CP-421: equivalent data with other bytes fails, whether it changed at Apply or at the
+    reload."""
+    site, saved_data, loaded = _filter_fixture(harness, tmp_path / "apply")
+    recording = Intercept(site)
+
+    def at_apply(method: str, target: str) -> Response | None:
+        if len(recording.requests) == 1:
+            _rewritten_bytes(saved_data)
+        return None
+
+    recording = Intercept(site, at_apply)
+    results = harness.measure_task_filter(
+        site=recording, saved_data=saved_data, timer=Ticks(*QUICK)
+    )
+    assert saved_data.load() == loaded
+    assert [r.created for r in results] == [False, False, False]
+    assert len(recording.requests) == 1
+
+    site, saved_data, loaded = _filter_fixture(harness, tmp_path / "reload")
+
+    def at_reload(method: str, target: str) -> Response | None:
+        if len(recording.requests) == 2:
+            _rewritten_bytes(saved_data)
+        return None
+
+    recording = Intercept(site, at_reload)
+    results = harness.measure_task_filter(
+        site=recording, saved_data=saved_data, timer=Ticks(*QUICK)
+    )
+    assert saved_data.load() == loaded
+    assert [r.created for r in results] == [True, False, False]
+    assert harness.verdict(results, LIMIT) == 1
+
+
+@pytest.mark.parametrize("readings,failing", MOVE_TIMING.values(), ids=MOVE_TIMING.keys())
+def test_timed_filter_requires_every_duration_below_the_limit(
+    harness: ModuleType,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    readings: tuple[float, float, float, float],
+    failing: tuple[str, ...],
+) -> None:
+    """T12, CP-420 to CP-422: a slow Apply, a slow reload, each part exactly 1.0 s and a sum of
+    exactly 1.0 s with both parts below it fail their rows; a total below 1.0 s passes."""
+    site, saved_data, _ = _filter_fixture(harness, tmp_path)
+    first, second, third, fourth = readings
+
+    results = harness.measure_task_filter(site=site, saved_data=saved_data, timer=Ticks(*readings))
+
+    assert all(result.created for result in results)
+    post, landing = second - first, fourth - third
+    assert [r.seconds for r in results] == [
+        pytest.approx(post),
+        pytest.approx(landing),
+        pytest.approx(post + landing),
+    ]
+    capsys.readouterr()
+    assert harness.verdict(results, LIMIT) == (1 if failing else 0)
+    lines = capsys.readouterr().out.splitlines()
+    names = dict(zip(("post", "landing", "total"), FILTER_LABELS))
+    assert [line.split(":")[0] for line in lines if "over" in line] == [
+        names[each] for each in failing
+    ]
+
+
+@pytest.mark.parametrize(
+    "readings,expected",
+    [
+        ((0.0, 1.0, 5.0, 5.1), [FILTER_LABELS[0], FILTER_LABELS[2]]),
+        ((0.0, 0.1, 5.0, 6.0), [FILTER_LABELS[1], FILTER_LABELS[2]]),
+        ((0.0, 0.5, 1.0, 1.5), [FILTER_LABELS[2]]),
+    ],
+    ids=["apply exactly 1 s", "reload exactly 1 s", "total exactly 1 s"],
+)
+def test_timed_run_propagates_filter_timing_failures(
+    harness: ModuleType,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    readings: tuple[float, float, float, float],
+    expected: list[str],
+) -> None:
+    """T12, CP-422: a slow filter row makes the whole run exit non-zero, earlier actions passing."""
+    status = harness.main(tmp_path, _run_readings(filter=readings))
+
+    lines = capsys.readouterr().out.splitlines()
+    assert [line.split(":")[0] for line in lines if "over" in line] == expected
+    assert status == 1
+
+
+FILTER_REJECTIONS = {
+    "refused apply": lambda site, saved_data: Intercept(site, lambda m, t: _page("<p>no</p>")),
+    "inexact landing": lambda site, saved_data: Intercept(
+        site, lambda m, t: _filter_page([1]) if t == FILTER_ADDRESS else None
+    ),
+    "changed bytes": lambda site, saved_data: Intercept(
+        site, lambda m, t: _rewritten_bytes(saved_data)
+    ),
+}
+
+
+@pytest.mark.parametrize("rejection", FILTER_REJECTIONS.values(), ids=FILTER_REJECTIONS.keys())
+def test_timed_filter_failures_reach_main_verdict(
+    harness: ModuleType,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+    rejection: Callable,
+) -> None:
+    """T12, CP-422: each rejection class makes the complete harness return non-zero while every
+    earlier action passes."""
+    measure = harness.measure_task_filter
+
+    def rejected(*, site, saved_data, timer):
+        return measure(site=rejection(site, saved_data), saved_data=saved_data, timer=timer)
+
+    monkeypatch.setattr(harness, "measure_task_filter", rejected)
+
+    status = harness.main(tmp_path, _run_readings())
+
+    lines = capsys.readouterr().out.splitlines()
+    assert status == 1
+    assert [line for line in lines if "refused or failed" in line]
+    assert not [line for line in lines[:-4] if "refused" in line or "over" in line]

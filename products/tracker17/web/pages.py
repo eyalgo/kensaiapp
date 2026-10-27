@@ -10,7 +10,7 @@ that shows its reason.
 from __future__ import annotations
 
 import html
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
@@ -21,7 +21,18 @@ from application import (
     PRIORITY_CHOICES,
     SHORT_TEXT_MAX,
     Comment,
+    FilterAssigneeNotListed,
+    FilterField,
+    FilterFieldRefusal,
+    InvalidFilterDueFrom,
+    InvalidFilterDueTo,
+    InvalidFilterOverdue,
+    InvalidFilterPriority,
+    InvalidFilterStatus,
     Project,
+    ProjectTaskList,
+    RepeatedFilterValue,
+    ReversedFilterRange,
     Task,
     TaskEditContext,
     TaskFields,
@@ -214,12 +225,15 @@ class MoveInteraction:
 
 @dataclass(frozen=True)
 class StripForm:
-    """One of the strip's two forms: the control's words, where it goes, how, and its hidden fields."""
+    """One of the strip's two forms: the control's words, where it goes, how, and its hidden fields.
+
+    `carried` is the pairs a key may repeat in, which `fields` cannot hold, written after them."""
 
     label: str
     action: str
     method: str
     fields: Mapping[str, str]
+    carried: tuple[tuple[str, str], ...] = ()
 
 
 class _MoveKind(Enum):
@@ -231,6 +245,7 @@ class _MoveKind(Enum):
 
 
 AllowedMoves = Callable[[TaskStatus], tuple[TaskStatus, ...]]
+Carried = tuple[tuple[str, str], ...]
 
 
 def _no_moves(status: TaskStatus) -> tuple[TaskStatus, ...]:
@@ -648,11 +663,15 @@ CANCELLED_CODE = TaskStatus.CANCELLED.value
 TRIGGER_SIZE = "row-control"
 
 
-def _strip_form(form: StripForm, button_class: str) -> str:
-    fields = "".join(
+def _hidden(pairs: Iterable[tuple[str, str]]) -> str:
+    return "".join(
         f'<input type="hidden" name="{_escape(name)}" value="{_escape(value)}">'
-        for name, value in form.fields.items()
+        for name, value in pairs
     )
+
+
+def _strip_form(form: StripForm, button_class: str) -> str:
+    fields = _hidden((*form.fields.items(), *form.carried))
     return (
         f'<form method="{_escape(form.method)}" action="{_escape(form.action)}">{fields}'
         f'<button type="submit" class="{button_class}">{_escape(form.label)}</button></form>'
@@ -686,7 +705,7 @@ def confirm_strip(
     )
 
 
-def _cancellation_strip(task: Task, place: str) -> str:
+def _cancellation_strip(task: Task, place: str, carried: Carried = ()) -> str:
     back_out_address = (
         f"/projects/{task.project_id}" if place == MOVE_PLACE_LIST else f"/tasks/{task.id}"
     )
@@ -698,24 +717,29 @@ def _cancellation_strip(task: Task, place: str) -> str:
             MOVE_CONFIRM_ADDRESS.format(task_id=task.id),
             "post",
             {"place": place},
+            carried,
         ),
         back_out=StripForm(
             BACK_OUT_LABEL,
             back_out_address,
             "get",
             {"move_task": str(task.id), "move_back": CANCELLED_CODE},
+            carried,
         ),
         size=TRIGGER_SIZE,
         focus=True,
     )
 
 
-def _move_form(task: Task, move: TaskStatus, place: str, *, focus: bool = False) -> str:
+def _move_form(
+    task: Task, move: TaskStatus, place: str, carried: Carried = (), *, focus: bool = False
+) -> str:
     focus_attributes = " autofocus" if focus else ""
     return (
         f'<form method="post" action="/tasks/{task.id}/move">'
         f'<input type="hidden" name="status" value="{move.value}">'
         f'<input type="hidden" name="place" value="{place}">'
+        f"{_hidden(carried)}"
         f'<button type="submit" class="move-button"{focus_attributes} '
         f"aria-label=\"Move '{_escape(task.title)}' to {move.value}\">{move.value}</button>"
         "</form>"
@@ -727,20 +751,24 @@ def _move_forms(
     place: str,
     allowed: tuple[TaskStatus, ...],
     interaction: MoveInteraction | None = None,
+    carried: Carried = (),
 ) -> str:
     """One form and one button per move the workflow allows, in the order given. The cancelled
     one stands in a slot of its own, where the confirmation replaces it or its restored button
-    takes focus. Which moves are allowed is not decided here."""
+    takes focus. Which moves are allowed is not decided here. `carried` is the filter choices each
+    form sends back, so a move lands on the list it was pressed in."""
     forms = []
     for move in allowed:
         if move is not TaskStatus.CANCELLED:
-            forms.append(_move_form(task, move, place))
+            forms.append(_move_form(task, move, place, carried))
         elif interaction is not None and interaction.mode is MoveInteractionMode.CONFIRM:
-            forms.append(f'<div class="move-slot">{_cancellation_strip(task, place)}</div>')
+            forms.append(
+                f'<div class="move-slot">{_cancellation_strip(task, place, carried)}</div>'
+            )
         else:
             restored = interaction is not None and interaction.mode is MoveInteractionMode.BACK_OUT
             forms.append(
-                f'<div class="move-slot">{_move_form(task, move, place, focus=restored)}</div>'
+                f'<div class="move-slot">{_move_form(task, move, place, carried, focus=restored)}</div>'
             )
     joined = "".join(forms)
     return f'<div class="moves">{joined}</div>' if joined else ""
@@ -804,6 +832,63 @@ def _move_line(
     return None
 
 
+# The lines above a filtered list, for a task the list does not show (text record, "The move lines
+# above a filtered list"). One whole string for each count of moves, as the in-row lines have.
+_NOT_LISTED_CLEAR = "The task doesn't match this filter, so press Clear to see it."
+_NOT_LISTED_ABSENT = "The task doesn't match this filter, so it isn't in this list."
+_LEFT_LINE = (
+    "You moved '{title}' to {status}, and it no longer matches this filter, "
+    "so it has left this list."
+)
+_OFF_LIST_FAILURE = (
+    "The tracker couldn't move '{title}' to {status}, and nothing was changed. " + _NOT_LISTED_CLEAR
+)
+_OFF_LIST_STATUS = "The status of '{title}' is {status}, and a task in {status} "
+_OFF_LIST_REFUSALS = (
+    _OFF_LIST_STATUS + "can't be moved. " + _NOT_LISTED_ABSENT,
+    _OFF_LIST_STATUS + "can be moved to {0}. " + _NOT_LISTED_CLEAR,
+    _OFF_LIST_STATUS + "can be moved to {0} or {1}. " + _NOT_LISTED_CLEAR,
+    _OFF_LIST_STATUS + "can be moved to {0}, {1} or {2}. " + _NOT_LISTED_CLEAR,
+)
+_OFF_LIST_ADDRESS = (
+    "The status of '{title}' is {status}, which doesn't allow a move to cancelled. "
+    + _NOT_LISTED_ABSENT
+)
+_LIST_SECTION_ID = "task-list"
+
+
+def _off_list_line(
+    outcome: MoveOutcome | None, task: Task | None, allowed: AllowedMoves
+) -> tuple[_MoveKind, str] | None:
+    """The one line a move outcome shows above the results for a task the list does not show, or
+    None when it is not about that task. Precedence is the row line's: refusal, failure, then
+    completion. The title and the status are the ones the state holds now."""
+    if task is None or not _has_move_line(outcome, task) or outcome is None:
+        return None
+    words = {"title": _escape(task.title), "status": task.status.value}
+    if outcome.refusal is not None:
+        if outcome.refusal_context is MoveRefusalContext.CANCELLATION_ADDRESS:
+            return _MoveKind.REFUSED, _OFF_LIST_ADDRESS.format(**words)
+        moves = [move.value for move in allowed(task.status)]
+        return _MoveKind.REFUSED, _OFF_LIST_REFUSALS[len(moves)].format(*moves, **words)
+    if outcome.failed is not None:
+        return _MoveKind.FAILED, _OFF_LIST_FAILURE.format(
+            title=words["title"], status=outcome.failed.value
+        )
+    if outcome.moved is not None:
+        return _MoveKind.MOVED, _LEFT_LINE.format(title=words["title"], status=outcome.moved.value)
+    return None
+
+
+def _list_section(line: tuple[_MoveKind, str], results: str) -> str:
+    """The results under one line that names a task they do not show. The section takes the focus
+    and the line describes it, so the line is read and brought into view without being a target."""
+    return (
+        f'<section class="list-section" id="{_LIST_SECTION_ID}" tabindex="-1" autofocus '
+        f'aria-describedby="{_MOVE_LINE_ID}">\n{_move_line_block(line)}{results}</section>\n'
+    )
+
+
 def _move_line_block(line: tuple[_MoveKind, str] | None) -> str:
     if line is None:
         return ""
@@ -826,13 +911,14 @@ def _task_row(
     allowed: tuple[TaskStatus, ...],
     line: tuple[_MoveKind, str] | None,
     interaction: MoveInteraction | None = None,
+    carried: Carried = (),
 ) -> str:
     task = row.task
     title = _escape(task.title)
     labels = ", ".join(_escape(label) for label in task.labels) or "none"
     assignee = _escape(task.assignee) if task.assignee is not None else "unassigned"
     status = _status_word(task, line, "span", ' class="status-word"') if line else task.status.value
-    moves = _move_forms(task, MOVE_PLACE_LIST, allowed, interaction)
+    moves = _move_forms(task, MOVE_PLACE_LIST, allowed, interaction, carried)
     return (
         "<tr>"
         f'<td><a class="pre-wrap" href="/tasks/{task.id}" '
@@ -855,6 +941,7 @@ def _task_list(
     allowed: AllowedMoves,
     outcome: MoveOutcome | None,
     interaction: MoveInteraction | None = None,
+    carried: Carried = (),
 ) -> str:
     """The seven-column table in the order given, or the first-task invitation when there is none."""
     if not rows:
@@ -870,15 +957,280 @@ def _task_list(
             offered,
             _move_line(outcome, row.task, offered),
             interaction if interaction and interaction.task_id == row.task.id else None,
+            carried,
         )
         for position, row in enumerate(rows, start=1)
         for offered in (allowed(row.task.status),)
     )
     return (
+        '<div class="table-scroll">\n'
         '<table class="task-list">\n'
         f"<thead><tr>{headers}</tr></thead>\n"
         f"<tbody>\n{body}</tbody>\n"
         "</table>\n"
+        "</div>\n"
+    )
+
+
+FILTER_ANY = {
+    FilterField.STATUS: "Any status",
+    FilterField.PRIORITY: "Any priority",
+    FilterField.ASSIGNEE: "Any assignee",
+    FilterField.LABEL: "Any label",
+}
+FILTER_LABELS = {
+    FilterField.STATUS: "Status",
+    FilterField.PRIORITY: "Priority",
+    FilterField.ASSIGNEE: "Assignee",
+    FilterField.LABEL: "Label",
+    FilterField.DUE_FROM: "Due from",
+    FilterField.DUE_TO: "Due to",
+    FilterField.OVERDUE: "Overdue",
+}
+# The two fields whose label the add-task form also uses carry a longer accessible name.
+FILTER_ACCESSIBLE_NAMES = {
+    FilterField.PRIORITY: "Priority filter",
+    FilterField.ASSIGNEE: "Assignee filter",
+}
+FILTER_QUERY_PREFIX = "filter_"
+FILTER_APPLY_LABEL = "Apply"
+FILTER_CLEAR_LABEL = "Clear"
+NO_MATCH_LINE = "No tasks match this filter. Press Clear to see every task."
+_FILTER_COUNT_ID = "filter-count"
+_FILTER_NO_MATCH_ID = "filter-no-match"
+
+# One whole string for each repeated-value reason; Assignee and Label have a second form for a
+# list that offers no choice beyond Any (text record, Wording decisions).
+_REPEATED_REASONS = {
+    FilterField.STATUS: (
+        "The status filter takes one status, not {count}. Pick one status, or pick Any status."
+    ),
+    FilterField.PRIORITY: (
+        "The priority filter takes one priority, not {count}. "
+        "Pick one priority, or pick Any priority."
+    ),
+    FilterField.DUE_FROM: (
+        "Due from takes one date, not {count}. Give one calendar date, or leave Due from empty."
+    ),
+    FilterField.DUE_TO: (
+        "Due to takes one date, not {count}. Give one calendar date, or leave Due to empty."
+    ),
+    FilterField.OVERDUE: (
+        "The Overdue filter takes one value, not {count}. Turn Overdue on, or leave it off."
+    ),
+}
+_REPEATED_ASSIGNEE = (
+    (
+        "The assignee filter takes one name, not {count}. Pick one name on the list, "
+        "or pick Any assignee."
+    ),
+    "The assignee filter takes one name, not {count}. Pick Any assignee.",
+)
+_REPEATED_LABEL = (
+    "The label filter takes one label, not {count}. Pick one label, or pick Any label.",
+    "The label filter takes one label, not {count}. Pick Any label.",
+)
+_UNLISTED_ASSIGNEE = (
+    "The name '{name}' isn't on the assignee list. Pick a name on the list, or pick Any assignee.",
+    "The name '{name}' isn't on the assignee list. Pick Any assignee.",
+)
+
+
+def _filter_id(field: FilterField) -> str:
+    return f"filter-{field.value.replace('_', '-')}"
+
+
+def _filter_reason(problem: FilterFieldRefusal, listing: ProjectTaskList) -> str:
+    """The reason a refusal type is shown with, by its type alone (QC-5). Values are escaped here."""
+    if isinstance(problem, RepeatedFilterValue):
+        if problem.field is FilterField.ASSIGNEE:
+            return _REPEATED_ASSIGNEE[0 if listing.assignees else 1].format(count=problem.count)
+        if problem.field is FilterField.LABEL:
+            return _REPEATED_LABEL[0 if listing.labels else 1].format(count=problem.count)
+        return _REPEATED_REASONS[problem.field].format(count=problem.count)
+    if isinstance(problem, ReversedFilterRange):
+        return (
+            f"The Due from date, {problem.due_from.isoformat()}, is later than the Due to date, "
+            f"{problem.due_to.isoformat()}. Change one so Due from is the earlier date."
+        )
+    if isinstance(problem, FilterAssigneeNotListed):
+        template = _UNLISTED_ASSIGNEE[0 if listing.assignees else 1]
+        return template.format(name=_escape(problem.name))
+    if isinstance(problem, InvalidFilterStatus):
+        return (
+            f"The status filter can't be '{_escape(problem.value)}', because it isn't a status. "
+            "Pick a status, or pick Any status."
+        )
+    if isinstance(problem, InvalidFilterPriority):
+        return (
+            f"The priority filter can't be '{_escape(problem.value)}', because it isn't a "
+            "priority. Pick a priority, or pick Any priority."
+        )
+    if isinstance(problem, (InvalidFilterDueFrom, InvalidFilterDueTo)):
+        end = "Due from" if isinstance(problem, InvalidFilterDueFrom) else "Due to"
+        return (
+            f"The {end} date can't be '{_escape(problem.value)}', because it isn't a calendar "
+            f"date. Give a calendar date, or leave {end} empty."
+        )
+    if isinstance(problem, InvalidFilterOverdue):
+        return (
+            f"The Overdue filter can't be '{_escape(problem.value)}', because it's either on or "
+            "off. Turn Overdue on, or leave it off."
+        )
+    raise TypeError(f"no reason for the filter refusal {type(problem).__name__}")
+
+
+def _match_count_line(count: int) -> str:
+    return "1 task matches this filter." if count == 1 else f"{count} tasks match this filter."
+
+
+def _filter_select(
+    field: FilterField,
+    choices: Sequence[str],
+    raw: tuple[str, ...],
+    attributes: str,
+) -> str:
+    """A single-choice list: the no-value choice, the offered choices, and a value the address
+    carried that is not offered, kept as the selected choice exactly as it came."""
+    chosen = raw[0] if len(raw) == 1 else ""
+    shown = list(choices) if chosen in choices or chosen == "" else [*choices, chosen]
+    options = _option("", FILTER_ANY[field], chosen == "") + "".join(
+        _option(value, value, value == chosen) for value in shown
+    )
+    name = FILTER_ACCESSIBLE_NAMES.get(field)
+    named = f' aria-label="{name}"' if name else ""
+    return (
+        f'<select id="{_filter_id(field)}" name="{FILTER_QUERY_PREFIX}{field.value}"'
+        f"{named}{attributes}>\n{options}</select>\n"
+    )
+
+
+def _filter_control(
+    field: FilterField,
+    listing: ProjectTaskList,
+    problem: FilterFieldRefusal | None,
+    attributes: str,
+) -> str:
+    """The control for one field, holding what the address carried where its kind can."""
+    raw = listing.fields.values(field)
+    if field is FilterField.STATUS:
+        return _filter_select(field, [status.value for status in TaskStatus], raw, attributes)
+    if field is FilterField.PRIORITY:
+        return _filter_select(field, PRIORITY_CHOICES, raw, attributes)
+    if field is FilterField.ASSIGNEE:
+        return _filter_select(field, listing.assignees, raw, attributes)
+    if field is FilterField.LABEL:
+        return _filter_select(field, listing.labels, raw, attributes)
+    name = f"{FILTER_QUERY_PREFIX}{field.value}"
+    if field is FilterField.OVERDUE:
+        checked = " checked" if raw == ("on",) else ""
+        return (
+            f'<input type="checkbox" id="{_filter_id(field)}" name="{name}" value="on"'
+            f"{checked}{attributes}>\n"
+        )
+    kept = (
+        raw[0]
+        if len(raw) == 1 and (problem is None or isinstance(problem, ReversedFilterRange))
+        else ""
+    )
+    return (
+        f'<input type="date" id="{_filter_id(field)}" name="{name}" value="{_escape(kept)}"'
+        f"{attributes}>\n"
+    )
+
+
+def _filter_attempt(
+    field: FilterField, raw: tuple[str, ...], problem: FilterFieldRefusal | None
+) -> str:
+    """Every value a repeated field was sent with, and a date or overdue token the control cannot
+    hold, each exactly as it came and escaped, with no words of the tracker's between them."""
+    if not isinstance(
+        problem,
+        (RepeatedFilterValue, InvalidFilterDueFrom, InvalidFilterDueTo, InvalidFilterOverdue),
+    ):
+        return ""
+    values = "".join(f'<span class="attempted">{_escape(value)}</span>' for value in raw)
+    return f'<p class="attempt" id="{_filter_id(field)}-attempt">{values}</p>\n'
+
+
+def _filter_field(
+    field: FilterField,
+    listing: ProjectTaskList,
+    problems: Mapping[FilterField, FilterFieldRefusal],
+    first: bool,
+) -> str:
+    """One labelled field: its label, its reason when refused, the control, and the attempt."""
+    problem = problems.get(field)
+    identifier = _filter_id(field)
+    attributes = ""
+    reason = ""
+    if problem is not None:
+        attributes = f' aria-describedby="{identifier}-reason"' + (" autofocus" if first else "")
+        reason = (
+            f'<p class="reason" id="{identifier}-reason">{_filter_reason(problem, listing)}</p>\n'
+        )
+    return (
+        '<div class="field filter-field">\n'
+        f'<label for="{identifier}">{FILTER_LABELS[field]}</label>\n'
+        f"{reason}{_filter_control(field, listing, problem, attributes)}"
+        f"{_filter_attempt(field, listing.fields.values(field), problem)}"
+        "</div>\n"
+    )
+
+
+def _filter_area(project: Project, listing: ProjectTaskList) -> str:
+    """The GET form of seven controls, Apply, and Clear, for a project that has tasks."""
+    problems = {problem.field: problem for problem in listing.problems}
+    first = listing.problems[0].field if listing.problems else None
+    fields = "".join(
+        _filter_field(field, listing, problems, field is first) for field in FilterField
+    )
+    return (
+        f'<form method="get" action="/projects/{project.id}" class="filter-form" '
+        'id="filter" novalidate>\n'
+        f'<div class="filter-row">\n{fields}</div>\n'
+        '<div class="filter-actions">'
+        f'<button type="submit" id="filter-apply">{FILTER_APPLY_LABEL}</button>'
+        f'<a class="button-link" id="filter-clear" href="/projects/{project.id}">'
+        f"{FILTER_CLEAR_LABEL}</a>"
+        "</div>\n</form>\n"
+    )
+
+
+def _filtered_list(
+    listing: ProjectTaskList,
+    allowed: AllowedMoves,
+    outcome: MoveOutcome | None,
+    interaction: MoveInteraction | None,
+    off_list_line: tuple[_MoveKind, str] | None = None,
+) -> str:
+    """What stands under the controls: nothing while a field is refused, the empty state when a
+    filter matched nothing, otherwise the count of an active filter and the table. A line about a
+    task the list does not show stands above either, in a section that takes the focus."""
+    if listing.problems:
+        return ""
+    active = listing.narrowed
+    if active and listing.match_count == 0:
+        results = f'<p class="no-match" id="{_FILTER_NO_MATCH_ID}">{NO_MATCH_LINE}</p>\n'
+    else:
+        count = (
+            f'<p class="match-count" id="{_FILTER_COUNT_ID}">{_match_count_line(listing.match_count)}</p>\n'
+            if active
+            else ""
+        )
+        results = count + _task_list(
+            listing.rows, allowed, outcome, interaction, _carried_pairs(listing)
+        )
+    return results if off_list_line is None else _list_section(off_list_line, results)
+
+
+def _carried_pairs(listing: ProjectTaskList) -> Carried:
+    """The seven filter keys with every raw value the page was asked with, in control order, for
+    the hidden fields of each move form (CP-407). Nothing but the filter is carried."""
+    return tuple(
+        (FILTER_QUERY_PREFIX + field.value, value)
+        for field in FilterField
+        for value in getattr(listing.fields, field.value)
     )
 
 
@@ -887,23 +1239,31 @@ def project_page(
     rows: Sequence[TaskRow] = (),
     assignees: Sequence[str] = (),
     *,
+    listing: ProjectTaskList | None = None,
     priority_choices: Sequence[str] = PRIORITY_CHOICES,
     form: TaskForm | None = None,
     created: bool = False,
     allowed_moves: AllowedMoves = _no_moves,
     move_outcome: MoveOutcome | None = None,
     move_interaction: MoveInteraction | None = None,
+    off_list_task: Task | None = None,
 ) -> str:
     """One project's page: its add-task form, and its tasks in the order and with the overdue
     flags handed in. With `created`, it opens on its heading and the created line.
+
+    A `listing` adds the filter area, the count and the empty and refused states a filtered read
+    carries, for a project that has tasks; without one the page is the plain list of `rows`.
 
     Deciding no order and no overdue state, it shows the rows exactly as given. Each row offers the
     moves `allowed_moves` gives for its status. A `move_outcome` about one of the rows takes
     precedence over every other outcome: the page then shows only its line, and its focus. A
     `move_interaction` about one of the rows, with no such outcome, replaces that row's cancelled
-    button and owns the one focus in the same way.
+    button and owns the one focus in the same way. A `move_outcome` about the `off_list_task`, a
+    task of the project the filtered list does not show, gets one line above the results, and the
+    list section, not the line, owns the focus.
     """
-    lined = any(_has_move_line(move_outcome, row.task) for row in rows)
+    off_list_line = _off_list_line(move_outcome, off_list_task, allowed_moves)
+    lined = off_list_line is not None or any(_has_move_line(move_outcome, row.task) for row in rows)
     interacting = (
         not lined
         and move_interaction is not None
@@ -924,12 +1284,19 @@ def project_page(
         if project.description
         else ""
     )
+    shown_interaction = move_interaction if interacting else None
+    if listing is not None and listing.task_count > 0:
+        under_form = _filter_area(project, listing) + _filtered_list(
+            listing, allowed_moves, move_outcome, shown_interaction, off_list_line
+        )
+    else:
+        under_form = _task_list(rows, allowed_moves, move_outcome, shown_interaction)
     body = (
         f'<h1 class="pre-wrap"{heading_attributes}>{_escape(project.name)}</h1>\n'
         f"{created_line}"
         f"{description}"
         f"{_add_task_form(project, assignees, priority_choices, form or TaskForm())}"
-        f"{_task_list(rows, allowed_moves, move_outcome, move_interaction if interacting else None)}"
+        f"{under_form}"
     )
     return _document(f"{project.name} - tracker17", body)
 
