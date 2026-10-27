@@ -490,10 +490,13 @@ def test_workflow_entry_names_every_participating_module_and_check() -> None:
 
 
 FILTERING_REQUIREMENTS = {"FR-32", "FR-33", "FR-34", "FR-35"}
-FILTERING_PARTICIPANTS = ("application/tracker.py",)
+FILTERING_PARTICIPANTS = ("application/tracker.py", "web/routes.py", "web/pages.py")
 FILTERING_CHECKING_TESTS = (
     "tests/unit/test_filtering.py",
     "tests/integration/test_filter_tracker.py",
+    "tests/integration/test_filter_pages.py",
+    "tests/integration/test_filter_routes.py",
+    "tests/e2e/test_filters.py",
     "tests/architecture/test_trace.py",
     "tests/architecture/test_shapes.py",
 )

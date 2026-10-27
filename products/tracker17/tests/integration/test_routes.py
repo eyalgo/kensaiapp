@@ -480,6 +480,9 @@ def test_no_socket_connection_is_made() -> None:
         )
         get(site, "/tasks/1?comment_added=1")
         get(site, "/tasks/99")
+        get(site, "/projects/1?filter_status=todo&filter_overdue=on")
+        get(site, "/projects/1?filter_status=blocked")
+        get(site, "/projects/1")
     finally:
         _window["open"] = False
     assert comment.status == 303 and header(comment, "Location") == "/tasks/1?comment_added=1"
@@ -1082,3 +1085,25 @@ def test_move_pages_contain_no_executable_script(address: str) -> None:
             for name, value in element.attrs.items():
                 assert not name.lower().startswith("on"), (element.tag, name)
                 assert "javascript:" not in (value or "").lower(), (element.tag, name)
+
+
+def test_filter_apply_reload_and_clear_are_pages_that_save_and_set_nothing() -> None:
+    """CP-417, QC-7, QC-8, QC-34: Apply, its reload and Clear are the one project GET route, so the
+    enumeration already reaches them; each leaves state and saves as they were and answers with the
+    page policy and no cookie."""
+    saver = RecordingSaver()
+    site, tracker = make_site(saver)
+    post(site, name="Alpha", description="seed")
+    tracker.add_task(1, "Seed task", "", "", "")
+    before = (tracker.project_tasks(1), len(saver.saved))
+    for target in (
+        "/projects/1?filter_status=todo",
+        "/projects/1?filter_status=todo",
+        "/projects/1",
+        "/projects/1?filter_status=blocked",
+    ):
+        response = get(site, target)
+        assert response.status == 200, target
+        assert header(response, "Content-Security-Policy") == POLICY, target
+        assert header(response, "Set-Cookie") is None, target
+        assert (tracker.project_tasks(1), len(saver.saved)) == before, target

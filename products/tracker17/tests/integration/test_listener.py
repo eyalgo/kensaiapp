@@ -240,3 +240,14 @@ def test_address_taken_carries_the_original_error_as_its_cause() -> None:
         assert isinstance(caught.value.__cause__, OSError)
     finally:
         held.close()
+
+
+def test_a_filter_apply_over_a_real_socket_is_a_page_with_no_python_text(
+    served: tuple[str, int],
+) -> None:
+    """CP-417: Apply is a GET with a query, read by the real listener like any project address."""
+    for target in ("/projects/1?filter_status=todo", "/projects/1?filter_status=a&filter_status=b"):
+        status, body = request(served, "GET", target)
+        text = body.decode("utf-8", errors="replace")
+        assert status == 404  # this tracker holds no project; the query changes nothing about it
+        assert not any(word in text for word in PYTHON_TEXT)
