@@ -2,10 +2,10 @@
 
 Checks SRS NFR-1 (an action stays fast with 1,000 tasks of 20 comments each, editing a task's fields
 included, a label added or removed too, the operator's name saved, a comment added, a name added
-to or removed from the assignee list, and a task moved from `todo` to `in-progress`) and AC-15 (the
-response time). Change spec rules CP-143 (the add), CP-179 (the edit), CP-208 (the label add and
+to or removed from the assignee list, a task moved from `todo` to `in-progress`, and a project
+list filtered by a status, which realizes FR-32) and AC-15 (the response time). Change spec rules CP-143 (the add), CP-179 (the edit), CP-208 (the label add and
 remove), CP-237 (the name save), CP-276 to CP-289 (the comment add and the assignee add and remove)
-and CP-371 to CP-392 (the status move) and NFDR QC-48 are the ones each test names. The harness is
+CP-371 to CP-392 (the status move) and CP-418 to CP-423 (the status filter) and NFDR QC-48 are the ones each test names. The harness is
 tests/timed_run.py; it is loaded by its path and handed its own collaborators (a request site, a
 timer, a location), so no product name is patched. A script that only exits 0 could time the wrong
 path, so these tests prove it exercises the real one and refuses a wrong one.
@@ -2971,8 +2971,6 @@ def test_timed_filter_reports_loaded_counts_and_first_displayed_lengths(
     match, not the first stored; the report prints nothing."""
     shrunk = _shrunk(harness.seeded_state(), tasks=300, comments=3)
     first = _in_progress_ids(shrunk)[0]
-    stored_first = next(t for t in shrunk.tasks if t.status is TaskStatus.IN_PROGRESS).id
-    assert first != stored_first
     note = replace(find_task(shrunk, first).comments[0], text="Note 😀")  # type: ignore[union-attr]
     varied = _with_task(
         shrunk,
@@ -2982,6 +2980,8 @@ def test_timed_filter_reports_loaded_counts_and_first_displayed_lengths(
     )
     varied = replace(varied, tasks=tuple(reversed(varied.tasks)))
     _, _, loaded = _filter_fixture(harness, tmp_path, varied)
+    stored_first = next(t for t in loaded.tasks if t.status is TaskStatus.IN_PROGRESS).id
+    assert first != stored_first
     capsys.readouterr()
 
     report = harness.filter_fixture_report(loaded)

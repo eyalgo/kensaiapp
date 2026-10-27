@@ -1,7 +1,7 @@
 """The timed run: project creation and, at task volume, adding a task, editing one, adding and
 removing a task's label, saving the operator's name, adding a comment, adding and removing a
-name on the People assignee list, and moving a task from `todo` to `in-progress`, each with the
-page it lands on.
+name on the People assignee list, moving a task from `todo` to `in-progress`, and filtering a
+project's list by the status `in-progress`, each with the page it lands on.
 
 A script, not a collected test: pytest does not pick it up, because its name does not start with
 `test_`. Run it from the product root with `python3 tests/timed_run.py`. It uses locations of its
@@ -21,10 +21,13 @@ landing GET apart; it counts only as a changed save whose landing shows the save
 add, the assignee add and the assignee remove each seed a full-volume fixture of their own too, send
 the one form POST, and time it, its landing GET and their total; each counts only when the saved
 file is the fixture with that one change and the landing shows the action's completion line. The
-status move comes last, on a fixture of its own: it sends the one list-row move of a `todo` task,
+status move comes next, on a fixture of its own: it sends the one list-row move of a `todo` task,
 and counts only when the saved file is the fixture with that task's status replaced and nothing
-else, and the project list it lands on shows the move's completion line. Its harness is checked by
-tests/integration/test_timed_run.py.
+else, and the project list it lands on shows the move's completion line. The status filter comes
+last, on a fixture of its own: it sends the GET Apply press for `in-progress`, then a GET of the
+filtered address a reload opens, and counts only when the saved bytes are untouched and the page
+lists exactly the fixture's `in-progress` tasks, each once, under their count. Its harness is
+checked by tests/integration/test_timed_run.py.
 """
 
 from __future__ import annotations
@@ -103,6 +106,24 @@ MOVE_PLACE = "list"
 MOVE_LABEL = f"move a task at {TASK_VOLUME} tasks"
 MOVE_LANDING_LABEL = f"move landing page at {TASK_VOLUME} tasks"
 MOVE_TOTAL_LABEL = f"move total at {TASK_VOLUME} tasks"
+FILTER_STATUS = TaskStatus.IN_PROGRESS
+FILTER_PROJECT_ID = 1
+FILTER_LABEL = f"filter a task list at {TASK_VOLUME} tasks"
+FILTER_LANDING_LABEL = f"filter landing page at {TASK_VOLUME} tasks"
+FILTER_TOTAL_LABEL = f"filter total at {TASK_VOLUME} tasks"
+FILTER_HEADERS = {"Host": HOST, "Sec-Fetch-Site": "same-origin"}
+FILTER_CONTROLS = (
+    "filter_status",
+    "filter_priority",
+    "filter_assignee",
+    "filter_label",
+    "filter_due_from",
+    "filter_due_to",
+)
+FILTER_SAVED_FILE = "tracker.json"
+REDIRECTS = (301, 302, 303, 307, 308)
+FILTER_TASK_LINK = re.compile(r'<a class="pre-wrap" href="/tasks/([0-9]+)"')
+FILTER_COUNT_LINE = re.compile(r'id="filter-count">([^<]*)<')
 TASK_FIELDS = ("title", "priority", "assignee", "due_date")
 SHOWN_VALUE = re.compile(r'<input type="hidden" name="shown_([a-z_]+)" value="([^"]*)">')
 
@@ -882,10 +903,120 @@ def move_fixture_report(state: TrackerState) -> str:
     )
 
 
+def _filter_matches(state: TrackerState) -> list[Task]:
+    """The fixture's tasks holding the filtered status, in the order a project list shows them.
+
+    Read from the loaded fixture by a plain comparison of each task's status, never by the product's
+    filter or its list order: dated tasks first, earliest date first, then the identity.
+    """
+    held = [
+        task
+        for task in state.tasks
+        if task.project_id == FILTER_PROJECT_ID and task.status is FILTER_STATUS
+    ]
+    return sorted(
+        held, key=lambda task: (task.due_date is None, task.due_date or date.min, task.id)
+    )
+
+
+def _filter_apply_address() -> str:
+    """The address the Apply press sends: the form's six non-checkbox controls, Status chosen."""
+    chosen = {name: "" for name in FILTER_CONTROLS}
+    chosen["filter_status"] = FILTER_STATUS.value
+    return f"/projects/{FILTER_PROJECT_ID}?{urlencode(chosen)}"
+
+
+def _filter_count_text(matching: int) -> str:
+    return (
+        "1 task matches this filter." if matching == 1 else f"{matching} tasks match this filter."
+    )
+
+
+def _filter_landing_shows(page: str, matching: list[Task]) -> bool:
+    """True when the page lists every matching task once and no other, under the right count."""
+    listed = [int(found) for found in FILTER_TASK_LINK.findall(page)]
+    counts = FILTER_COUNT_LINE.findall(page)
+    return (
+        len(listed) == len(matching)
+        and set(listed) == {task.id for task in matching}
+        and counts == [_filter_count_text(len(matching))]
+    )
+
+
+def _saved_bytes(saved_data: SavedData) -> bytes:
+    return (saved_data.location / FILTER_SAVED_FILE).read_bytes()
+
+
+def measure_task_filter(
+    *, site: Site, saved_data: SavedData, timer: Callable[[], float]
+) -> list[Timed]:
+    """Press Apply for the status `in-progress` and fetch the filtered list a reload opens.
+
+    Three rows come back, in order: the Apply request, the reload's request and their sum. Both
+    requests are GETs marked same-origin. Apply counts only when it is a 200 that carries a result
+    (the count line, so neither a field refusal nor a failure page) or a redirect, and the saved
+    bytes are as they were. The reload asks for the redirect's address, or else for Apply's own.
+    It counts only when it is a 200 listing exactly the fixture's matching tasks, each once, under
+    their count, and the saved bytes are still untouched. The expected tasks are read from the
+    loaded fixture. The readbacks sit outside the two timed intervals. With any other answer to
+    Apply the reload is not requested: its row is zero and failed, and the total is Apply's time.
+    Nothing is printed here; `verdict` prints the rows.
+    """
+    before = saved_data.load()
+    assert before is not None
+    matching = _filter_matches(before)
+    bytes_before = _saved_bytes(saved_data)
+    address = _filter_apply_address()
+    started = timer()
+    response = site.handle("GET", address, FILTER_HEADERS, b"")
+    apply_seconds = timer() - started
+    location = dict(response.headers).get("Location", "")
+    redirected = response.status in REDIRECTS and location != ""
+    answered = redirected or (
+        response.status == 200 and 'id="filter-count"' in response.body.decode("utf-8")
+    )
+    applied = answered and _saved_bytes(saved_data) == bytes_before
+    if not applied:
+        return [
+            Timed(FILTER_LABEL, apply_seconds, False),
+            Timed(FILTER_LANDING_LABEL, 0.0, False),
+            Timed(FILTER_TOTAL_LABEL, apply_seconds, False),
+        ]
+    started = timer()
+    landing = site.handle("GET", location if redirected else address, FILTER_HEADERS, b"")
+    landing_seconds = timer() - started
+    shown = (
+        landing.status == 200
+        and _filter_landing_shows(landing.body.decode("utf-8"), matching)
+        and _saved_bytes(saved_data) == bytes_before
+    )
+    return [
+        Timed(FILTER_LABEL, apply_seconds, True),
+        Timed(FILTER_LANDING_LABEL, landing_seconds, shown),
+        Timed(FILTER_TOTAL_LABEL, apply_seconds + landing_seconds, shown),
+    ]
+
+
+def filter_fixture_report(state: TrackerState) -> str:
+    """The volume, the lengths of the first listed matching task's title and first comment, the
+    status filtered by and how many tasks hold it, all read from the fixture as loaded back.
+
+    The first task is the first the filtered list shows, which is list order and not storage order.
+    Nothing is printed here.
+    """
+    matching = _filter_matches(state)
+    first = matching[0]
+    return (
+        f"filter fixture: {_volume_line(state)}; title of {len(first.title)} characters, "
+        f"comment of {len(first.comments[0].text)} characters; "
+        f"status {FILTER_STATUS.value}, {len(matching)} matching"
+    )
+
+
 def main(directory: Path | None = None, timer: Callable[[], float] = time.perf_counter) -> int:
     """Run the project creates, then the add, the edit, the label add and remove, the name save, the
-    comment add, the assignee add and remove and the status move at task volume; 1 when any
-    failed."""
+    comment add, the assignee add and remove, the status move and the status filter at task
+    volume; 1 when any failed."""
     if directory is None:
         with tempfile.TemporaryDirectory() as temporary:
             return main(Path(temporary), timer)
@@ -915,8 +1046,16 @@ def main(directory: Path | None = None, timer: Callable[[], float] = time.perf_c
     name_status = verdict(name_results, LIMIT_SECONDS)
     new_action_status = _run_new_actions(directory, timer)
     move_status = _run_move(directory, timer)
+    filter_status = _run_filter(directory, timer)
     return max(
-        status, task_status, edit_status, label_status, name_status, new_action_status, move_status
+        status,
+        task_status,
+        edit_status,
+        label_status,
+        name_status,
+        new_action_status,
+        move_status,
+        filter_status,
     )
 
 
@@ -951,14 +1090,27 @@ def _run_new_actions(directory: Path, timer: Callable[[], float]) -> int:
 
 
 def _run_move(directory: Path, timer: Callable[[], float]) -> int:
-    """Time the status move on a fixture of its own, after every other line the run prints.
+    """Time the status move on a fixture of its own, after every older line the run prints.
 
-    Prints the fixture line, then the move's three rows: the POST, the landing and the total.
+    Prints the fixture line, then the move's three rows: the POST, the landing and the total. The
+    filter block follows it and is the last.
     """
     move_data = SavedData(directory / "move-volume")
     move_site, move_seeded = open_task_volume(move_data)
     print(move_fixture_report(move_seeded))
     results = measure_task_move(site=move_site, saved_data=move_data, timer=timer)
+    return verdict(results, LIMIT_SECONDS)
+
+
+def _run_filter(directory: Path, timer: Callable[[], float]) -> int:
+    """Time the status filter on a fixture of its own, after the move block and last of all.
+
+    Prints the fixture line, then the filter's three rows: Apply, the landing and the total.
+    """
+    filter_data = SavedData(directory / "filter-volume")
+    filter_site, filter_seeded = open_task_volume(filter_data)
+    print(filter_fixture_report(filter_seeded))
+    results = measure_task_filter(site=filter_site, saved_data=filter_data, timer=timer)
     return verdict(results, LIMIT_SECONDS)
 
 
