@@ -1180,8 +1180,9 @@ def _filter_field(
 
 def _filter_area(project: Project, listing: ProjectTaskList) -> str:
     """The GET form of seven controls, Apply, and Clear, for a project that has tasks."""
-    problems = {problem.field: problem for problem in listing.problems}
-    first = listing.problems[0].field if listing.problems else None
+    filter_problems = [p for p in listing.problems if isinstance(p, FilterFieldRefusal)]
+    problems = {problem.field: problem for problem in filter_problems}
+    first = filter_problems[0].field if filter_problems else None
     fields = "".join(
         _filter_field(field, listing, problems, field is first) for field in FilterField
     )

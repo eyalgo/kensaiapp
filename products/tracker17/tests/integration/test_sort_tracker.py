@@ -27,8 +27,8 @@ from application import (
     SortInput,
     SortKey,
     TaskSort,
-    TrackerState,
     Tracker,
+    TrackerState,
 )
 from domain import restore_state
 
@@ -214,7 +214,12 @@ def test_sorted_read_distinguishes_empty_project_and_zero_matches():
     tracker = make_tracker(RecordingSaver())
     bad = SortInput(field=("colour",))
     empty = tracker.project_task_list(1, FilterInput(), sort_fields=bad)
-    assert (empty.task_count, empty.rows, empty.problems, empty.count_requested) == (0, (), (), False)
+    assert (empty.task_count, empty.rows, empty.problems, empty.count_requested) == (
+        0,
+        (),
+        (),
+        False,
+    )
     assert empty.sorting == TaskSort()
 
     tracker.add_task(1, "One", "low", "", "")

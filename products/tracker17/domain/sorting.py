@@ -11,7 +11,8 @@ to the web part. The request and the page that carry the choices are web/routes.
 web/pages.py, which decode the address, map each refusal type to its reason and place the words.
 Nothing here reads a clock or a file: today arrives as an argument.
 
-Checked by: tests/unit/test_sorting.py (the rules), and tests/architecture/test_trace.py and
+Checked by: tests/unit/test_sorting.py (the rules), tests/integration/test_sort_tracker.py (the
+read the application projects), and tests/architecture/test_trace.py and
 tests/architecture/test_shapes.py (the entry and the shape).
 """
 

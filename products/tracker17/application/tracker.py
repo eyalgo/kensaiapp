@@ -14,15 +14,18 @@ from application.contracts import Clock, Saver
 from domain import (
     FilterFieldRefusal,
     FilterInput,
-    FilterRefused,
     OperatorNameOutcome,
     Project,
+    ProjectListRefused,
+    SortFieldRefusal,
+    SortInput,
     Task,
     TaskEditContext,
     TaskEditOutcome,
     TaskFields,
     TaskFilter,
     TaskLabelOutcome,
+    TaskSort,
     TaskStatus,
     TrackerState,
     add_assignee,
@@ -32,7 +35,6 @@ from domain import (
     allowed_moves,
     create_project,
     edit_task,
-    filter_project_tasks,
     find_project,
     find_task,
     is_overdue,
@@ -44,8 +46,11 @@ from domain import (
     remove_assignee,
     remove_task_label,
     set_operator_name,
+    sort_project_tasks,
     task_edit_context,
 )
+
+NO_SORT = SortInput()
 
 
 @dataclass(frozen=True)
@@ -61,9 +66,11 @@ class ProjectTaskList:
     """A project's task list read for one page: the whole project's task count, the matching rows
     in list order, how many matched and the choices as validated.
 
-    A refused filter has no rows, no match count and no validated choices: it carries the typed
-    problems in control order beside the raw choices it was sent with. Both kinds carry the options
-    of the whole project, so the controls can be built from either.
+    A refusal of the filter or of the sort has no rows, no match count, no validated choices and no
+    visible count: it carries the typed problems in control order beside the raw choices it was sent
+    with. Both kinds carry the options of the whole project, so the controls can be built from
+    either. `narrowed` speaks of the filter alone; `count_requested` is the domain's word on
+    whether the page owes the operator the number of tasks it lists.
     """
 
     task_count: int
@@ -71,9 +78,12 @@ class ProjectTaskList:
     match_count: int
     filter: TaskFilter | None
     fields: FilterInput
-    problems: tuple[FilterFieldRefusal, ...]
+    problems: tuple[FilterFieldRefusal | SortFieldRefusal, ...]
     assignees: tuple[str, ...]
     labels: tuple[str, ...]
+    sort_fields: SortInput
+    sorting: TaskSort | None
+    count_requested: bool
 
     @property
     def narrowed(self) -> bool:
@@ -236,17 +246,24 @@ class Tracker:
             for task in list_project_tasks(self._state, project_id)
         )
 
-    def project_task_list(self, project_id: int, fields: FilterInput) -> ProjectTaskList:
-        """The project's tasks narrowed by the filter, read for one page, saving nothing.
+    def project_task_list(
+        self,
+        project_id: int,
+        fields: FilterInput,
+        *,
+        sort_fields: SortInput = NO_SORT,
+    ) -> ProjectTaskList:
+        """The project's tasks narrowed by the filter and ordered by the sort, read for one page,
+        saving nothing.
 
         One clock read gives the date for the whole page: the machine-local calendar date of that
-        instant serves the selection and every row's overdue flag. A refused filter comes back as
-        the typed problems, never raised, with the options of the whole project.
+        instant serves the selection and every row's overdue flag. A refused filter or sort comes
+        back as the typed problems, never raised, with the options of the whole project.
         """
         today = self._clock.now().astimezone().date()
         try:
-            selection = filter_project_tasks(self._state, project_id, fields, today)
-        except FilterRefused as refused:
+            selection = sort_project_tasks(self._state, project_id, fields, sort_fields, today)
+        except ProjectListRefused as refused:
             options = project_filter_options(self._state, project_id)
             return ProjectTaskList(
                 task_count=options.task_count,
@@ -257,6 +274,9 @@ class Tracker:
                 problems=refused.refusals,
                 assignees=options.assignees,
                 labels=options.labels,
+                sort_fields=sort_fields,
+                sorting=None,
+                count_requested=False,
             )
         rows = tuple(
             TaskRow(task, is_overdue(task.due_date, task.status, today)) for task in selection.tasks
@@ -270,6 +290,9 @@ class Tracker:
             problems=(),
             assignees=selection.assignees,
             labels=selection.labels,
+            sort_fields=sort_fields,
+            sorting=selection.sorting,
+            count_requested=selection.count_requested,
         )
 
     def _save_then_publish(self, new_state: TrackerState) -> None:
