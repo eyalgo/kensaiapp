@@ -340,6 +340,11 @@ def test_double_click_never_confirms_at_the_original_trigger_coordinates(
         selector = f"button[aria-label=\"Move '{title}' to cancelled\"]"
         if case == "task-page":
             scroll_to_middle(page, selector)
+        else:
+            # The filter area above the list puts this button below the first screen, and a click
+            # cannot land outside the window. Nearest-edge only: the button stays at the page's
+            # bottom, where the confirmation must still open under it.
+            page.locator(selector).scroll_into_view_if_needed()
     before = saved_bytes(tracker)
     box = page.locator(selector).bounding_box()
     assert box is not None

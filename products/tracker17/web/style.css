@@ -265,25 +265,42 @@ button.move-button:hover {
 }
 
 /* The confirmation (DESIGN.md confirm-strip): the sentence covers the spot the button stood in and
-   is at least as tall; the controls follow below it. */
+   is at least as tall; the controls follow below it, to the right of that spot. The sentence's box
+   runs down behind the controls, so it is as tall as the whole strip. A page that opens with the
+   strip is taller than the one the press came from, and a press made at the page's bottom lands
+   with the strip shifted up by the height it added; the sentence still reaches the first button's
+   whole spot then, and a click there hits the sentence, never a control. */
 .confirm-strip {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
+  display: grid;
+  grid-template-columns: 6.5rem auto;
+  justify-content: start;
+  align-items: start;
   gap: 8px;
   width: 18rem;
 }
 
 .confirm-strip form {
-  flex: 0 0 auto;
+  position: relative;
+  z-index: 1;
+  grid-column: 2;
 }
 
+.confirm-strip form:first-of-type {
+  grid-row: 2;
+}
+
+.confirm-strip form:last-of-type {
+  grid-row: 3;
+}
+
+/* The bottom padding is the two controls and the gaps around them: the confirming control's 28px,
+   the back-out control's 36px and two 8px gaps. */
 .confirm-sentence {
-  flex: 0 0 100%;
+  grid-area: 1 / 1 / 4 / 3;
   box-sizing: border-box;
   min-height: 28px;
   margin: 0;
-  padding: 4px 8px;
+  padding: 4px 8px 80px;
   background: var(--surface-sunk);
   color: var(--ink);
   font-size: 0.9375rem;

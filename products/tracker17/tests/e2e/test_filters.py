@@ -32,8 +32,9 @@ class FixedClock:
         return datetime(2026, 10, 11, 12, 0, tzinfo=UTC)
 
 
-def seeded(location: Path, long_title: str = "") -> None:
-    """Save a project of three tasks before the tracker process starts, as a past run left it."""
+def seeded(location: Path, long_title: str = "", extra_rows: int = 0) -> None:
+    """Save a project of three tasks before the tracker process starts, as a past run left it.
+    Extra tasks are dated, so they list before the undated last one."""
     tracker = Tracker(empty_state(), SavedData(location), FixedClock())
     tracker.create_project("Alpha", "")
     tracker.add_assignee("Dana")
@@ -41,6 +42,8 @@ def seeded(location: Path, long_title: str = "") -> None:
     tracker.add_task(1, TITLES[1], "low", "", "2999-01-01")
     tracker.add_task(1, TITLES[2], "medium", "", "")
     tracker.add_task_label(1, "bug")
+    for number in range(extra_rows):
+        tracker.add_task(1, f"Extra {number}", "high", "", "2000-02-01")
 
 
 @pytest.fixture
@@ -127,4 +130,45 @@ def test_filter_refusal_focus_and_filter_row_reflow(
         "(() => { const t = document.querySelector('.table-scroll');"
         " return t.scrollWidth > t.clientWidth; })()"
     )
+    context.close()
+
+
+@pytest.mark.parametrize("point", ["interior", "far-edge"])
+@pytest.mark.parametrize("extra_rows", [0, 12])
+def test_confirmation_opens_under_a_trigger_at_the_pages_bottom(
+    trackers, location: Path, browser: Browser, extra_rows: int, point: str
+) -> None:
+    """CP-325, CP-337: the last row's cancelled button sits at the very bottom of the scrolled
+    page. A double click on it opens a confirmation taller than the button, and the third click at
+    the same coordinate hits the sentence, so nothing is confirmed. The guarantee holds on a short
+    list and on a long one, so it does not rest on the height of what sits above the button."""
+    seeded(location, extra_rows=extra_rows)
+    running = trackers.start(location)
+    context = browser.new_context()
+    context.set_default_timeout(15000)
+    page = context.new_page()
+    page.goto(f"{running.address}/projects/1")
+    selector = "button[aria-label=\"Move 'Ship' to cancelled\"]"
+    page.evaluate("window.scrollTo(0, document.documentElement.scrollHeight)")
+    assert page.evaluate("window.scrollY") > 0
+    before = (location / "tracker.json").read_bytes()
+    box = page.locator(selector).bounding_box()
+    assert box is not None
+    x = box["x"] + (box["width"] / 2 if point == "interior" else box["width"] - 1.5)
+    y = box["y"] + (box["height"] / 2 if point == "interior" else box["height"] - 1.5)
+    page.mouse.dblclick(x, y)
+    page.wait_for_url(lambda url: "move_confirm=cancelled" in url)
+    page.wait_for_load_state("load")
+    expect(page.locator("#confirm-sentence")).to_be_visible()
+    hit = page.evaluate(
+        "([x, y]) => { const e = document.elementFromPoint(x, y);"
+        " return e ? e.closest('#confirm-sentence') !== null : false; }",
+        [x, y],
+    )
+    assert hit, "the original coordinate must land on the sentence"
+    page.mouse.click(x, y)
+    page.wait_for_timeout(300)
+    expect(page.locator(".confirm-strip")).to_have_count(1)
+    assert "moved=" not in page.url
+    assert (location / "tracker.json").read_bytes() == before
     context.close()
