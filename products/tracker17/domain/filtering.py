@@ -12,8 +12,9 @@ argument. The request and the page that carry the choices are web/routes.py, web
 web/style.css, which decode the address, map each refusal type to its reason and place the words.
 
 Checked by: tests/unit/test_filtering.py (the rules), tests/integration/test_filter_tracker.py (the
-read through the Tracker), and tests/architecture/test_trace.py and
-tests/architecture/test_shapes.py (the entry and the shape).
+read through the Tracker), tests/integration/test_filter_routes.py (the request),
+tests/integration/test_filter_pages.py (the page), tests/e2e/test_filters.py (the browser), and
+tests/architecture/test_trace.py and tests/architecture/test_shapes.py (the entry and the shape).
 """
 
 from __future__ import annotations
@@ -81,6 +82,11 @@ class TaskFilter:
     due_from: date | None = None
     due_to: date | None = None
     overdue: bool = False
+
+    @property
+    def narrows(self) -> bool:
+        """Whether any choice is set, so the list is narrowed and a count or an empty state is owed."""
+        return self != TaskFilter()
 
 
 @dataclass(frozen=True)

@@ -501,3 +501,19 @@ def test_filter_field_is_the_closed_control_order():
     assert [field.value for field in FilterField] == list(FIELD_NAMES)
     assert FilterInput().values(FilterField.LABEL) == ()
     assert one("label", "x").values(FilterField.LABEL) == ("x",)
+
+
+def test_a_filter_narrows_only_when_a_choice_is_set():
+    """CP-395, CP-398, design § 3 A: the domain says whether the validated choices narrow anything,
+    so no other part compares them. A singleton empty field and an unset Overdue narrow nothing."""
+    assert TaskFilter().narrows is False
+    assert select(MIXED, FilterInput(status=("",), overdue=("",))).filter.narrows is False
+    for field, value in (
+        ("status", "todo"),
+        ("priority", "high"),
+        ("label", "x"),
+        ("overdue", "on"),
+        ("due_from", "2026-10-01"),
+        ("due_to", "2026-10-01"),
+    ):
+        assert select(MIXED, one(field, value)).filter.narrows is True, field

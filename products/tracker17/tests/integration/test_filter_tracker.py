@@ -255,3 +255,14 @@ def test_existing_project_tasks_remains_compatible():
 
     assert rows == (TaskRow(late, True), TaskRow(soon, False), TaskRow(undated, False))
     assert tracker.project_task_list(1, FilterInput()).rows == rows
+
+
+def test_the_read_model_says_whether_the_filter_narrows(utc_zone):
+    """CP-395, CP-398: an active filter, an unset one and a refused one, as the page reads them."""
+    tracker = make_tracker(RecordingSaver())
+    tracker.add_task(1, "Late", "high", "dana", "2026-10-10")
+
+    assert tracker.project_task_list(1, one("priority", "high")).narrowed is True
+    assert tracker.project_task_list(1, one("priority", "")).narrowed is False
+    assert tracker.project_task_list(1, FilterInput()).narrowed is False
+    assert tracker.project_task_list(1, one("priority", "urgent")).narrowed is False

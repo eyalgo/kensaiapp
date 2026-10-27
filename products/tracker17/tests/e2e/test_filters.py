@@ -75,20 +75,22 @@ def test_filter_apply_and_clear_work_with_keyboard_and_no_script(
     scriptless.goto(f"{running.address}/projects/1")
     assert listed(scriptless) == list(TITLES)
     tab_until(scriptless, "filter-priority")
-    scriptless.keyboard.press("ArrowDown")
+    scriptless.keyboard.type("low")
     tab_until(scriptless, "filter-overdue")
     scriptless.keyboard.press("Space")
     tab_until(scriptless, "filter-apply")
     scriptless.keyboard.press("Enter")
-    scriptless.wait_for_load_state()
+    scriptless.wait_for_url(lambda url: "filter_priority=low" in url)
     query = parse_qs(urlsplit(scriptless.url).query, keep_blank_values=True)
     assert query["filter_priority"] == ["low"] and query["filter_overdue"] == ["on"]
     assert urlsplit(scriptless.url).path == "/projects/1"
     expect(scriptless.locator("#filter-count, .no-match")).to_be_visible()
-    assert listed(scriptless) == [] and "No tasks match this filter." in scriptless.inner_text("main")
+    assert listed(scriptless) == [] and "No tasks match this filter." in scriptless.inner_text(
+        "main"
+    )
     tab_until(scriptless, "filter-clear")
     scriptless.keyboard.press("Enter")
-    scriptless.wait_for_load_state()
+    scriptless.wait_for_url(lambda url: urlsplit(url).query == "")
     assert urlsplit(scriptless.url).query == "" and listed(scriptless) == list(TITLES)
     assert "match this filter" not in scriptless.inner_text("main")
 
@@ -117,8 +119,8 @@ def test_filter_refusal_focus_and_filter_row_reflow(
     page.set_viewport_size({"width": FULL_WIDTH // ZOOM_FACTOR, "height": 800})
     page.goto(f"{running.address}/projects/1")
     assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
-    left = lambda selector: page.locator(selector).bounding_box()["x"]  # noqa: E731
-    top = lambda selector: page.locator(selector).bounding_box()["y"]  # noqa: E731
+    left = lambda selector: page.locator(selector).bounding_box()["x"]
+    top = lambda selector: page.locator(selector).bounding_box()["y"]
     assert left("#filter-status") == left("#filter-priority") == left("#filter-label")
     assert top("#filter-priority") > top("#filter-status")
     assert page.evaluate(

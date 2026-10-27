@@ -87,7 +87,7 @@ main > ul,
 main > p,
 main > form,
 main > .sheet,
-main > table,
+main > .table-scroll,
 main > dl {
   margin: 0 0 16px;
   padding: 24px;
@@ -370,8 +370,13 @@ h2:focus,
 }
 
 /* The task list: a plain table on a sheet, header cells set apart by weight. */
-main > table {
-  width: calc(100% - 0px);
+main > .table-scroll {
+  padding: 0;
+  overflow-x: auto;
+}
+
+.table-scroll > table {
+  width: 100%;
   border-collapse: collapse;
   background: var(--surface);
 }
@@ -446,4 +451,78 @@ form:focus {
 
 .sheet > .notice {
   margin: 0 0 16px;
+}
+
+/* The filter controls: a wrapping row above the task table, each control a label above its field,
+   then Apply and Clear. Under 30rem, which is 400% zoom on a 1280px window, the fields stack. */
+.filter-form {
+  max-width: none;
+  padding: 16px 24px 8px;
+}
+
+.filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 12px;
+}
+
+.filter-field {
+  flex: 1 1 8rem;
+  min-width: 0;
+  max-width: 100%;
+  margin-bottom: 8px;
+}
+
+.filter-field select,
+.filter-field input[type="date"] {
+  max-width: 100%;
+}
+
+@media (max-width: 30rem) {
+  .filter-field {
+    flex-basis: 100%;
+  }
+}
+
+.filter-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+a.button-link {
+  display: inline-flex;
+  align-items: center;
+  height: 36px;
+  min-width: 24px;
+  padding: 0 16px;
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--ink-muted);
+  border-radius: 4px;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+a.button-link:hover {
+  background: var(--surface-sunk);
+}
+
+/* A value the address carried that no control can hold, shown as it came. */
+.attempt {
+  margin: 0 0 4px;
+}
+
+.attempted {
+  display: inline-block;
+  min-width: 1.5rem;
+  min-height: 1.5em;
+  margin: 0 8px 4px 0;
+  padding: 0 8px;
+  border: 1px solid var(--ink-muted);
+  border-radius: 4px;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
 }

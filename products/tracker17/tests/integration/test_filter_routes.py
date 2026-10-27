@@ -13,7 +13,7 @@ from pathlib import Path
 from urllib.parse import quote, urlencode
 
 import pytest
-from test_filter_pages import FIELD_NAMES, control, project, rows_of, three_task_world
+from test_filter_pages import FIELD_NAMES, project, rows_of, three_task_world
 from test_pages import parse
 from test_routes import FORM, POLICY, SAME_ORIGIN, get, header, page
 from test_task_routes import World, make_world, utc_zone  # noqa: F401
@@ -80,7 +80,7 @@ def test_reload_bookmark_and_back_recompute_without_saving(tmp_path: Path) -> No
     assert "No tasks match this filter." in later.text()
     cleared = project(world)
     assert rows_of(cleared) == ["Write docs", "Fix bug", "Ship"]
-    assert "match this filter" not in cleared.text() and "applied" not in cleared.text().lower()
+    assert "this filter" not in cleared.text() and "applied" not in cleared.text().lower()
     assert world.saver.saves == saves + 1  # the one move this test itself made
     assert world.bytes_on_disk() != bytes_before
 
@@ -131,18 +131,17 @@ def test_a_refused_filter_changes_nothing_on_disk(tmp_path: Path, query: str) ->
 
 
 def test_address_builder_carries_repeated_pairs_and_keeps_its_callers() -> None:
-    """Design 3 C: `_address` takes repeated pairs, preserving order and empties; the existing
+    """Design 3 C: `_address` takes a repeated key, preserving order and empties; the existing
     flag and keyword forms answer exactly as before."""
     assert routes._address("/p") == "/p"
     assert routes._address("/p", "created") == "/p?created"
     assert routes._address("/p", "created", move_task="1") == "/p?created&move_task=1"
     assert (
-        routes._address("/p", pairs=(("filter_label", "a"), ("filter_label", ""), ("x", " y")))
-        == "/p?filter_label=a&filter_label=&x=+y"
+        routes._address("/p", filter_label=("a", "", "a"), x=" y")
+        == "/p?filter_label=a&filter_label=&filter_label=a&x=+y"
     )
-    assert (
-        routes._address("/p", "f", pairs=(("k", "1"),), move_task="2") == "/p?f&k=1&move_task=2"
-    )
+    assert routes._address("/p", "f", k=("1",), move_task="2") == "/p?f&k=1&move_task=2"
+    assert routes._address("/p", k=()) == "/p"
 
 
 def test_names_and_labels_round_trip_through_encoded_addresses(tmp_path: Path) -> None:
@@ -171,6 +170,13 @@ def test_filter_get_preserves_route_security_and_state_contracts(tmp_path: Path)
         assert header(response, "Clear-Site-Data") is None
     assert world.saver.saves == saves
     for mark in ("cross-site", "same-site"):
-        assert get(world.site, "/projects/1?filter_status=todo", {"Host": "127.0.0.1:8017", "Sec-Fetch-Site": mark}).status == 403
+        assert (
+            get(
+                world.site,
+                "/projects/1?filter_status=todo",
+                {"Host": "127.0.0.1:8017", "Sec-Fetch-Site": mark},
+            ).status
+            == 403
+        )
     assert get(world.site, "/projects/1?filter_status=todo", {"Host": "evil.example"}).status == 403
     assert world.site.handle("POST", "/projects/1", {**SAME_ORIGIN, **FORM}, b"").status == 404

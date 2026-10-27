@@ -75,6 +75,11 @@ class ProjectTaskList:
     assignees: tuple[str, ...]
     labels: tuple[str, ...]
 
+    @property
+    def narrowed(self) -> bool:
+        """Whether the validated choices narrow the list. A refused filter narrows nothing."""
+        return self.filter is not None and self.filter.narrows
+
 
 class Tracker:
     """Holds the current state while the tracker runs."""

@@ -26,6 +26,8 @@ from application import (
     BlankName,
     BlankTitle,
     EmptyLabel,
+    FilterField,
+    FilterInput,
     InvalidDueDate,
     InvalidPriority,
     InvalidTaskStatus,
@@ -71,6 +73,7 @@ MOVE_PATTERN = re.compile(r"/tasks/([0-9]+)/move")
 CONFIRM_MOVE_PATTERN = re.compile(r"/tasks/([0-9]+)/move/confirm")
 NOT_STORED = ("Cache-Control", "no-store")
 SHOWN_PREFIX = "shown_"
+FILTER_PREFIX = "filter_"
 TASK_FIELDS = ("title", "priority", "assignee", "due_date")
 EDIT_FAILED = "save"
 OPERATOR_NAME_FAILED = "save"
@@ -119,12 +122,15 @@ def _respond(status: int, body: bytes = b"", *extra: tuple[str, str]) -> Respons
     return Response(status, (*extra, ("Content-Security-Policy", PAGE_POLICY)), body)
 
 
-def _address(path: str, *flags: str, **query: str) -> str:
+def _address(path: str, *flags: str, **query: str | tuple[str, ...]) -> str:
     """The one place an address is built, for every redirect a submission answers with (RT-8).
 
-    A flag is a bare word in the query (`?created`); a value is a `key=value` pair.
+    A flag is a bare word in the query (`?created`); a value is a `key=value` pair. A tuple is a
+    key repeated once for each value in it, in order and with empty values kept, as the filter's
+    carried choices need.
     """
-    parts = [*flags, urlencode(query)] if query else list(flags)
+    encoded = urlencode(query, doseq=True)
+    parts = [*flags, encoded] if encoded else list(flags)
     return f"{path}?{'&'.join(parts)}" if parts else path
 
 
@@ -164,6 +170,16 @@ def _carried(submitted: TaskFields, shown: TaskFields) -> dict[str, str]:
         {SHOWN_PREFIX + name: value for name, value in asdict(shown).items() if value is not None}
     )
     return carried
+
+
+def _filter_input(values: Mapping[str, list[str]]) -> FilterInput:
+    """The seven filter keys an address carries, every value of each kept as sent (CP-405).
+
+    A key the address lacks is an empty tuple; any other key is not a filter and is not read.
+    """
+    return FilterInput(
+        **{field.value: tuple(values.get(FILTER_PREFIX + field.value, ())) for field in FilterField}
+    )
 
 
 def _closed(vocabulary: type[Code], value: str) -> Code | None:
@@ -453,8 +469,8 @@ class Site:
 
     def _project_page(self, project: Project, query: Mapping[str, list[str]]) -> Response:
         """Read the add form's outcome from the address and build the page; it changes nothing."""
-        rows = self._tracker.project_tasks(project.id)
-        tasks = {row.task.id: row.task for row in rows}
+        listing = self._tracker.project_task_list(project.id, _filter_input(query))
+        tasks = {row.task.id: row.task for row in listing.rows}
         move = self._move_view(query, tasks.get)
         if move is None:
             return Site._html(pages.task_not_found_page(), HTTPStatus.NOT_FOUND)
@@ -462,8 +478,9 @@ class Site:
         return self._html(
             pages.project_page(
                 project,
-                rows,
+                listing.rows,
                 self._tracker.assignees(),
+                listing=listing,
                 form=self._task_form(query),
                 created="created" in query,
                 allowed_moves=self._tracker.allowed_moves,
@@ -900,7 +917,7 @@ class Site:
             return failed()
 
     @staticmethod
-    def _redirect(path: str, *flags: str, **query: str) -> Response:
+    def _redirect(path: str, *flags: str, **query: str | tuple[str, ...]) -> Response:
         return _respond(HTTPStatus.SEE_OTHER, b"", ("Location", _address(path, *flags, **query)))
 
     @staticmethod

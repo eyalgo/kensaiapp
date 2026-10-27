@@ -10,7 +10,6 @@ checks words, they are the strings of this change's text record.
 
 from __future__ import annotations
 
-from collections.abc import Iterator
 from pathlib import Path
 from urllib.parse import quote
 
@@ -67,8 +66,8 @@ def labelled(root: Element, identifier: str) -> str:
 
 
 def rows_of(root: Element) -> list[str]:
-    (table,) = root.find_all("table")
-    return [a.text() for a in table.find_all("a")]
+    """The titles listed, in order; none when the page shows no table."""
+    return [a.text() for table in root.find_all("table") for a in table.find_all("a")]
 
 
 def reason_of(root: Element, name: str) -> Element | None:
@@ -93,7 +92,7 @@ def test_nonempty_project_offers_labelled_filter_controls(tmp_path: Path) -> Non
         "done",
         "cancelled",
     ]
-    assert [o.text() for o in status.find_all("option")][0] == "Any status"
+    assert status.find_all("option")[0].text() == "Any status"
     priority = control(root, "filter_priority")
     assert [o.attrs["value"] for o in priority.find_all("option")] == [
         "",
@@ -102,13 +101,13 @@ def test_nonempty_project_offers_labelled_filter_controls(tmp_path: Path) -> Non
         "high",
         "critical",
     ]
-    assert [o.text() for o in priority.find_all("option")][0] == "Any priority"
+    assert priority.find_all("option")[0].text() == "Any priority"
     assignee = control(root, "filter_assignee")
     assert [o.attrs["value"] for o in assignee.find_all("option")] == ["", "Dana", " Ari"]
-    assert [o.text() for o in assignee.find_all("option")][0] == "Any assignee"
+    assert assignee.find_all("option")[0].text() == "Any assignee"
     label = control(root, "filter_label")
     assert [o.attrs["value"] for o in label.find_all("option")] == ["", "bug", "ui"]
-    assert [o.text() for o in label.find_all("option")][0] == "Any label"
+    assert label.find_all("option")[0].text() == "Any label"
     assert control(root, "filter_due_from").attrs["type"] == "date"
     assert control(root, "filter_due_to").attrs["type"] == "date"
     overdue = control(root, "filter_overdue")
@@ -147,7 +146,7 @@ def test_unset_controls_show_no_filter_count(tmp_path: Path) -> None:
         "unknown=todo&filter_extra=1",
     ):
         root = project(world, query)
-        assert "match this filter" not in root.text(), query
+        assert "this filter" not in root.text(), query
         assert rows_of(root) == ["Write docs", "Fix bug", "Ship"], query
 
 
@@ -168,7 +167,7 @@ def test_no_matches_keeps_choices_and_clear_without_an_empty_project_message(
     root = project(three_task_world(tmp_path), "filter_label=Bug")
     assert "No tasks match this filter. Press Clear to see every task." in root.text()
     assert root.find_all("table") == [] and "no tasks yet" not in root.text()
-    assert "match this filter." not in root.text().replace(
+    assert "this filter" not in root.text().replace(
         "No tasks match this filter. Press Clear to see every task.", ""
     )
     label = control(root, "filter_label")
@@ -247,7 +246,7 @@ def test_each_refusal_shows_its_reason_at_its_field(
     assert len(reason) == 1 and words in reason[0].text()
     assert [e.attrs.get("name") for e in focused(root)] == [name]
     assert root.find_all("table") == []
-    assert "match this filter" not in root.text() and "No tasks match" not in root.text()
+    assert "this filter" not in root.text()
     assert [a.text() for a in filter_form(root).find_all("a")] == ["Clear"]
 
 
@@ -276,7 +275,10 @@ def test_simultaneous_refusals_focus_only_the_first_field(tmp_path: Path) -> Non
     assert [e.attrs.get("name") for e in focused(root)] == ["filter_status"]
     (status,) = control(root, "filter_status").described_by()
     (range_reason,) = control(root, "filter_due_from").described_by()
-    assert "can't be 'blocked'" in status.text() and "later than the Due to date" in range_reason.text()
+    assert (
+        "can't be 'blocked'" in status.text()
+        and "later than the Due to date" in range_reason.text()
+    )
     assert "autofocus" not in control(root, "filter_due_from").attrs
     assert control(root, "filter_due_to").described_by() == []
 
@@ -343,7 +345,7 @@ def test_names_and_labels_round_trip_as_text(tmp_path: Path, special: str) -> No
         assert [o.attrs["value"] for o in picked] == [special], key
         assert picked[0].text() == special
         assert rows_of(root) == ["T"], key
-        assert "match this filter" in root.text()
+        assert "1 task matches this filter." in root.text()
     shown = project(world, f"filter_label={encoded}")
     assert shown.find_all("i") == [] and shown.find_all("b") == []
     raw = page(get(world.site, f"/projects/1?filter_label={encoded}"))
