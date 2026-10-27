@@ -71,7 +71,52 @@ None.
   then owed.
 - **If a document has to be written:** none; RT-8's wording only. ADR-0006 and NFDR QC-7 state the
   same sentence and are raised on their own companion.
-- **Answer:** <the owner fills this in>
+- **Answer:** A submission, in RT-8 and wherever this document uses the word, is a form sent with
+  `method="post"`: a request that asks the tracker for a change. A form sent with `method="get"` is
+  a read, not a submission, and stays outside the redirect rule. **The sentence RT-8 gains, after
+  "so reload, back and forward never repeat an action":** A form sent with `method="get"` is not a
+  submission. The browser puts its values into a page address (§ 4 EX-3; UXD UX-I7) and the tracker
+  answers that address with the page, 200, as it answers a link: it changes nothing, saves nothing,
+  and is marked like any page request under SEC-2, so it opens from a bookmark. It takes no
+  redirect, because the redirect exists so that an action is never repeated, and a read repeated is
+  what UX-I7 asks for. A refusal of such a form — a range whose from-date is after its to-date (SRS
+  FR-34), a name not on the list (FR-33), a value its control cannot hold — is answered with the page
+  at the asked address, 200, with no list, the reason beside the control and focus on the first
+  refused control (EX-4); the address already carries what was typed, so no address is built for
+  it. RT-8's one function builds the redirects that `post` forms answer with; a `get` form's address
+  is the browser's. **Why the word has to be defined:** the HTML standard's form submission
+  algorithm covers a `get` form too — for `http` and `https` its GET column is "Mutate action URL":
+  "Set parsed action's query component to query", then "Plan to navigate to parsed action"
+  (https://html.spec.whatwg.org/multipage/form-control-infrastructure.html, re-read 2026-10-27) —
+  and UXD UX-I6's "Enter submits the form the focus is in" uses the browser's verb for every form,
+  Apply included. So read with the browser's word, RT-8 is false of the product, and read with
+  this document's it is true; the sentence says which. **What stays as it is:** RT-8's first
+  sentence, "Only a form submission changes the tracker state" — a `get` form never changes it,
+  which RT-11 already leans on ("the GET schedules, saves and records nothing"). SEC-2 as written:
+  a request from the address bar or a bookmark is marked `none`, "a page opens on it and a
+  submission does not", and the opposite reading would have SEC-2 refuse the bookmarked narrowed
+  list that UX-I7 and EX-3 require to open — the product keys the same-origin check on the route's
+  kind, every `post` route a submission and every `get` route a page (`web/routes.py:L103-L119`,
+  `L247`; `tests/integration/test_filter_routes.py:L159-L180` refuses a cross-site filter GET and
+  needs no `same-origin` mark on Apply). **Which forms this reaches:** the filter form today
+  (`web/pages.py:L1189`), and the sort controls and the All tasks list's controls when S-5 adds
+  them, the same kind; the Summary's linked counts (UX-F6) are links and were never in question.
+  **The address's size:** a `get` form's values travel in the address, so § 11 R-10's limit reaches
+  them as it reaches a redirect; the filter's values are the ones its controls offer — a status, a
+  priority, a name or a label bounded by RT-10's 200 characters, two dates, one flag — so seven keys
+  stay under 6,000 of the 65,536 bytes the listener accepts, and an address hand-typed with a key
+  repeated is a request the tracker's own pages did not send, the boundary RT-8 already draws for
+  the over-long refusal. A move submitted from a narrowed list carries the list's choices in its
+  form and its redirect lands on the narrowed address (`web/routes.py:L799-L805`,
+  `_carried_filters`): the `post` takes the redirect and the `get` it lands on is a read, each half
+  under its own sentence. **Downstream:** ADR-0006 § Decision and NFDR QC-7 carry the same word and
+  are owed the same sentence on their own companion, `architecture_open_issues.md` § 3.1, the
+  Principal Architect's; § 12 says § 4 wins where the two disagree and the entry is re-derived.
+  QC-7's route test holds under this reading as it stands: each `get` route is a non-submission it
+  sends and asserts unchanged state on, each `post` route a submission it asserts a redirect on.
+  Nothing settled moves and no slice's *Reached when*, fence or place moves, so this is a
+  correction to RT-8's words and not a re-cut under § 10. Reasoning, with the failure paths:
+  `products/tracker17/docs/trail/sdd/self_answer-12.md` § 5.1.
 
 **How it closes.** `product-sdd` folds it on its next run like every other item in this file, and
 the trail copy and the delete-when-empty behaviour are unchanged.
