@@ -49,6 +49,22 @@ None.
   opposite, with the redirect such a form is then owed.
 - **If a document has to be written:** none; the wording of ADR-0006 and QC-7 only. SDD § 4 RT-8
   carries the same sentence and is raised on the SDD's companion.
-- **Answer:** <the owner fills this in>
+- **Answer:** A submission is a form sent with `method="post"`, a request for a change. A form sent
+  with `method="get"` is a read: the tracker answers the address the browser built with its page,
+  200, saves nothing and sends no redirect. This is SDD version 12 § 4 RT-8 (RN-53), settled
+  2026-10-27, and these records follow it. **ADR-0006 is superseded, not edited.** A new record,
+  ADR-0011, restates ADR-0006's decision whole with the word defined: a `get` form is a read, and
+  its refusal is answered with the page at the asked address, the reason beside the control.
+  ADR-0011 adds RT-8's purpose for the redirect, the standard's GET "Mutate action URL" as the
+  reason the word needs defining, and § 11 R-10's bound on a `get` form's values (seven keys under
+  6,000 of 65,536 bytes) to its *Dependence*. ADR-0006's Status line becomes `Superseded by
+  ADR-0011`. Held to its words and the standard's, ADR-0006 owed the filter form a redirect, so this
+  is a change of decision, which the log records by supersession. **QC-7 is revised in place:** it
+  defines the word as RT-8 does, and its *verified by* names
+  `test_filter_apply_reload_and_clear_are_pages_that_save_and_set_nothing` beside the route
+  enumeration. QC-7 traces to ADR-0011 and SDD RN-53. QC-8 keeps its words and its ADR-0006 trace
+  re-points to ADR-0011. QC-32's "not a submission" now reads by QC-7's definition and keeps its
+  words. Notes that are dated records are not edited. No code or test changes. Reasoning:
+  `products/tracker17/docs/trail/architecture/self_answer-18.md` § 3.1.
 
 **How it closes.** `product-architecture` folds it on its next run like any other item here.
