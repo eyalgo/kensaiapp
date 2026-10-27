@@ -1,6 +1,6 @@
 # ADR-0006: Keep no session, and carry what a page says about the last action in its address
 
-**Status:** Accepted
+**Status:** Superseded by ADR-0011
 **Date:** 2026-10-06
 
 ## Context

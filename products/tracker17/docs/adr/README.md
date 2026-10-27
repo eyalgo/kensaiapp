@@ -17,8 +17,9 @@
 | [ADR-0003](0003-no-script-in-any-page.md) | Run no script in any page, and answer every action with a whole page | Accepted | 2026-10-06 |
 | [ADR-0004](0004-whole-state-saved-atomically-on-every-change.md) | Save the whole tracker state on every change, and replace the file in one step | Accepted | 2026-10-06 |
 | [ADR-0005](0005-state-in-memory-one-action-at-a-time.md) | Hold the state in memory in one process, read the file only at start, and apply one action at a time | Accepted | 2026-10-06 |
-| [ADR-0006](0006-last-action-travels-in-the-page-address.md) | Keep no session, and carry what a page says about the last action in its address | Accepted | 2026-10-06 |
+| [ADR-0006](0006-last-action-travels-in-the-page-address.md) | Keep no session, and carry what a page says about the last action in its address | Superseded by ADR-0011 | 2026-10-06 |
 | [ADR-0007](0007-text-counted-once-in-domain-in-code-points.md) | Count typed text once, in `domain`, in code points, after `web` turns each line break back into one character | Accepted | 2026-10-06 |
 | [ADR-0008](0008-identities-issued-from-counters-in-the-state.md) | Issue every identity from a counter kept in the saved state | Accepted | 2026-10-06 |
 | [ADR-0009](0009-one-unix-lock-no-windows.md) | Build for macOS and Linux only, with one locking path, and do not support Windows | Accepted | 2026-10-06 |
 | [ADR-0010](0010-pending-confirmation-answered-202-move-pages-not-stored.md) | Answer a page that shows a pending confirmation with 202, and store no move page | Accepted | 2026-10-21 |
+| [ADR-0011](0011-a-submission-is-a-post-form-and-its-outcome-travels-in-the-address.md) | Keep no session, carry what a page says about the last action in its address, and count only a `post` form as a submission | Accepted | 2026-10-27 |

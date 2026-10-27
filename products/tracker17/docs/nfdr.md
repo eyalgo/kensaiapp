@@ -2,8 +2,8 @@
 
 **Status:** Settled
 **Owner:** Principal Architect
-**Version:** 15 — the owner's answer to companion § 2.2 folded in (`products/tracker17/docs/trail/architecture/cycle-13.md`): RN-15 counts the SDD § 4 EX-6 confirmation verified, as SDD version 11's § 11 R-2 does, states the browser build as R-2 states it, and counts the one SDD Open Question left (RN-46); no obligation, trace tag or § 10 row moves, nothing is left open, so the companion is removed and this document is Settled
-**Inputs read:** SRS Settled (version 6) · SDD Settled (version 11) · FDR Settled (version 4) · PRD Settled (version 7) · UXD Settled (version 8) · DESIGN Settled (version 4) · CONTENT Settled (version 12) · Agari no Status line · tracker17 doctrine no Status line (stamped, unfilled)
+**Version:** 16 — the answer to companion § 3.1 folded in (`products/tracker17/docs/trail/architecture/cycle-14.md`): ADR-0011 supersedes ADR-0006 and defines a submission as a form sent with `method="post"`, a `get` form being a read answered with its page, as SDD version 12 § 4 RT-8 does; QC-7 defines the word and names the filter test, QC-8 and § 4 re-point to ADR-0011 (RN-48); nothing is left open, so the companion is removed and this document is Settled
+**Inputs read:** SRS Settled (version 6) · SDD Settled (version 12) · FDR Settled (version 4) · PRD Settled (version 7) · UXD Settled (version 9) · DESIGN Settled (version 4) · CONTENT Settled (version 15) · Agari no Status line · tracker17 doctrine no Status line (stamped, unfilled)
 
 > The NFDR is the product's **standing obligations, consolidated and verifiable**: every quality
 > constraint a change is checked against, derived from the SRS, the SDD, the FDR and the ADR — never
@@ -70,18 +70,24 @@ module under `tests/architecture/`, which `pytest tests/` runs.
   — *verified by:* layer 6, a walk that fails on a `domain/` dataclass not declared `frozen=True`
   *(traces to: ADR-0004; SDD § 3 `domain` row; `<CORE>/doctrine/engineering/arch_defaults_python.md`
   § Entity immutability)*
-- **QC-7:** Only a form submission changes the tracker state. A request that is not a form submission
-  leaves the state unchanged, and every form submission is answered by sending the browser to a page
-  address built by the one function in `web` that builds them.
+- **QC-7:** Only a form submission changes the tracker state. A submission is a form sent with
+  `method="post"`; a link, a reload and a form sent with `method="get"` are not. A request that is
+  not a submission leaves the state unchanged, and every submission is answered by sending the
+  browser to a page address built by the one function in `web` that builds them. A form sent with
+  `method="get"` is answered with its page, 200, with no redirect.
   — *verified by:* layer 3, a test that enumerates `web`'s routes from `web` itself, sends each
   non-submission request and asserts the state is unchanged, and sends each submission and asserts a
-  redirect *(traces to: ADR-0006; SDD § 4 RT-8; SRS NFR-4)*
+  redirect (`tests/integration/test_routes.py`,
+  `test_every_route_leaves_state_and_headers_as_the_rules_say`); and
+  `test_filter_apply_reload_and_clear_are_pages_that_save_and_set_nothing` in the same module, which
+  sends the filter form's Apply, its reload and Clear and asserts 200 and nothing saved
+  *(traces to: ADR-0011; SDD § 4 RT-8, RN-53; SRS NFR-4)*
 - **QC-8:** No response sets a cookie, and `web` keeps nothing between requests except what reaches
   it through `application`.
   — *verified by:* layer 3, the QC-7 route test also asserts no `Set-Cookie` header on any response;
   layer 6 fails on an import of `http.cookies`; the keeps-nothing half is a review at
   `development-design` for a change to `web`, because state held in a module-level value is not
-  reliably distinguishable from a constant by a scanner *(traces to: ADR-0006; SDD § 4 RT-7)*
+  reliably distinguishable from a constant by a scanner *(traces to: ADR-0011; SDD § 4 RT-7)*
 - **QC-63:** A page that shows a pending confirmation of a move to `cancelled` is answered with HTTP
   status 202, and every other page a move's interaction or outcome lands on with 200. Each of them
   carries `Cache-Control: no-store`. The status is read off the page as built, never off the address
@@ -404,7 +410,7 @@ authors — and the work they enter, on their machine only, until they delete th
 § Data & Privacy; SRS NFR-6). No obligation beyond the operator's own applies, and the PRD names no
 regulation. The tracker keeps no log file (QC-42 keeps every file write inside `persistence`). Typed
 text that travels in an address reaches the browser's history, which is the browser's store and a
-cost ADR-0006 records.
+cost ADR-0011 records.
 
 - **QC-46:** The saved data holds the fields SRS DR-1 to DR-5 describe, the two identity counters
   (ADR-0008), and nothing else — no other fact about any person, and no record of requests, addresses
@@ -1283,3 +1289,43 @@ QC-12, QC-25, QC-26, QC-27, QC-40, QC-41 and QC-60 are review gates and have no 
   upstream document changed, so `Inputs read:` stands. No obligation's text, no trace tag and no
   § 10 row moves, and no record in `adr/` moves. Nothing is left open, so the companion is removed
   and this document is Settled. *(re: Version 15; RN-15)*
+- **RN-48:** ADR-0011 supersedes ADR-0006, QC-7 defines a submission, and QC-8 and § 4 re-point to
+  ADR-0011 — *because* the answer to companion § 3.1 (`trail/architecture/cycle-14.md` § 3.1;
+  reasoning, `trail/architecture/self_answer-18.md` § 3.1) settled it, following SDD version 12
+  § 4 RT-8 and RN-53: a submission is a form sent with `method="post"`, and a form sent with
+  `method="get"` is a read, answered with its page, 200, with no redirect. The PM raised the item from
+  the project page's filter form (`web/pages.py`, the `method="get"` form `_filter_area` builds),
+  which ADR-0006's and QC-7's "every form submission is answered by sending the browser to a page
+  address" made false when read with the HTML standard's word. ADR-0006 is superseded, not edited:
+  held to its words it owed the filter form a redirect, so this is a change of decision, and an
+  accepted record takes a change only by supersession. ADR-0011 carries ADR-0006's decision,
+  alternatives and consequences whole, and adds the definition, the `get` form's answer and its
+  refusal, RT-8's purpose for the redirect, two ruled-out alternatives, and SDD § 11 R-10's bound on
+  a `get` form's values in its *Dependence*. ADR-0006's Status line is the one line changed in it.
+  QC-7's tail now names the route enumeration test and the filter test by name; both were in the
+  suite and already held under the definition, so no test is added. QC-8's obligation and QC-32's
+  words do not move, and QC-32's "a request marked `none` that is not a submission opens its page"
+  now reads by QC-7's definition. QC-63 sits beside QC-7 and QC-8 as RN-44 placed it; RN-44's note
+  that they trace to ADR-0006 was true on its date. This run checked each locator at `c838e9b62`:
+  `web/pages.py:1189`, the one `method="get"` form, beside ten `method="post"` forms; `web/routes.py`,
+  `ROUTES`, every `POST` route `SUBMISSION`, and `_carried_filters`;
+  `tests/integration/test_routes.py:301` and `:1090`; `tests/integration/test_filter_routes.py:159`,
+  `test_filter_get_preserves_route_security_and_state_contracts`. It ran no suite. RN-44 and RN-45
+  are dated records and are not edited. § 10's QC-7 row does not move. *(re: ADR-0006, ADR-0011,
+  QC-7, QC-8, QC-32, § 4; source: `trail/architecture/cycle-14.md` § 3.1; SDD § 4 RT-8, § 11 R-10,
+  RN-53; UXD UX-I7)*
+- **RN-49:** Version 16 was written on 2026-10-27. It read the answered companion as committed at
+  `c838e9b62` and copied it whole to `trail/architecture/cycle-14.md` before the fold, with the
+  reasoning behind its one item at `trail/architecture/self_answer-18.md`. The PM opened that
+  companion; no producing run wrote it. Its one item, § 3.1, was answered and is folded (RN-48).
+  Since version 15 (`git diff --stat <a commit not in the public history> HEAD` over the product's `docs/` and the project's
+  `agari.md`, `doctrine/` and `project.md`), upstream moved, and this run read each change. SDD
+  version 12 defines a submission in § 4 RT-8 and states R-10's reach to a `get` form, which RN-48
+  folds; it names ADR-0010 in RT-11 and counts ten records in § 12, which moves no entry; and its
+  § 10 RC-5 and RN-54 have the overtaken move's refusal claim no change, which is behaviour. UXD
+  version 9 has every refusal state what holds when its page is built (UX-I3, UX-F3, UX-F4, UX-F9,
+  RN-35), and `CONTENT.md` versions 13 to 15 word those refusals; both are behaviour and experience
+  (RN-12) and move no entry. The SRS, the FDR, the PRD, `DESIGN.md`, `what_left.md`, the Agari, the
+  project's doctrine and the card are unchanged since version 15. `Inputs read:` now names SDD
+  version 12, UXD version 9 and CONTENT version 15. Nothing is left open, so the companion is
+  removed and this document is Settled. *(re: Version 16; ADR-0011, QC-7, QC-8)*
