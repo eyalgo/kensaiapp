@@ -6,7 +6,7 @@ Serves the Way `fit-to-publish`, which `system/michi.md` Way 5 ranks above it; c
 
 Rests on SDD § 4 EX-6 and EX-13. Its bar is SDD § 6 S-7 *Reached when*: Delete task behind the in-place confirmation, landing on the task's project with a line naming it; Rename below a project's list, refusing a blank name or one in use; Delete project behind a confirmation naming the project and its task count, landing on Projects with a line naming it, and holding below a list long enough to scroll; a deleted project's tasks in no list; the address of anything deleted shows the not-found page; an action sent from another tab for something already deleted is refused and changes nothing; both suites pass, including FR-13 and FR-17 (tasks and comments gone), FR-15 (a deleted task's identity not issued again), FR-12 (rename leaves tasks unchanged) and AC-12's deleted-target refusals; an end-to-end test of Delete project's confirmation below a scrolled list (opens in view, focus on its sentence, a double press never confirms); `python3 tests/timed_run.py` exits 0 covering a deletion.
 
-**Why it is here.** The SDD says it could sit anywhere after `tasks-in-a-project`; placing it after `status-moves` (reuses the confirmation) and `comment-on-a-task` (deletion checked with comments present) are preferences, not dependencies (SDD § 6 S-7, *Why here in the order*). So it can be picked before them if the owner wants.
+**Why it is here.** The SDD says it could sit anywhere after `tasks-in-a-project`; placing it after `status-moves` (reuses the confirmation) and `comment-on-a-task` (deletion checked with comments present) are preferences, not dependencies (SDD § 6 S-7, *Why here in the order*). Both are now walked, so both preferences are met.
 
 ## Source
 
@@ -22,7 +22,7 @@ Cut from `products/tracker17/docs/SDD.md` § 6 S-7, slug `delete-and-rename` ("A
 
 ## Relation to existing work
 
-Rests on `tracker17 · nemawashi · 2026-10-07_tasks-in-a-project` (SDD § 7, `depends_on`). Reuses the confirmation built in `tracker17 · nemawashi · 2026-10-07_status-moves` (`hands_off_to`) and checks deletion against `tracker17 · nemawashi · 2026-10-07_comment-on-a-task`'s comments; both are preferences. If it is picked before `status-moves`, the confirmation is built here and that seed reuses it: say so in the seed that goes second.
+Rests on `tracker17 · nemawashi · 2026-10-07_tasks-in-a-project` (SDD § 7, `depends_on`). Reuses the confirmation built in `tracker17 · nemawashi · 2026-10-07_status-moves` (`hands_off_to`) and checks deletion against `tracker17 · nemawashi · 2026-10-07_comment-on-a-task`'s comments; both are preferences. `status-moves` is walked, so the confirmation already exists to reuse (`confirm_strip`, `products/tracker17/web/pages.py:L662`).
 
 ## Out (later / elsewhere)
 
