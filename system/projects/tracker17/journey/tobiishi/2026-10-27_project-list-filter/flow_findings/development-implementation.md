@@ -1,0 +1,17 @@
+# Flow Findings — development-implementation  (audited 2026-10-27)
+
+Findings for this step's output only, produced by the `development-audit` skill.
+Audited: closing commit `<a commit not in the public history>` and the code under `products/tracker17` since merge base `3cff55048`.
+Change-local findings live here; skill-general findings are also raised as kaizen items.
+
+- **[non-blocking · change-local · evidence]** Task 1 lands many rules behind one entry point (`filter_project_tasks`), but the notes do not name which case goes red when each rule alone is reverted. Where: closing commit § Developer Review Notes, "Rule discrimination". They say "a named case failed for every one" and name none, and they say it was "established by reverting after the fact". A reader cannot check any rule against any case. Direction: list rule → case.
+- **[non-blocking · change-local · evidence]** The "Instruction cases not delivered: 0" count does not hold by name. Four cases the instruction names have no function of that name: `test_each_get_filter_and_and_combination_show_matches`, `test_each_refusal_shows_its_field_reason_and_preserves_data`, `test_removed_assignee_is_refused_even_when_a_task_still_carries_it` and `test_timed_run_keeps_prefix_and_appends_only_filter_block`. Where: `tl_instruction.md` Tasks 3 and 5 § Behaviours to verify against `tests/integration/test_filter_routes.py`, `test_filter_pages.py`, `test_timed_run.py`. Renamed or split cases are plausible (the first splits into `test_each_get_filter_shows_exactly_its_matches_in_list_order` and `test_all_fields_combine_as_and`). But those two assert titles only, and the instruction's "with the count and selected values retained" is not asserted there. The audit did not trace whether another case holds it. The rename is recorded nowhere. Direction: map each instruction case to the test that asserts it.
+- **[non-blocking · change-local · evidence]** The `Language resolution:` block runs mypy ("mypy exited 0" in the Task 6 review) but quotes no `quality_gates.md` type-checker clause (the "Type checker: mypy" line, ~:76). Its `conventions.md` accounting is two clauses. A command the run used bore on the change and has no quoted line. Where: closing commit `Language resolution:` block. Direction: quote the clause and give a verdict.
+- **[non-blocking · change-local · evidence]** The Step 1b line "Cases added beyond the instruction: tasks 1 and 2, 6 as the pause after task 3 recorded" is garbled. It reads as a count but gives none for tasks 1 and 2, while the per-task bullets list five added cases for Task 1. Where: closing commit § Step 1b. The count cannot be checked as written.
+
+Checked and clean:
+- Lens 7: the resolved language is Python and matches `project.md`. The block has one line per each of the seven concerns, with the clause quoted. Both Step 1b counts are present. The two divergences (Python 3.11 against the packet's 3.13 floor; the test location) carry reasons.
+- Lens 8: no enacted or dropped constraint seen.
+- Lens 9: the code matches the code-integrity **Placement** entries. Rules, counts and options sit in `domain/filtering.py`, the clock read and projection in `application/tracker.py`, and decoding and rendering in `web/`. `web/routes.py` tests no filter rule, since membership comes from the read model's identities. No misplacement found.
+- Lens 6: the one path outside the instruction's layout (`tests/e2e/test_moves.py`) is recorded as a divergence.
+- Lens 10: not applicable to this step.
