@@ -11,7 +11,8 @@ and projects the result for the page. Nothing here reads a clock or a file: toda
 argument. The request and the page that carry the choices are web/routes.py, web/pages.py and
 web/style.css, which decode the address, map each refusal type to its reason and place the words.
 
-Checked by: tests/unit/test_filtering.py (the rules), and tests/architecture/test_trace.py and
+Checked by: tests/unit/test_filtering.py (the rules), tests/integration/test_filter_tracker.py (the
+read through the Tracker), and tests/architecture/test_trace.py and
 tests/architecture/test_shapes.py (the entry and the shape).
 """
 

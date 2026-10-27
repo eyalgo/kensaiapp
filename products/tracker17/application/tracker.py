@@ -12,12 +12,16 @@ from dataclasses import dataclass
 
 from application.contracts import Clock, Saver
 from domain import (
+    FilterFieldRefusal,
+    FilterInput,
+    FilterRefused,
     OperatorNameOutcome,
     Project,
     Task,
     TaskEditContext,
     TaskEditOutcome,
     TaskFields,
+    TaskFilter,
     TaskLabelOutcome,
     TaskStatus,
     TrackerState,
@@ -28,6 +32,7 @@ from domain import (
     allowed_moves,
     create_project,
     edit_task,
+    filter_project_tasks,
     find_project,
     find_task,
     is_overdue,
@@ -35,6 +40,7 @@ from domain import (
     list_project_tasks,
     list_projects,
     move_task,
+    project_filter_options,
     remove_assignee,
     remove_task_label,
     set_operator_name,
@@ -48,6 +54,26 @@ class TaskRow:
 
     task: Task
     overdue: bool
+
+
+@dataclass(frozen=True)
+class ProjectTaskList:
+    """A project's task list read for one page: the whole project's task count, the matching rows
+    in list order, how many matched and the choices as validated.
+
+    A refused filter has no rows, no match count and no validated choices: it carries the typed
+    problems in control order beside the raw choices it was sent with. Both kinds carry the options
+    of the whole project, so the controls can be built from either.
+    """
+
+    task_count: int
+    rows: tuple[TaskRow, ...]
+    match_count: int
+    filter: TaskFilter | None
+    fields: FilterInput
+    problems: tuple[FilterFieldRefusal, ...]
+    assignees: tuple[str, ...]
+    labels: tuple[str, ...]
 
 
 class Tracker:
@@ -203,6 +229,42 @@ class Tracker:
         return tuple(
             TaskRow(task, is_overdue(task.due_date, task.status, today))
             for task in list_project_tasks(self._state, project_id)
+        )
+
+    def project_task_list(self, project_id: int, fields: FilterInput) -> ProjectTaskList:
+        """The project's tasks narrowed by the filter, read for one page, saving nothing.
+
+        One clock read gives the date for the whole page: the machine-local calendar date of that
+        instant serves the selection and every row's overdue flag. A refused filter comes back as
+        the typed problems, never raised, with the options of the whole project.
+        """
+        today = self._clock.now().astimezone().date()
+        try:
+            selection = filter_project_tasks(self._state, project_id, fields, today)
+        except FilterRefused as refused:
+            options = project_filter_options(self._state, project_id)
+            return ProjectTaskList(
+                task_count=options.task_count,
+                rows=(),
+                match_count=0,
+                filter=None,
+                fields=fields,
+                problems=refused.refusals,
+                assignees=options.assignees,
+                labels=options.labels,
+            )
+        rows = tuple(
+            TaskRow(task, is_overdue(task.due_date, task.status, today)) for task in selection.tasks
+        )
+        return ProjectTaskList(
+            task_count=selection.task_count,
+            rows=rows,
+            match_count=selection.match_count,
+            filter=selection.filter,
+            fields=fields,
+            problems=(),
+            assignees=selection.assignees,
+            labels=selection.labels,
         )
 
     def _save_then_publish(self, new_state: TrackerState) -> None:
