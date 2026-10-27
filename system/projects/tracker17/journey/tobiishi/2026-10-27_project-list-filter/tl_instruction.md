@@ -313,6 +313,24 @@ Extend the feature trace for each new participant/checking module when it exists
   actually receives focus and enters view, its reason describes it, and a valid Apply opens at
   page start. At 400% zoom the filter row stacks and only the table scrolls horizontally (T9).
 
+#### Found after the second pause (owner, 2026-10-27)
+
+The second pause's open failure is a product defect, not a test-setup gap. Its planned fix is ruled
+out.
+
+- `tests/e2e/test_moves.py` `test_double_click_never_confirms_at_the_original_trigger_coordinates`
+  `[short-row-interior]` and `[short-row-far-edge]` fail. The filter row puts a short list's
+  cancelled button below the 720px fold (box y 787).
+- Scrolling it into view does not pass: tried as nearest-edge and as `scroll_to_middle`, both fail
+  at "the original coordinate must land on the sentence". At the page's bottom (scrollY 145, height
+  865) the confirmation reopens at scrollY 208, height 928, and `.button-confirm` (y 634–662) sits
+  under the trigger's old box (y 642–670). A stray click there confirms the cancel (CP-325, CP-337).
+- Requirement: the confirmation opens with `#confirm-sentence` under the trigger's coordinates
+  wherever the trigger sat, including at the bottom of the page. Fix it in the product. Do not
+  weaken the test or bring the trigger in from the page's bottom in its setup.
+- Add a case with the trigger at the page's bottom, so the guarantee does not rest on the filter
+  row's height. Log the fix in Developer Review Notes.
+
 #### Held by review
 
 - `docs/nfdr.md` QC-5/QC-16/QC-23/QC-36 — map refusals by type through application, escape dynamic
