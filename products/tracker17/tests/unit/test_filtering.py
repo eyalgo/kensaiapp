@@ -181,10 +181,10 @@ def test_filter_fields_combine_as_and():
         replace(matching, id=12, priority=Priority.LOW),
         replace(matching, id=13, assignee="dana"),
         replace(matching, id=14, labels=("Bug",)),
-        replace(matching, id=15, due=date(2026, 9, 30)),
-        replace(matching, id=16, due=date(2026, 11, 1)),
-        replace(matching, id=17, due=None),
-        replace(matching, id=18, due=date(2026, 10, 7)),
+        replace(matching, id=15, due_date=date(2026, 9, 30)),
+        replace(matching, id=16, due_date=date(2026, 11, 1)),
+        replace(matching, id=17, due_date=None),
+        replace(matching, id=18, due_date=date(2026, 10, 7)),
     ]
     fields = FilterInput(
         status=("in-progress",),
@@ -282,7 +282,7 @@ def test_overdue_uses_the_supplied_day_and_open_status():
     )
 
     assert ids(select(state, one("overdue", "on"))) == [1, 6]
-    assert ids(select(state, one("overdue", "on"), date(2026, 10, 7))) == [1, 2, 6]
+    assert ids(select(state, one("overdue", "on"), date(2026, 10, 7))) == [1, 6, 2]
     assert ids(select(state, one("overdue", "on"), date(2026, 10, 5))) == []
 
 
@@ -451,6 +451,13 @@ def test_filter_options_cover_the_whole_project():
     assert narrowed.assignees == ("dana", "ali")
     none_match = select(state, one("label", "unseen"))
     assert none_match.labels == ("Bug", "bug", "ui")
+
+
+def test_filter_option_labels_are_in_code_point_order_not_case_folded_order():
+    """CP-394: capitals sort before lower case, and a leading space before both."""
+    state = make_state(make_task(1, labels=("apple", "Zed", " pad", "Bug")))
+
+    assert project_filter_options(state, 1).labels == (" pad", "Bug", "Zed", "apple")
 
 
 def test_empty_project_ignores_filter_validation():
