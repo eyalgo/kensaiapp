@@ -14,7 +14,7 @@ Cut from `products/tracker17/docs/SDD.md` § 6 S-5, slug `narrow-and-sort` ("Aft
 
 ## Stations — dynamic checklist
 
-- [ ] project-list-filter — a project's list narrows by status, priority, assignee, label, due-date range or overdue: Apply shows matches with their count, choices in the address, Clear, the no-match line, the reversed-range refusal, a moved-out task leaving a filtered list with its completion line; `domain/filtering.py`, AC-14's filter tests, AC-12's reversed range, AC-13's overdue agreement, and `tests/timed_run.py` covering a filter
+- [x] project-list-filter — a project's list narrows by status, priority, assignee, label, due-date range or overdue: Apply shows matches with their count, choices in the address, Clear, the no-match line, the reversed-range refusal, a moved-out task leaving a filtered list with its completion line; `domain/filtering.py`, AC-14's filter tests, AC-12's reversed range, AC-13's overdue agreement, and `tests/timed_run.py` covering a filter
 - [ ] project-list-sort — the same list sorts by one field, `low`, `medium`, `high`, `critical` for priority, choice in the address, Clear returning to due-date order; `domain/sorting.py`, AC-14's sort tests, and `tests/timed_run.py` covering a sort
 - [ ] all-tasks-list — All tasks in the header and the not-found page's link to it, a project column, the moves on each row, the empty state linking to Projects, and the filter and sort controls working across all projects; both suites and `tests/timed_run.py` pass, which is SDD § 6 S-5's bar and so the seed's
 
