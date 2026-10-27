@@ -11,9 +11,6 @@ Each entry names one thing tracker17's Agari or PRD wants that its code did not 
 - **Wanted:** The operator filters a task list, within one project or across all projects, by status, priority, assignee, label, due-date range or overdue.
   **Source:** PRD § Core Features, **Filtering**
   **Missing at:** `244492a9f`
-- **Wanted:** A filter that matches nothing says so, rather than showing a blank list.
-  **Source:** PRD § UX Notes, **First run**
-  **Missing at:** `244492a9f`
 - **Wanted:** The operator sorts a task list by due date, priority, created time or title, ascending or descending.
   **Source:** PRD § Core Features, **Sorting**
   **Missing at:** `244492a9f`
