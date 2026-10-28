@@ -4781,11 +4781,11 @@ def test_timed_delete_landing_must_show_the_completion_on_the_project(
     """CP-543, T15: a landing that is not a 200, omits the completion line or is another project's
     page fails the landing row and the total; the POST row alone still counts."""
     site, saved_data, seeded = _seeded(harness, tmp_path / "data")
-    title = escape(_delete_title(seeded))
+    line = escape(f"You deleted '{_delete_title(seeded)}'.")
     pages = {
         "wrong status": Response(404, (("Content-Type", "text/html"),), b"<p>no</p>"),
         "no completion": _page("<h1 class='pre-wrap'>Volume project</h1>"),
-        "wrong project": _page(f"<h1>Other</h1><p>You deleted '{title}'.</p>"),
+        "wrong project": _page(f"<h1>Other</h1><p>{line}</p>"),
     }
     recording = Intercept(site, lambda m, t: pages[landing] if m == "GET" else None)
 
