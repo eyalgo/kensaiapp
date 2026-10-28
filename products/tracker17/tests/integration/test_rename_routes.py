@@ -235,15 +235,15 @@ RENAME_NAMES = {
 
 
 def send_rename(world: World, project: int | str, name: str | None) -> Response:
-    return rename(world, project_id=project) if name is None else rename(
-        world, project_id=project, name=name
+    return (
+        rename(world, project_id=project)
+        if name is None
+        else rename(world, project_id=project, name=name)
     )
 
 
 @pytest.mark.parametrize("sent", sorted(RENAME_NAMES))
-@pytest.mark.parametrize(
-    ("project", "identity"), [("99", 99), ("0", 0), ("00", 0), ("00099", 99)]
-)
+@pytest.mark.parametrize(("project", "identity"), [("99", 99), ("0", 0), ("00", 0), ("00099", 99)])
 def test_missing_project_rename_redirects_without_saving(
     tmp_path: Path, project: str, identity: int, sent: str
 ) -> None:

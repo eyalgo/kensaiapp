@@ -458,9 +458,7 @@ ADD_FORMS: dict[str, dict[str, str]] = {
 
 
 @pytest.mark.parametrize("form", sorted(ADD_FORMS))
-@pytest.mark.parametrize(
-    ("project", "identity"), [("99", 99), ("0", 0), ("00", 0), ("00099", 99)]
-)
+@pytest.mark.parametrize(("project", "identity"), [("99", 99), ("0", 0), ("00", 0), ("00099", 99)])
 def test_missing_project_add_redirects_without_saving(
     tmp_path: Path, project: str, identity: int, form: str
 ) -> None:
