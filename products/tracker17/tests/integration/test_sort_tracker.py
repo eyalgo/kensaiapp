@@ -3,7 +3,9 @@
 Checks SRS FR-36 (a list sorts by one field at a time, with the count and the choices), FR-39 (a
 refusal keeps every typed problem and saves nothing), AC-12 and AC-14 (the refusal and sort tests)
 and NFR-8 (a read never reaches the saver). Change spec rules CP-434, CP-435, CP-443, CP-447 and
-CP-449 are the ones each test names; the design row is T4. No product name is patched: the real
+CP-449 are the ones each test names; the design row is T4. The All tasks read (FR-31) is checked
+beside the project's: change spec rules CP-462, CP-465 to CP-474, CP-480 to CP-483 and CP-485 are
+the ones its tests name, and design rows T3 to T10 and T16 to T17 the references. No product name is patched: the real
 Tracker is handed each fake, and the machine's time zone is set through the environment.
 """
 
@@ -30,7 +32,7 @@ from application import (
     Tracker,
     TrackerState,
 )
-from domain import restore_state
+from domain import restore_state, sort_all_tasks
 
 PROJECTS = [(1, "Alpha", "first"), (2, "Beta", "")]
 NEXT_PROJECT_ID = 3
@@ -293,3 +295,100 @@ def test_existing_two_argument_list_read_remains_compatible():
     assert (listed.task_count, listed.match_count) == (4, 4)
     assert listed.filter is not None
     assert listed.filter.narrows is False
+
+
+def test_all_task_list_projects_global_selection(utc_zone):
+    """CP-462, CP-465, CP-469, CP-470, CP-480, T3: the whole-scope count, ordered rows from both
+    projects, match count, validated and raw choices, options and count visibility are the global
+    rule's own result."""
+    saver = RecordingSaver()
+    tracker = seeded_tracker(saver)
+    fields = FilterInput()
+    sort_fields = sort_of("title", "descending")
+    chosen = FilterInput(status=("todo",))
+
+    listed = tracker.all_task_list(chosen, sort_fields=sort_fields)
+
+    expected = sort_all_tasks(saver.saved[-1], chosen, sort_fields, CREATED.date())
+    assert ids(listed) == [task.id for task in expected.tasks] == [5, 4, 3, 1, 2]
+    assert {row.task.project_id for row in listed.rows} == {1, 2}
+    assert (listed.task_count, listed.match_count) == (5, 5)
+    assert listed.filter == expected.filter
+    assert listed.sorting == expected.sorting
+    assert (listed.fields, listed.sort_fields) == (chosen, sort_fields)
+    assert (listed.assignees, listed.labels) == (("dana", "ali"), ("Bug", "ui"))
+    assert listed.count_requested is True and listed.problems == ()
+    assert tracker.all_task_list(fields).count_requested is False
+    assert ids(tracker.all_task_list(FilterInput())) == [2, 4, 1, 3, 5]
+
+
+def test_all_task_list_refusal_is_page_data():
+    """CP-474, T10: a refused filter and sort come back as ordered typed problems, never raised,
+    with both raw inputs and the whole-scope options, and no rows, count or validated choices."""
+    tracker = seeded_tracker()
+    fields = FilterInput(due_from=("2026-10-10",), due_to=("2026-10-01",))
+    sort_fields = SortInput(field=("nonsense",), direction=("up", "down"))
+
+    listed = tracker.all_task_list(fields, sort_fields=sort_fields)
+
+    assert [type(item) for item in listed.problems] == [
+        ReversedFilterRange,
+        InvalidSortField,
+        RepeatedSortValue,
+    ]
+    assert listed.rows == ()
+    assert (listed.match_count, listed.filter, listed.sorting) == (0, None, None)
+    assert listed.count_requested is False
+    assert (listed.fields, listed.sort_fields) == (fields, sort_fields)
+    assert (listed.task_count, listed.assignees, listed.labels) == (
+        5,
+        ("dana", "ali"),
+        ("Bug", "ui"),
+    )
+
+
+def test_all_task_list_uses_one_local_date_for_selection_and_marking(local_zone):
+    """CP-479, CP-480, T3: one clock read per call serves the filter and every row's overdue flag,
+    on a non-UTC date line, with a clock that would cross midnight if read twice."""
+    late = datetime(2026, 10, 7, 12, 0, tzinfo=UTC)  # local date 2026-10-08
+    early = datetime(2026, 10, 5, 12, 0, tzinfo=UTC)  # local date 2026-10-06
+    clock = SequenceClock(CREATED)
+    tracker = make_tracker(RecordingSaver(), clock)
+    first = tracker.add_task(1, "Edge", "low", "", "2026-10-07")
+    second = tracker.add_task(2, "Other", "low", "", "2026-10-07")
+    clock.restart(late, early)
+
+    overdue_on = FilterInput(overdue=("on",))
+    listed = tracker.all_task_list(overdue_on)
+    reads_for_first = clock.reads
+    again = tracker.all_task_list(overdue_on)
+
+    assert reads_for_first == 1
+    assert clock.reads == 2
+    assert ids(listed) == [first.id, second.id]
+    assert [row.overdue for row in listed.rows] == [True, True]
+    assert again.rows == ()
+
+
+def test_all_task_list_recomputes_current_state_without_saving(utc_zone):
+    """CP-473, CP-482, T9: empty, ordinary, filtered, sorted, refused and repeated reads call no
+    saver, and a task changed afterwards appears on the next read."""
+    saver = RecordingSaver()
+    tracker = make_tracker(saver)
+    tracker.all_task_list(FilterInput())
+    tracker.all_task_list(FilterInput(status=("blocked",)))
+    assert saver.saved == []
+    task = tracker.add_task(1, "First", "low", "", "")
+    saved_after_setup = len(saver.saved)
+
+    tracker.all_task_list(FilterInput())
+    tracker.all_task_list(FilterInput(status=("todo",)), sort_fields=sort_of("title"))
+    tracker.all_task_list(FilterInput(status=("blocked",)))
+    tracker.all_task_list(FilterInput(), sort_fields=sort_of("nonsense"))
+    tracker.all_task_list(FilterInput(status=("todo",)), sort_fields=sort_of("title"))
+    assert len(saver.saved) == saved_after_setup
+
+    tracker.move_task(task.id, "in-progress")
+    assert ids(tracker.all_task_list(FilterInput(status=("todo",)))) == []
+    assert ids(tracker.all_task_list(FilterInput(status=("in-progress",)))) == [task.id]
+    assert len(saver.saved) == saved_after_setup + 1

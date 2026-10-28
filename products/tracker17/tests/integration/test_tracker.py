@@ -3,7 +3,8 @@
 Checks SRS FR-9 (an action is reported done only after the save), FR-10 and FR-11 (create and list
 projects), NFR-8 (a failed save leaves the state as it was), AC-6 (a restart lists the project),
 AC-9 and AC-18 (interrupted and failed saves) and DR-6 (identities are not reused). Change spec
-rules CP-24 and CP-25 and NFDR QC-10, QC-21 and QC-49 are the ones each test names.
+rules CP-24 and CP-25 and NFDR QC-10, QC-21 and QC-49 are the ones each test names. The All tasks
+read (FR-31) adds CP-482 and CP-485, with design rows T3 and T17.
 """
 
 from __future__ import annotations
@@ -171,3 +172,24 @@ def test_a_filter_query_hands_the_recording_saver_no_call():
     ):
         tracker.project_task_list(1, fields)
     assert len(saver.saved) == saved
+
+
+def test_project_read_and_application_exports_remain_compatible():
+    """CP-482, CP-485, T17: the project read and the existing public imports still work, and the
+    added read hands back the same value type with no markup, query key or destination in it."""
+    import application
+    from application import ProjectTaskList, TaskRow
+
+    for name in ("Tracker", "ProjectTaskList", "TaskRow", "FilterInput", "SortInput"):
+        assert name in application.__all__
+    tracker = Tracker(empty_state(), RecordingSaver(), FixedClock())
+    project = tracker.create_project("Alpha", "")
+    tracker.add_task(project.id, "Only", "", "", "")
+
+    project_read = tracker.project_task_list(project.id, application.FilterInput())
+    all_read = tracker.all_task_list(application.FilterInput())
+
+    assert isinstance(all_read, ProjectTaskList) and isinstance(all_read.rows[0], TaskRow)
+    assert [row.task for row in project_read.rows] == [row.task for row in all_read.rows]
+    assert not hasattr(all_read, "html") and not hasattr(all_read, "place")
+    assert [field for field in vars(all_read)] == [field for field in vars(project_read)]
