@@ -118,6 +118,12 @@ def chosen_filters(root: Element) -> dict[str, str]:
     held: dict[str, str] = {}
     form = root.by_id("filter")
     assert form is not None
+    filter_controls = [
+        e
+        for e in form.find_all("select") + form.find_all("input")
+        if (e.attrs.get("name") or "").startswith("filter_")
+    ]
+    assert len(filter_controls) == len(FILTER_FIELDS) == 7
     for field in FILTER_FIELDS:
         name = f"filter_{field}"
         (control,) = [
