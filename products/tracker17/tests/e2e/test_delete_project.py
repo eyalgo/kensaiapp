@@ -220,6 +220,23 @@ def test_project_strip_uses_full_size_controls(
     assert abs(task_confirm["height"] - ROW_CONTROL_HEIGHT) <= 0.5
 
 
+NARROW_WIDTH = 1280 // 4
+
+
+@pytest.mark.parametrize("tasks", [0, 3])
+def test_project_deletion_area_does_not_widen_the_page_at_400_percent_zoom(
+    trackers: TrackerFactory, location: Path, page: Page, tasks: int
+) -> None:
+    """CP-571, NFR-13: at 400% zoom the closed Delete project area leaves the page no wider than
+    the window, in a project with tasks and in one without, so only the task table scrolls
+    sideways. The open confirmation shares the task strip's fixed width and is not measured."""
+    tracker = started(trackers, location, tasks=tasks)
+    page.set_viewport_size({"width": NARROW_WIDTH, "height": 800})
+    page.goto(f"{tracker.address}/projects/1")
+    expect(page.get_by_role("button", name=TRIGGER)).to_be_visible()
+    assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
+
+
 def create_project(page: Page, address: str, name: str, titles: tuple[str, ...]) -> None:
     """Create a project and its tasks through the pages."""
     page.goto(address + "/")

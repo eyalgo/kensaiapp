@@ -336,6 +336,12 @@ button.delete-button:hover {
   padding-bottom: 88px;
 }
 
+/* The project's Delete project area holds one control and nothing beside it, so it keeps none of
+   the room a task row's moves reserve; at 400% zoom that room would widen the whole page. */
+#delete-project .moves {
+  min-width: 0;
+}
+
 .strip-control button.button-confirm {
   height: 36px;
   min-width: 24px;
