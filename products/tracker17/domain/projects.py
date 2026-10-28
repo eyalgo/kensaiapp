@@ -111,6 +111,36 @@ def rename_project(
     return replace(state, projects=renamed_projects), outcome
 
 
+@dataclass(frozen=True)
+class ProjectDeletionOutcome:
+    """What a deletion removed: the project as the supplied state held it and the number of tasks,
+    in every status, that went with it."""
+
+    project: Project
+    task_count: int
+
+
+def delete_project(
+    state: TrackerState, project_id: int
+) -> tuple[TrackerState, ProjectDeletionOutcome]:
+    """Return the state without the project and its tasks, and the outcome, or refuse.
+
+    The tasks go with the comments nested in them. Every other value of the state, the order of the
+    surviving projects and tasks and both identity counters stay as they were, so no removed
+    identity is issued again. A project no state holds is refused before any new state exists. The
+    name and the count come from this state, so the outcome states what the deletion removed.
+    """
+    project = find_project(state, project_id)
+    if project is None:
+        raise ProjectNotFound()
+    surviving_tasks = tuple(task for task in state.tasks if task.project_id != project_id)
+    surviving_projects = tuple(held for held in state.projects if held.id != project_id)
+    outcome = ProjectDeletionOutcome(
+        project=project, task_count=len(state.tasks) - len(surviving_tasks)
+    )
+    return replace(state, projects=surviving_projects, tasks=surviving_tasks), outcome
+
+
 def list_projects(state: TrackerState) -> tuple[Project, ...]:
     """Every project by name with letter case ignored; the exact name breaks a tie."""
     return tuple(
