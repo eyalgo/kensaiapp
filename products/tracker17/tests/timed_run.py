@@ -1,7 +1,8 @@
 """The timed run: project creation and, at task volume, adding a task, editing one, adding and
 removing a task's label, saving the operator's name, adding a comment, adding and removing a
 name on the People assignee list, moving a task from `todo` to `in-progress`, and filtering a
-project's list by the status `in-progress`, each with the page it lands on.
+project's list by the status `in-progress` and sorting it by priority, each with the page it lands
+on.
 
 A script, not a collected test: pytest does not pick it up, because its name does not start with
 `test_`. Run it from the product root with `python3 tests/timed_run.py`. It uses locations of its
@@ -24,10 +25,14 @@ file is the fixture with that one change and the landing shows the action's comp
 status move comes next, on a fixture of its own: it sends the one list-row move of a `todo` task,
 and counts only when the saved file is the fixture with that task's status replaced and nothing
 else, and the project list it lands on shows the move's completion line. The status filter comes
-last, on a fixture of its own: it sends the GET Apply press for `in-progress`, then a GET of the
+next, on a fixture of its own: it sends the GET Apply press for `in-progress`, then a GET of the
 filtered address a reload opens, and counts only when the saved bytes are untouched and the page
-lists exactly the fixture's `in-progress` tasks, each once, under their count. Its harness is
-checked by tests/integration/test_timed_run.py.
+lists exactly the fixture's `in-progress` tasks, each once, under their count. The sort comes last,
+on a fixture of its own: it sends the GET Apply press for priority descending with no filter, then a
+GET of the sorted address a reload opens, and counts only when the saved bytes are untouched and the
+page lists every task of the project exactly once, in priority-descending then task-number order
+worked out here from the loaded fixture, under their count. Its harness is checked by
+tests/integration/test_timed_run.py.
 """
 
 from __future__ import annotations
@@ -112,6 +117,11 @@ FILTER_LABEL = f"filter a task list at {TASK_VOLUME} tasks"
 FILTER_LANDING_LABEL = f"filter landing page at {TASK_VOLUME} tasks"
 FILTER_TOTAL_LABEL = f"filter total at {TASK_VOLUME} tasks"
 FILTER_HEADERS = {"Host": HOST, "Sec-Fetch-Site": "same-origin"}
+SORT_PROJECT_ID = 1
+SORT_CHOICES = {"sort_field": "priority", "sort_direction": "descending"}
+SORT_LABEL = f"sort a task list at {TASK_VOLUME} tasks"
+SORT_LANDING_LABEL = f"sort landing page at {TASK_VOLUME} tasks"
+SORT_TOTAL_LABEL = f"sort total at {TASK_VOLUME} tasks"
 FILTER_CONTROLS = (
     "filter_status",
     "filter_priority",
@@ -947,26 +957,27 @@ def _saved_bytes(saved_data: SavedData) -> bytes:
     return (saved_data.location / FILTER_SAVED_FILE).read_bytes()
 
 
-def measure_task_filter(
-    *, site: Site, saved_data: SavedData, timer: Callable[[], float]
+def _measure_apply_and_reload(
+    *,
+    site: Site,
+    saved_data: SavedData,
+    timer: Callable[[], float],
+    address: str,
+    labels: tuple[str, str, str],
+    shows: Callable[[str], bool],
 ) -> list[Timed]:
-    """Press Apply for the status `in-progress` and fetch the filtered list a reload opens.
+    """Press Apply at `address` and fetch the page a reload opens, timing each apart.
 
-    Three rows come back, in order: the Apply request, the reload's request and their sum. Both
-    requests are GETs marked same-origin. Apply counts only when it is a 200 that carries a result
-    (the count line, so neither a field refusal nor a failure page) or a redirect, and the saved
-    bytes are as they were. The reload asks for the redirect's address, or else for Apply's own.
-    It counts only when it is a 200 listing exactly the fixture's matching tasks, each once, under
-    their count, and the saved bytes are still untouched. The expected tasks are read from the
-    loaded fixture. The readbacks sit outside the two timed intervals. With any other answer to
+    Three rows come back under `labels`, in order: the Apply request, the reload's request and
+    their sum. Both requests are GETs marked same-origin. Apply counts only when it is a 200 that
+    carries a result (the count line, so neither a field refusal nor a failure page) or a redirect,
+    and the saved bytes are as they were. The reload asks for the redirect's address, or else for
+    Apply's own. It counts only when it is a 200 whose page `shows` accepts and the saved bytes are
+    still untouched. The readbacks sit outside the two timed intervals. With any other answer to
     Apply the reload is not requested: its row is zero and failed, and the total is Apply's time.
-    Nothing is printed here; `verdict` prints the rows.
     """
-    before = saved_data.load()
-    assert before is not None
-    matching = _filter_matches(before)
+    apply_label, landing_label, total_label = labels
     bytes_before = _saved_bytes(saved_data)
-    address = _filter_apply_address()
     started = timer()
     response = site.handle("GET", address, FILTER_HEADERS, b"")
     apply_seconds = timer() - started
@@ -978,23 +989,45 @@ def measure_task_filter(
     applied = answered and _saved_bytes(saved_data) == bytes_before
     if not applied:
         return [
-            Timed(FILTER_LABEL, apply_seconds, False),
-            Timed(FILTER_LANDING_LABEL, 0.0, False),
-            Timed(FILTER_TOTAL_LABEL, apply_seconds, False),
+            Timed(apply_label, apply_seconds, False),
+            Timed(landing_label, 0.0, False),
+            Timed(total_label, apply_seconds, False),
         ]
     started = timer()
     landing = site.handle("GET", location if redirected else address, FILTER_HEADERS, b"")
     landing_seconds = timer() - started
     shown = (
         landing.status == 200
-        and _filter_landing_shows(landing.body.decode("utf-8"), matching)
+        and shows(landing.body.decode("utf-8"))
         and _saved_bytes(saved_data) == bytes_before
     )
     return [
-        Timed(FILTER_LABEL, apply_seconds, True),
-        Timed(FILTER_LANDING_LABEL, landing_seconds, shown),
-        Timed(FILTER_TOTAL_LABEL, apply_seconds + landing_seconds, shown),
+        Timed(apply_label, apply_seconds, True),
+        Timed(landing_label, landing_seconds, shown),
+        Timed(total_label, apply_seconds + landing_seconds, shown),
     ]
+
+
+def measure_task_filter(
+    *, site: Site, saved_data: SavedData, timer: Callable[[], float]
+) -> list[Timed]:
+    """Press Apply for the status `in-progress` and fetch the filtered list a reload opens.
+
+    The expected tasks are read from the loaded fixture, and the page must list exactly them, each
+    once, under their count (`_measure_apply_and_reload` owns the rows and what counts). Nothing is
+    printed here; `verdict` prints the rows.
+    """
+    before = saved_data.load()
+    assert before is not None
+    matching = _filter_matches(before)
+    return _measure_apply_and_reload(
+        site=site,
+        saved_data=saved_data,
+        timer=timer,
+        address=_filter_apply_address(),
+        labels=(FILTER_LABEL, FILTER_LANDING_LABEL, FILTER_TOTAL_LABEL),
+        shows=lambda page: _filter_landing_shows(page, matching),
+    )
 
 
 def filter_fixture_report(state: TrackerState) -> str:
@@ -1013,10 +1046,79 @@ def filter_fixture_report(state: TrackerState) -> str:
     )
 
 
+def _sort_expected(state: TrackerState) -> list[Task]:
+    """The fixture's project tasks in the order priority descending gives: `critical` first, ties
+    by ascending task number.
+
+    Read from the loaded fixture by a plain comparison of each task's priority rank and number,
+    never by the product's sort (CP-454).
+    """
+    held = [task for task in state.tasks if task.project_id == SORT_PROJECT_ID]
+    return sorted(held, key=lambda task: (-SEED_PRIORITIES.index(task.priority.value), task.id))
+
+
+def _sort_apply_address() -> str:
+    """The address the Apply press sends: the filter's six non-checkbox controls left empty, then
+    Sort by Priority and Direction Descending."""
+    chosen = {name: "" for name in FILTER_CONTROLS} | SORT_CHOICES
+    return f"/projects/{SORT_PROJECT_ID}?{urlencode(chosen)}"
+
+
+def _sort_count_text(listed: int) -> str:
+    return "This project has 1 task." if listed == 1 else f"This project has {listed} tasks."
+
+
+def _sort_landing_shows(page: str, expected: list[Task]) -> bool:
+    """True when the page lists exactly the expected tasks, each once and in this order, under the
+    right count: an equal set in another order does not pass."""
+    listed = [int(found) for found in FILTER_TASK_LINK.findall(page)]
+    counts = FILTER_COUNT_LINE.findall(page)
+    return listed == [task.id for task in expected] and counts == [_sort_count_text(len(expected))]
+
+
+def measure_task_sort(
+    *, site: Site, saved_data: SavedData, timer: Callable[[], float]
+) -> list[Timed]:
+    """Press Apply for Priority descending with no filter and fetch the sorted list a reload opens.
+
+    The expected order is read from the loaded fixture (`_sort_expected`), and the page must list
+    exactly those tasks, each once and in that order, under their count
+    (`_measure_apply_and_reload` owns the rows and what counts). Nothing is printed here; `verdict`
+    prints the rows.
+    """
+    before = saved_data.load()
+    assert before is not None
+    expected = _sort_expected(before)
+    return _measure_apply_and_reload(
+        site=site,
+        saved_data=saved_data,
+        timer=timer,
+        address=_sort_apply_address(),
+        labels=(SORT_LABEL, SORT_LANDING_LABEL, SORT_TOTAL_LABEL),
+        shows=lambda page: _sort_landing_shows(page, expected),
+    )
+
+
+def sort_fixture_report(state: TrackerState) -> str:
+    """The volume, the lengths of the first sorted task's title and first comment, the sort and
+    how many tasks it lists, all read from the fixture as loaded back.
+
+    The first task is the first the sorted list shows, which is sort order and not storage order.
+    Nothing is printed here.
+    """
+    listed = _sort_expected(state)
+    first = listed[0]
+    return (
+        f"sort fixture: {_volume_line(state)}; title of {len(first.title)} characters, "
+        f"comment of {len(first.comments[0].text)} characters; "
+        f"sort {SORT_CHOICES['sort_field']} {SORT_CHOICES['sort_direction']}, {len(listed)} listed"
+    )
+
+
 def main(directory: Path | None = None, timer: Callable[[], float] = time.perf_counter) -> int:
     """Run the project creates, then the add, the edit, the label add and remove, the name save, the
-    comment add, the assignee add and remove, the status move and the status filter at task
-    volume; 1 when any failed."""
+    comment add, the assignee add and remove, the status move, the status filter and the sort at
+    task volume; 1 when any failed."""
     if directory is None:
         with tempfile.TemporaryDirectory() as temporary:
             return main(Path(temporary), timer)
@@ -1047,6 +1149,7 @@ def main(directory: Path | None = None, timer: Callable[[], float] = time.perf_c
     new_action_status = _run_new_actions(directory, timer)
     move_status = _run_move(directory, timer)
     filter_status = _run_filter(directory, timer)
+    sort_status = _run_sort(directory, timer)
     return max(
         status,
         task_status,
@@ -1056,6 +1159,7 @@ def main(directory: Path | None = None, timer: Callable[[], float] = time.perf_c
         new_action_status,
         move_status,
         filter_status,
+        sort_status,
     )
 
 
@@ -1093,7 +1197,7 @@ def _run_move(directory: Path, timer: Callable[[], float]) -> int:
     """Time the status move on a fixture of its own, after every older line the run prints.
 
     Prints the fixture line, then the move's three rows: the POST, the landing and the total. The
-    filter block follows it and is the last.
+    filter block follows it, and the sort block follows that and is the last.
     """
     move_data = SavedData(directory / "move-volume")
     move_site, move_seeded = open_task_volume(move_data)
@@ -1103,7 +1207,7 @@ def _run_move(directory: Path, timer: Callable[[], float]) -> int:
 
 
 def _run_filter(directory: Path, timer: Callable[[], float]) -> int:
-    """Time the status filter on a fixture of its own, after the move block and last of all.
+    """Time the status filter on a fixture of its own, after the move block and before the sort.
 
     Prints the fixture line, then the filter's three rows: Apply, the landing and the total.
     """
@@ -1111,6 +1215,18 @@ def _run_filter(directory: Path, timer: Callable[[], float]) -> int:
     filter_site, filter_seeded = open_task_volume(filter_data)
     print(filter_fixture_report(filter_seeded))
     results = measure_task_filter(site=filter_site, saved_data=filter_data, timer=timer)
+    return verdict(results, LIMIT_SECONDS)
+
+
+def _run_sort(directory: Path, timer: Callable[[], float]) -> int:
+    """Time the priority sort on a fixture of its own, after the filter block and last of all.
+
+    Prints the fixture line, then the sort's three rows: Apply, the landing and the total.
+    """
+    sort_data = SavedData(directory / "sort-volume")
+    sort_site, sort_seeded = open_task_volume(sort_data)
+    print(sort_fixture_report(sort_seeded))
+    results = measure_task_sort(site=sort_site, saved_data=sort_data, timer=timer)
     return verdict(results, LIMIT_SECONDS)
 
 
