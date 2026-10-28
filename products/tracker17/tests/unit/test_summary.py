@@ -66,7 +66,11 @@ def make_task(
 
 def make_state(*tasks: Task, assignees: tuple[str, ...] = ("ari", "bo")) -> TrackerState:
     return TrackerState(
-        projects=(Project(ALPHA, "Alpha", ""), Project(BETA, "Beta", ""), Project(GAMMA, "Gamma", "")),
+        projects=(
+            Project(ALPHA, "Alpha", ""),
+            Project(BETA, "Beta", ""),
+            Project(GAMMA, "Gamma", ""),
+        ),
         next_project_id=4,
         assignees=assignees,
         tasks=tasks,
@@ -74,9 +78,7 @@ def make_state(*tasks: Task, assignees: tuple[str, ...] = ("ari", "bo")) -> Trac
     )
 
 
-def summary_of(
-    state: TrackerState, project_id: int = ALPHA, today: date = TODAY
-) -> ProjectSummary:
+def summary_of(state: TrackerState, project_id: int = ALPHA, today: date = TODAY) -> ProjectSummary:
     summary = summarize_project(state, project_id, today)
     assert summary is not None
     return summary
