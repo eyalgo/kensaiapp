@@ -317,13 +317,13 @@ def test_task_page_shows_the_four_fields_in_the_one_authorized_form(tmp_path: Pa
             f"{form.attrs['action']}/move",
             f"{form.attrs['action']}/labels",
             f"{form.attrs['action']}/comments",
+            f"{form.attrs['action']}/delete",
         ]
         assert len(form.find_all("button")) == 1 and form.find_all("textarea") == []
         for tag in ("script", "table"):
             assert shown.find_all(tag) == [], tag
         text = shown_main.text().lower()
-        for absent in ("overdue", "delete"):
-            assert absent not in text, absent
+        assert "overdue" not in text
         # CP-274: the one link the main area admits is the no-name notice's link to People.
         assert [a.attrs["href"] for a in shown_main.find_all("a")] == ["/people"]
     assert [a.attrs["href"] for a in root.find_all("header")[0].find_all("a")] == [
@@ -428,6 +428,7 @@ def test_task_page_opens_edit_form_from_saved_values(tmp_path: Path) -> None:
             *[f"/tasks/{index}/move"] * moves,
             f"/tasks/{index}/labels",
             f"/tasks/{index}/comments",
+            f"/tasks/{index}/delete",
         ]
         assert focused(root) == []
         labels = labels_by_control(root)
