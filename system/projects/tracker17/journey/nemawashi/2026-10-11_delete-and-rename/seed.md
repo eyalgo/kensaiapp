@@ -14,7 +14,7 @@ Cut from `products/tracker17/docs/SDD.md` § 6 S-7, slug `delete-and-rename` ("A
 
 ## Stations — dynamic checklist
 
-- [ ] delete-a-task — Delete task on a task's page behind the in-place confirmation, landing on its project with a line naming the task; the task's address shows the not-found page; an action sent from another tab for the deleted task is refused and changes nothing (AC-12); a deleted task's identity is not issued again (FR-15); both suites pass; the timed run covers a task delete (NFDR QC-48)
+- [x] delete-a-task — Delete task on a task's page behind the in-place confirmation, landing on its project with a line naming the task; the task's address shows the not-found page; an action sent from another tab for the deleted task is refused and changes nothing (AC-12); a deleted task's identity is not issued again (FR-15); both suites pass; the timed run covers a task delete (NFDR QC-48)
 - [ ] rename-a-project — Rename below a project's list holding the current name, refusing a blank name or one in use (UX-F10); the project's tasks unchanged (FR-12, a test); both suites pass; the timed run covers a rename (NFDR QC-48)
 - [ ] delete-a-project — Delete project behind a confirmation naming the project and its task count, landing on Projects with a line naming it, holding below a scrolled list (end-to-end test: opens in view, focus on its sentence, a double press never confirms); its tasks and comments in no list and gone (FR-13, FR-17); its address shows the not-found page and an action sent from another tab for it is refused (AC-12); the docstrings of `domain/projects.py` and `domain/tasks.py` name the tests the whole slice added; both suites pass and `python3 tests/timed_run.py` exits 0 covering a deletion
 
