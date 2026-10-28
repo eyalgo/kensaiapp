@@ -156,7 +156,7 @@ def test_the_note_number_equals_the_description_maxlength() -> None:
     assert str(SHORT_TEXT_MAX) not in main_text(root)
 
 
-def test_every_page_has_a_header_with_the_projects_all_tasks_and_people_links() -> None:
+def test_every_page_has_a_header_with_the_projects_and_people_links() -> None:
     """CP-9, CP-80, CP-459."""
     for label, page in all_pages().items():
         root = parse(page)
@@ -351,7 +351,7 @@ def test_the_created_project_page_opens_on_its_heading() -> None:
     assert "autofocus" not in plain.find_all("h1")[0].attrs
 
 
-def test_the_not_found_page_has_one_heading_and_links_to_projects_then_all_tasks() -> None:
+def test_the_not_found_page_has_one_heading_and_one_link_to_projects() -> None:
     """CP-33, CP-34, CP-460."""
     root = parse(pages.not_found_page())
     assert len(root.find_all("h1")) == 1
@@ -367,7 +367,7 @@ def test_the_not_found_page_has_one_heading_and_links_to_projects_then_all_tasks
     assert root.find_all("form") == []
 
 
-def test_the_not_found_page_gives_both_links_in_a_paragraph_after_its_heading() -> None:
+def test_the_not_found_page_gives_projects_in_a_paragraph_after_its_heading() -> None:
     """CP-33, CP-460: the sentence, then Projects and All tasks in the one paragraph in main."""
     (main,) = parse(pages.not_found_page()).find_all("main")
     children = [child for child in main.children if isinstance(child, Element)]
