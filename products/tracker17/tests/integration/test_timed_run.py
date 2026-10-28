@@ -3836,6 +3836,9 @@ def _summary_rejections(harness: ModuleType, site, saved_data, loaded):
         "a project not found": serve(
             site.handle("GET", "/projects/99/summary", harness.FILTER_HEADERS, b"")
         ),
+        "a body that is not HTML": serve(
+            Response(200, (("Content-Type", "text/plain"),), real.body)
+        ),
         "forbidden": serve(Response(403, page_headers, real.body)),
         "failed": serve(Response(500, page_headers, real.body)),
         "a redirect": serve(Response(303, (("Location", "/projects/1"),), b"")),
@@ -3874,6 +3877,7 @@ SUMMARY_REJECTION_NAMES = (
     "another project's Summary",
     "a title of another view",
     "a project not found",
+    "a body that is not HTML",
     "forbidden",
     "failed",
     "a redirect",
@@ -3995,6 +3999,74 @@ def test_timed_summary_checks_fixture_and_saved_bytes_outside_the_interval(
     )
     assert [r.seconds for r in results] == [pytest.approx(0.1)]
     assert [r.created for r in results] == [True]
+
+    for name in ("forbidden", "a wrong count", "changed saved bytes"):
+        site, saved_data, loaded = _summary_fixture(harness, tmp_path / name)
+        served = _summary_rejections(harness, site, saved_data, loaded)[name]
+        results = _measured_with_slow_readbacks(harness, served, saved_data)
+        assert [r.seconds for r in results] == [pytest.approx(0.1)], name
+        assert [r.created for r in results] == [False], name
+
+
+class _SlowGet:
+    """A site whose every request takes 0.1 s on the shared clock, whatever answers it."""
+
+    def __init__(self, inner: Intercept, clock: list[float]) -> None:
+        self._inner = inner
+        self._clock = clock
+
+    def handle(self, method: str, target: str, headers: dict[str, str], body: bytes) -> Response:
+        self._clock[0] += 0.1
+        return self._inner.handle(method, target, headers, body)
+
+
+def _measured_with_slow_readbacks(harness: ModuleType, served: Intercept, saved_data: SavedData):
+    """The measurement over a site whose GET takes 0.1 s and whose every readback takes 50 s."""
+    clock = [0.0]
+    return harness.measure_project_summary(
+        site=_SlowGet(served, clock),
+        saved_data=_SlowSavedData(saved_data, clock),
+        timer=lambda: clock[0],
+    )
+
+
+def test_timed_summary_accepts_a_run_that_crosses_midnight(
+    harness: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """T14, CP-497, CP-509: the overdue row is counted on the local day, so a GET answered on the
+    day after the one the run started on passes with the later day's row, and not with a row
+    that fits neither day."""
+    site, saved_data, loaded = _summary_fixture(harness, tmp_path)
+    real = _real_summary(harness, site)
+    first = date(2000, 1, 1)
+    overdue_first = dict(_summary_oracle(loaded, first))["Overdue"]
+    overdue_next = dict(_summary_oracle(loaded, first.replace(day=2)))["Overdue"]
+    assert overdue_first != overdue_next
+    real_overdue = dict(_summary_oracle(loaded, _local_today()))["Overdue"]
+    served = _edited(
+        real,
+        lambda t: t.replace(
+            _summary_row("Overdue", real_overdue), _summary_row("Overdue", overdue_next)
+        ),
+    )
+    days = iter([first, first.replace(day=2)])
+    monkeypatch.setattr(harness, "_local_today", lambda: next(days))
+
+    crossed = harness.measure_project_summary(
+        site=Intercept(site, lambda method, target: served),
+        saved_data=saved_data,
+        timer=Ticks(*SUMMARY_QUICK),
+    )
+
+    assert [r.created for r in crossed] == [True]
+    same_day = iter([first, first])
+    monkeypatch.setattr(harness, "_local_today", lambda: next(same_day))
+    missed = harness.measure_project_summary(
+        site=Intercept(site, lambda method, target: served),
+        saved_data=saved_data,
+        timer=Ticks(*SUMMARY_QUICK),
+    )
+    assert [r.created for r in missed] == [False]
 
 
 def test_timed_run_appends_summary_after_all_existing_blocks(
