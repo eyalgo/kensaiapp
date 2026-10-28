@@ -142,6 +142,40 @@ def test_summary_counts_only_the_requested_project() -> None:
     assert assignee_rows(other) == [("ari", 0), ("bo", 1), (None, 0)]
 
 
+def test_summary_counts_no_overdue_or_undated_task_of_another_project() -> None:
+    """CP-496 to CP-498, CP-507: another project's overdue, undated and open tasks count nowhere.
+
+    Every Beta task here is a case Alpha's own rows would count, so a count taken over the whole
+    tracker rather than this project shows in every row.
+    """
+    tasks = (
+        make_task(1, status=TaskStatus.TODO, priority=Priority.LOW, due=TODAY, assignee="ari"),
+        make_task(2, project_id=BETA, status=TaskStatus.TODO, due=YESTERDAY, assignee="ari"),
+        make_task(3, project_id=BETA, status=TaskStatus.IN_PROGRESS, due=YESTERDAY),
+        make_task(4, project_id=BETA, status=TaskStatus.DONE, due=None, assignee="bo"),
+    )
+    summary = summary_of(make_state(*tasks))
+
+    assert summary.total == 1
+    assert summary.overdue == 0
+    assert summary.no_due_date == 0
+    assert status_rows(summary) == [
+        (TaskStatus.TODO, 1),
+        (TaskStatus.IN_PROGRESS, 0),
+        (TaskStatus.DONE, 0),
+        (TaskStatus.CANCELLED, 0),
+    ]
+    assert priority_rows(summary) == [
+        (Priority.LOW, 1),
+        (Priority.MEDIUM, 0),
+        (Priority.HIGH, 0),
+        (Priority.CRITICAL, 0),
+    ]
+    assert assignee_rows(summary) == [("ari", 1), ("bo", 0), (None, 0)]
+    beta = summary_of(make_state(*tasks), BETA)
+    assert (beta.total, beta.overdue, beta.no_due_date) == (3, 2, 1)
+
+
 def test_summary_preserves_required_zero_rows() -> None:
     """CP-496, CP-499, CP-502, T02: an empty project keeps every row, the unassigned bucket last."""
     listed = summary_of(make_state(), GAMMA)
