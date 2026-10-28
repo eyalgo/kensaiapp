@@ -87,6 +87,7 @@ def seeded_tracker(saver: RecordingSaver, clock: SequenceClock) -> Tracker:
     tracker.add_task(1, "today", "high", "", "2026-10-27")
     tracker.add_task(1, "finished", "medium", "bo", "2026-10-01")
     tracker.add_task(2, "elsewhere", "critical", "bo", "")
+    tracker.move_task(3, "in-progress")
     tracker.move_task(3, "done")
     return tracker
 

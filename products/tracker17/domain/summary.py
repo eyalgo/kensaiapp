@@ -5,13 +5,15 @@ included, the overdue count, the tasks with no due date and the open tasks of ev
 (the overdue rule, decided once for the list marking, the filter and this count), FR-35 (the overdue
 filter this count is taken through) and NFR-9 (the trace from the requirement to this code).
 
-Taking part: nothing here reads a clock or a file, so today arrives as an argument and the state as
-a value. The rows come back in the order the page shows them and carry identifiers, never words.
+Taking part: application/tracker.py reads the clock once and works the summary out of the current
+state, and application/__init__.py hands the values to the web part. Nothing here reads a clock or
+a file, so today arrives as an argument and the state as a value. The rows come back in the order the page shows them and carry identifiers, never words.
 The counts for the total, each status, each priority and overdue are taken through the project
 filter in domain/filtering.py; open membership is TaskStatus.is_open in domain/tasks.py.
 
-Checked by: tests/unit/test_summary.py (the rules), and tests/architecture/test_trace.py and
-tests/architecture/test_shapes.py (the entry and the shape).
+Checked by: tests/unit/test_summary.py (the rules), tests/integration/test_summary_tracker.py (the
+read through the Tracker), and tests/architecture/test_trace.py and tests/architecture/test_shapes.py
+(the entry and the shape).
 """
 
 from __future__ import annotations
