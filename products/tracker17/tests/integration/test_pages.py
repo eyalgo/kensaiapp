@@ -141,11 +141,11 @@ def all_pages() -> dict[str, str]:
         "people": pages.people_page([]),
         "people list": pages.people_page(["Dana", "Ari"]),
         "people added": pages.people_page(["Dana"], added="Dana"),
-        "project": pages.project_page(alpha),
+        "project": pages.project_page(alpha, task_count=0),
         "summary": pages.summary_page(
             ProjectSummary(alpha, 0, (), (), 0, 0, (AssigneeCount(None, 0),))
         ),
-        "created": pages.project_page(alpha, created=True),
+        "created": pages.project_page(alpha, task_count=0, created=True),
         "not found": pages.not_found_page(),
     }
 
@@ -231,7 +231,11 @@ def test_the_list_shows_names_as_links_in_order_with_descriptions() -> None:
 def test_a_project_page_shows_name_description_the_invitation_and_only_the_add_form() -> None:
     """CP-17, CP-106, CP-126. The no-form and no-invitation clauses are replaced by the add form
     and the first-task invitation (design § 5); every excluded control is still absent."""
-    root = parse(pages.project_page(Project(id=7, name="  Alpha  ", description="line1\nline2")))
+    root = parse(
+        pages.project_page(
+            Project(id=7, name="  Alpha  ", description="line1\nline2"), task_count=0
+        )
+    )
     (heading,) = root.find_all("h1")
     assert heading.text() == "  Alpha  "
     assert "line1\nline2" in main_text(root)
@@ -257,8 +261,8 @@ def test_a_project_page_shows_name_description_the_invitation_and_only_the_add_f
 def test_the_created_line_names_the_project() -> None:
     """CP-18."""
     project = Project(id=3, name=" Alpha ", description="")
-    with_flag = parse(pages.project_page(project, created=True))
-    without = parse(pages.project_page(project))
+    with_flag = parse(pages.project_page(project, task_count=0, created=True))
+    without = parse(pages.project_page(project, task_count=0))
     assert "You created ' Alpha '." in with_flag.text()
     assert "You created" not in without.text()
 
@@ -267,7 +271,7 @@ def test_values_are_escaped_everywhere() -> None:
     """CP-23, QC-36."""
     project = Project(id=1, name=HOSTILE, description=HOSTILE)
     listed = pages.projects_page([project])
-    on_project = pages.project_page(project, created=True)
+    on_project = pages.project_page(project, task_count=0, created=True)
     refused = pages.projects_page(
         [project], refusal=pages.NAME_IN_USE, name=HOSTILE, description=HOSTILE
     )
@@ -295,7 +299,7 @@ def test_a_description_starting_with_a_line_break_keeps_it() -> None:
     assert textarea_value(description_field(parse(page))) == description
     assert re.search(r"<textarea[^>]*>\n\nsecond line</textarea>", page)
     project = Project(id=1, name="Alpha", description=description)
-    shown = parse(pages.project_page(project))
+    shown = parse(pages.project_page(project, task_count=0))
     assert description in main_text(shown)
 
 
@@ -371,13 +375,13 @@ def test_a_failed_page_focuses_the_create_button_and_keeps_typed_values() -> Non
 def test_the_created_project_page_opens_on_its_heading() -> None:
     """EX-5, EX-14."""
     project = Project(id=1, name="Alpha", description="")
-    root = parse(pages.project_page(project, created=True))
+    root = parse(pages.project_page(project, task_count=0, created=True))
     (heading,) = root.find_all("h1")
     assert "autofocus" in heading.attrs
     (line,) = heading.described_by()
     assert line is root.by_id("created-line")
     assert "Alpha" in line.text()
-    plain = parse(pages.project_page(project))
+    plain = parse(pages.project_page(project, task_count=0))
     assert "autofocus" not in plain.find_all("h1")[0].attrs
 
 

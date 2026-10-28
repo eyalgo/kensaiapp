@@ -25,8 +25,16 @@ import pytest
 from test_pages import Element, parse
 from test_routes import FORM, HOST, SAME_ORIGIN, get, header, page
 
-from application import SHORT_TEXT_MAX, Saver, TaskFields, Tracker, TrackerState
-from domain import empty_state
+from application import (
+    SHORT_TEXT_MAX,
+    ProjectNotFound,
+    ProjectRenameOutcome,
+    Saver,
+    TaskFields,
+    Tracker,
+    TrackerState,
+)
+from domain import Task, empty_state
 from persistence import SavedData
 from web import Response, Site, pages
 
@@ -438,15 +446,103 @@ def test_other_unknown_paths_keep_the_project_not_found_page(tmp_path: Path, tar
     assert response.body == pages.not_found_page().encode("utf-8")
 
 
-@pytest.mark.parametrize("project", ["99", "0", "9" * 5000])
-def test_a_missing_project_post_gets_project_not_found_and_saves_nothing(
+ADD_FORMS: dict[str, dict[str, str]] = {
+    "valid": {"title": "Orphan"},
+    "no-fields": {},
+    "blank-title": {"title": ""},
+    "overlong-title": {"title": "x" * (SHORT_TEXT_MAX + 1)},
+    "invalid-priority": {"title": "Orphan", "priority": "bogus"},
+    "unlisted-assignee": {"title": "Orphan", "assignee": "Nobody"},
+    "invalid-date": {"title": "Orphan", "due_date": "nope"},
+}
+
+
+@pytest.mark.parametrize("form", sorted(ADD_FORMS))
+@pytest.mark.parametrize(("project", "identity"), [("99", 99), ("0", 0), ("00", 0), ("00099", 99)])
+def test_missing_project_add_redirects_without_saving(
+    tmp_path: Path, project: str, identity: int, form: str
+) -> None:
+    """CP-594, CP-596, CP-597, CP-598, T2: an add to an identity no project holds, whatever the
+    form carries, is sent to the bare canonical project address and saves nothing."""
+    world = make_world(tmp_path)
+    before = (world.bytes_on_disk(), world.saver.saves, state_of(world))
+    response = add_task(world.site, project_id=project, **ADD_FORMS[form])
+    assert response.status == 303 and header(response, "Location") == f"/projects/{identity}"
+    assert (world.bytes_on_disk(), world.saver.saves, state_of(world)) == before
+
+
+@pytest.mark.parametrize("form", sorted(ADD_FORMS))
+def test_deleted_project_add_redirects_without_saving(tmp_path: Path, form: str) -> None:
+    """CP-594, CP-597, T2: the same for a deleted project, removed by the tracker call its
+    confirmation makes."""
+    world = make_world(tmp_path, projects=("Alpha", "Beta"))
+    world.tracker.delete_project(1)
+    before = (world.bytes_on_disk(), world.saver.saves, state_of(world))
+    response = add_task(world.site, project_id=1, **ADD_FORMS[form])
+    assert response.status == 303 and header(response, "Location") == "/projects/1"
+    assert (world.bytes_on_disk(), world.saver.saves, state_of(world)) == before
+
+
+def state_of(world: World) -> tuple[object, ...]:
+    """Every project, every project's tasks and the people list: what CP-594 keeps unchanged."""
+    tracker = world.tracker
+    projects = tracker.projects()
+    tasks = tuple(tracker.project_tasks(project.id) for project in projects)
+    return (projects, tasks, tracker.assignees())
+
+
+class VanishingProjectTracker(Tracker):
+    """A tracker whose project lookup succeeds and whose actions then report the project gone."""
+
+    def __init__(self, saver: Saver, clock: MovableClock) -> None:
+        super().__init__(empty_state(), saver, clock)
+        self.reached: list[tuple[str, int]] = []
+
+    def add_task(
+        self,
+        project_id: int,
+        title: str,
+        priority: str = "",
+        assignee: str = "",
+        due_date: str = "",
+    ) -> Task:
+        self.reached.append(("add_task", project_id))
+        raise ProjectNotFound(str(project_id))
+
+    def rename_project(self, project_id: int, name: str) -> ProjectRenameOutcome:
+        self.reached.append(("rename_project", project_id))
+        raise ProjectNotFound(str(project_id))
+
+
+@pytest.mark.parametrize(
+    "form", [{"title": "Orphan"}, {"title": ""}, {"title": "Orphan", "priority": "bogus"}]
+)
+@pytest.mark.parametrize(("project", "identity"), [("1", 1), ("001", 1)])
+def test_add_redirects_when_project_is_missing_at_action(
+    tmp_path: Path, form: dict[str, str], project: str, identity: int
+) -> None:
+    """CP-596, CP-597, T3: the project is found, then the action reports it gone: the same bare
+    redirect, nothing saved, no refusal or typed value in the address."""
+    world = make_world(tmp_path)
+    vanishing = VanishingProjectTracker(world.saver, world.clock)
+    vanishing.create_project("Alpha", "")
+    site = Site(vanishing, HOST)
+    before = (world.bytes_on_disk(), world.saver.saves, vanishing.projects())
+    response = add_task(site, project_id=project, **form)
+    assert vanishing.reached == [("add_task", identity)]
+    assert response.status == 303 and header(response, "Location") == f"/projects/{identity}"
+    assert (world.bytes_on_disk(), world.saver.saves, vanishing.projects()) == before
+
+
+@pytest.mark.parametrize("project", ["9" * 5000])
+def test_unreadable_project_add_keeps_not_found_without_saving(
     tmp_path: Path, project: str
 ) -> None:
-    """CP-113: an add to a project nobody holds changes nothing."""
+    """CP-598, Out of Scope, T2: a number too long to read as an identity keeps the direct 404."""
     world = make_world(tmp_path)
     before = (world.bytes_on_disk(), world.saver.saves)
-    response = add_task(world.site, project_id=project, title="Orphan")  # type: ignore[arg-type]
-    assert response.status == 404
+    response = add_task(world.site, project_id=project, title="Orphan")
+    assert response.status == 404 and header(response, "Location") is None
     assert response.body == pages.not_found_page().encode("utf-8")
     assert (world.bytes_on_disk(), world.saver.saves) == before
 

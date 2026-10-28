@@ -11,3 +11,6 @@
 ---
 
 *Sizing: one capability, answering a submission for a deleted project by redirect to its address, with the count placement fix riding as the same project-deletion code in `web`; acceptance is the station's four reached-when items (both redirects with unchanged data, the test per submission, no `len(rows)` fallback with its test, both suites); one flow, one merge. Source: SDD § 4 RT-11 and § 3, the station `2026-10-28_deleted-project-redirect`, item 4 of 5 on seed `2026-10-11_delete-and-rename`. FDR fit: in-scope; `docs/SDD.md`, `docs/fdr.md`, `docs/nfdr.md` and `docs/adr/` are present.*
+
+**Sealed:** 2026-10-28 — accepted; merged to `main` via `--no-ff`.
+Environment: owners-mac — no CI

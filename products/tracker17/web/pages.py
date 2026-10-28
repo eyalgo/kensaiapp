@@ -1943,6 +1943,7 @@ def project_page(
     rows: Sequence[TaskRow] = (),
     assignees: Sequence[str] = (),
     *,
+    task_count: int,
     listing: ProjectTaskList | None = None,
     priority_choices: Sequence[str] = PRIORITY_CHOICES,
     form: TaskForm | None = None,
@@ -1979,7 +1980,8 @@ def project_page(
     active `delete_area` (a failure, a confirmation or a back-out, already resolved by the caller)
     wins over every move marker, the deleted-task line and the created line, and owns the one focus:
     the add-task form and the Rename area keep what their own outcomes display but give up theirs.
-    The confirmation counts the whole project, `listing.task_count`, never the rows shown.
+    The confirmation states `task_count`, the whole-project count the application answered and the
+    caller hands in, never the rows shown or a listing's rows: this page counts nothing itself.
     """
     delete_mode = delete_area.mode if delete_area is not None else DeleteMode.ORDINARY
     deleting = delete_mode is not DeleteMode.ORDINARY
@@ -2034,7 +2036,6 @@ def project_page(
         f"{_add_task_form(project, assignees, priority_choices, form or TaskForm())}"
         f"{under_form}"
     )
-    task_count = listing.task_count if listing is not None else len(rows)
     carried = _carried_pairs(listing) if listing is not None else ()
     delete_section = _project_delete_section(project, delete_mode, task_count, carried)
     if deleting:

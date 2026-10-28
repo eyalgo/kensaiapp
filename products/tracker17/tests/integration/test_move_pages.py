@@ -34,7 +34,7 @@ from test_pages import Element, parse
 from test_routes import get, page
 from test_task_routes import World, focused, follow, make_world
 
-from application import TaskStatus
+from application import FilterInput, TaskStatus
 from web import pages
 
 CONTROL_TAGS = ("button", "input", "select", "textarea", "a", "form")
@@ -325,7 +325,9 @@ def address_context() -> pages.MoveRefusalContext:
 def project_html(world: World, **options: object) -> str:
     project = world.tracker.project(1)
     assert project is not None
-    return pages.project_page(project, world.tracker.project_tasks(1), **options)
+    rows = world.tracker.project_tasks(1)
+    count = world.tracker.project_task_list(1, FilterInput()).task_count
+    return pages.project_page(project, rows, task_count=count, **options)
 
 
 def task_html(world: World, **options: object) -> str:

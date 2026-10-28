@@ -637,6 +637,7 @@ class Site:
                 project,
                 listing.rows,
                 self._tracker.assignees(),
+                task_count=listing.task_count,
                 listing=listing,
                 form=self._task_form(query),
                 created="created" in query,
@@ -865,17 +866,19 @@ class Site:
         text back for a blank or in-use name only; an unexpected failure is reported once, by the
         guarded site, and carries the typed text.
         """
-        project = self._project_named_by(digits)
-        if project is None:
+        identity = self._identity(digits)
+        if identity is None:
             return self._not_found_page()
+        address = f"/projects/{identity}"
+        if self._tracker.project(identity) is None:
+            return self._redirect(address)
         name = _line_feeds(_first(form, "name"))
-        address = f"/projects/{project.id}"
 
         def rename() -> Response:
             try:
-                outcome = self._tracker.rename_project(project.id, name)
+                outcome = self._tracker.rename_project(identity, name)
             except ProjectNotFound:
-                return self._not_found_page()
+                return self._redirect(address)
             except (BlankName, NameInUse, TextTooLong) as error:
                 refusal = _project_refusal(error)
                 if refusal.field is not None:
@@ -894,11 +897,13 @@ class Site:
         )
 
     def _add_task(self, digits: str, form: Mapping[str, list[str]]) -> Response:
-        project = self._project_named_by(digits)
-        if project is None:
+        identity = self._identity(digits)
+        if identity is None:
             return self._not_found_page()
+        project_address = f"/projects/{identity}"
+        if self._tracker.project(identity) is None:
+            return self._redirect(project_address)
         fields = {name: _line_feeds(_first(form, name)) for name in TASK_FIELDS}
-        project_address = f"/projects/{project.id}"
 
         def refused(refusal: pages.TaskRefusal, *kept: str) -> Response:
             retained = {name: fields[name] for name in kept}
@@ -906,9 +911,9 @@ class Site:
 
         def add() -> Response:
             try:
-                task = self._tracker.add_task(project.id, **fields)
+                task = self._tracker.add_task(identity, **fields)
             except ProjectNotFound:
-                return self._not_found_page()
+                return self._redirect(project_address)
             except TextTooLong:
                 return refused(pages.TaskRefusal.TOO_LONG)
             except BlankTitle:
