@@ -5,7 +5,7 @@ included, a label added or removed too, the operator's name saved, a comment add
 to or removed from the assignee list, a task moved from `todo` to `in-progress`, and a project
 list filtered by a status, which realizes FR-32, and sorted by priority, which realizes FR-36) and AC-15 (the response time). Change spec rules CP-143 (the add), CP-179 (the edit), CP-208 (the label add and
 remove), CP-237 (the name save), CP-276 to CP-289 (the comment add and the assignee add and remove)
-CP-371 to CP-392 (the status move), CP-418 to CP-423 (the status filter) and CP-451 to CP-456 (the sort) and NFDR QC-48 are the ones each test names. The harness is
+CP-371 to CP-392 (the status move), CP-418 to CP-423 (the status filter) and CP-451 to CP-456 (the sort), CP-543 (the task deletion, FR-17) and NFDR QC-48 are the ones each test names. The harness is
 tests/timed_run.py; it is loaded by its path and handed its own collaborators (a request site, a
 timer, a location), so no product name is patched. A script that only exits 0 could time the wrong
 path, so these tests prove it exercises the real one and refuses a wrong one.
@@ -421,6 +421,7 @@ def test_timed_run_fails_when_only_the_edit_fails(
             *FILTER_QUICK,
             *SORT_QUICK,
             *SUMMARY_QUICK,
+            *DELETE_QUICK,
         ),
     )
 
@@ -728,6 +729,7 @@ def test_timed_run_fails_when_only_a_label_action_fails(
         *FILTER_QUICK,
         *SORT_QUICK,
         *SUMMARY_QUICK,
+        *DELETE_QUICK,
     )
 
     status = harness.main(tmp_path, ticks)
@@ -768,6 +770,8 @@ FILTER_QUICK = QUICK
 SORT_QUICK = QUICK
 # The Summary's two readings, taken after the sort's: one interval round its one GET, under the limit.
 SUMMARY_QUICK = (0.0, 0.1)
+# The deletion's four readings, taken after the Summary's: all under the limit (CP-543).
+DELETE_QUICK = QUICK
 NAME_LABEL = "set your name at 1000 tasks"
 NAME_LANDING_LABEL = "name landing page at 1000 tasks"
 NAME_ADDRESS = "/operator-name"
@@ -983,6 +987,7 @@ def test_full_timed_run_fails_when_only_name_measurement_fails(
                 *FILTER_QUICK,
                 *SORT_QUICK,
                 *SUMMARY_QUICK,
+                *DELETE_QUICK,
             ),
         )
         lines = capsys.readouterr().out.splitlines()
@@ -2086,12 +2091,19 @@ def _run_readings(**slow: tuple[float, ...]) -> Ticks:
 
     The five old actions read first, in the order the run times them, then the comment add, the
     assignee add, the assignee remove, the status move, the status filter and the sort, as the
-    run appends them, and last the Summary's one interval of two readings (CP-509).
+    run appends them, then the Summary's one interval of two readings (CP-509), and last the
+    deletion's four (CP-543).
     """
     order = ("comment", "assignee add", "assignee remove", "move", "filter", "sort")
     new = [slow.get(name, QUICK) for name in order]
     summary = slow.get("summary", SUMMARY_QUICK)
-    return Ticks(*QUICK * OLD_ACTION_READINGS, *[value for each in new for value in each], *summary)
+    delete = slow.get("delete", DELETE_QUICK)
+    return Ticks(
+        *QUICK * OLD_ACTION_READINGS,
+        *[value for each in new for value in each],
+        *summary,
+        *delete,
+    )
 
 
 def _product_data_snapshot() -> dict[str, bytes] | None:
@@ -2127,6 +2139,7 @@ def test_timed_run_appends_exactly_three_ordered_action_blocks(whole_run) -> Non
         *FILTER_RUN_LABELS,
         *SORT_RUN_LABELS,
         *SUMMARY_RUN_LABELS,
+        *DELETE_RUN_LABELS,
     ]
     assert "over" not in "\n".join(lines) and "refused" not in "\n".join(lines)
 
@@ -2336,6 +2349,12 @@ SORT_LABELS = (
 SORT_RUN_LABELS = ("sort fixture", *SORT_LABELS)
 SUMMARY_LABEL = "open a project summary at 1000 tasks"
 SUMMARY_RUN_LABELS = ("summary fixture", SUMMARY_LABEL)
+DELETE_LABELS = (
+    "delete a task at 1000 tasks",
+    "delete landing page at 1000 tasks",
+    "delete total at 1000 tasks",
+)
+DELETE_RUN_LABELS = ("delete fixture", *DELETE_LABELS)
 MOVE_OPERATOR = "Jordan Rivera"
 MOVE_ASSIGNEES = ("Zed Quinn", "Mara Lopez")
 
@@ -2858,31 +2877,32 @@ def test_timed_run_appends_exact_move_block_and_nothing_after(
     harness: ModuleType, whole_run, tmp_path: Path
 ) -> None:
     """T10, CP-373, CP-375, CP-381, CP-423: every older line, the move's four lines, then exactly the
-    filter's four, then exactly the sort's four, then the Summary's two and no footer."""
+    filter's four, then exactly the sort's four, then the Summary's two, the deletion's four and no
+    footer."""
     _, status, lines, _, _ = whole_run
     _, fresh = harness.open_task_volume(SavedData(tmp_path / "fresh"))
 
     assert status == 0
-    assert [line.split(":")[0] for line in lines[:-14]] == [*OLD_RUN_LABELS, *NEW_RUN_LABELS]
-    assert lines[-14:-10] == [
+    assert [line.split(":")[0] for line in lines[:-18]] == [*OLD_RUN_LABELS, *NEW_RUN_LABELS]
+    assert lines[-18:-14] == [
         harness.move_fixture_report(fresh),
         "move a task at 1000 tasks: 100.0 ms",
         "move landing page at 1000 tasks: 100.0 ms",
         "move total at 1000 tasks: 200.0 ms",
     ]
-    assert lines[-10:-6] == [
+    assert lines[-14:-10] == [
         harness.filter_fixture_report(fresh),
         "filter a task list at 1000 tasks: 100.0 ms",
         "filter landing page at 1000 tasks: 100.0 ms",
         "filter total at 1000 tasks: 200.0 ms",
     ]
-    assert lines[-6:-2] == [
+    assert lines[-10:-6] == [
         harness.sort_fixture_report(fresh),
         "sort a task list at 1000 tasks: 100.0 ms",
         "sort landing page at 1000 tasks: 100.0 ms",
         "sort total at 1000 tasks: 200.0 ms",
     ]
-    assert lines[-2].startswith("summary fixture: ")
+    assert lines[-6].startswith("summary fixture: ")
 
 
 def test_timed_move_fixture_is_independent_and_product_data_unchanged(
@@ -3274,8 +3294,8 @@ def test_timed_filter_failures_reach_main_verdict(
     lines = capsys.readouterr().out.splitlines()
     assert status == 1
     assert [line for line in lines if "refused or failed" in line]
-    assert not [line for line in lines[:-10] if "refused" in line or "over" in line]
-    assert not [line for line in lines[-6:] if "refused" in line or "over" in line]
+    assert not [line for line in lines[:-14] if "refused" in line or "over" in line]
+    assert not [line for line in lines[-10:] if "refused" in line or "over" in line]
 
 
 # --- The sort appended to the whole run (CP-451 to CP-456) ----------------------------------------
@@ -3656,16 +3676,16 @@ def test_timed_sort_failures_reach_main_verdict(
 
     lines = capsys.readouterr().out.splitlines()
     assert status == 1
-    assert [line for line in lines[-5:-2] if "refused or failed" in line]
-    assert not [line for line in lines[:-6] if "refused" in line or "over" in line]
-    assert not [line for line in lines[-2:] if "refused" in line or "over" in line]
+    assert [line for line in lines[-9:-6] if "refused or failed" in line]
+    assert not [line for line in lines[:-10] if "refused" in line or "over" in line]
+    assert not [line for line in lines[-6:] if "refused" in line or "over" in line]
 
 
 def test_full_run_keeps_the_sort_block_before_the_summary_block(
     harness: ModuleType, whole_run, tmp_path: Path
 ) -> None:
     """T12, CP-452: every earlier line in its place and unchanged, then the sort's four lines, with
-    only the Summary's two after them."""
+    only the Summary's two and the deletion's four after them."""
     _, status, lines, _, _ = whole_run
     _, fresh = harness.open_task_volume(SavedData(tmp_path / "fresh"))
 
@@ -3677,14 +3697,15 @@ def test_full_run_keeps_the_sort_block_before_the_summary_block(
         *FILTER_RUN_LABELS,
         *SORT_RUN_LABELS,
         *SUMMARY_RUN_LABELS,
+        *DELETE_RUN_LABELS,
     ]
-    assert lines[-6:-2] == [
+    assert lines[-10:-6] == [
         harness.sort_fixture_report(fresh),
         "sort a task list at 1000 tasks: 100.0 ms",
         "sort landing page at 1000 tasks: 100.0 ms",
         "sort total at 1000 tasks: 200.0 ms",
     ]
-    assert lines[-6].endswith("sort priority descending, 1000 listed")
+    assert lines[-10].endswith("sort priority descending, 1000 listed")
 
 
 # --- The project Summary appended to the whole run (CP-503, CP-509) -------------------------------
@@ -4363,7 +4384,8 @@ def test_timed_run_appends_summary_after_all_existing_blocks(
     harness: ModuleType, whole_run, tmp_path: Path
 ) -> None:
     """T15, CP-509, Locked Answer f-4: every older block keeps its labels and place, and only the
-    published Summary fixture and result lines follow, the fixture description first."""
+    published Summary fixture and result lines follow, the fixture description first, and then
+    the deletion's four."""
     directory, status, lines, before, after = whole_run
     summary_data = SavedData(directory / "summary-volume")
     loaded = summary_data.load()
@@ -4371,7 +4393,7 @@ def test_timed_run_appends_summary_after_all_existing_blocks(
     _, fresh = harness.open_summary_volume(SavedData(tmp_path / "fresh"))
 
     assert status == 0
-    assert [line.split(":")[0] for line in lines[:-2]] == [
+    assert [line.split(":")[0] for line in lines[:-6]] == [
         *OLD_RUN_LABELS,
         *NEW_RUN_LABELS,
         *MOVE_RUN_LABELS,
@@ -4379,7 +4401,7 @@ def test_timed_run_appends_summary_after_all_existing_blocks(
         *SORT_RUN_LABELS,
     ]
     assert loaded == fresh
-    assert lines[-2:] == [
+    assert lines[-6:-4] == [
         harness.summary_fixture_report(fresh),
         f"{SUMMARY_LABEL}: 100.0 ms",
     ]
@@ -4439,8 +4461,9 @@ def test_timed_run_includes_summary_failure_in_exit_status(
 
     lines = capsys.readouterr().out.splitlines()
     assert status == 1
-    assert "refused or failed" in lines[-1] and lines[-1].startswith(SUMMARY_LABEL)
-    assert not [line for line in lines[:-1] if "refused" in line or "over" in line]
+    assert "refused or failed" in lines[-5] and lines[-5].startswith(SUMMARY_LABEL)
+    others = [*lines[:-5], *lines[-4:]]
+    assert not [line for line in others if "refused" in line or "over" in line]
 
 
 def test_summary_fixture_report_uses_loaded_volume_and_text_lengths(
@@ -4503,3 +4526,339 @@ def test_summary_fixture_is_varied_and_its_own(harness: ModuleType, tmp_path: Pa
     named = {t.assignee for t in held if t.assignee is not None}
     assert set(state.assignees) < named
     assert state != harness.seeded_state()
+
+
+# --- The task deletion appended to the whole run (CP-543; T15) -------------------------------------
+
+DELETE_TASK = 500
+DELETE_OPENING = f"/tasks/{DELETE_TASK}/delete"
+DELETE_CONFIRMING = f"/tasks/{DELETE_TASK}/delete/confirm"
+DELETE_WRONG_STATES = {
+    "no deletion": lambda before, after: before,
+    "comments retained": lambda before, after: replace(
+        after,
+        tasks=tuple(
+            replace(t, comments=(*t.comments, *find_task(before, DELETE_TASK).comments))
+            if t.id == DELETE_TASK + 1
+            else t
+            for t in after.tasks
+        ),
+    ),
+    "another task removed": lambda before, after: replace(after, tasks=after.tasks[1:]),
+    "another task field altered": lambda before, after: replace(
+        after,
+        tasks=(replace(after.tasks[0], title="Another title"), *after.tasks[1:]),
+    ),
+    "another task comment altered": lambda before, after: replace(
+        after,
+        tasks=(
+            replace(after.tasks[0], comments=after.tasks[0].comments[:-1]),
+            *after.tasks[1:],
+        ),
+    ),
+    "project changed": lambda before, after: replace(
+        after, projects=(replace(after.projects[0], name="Another project"),)
+    ),
+    "assignee list changed": lambda before, after: replace(after, assignees=("Avery Chen",)),
+    "operator name changed": lambda before, after: replace(after, operator_name="Jordan Rivera"),
+    "task counter changed": lambda before, after: replace(
+        after, next_task_id=after.next_task_id + 1
+    ),
+    "project counter changed": lambda before, after: replace(
+        after, next_project_id=after.next_project_id + 1
+    ),
+}
+
+
+def _without_target(state):
+    """The expected state, worked out here by dropping one task: its comments go with it."""
+    return replace(state, tasks=tuple(t for t in state.tasks if t.id != DELETE_TASK))
+
+
+def _delete_title(state) -> str:
+    task = find_task(state, DELETE_TASK)
+    assert task is not None
+    return task.title
+
+
+class AfterDelete:
+    """The real site, with the saved state rewritten once the confirming request has been answered."""
+
+    def __init__(self, site, saved_data: SavedData, change: Callable) -> None:
+        self._site = site
+        self._saved_data = saved_data
+        self._change = change
+        self._before = saved_data.load()
+
+    def handle(self, method: str, target: str, headers: dict[str, str], body: bytes) -> Response:
+        response = self._site.handle(method, target, headers, body)
+        if method == "POST" and target == DELETE_CONFIRMING:
+            after = self._saved_data.load()
+            assert after is not None and self._before is not None
+            self._saved_data.save(self._change(self._before, after))
+        return response
+
+
+def test_full_volume_deletion_measures_post_landing_and_total(
+    harness: ModuleType, whole_run, tmp_path: Path
+) -> None:
+    """CP-543, T15: the fixture line states the volume and actual lengths, then three rows in order,
+    each under the limit, and the whole run exits 0."""
+    _, status, lines, _, _ = whole_run
+    _, fresh = harness.open_task_volume(SavedData(tmp_path / "fresh"))
+    task = find_task(fresh, DELETE_TASK)
+    assert task is not None
+
+    assert status == 0
+    assert lines[-4:] == [
+        (
+            "delete fixture: 1000 tasks, 20 comments each (20000 in all); "
+            f"title of {len(task.title)} characters, "
+            f"comment of {len(task.comments[0].text)} characters"
+        ),
+        "delete a task at 1000 tasks: 100.0 ms",
+        "delete landing page at 1000 tasks: 100.0 ms",
+        "delete total at 1000 tasks: 200.0 ms",
+    ]
+    assert harness.delete_fixture_report(fresh) == lines[-4]
+
+    site, saved_data, seeded = _seeded(harness, tmp_path / "one")
+    results = harness.measure_task_delete(site=site, saved_data=saved_data, timer=Ticks(*QUICK))
+    assert [(r.label, r.created) for r in results] == [(label, True) for label in DELETE_LABELS]
+    assert [r.seconds for r in results] == pytest.approx([0.1, 0.1, 0.2])
+    assert saved_data.load() == _without_target(seeded)
+
+
+def test_delete_fixture_and_oracle_work_are_outside_the_intervals(
+    harness: ModuleType, tmp_path: Path
+) -> None:
+    """CP-543, T15: the opening press, the expected state and the saved readback sit outside the two
+    timed requests, and the total is their sum without the gap between them."""
+    site, saved_data, _ = _seeded(harness, tmp_path / "data")
+    events: list[str] = []
+
+    class Logged(Intercept):
+        def handle(self, method, target, headers, body):  # type: ignore[no-untyped-def]
+            events.append(f"{method} {target}")
+            return super().handle(method, target, headers, body)
+
+    class LoggedData:
+        location = saved_data.location
+
+        @staticmethod
+        def load():  # type: ignore[no-untyped-def]
+            events.append("load")
+            return saved_data.load()
+
+    readings = iter((0.0, 0.2, 5.0, 5.3))
+
+    def timer() -> float:
+        events.append("tick")
+        return next(readings)
+
+    results = harness.measure_task_delete(site=Logged(site), saved_data=LoggedData(), timer=timer)
+
+    assert events.index("tick") > events.index(f"POST {DELETE_OPENING}")
+    ticks = [i for i, event in enumerate(events) if event == "tick"]
+    assert len(ticks) == 4
+    assert events[ticks[0] + 1 : ticks[1]] == [f"POST {DELETE_CONFIRMING}"]
+    assert events[ticks[1] + 1 : ticks[2]] == ["load"]
+    assert [e.split(" ")[0] for e in events[ticks[2] + 1 : ticks[3]]] == ["GET"]
+    assert [r.seconds for r in results] == pytest.approx([0.2, 0.3, 0.5])
+
+
+def test_timed_delete_is_same_origin_and_a_real_change(
+    harness: ModuleType, whole_run, tmp_path: Path
+) -> None:
+    """CP-543, T15: the confirming POST is marked same-origin and lands on the owning project with
+    its completion; the saved file is exactly the fixture minus the task and its comments."""
+    directory, _, _, _, _ = whole_run
+    site, saved_data, seeded = _seeded(harness, tmp_path / "data")
+    recording = Intercept(site)
+
+    results = harness.measure_task_delete(
+        site=recording, saved_data=saved_data, timer=Ticks(*QUICK)
+    )
+
+    assert all(r.created for r in results)
+    opening, confirming, landing = recording.requests
+    assert opening[:2] == ("POST", DELETE_OPENING)
+    assert confirming[:2] == ("POST", DELETE_CONFIRMING)
+    assert confirming[2]["Sec-Fetch-Site"] == "same-origin"
+    title = _delete_title(seeded)
+    assert landing[0] == "GET" and landing[1] == f"/projects/1?{urlencode({'deleted_task': title})}"
+    assert saved_data.load() == _without_target(seeded)
+    run_data = SavedData(directory / "delete-volume").load()
+    assert run_data == _without_target(seeded)
+    assert find_task(run_data, DELETE_TASK) is None  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize(
+    "readings,expected",
+    [
+        ((0.0, 0.4, 5.0, 5.5), []),
+        ((0.0, 1.0, 5.0, 5.1), [DELETE_LABELS[0], DELETE_LABELS[2]]),
+        ((0.0, 0.1, 5.0, 6.0), [DELETE_LABELS[1], DELETE_LABELS[2]]),
+        ((0.0, 0.5, 5.0, 5.5), [DELETE_LABELS[2]]),
+        ((0.0, 1.5, 5.0, 5.1), [DELETE_LABELS[0], DELETE_LABELS[2]]),
+    ],
+    ids=["just below", "post exactly 1 s", "landing exactly 1 s", "sum exactly 1 s", "post over"],
+)
+def test_delete_time_limits_are_strict(
+    harness: ModuleType,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    readings: tuple[float, float, float, float],
+    expected: list[str],
+) -> None:
+    """CP-543, T15: each interval and the total are held to strictly below one second; equality
+    fails, including two passing intervals whose sum reaches the limit."""
+    status = harness.main(tmp_path, _run_readings(delete=readings))
+
+    lines = capsys.readouterr().out.splitlines()
+    assert [line.split(":")[0] for line in lines if "over" in line] == expected
+    assert status == (1 if expected else 0)
+
+
+@pytest.mark.parametrize("wrong", DELETE_WRONG_STATES.keys())
+def test_timed_delete_rejects_wrong_saved_results(
+    harness: ModuleType, tmp_path: Path, wrong: str
+) -> None:
+    """CP-543, T15: a saved state that is not exactly the fixture minus the task and its comments
+    fails the deletion, and the landing's total with it. The oracle is built here, not by the rule."""
+    site, saved_data, _ = _seeded(harness, tmp_path / "data")
+    mutated = AfterDelete(site, saved_data, DELETE_WRONG_STATES[wrong])
+
+    results = harness.measure_task_delete(site=mutated, saved_data=saved_data, timer=Ticks(*QUICK))
+
+    assert not results[0].created
+    assert not results[2].created
+
+
+DELETE_REFUSALS = {
+    "refused": lambda m, t: _page("<p>no</p>") if (m, t) == ("POST", DELETE_CONFIRMING) else None,
+    "failed": lambda m, t: (
+        Response(500, (("Content-Type", "text/html"),), b"<p>no</p>")
+        if (m, t) == ("POST", DELETE_CONFIRMING)
+        else None
+    ),
+    "another project": lambda m, t: (
+        _found("/projects/2?deleted_task=x") if (m, t) == ("POST", DELETE_CONFIRMING) else None
+    ),
+    "a wrong title": lambda m, t: (
+        _found("/projects/1?deleted_task=Another")
+        if (m, t) == ("POST", DELETE_CONFIRMING)
+        else None
+    ),
+    "the task page again": lambda m, t: (
+        _found(f"/tasks/{DELETE_TASK}") if (m, t) == ("POST", DELETE_CONFIRMING) else None
+    ),
+}
+
+
+@pytest.mark.parametrize("refusal", DELETE_REFUSALS.keys())
+def test_timed_delete_rejects_refusal_failure_or_wrong_landing(
+    harness: ModuleType, tmp_path: Path, refusal: str
+) -> None:
+    """CP-543, T15: a refused or failed action, a wrong redirect, project or title is not a
+    passing duration; the landing is not requested, and the total fails."""
+    site, saved_data, _ = _seeded(harness, tmp_path / "data")
+    recording = Intercept(site, DELETE_REFUSALS[refusal])
+
+    results = harness.measure_task_delete(
+        site=recording, saved_data=saved_data, timer=Ticks(0.0, 0.1)
+    )
+
+    assert [r.created for r in results] == [False, False, False]
+    assert [r.label for r in results] == list(DELETE_LABELS)
+    assert not [r for r in recording.requests if r[0] == "GET"]
+
+
+@pytest.mark.parametrize("landing", ["wrong status", "no completion", "wrong project"])
+def test_timed_delete_landing_must_show_the_completion_on_the_project(
+    harness: ModuleType, tmp_path: Path, landing: str
+) -> None:
+    """CP-543, T15: a landing that is not a 200, omits the completion line or is another project's
+    page fails the landing row and the total; the POST row alone still counts."""
+    site, saved_data, seeded = _seeded(harness, tmp_path / "data")
+    title = escape(_delete_title(seeded))
+    pages = {
+        "wrong status": Response(404, (("Content-Type", "text/html"),), b"<p>no</p>"),
+        "no completion": _page("<h1 class='pre-wrap'>Volume project</h1>"),
+        "wrong project": _page(f"<h1>Other</h1><p>You deleted '{title}'.</p>"),
+    }
+    recording = Intercept(site, lambda m, t: pages[landing] if m == "GET" else None)
+
+    results = harness.measure_task_delete(
+        site=recording, saved_data=saved_data, timer=Ticks(*QUICK)
+    )
+
+    assert [r.created for r in results] == [True, False, False]
+
+
+def test_timed_delete_opening_press_must_be_the_confirmation(
+    harness: ModuleType, tmp_path: Path
+) -> None:
+    """CP-543, T15: a refused opening press is no confirmation to measure; nothing is timed."""
+    site, saved_data, seeded = _seeded(harness, tmp_path / "data")
+    recording = Intercept(site, lambda m, t: _page("<p>no</p>") if t == DELETE_OPENING else None)
+
+    results = harness.measure_task_delete(
+        site=recording, saved_data=saved_data, timer=Ticks(*QUICK)
+    )
+
+    assert [r.created for r in results] == [False, False, False]
+    assert recording.requests[0][:2] == ("POST", DELETE_OPENING)
+    assert len(recording.requests) == 1
+    assert saved_data.load() == seeded
+
+
+@pytest.mark.parametrize("failure", ["refused", "wrong landing"])
+def test_whole_run_exit_status_includes_the_deletion(
+    harness: ModuleType,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+    failure: str,
+) -> None:
+    """CP-543, T15: a failing deletion alone makes the whole run exit non-zero, earlier lines
+    unchanged and the failure on the deletion's rows only."""
+    measure = harness.measure_task_delete
+    answers = {
+        "refused": DELETE_REFUSALS["refused"],
+        "wrong landing": lambda m, t: (
+            _page("<p>no</p>") if m == "GET" and "deleted_task" in t else None
+        ),
+    }
+
+    def rejected(*, site, saved_data, timer):
+        return measure(site=Intercept(site, answers[failure]), saved_data=saved_data, timer=timer)
+
+    monkeypatch.setattr(harness, "measure_task_delete", rejected)
+
+    status = harness.main(tmp_path, _run_readings())
+
+    lines = capsys.readouterr().out.splitlines()
+    assert status == 1
+    assert [line for line in lines[-3:] if "refused or failed" in line]
+    assert not [line for line in lines[:-3] if "refused" in line or "over" in line]
+
+
+def test_whole_run_keeps_earlier_blocks_and_appends_deletion(whole_run) -> None:
+    """CP-543, T15: the Summary immediately precedes the deletion, every earlier block keeps its
+    order and labels, and nothing follows the deletion's rows."""
+    _, status, lines, _, _ = whole_run
+    labels = [line.split(":")[0] for line in lines]
+
+    assert status == 0
+    assert labels[-6:-4] == list(SUMMARY_RUN_LABELS)
+    assert labels[-4:] == list(DELETE_RUN_LABELS)
+    assert labels == [
+        *OLD_RUN_LABELS,
+        *NEW_RUN_LABELS,
+        *MOVE_RUN_LABELS,
+        *FILTER_RUN_LABELS,
+        *SORT_RUN_LABELS,
+        *SUMMARY_RUN_LABELS,
+        *DELETE_RUN_LABELS,
+    ]
