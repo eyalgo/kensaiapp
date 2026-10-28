@@ -168,7 +168,7 @@ def test_completion_survives_actual_reload_back_and_forward(
     expect(page.locator("#deleted-line")).to_have_text(COMPLETION)
     page.goto(f"{tracker.address}/people")
     page.go_back(wait_until="commit")
-    page.wait_for_url(landing)
+    page.wait_for_url(landing, wait_until="commit")
     expect(page.locator("#deleted-line")).to_have_text(COMPLETION)
     page.go_forward(wait_until="commit")
     page.go_back(wait_until="commit")
