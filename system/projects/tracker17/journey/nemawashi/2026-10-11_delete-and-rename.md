@@ -14,11 +14,13 @@ Cut from `products/tracker17/docs/SDD.md` § 6 S-7, slug `delete-and-rename` ("A
 
 ## Stations — dynamic checklist
 
-- [ ] delete-a-task — Delete task with the in-place confirmation, the landing line, the not-found address and the deleted-target refusal, and the timed run covering a task delete (NFDR QC-48)
-- [ ] rename-a-project — Rename below a project's list with its blank and in-use refusals, and a test that tasks stay unchanged, and the timed run covering a rename (NFDR QC-48)
-- [ ] delete-a-project — Delete project with its confirmation and scrolled-list end-to-end test, tasks and comments gone, and the timed run covering a deletion
+- [ ] delete-a-task — Delete task on a task's page behind the in-place confirmation, landing on its project with a line naming the task; the task's address shows the not-found page; an action sent from another tab for the deleted task is refused and changes nothing (AC-12); a deleted task's identity is not issued again (FR-15); both suites pass; the timed run covers a task delete (NFDR QC-48)
+- [ ] rename-a-project — Rename below a project's list holding the current name, refusing a blank name or one in use (UX-F10); the project's tasks unchanged (FR-12, a test); both suites pass; the timed run covers a rename (NFDR QC-48)
+- [ ] delete-a-project — Delete project behind a confirmation naming the project and its task count, landing on Projects with a line naming it, holding below a scrolled list (end-to-end test: opens in view, focus on its sentence, a double press never confirms); its tasks and comments in no list and gone (FR-13, FR-17); its address shows the not-found page and an action sent from another tab for it is refused (AC-12); the docstrings of `domain/projects.py` and `domain/tasks.py` name the tests the whole slice added; both suites pass and `python3 tests/timed_run.py` exits 0 covering a deletion
 
 2026-10-13, shukuba-refine after `tracker17` unit `2026-10-13_full-volume-run`: `delete-a-task` and `rename-a-project` each also add their action to the timed run. QC-48 has a change that adds a listed action add it to the run (`products/tracker17/docs/nfdr.md:L412-L414`), and that unit's spec left deleting a task and renaming a project to the station that builds each; only `delete-a-project` carried a timing.
+
+2026-10-28, stations-from-seed: the three stations and their order stand (one operation each, SDD § 6 S-7's order is a preference and delete-a-task proves the confirmation and deletion first); each line now names the slice of S-7's bar its station lands, because the arrived lines left the not-found address, the deleted-target refusals, FR-15 and the suites unassigned for delete-a-project and rename-a-project. The last line carries the slice's docstring Artifact bar, which no earlier line landed.
 
 ## Relation to existing work
 
