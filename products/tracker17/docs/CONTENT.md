@@ -9,8 +9,8 @@ omitted:
 
 **Status:** Settled
 **Owner:** Content Manager
-**Version:** 15 — folds the answer to item 3.1 (cycle 14) into version 14: the overtaken-move refusal states the task's current status and what it allows and claims no change, in the clause, its two examples, the banned-words row, RN-11, RN-26 and RN-27
-**Inputs read:** PRD Settled · UXD Settled (version 9) · SRS Settled · DESIGN Settled · Agari no Status line (`agari_template.md` carries none) · tracker17 doctrine no Status line (stamped, unfilled)
+**Version:** 16 — folds the answer to item 3.1 (cycle 15): in a list row every control that acts on the row's task takes the title link's position suffix in its accessible name (§ Accessibility of text, RN-28). Also folds UXD version 11: a refusal or failure for a task the list's filter leaves off the list (§ Error, RN-29)
+**Inputs read:** PRD Settled · UXD Settled (version 11) · SRS Settled · DESIGN Settled · Agari no Status line (`agari_template.md` carries none) · tracker17 doctrine no Status line (stamped, unfilled)
 
 > The verbal language is the source of truth for everything this product says to a person. It is
 > the peer of `DESIGN.md`, not a part of it: a rule about how something **looks** belongs there,
@@ -212,6 +212,7 @@ subject in words and quoting any typed value, then one action where one exists. 
 changed", because a refusal changes nothing by definition. Where the state the reader wanted already holds and the page already shows it, no action exists, and the second sentence says what the page shows. A refusal on input the reader can still fix always has an action.
 A refusal of a move another change overtook states the task's current status and the moves that status allows, or says there are none for a final status. It claims no change and offers no reload, because the page it lands on is built after the refusal and the tracker can't tell its first landing from a later visit.
 A refusal the reader reached without typing or pressing anything in that step, by a reload, Back, or a saved or typed address, states its reason as a fact about the task and what its status allows, and never as a fact about a press. It doesn't say "the move you pressed". It names the move the address asks for, where the address carries one, gives no action and offers no reload, and its second sentence says what the page shows. The same formula serves a task in `done` and a task in `cancelled`. This rule applies only while the interface shows that refusal.
+A refusal for a task the list's filter leaves off the list, on a project's Tasks view or on All tasks, has no row to sit beside and no status to stand next to (UXD UX-F4, UX-I3). It is shown in the page's one confirmation line and carries what the missing row would have shown. It names the task by its title, states its status, and says the task doesn't match this filter. It is two sentences. Where the status still allows a move, the second sentence names Clear as the one action, because the task can be acted on only once it is shown. Where the status is final, it names no action and doesn't name Clear. It adds no control of its own and offers no reload. A refusal reached without a press follows the rule above for what it may claim, and its first sentence still names the move the address asks for where the address carries one. On a task's own page the status is always shown, so this paragraph doesn't apply there.
 **Examples:**
 - "A project named 'Alpha' already exists. Choose a different name."
 - "A task needs a title. Type one."
@@ -221,6 +222,9 @@ A refusal the reader reached without typing or pressing anything in that step, b
 - "The status of 'Set up CI' is done. A task in done can't be moved." This is the same form for a final status, where no move is left.
 - "The label 'bug' isn't on 'Set up CI'. The labels shown are the ones the task carries." This is the form with no action.
 - "The status of 'Set up CI' is done, which doesn't allow a move to cancelled. A task in done can't be moved." This is the form for a refusal reached without a press.
+- "The status of 'Set up CI' is todo, so it can be moved to in-progress or cancelled. It doesn't match this filter, so press Clear to show it." This is the form for a pressed move refused when the filter leaves the task off the list, where the status still allows a move.
+- "The status of 'Set up CI' is done, so it can't be moved. It doesn't match this filter." This is the same form for a final status, with no action and no Clear.
+- "The status of 'Set up CI' is done, which doesn't allow a move to cancelled. It doesn't match this filter, so it isn't in this list." This is the form for a refusal reached without a press when the filter leaves the task off the list, with no action and no Clear.
 
 **A failure that is not a refusal** (UXD UX-I5) is a failure the rules did not produce.
 **Formula:** the tracker couldn't do the named action, said as "The tracker couldn't…" with the typed
@@ -230,6 +234,7 @@ establish one for the browser.
 **Examples:**
 - "The tracker couldn't add 'Set up CI', and nothing was changed. What you typed is still in the form. Try again."
 - "The tracker couldn't rename 'Alpha', and nothing was changed. What you typed is still in the form. Try again."
+- "The tracker couldn't move 'Set up CI' to in-progress, and nothing was changed. Press Clear to show the task, then try again." This is the form for a pressed move that fails when the filter leaves the task off the list. It names the task and the move that failed, names Clear, and doesn't state the status, because the failure isn't about the status.
 
 **An address with nothing at it** (UXD UX-S10).
 **Formula:** one sentence that says there is no project or no task at this address, then a link to
@@ -340,6 +345,16 @@ conforms to WCAG 2.2 Level AA (UXD UX-A5), and each rule names the requirement i
   Links that share a label and open the same address share one name, and the added thing applies where
   controls act on different things. A link acts on its destination, so two links with the same label
   and the same address have nothing to tell apart. (UXD UX-A5 requires WCAG 2.2 AA in full, and SC 2.5.3 Label in Name is part of it.)
+- **In a list row, every control that acts on the row's task ends its accessible name with the row's
+  position.** The ending is ", number {position} on the task list", with the position the page shows for
+  that row. So the move button reads "Move 'Set up CI' to in-progress, number 2 on the task list", and
+  its visible label `in-progress` stays one unbroken string inside the name. The ending is on every list
+  row and not only where two titles match, because a rule that waited for a match would change a
+  control's name when another task was added and would have to define what counts as the same title. The
+  title link keeps its name, the task's title with the same ending, so two links to different tasks that
+  share a title don't share a name. On a task's own page the title alone stands, because one task is
+  shown and nothing there repeats. The confirmation sentence of a move to `cancelled` is visible text and
+  not a name, so it keeps its wording (§ Message patterns, Needs confirming). (UXD UX-A5, SC 2.5.3.)
 - **Every field has a visible label.** A field's label is its name. No field shows text inside itself as
   an instruction. An instruction is plain text beside the field and states the constraint in a full
   sentence, such as "You can't change the description after you create the project." or "Comments
@@ -353,7 +368,7 @@ conforms to WCAG 2.2 Level AA (UXD UX-A5), and each rule names the requirement i
   is announced without moving focus. The confirmation of an irreversible step is not one of these. It
   takes focus on purpose (UXD UX-I2).
 - **Link text means something read out of context.** It names the destination and nothing else:
-  "People", "All tasks", "Projects", a task's own title. It is never "here", "click here", "this",
+  "People", "All tasks", "Projects", a task's own title, which in a list row takes the ending above. It is never "here", "click here", "this",
   "more", "link" or a bare address. Two links to different places never share their text. A link whose
   visible text is only a number, such as a summary count, has an accessible name that starts with that
   number and says what it counts: "12 tasks in todo", "3 overdue tasks".
@@ -414,21 +429,21 @@ expensive to add after strings exist.
 | UX-S3 Projects, empty | Empty | First run. |
 | UX-S3 Projects, error | Error, refusal and failure | Create refused or failed. |
 | UX-S4 Project Tasks, empty | Empty | Two states, no tasks and no match. |
-| UX-S4 Project Tasks, error | Error, refusal and failure, and the address with nothing at it | |
+| UX-S4 Project Tasks, error | Error, refusal and failure, and the address with nothing at it | A pressed move refused or failed, and a refusal reached by an address, for a task the filter leaves off the list, have their own forms (§ Error). |
 | UX-S4 Project Tasks, success | Completed | After an action. |
 | UX-S5 Project Summary | Empty, Error (address with nothing at it), Accessibility (number links) | A project with no tasks shows 0 and the Empty invitation. |
 | UX-S6 Task, empty | Empty | No labels, no comments, no name. |
 | UX-S6 Task, error | Error | |
 | UX-S6 Task, success | Completed | A task in `done` or `cancelled` shows no move buttons and so no words for them. |
-| UX-S7 All tasks | Empty, Error, Completed | No tasks anywhere and no match. |
+| UX-S7 All tasks | Empty, Error, Completed | No tasks anywhere and no match. The off-list refusal and failure forms of UX-S4 apply here too. |
 | UX-S8 People | Empty, Error, Completed | The removal line carries its consequence. |
 | UX-S9 Saved data that can't be read | Error, saved data that can't be read | |
 | UX-S10 Not found | Error, an address with nothing at it | |
-| UX-I1 Status workflow shown | Terminology, Accessibility | Move buttons are named by the target status, and the accessible name adds the move and the task. |
+| UX-I1 Status workflow shown | Terminology, Accessibility | Move buttons are named by the target status, and the accessible name adds the move, the task and the row's position. |
 | UX-I2 Irreversible actions confirmed in place | Needs confirming | The UXD fixes the structure and focus. This document fixes the words. |
-| UX-I3 A refusal says why | Error, refusal | |
+| UX-I3 A refusal says why | Error, refusal | Includes the refusal for a task the filter leaves off the list. |
 | UX-I4 A completed action is confirmed | Completed | |
-| UX-I5 A failure that is not a refusal | Error, failure | |
+| UX-I5 A failure that is not a refusal | Error, failure | Includes the failure for a task the filter leaves off the list. |
 | UX-I6 The keyboard model | Grammar and mechanics (verbs for pressing) | No string says "click". |
 | UX-I7 Filter and sort in the address | none | The tracker says nothing about it, so there are no words to cover. |
 | UX-I8 A page appears whole | Loading | The tracker writes no loading text. |
@@ -557,3 +572,5 @@ expensive to add after strings exist.
 - **RN-25:** § Scope governs no output of a script a developer runs to check or measure the tracker, such as the timed run. *Because* the test in § Scope is who says the words, and the timed run is not the tracker speaking: it is a script a developer starts, it runs the pages in-process and never starts the tracker, so its output is not "the text the tracker prints in the terminal it was started from". No UXD state names it, so no pattern here answers to it, and § Voice's rules can't be applied to a row that reports a measurement. Where such a script prints a string the tracker wrote, the string is governed where the tracker writes it, so the clause leaves no gap. The clause states the kind of script and not a file, because this document holds standing rules and a path can move (RN-16). The occurrences are the rows that end " — refused or failed" and the fixture lines joined by "; " (`tests/timed_run.py:153`, `:158`, `:691`, `:783`). Their em dash, semicolon and "failed" break no rule here. If the UXD ever makes the run's output something the reader is told to read, § Scope follows it. Owner answer (`trail/content/cycle-10.md` § 3.1, reasoning in `trail/content/self_answer-10.md`).
 - **RN-26:** A refusal the reader reached without a press states its reason as a fact about the task and what its status allows, names the move the address asks for where the address carries one, and gives no action and no reload. *Because* the tracker sees an address and can't establish that a press produced it, so "the move you pressed" claims what it didn't establish (§ Voice, "State only what the tracker established"), and after a saved move the status beside the line shows the move took effect, so the line would deny it. The formula's reason is a fact about what the reader typed or pressed, and this refusal has nothing typed or pressed to state a fact about. No action exists because the page is built from the saved data when it loads, `done` and `cancelled` are final (PRD § Core Features, Status workflow), and a reload shows the same page. A refusal shown after a redirect from a real press and then reloaded has the same property. The settled case is the second way in that UXD UX-F4 describes: the address that shows, or backs out of, the confirmation for a move to `cancelled`, opened again once the task is final (`trail/uxd/cycle-5.md` § 2.1, UXD UX-I3). UXD version 8 keeps that refusal, so the rule stands. The product's line for it meets the rule (`web/pages.py:L758-L761`, `_ADDRESS_LINE`). The clause "where the address carries one" is there because the address of the overtaken-move page carries the task and the refusal code and no move (`web/routes.py:L384-L396`), so that page can't name one. The finding is the other page's. The overtaken-move line (`_CHANGED` and `_OVERTAKEN_LINES`, `web/pages.py:L751-L757`) is read from the address on every load, so a reload, Back or a bookmark shows it again with no press. "Has changed to" is a claim about the past, and the tracker holds only the address, so an address typed for a task that was never moved shows the same line. That line doesn't meet this rule, and the rule has no gap: the formula's reach, "a reload, Back, or a saved or typed address", already includes that page. One line serves the first landing and every later visit, so the wording that fits both is the CDO's answer, which UXD version 9 holds (UX-F4, UX-I3, RN-35): the line states the task's current status and what it allows, and claims no change. The clause for a move another change overtook now says so, and the product's line still says "has changed to", so the finding stands for a change that publishes text, not for an edit here. Owner answer (`trail/content/cycle-11.md` § 3.1, reasoning in `trail/content/self_answer-11.md`), revised by the answer that confirms it with three additions (`trail/content/cycle-13.md` § 2.1, reasoning in `trail/content/self_answer-13.md`), and by the answer that follows the CDO's (`trail/content/cycle-14.md` § 3.1, reasoning in `trail/content/self_answer-14.md`).
 - **RN-27:** The out-of-date refusal's examples are the two forms the product's tests pin, and the refusal formula gains a clause for a move another change overtook. *Because* the fifth example offered a reload that UXD version 8 (UX-F4, UX-I3) and the SDD's `status-moves` unit both bar, and the product's own wording follows them (`web/pages.py:L751-L757`, `tests/integration/test_move_routes.py:L87-L99`). The formula said "then one action where one exists", and the new examples name moves, not one action, so without the clause they would contradict their own formula. "Since this page loaded" is dropped from the banned-words row and RN-11 because the page the refusal lands on is built after the refusal, so the phrase dates a page that is not the one shown. The examples state the task's current status and claim no change, as UXD version 9 sets (UX-I3, RN-35), so they are true on a reload with no press (RN-26). The product's line and its tests still carry "has changed to" (`_CHANGED` and `_OVERTAKEN_LINES`), which is a finding for a change that publishes text, not an edit here. Owner answer (`trail/content/cycle-12.md` § 3.1, reasoning in `trail/content/self_answer-12.md`), revised by `trail/content/cycle-14.md` § 3.1 (reasoning in `trail/content/self_answer-14.md`).
+- **RN-28:** In a list row, every control that acts on the row's task ends its accessible name with ", number {position} on the task list", on every row, and the title link keeps its name. *Because* titles repeat by design (`docs/fdr.md` R-40), so two move buttons for two tasks titled 'Set up CI' would share a name while acting on different tasks, and the title link already tells such rows apart with this ending (`web/pages.py:L979`, pinned by `tests/integration/test_task_pages.py`). One way of telling same-titled tasks apart is kept and no second one is added, and a task's internal identifier isn't something the reader sees. The ending is unconditional because a conditional one would change a name when another task was added and would have to define the same title (case, spaces, quotes). The visible label stays whole inside the name, as SC 2.5.3 requires (https://www.w3.org/WAI/WCAG22/Understanding/label-in-name.html, re-read 2026-10-28). The position is the one the page shows when it is built, so it is true for as long as that page is read (UXD UX-I9), and it names the row on that page, not the task. The cancel confirmation's sentence is visible text and not a name, only one is shown, and it takes the pressed button's place with focus, so it is left as written. The product's move button names the task by its title alone (`web/pages.py:L769`), so it doesn't meet the rule. That is a finding for a change that publishes text, not an edit here. Owner answer (`trail/content/cycle-15.md` § 3.1, reasoning in `trail/content/self_answer-16.md`).
+- **RN-29:** A refusal or failure for a task the list's filter leaves off the list has its own forms, and the refusal formula's "beside the control that was used" no longer covers every refusal. *Because* UXD version 11 puts these lines in the page's one confirmation line and leaves their wording to this document (UXD UX-F4, UX-S4, UX-I3, UX-A3, RN-36, RN-37). The row that would have shown the task's status and moves is missing, so the line carries them itself. A final status leaves nothing to do even with the task shown, so that line names no action and no Clear. A failure isn't about the status, so its line doesn't state it, and a move that could fail was one the status allowed, so Clear is always left to do. The lines are held to the existing limits, two sentences and 20 words a sentence, so each example is two sentences. This is an upstream-change fold, not a re-voicing: no earlier rule moved. The product's own wording for these lines is a finding for a change that publishes text, not an edit here.
