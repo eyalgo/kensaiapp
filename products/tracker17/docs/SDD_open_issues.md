@@ -42,7 +42,32 @@ None.
 
 ## 2. Choices to confirm — a best-effort answer was drafted; confirm or override
 
-None.
+### 2.1 § 4 RT-11, § 12 and the header still read the records at ADR-0011 and NFDR version 16
+- **Raised by:** CTO
+- **Seat:** cto
+- **Drafted into the SDD:** nothing yet — the lean is this: RT-11's last sentence names ADR-0012 as
+  the record of its boundary and ADR-0010 as superseded by it, the way RT-8 names ADR-0011 over
+  ADR-0006, and drops "the record and the obligation for a deletion's pages are theirs to write";
+  § 12 counts twelve records, ADR-0001 to ADR-0012; the header's *Inputs read* reads ADR-0012
+  Accepted, ADR-0010 Superseded by ADR-0012, and NFDR version 17.
+- **Rationale:** three facts in the document are false on disk. RT-11 says "The Principal Architect
+  records the move's boundary as `adr/0010-…` … the record and the obligation for a deletion's
+  pages are theirs to write (§ 12)" (`docs/SDD.md:L474-L478`); § 12 says "ADR-0001 to ADR-0011"
+  (`:L1581-L1582`); the header's *Inputs read* says "ADR-0001 to ADR-0011 … NFDR Settled (version 16"
+  (`:L6`). `adr/README.md` lists ADR-0012, Accepted 2026-10-28, and ADR-0010 "Superseded by
+  ADR-0012"; ADR-0012 § Context says it follows SDD version 13 RT-11; `nfdr.md` is at version 17,
+  its header naming ADR-0012. All three landed at `d459f69d9`. The obligation for a deletion's pages
+  is written (QC-63 names the task deletion's `no-store` and 404 verifiers); what QC-63 still gets
+  wrong is the Principal Architect's, carried on `docs/architecture_open_issues.md` § 3.1, not this
+  document's.
+- **If overridden:** nothing moves in any slice, fence or edge. The three lines stay false, and a
+  reader of RT-11 is sent to a superseded record and told a record exists that has been written.
+- **Confirm or override:** <"confirm", or "override: <what to do instead>">
+
+> **No producing run wrote this item.** A `companion-self-answer` run raised it on 2026-10-28 while
+> answering § 5.1, after reading RT-11's last sentence, § 12 and the header against `adr/README.md`
+> and `nfdr.md`'s header. `product-sdd` has no record of writing it. The fold's own input catch-up
+> may reach the same lines unprompted; the item is here so that it is not missed.
 
 ## 3. Cut calls to confirm — where the slicing could reasonably have gone another way
 
@@ -75,7 +100,23 @@ None.
   `test_live_delete_views_have_their_response_policy` now asserts 202 on `?delete_confirm` (L455).
   RT-11's list and R-12's trigger should name these tests rather than a test to come.
 - **If a document has to be written:** `SDD.md` itself, by `product-sdd`.
-- **Answer:** <the owner fills this in>
+- **Answer:** RT-11's *Tests* names the tests on disk in place of the one to come. They landed with
+  `delete-a-project`, merged at `ac09e56af`: `tests/integration/test_delete_routes.py`,
+  `test_live_delete_views_have_their_response_policy`, which now asserts 202 on `?delete_confirm`
+  and `no-store` on all four of a task deletion's pages; `tests/integration/test_delete_project_routes.py`,
+  `test_project_delete_response_policy_matches_rendered_state`, which asserts 202 on a shown project
+  deletion confirmation, 200 on its back-out, failure and Projects landing, `no-store` on each, and
+  404 with no cache header for the deleted address under any query; and the two history tests,
+  `tests/e2e/test_delete_task.py`, `test_confirmation_is_loaded_afresh_after_confirming`, and
+  `tests/e2e/test_delete_project.py`, `test_project_confirmation_is_loaded_afresh_after_confirming`,
+  each asserting that Back to the confirmation after confirming, and Forward then Back again, issues
+  a new request, shows the not-found page and restores nothing from history. The sentence "which
+  `delete-and-rename`'s command half names and which does not exist at `4a9ff47d2`" goes. § 11
+  R-12's *shows up as* names those two history tests beside `test_moves.py`'s, and its "once it
+  exists" goes. RN-56's line that a task deletion's confirmation is 200 at `4a9ff47d2` is a dated
+  record and stays as written, as RN-49 does; the round's own note records the divergence closed.
+  The two integration modules pass in a fresh clone at `958a36c7c` (85 passed); the end-to-end pair
+  is read on disk this round, not run. Reasoning: `products/tracker17/docs/trail/sdd/self_answer-14.md`.
 
 **How it closes.** `product-sdd` folds it on its next run like every other item in this file, and
 the trail copy and the delete-when-empty behaviour are unchanged.
