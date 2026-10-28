@@ -22,7 +22,7 @@ import sys
 from collections.abc import Callable, Iterator
 from dataclasses import replace
 from datetime import UTC, date, datetime
-from html import escape
+from html import escape, unescape
 from pathlib import Path
 from types import ModuleType
 from urllib.parse import parse_qs, urlencode
@@ -420,6 +420,7 @@ def test_timed_run_fails_when_only_the_edit_fails(
             *MOVE_QUICK,
             *FILTER_QUICK,
             *SORT_QUICK,
+            *SUMMARY_QUICK,
         ),
     )
 
@@ -726,6 +727,7 @@ def test_timed_run_fails_when_only_a_label_action_fails(
         *MOVE_QUICK,
         *FILTER_QUICK,
         *SORT_QUICK,
+        *SUMMARY_QUICK,
     )
 
     status = harness.main(tmp_path, ticks)
@@ -764,6 +766,8 @@ MOVE_QUICK = QUICK
 FILTER_QUICK = QUICK
 # The sort's four readings, taken after the filter's: all under the limit.
 SORT_QUICK = QUICK
+# The Summary's two readings, taken after the sort's: one interval round its one GET, under the limit.
+SUMMARY_QUICK = (0.0, 0.1)
 NAME_LABEL = "set your name at 1000 tasks"
 NAME_LANDING_LABEL = "name landing page at 1000 tasks"
 NAME_ADDRESS = "/operator-name"
@@ -978,6 +982,7 @@ def test_full_timed_run_fails_when_only_name_measurement_fails(
                 *MOVE_QUICK,
                 *FILTER_QUICK,
                 *SORT_QUICK,
+                *SUMMARY_QUICK,
             ),
         )
         lines = capsys.readouterr().out.splitlines()
@@ -2076,16 +2081,17 @@ OLD_ACTION_READINGS = (
 )
 
 
-def _run_readings(**slow: tuple[float, float, float, float]) -> Ticks:
+def _run_readings(**slow: tuple[float, ...]) -> Ticks:
     """The timer readings of one whole run: every action under the limit, except those named.
 
     The five old actions read first, in the order the run times them, then the comment add, the
     assignee add, the assignee remove, the status move, the status filter and the sort, as the
-    run appends them.
+    run appends them, and last the Summary's one interval of two readings (CP-509).
     """
     order = ("comment", "assignee add", "assignee remove", "move", "filter", "sort")
     new = [slow.get(name, QUICK) for name in order]
-    return Ticks(*QUICK * OLD_ACTION_READINGS, *[value for each in new for value in each])
+    summary = slow.get("summary", SUMMARY_QUICK)
+    return Ticks(*QUICK * OLD_ACTION_READINGS, *[value for each in new for value in each], *summary)
 
 
 def _product_data_snapshot() -> dict[str, bytes] | None:
@@ -2110,7 +2116,7 @@ def whole_run(harness: ModuleType, tmp_path_factory: pytest.TempPathFactory):
 
 
 def test_timed_run_appends_exactly_three_ordered_action_blocks(whole_run) -> None:
-    """CP-276, CP-285: every old line keeps its label and place, then the three blocks, no more."""
+    """CP-276, CP-285: every old line keeps its label and place, then the new blocks, no more."""
     _, status, lines, _, _ = whole_run
 
     assert status == 0
@@ -2120,6 +2126,7 @@ def test_timed_run_appends_exactly_three_ordered_action_blocks(whole_run) -> Non
         *MOVE_RUN_LABELS,
         *FILTER_RUN_LABELS,
         *SORT_RUN_LABELS,
+        *SUMMARY_RUN_LABELS,
     ]
     assert "over" not in "\n".join(lines) and "refused" not in "\n".join(lines)
 
@@ -2327,6 +2334,8 @@ SORT_LABELS = (
     "sort total at 1000 tasks",
 )
 SORT_RUN_LABELS = ("sort fixture", *SORT_LABELS)
+SUMMARY_LABEL = "open a project summary at 1000 tasks"
+SUMMARY_RUN_LABELS = ("summary fixture", SUMMARY_LABEL)
 MOVE_OPERATOR = "Jordan Rivera"
 MOVE_ASSIGNEES = ("Zed Quinn", "Mara Lopez")
 
@@ -2849,30 +2858,31 @@ def test_timed_run_appends_exact_move_block_and_nothing_after(
     harness: ModuleType, whole_run, tmp_path: Path
 ) -> None:
     """T10, CP-373, CP-375, CP-381, CP-423: every older line, the move's four lines, then exactly the
-    filter's four, then exactly the sort's four and no footer."""
+    filter's four, then exactly the sort's four, then the Summary's two and no footer."""
     _, status, lines, _, _ = whole_run
     _, fresh = harness.open_task_volume(SavedData(tmp_path / "fresh"))
 
     assert status == 0
-    assert [line.split(":")[0] for line in lines[:-12]] == [*OLD_RUN_LABELS, *NEW_RUN_LABELS]
-    assert lines[-12:-8] == [
+    assert [line.split(":")[0] for line in lines[:-14]] == [*OLD_RUN_LABELS, *NEW_RUN_LABELS]
+    assert lines[-14:-10] == [
         harness.move_fixture_report(fresh),
         "move a task at 1000 tasks: 100.0 ms",
         "move landing page at 1000 tasks: 100.0 ms",
         "move total at 1000 tasks: 200.0 ms",
     ]
-    assert lines[-8:-4] == [
+    assert lines[-10:-6] == [
         harness.filter_fixture_report(fresh),
         "filter a task list at 1000 tasks: 100.0 ms",
         "filter landing page at 1000 tasks: 100.0 ms",
         "filter total at 1000 tasks: 200.0 ms",
     ]
-    assert lines[-4:] == [
+    assert lines[-6:-2] == [
         harness.sort_fixture_report(fresh),
         "sort a task list at 1000 tasks: 100.0 ms",
         "sort landing page at 1000 tasks: 100.0 ms",
         "sort total at 1000 tasks: 200.0 ms",
     ]
+    assert lines[-2].startswith("summary fixture: ")
 
 
 def test_timed_move_fixture_is_independent_and_product_data_unchanged(
@@ -3264,8 +3274,8 @@ def test_timed_filter_failures_reach_main_verdict(
     lines = capsys.readouterr().out.splitlines()
     assert status == 1
     assert [line for line in lines if "refused or failed" in line]
-    assert not [line for line in lines[:-8] if "refused" in line or "over" in line]
-    assert not [line for line in lines[-4:] if "refused" in line or "over" in line]
+    assert not [line for line in lines[:-10] if "refused" in line or "over" in line]
+    assert not [line for line in lines[-6:] if "refused" in line or "over" in line]
 
 
 # --- The sort appended to the whole run (CP-451 to CP-456) ----------------------------------------
@@ -3646,15 +3656,16 @@ def test_timed_sort_failures_reach_main_verdict(
 
     lines = capsys.readouterr().out.splitlines()
     assert status == 1
-    assert [line for line in lines[-3:] if "refused or failed" in line]
-    assert not [line for line in lines[:-4] if "refused" in line or "over" in line]
+    assert [line for line in lines[-5:-2] if "refused or failed" in line]
+    assert not [line for line in lines[:-6] if "refused" in line or "over" in line]
+    assert not [line for line in lines[-2:] if "refused" in line or "over" in line]
 
 
-def test_full_run_appends_only_sort_fixture_and_three_rows(
+def test_full_run_keeps_the_sort_block_before_the_summary_block(
     harness: ModuleType, whole_run, tmp_path: Path
 ) -> None:
-    """T12, CP-452: every earlier line in its place and unchanged, then the sort's four lines, the
-    total last."""
+    """T12, CP-452: every earlier line in its place and unchanged, then the sort's four lines, with
+    only the Summary's two after them."""
     _, status, lines, _, _ = whole_run
     _, fresh = harness.open_task_volume(SavedData(tmp_path / "fresh"))
 
@@ -3665,11 +3676,468 @@ def test_full_run_appends_only_sort_fixture_and_three_rows(
         *MOVE_RUN_LABELS,
         *FILTER_RUN_LABELS,
         *SORT_RUN_LABELS,
+        *SUMMARY_RUN_LABELS,
     ]
-    assert lines[-4:] == [
+    assert lines[-6:-2] == [
         harness.sort_fixture_report(fresh),
         "sort a task list at 1000 tasks: 100.0 ms",
         "sort landing page at 1000 tasks: 100.0 ms",
         "sort total at 1000 tasks: 200.0 ms",
     ]
-    assert lines[-4].endswith("sort priority descending, 1000 listed")
+    assert lines[-6].endswith("sort priority descending, 1000 listed")
+
+
+# --- The project Summary appended to the whole run (CP-503, CP-509) -------------------------------
+
+SUMMARY_ADDRESS = "/projects/1/summary"
+SUMMARY_ROW = re.compile(r'<tr><th scope="row" class="pre-wrap">(.*?)</th><td>([0-9]+)</td></tr>')
+SUMMARY_HEADINGS = (
+    "Tasks by status",
+    "Tasks by priority",
+    "Due dates",
+    "Open tasks by assignee",
+)
+STATUS_WORDS = ("todo", "in-progress", "done", "cancelled")
+OPEN_STATUS_WORDS = ("todo", "in-progress")
+PRIORITY_WORDS = ("low", "medium", "high", "critical")
+SUMMARY_HARNESS_TEXT = (TESTS_DIRECTORY / "timed_run.py").read_text(encoding="utf-8")
+
+
+def _local_today() -> date:
+    return datetime.now().astimezone().date()
+
+
+def _summary_oracle(state, today: date) -> list[tuple[str, int]]:
+    """The rows the Summary of project 1 must show, worked out here by plain comparison of each
+    task: never by the product's Summary, its project filter or its application read."""
+    held = [t for t in state.tasks if t.project_id == 1]
+    open_tasks = [t for t in held if t.status.value in OPEN_STATUS_WORDS]
+    rows = [("Total", len(held))]
+    rows += [(word, sum(t.status.value == word for t in held)) for word in STATUS_WORDS]
+    rows += [(word, sum(t.priority.value == word for t in held)) for word in PRIORITY_WORDS]
+    rows.append(("Overdue", sum(1 for t in open_tasks if t.due_date and t.due_date < today)))
+    rows.append(("No due date", sum(1 for t in held if t.due_date is None)))
+    listed = list(state.assignees)
+    unlisted = sorted(
+        {t.assignee for t in open_tasks if t.assignee is not None} - set(listed),
+        key=lambda name: (name.casefold(), name),
+    )
+    rows += [(name, sum(t.assignee == name for t in open_tasks)) for name in [*listed, *unlisted]]
+    rows.append(("(unassigned)", sum(t.assignee is None for t in open_tasks)))
+    return rows
+
+
+def _summary_row(label: str, count: int) -> str:
+    return f'<tr><th scope="row" class="pre-wrap">{escape(label)}</th><td>{count}</td></tr>'
+
+
+def _summary_fixture(harness: ModuleType, location: Path, state=None):
+    """The real site over a small Summary fixture (or the given state), saved and loaded."""
+    chosen = _shrunk(harness.summary_state(), tasks=120, comments=2) if state is None else state
+    return _move_fixture(harness, location, chosen)
+
+
+def _real_summary(harness: ModuleType, site) -> Response:
+    return site.handle("GET", SUMMARY_ADDRESS, harness.FILTER_HEADERS, b"")
+
+
+def _edited(response: Response, edit: Callable[[str], str]) -> Response:
+    body = edit(response.body.decode("utf-8")).encode("utf-8")
+    return Response(response.status, response.headers, body)
+
+
+def test_summary_oracle_reads_the_real_page_as_the_fixture_says(
+    harness: ModuleType, tmp_path: Path
+) -> None:
+    """CP-503, CP-509: the test's own oracle and the real page agree on the fixture, in order."""
+    site, _, loaded = _summary_fixture(harness, tmp_path)
+
+    body = _real_summary(harness, site).body.decode("utf-8")
+
+    rows = [(unescape(label), int(count)) for label, count in SUMMARY_ROW.findall(body)]
+    assert rows == _summary_oracle(loaded, _local_today())
+    assert re.findall(r"<h2>(.*?)</h2>", body) == list(SUMMARY_HEADINGS)
+    assert len({count for _, count in rows[1:5]}) > 1 and len(rows) > 14
+
+
+def test_timed_summary_reads_real_full_volume_once(harness: ModuleType, tmp_path: Path) -> None:
+    """T14, CP-509: a real Summary over the loaded 1,000 by 20 fixture passes, and the handed-in
+    recorder sees exactly one same-origin GET of the target Summary."""
+    saved_data = SavedData(tmp_path / "volume")
+    site, loaded = harness.open_summary_volume(saved_data)
+    assert len(loaded.tasks) == 1000
+    assert [len(task.comments) for task in loaded.tasks] == [20] * 1000
+    recording = Intercept(site)
+
+    results = harness.measure_project_summary(
+        site=recording, saved_data=saved_data, timer=Ticks(*SUMMARY_QUICK)
+    )
+
+    assert [(m, t) for m, t, _, _ in recording.requests] == [("GET", SUMMARY_ADDRESS)]
+    _, _, headers, body = recording.requests[0]
+    assert headers["Sec-Fetch-Site"] == "same-origin" and body == b""
+    assert [(r.label, r.created) for r in results] == [(SUMMARY_LABEL, True)]
+    assert harness.verdict(results, LIMIT) == 0
+
+
+@pytest.mark.parametrize(
+    "readings,failing",
+    [
+        ((0.0, 0.1), False),
+        ((0.0, 0.99996), False),
+        ((0.0, 1.0), True),
+        ((5.0, 6.0), True),
+        ((0.0, 1.5), True),
+    ],
+    ids=["fast", "just below 1 s", "exactly 1 s", "exactly 1 s later", "1.5 s"],
+)
+def test_timed_summary_enforces_the_strict_one_second_limit(
+    harness: ModuleType,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    readings: tuple[float, float],
+    failing: bool,
+) -> None:
+    """T14, CP-509: one measurement, passing strictly below 1 second, failing at it and above."""
+    site, saved_data, _ = _summary_fixture(harness, tmp_path)
+
+    results = harness.measure_project_summary(
+        site=site, saved_data=saved_data, timer=Ticks(*readings)
+    )
+
+    assert [(r.label, r.created) for r in results] == [(SUMMARY_LABEL, True)]
+    assert results[0].seconds == pytest.approx(readings[1] - readings[0])
+    capsys.readouterr()
+    assert harness.verdict(results, LIMIT) == (1 if failing else 0)
+    assert ("over" in capsys.readouterr().out) == failing
+
+
+def _summary_rejections(harness: ModuleType, site, saved_data, loaded):
+    """Each way a fast answer is still wrong, as the Intercept that serves it."""
+    real = _real_summary(harness, site)
+    oracle = dict(_summary_oracle(loaded, _local_today()))
+    todo, total = oracle["todo"], oracle["Total"]
+    name = loaded.projects[0].name
+    page_headers = real.headers
+
+    def serve(response: Response) -> Intercept:
+        return Intercept(site, lambda method, target: response)
+
+    return {
+        "the Tasks view instead": serve(
+            site.handle("GET", "/projects/1", harness.FILTER_HEADERS, b"")
+        ),
+        "another project's Summary": serve(
+            _edited(real, lambda t: t.replace(name, "Other project"))
+        ),
+        "a title of another view": serve(
+            _edited(real, lambda t: t.replace(": Summary - tracker17", ": Tasks - tracker17"))
+        ),
+        "a project not found": serve(
+            site.handle("GET", "/projects/99/summary", harness.FILTER_HEADERS, b"")
+        ),
+        "forbidden": serve(Response(403, page_headers, real.body)),
+        "failed": serve(Response(500, page_headers, real.body)),
+        "a redirect": serve(Response(303, (("Location", "/projects/1"),), b"")),
+        "a missing row": serve(
+            _edited(real, lambda t: t.replace(_summary_row("Overdue", oracle["Overdue"]), ""))
+        ),
+        "a wrong count": serve(
+            _edited(
+                real,
+                lambda t: t.replace(_summary_row("todo", todo), _summary_row("todo", todo + 1)),
+            )
+        ),
+        "a linked count": serve(
+            _edited(
+                real,
+                lambda t: t.replace(
+                    f"<td>{total}</td>", f'<td><a href="/projects/1">{total}</a></td>', 1
+                ),
+            )
+        ),
+        "a linked label": serve(
+            _edited(
+                real,
+                lambda t: t.replace(
+                    '<th scope="row" class="pre-wrap">Total</th>',
+                    '<th scope="row" class="pre-wrap"><a href="/projects/1">Total</a></th>',
+                ),
+            )
+        ),
+        "changed saved bytes": Intercept(site, lambda method, target: _rewritten_bytes(saved_data)),
+    }
+
+
+SUMMARY_REJECTION_NAMES = (
+    "the Tasks view instead",
+    "another project's Summary",
+    "a title of another view",
+    "a project not found",
+    "forbidden",
+    "failed",
+    "a redirect",
+    "a missing row",
+    "a wrong count",
+    "a linked count",
+    "a linked label",
+    "changed saved bytes",
+)
+
+
+@pytest.mark.parametrize("rejection", SUMMARY_REJECTION_NAMES)
+def test_timed_summary_rejects_fast_incorrect_responses(
+    harness: ModuleType, tmp_path: Path, rejection: str
+) -> None:
+    """T14, CP-503, CP-509: each wrong answer fails the measurement even with a fast timer."""
+    site, saved_data, loaded = _summary_fixture(harness, tmp_path)
+    served = _summary_rejections(harness, site, saved_data, loaded)[rejection]
+
+    results = harness.measure_project_summary(
+        site=served, saved_data=saved_data, timer=Ticks(*SUMMARY_QUICK)
+    )
+
+    assert [(r.label, r.created) for r in results] == [(SUMMARY_LABEL, False)]
+    assert results[0].seconds == pytest.approx(0.1)
+    assert harness.verdict(results, LIMIT) == 1
+
+
+def _swapped_counts(first: tuple[str, int], second: tuple[str, int]) -> Callable[[str], str]:
+    (a, count_a), (b, count_b) = first, second
+    assert count_a != count_b
+
+    def edit(text: str) -> str:
+        return text.replace(_summary_row(a, count_a), _summary_row(a, count_b)).replace(
+            _summary_row(b, count_b), _summary_row(b, count_a)
+        )
+
+    return edit
+
+
+def test_timed_summary_validates_rows_independently(harness: ModuleType, tmp_path: Path) -> None:
+    """T14, CP-509: equal totals do not pass. A page whose category counts or assignee rows differ
+    from what the loaded fixture holds fails, and the expectation is worked out from the loaded
+    saved data and never from the Summary, the project filter or the application read."""
+    site, saved_data, loaded = _summary_fixture(harness, tmp_path / "rows")
+    real = _real_summary(harness, site)
+    oracle = _summary_oracle(loaded, _local_today())
+    named = [(label, count) for label, count in oracle if label in (*STATUS_WORDS,)]
+    priorities = [(label, count) for label, count in oracle if label in PRIORITY_WORDS]
+    assignees = oracle[oracle.index(("No due date", dict(oracle)["No due date"])) + 1 :]
+    assert len(assignees) >= 3
+    wrong = {
+        "two status counts swapped": _swapped_counts(named[0], named[1]),
+        "two priority counts swapped": _swapped_counts(priorities[0], priorities[1]),
+        "two assignee counts swapped": _swapped_counts(assignees[0], assignees[1]),
+        "an assignee name in another case": lambda t: t.replace(
+            _summary_row(assignees[1][0], assignees[1][1]),
+            _summary_row(assignees[1][0].swapcase(), assignees[1][1]),
+        ),
+        "two assignee rows in the other order": lambda t: t.replace(
+            _summary_row(*assignees[0]) + "\n" + _summary_row(*assignees[1]),
+            _summary_row(*assignees[1]) + "\n" + _summary_row(*assignees[0]),
+        ),
+        "the unassigned row missing": lambda t: t.replace(_summary_row(*assignees[-1]), ""),
+    }
+    for name, edit in wrong.items():
+        edited = _edited(real, edit)
+        assert edited.body != real.body, name
+        results = harness.measure_project_summary(
+            site=Intercept(site, lambda method, target, edited=edited: edited),
+            saved_data=saved_data,
+            timer=Ticks(*SUMMARY_QUICK),
+        )
+        assert [r.created for r in results] == [False], name
+    control = harness.measure_project_summary(
+        site=site, saved_data=saved_data, timer=Ticks(*SUMMARY_QUICK)
+    )
+    assert [r.created for r in control] == [True]
+
+    other_site, other_data, other = _summary_fixture(harness, tmp_path / "other")
+    changed = _with_task(other, 1, status=TaskStatus.CANCELLED, assignee=None)
+    assert changed != other
+    other_data.save(changed)
+    stale = harness.measure_project_summary(
+        site=other_site, saved_data=other_data, timer=Ticks(*SUMMARY_QUICK)
+    )
+    assert [r.created for r in stale] == [False]
+
+    for forbidden in ("summarize_project", "project_summary", "filter_project_tasks"):
+        assert forbidden not in SUMMARY_HARNESS_TEXT, forbidden
+
+
+def test_timed_summary_checks_fixture_and_saved_bytes_outside_the_interval(
+    harness: ModuleType, tmp_path: Path
+) -> None:
+    """T14, CP-509: only the GET lies between the two readings, and no byte readback or fixture
+    load lengthens the measured interval, however long it takes."""
+    site, saved_data, _ = _summary_fixture(harness, tmp_path / "events")
+    log = EventLog()
+
+    results = harness.measure_project_summary(
+        site=log.site(site), saved_data=saved_data, timer=log.timer(0.0, 0.1)
+    )
+
+    assert log.events == ["tick", "GET", "tick"]
+    assert [r.created for r in results] == [True]
+
+    site, saved_data, _ = _summary_fixture(harness, tmp_path / "intervals")
+    clock = [0.0]
+
+    def advance(method: str, target: str) -> Response | None:
+        clock[0] += 0.1
+        return None
+
+    results = harness.measure_project_summary(
+        site=Intercept(site, advance),
+        saved_data=_SlowSavedData(saved_data, clock),
+        timer=lambda: clock[0],
+    )
+    assert [r.seconds for r in results] == [pytest.approx(0.1)]
+    assert [r.created for r in results] == [True]
+
+
+def test_timed_run_appends_summary_after_all_existing_blocks(
+    harness: ModuleType, whole_run, tmp_path: Path
+) -> None:
+    """T15, CP-509, Locked Answer f-4: every older block keeps its labels and place, and only the
+    published Summary fixture and result lines follow, the fixture description first."""
+    directory, status, lines, before, after = whole_run
+    summary_data = SavedData(directory / "summary-volume")
+    loaded = summary_data.load()
+    assert loaded is not None
+    _, fresh = harness.open_summary_volume(SavedData(tmp_path / "fresh"))
+
+    assert status == 0
+    assert [line.split(":")[0] for line in lines[:-2]] == [
+        *OLD_RUN_LABELS,
+        *NEW_RUN_LABELS,
+        *MOVE_RUN_LABELS,
+        *FILTER_RUN_LABELS,
+        *SORT_RUN_LABELS,
+    ]
+    assert loaded == fresh
+    assert lines[-2:] == [
+        harness.summary_fixture_report(fresh),
+        f"{SUMMARY_LABEL}: 100.0 ms",
+    ]
+    earlier = {
+        directory / name
+        for name in (*EARLIER_FIXTURES, "move-volume", "filter-volume", "sort-volume")
+    }
+    assert summary_data.location not in earlier and summary_data.location.parent == directory
+    assert after == before
+
+
+SUMMARY_FAILURES = {
+    "slow": lambda site, saved_data: site,
+    "refused": lambda site, saved_data: Intercept(site, lambda m, t: _page("<p>no</p>")),
+    "failed": lambda site, saved_data: Intercept(
+        site, lambda m, t: Response(500, (("Content-Type", "text/html"),), b"<p>no</p>")
+    ),
+    "corrupt": lambda site, saved_data: Intercept(site, lambda m, t: _page("<html></html>")),
+    "mutating": lambda site, saved_data: Intercept(site, lambda m, t: _rewritten_bytes(saved_data)),
+}
+
+
+@pytest.mark.parametrize("readings", [(0.0, 1.5), (0.0, 1.0)], ids=["slow", "at the limit"])
+def test_timed_run_fails_on_a_slow_or_at_limit_summary(
+    harness: ModuleType, tmp_path: Path, capsys: pytest.CaptureFixture[str], readings
+) -> None:
+    """T15, CP-509: a Summary at or over 1 second alone makes the whole run exit non-zero."""
+    status = harness.main(tmp_path, _run_readings(summary=readings))
+
+    lines = capsys.readouterr().out.splitlines()
+    assert status == 1
+    assert [line.split(":")[0] for line in lines if "over" in line] == [SUMMARY_LABEL]
+
+
+@pytest.mark.parametrize(
+    "failure", ["refused", "failed", "corrupt", "mutating"], ids=lambda name: name
+)
+def test_timed_run_includes_summary_failure_in_exit_status(
+    harness: ModuleType,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+    failure: str,
+) -> None:
+    """T15, CP-509: a refused, failed, corrupt or mutating Summary alone makes the full run exit
+    non-zero, while every earlier status is unchanged."""
+    measure = harness.measure_project_summary
+
+    def rejected(*, site, saved_data, timer):
+        return measure(
+            site=SUMMARY_FAILURES[failure](site, saved_data), saved_data=saved_data, timer=timer
+        )
+
+    monkeypatch.setattr(harness, "measure_project_summary", rejected)
+
+    status = harness.main(tmp_path, _run_readings())
+
+    lines = capsys.readouterr().out.splitlines()
+    assert status == 1
+    assert "refused or failed" in lines[-1] and lines[-1].startswith(SUMMARY_LABEL)
+    assert not [line for line in lines[:-1] if "refused" in line or "over" in line]
+
+
+def test_summary_fixture_report_uses_loaded_volume_and_text_lengths(
+    harness: ModuleType, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """T15, CP-509: volume, the first task's title and first comment and the timed project's
+    name, all read back from the loaded fixture and counted in code points; nothing is printed."""
+    _, _, standard = _summary_fixture(harness, tmp_path / "standard", harness.summary_state())
+    first = find_task(standard, 1)
+    assert first is not None
+    assert harness.summary_fixture_report(standard) == (
+        "summary fixture: 1000 tasks, 20 comments each (20000 in all); "
+        f"title of {len(first.title)} characters, "
+        f"comment of {len(first.comments[0].text)} characters; "
+        f"project name of {len(standard.projects[0].name)} characters"
+    )
+    assert len(standard.projects[0].name) == 14
+
+    shrunk = _shrunk(harness.summary_state(), tasks=300, comments=3)
+    note = replace(find_task(shrunk, 1).comments[0], text="Note 😀")  # type: ignore[union-attr]
+    varied = _with_task(
+        shrunk,
+        1,
+        title="Plan 😀😀",
+        comments=(note, *find_task(shrunk, 1).comments[1:]),  # type: ignore[union-attr]
+    )
+    varied = replace(
+        varied,
+        tasks=tuple(reversed(varied.tasks)),
+        projects=(replace(varied.projects[0], name="Näme 😀"),),
+    )
+    _, _, loaded = _summary_fixture(harness, tmp_path / "varied", varied)
+    assert loaded.tasks[0].id != 1
+    capsys.readouterr()
+
+    report = harness.summary_fixture_report(loaded)
+
+    assert capsys.readouterr().out == ""
+    assert report == (
+        "summary fixture: 300 tasks, 3 comments each (900 in all); "
+        "title of 7 characters, comment of 6 characters; project name of 6 characters"
+    )
+    uneven = _with_task(shrunk, 2, comments=find_task(shrunk, 2).comments[:1])  # type: ignore[union-attr]
+    with pytest.raises(harness.FixtureShapeError):
+        harness.summary_fixture_report(uneven)
+
+
+def test_summary_fixture_is_varied_and_its_own(harness: ModuleType, tmp_path: Path) -> None:
+    """CP-509: the Summary's fixture holds every status and priority, past-due and undated tasks
+    and listed and unlisted assignees, so a swapped row cannot hide; it is built apart from the
+    task-volume fixture."""
+    state = harness.summary_state()
+    held = [t for t in state.tasks if t.project_id == 1]
+
+    assert {t.status.value for t in held} == set(STATUS_WORDS)
+    assert {t.priority.value for t in held} == set(PRIORITY_WORDS)
+    assert any(t.due_date is None for t in held)
+    assert any(t.due_date == date(2000, 1, 1) for t in held)
+    assert state.assignees
+    named = {t.assignee for t in held if t.assignee is not None}
+    assert set(state.assignees) < named
+    assert state != harness.seeded_state()

@@ -606,16 +606,18 @@ SUMMARY_CHECKING_TESTS = (
     "tests/integration/test_task_pages.py",
     "tests/integration/test_routes.py",
     "tests/e2e/test_summary.py",
+    "tests/integration/test_timed_run.py",
+    "tests/timed_run.py",
     "tests/architecture/test_trace.py",
     "tests/architecture/test_shapes.py",
 )
 
 
-def test_summary_entry_names_requirements_and_existing_participants() -> None:
-    """QC-11, CP-504: the Summary entry names FR-38, the overdue and trace requirements and every
-    checking module that exists at this point, `summary` is landed, and each named path exists.
-
-    Each later task of the change adds the participant and the checking modules it writes.
+def test_summary_entry_names_every_participant_and_check() -> None:
+    """QC-11, CP-504: the completed Summary entry names FR-38, FR-25, FR-35 and NFR-9, every
+    application and web participant, the five new test files, the modified compatibility,
+    architecture and timing checking modules and the timed run; `summary` is landed, every named
+    path exists and every requirement resolves.
     """
     text = entry_docstring("summary")
     paths = named_paths(text)
