@@ -35,9 +35,11 @@ worked out here from the loaded fixture, under their count. The Summary comes la
 fixture of its own that holds every status and priority, past-due and undated tasks and listed and
 unlisted assignees: it sends the one GET of the project's Summary and times only that request. It
 counts only when the response is the HTML page of that project's Summary, whose title, heading and
-every row (label and plain count, in order) match what is worked out here from the loaded fixture
-alone, and the saved bytes are untouched (CP-509, FR-38). Its harness is checked by
-tests/integration/test_timed_run.py.
+every row (label and count, in order) match what is worked out here from the loaded fixture
+alone, and the saved bytes are untouched (CP-509, FR-38, CP-527). A count is a bare numeral or, in
+the four status, four priority and overdue cells alone, one anchor holding the numeral; a link in
+the total, the no-due-date count, an assignee count or a label does not count. Its harness is
+checked by tests/integration/test_timed_run.py.
 """
 
 from __future__ import annotations
@@ -50,6 +52,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, replace
 from datetime import UTC, date, datetime, timedelta
 from html import escape, unescape
+from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import urlencode
 
@@ -143,7 +146,16 @@ SUMMARY_LABEL = f"open a project summary at {TASK_VOLUME} tasks"
 SUMMARY_LISTED_ASSIGNEES = ("Zed Quinn", "Avery Chen")
 SUMMARY_PAST_DUE = date(2000, 1, 1)
 SUMMARY_HEADINGS = ("Tasks by status", "Tasks by priority", "Due dates", "Open tasks by assignee")
-SUMMARY_ROW = re.compile(r'<tr><th scope="row" class="pre-wrap">(.*?)</th><td>([0-9]+)</td></tr>')
+# The rows of each group whose count cell may hold one anchor, by position in the group: the four
+# statuses after the total, the four priorities, and overdue before no due date. No other count
+# cell, and no label, may hold one; a row is told by its group and place, never by its words, so
+# an assignee spelled `todo` or `Overdue` is a plain cell.
+SUMMARY_LINKED_ROWS = {
+    "Tasks by status": range(1, 5),
+    "Tasks by priority": range(4),
+    "Due dates": range(1),
+}
+COUNT_NUMERAL = re.compile(r"[0-9]+")
 SUMMARY_HEADING = re.compile(r"<h2>(.*?)</h2>")
 OPEN_STATUSES = (TaskStatus.TODO, TaskStatus.IN_PROGRESS)
 REDIRECTS = (301, 302, 303, 307, 308)
@@ -151,6 +163,118 @@ FILTER_TASK_LINK = re.compile(r'<a class="pre-wrap" href="/tasks/([0-9]+)"')
 FILTER_COUNT_LINE = re.compile(r'id="filter-count">([^<]*)<')
 TASK_FIELDS = ("title", "priority", "assignee", "due_date")
 SHOWN_VALUE = re.compile(r'<input type="hidden" name="shown_([a-z_]+)" value="([^"]*)">')
+
+
+class _SummaryRows(HTMLParser):
+    """The rows of a Summary page, read by structure from its group, row and cell markup.
+
+    A row is a `tr` in a `tbody`, holding a row-header `th` and a `td`. The header holds text only.
+    The count cell holds one bare numeral, or, where `SUMMARY_LINKED_ROWS` allows it, one anchor
+    holding one numeral and nothing else. Anything else (a second anchor, text around one, nested
+    markup, a comment, an empty or nonnumeric cell, an anchor where none is allowed) makes the page
+    `valid = False`; no digits are recovered from markup that was stripped.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.valid = True
+        self.rows: list[tuple[str, int]] = []
+        self._heading: str | None = None
+        self._heading_text: list[str] | None = None
+        self._position = 0
+        self._in_body = False
+        self._cells: list[tuple[str, list[tuple[str, str]]]] | None = None
+        self._open: tuple[str, list[tuple[str, str]]] | None = None
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if self._open is not None:
+            if tag in ("td", "th", "tr"):
+                self.valid = False
+                return
+            href = "href" if any(name == "href" and value for name, value in attrs) else ""
+            self._open[1].append(("start", f"{tag} {href}".strip()))
+        elif tag == "h2":
+            self._heading_text = []
+        elif tag == "tbody":
+            self._in_body = True
+        elif tag == "tr" and self._in_body:
+            self._cells = []
+        elif tag in ("td", "th") and self._cells is not None:
+            if tag == "th" and ("scope", "row") not in attrs:
+                self.valid = False
+            self._open = (tag, [])
+
+    def handle_endtag(self, tag: str) -> None:
+        if self._open is not None:
+            if tag == self._open[0] and self._cells is not None:
+                self._cells.append(self._open)
+                self._open = None
+            else:
+                self._open[1].append(("end", tag))
+        elif tag == "h2" and self._heading_text is not None:
+            self._heading = "".join(self._heading_text)
+            self._heading_text = None
+            self._position = 0
+        elif tag == "tbody":
+            self._in_body = False
+        elif tag == "tr" and self._cells is not None:
+            self._finish_row(self._cells)
+            self._cells = None
+
+    def handle_data(self, data: str) -> None:
+        if self._open is not None:
+            self._open[1].append(("data", data))
+        elif self._heading_text is not None:
+            self._heading_text.append(data)
+
+    def handle_comment(self, data: str) -> None:
+        if self._open is not None:
+            self.valid = False
+
+    def close(self) -> None:
+        super().close()
+        if self._open is not None or self._cells is not None:
+            self.valid = False
+
+    def _finish_row(self, cells: list[tuple[str, list[tuple[str, str]]]]) -> None:
+        if [kind for kind, _ in cells] != ["th", "td"] or self._heading is None:
+            self.valid = False
+            return
+        label_tokens, count_tokens = cells[0][1], cells[1][1]
+        if any(kind != "data" for kind, _ in label_tokens):
+            self.valid = False
+            return
+        label = "".join(text for _, text in label_tokens)
+        count = self._count(count_tokens)
+        self._position += 1
+        if count is None:
+            self.valid = False
+            return
+        self.rows.append((label, count))
+
+    def _count(self, tokens: list[tuple[str, str]]) -> int | None:
+        """The numeral of a count cell in one of its two accepted shapes, else None."""
+        linked = [(kind, text) for kind, text in tokens if kind != "data"]
+        if linked:
+            allowed = self._position in SUMMARY_LINKED_ROWS.get(self._heading or "", range(0))
+            shape = [kind for kind, _ in tokens]
+            if not allowed or shape != ["start", "data", "end"]:
+                return None
+            if linked != [("start", "a href"), ("end", "a")]:
+                return None
+        elif len(tokens) != 1:
+            return None
+        numeral = tokens[0 if not linked else 1][1]
+        return int(numeral) if COUNT_NUMERAL.fullmatch(numeral) else None
+
+
+def summary_rows(page: str) -> list[tuple[str, int]] | None:
+    """The page's Summary rows as (label, count) in page order, or None when any row or cell is not
+    one of the accepted shapes."""
+    reader = _SummaryRows()
+    reader.feed(page)
+    reader.close()
+    return reader.rows if reader.valid else None
 
 
 @dataclass(frozen=True)
@@ -1221,7 +1345,8 @@ def _summary_landing_shows(
     """True when the page is the timed project's Summary with every row as the fixture says.
 
     The title and the heading carry the project's name, every group heading is there in order, and
-    the rows (label, then a count that is plain text) equal the expected rows for one of the days
+    the rows (label, then a count that is a bare numeral or, in the nine selected cells, an anchored
+    numeral) equal the expected rows for one of the days
     the response may have been counted on: the day before the request and the day after it, so a
     run that crosses midnight is not failed for it.
     """
@@ -1229,7 +1354,7 @@ def _summary_landing_shows(
     if project is None:
         return False
     name = escape(project.name)
-    rows = [(unescape(label), int(count)) for label, count in SUMMARY_ROW.findall(response_body)]
+    rows = summary_rows(response_body)
     return (
         f"<title>{name}: Summary - tracker17</title>" in response_body
         and f'<h1 class="pre-wrap">{name}</h1>' in response_body

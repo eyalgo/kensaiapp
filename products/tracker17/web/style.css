@@ -595,3 +595,13 @@ a.button-link:hover {
 .summary-group td {
   width: 6rem;
 }
+
+/* A count that links to its tasks: a target of at least 24 by 24 pixels that keeps the inherited
+   focus ring and, with the cell's wrapping, fits the sheet at a 320-pixel width. */
+.summary-group .count-link {
+  display: inline-block;
+  min-width: 24px;
+  min-height: 24px;
+  line-height: 24px;
+  text-align: center;
+}

@@ -166,8 +166,17 @@ def test_the_note_number_equals_the_description_maxlength() -> None:
     assert str(SHORT_TEXT_MAX) not in main_text(root)
 
 
+COUNT_AND_BASE_ADDRESS = (
+    r"/|/tasks|/people|/projects/\d+(/summary)?"
+    r"|/projects/\d+\?filter_status=(todo|in-progress|done|cancelled)"
+    r"|/projects/\d+\?filter_priority=(low|medium|high|critical)"
+    r"|/projects/\d+\?filter_overdue=on"
+)
+
+
 def test_every_page_has_a_header_with_the_projects_and_people_links() -> None:
-    """CP-9, CP-80, CP-459."""
+    """CP-9, CP-80, CP-459, CP-515, CP-516, T10: every internal address is a base or view address
+    or the one-choice project address a Summary count carries, and nothing wider."""
     for label, page in all_pages().items():
         root = parse(page)
         (header,) = root.find_all("header")
@@ -180,7 +189,7 @@ def test_every_page_has_a_header_with_the_projects_and_people_links() -> None:
         assert header.text().startswith("tracker17"), label
         for link in root.find_all("a"):
             href = link.attrs["href"] or ""
-            assert re.fullmatch(r"/|/tasks|/people|/projects/\d+(/summary)?", href), (label, href)
+            assert re.fullmatch(COUNT_AND_BASE_ADDRESS, href), (label, href)
         for forbidden in ("rename", "delete"):
             assert forbidden not in root.text().lower(), (label, forbidden)
 

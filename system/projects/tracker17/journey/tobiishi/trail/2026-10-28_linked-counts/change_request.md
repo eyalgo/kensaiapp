@@ -9,3 +9,6 @@ Sizing: one capability (the summary's counts as links into the filtered list), o
 **Category:** feature
 **Behaviour:** changing
 **Classified because:** the station's reached-when 1 turns existing plain counts into links to filtered lists, adding navigation behaviour and a link accessible-name contract to the Summary page.
+
+**Sealed:** 2026-10-28 — accepted; merged to `main` via `--no-ff`.
+Environment: owners-mac — no CI
