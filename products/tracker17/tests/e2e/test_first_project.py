@@ -68,16 +68,20 @@ def test_the_first_project_lands_on_its_page_with_spaces_line_break_and_created_
     expect(page.locator("p.no-tasks")).to_have_text(
         "This project has no tasks yet. Give the first task a title and press Add."
     )
-    assert page.locator("main form").count() == 1
-    assert page.locator("main form input").evaluate_all("e => e.map(i => i.name)") == [
+    add_form = page.locator("main form[action='/projects/1/tasks']")
+    assert page.locator("main form").count() == 2 and add_form.count() == 1
+    assert add_form.locator("input").evaluate_all("e => e.map(i => i.name)") == [
         "title",
         "due_date",
     ]
-    assert page.locator("main form select").evaluate_all("e => e.map(i => i.name)") == [
+    assert add_form.locator("select").evaluate_all("e => e.map(i => i.name)") == [
         "priority",
         "assignee",
     ]
-    assert page.locator("main button").all_text_contents() == ["Add"]
+    assert add_form.locator("button").all_text_contents() == ["Add"]
+    rename_form = page.locator("main form[action='/projects/1/rename']")
+    assert rename_form.locator("button").all_text_contents() == ["Save"]
+    expect(rename_form.get_by_label("Project name")).to_have_value("  Alpha  ")
     assert page.locator("textarea").count() == 0
     expect(page.locator("h1")).to_be_focused()
     assert page.evaluate("document.activeElement.tagName") == "H1"

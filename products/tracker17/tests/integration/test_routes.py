@@ -5,7 +5,7 @@ projects), FR-16 and FR-23 (the edit and the label actions are more actions ever
 covers), NFR-4 (a request from another site is refused), NFR-8 (a failed save leaves the state as
 it was), AC-10, AC-12, AC-18 and AC-20. Change spec rules CP-16, CP-18 to CP-22, CP-25, CP-30 to
 CP-38, CP-80, CP-98, CP-169, CP-177, CP-206, CP-223, CP-235 and the cancel-confirmation change's CP-326
-and CP-339, the Summary change's CP-510, and NFDR QC-7, QC-8, QC-31, QC-32, QC-34, QC-35, QC-53, QC-54, QC-56 and QC-57 are the ones each test names. The operator-name
+and CP-339, the Summary change's CP-510, the project rename's CP-567, and NFDR QC-7, QC-8, QC-31, QC-32, QC-34, QC-35, QC-53, QC-54, QC-56 and QC-57 are the ones each test names. The operator-name
 submission (FR-27) is one more action every route check covers. The People requests are checked in
 tests/integration/test_people_routes.py.
 """
@@ -276,6 +276,7 @@ SAMPLE_ADDRESS = {
     "/assignees/remove": "/assignees/remove",
     "/operator-name": "/operator-name",
     "/projects/[0-9]+/tasks": "/projects/1/tasks",
+    "/projects/[0-9]+/rename": "/projects/1/rename",
     "/tasks/[0-9]+": "/tasks/1",
     "/tasks/[0-9]+/labels": "/tasks/1/labels",
     "/tasks/[0-9]+/labels/remove": "/tasks/1/labels/remove",
@@ -292,6 +293,7 @@ SUBMITTED_BODY = {
     "/assignees/remove": b"name=Dana",
     "/operator-name": b"name=Sam",
     "/projects/1/tasks": b"title=Write+it&priority=high&assignee=Dana&due_date=2026-12-01",
+    "/projects/1/rename": b"name=Gamma",
     "/tasks/1": b"title=Renamed&shown_title=Seed+task&priority=high&shown_priority=medium",
     "/tasks/1/labels": b"label=bug",
     "/tasks/1/labels/remove": b"label=ui",
@@ -531,6 +533,10 @@ def test_no_socket_connection_is_made() -> None:
         site.handle("POST", "/tasks/2/delete/confirm", {**SAME_ORIGIN, **FORM}, b"")
         get(site, "/projects/1?deleted_task=Doomed")
         get(site, "/tasks/2?delete_failed")
+        site.handle("POST", "/projects/1/rename", {**SAME_ORIGIN, **FORM}, b"name=Renamed")
+        get(site, "/projects/1?rename_saved=Renamed&rename_from=Alpha")
+        site.handle("POST", "/projects/1/rename", {**SAME_ORIGIN, **FORM}, b"name=")
+        get(site, "/projects/1?rename_refused=blank-name&rename_typed=")
     finally:
         _window["open"] = False
     assert comment.status == 303 and header(comment, "Location") == "/tasks/1?comment_added=1"
