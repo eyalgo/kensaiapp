@@ -55,7 +55,7 @@ class ProjectRenameOutcome:
     changed: bool
 
 
-def check_name_available(
+def _check_name_available(
     state: TrackerState, name: str, *, excluding_project_id: int | None = None
 ) -> None:
     """Raise NameInUse when a project other than the excluded one has exactly this name."""
@@ -70,7 +70,7 @@ def create_project(
 ) -> tuple[TrackerState, Project]:
     """Return the state after creating the project, and the project, or raise a refusal."""
     check_project_values(name, description)
-    check_name_available(state, name)
+    _check_name_available(state, name)
     project = Project(id=state.next_project_id, name=name, description=description)
     new_state = replace(
         state,
@@ -95,7 +95,7 @@ def rename_project(
     if project is None:
         raise ProjectNotFound()
     check_project_values(name, project.description)
-    check_name_available(state, name, excluding_project_id=project_id)
+    _check_name_available(state, name, excluding_project_id=project_id)
     if name == project.name:
         return state, ProjectRenameOutcome(project=project, previous_name=name, changed=False)
     renamed = replace(project, name=name)
