@@ -480,22 +480,38 @@ def _holding_two_tasks(saver, clock=None) -> Tracker:
     )
 
 
+class _ReadingSaver(RecordingSaver):
+    """A recording saver that also keeps every public read the tracker gave at the moment of a save."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.reads_during_save: list[tuple] = []
+
+    def save(self, state: TrackerState) -> None:
+        if self.tracker is not None:
+            self.reads_during_save.append(_every_read(self.tracker))
+        super().save(state)
+
+
 def test_delete_task_saves_once_before_publishing():
-    """CP-533: the saver gets the candidate once while every read still shows the old task."""
-    saver = RecordingSaver()
+    """CP-533: the saver gets the exact candidate once while every read still shows the old task."""
+    saver = _ReadingSaver()
     tracker = _holding_two_tasks(saver)
     saver.tracker = tracker
     original = tracker.task(2)
-    assert original is not None
+    survivor = tracker.task(1)
+    assert original is not None and survivor is not None
     held = _every_read(tracker)
+    expected = restore_state(
+        PROJECTS, NEXT_PROJECT_ID, ("Dana", "Ari"), tasks=(survivor,), next_task_id=3
+    )
 
     removed = tracker.delete_task(2)
 
     assert removed == original
-    assert len(saver.saved) == 1
-    assert [task.id for task in saver.saved[0].tasks] == [1]
-    assert saver.saved[0].next_task_id == 3
-    assert saver.held_during_save == [(held[0], original)]
+    assert saver.saved == [expected]
+    assert saver.reads_during_save == [held]
+    assert saver.held_during_save == [(survivor, original)]
     assert tracker.task(2) is None and tracker.task_edit_context(2) is None
     assert [row.task.id for row in tracker.project_tasks(1)] == [1]
     assert [row.task.id for row in tracker.all_task_list(FilterInput()).rows] == [1]
