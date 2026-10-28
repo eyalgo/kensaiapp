@@ -19,6 +19,7 @@ from domain import (
     FilterOptions,
     OperatorNameOutcome,
     Project,
+    ProjectDeletionOutcome,
     ProjectListRefused,
     ProjectRenameOutcome,
     ProjectSummary,
@@ -41,6 +42,7 @@ from domain import (
     all_filter_options,
     allowed_moves,
     create_project,
+    delete_project,
     delete_task,
     edit_task,
     find_project,
@@ -128,6 +130,18 @@ class Tracker:
         new_state, outcome = rename_project(self._state, project_id, name)
         if outcome.changed:
             self._save_then_publish(new_state)
+        return outcome
+
+    def delete_project(self, project_id: int) -> ProjectDeletionOutcome:
+        """Delete the project with its tasks and their comments. A refusal or a saver failure
+        propagates; the state stays as it was.
+
+        The rule and the count of removed tasks are the domain's, applied to the state held now.
+        The one resulting state is saved before it becomes current, and the outcome is returned
+        only after that.
+        """
+        new_state, outcome = delete_project(self._state, project_id)
+        self._save_then_publish(new_state)
         return outcome
 
     def operator_name(self) -> str | None:
