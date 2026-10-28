@@ -54,6 +54,16 @@ None.
   both places (`tests/integration/test_filter_move_routes.py:L755`). The UXD should say where this
   refusal goes when the task is not listed, on a project's Tasks view and on All tasks.
 - **If a document has to be written:** `UXD.md` itself, by `product-uxd`.
-- **Answer:** <the owner fills this in>
+- **Answer:** When the list's filter leaves the task off the list, on a project's Tasks view (UX-S4)
+  and on All tasks (UX-S7) alike, the refusal sits above the results, in the one line UX-I4's
+  confirmation takes, and above the no-match state when the filter leaves no rows at all. The line
+  names the task by its title and states its status, so it carries what the row would have shown. It
+  says the task doesn't match this filter and so isn't in this list. As UX-I3 already rules for this
+  case, it names no action and offers no reload, and it does not offer Clear either: the task is in a
+  final status, so nothing is left to do with it. No row is invented for the task and no confirmation
+  is shown. With no status on the page to sit beside, UX-A3's association is met by the line itself
+  naming the task and its status, and the line is announced under UX-A5 without moving focus. The
+  task's own page always shows the status, so there UX-F4's placement beside the status stands
+  unchanged. The words are `CONTENT.md`'s. Reasoning: `docs/trail/uxd/self_answer-8.md`.
 
 **How it closes.** `product-uxd` folds it on its next run, unchanged from how it folds §§ 1–2.
