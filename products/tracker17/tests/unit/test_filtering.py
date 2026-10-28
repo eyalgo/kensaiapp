@@ -6,6 +6,10 @@ due-date range, either end optional, a reversed range refused), FR-35 (the overd
 FR-25 rule), FR-39 (each refusal is typed) and AC-12, AC-14 (the refusals and the filter tests).
 Change spec rules CP-393, CP-394, CP-396, CP-397, CP-402 to CP-406, CP-411, CP-413, CP-414 and
 CP-415 are the ones each test names. The design rows T1 to T3 are the coverage references.
+
+The All tasks scope (FR-31) is checked beside the project's: change spec rules CP-466, CP-468,
+CP-469, CP-474, CP-480 and CP-481 are the ones its tests name, and design rows T4 to T6, T10 and T16
+the coverage references. It reaches the same validator, matcher and options as a project's list.
 """
 
 from __future__ import annotations
@@ -37,6 +41,8 @@ from domain import (
     TaskFilter,
     TaskStatus,
     TrackerState,
+    all_filter_options,
+    filter_all_tasks,
     filter_project_tasks,
     list_project_tasks,
     project_filter_options,
@@ -518,3 +524,234 @@ def test_a_filter_narrows_only_when_a_choice_is_set():
         ("due_to", "2026-10-01"),
     ):
         assert select(MIXED, one(field, value)).filter.narrows is True, field
+
+
+# ---------------------------------------------------------------------------------------------
+# The All tasks scope (FR-31): the same rules over every project's tasks.
+# ---------------------------------------------------------------------------------------------
+
+
+def select_all(state: TrackerState, fields: FilterInput, today: date = TODAY) -> FilterSelection:
+    return filter_all_tasks(state, fields, today)
+
+
+def refused_all(state: TrackerState, fields: FilterInput, today: date = TODAY) -> FilterRefused:
+    with pytest.raises(FilterRefused) as caught:
+        select_all(state, fields, today)
+    return caught.value
+
+
+def refusal_shapes(problem: FilterRefused) -> list[tuple[type, tuple[object, ...]]]:
+    return [(type(item), item.args) for item in problem.refusals]
+
+
+def test_all_filter_options_use_the_whole_scope():
+    """CP-468: the count covers every project, assignees keep list order, and the labels are the
+    exact distinct ones of all tasks in code-point order, case variants and excluded ones included."""
+    state = make_state(
+        make_task(1, project_id=1, labels=("bug", "Zed")),
+        make_task(2, project_id=2, labels=("Bug", "bug")),
+        make_task(3, project_id=3, status=TaskStatus.DONE, labels=("only-on-done", "ui")),
+        assignees=("zoe", "ali"),
+    )
+
+    options = all_filter_options(state)
+
+    assert options == FilterOptions(
+        task_count=3, assignees=("zoe", "ali"), labels=("Bug", "Zed", "bug", "only-on-done", "ui")
+    )
+    narrowed = select_all(state, one("status", "todo"))
+    assert (narrowed.task_count, narrowed.assignees, narrowed.labels) == (
+        options.task_count,
+        options.assignees,
+        options.labels,
+    )
+
+
+@pytest.mark.parametrize(
+    "state",
+    [
+        TrackerState(projects=(), next_project_id=1),
+        make_state(),
+    ],
+    ids=["no projects", "only empty projects"],
+)
+@pytest.mark.parametrize(
+    "fields",
+    [
+        FilterInput(),
+        FilterInput(status=("todo",), label=("x",)),
+        FilterInput(status=("blocked",), due_from=("nope",), overdue=("off",)),
+        FilterInput(status=("todo", "todo"), assignee=("", "")),
+    ],
+    ids=["absent", "valid", "invalid", "repeated"],
+)
+def test_empty_all_scope_ignores_every_choice(state, fields):
+    """CP-466: no task anywhere gives the default empty selection and never a refusal."""
+    selection = select_all(state, fields)
+
+    assert selection.task_count == 0
+    assert selection.tasks == ()
+    assert selection.match_count == 0
+    assert selection.filter == TaskFilter()
+
+
+ALL_TASKS = make_state(
+    make_task(
+        1,
+        project_id=1,
+        status=TaskStatus.TODO,
+        priority=Priority.LOW,
+        assignee="dana",
+        labels=("Bug",),
+        due=date(2026, 10, 1),
+    ),
+    make_task(
+        2,
+        project_id=2,
+        status=TaskStatus.IN_PROGRESS,
+        priority=Priority.HIGH,
+        assignee="ali",
+        labels=("bug",),
+        due=date(2026, 10, 5),
+    ),
+    make_task(3, project_id=3, status=TaskStatus.DONE, priority=Priority.CRITICAL),
+    make_task(
+        4,
+        project_id=1,
+        status=TaskStatus.CANCELLED,
+        assignee="dana",
+        labels=("Bug", "ui"),
+        due=date(2026, 10, 10),
+    ),
+    make_task(
+        5,
+        project_id=2,
+        status=TaskStatus.TODO,
+        priority=Priority.LOW,
+        assignee="dana",
+        labels=("Bug",),
+        due=date(2026, 10, 5),
+    ),
+)
+
+
+@pytest.mark.parametrize(
+    ("fields", "expected"),
+    [
+        (one("status", "todo"), [1, 5]),
+        (one("status", "in-progress"), [2]),
+        (one("status", "done"), [3]),
+        (one("priority", "low"), [1, 5]),
+        (one("priority", "critical"), [3]),
+        (one("assignee", "dana"), [1, 5, 4]),
+        (one("assignee", "ali"), [2]),
+        (one("label", "Bug"), [1, 5, 4]),
+        (one("label", "bug"), [2]),
+        (one("due_from", "2026-10-05"), [2, 5, 4]),
+        (one("due_to", "2026-10-05"), [1, 2, 5]),
+        (one("overdue", "on"), [1, 2, 5]),
+    ],
+)
+def test_each_filter_matches_across_projects(fields, expected):
+    """CP-469: each field narrows the tasks of at least two projects, in list order."""
+    selection = select_all(ALL_TASKS, fields)
+
+    assert ids(selection) == expected
+    assert selection.match_count == len(expected)
+    assert selection.task_count == 5
+
+
+def test_all_filter_fields_combine_as_and():
+    """CP-469: every supplied criterion must hold; an unknown single label matches nothing."""
+    both = FilterInput(status=("todo",), assignee=("dana",), label=("Bug",), priority=("low",))
+    assert ids(select_all(ALL_TASKS, both)) == [1, 5]
+    assert ids(select_all(ALL_TASKS, FilterInput(status=("todo",), assignee=("ali",)))) == []
+    unknown = select_all(ALL_TASKS, one("label", "nothing carries this"))
+    assert (unknown.tasks, unknown.match_count, unknown.task_count) == ((), 0, 5)
+
+
+def test_global_due_ranges_are_inclusive_and_exclude_undated():
+    """CP-469: either endpoint, both and equal endpoints include the boundary dates across
+    projects, and the undated task 3 is inside no range."""
+    assert ids(select_all(ALL_TASKS, one("due_from", "2026-10-05"))) == [2, 5, 4]
+    assert ids(select_all(ALL_TASKS, one("due_to", "2026-10-05"))) == [1, 2, 5]
+    both = FilterInput(due_from=("2026-10-01",), due_to=("2026-10-10",))
+    assert ids(select_all(ALL_TASKS, both)) == [1, 2, 5, 4]
+    equal = FilterInput(due_from=("2026-10-05",), due_to=("2026-10-05",))
+    assert ids(select_all(ALL_TASKS, equal)) == [2, 5]
+    assert 3 not in ids(select_all(ALL_TASKS, one("due_from", "2000-01-01")))
+    assert 3 not in ids(select_all(ALL_TASKS, one("due_to", "2100-01-01")))
+
+
+def test_global_overdue_matches_the_row_rule():
+    """CP-469: yesterday is overdue, today and tomorrow and undated are not, and done and cancelled
+    tasks are not, across projects and for the supplied day."""
+    state = make_state(
+        make_task(1, project_id=1, due=date(2026, 10, 5)),
+        make_task(2, project_id=2, due=TODAY),
+        make_task(3, project_id=3, due=date(2026, 10, 7)),
+        make_task(4, project_id=1, due=None),
+        make_task(5, project_id=2, status=TaskStatus.DONE, due=date(2026, 10, 5)),
+        make_task(6, project_id=3, status=TaskStatus.CANCELLED, due=date(2026, 10, 5)),
+    )
+
+    assert ids(select_all(state, one("overdue", "on"))) == [1]
+    assert ids(select_all(state, one("overdue", "on"), date(2026, 10, 7))) == [1, 2]
+
+
+def test_global_filter_reports_each_refusal_without_losing_raw_input():
+    """CP-474: the same typed problems as the project path, in control order, with the raw input
+    kept exactly: reversed range, unlisted assignee, unknown values, bad dates and every repeat."""
+    simultaneous = FilterInput(
+        status=("blocked",),
+        priority=("urgent",),
+        assignee=("carol",),
+        due_from=("2026-10-10",),
+        due_to=("2026-10-01",),
+        overdue=("off",),
+    )
+    repeats = FilterInput(
+        status=("todo", "todo"),
+        priority=("", ""),
+        assignee=(" dana", " dana"),
+        label=("Bug", "bug"),
+        due_from=("2026-10-01", "2026-10-02"),
+        due_to=("", "2026-10-02"),
+        overdue=("on", "on"),
+    )
+    cases = [
+        simultaneous,
+        repeats,
+        FilterInput(due_from=("2026/10/01",), due_to=("20261001",)),
+        one("status", "blocked"),
+    ]
+
+    for fields in cases:
+        mine = refused_all(ALL_TASKS, fields)
+        theirs = refused(ALL_TASKS, fields)
+        assert refusal_shapes(mine) == refusal_shapes(theirs)
+        assert mine.fields is fields
+        assert [item.field for item in mine.refusals] == sorted(
+            (item.field for item in mine.refusals), key=list(FilterField).index
+        )
+    assert len(refused_all(ALL_TASKS, repeats).refusals) == 7
+
+
+def test_project_filter_contract_survives_shared_scope_extraction():
+    """CP-480: the project entry points keep their options, matching, ordering, empty shortcut and
+    typed refusals, and neither entry point changes the state it reads."""
+    before = MIXED
+
+    options = project_filter_options(MIXED, 1)
+    assert options == FilterOptions(4, ("dana", "ali"), ("Bug", "bug", "ui"))
+    assert project_filter_options(MIXED, 3).task_count == 0
+    empty = filter_project_tasks(MIXED, 3, one("status", "blocked"), TODAY)
+    assert (empty.tasks, empty.task_count, empty.filter) == ((), 0, TaskFilter())
+    assert ids(select(MIXED, one("assignee", "dana"))) == [1, 4]
+    assert [type(item) for item in refused(MIXED, one("status", "x")).refusals] == [
+        InvalidFilterStatus
+    ]
+    assert MIXED is before
+    select_all(MIXED, FilterInput())
+    assert MIXED == before
