@@ -116,15 +116,17 @@ def selected_in(root: Element, name: str) -> list[str]:
 def chosen_filters(root: Element) -> dict[str, str]:
     """What each of the seven filter controls holds: its selected value, its date, or on."""
     held: dict[str, str] = {}
+    form = root.by_id("filter")
+    assert form is not None
     for field in FILTER_FIELDS:
         name = f"filter_{field}"
         (control,) = [
             e
-            for e in root.find_all("select") + root.find_all("input")
+            for e in form.find_all("select") + form.find_all("input")
             if e.attrs.get("name") == name
         ]
         if control.tag == "select":
-            held[field] = "".join(selected_in(root, name))
+            held[field] = "".join(selected_in(form, name))
         elif control.attrs.get("type") == "checkbox":
             held[field] = "on" if "checked" in control.attrs else ""
         else:
@@ -206,7 +208,7 @@ def test_every_summary_count_opens_exactly_its_project_members(tmp_path: Path) -
     assert len({label_of(a) for a in anchors}) == 9
     for (address, _, choice), anchor in zip(NINE, anchors, strict=True):
         destination = parse(page(get(world.site, address)))
-        assert listed_ids(destination) == MEMBERS[choice], address
+        assert sorted(listed_ids(destination)) == MEMBERS[choice], address
         count = len(MEMBERS[choice])
         assert anchor.text() == str(count)
         line = destination.by_id("filter-count")
@@ -298,7 +300,7 @@ def test_followed_count_reads_current_saved_state(tmp_path: Path) -> None:
     assert line is not None and line.text() == "1 task matches this filter."
     assert "2 tasks in todo" in captured
     reloaded = parse(page(get(world.site, SUMMARY)))
-    assert [label_of(a) for a in count_anchors(reloaded)][0] == "1 task in todo"
+    assert label_of(count_anchors(reloaded)[0]) == "1 task in todo"
 
 
 def test_followed_overdue_count_reads_current_local_day(tmp_path: Path) -> None:

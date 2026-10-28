@@ -3690,11 +3690,15 @@ def test_full_run_keeps_the_sort_block_before_the_summary_block(
 # --- The project Summary appended to the whole run (CP-503, CP-509) -------------------------------
 
 SUMMARY_ADDRESS = "/projects/1/summary"
-# The test's own reader of a count cell, which is a bare numeral or the numeral inside one anchor.
-# It is written apart from the harness's reader and shares nothing with it.
+# The test's own reader of a count cell, which is a bare numeral or the numeral inside one anchor
+# (the real page's anchor carries a class, an address and an accessible name). It is written apart
+# from the harness's reader and shares nothing with it.
 SUMMARY_ROW = re.compile(
     r'<tr><th scope="row" class="pre-wrap">(.*?)</th>'
-    r'<td>(<a href="[^"]*">)?([0-9]+)(</a>)?</td></tr>'
+    r"<td>(<a [^>]*>)?([0-9]+)(</a>)?</td></tr>"
+)
+REAL_COUNT_ANCHOR = re.compile(
+    r'<td><a class="count-link" href="([^"]*)" aria-label="([^"]*)">([0-9]+)</a></td>'
 )
 SUMMARY_HEADINGS = (
     "Tasks by status",
@@ -3783,17 +3787,17 @@ def _edit_cell(
     )
 
 
-def _link_selected_counts(body: str) -> str:
-    """The real bare-count page with an anchor inside each of its nine selected count cells."""
-    for heading, labels in SELECTED_COUNT_ROWS.items():
-        for label in labels:
-            body = _edit_cell(
-                body,
-                heading,
-                label,
-                lambda old, label=label: f'<a href="{_count_href(label)}">{old}</a>',
-            )
-    assert body.count('<td><a href="/projects/1?filter_') == 9
+def _unlink_selected_counts(body: str) -> str:
+    """The real linked page projected to bare counts: each of its nine anchored count cells made a
+    bare numeral, the rest untouched. This is the second accepted shape; the real page is the first."""
+    bare, replaced = REAL_COUNT_ANCHOR.subn(lambda m: f"<td>{m[3]}</td>", body)
+    assert replaced == 9 and "</a></td>" not in bare
+    return bare
+
+
+def _served_linked(body: str) -> str:
+    """The real page as served: nine anchored count cells, in the selected rows only."""
+    assert len(REAL_COUNT_ANCHOR.findall(body)) == 9
     return body
 
 
@@ -3813,11 +3817,7 @@ def _drop_row(body: str, heading: str, label: str) -> str:
     return _in_group(body, heading, lambda section: re.sub(pattern, "", section, count=1))
 
 
-def _bare(body: str) -> str:
-    return body
-
-
-SUMMARY_SHAPES = {"bare": _bare, "linked": _link_selected_counts}
+SUMMARY_SHAPES = {"bare": _unlink_selected_counts, "linked": _served_linked}
 
 
 def _summary_fixture(harness: ModuleType, location: Path, state=None):
@@ -3840,8 +3840,9 @@ def test_summary_oracle_reads_the_real_page_as_the_fixture_says(
     harness: ModuleType, tmp_path: Path, shape: str
 ) -> None:
     """CP-503, CP-509, CP-527, T14: the test's own oracle and the page agree on the fixture, in
-    order, in both accepted shapes: the real bare counts, and the same page with an anchor in each
-    of the nine selected count cells. Only those nine cells hold an anchor in the linked shape."""
+    order, in both accepted shapes: the real page, with an anchor in each of the nine selected count
+    cells, and its projection to bare counts. Only those nine cells hold an anchor in the linked
+    shape, and each reaches the project's one-choice address."""
     site, _, loaded = _summary_fixture(harness, tmp_path)
 
     real = _real_summary(harness, site).body.decode("utf-8")
@@ -3853,8 +3854,11 @@ def test_summary_oracle_reads_the_real_page_as_the_fixture_says(
     assert re.findall(r"<h2>(.*?)</h2>", body) == list(SUMMARY_HEADINGS)
     assert len({count for _, count in rows[1:5]}) > 1 and len(rows) > 14
     linked = [unescape(label) for label, opened, _, closed in found if opened and closed]
-    assert linked == ([] if shape == "bare" else [*STATUS_WORDS, *PRIORITY_WORDS, "Overdue"])
-    assert (body != real) == (shape == "linked")
+    nine = [*STATUS_WORDS, *PRIORITY_WORDS, "Overdue"]
+    assert linked == ([] if shape == "bare" else nine)
+    assert (body != real) == (shape == "bare")
+    addresses = [unescape(m[0]) for m in REAL_COUNT_ANCHOR.findall(body)]
+    assert addresses == ([] if shape == "bare" else [_count_href(label) for label in nine])
 
 
 def test_timed_summary_reads_real_full_volume_once(harness: ModuleType, tmp_path: Path) -> None:
@@ -3892,15 +3896,15 @@ def _created(harness: ModuleType, site, saved_data: SavedData, response: Respons
 def test_timed_summary_accepts_bare_and_selected_linked_counts(
     harness: ModuleType, tmp_path: Path, empty: bool
 ) -> None:
-    """T14, CP-509, CP-527: the measurement counts the real bare-count Summary and the same page
-    with an anchor in each of the four status, four priority and the overdue count cells, with the
-    group, label and count of every row agreeing in order. On an empty fixture all nine counts are
-    zero, and the nine anchors still pass."""
+    """T14, CP-509, CP-527: the measurement counts the real Summary, with an anchor in each of the
+    four status, four priority and the overdue count cells, and the same page with those cells bare,
+    with the group, label and count of every row agreeing in order. On an empty fixture all nine
+    counts are zero, and the nine anchors still pass."""
     state = _shrunk(harness.summary_state(), tasks=120, comments=2)
     state = replace(state, tasks=()) if empty else state
     site, saved_data, loaded = _summary_fixture(harness, tmp_path, state)
-    bare = _real_summary(harness, site)
-    linked = _edited(bare, _link_selected_counts)
+    linked = _real_summary(harness, site)
+    bare = _edited(linked, _unlink_selected_counts)
 
     assert linked.body != bare.body
     assert linked.body.decode("utf-8").count("</a></td>") == 9
@@ -3941,8 +3945,8 @@ def test_timed_summary_forbids_links_outside_selected_count_cells(
         state = _with_task(state, number, status=TaskStatus.TODO, assignee=name)
     state = replace(state, assignees=listed)
     site, saved_data, loaded = _summary_fixture(harness, tmp_path, state)
-    bare = _real_summary(harness, site)
-    linked = _edited(bare, _link_selected_counts)
+    linked = _real_summary(harness, site)
+    bare = _edited(linked, _unlink_selected_counts)
     oracle = _summary_oracle(loaded, _local_today())
     assignees = oracle[oracle.index(("No due date", dict(oracle)["No due date"])) + 1 :]
     assert set(LOOKALIKES) <= {label for label, _ in assignees}
@@ -4022,8 +4026,8 @@ def test_timed_summary_rejects_ambiguous_count_cells(
     its identity because the cell's markup was stripped. In every case the edited page differs from
     the page it was made from."""
     site, saved_data, _ = _summary_fixture(harness, tmp_path)
-    bare = _real_summary(harness, site)
-    linked = _edited(bare, _link_selected_counts)
+    linked = _real_summary(harness, site)
+    bare = _edited(linked, _unlink_selected_counts)
     assert _created(harness, site, saved_data, linked)
 
     for heading, label in AMBIGUOUS_TARGETS:
@@ -4337,7 +4341,7 @@ def test_timed_summary_accepts_a_run_that_crosses_midnight(
     later = with_overdue(overdue_next)
     neither = with_overdue(overdue_first + overdue_next + 1)
     for page in (earlier, later, neither):
-        shown = f'<a href="{_count_href("Overdue")}">'
+        shown = f'href="{_count_href("Overdue")}"'
         assert (shown in page.body.decode("utf-8")) == (shape == "linked")
     assert neither.body != real.body and neither.body not in (earlier.body, later.body)
     assert earlier.body != later.body

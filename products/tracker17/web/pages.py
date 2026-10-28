@@ -31,6 +31,7 @@ from application import (
     InvalidFilterStatus,
     InvalidSortDirection,
     InvalidSortField,
+    Priority,
     Project,
     ProjectSummary,
     ProjectTaskList,
@@ -1056,6 +1057,8 @@ FILTER_ACCESSIBLE_NAMES = {
     FilterField.ASSIGNEE: "Assignee filter",
 }
 FILTER_QUERY_PREFIX = "filter_"
+# The one value the overdue checkbox sends, and the one a Summary overdue link carries.
+OVERDUE_VALUE = "on"
 FILTER_APPLY_LABEL = "Apply"
 FILTER_CLEAR_LABEL = "Clear"
 NO_MATCH_LINE = "No tasks match this filter. Press Clear to see every task."
@@ -1234,9 +1237,9 @@ def _filter_control(
         return _filter_select(field, listing.labels, raw, attributes)
     name = f"{FILTER_QUERY_PREFIX}{field.value}"
     if field is FilterField.OVERDUE:
-        checked = " checked" if raw == ("on",) else ""
+        checked = " checked" if raw == (OVERDUE_VALUE,) else ""
         return (
-            f'<input type="checkbox" id="{_filter_id(field)}" name="{name}" value="on"'
+            f'<input type="checkbox" id="{_filter_id(field)}" name="{name}" value="{OVERDUE_VALUE}"'
             f"{checked}{attributes}>\n"
         )
     kept = (
@@ -1459,11 +1462,83 @@ _SUMMARY_EMPTY_HEAD = "This project has no tasks yet. Open "
 _SUMMARY_EMPTY_TAIL = " to add the first task."
 
 
-def _summary_group(heading: str, first: str, second: str, rows: Iterable[tuple[str, int]]) -> str:
+@dataclass(frozen=True)
+class _CountName:
+    """The accessible name of one count link, whole for a count of 1 and for every other count.
+
+    `other` holds `{count}` where the numeral goes; no name is assembled from a status or priority
+    word and a frame, so a reader finds each published string as it is written.
+    """
+
+    one: str
+    other: str
+
+    def for_count(self, count: int) -> str:
+        return self.one if count == 1 else self.other.format(count=count)
+
+
+@dataclass(frozen=True)
+class _CountLink:
+    """The one filter choice a count opens: its field, its value and its accessible name."""
+
+    field: FilterField
+    value: str
+    name: _CountName
+
+
+@dataclass(frozen=True)
+class _SummaryRow:
+    """One row of a Summary group: its label, its count and, for the nine selected counts, a link."""
+
+    label: str
+    count: int
+    link: _CountLink | None = None
+
+
+_STATUS_COUNT_LINKS = {
+    TaskStatus.TODO: _CountName("1 task in todo", "{count} tasks in todo"),
+    TaskStatus.IN_PROGRESS: _CountName("1 task in in-progress", "{count} tasks in in-progress"),
+    TaskStatus.DONE: _CountName("1 task in done", "{count} tasks in done"),
+    TaskStatus.CANCELLED: _CountName("1 task in cancelled", "{count} tasks in cancelled"),
+}
+_PRIORITY_COUNT_LINKS = {
+    Priority.LOW: _CountName("1 task with low priority", "{count} tasks with low priority"),
+    Priority.MEDIUM: _CountName(
+        "1 task with medium priority", "{count} tasks with medium priority"
+    ),
+    Priority.HIGH: _CountName("1 task with high priority", "{count} tasks with high priority"),
+    Priority.CRITICAL: _CountName(
+        "1 task with critical priority", "{count} tasks with critical priority"
+    ),
+}
+_OVERDUE_COUNT_LINK = _CountLink(
+    FilterField.OVERDUE, OVERDUE_VALUE, _CountName("1 overdue task", "{count} overdue tasks")
+)
+
+
+def _summary_cell(project: Project, row: _SummaryRow) -> str:
+    """A count cell: the bare numeral, or the numeral as the only text of one native link whose
+    address chooses exactly one filter value of this project and whose name says what it counts."""
+    if row.link is None:
+        return f"<td>{row.count}</td>"
+    address = (
+        f"{_project_address(project)}?{FILTER_QUERY_PREFIX}{row.link.field.value}={row.link.value}"
+    )
+    name = row.link.name.for_count(row.count)
+    return (
+        f'<td><a class="count-link" href="{_escape(address)}" aria-label="{_escape(name)}">'
+        f"{row.count}</a></td>"
+    )
+
+
+def _summary_group(
+    project: Project, heading: str, first: str, second: str, rows: Iterable[_SummaryRow]
+) -> str:
     """One two-column sheet of the Summary: the labels as row headers, the counts as numerals."""
     body = "".join(
-        f'<tr><th scope="row" class="pre-wrap">{_escape(label)}</th><td>{count}</td></tr>\n'
-        for label, count in rows
+        f'<tr><th scope="row" class="pre-wrap">{_escape(row.label)}</th>'
+        f"{_summary_cell(project, row)}</tr>\n"
+        for row in rows
     )
     return (
         '<section class="sheet summary-group">\n'
@@ -1477,9 +1552,12 @@ def _summary_group(heading: str, first: str, second: str, rows: Iterable[tuple[s
 
 
 def summary_page(summary: ProjectSummary) -> str:
-    """One project's Summary: its counts as plain numbers, in the order and with the zeros handed in.
+    """One project's Summary: its counts as numbers, in the order and with the zeros handed in.
 
-    Decides no count and no order. The no-tasks invitation is chosen by the total alone.
+    The four status, four priority and overdue counts are links to the project's tasks filtered by
+    that one choice; the total, the no-due-date count and every assignee count stay plain.
+    Decides no count, no order and no membership. The no-tasks invitation is chosen by the total
+    alone.
     """
     project = summary.project
     invitation = (
@@ -1488,23 +1566,40 @@ def summary_page(summary: ProjectSummary) -> str:
         if summary.total == 0
         else ""
     )
-    statuses = [("Total", summary.total)] + [
-        (row.status.value, row.count) for row in summary.status_counts
+    statuses = [_SummaryRow("Total", summary.total)] + [
+        _SummaryRow(
+            row.status.value,
+            row.count,
+            _CountLink(FilterField.STATUS, row.status.value, _STATUS_COUNT_LINKS[row.status]),
+        )
+        for row in summary.status_counts
     ]
-    priorities = [(row.priority.value, row.count) for row in summary.priority_counts]
-    dates = [("Overdue", summary.overdue), ("No due date", summary.no_due_date)]
+    priorities = [
+        _SummaryRow(
+            row.priority.value,
+            row.count,
+            _CountLink(
+                FilterField.PRIORITY, row.priority.value, _PRIORITY_COUNT_LINKS[row.priority]
+            ),
+        )
+        for row in summary.priority_counts
+    ]
+    dates = [
+        _SummaryRow("Overdue", summary.overdue, _OVERDUE_COUNT_LINK),
+        _SummaryRow("No due date", summary.no_due_date),
+    ]
     assignees = [
-        ("(unassigned)" if row.assignee is None else row.assignee, row.count)
+        _SummaryRow("(unassigned)" if row.assignee is None else row.assignee, row.count)
         for row in summary.assignee_counts
     ]
     body = (
         f'<h1 class="pre-wrap">{_escape(project.name)}</h1>\n'
         f"{_project_views(project)}"
         f"{invitation}"
-        f"{_summary_group('Tasks by status', 'Status', 'Tasks', statuses)}"
-        f"{_summary_group('Tasks by priority', 'Priority', 'Tasks', priorities)}"
-        f"{_summary_group('Due dates', 'Due date', 'Tasks', dates)}"
-        f"{_summary_group('Open tasks by assignee', 'Assignee', 'Open tasks', assignees)}"
+        f"{_summary_group(project, 'Tasks by status', 'Status', 'Tasks', statuses)}"
+        f"{_summary_group(project, 'Tasks by priority', 'Priority', 'Tasks', priorities)}"
+        f"{_summary_group(project, 'Due dates', 'Due date', 'Tasks', dates)}"
+        f"{_summary_group(project, 'Open tasks by assignee', 'Assignee', 'Open tasks', assignees)}"
     )
     return _document(f"{project.name}: Summary - tracker17", body)
 
