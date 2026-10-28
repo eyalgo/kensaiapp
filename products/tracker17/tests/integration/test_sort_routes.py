@@ -14,7 +14,7 @@ from urllib.parse import urlencode
 
 import pytest
 from test_pages import Element, parse
-from test_routes import get, page
+from test_routes import POLICY, get, page
 from test_task_routes import World, make_world, utc_zone  # noqa: F401
 
 pytestmark = pytest.mark.usefixtures("utc_zone")
@@ -222,3 +222,108 @@ def test_values_are_decoded_whole_and_unnormalized(tmp_path: Path) -> None:
     assert listed(accepted) == [4, 5, 1, 2, 3]
     for token in ("TITLE", "title+", "%74itle%20", "created", "created-time"):
         assert sorted_page(world, f"sort_field={token}").find_all("table") == [], token
+
+
+# ---- All tasks: the global read through the real Site (CP-459, CP-461, CP-469, CP-472, T6 to T9) ----
+
+
+def test_header_links_are_projects_all_tasks_people_on_every_page_kind(tmp_path: Path) -> None:
+    """CP-459, T1: the three links on ordinary, 404 and global pages; the All tasks link opens a
+    200 read directly, with no redirect and no save."""
+    from test_sort_pages import two_project_world
+
+    world = two_project_world(tmp_path)
+    saves = world.saver.saves
+    for target, status in (
+        ("/", 200),
+        ("/projects/1", 200),
+        ("/tasks/1", 200),
+        ("/people", 200),
+        ("/tasks", 200),
+        ("/projects/99", 404),
+        ("/tasks/99", 404),
+    ):
+        root = parse(page(get(world.site, target), status))
+        (header,) = root.find_all("header")
+        links = [(a.attrs["href"], a.text()) for a in header.find_all("a")]
+        assert links == [("/", "Projects"), ("/tasks", "All tasks"), ("/people", "People")], target
+    opened = get(world.site, "/tasks")
+    assert opened.status == 200 and not [h for h in opened.headers if h[0] == "Location"]
+    assert world.saver.saves == saves
+
+
+def test_only_the_exact_tasks_address_is_the_global_page(tmp_path: Path) -> None:
+    """CP-460, CP-461: `/tasks` answers the page; `/tasks/` and its neighbours still show the
+    not-found page."""
+    from test_sort_pages import two_project_world
+
+    world = two_project_world(tmp_path)
+    assert parse(page(get(world.site, "/tasks"))).find_all("h1")[0].text() == "All tasks"
+    for target in ("/tasks/", "/tasks/abc", "/tasks//", "/task", "/Tasks"):
+        response = get(world.site, target)
+        assert response.status == 404, target
+        assert b"Open <a" in response.body, target
+
+
+def test_global_controls_realize_cross_project_filter_and_sort_cases(tmp_path: Path) -> None:
+    """CP-469, CP-483, T6, T7: each field, AND, range endpoints, undated tasks, Overdue, every sort
+    in both directions and identity ties, all through the real Site over two projects."""
+    from test_sort_pages import all_tasks, task_numbers, two_project_world
+
+    world = two_project_world(tmp_path)
+    cases = {
+        "filter_status=todo": [2, 1, 4, 3],
+        "filter_priority=low": [2],
+        "filter_assignee=Dana": [1],
+        "filter_label=Bug": [4],
+        "filter_label=bug": [1],
+        "filter_due_from=2026-10-20": [1, 4],
+        "filter_due_to=2026-10-20": [2, 1],
+        "filter_due_from=2026-10-20&filter_due_to=2026-10-20": [1],
+        "filter_overdue=on": [2],
+        "filter_overdue=on&filter_priority=high": [],
+        "filter_status=todo&filter_assignee=Dana&filter_label=bug": [1],
+        "filter_due_from=2026-12-01": [],
+    }
+    for query, expected in cases.items():
+        root = all_tasks(world, query)
+        if expected:
+            assert task_numbers(root) == expected, query
+        else:
+            assert root.find_all("table") == [], query
+    orders = {
+        ("due_date", "ascending"): [2, 1, 4, 3],
+        ("due_date", "descending"): [4, 1, 2, 3],
+        ("priority", "ascending"): [2, 3, 1, 4],
+        ("priority", "descending"): [4, 1, 3, 2],
+        ("created_time", "ascending"): [1, 2, 3, 4],
+        ("created_time", "descending"): [4, 3, 2, 1],
+        ("title", "ascending"): [2, 4, 3, 1],
+        ("title", "descending"): [1, 3, 4, 2],
+    }
+    for (field, direction), expected in orders.items():
+        root = all_tasks(world, f"sort_field={field}&sort_direction={direction}")
+        assert task_numbers(root) == expected, (field, direction)
+
+
+def test_global_apply_sort_and_clear_are_stateless_reads(tmp_path: Path) -> None:
+    """CP-472, CP-473, CP-482, T9: the same address answers the same page again, a fresh address and
+    Clear carry nothing, the recomputed date changes the marks, and nothing is saved."""
+    from test_sort_pages import all_tasks, table_rows, two_project_world
+
+    world = two_project_world(tmp_path)
+    saves, before = world.saver.saves, world.bytes_on_disk()
+    address = "/tasks?filter_status=todo&sort_field=title&sort_direction=descending"
+    first, second = get(world.site, address), get(world.site, address)
+    assert first.status == 200 and first.body == second.body
+    for response in (first, second, get(world.site, "/tasks")):
+        assert [h for h in response.headers if h[0] in ("Set-Cookie", "Location")] == []
+        assert ("Content-Security-Policy", POLICY) in response.headers
+    cleared = all_tasks(world)
+    assert "match" not in cleared.text() and "The tracker has" not in cleared.text()
+    overdue = [cells[6].text() for cells in table_rows(all_tasks(world, "filter_status=todo"))]
+    assert sum("Overdue" in text for text in overdue) == 1
+    world.clock.instant = world.clock.instant.replace(year=2027)
+    later = [cells[6].text() for cells in table_rows(all_tasks(world, "filter_status=todo"))]
+    assert sum("Overdue" in text for text in later) == 3
+    assert (world.saver.saves, world.bytes_on_disk()) == (saves, before)

@@ -710,3 +710,92 @@ def test_plain_confirmation_strip_is_reusable_without_a_move_subject(tmp_path: P
     ]
     assert shape(real_strip)[0][:2] == shape(strip)[0][:2]
     assert [(t, m) for t, _, m in shape(real_strip)] == [(t, m) for t, _, m in shape(strip)]
+
+
+# ---- All tasks: the closed move destination, rendered with injected values (CP-475, T11) ----
+
+
+def global_listing(world: World, **fields: tuple[str, ...]):
+    from application import FilterInput, SortInput
+
+    return world.tracker.all_task_list(
+        FilterInput(**fields), sort_fields=SortInput(field=("title",))
+    )
+
+
+def test_the_move_destination_is_a_closed_set_that_keeps_the_old_names() -> None:
+    """CP-475, CP-478: the three destinations are text values, and the two older names are still
+    usable by their callers with their old values."""
+    assert [place.value for place in pages.MovePlace] == ["task", "list", "all_tasks"]
+    assert pages.MOVE_PLACE_LIST == "list" and pages.MOVE_PLACE_TASK == "task"
+    assert pages.MovePlace("all_tasks") is pages.MovePlace.ALL_TASKS
+    with pytest.raises(ValueError):
+        pages.MovePlace("/anywhere")
+
+
+def test_global_row_forms_and_injected_move_views_keep_the_destination(tmp_path: Path) -> None:
+    """CP-475, T11: direct renderer calls with existing outcome and interaction values. Every form
+    sends place=all_tasks and the carried choices, the back-out returns to /tasks, and the focus
+    belongs to the status word, the confirmation sentence or the restored button."""
+    from test_sort_pages import two_project_world
+
+    world = two_project_world(tmp_path)
+    listing = global_listing(world, status=("todo",))
+    projects = world.tracker.projects()
+    allowed = world.tracker.allowed_moves
+    carried = [("filter_status", "todo"), ("sort_field", "title")]
+
+    def shown(**extra: object) -> Element:
+        return parse(pages.all_tasks_page(listing, projects, allowed_moves=allowed, **extra))
+
+    def hidden(form: Element) -> list[tuple[str | None, str | None]]:
+        return [(i.attrs.get("name"), i.attrs.get("value")) for i in form.find_all("input")]
+
+    plain = shown()
+    move_forms = [f for f in plain.find_all("form") if str(f.attrs["action"]).endswith("/move")]
+    assert len(move_forms) == 8 and strips(plain) == [] and focused(plain) == []
+    for form in move_forms:
+        assert ("place", "all_tasks") in hidden(form)
+        assert all(pair in hidden(form) for pair in carried)
+    confirming = shown(move_interaction=pages.MoveInteraction(2, pages.MoveInteractionMode.CONFIRM))
+    (strip,) = strips(confirming)
+    confirm_form, back_out_form = strip.find_all("form")
+    assert confirm_form.attrs["action"] == "/tasks/2/move/confirm"
+    assert confirm_form.attrs["method"] == "post"
+    assert ("place", "all_tasks") in hidden(confirm_form)
+    assert all(pair in hidden(confirm_form) for pair in carried)
+    assert (back_out_form.attrs["action"], back_out_form.attrs["method"]) == ("/tasks", "get")
+    assert ("move_task", "2") in hidden(back_out_form)
+    assert ("move_back", "cancelled") in hidden(back_out_form)
+    assert all(pair in hidden(back_out_form) for pair in carried)
+    (sentence,) = focused(confirming)
+    assert sentence.text() == "Move 'Fix bug' to cancelled? A cancelled task can't be moved again."
+    restored = shown(move_interaction=pages.MoveInteraction(2, pages.MoveInteractionMode.BACK_OUT))
+    (button,) = focused(restored)
+    assert button.tag == "button" and button.attrs["aria-label"] == "Move 'Fix bug' to cancelled"
+    moved = shown(move_outcome=pages.MoveOutcome(2, moved=TaskStatus.IN_PROGRESS))
+    (status_word,) = focused(moved)
+    assert status_word.text() == "todo" and "status-word" in str(status_word.attrs["class"])
+    assert description(status_word) == "You moved 'Fix bug' to in-progress."
+    for kept in (plain, confirming, restored, moved):
+        for form in kept.find_all("form"):
+            if str(form.attrs["action"]).startswith("/tasks/"):
+                assert ("place", "all_tasks") in hidden(form)
+    assert "has changed to" not in shown(
+        move_outcome=pages.MoveOutcome(2, refusal=pages.MoveRefusal.NOT_ALLOWED)
+    ).text()
+    assert (
+        description(focused(shown(move_outcome=pages.MoveOutcome(2, refusal=pages.MoveRefusal.NOT_ALLOWED)))[0])
+        == "The status of 'Fix bug' is todo. A task in todo can be moved to in-progress or cancelled."
+    )
+
+
+def test_the_project_and_task_forms_keep_their_destinations(tmp_path: Path) -> None:
+    """CP-478: the default destination of the row and cancellation renderers is unchanged."""
+    world = world_with(tmp_path)
+    project_root = project_page(world, "?move_task=1&move_confirm=cancelled", status=202)
+    (strip,) = strips(project_root)
+    assert [f.attrs["action"] for f in strip.find_all("form")] == ["/tasks/1/move/confirm", "/projects/1"]
+    task_root = task_page(world, "?move_task=1&move_confirm=cancelled", status=202)
+    (strip,) = strips(task_root)
+    assert [f.attrs["action"] for f in strip.find_all("form")] == ["/tasks/1/move/confirm", "/tasks/1"]

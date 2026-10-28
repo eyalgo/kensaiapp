@@ -202,10 +202,10 @@ def test_an_address_with_no_project_shows_the_not_found_page(
     expect(page.locator("main h1")).to_have_count(1)
     assert page.locator("form, input, textarea, button").count() == 0
     header = page.eval_on_selector_all("header a", "elements => elements.map(e => e.href)")
-    assert header == [tracker.address + "/", tracker.address + "/people"]
+    assert header == [tracker.address + "/", tracker.address + "/tasks", tracker.address + "/people"]
     body = page.eval_on_selector_all("main a", "elements => elements.map(e => e.href)")
-    assert body == [tracker.address + "/"]
-    page.locator("main a").click()
+    assert body == [tracker.address + "/", tracker.address + "/tasks"]
+    page.get_by_role("main").get_by_role("link", name="Projects").click()
     page.wait_for_load_state()
     assert page.url == tracker.address + "/"
     expect(page.locator("h1")).to_have_text("Projects")

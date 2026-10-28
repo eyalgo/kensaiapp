@@ -270,6 +270,7 @@ SAMPLE_ADDRESS = {
     "/projects/[0-9]+": "/projects/1",
     "/projects": "/projects",
     "/people": "/people",
+    "/tasks": "/tasks",
     "/assignees": "/assignees",
     "/assignees/remove": "/assignees/remove",
     "/operator-name": "/operator-name",

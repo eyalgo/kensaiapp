@@ -218,3 +218,35 @@ def test_off_list_completion_focus_enters_the_list_section(
             "document.getElementById('move-line').compareDocumentPosition("
             "document.getElementById('filter-no-match')) & Node.DOCUMENT_POSITION_FOLLOWING"
         )
+
+
+def test_keyboard_reaches_and_filters_all_tasks_without_script(
+    trackers, location: Path, scriptless: Page
+) -> None:
+    """CP-459, CP-467, CP-472, T18: from a project's header, keys reach All tasks, set a filter and
+    a sort, apply them, keep the choices, and clear them, with scripting off."""
+    seeded(location)
+    tracker = trackers.start(location)
+    scriptless.goto(tracker.address + "/projects/1")
+    scriptless.get_by_role("link", name="All tasks").focus()
+    scriptless.keyboard.press("Enter")
+    scriptless.wait_for_load_state()
+    assert scriptless.url == tracker.address + "/tasks"
+    expect(scriptless.locator("h1")).to_have_text("All tasks")
+    assert listed(scriptless) == ["Write docs", "Fix bug", "Ship"]
+    tab_until(scriptless, "filter-priority")
+    scriptless.keyboard.type("low")
+    tab_until(scriptless, "sort-field")
+    scriptless.keyboard.type("Title")
+    tab_until(scriptless, "filter-apply")
+    scriptless.keyboard.press("Enter")
+    scriptless.wait_for_load_state()
+    query = parse_qs(urlsplit(scriptless.url).query)
+    assert query["filter_priority"] == ["low"] and query["sort_field"] == ["title"]
+    assert listed(scriptless) == ["Fix bug"]
+    expect(scriptless.locator("#filter-priority")).to_have_value("low")
+    tab_until(scriptless, "filter-clear")
+    scriptless.keyboard.press("Enter")
+    scriptless.wait_for_load_state()
+    assert scriptless.url == tracker.address + "/tasks"
+    assert listed(scriptless) == ["Write docs", "Fix bug", "Ship"]

@@ -326,7 +326,11 @@ def test_task_page_shows_the_four_fields_in_the_one_authorized_form(tmp_path: Pa
             assert absent not in text, absent
         # CP-274: the one link the main area admits is the no-name notice's link to People.
         assert [a.attrs["href"] for a in shown_main.find_all("a")] == ["/people"]
-    assert [a.attrs["href"] for a in root.find_all("header")[0].find_all("a")] == ["/", "/people"]
+    assert [a.attrs["href"] for a in root.find_all("header")[0].find_all("a")] == [
+        "/",
+        "/tasks",
+        "/people",
+    ]
 
 
 def test_the_task_page_shows_a_past_due_date_without_the_overdue_marker(tmp_path: Path) -> None:

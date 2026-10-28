@@ -98,6 +98,7 @@ def test_the_people_header_has_projects_then_people_on_the_people_page() -> None
     links = header.find_all("a")
     assert [(link.attrs["href"], link.text()) for link in links] == [
         ("/", "Projects"),
+        ("/tasks", "All tasks"),
         ("/people", "People"),
     ]
     assert header.text().startswith("tracker17")
@@ -457,7 +458,7 @@ def test_no_people_state_offers_an_absent_area_or_a_second_assignee_field(
     fields = [e for e in assignees_section(root).find_all("input") if e.attrs.get("type") == "text"]
     assert len(fields) == 1
     hrefs = {link.attrs["href"] for link in root.find_all("a")}
-    assert hrefs <= {"/", "/people"}
+    assert hrefs <= {"/", "/tasks", "/people"}
 
 
 OPERATOR_NOTE = "Comments you've already written keep the name they were written under."
@@ -519,6 +520,7 @@ def test_people_shows_your_name_above_unchanged_assignees() -> None:
     (header,) = root.find_all("header")
     assert [(a.attrs["href"], a.text()) for a in header.find_all("a")] == [
         ("/", "Projects"),
+        ("/tasks", "All tasks"),
         ("/people", "People"),
     ]
     sections = main_of(root).find_all("section")

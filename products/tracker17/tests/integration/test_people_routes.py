@@ -104,8 +104,8 @@ def test_people_get_and_header_navigation_write_nothing() -> None:
     for target in ("/", "/projects/1", "/people", "/nowhere", "/projects/99?created"):
         shown = get(site, target).body.decode("utf-8")
         links = [e for e in parse(shown).find_all("header")[0].find_all("a")]
-        assert [link.attrs["href"] for link in links] == ["/", "/people"], target
-        opened = get(site, links[1].attrs["href"] or "")
+        assert [link.attrs["href"] for link in links] == ["/", "/tasks", "/people"], target
+        opened = get(site, links[2].attrs["href"] or "")
         assert opened.status == 200, target
         assert spans(parse(opened.body.decode("utf-8"))) == ["Dana"]
     assert len(saver.saved) == saves and state_of(tracker) == before

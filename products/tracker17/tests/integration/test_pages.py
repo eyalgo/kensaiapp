@@ -156,21 +156,22 @@ def test_the_note_number_equals_the_description_maxlength() -> None:
     assert str(SHORT_TEXT_MAX) not in main_text(root)
 
 
-def test_every_page_has_a_header_with_the_projects_and_people_links() -> None:
-    """CP-9, CP-80."""
+def test_every_page_has_a_header_with_the_projects_all_tasks_and_people_links() -> None:
+    """CP-9, CP-80, CP-459."""
     for label, page in all_pages().items():
         root = parse(page)
         (header,) = root.find_all("header")
         links = header.find_all("a")
         assert [(link.attrs["href"], link.text()) for link in links] == [
             ("/", "Projects"),
+            ("/tasks", "All tasks"),
             ("/people", "People"),
         ], label
         assert header.text().startswith("tracker17"), label
         for link in root.find_all("a"):
             href = link.attrs["href"] or ""
-            assert re.fullmatch(r"/|/people|/projects/\d+", href), (label, href)
-        for forbidden in ("all tasks", "rename", "delete"):
+            assert re.fullmatch(r"/|/tasks|/people|/projects/\d+", href), (label, href)
+        for forbidden in ("rename", "delete"):
             assert forbidden not in root.text().lower(), (label, forbidden)
 
 
@@ -244,7 +245,7 @@ def test_values_are_escaped_everywhere() -> None:
     for page in (listed, on_project, refused, failed):
         assert "<b>" not in page
         assert '"quoted"' not in page  # a bare quote would end an attribute early
-    assert parse(listed).find_all("a")[2].text() == HOSTILE
+    assert parse(listed).find_all("a")[3].text() == HOSTILE
     assert HOSTILE in main_text(parse(listed))
     project_root = parse(on_project)
     assert project_root.find_all("h1")[0].text() == HOSTILE
@@ -350,28 +351,31 @@ def test_the_created_project_page_opens_on_its_heading() -> None:
     assert "autofocus" not in plain.find_all("h1")[0].attrs
 
 
-def test_the_not_found_page_has_one_heading_and_one_link_to_projects() -> None:
-    """CP-33, CP-34."""
+def test_the_not_found_page_has_one_heading_and_links_to_projects_then_all_tasks() -> None:
+    """CP-33, CP-34, CP-460."""
     root = parse(pages.not_found_page())
     assert len(root.find_all("h1")) == 1
     (main,) = root.find_all("main")
-    (link,) = main.find_all("a")
-    assert link.attrs["href"] == "/"
+    links = main.find_all("a")
+    assert [(link.attrs["href"], link.text()) for link in links] == [
+        ("/", "Projects"),
+        ("/tasks", "All tasks"),
+    ]
     (header,) = root.find_all("header")
-    assert [anchor.attrs["href"] for anchor in header.find_all("a")] == ["/", "/people"]
-    assert len(root.find_all("a")) == 3
+    assert [anchor.attrs["href"] for anchor in header.find_all("a")] == ["/", "/tasks", "/people"]
+    assert len(root.find_all("a")) == 5
     assert root.find_all("form") == []
 
 
-def test_the_not_found_page_gives_projects_in_a_paragraph_after_its_heading() -> None:
-    """CP-33: the sentence, then Projects as the place to go, in a paragraph directly in main."""
+def test_the_not_found_page_gives_both_links_in_a_paragraph_after_its_heading() -> None:
+    """CP-33, CP-460: the sentence, then Projects and All tasks in the one paragraph in main."""
     (main,) = parse(pages.not_found_page()).find_all("main")
     children = [child for child in main.children if isinstance(child, Element)]
     assert [child.tag for child in children] == ["h1", "p"]
     heading, paragraph = children
     assert heading.find_all("a") == []
-    (link,) = paragraph.find_all("a")
-    assert link.parent is paragraph
+    assert [link.parent for link in paragraph.find_all("a")] == [paragraph, paragraph]
+    assert paragraph.text() == "Open Projects or All tasks."
 
 
 def test_the_not_found_page_has_no_form_or_control() -> None:
@@ -383,7 +387,11 @@ def test_the_not_found_page_has_no_form_or_control() -> None:
 
 def test_the_not_found_page_says_nothing_of_a_task() -> None:
     """CP-33."""
-    text = main_text(parse(pages.not_found_page())).lower()
+    (main,) = parse(pages.not_found_page()).find_all("main")
+    text = " ".join(
+        child.text() if isinstance(child, Element) and child.tag == "h1" else ""
+        for child in main.children
+    ).lower()
     assert "task" not in text
     assert "delete" not in text and "gone" not in text
 
