@@ -51,6 +51,7 @@ from domain import (
 TODAY = date(2026, 10, 6)
 CREATED = datetime(2026, 10, 1, 9, 0, tzinfo=UTC)
 NO_FILTER = FilterInput()
+NO_SORT = SortInput()
 ASCENDING = ("ascending",)
 DESCENDING = ("descending",)
 
@@ -567,7 +568,7 @@ def test_the_sort_values_are_immutable() -> None:
 
 
 def ordered_all(
-    state: TrackerState, sort_fields: SortInput = SortInput(), fields: FilterInput = NO_FILTER
+    state: TrackerState, sort_fields: SortInput = NO_SORT, fields: FilterInput = NO_FILTER
 ) -> list[int]:
     return [task.id for task in sort_all_tasks(state, fields, sort_fields, TODAY).tasks]
 
@@ -596,7 +597,7 @@ def test_default_all_order_interleaves_projects():
     for arrival in (
         alpha_beta,
         alpha_beta[::-1],
-        [alpha_beta[2], alpha_beta[0], *alpha_beta[::-1][:2]],
+        [alpha_beta[2], alpha_beta[0], alpha_beta[3], alpha_beta[1]],
     ):
         assert ordered_all(make_state(*arrival)) == [2, 1, 4, 3]
 

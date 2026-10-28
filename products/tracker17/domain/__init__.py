@@ -76,6 +76,7 @@ from domain.sorting import (
     SortInput,
     SortKey,
     TaskSort,
+    sort_all_tasks,
     sort_project_tasks,
 )
 from domain.state import TrackerState, empty_state, restore_state
@@ -198,6 +199,7 @@ __all__ = [
     "restore_state",
     "restore_task",
     "set_operator_name",
+    "sort_all_tasks",
     "sort_project_tasks",
     "task_edit_context",
 ]
