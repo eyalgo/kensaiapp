@@ -3,9 +3,9 @@
 Checks SRS NFR-1 (an action stays fast with 1,000 tasks of 20 comments each, editing a task's fields
 included, a label added or removed too, the operator's name saved, a comment added, a name added
 to or removed from the assignee list, a task moved from `todo` to `in-progress`, and a project
-list filtered by a status, which realizes FR-32) and AC-15 (the response time). Change spec rules CP-143 (the add), CP-179 (the edit), CP-208 (the label add and
+list filtered by a status, which realizes FR-32, and sorted by priority, which realizes FR-36) and AC-15 (the response time). Change spec rules CP-143 (the add), CP-179 (the edit), CP-208 (the label add and
 remove), CP-237 (the name save), CP-276 to CP-289 (the comment add and the assignee add and remove)
-CP-371 to CP-392 (the status move) and CP-418 to CP-423 (the status filter) and NFDR QC-48 are the ones each test names. The harness is
+CP-371 to CP-392 (the status move), CP-418 to CP-423 (the status filter) and CP-451 to CP-456 (the sort) and NFDR QC-48 are the ones each test names. The harness is
 tests/timed_run.py; it is loaded by its path and handed its own collaborators (a request site, a
 timer, a location), so no product name is patched. A script that only exits 0 could time the wrong
 path, so these tests prove it exercises the real one and refuses a wrong one.
@@ -419,6 +419,7 @@ def test_timed_run_fails_when_only_the_edit_fails(
             *NEW_ACTIONS_QUICK,
             *MOVE_QUICK,
             *FILTER_QUICK,
+            *SORT_QUICK,
         ),
     )
 
@@ -716,7 +717,15 @@ def test_timed_run_fails_when_only_a_label_action_fails(
     quick = (0.0, 0.1, 0.2, 0.3)
     slow_total = (0.0, 0.5, 1.0, 1.5)
     ticks = Ticks(
-        *quick, *quick, *slow_total, *quick, *quick, *NEW_ACTIONS_QUICK, *MOVE_QUICK, *FILTER_QUICK
+        *quick,
+        *quick,
+        *slow_total,
+        *quick,
+        *quick,
+        *NEW_ACTIONS_QUICK,
+        *MOVE_QUICK,
+        *FILTER_QUICK,
+        *SORT_QUICK,
     )
 
     status = harness.main(tmp_path, ticks)
@@ -753,6 +762,8 @@ NEW_ACTIONS_QUICK = (*QUICK, *QUICK, *QUICK)
 # The status move's four readings, taken after every earlier action's: all under the limit.
 MOVE_QUICK = QUICK
 FILTER_QUICK = QUICK
+# The sort's four readings, taken after the filter's: all under the limit.
+SORT_QUICK = QUICK
 NAME_LABEL = "set your name at 1000 tasks"
 NAME_LANDING_LABEL = "name landing page at 1000 tasks"
 NAME_ADDRESS = "/operator-name"
@@ -960,7 +971,14 @@ def test_full_timed_run_fails_when_only_name_measurement_fails(
         old = (*QUICK, *QUICK, *QUICK, *QUICK)
         status = harness.main(
             tmp_path / str(position),
-            Ticks(*old, *name_ticks, *NEW_ACTIONS_QUICK, *MOVE_QUICK, *FILTER_QUICK),
+            Ticks(
+                *old,
+                *name_ticks,
+                *NEW_ACTIONS_QUICK,
+                *MOVE_QUICK,
+                *FILTER_QUICK,
+                *SORT_QUICK,
+            ),
         )
         lines = capsys.readouterr().out.splitlines()
         over = [line.split(":")[0] for line in lines if "over" in line]
@@ -2062,10 +2080,10 @@ def _run_readings(**slow: tuple[float, float, float, float]) -> Ticks:
     """The timer readings of one whole run: every action under the limit, except those named.
 
     The five old actions read first, in the order the run times them, then the comment add, the
-    assignee add, the assignee remove, the status move and the status filter, as the run appends
-    them.
+    assignee add, the assignee remove, the status move, the status filter and the sort, as the
+    run appends them.
     """
-    order = ("comment", "assignee add", "assignee remove", "move", "filter")
+    order = ("comment", "assignee add", "assignee remove", "move", "filter", "sort")
     new = [slow.get(name, QUICK) for name in order]
     return Ticks(*QUICK * OLD_ACTION_READINGS, *[value for each in new for value in each])
 
@@ -2101,6 +2119,7 @@ def test_timed_run_appends_exactly_three_ordered_action_blocks(whole_run) -> Non
         *NEW_RUN_LABELS,
         *MOVE_RUN_LABELS,
         *FILTER_RUN_LABELS,
+        *SORT_RUN_LABELS,
     ]
     assert "over" not in "\n".join(lines) and "refused" not in "\n".join(lines)
 
@@ -2302,6 +2321,12 @@ FILTER_LABELS = (
     "filter total at 1000 tasks",
 )
 FILTER_RUN_LABELS = ("filter fixture", *FILTER_LABELS)
+SORT_LABELS = (
+    "sort a task list at 1000 tasks",
+    "sort landing page at 1000 tasks",
+    "sort total at 1000 tasks",
+)
+SORT_RUN_LABELS = ("sort fixture", *SORT_LABELS)
 MOVE_OPERATOR = "Jordan Rivera"
 MOVE_ASSIGNEES = ("Zed Quinn", "Mara Lopez")
 
@@ -2824,23 +2849,29 @@ def test_timed_run_appends_exact_move_block_and_nothing_after(
     harness: ModuleType, whole_run, tmp_path: Path
 ) -> None:
     """T10, CP-373, CP-375, CP-381, CP-423: every older line, the move's four lines, then exactly the
-    filter's four and no footer."""
+    filter's four, then exactly the sort's four and no footer."""
     _, status, lines, _, _ = whole_run
     _, fresh = harness.open_task_volume(SavedData(tmp_path / "fresh"))
 
     assert status == 0
-    assert [line.split(":")[0] for line in lines[:-8]] == [*OLD_RUN_LABELS, *NEW_RUN_LABELS]
-    assert lines[-8:-4] == [
+    assert [line.split(":")[0] for line in lines[:-12]] == [*OLD_RUN_LABELS, *NEW_RUN_LABELS]
+    assert lines[-12:-8] == [
         harness.move_fixture_report(fresh),
         "move a task at 1000 tasks: 100.0 ms",
         "move landing page at 1000 tasks: 100.0 ms",
         "move total at 1000 tasks: 200.0 ms",
     ]
-    assert lines[-4:] == [
+    assert lines[-8:-4] == [
         harness.filter_fixture_report(fresh),
         "filter a task list at 1000 tasks: 100.0 ms",
         "filter landing page at 1000 tasks: 100.0 ms",
         "filter total at 1000 tasks: 200.0 ms",
+    ]
+    assert lines[-4:] == [
+        harness.sort_fixture_report(fresh),
+        "sort a task list at 1000 tasks: 100.0 ms",
+        "sort landing page at 1000 tasks: 100.0 ms",
+        "sort total at 1000 tasks: 200.0 ms",
     ]
 
 
@@ -3233,4 +3264,362 @@ def test_timed_filter_failures_reach_main_verdict(
     lines = capsys.readouterr().out.splitlines()
     assert status == 1
     assert [line for line in lines if "refused or failed" in line]
+    assert not [line for line in lines[:-8] if "refused" in line or "over" in line]
+    assert not [line for line in lines[-4:] if "refused" in line or "over" in line]
+
+
+# --- The sort appended to the whole run (CP-451 to CP-456) ----------------------------------------
+
+SORT_ADDRESS = (
+    "/projects/1?filter_status=&filter_priority=&filter_assignee=&filter_label="
+    "&filter_due_from=&filter_due_to=&sort_field=priority&sort_direction=descending"
+)
+PRIORITY_DESCENDING_RANK = {"critical": 0, "high": 1, "medium": 2, "low": 3}
+
+
+def _sorted_ids(state) -> list[int]:
+    """The ids of the project's tasks, priority descending then task number, by a plain comparison
+    written here and never by the product's sort (CP-454)."""
+    held = [t for t in state.tasks if t.project_id == 1]
+    return [
+        t.id for t in sorted(held, key=lambda t: (PRIORITY_DESCENDING_RANK[t.priority.value], t.id))
+    ]
+
+
+def _sort_page(ids: list[int], count: int | None = None) -> Response:
+    """A sorted project list as the product writes it: the count line, then one title link per
+    id."""
+    shown = len(ids) if count is None else count
+    words = "This project has 1 task." if shown == 1 else f"This project has {shown} tasks."
+    rows = "".join(
+        f'<tr><td><a class="pre-wrap" href="/tasks/{each}" aria-label="t">t</a></td></tr>'
+        for each in ids
+    )
+    return _page(f'<p class="match-count" id="filter-count">{words}</p><table>{rows}</table>')
+
+
+def _sort_fixture(harness: ModuleType, location: Path, state=None):
+    return _move_fixture(harness, location, state)
+
+
+def test_timed_sort_uses_its_own_loaded_volume_and_two_same_origin_reads(
+    harness: ModuleType, whole_run, tmp_path: Path
+) -> None:
+    """T12, CP-451: a location of its own under the run's directory, saved data as seeded, no
+    filter choice, Priority descending sent by both same-origin GETs, and bytes untouched."""
+    directory, _, _, before, after = whole_run
+    sorted_data = SavedData(directory / "sort-volume")
+    _, seeded = harness.open_task_volume(SavedData(tmp_path / "fresh"))
+    assert sorted_data.load() == seeded
+    earlier = {directory / name for name in (*EARLIER_FIXTURES, "move-volume", "filter-volume")}
+    assert sorted_data.location not in earlier and sorted_data.location.parent == directory
+    assert after == before
+
+    site, saved_data, _ = _sort_fixture(harness, tmp_path / "recorded")
+    recording = Intercept(site)
+    saved_before = (saved_data.location / SAVED_FILE).read_bytes()
+    harness.measure_task_sort(site=recording, saved_data=saved_data, timer=Ticks(*QUICK))
+    assert [(m, t) for m, t, _, _ in recording.requests] == [("GET", SORT_ADDRESS)] * 2
+    for _, target, headers, body in recording.requests:
+        assert headers["Sec-Fetch-Site"] == "same-origin" and body == b""
+        query = parse_qs(target.split("?", 1)[1], keep_blank_values=True)
+        assert [v for k, v in query.items() if k.startswith("filter_")] == [[""]] * 6
+        assert query["sort_field"] == ["priority"] and query["sort_direction"] == ["descending"]
+    assert (saved_data.location / SAVED_FILE).read_bytes() == saved_before
+
+
+def test_sort_fixture_report_reads_actual_counts_and_first_sorted_text_lengths(
+    harness: ModuleType, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """T12, CP-452: counts, listed number and the title and first comment of the first sorted
+    task, not the first stored; the report prints nothing."""
+    _, _, standard = _sort_fixture(harness, tmp_path / "standard")
+    first = find_task(standard, _sorted_ids(standard)[0])
+    assert first is not None
+    assert harness.sort_fixture_report(standard) == (
+        "sort fixture: 1000 tasks, 20 comments each (20000 in all); "
+        f"title of {len(first.title)} characters, "
+        f"comment of {len(first.comments[0].text)} characters; "
+        "sort priority descending, 1000 listed"
+    )
+
+    shrunk = _shrunk(harness.seeded_state(), tasks=300, comments=3)
+    top = _sorted_ids(shrunk)[0]
+    note = replace(find_task(shrunk, top).comments[0], text="Note 😀")  # type: ignore[union-attr]
+    varied = _with_task(
+        shrunk,
+        top,
+        title="Plan 😀😀",
+        comments=(note, *find_task(shrunk, top).comments[1:]),  # type: ignore[union-attr]
+    )
+    varied = replace(varied, tasks=tuple(reversed(varied.tasks)))
+    _, _, loaded = _sort_fixture(harness, tmp_path / "varied", varied)
+    assert top != loaded.tasks[0].id
+    capsys.readouterr()
+
+    report = harness.sort_fixture_report(loaded)
+
+    assert capsys.readouterr().out == ""
+    assert report == (
+        "sort fixture: 300 tasks, 3 comments each (900 in all); "
+        "title of 7 characters, comment of 6 characters; "
+        "sort priority descending, 300 listed"
+    )
+
+
+def test_timed_sort_reports_apply_landing_and_sum(
+    harness: ModuleType, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """T13, CP-453: the four readings sit around the two requests alone; the rows are Apply, the
+    landing and their sum, in the existing format."""
+    site, saved_data, _ = _sort_fixture(harness, tmp_path)
+    log = EventLog()
+
+    results = harness.measure_task_sort(
+        site=log.site(site), saved_data=saved_data, timer=log.timer(0.0, 0.1, 50.0, 50.2)
+    )
+
+    assert log.events == ["tick", "GET", "tick", "tick", "GET", "tick"]
+    assert [r.label for r in results] == list(SORT_LABELS)
+    assert [r.seconds for r in results] == [
+        pytest.approx(0.1),
+        pytest.approx(0.2),
+        pytest.approx(0.3),
+    ]
+    assert all(r.created for r in results)
+    capsys.readouterr()
+    assert harness.verdict(results, LIMIT) == 0
+    assert capsys.readouterr().out.splitlines() == [
+        "sort a task list at 1000 tasks: 100.0 ms",
+        "sort landing page at 1000 tasks: 200.0 ms",
+        "sort total at 1000 tasks: 300.0 ms",
+    ]
+
+
+@pytest.mark.parametrize("readings,failing", MOVE_TIMING.values(), ids=MOVE_TIMING.keys())
+def test_sort_threshold_failures_reach_the_rows(
+    harness: ModuleType,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    readings: tuple[float, float, float, float],
+    failing: tuple[str, ...],
+) -> None:
+    """T13, CP-453: a slow Apply, a slow landing, each part exactly 1.0 s and a sum of exactly
+    1.0 s with both parts below it fail their rows; a total below 1.0 s passes."""
+    site, saved_data, _ = _sort_fixture(harness, tmp_path)
+
+    results = harness.measure_task_sort(site=site, saved_data=saved_data, timer=Ticks(*readings))
+
+    assert all(result.created for result in results)
+    capsys.readouterr()
+    assert harness.verdict(results, LIMIT) == (1 if failing else 0)
+    lines = capsys.readouterr().out.splitlines()
+    names = dict(zip(("post", "landing", "total"), SORT_LABELS))
+    assert [line.split(":")[0] for line in lines if "over" in line] == [
+        names[each] for each in failing
+    ]
+
+
+@pytest.mark.parametrize(
+    "readings,expected",
+    [
+        ((0.0, 1.0, 5.0, 5.1), [SORT_LABELS[0], SORT_LABELS[2]]),
+        ((0.0, 0.1, 5.0, 6.0), [SORT_LABELS[1], SORT_LABELS[2]]),
+        ((0.0, 0.5, 1.0, 1.5), [SORT_LABELS[2]]),
+    ],
+    ids=["apply exactly 1 s", "landing exactly 1 s", "total exactly 1 s"],
+)
+def test_sort_threshold_failures_reach_main(
+    harness: ModuleType,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    readings: tuple[float, float, float, float],
+    expected: list[str],
+) -> None:
+    """T13, CP-453, CP-454: a slow sort row makes the whole run exit non-zero, earlier actions
+    passing."""
+    status = harness.main(tmp_path, _run_readings(sort=readings))
+
+    lines = capsys.readouterr().out.splitlines()
+    assert [line.split(":")[0] for line in lines if "over" in line] == expected
+    assert status == 1
+
+
+@pytest.mark.parametrize("apply", REFUSED_APPLIES.values(), ids=REFUSED_APPLIES.keys())
+def test_failed_sort_apply_suppresses_landing(
+    harness: ModuleType, tmp_path: Path, capsys: pytest.CaptureFixture[str], apply: Response
+) -> None:
+    """T13, CP-454: no landing is requested, its row is zero and failed, the total is Apply's
+    time, and the verdict is non-zero."""
+    site, saved_data, _ = _sort_fixture(harness, tmp_path)
+    recording = Intercept(site, lambda m, t: apply)
+
+    results = harness.measure_task_sort(
+        site=recording, saved_data=saved_data, timer=Ticks(0.0, 0.7)
+    )
+
+    assert len(recording.requests) == 1
+    assert [r.created for r in results] == [False, False, False]
+    assert [r.seconds for r in results] == [pytest.approx(0.7), 0.0, pytest.approx(0.7)]
+    capsys.readouterr()
+    assert harness.verdict(results, LIMIT) == 1
+    assert capsys.readouterr().out.splitlines() == [
+        "sort a task list at 1000 tasks: 700.0 ms — refused or failed",
+        "sort landing page at 1000 tasks: 0.0 ms — refused or failed",
+        "sort total at 1000 tasks: 700.0 ms — refused or failed",
+    ]
+
+
+def _sort_landing_cases(ids: list[int]) -> dict[str, Response]:
+    swapped = [ids[0], ids[2], ids[1], *ids[3:]]
+    return {
+        "a refusal page": _page('<p id="sort-field-reason">No.</p>'),
+        "a failure status with the right page": Response(500, (), _sort_page(ids).body),
+        "two tasks swapped": _sort_page(swapped),
+        "ascending order, the same set": _sort_page(list(reversed(ids))),
+        "one task missing": _sort_page(ids[:-1], count=len(ids)),
+        "a duplicate in place of a task": _sort_page([*ids[:-1], ids[0]]),
+        "a duplicate added": _sort_page([*ids, ids[0]], count=len(ids)),
+        "an extra identity": _sort_page([*ids, 1001], count=len(ids)),
+        "a wrong displayed count": _sort_page(ids, count=len(ids) + 1),
+        "no count line": _page(_sort_page(ids).body.decode().split("</p>", 1)[1]),
+    }
+
+
+def test_timed_sort_rejects_wrong_landing(harness: ModuleType, tmp_path: Path) -> None:
+    """T13, CP-454: each wrong landing fails the landing and the total, never the Apply; the
+    correctly ordered page passes, and set equality alone does not."""
+    _, _, loaded = _sort_fixture(harness, tmp_path / "ids")
+    ids = _sorted_ids(loaded)
+    assert len(ids) == 1000
+    for name, landing in _sort_landing_cases(ids).items():
+        site, saved_data, _ = _sort_fixture(harness, tmp_path / name.replace(" ", "-"))
+        results = harness.measure_task_sort(
+            site=Intercept(site, _second_get(landing)), saved_data=saved_data, timer=Ticks(*QUICK)
+        )
+        assert [r.created for r in results] == [True, False, False], name
+        assert harness.verdict(results, LIMIT) == 1, name
+    site, saved_data, _ = _sort_fixture(harness, tmp_path / "control")
+    results = harness.measure_task_sort(
+        site=Intercept(site, _second_get(_sort_page(ids))),
+        saved_data=saved_data,
+        timer=Ticks(*QUICK),
+    )
+    assert [r.created for r in results] == [True, True, True]
+
+
+def test_timed_sort_detects_saved_byte_changes_during_either_read(
+    harness: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """T12, T13, CP-454: equivalent data with other bytes fails, whether it changed at Apply or at
+    the landing; the byte reads never lengthen either measured interval."""
+    site, saved_data, loaded = _sort_fixture(harness, tmp_path / "apply")
+    recording = Intercept(site)
+
+    def at_apply(method: str, target: str) -> Response | None:
+        if len(recording.requests) == 1:
+            _rewritten_bytes(saved_data)
+        return None
+
+    recording = Intercept(site, at_apply)
+    results = harness.measure_task_sort(site=recording, saved_data=saved_data, timer=Ticks(*QUICK))
+    assert saved_data.load() == loaded
+    assert [r.created for r in results] == [False, False, False]
+    assert len(recording.requests) == 1
+
+    site, saved_data, loaded = _sort_fixture(harness, tmp_path / "landing")
+
+    def at_landing(method: str, target: str) -> Response | None:
+        if len(recording.requests) == 2:
+            _rewritten_bytes(saved_data)
+        return None
+
+    recording = Intercept(site, at_landing)
+    results = harness.measure_task_sort(site=recording, saved_data=saved_data, timer=Ticks(*QUICK))
+    assert saved_data.load() == loaded
+    assert [r.created for r in results] == [True, False, False]
+    assert harness.verdict(results, LIMIT) == 1
+
+    site, saved_data, _ = _sort_fixture(harness, tmp_path / "intervals")
+    clock = [0.0]
+    original = harness._saved_bytes
+
+    def slow_read(saved: SavedData) -> bytes:
+        clock[0] += 50.0
+        return original(saved)
+
+    def advance(method: str, target: str) -> Response | None:
+        clock[0] += 0.1
+        return None
+
+    monkeypatch.setattr(harness, "_saved_bytes", slow_read)
+    results = harness.measure_task_sort(
+        site=Intercept(site, advance), saved_data=saved_data, timer=lambda: clock[0]
+    )
+    assert [r.seconds for r in results] == [
+        pytest.approx(0.1),
+        pytest.approx(0.1),
+        pytest.approx(0.2),
+    ]
+    assert all(r.created for r in results)
+
+
+SORT_REJECTIONS = {
+    "refused apply": lambda site, saved_data: Intercept(site, lambda m, t: _page("<p>no</p>")),
+    "inexact landing": lambda site, saved_data: Intercept(
+        site, lambda m, t: _sort_page([1]) if t == SORT_ADDRESS else None
+    ),
+    "changed bytes": lambda site, saved_data: Intercept(
+        site, lambda m, t: _rewritten_bytes(saved_data)
+    ),
+}
+
+
+@pytest.mark.parametrize("rejection", SORT_REJECTIONS.values(), ids=SORT_REJECTIONS.keys())
+def test_timed_sort_failures_reach_main_verdict(
+    harness: ModuleType,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+    rejection: Callable,
+) -> None:
+    """T13, CP-454: each rejection class makes the complete harness return non-zero while every
+    earlier action passes."""
+    measure = harness.measure_task_sort
+
+    def rejected(*, site, saved_data, timer):
+        return measure(site=rejection(site, saved_data), saved_data=saved_data, timer=timer)
+
+    monkeypatch.setattr(harness, "measure_task_sort", rejected)
+
+    status = harness.main(tmp_path, _run_readings())
+
+    lines = capsys.readouterr().out.splitlines()
+    assert status == 1
+    assert [line for line in lines[-3:] if "refused or failed" in line]
     assert not [line for line in lines[:-4] if "refused" in line or "over" in line]
+
+
+def test_full_run_appends_only_sort_fixture_and_three_rows(
+    harness: ModuleType, whole_run, tmp_path: Path
+) -> None:
+    """T12, CP-452: every earlier line in its place and unchanged, then the sort's four lines, the
+    total last."""
+    _, status, lines, _, _ = whole_run
+    _, fresh = harness.open_task_volume(SavedData(tmp_path / "fresh"))
+
+    assert status == 0
+    assert [line.split(":")[0] for line in lines] == [
+        *OLD_RUN_LABELS,
+        *NEW_RUN_LABELS,
+        *MOVE_RUN_LABELS,
+        *FILTER_RUN_LABELS,
+        *SORT_RUN_LABELS,
+    ]
+    assert lines[-4:] == [
+        harness.sort_fixture_report(fresh),
+        "sort a task list at 1000 tasks: 100.0 ms",
+        "sort landing page at 1000 tasks: 100.0 ms",
+        "sort total at 1000 tasks: 200.0 ms",
+    ]
+    assert lines[-4].endswith("sort priority descending, 1000 listed")
