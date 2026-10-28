@@ -43,7 +43,9 @@ def seeded(
     tracker.add_task(1, "late", "high", assignee, "2026-10-01")
     tracker.add_task(1, "plain", "low", "", "")
     tracker.add_task(1, "finished", "critical", "", "2026-12-01")
+    tracker.add_assignee("gone")
     tracker.add_task(1, "stray", "medium", "gone", "")
+    tracker.remove_assignee("gone")
     tracker.move_task(3, "in-progress")
     tracker.move_task(3, "done")
     for number in range(crowd):

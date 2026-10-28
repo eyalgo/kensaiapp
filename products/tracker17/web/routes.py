@@ -68,6 +68,7 @@ PROJECTS_ADDRESS = "/"
 PEOPLE_ADDRESS = "/people"
 ALL_TASKS_ADDRESS = "/tasks"
 PROJECT_PATTERN = re.compile(r"/projects/([0-9]+)")
+SUMMARY_PATTERN = re.compile(r"/projects/([0-9]+)/summary")
 TASK_PATTERN = re.compile(r"/tasks/([0-9]+)")
 ADD_TASK_PATTERN = re.compile(r"/projects/([0-9]+)/tasks")
 ADD_LABEL_PATTERN = re.compile(r"/tasks/([0-9]+)/labels")
@@ -106,6 +107,7 @@ class Route:
 ROUTES = (
     Route("GET", "/", PAGE),
     Route("GET", "/projects/[0-9]+", PAGE),
+    Route("GET", "/projects/[0-9]+/summary", PAGE),
     Route("POST", "/projects", SUBMISSION),
     Route("GET", "/people", PAGE),
     Route("GET", "/tasks", PAGE),
@@ -331,6 +333,9 @@ class Site:
         task_match = TASK_PATTERN.fullmatch(path)
         if task_match:
             return self._task_page(task_match.group(1), query)
+        summary_match = SUMMARY_PATTERN.fullmatch(path)
+        if summary_match:
+            return self._summary_page(summary_match.group(1))
         match = PROJECT_PATTERN.fullmatch(path)
         project = self._project_named_by(match.group(1)) if match else None
         if project is None:
@@ -540,6 +545,14 @@ class Site:
             Site._pending_status(move_interaction),
             extra=self._stored_as_asked(query),
         )
+
+    def _summary_page(self, digits: str) -> Response:
+        """Build a project's Summary from one read of the tracker; no choice in the address matters."""
+        identity = self._identity(digits)
+        summary = None if identity is None else self._tracker.project_summary(identity)
+        if summary is None:
+            return self._not_found_page()
+        return self._html(pages.summary_page(summary))
 
     def _all_tasks_page(self, query: Mapping[str, list[str]]) -> Response:
         """Read the choices from the address and build the All tasks page; it changes nothing.

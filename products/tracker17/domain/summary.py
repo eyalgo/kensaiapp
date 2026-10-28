@@ -6,14 +6,19 @@ included, the overdue count, the tasks with no due date and the open tasks of ev
 filter this count is taken through) and NFR-9 (the trace from the requirement to this code).
 
 Taking part: application/tracker.py reads the clock once and works the summary out of the current
-state, and application/__init__.py hands the values to the web part. Nothing here reads a clock or
-a file, so today arrives as an argument and the state as a value. The rows come back in the order the page shows them and carry identifiers, never words.
+state, application/__init__.py hands the values to the web part, web/routes.py answers the Summary
+address and web/pages.py and web/style.css build and style the page and the Tasks and Summary links.
+Nothing here reads a clock or a file, so today arrives as an argument and the state as a value. The
+rows come back in the order the page shows them and carry identifiers, never words.
 The counts for the total, each status, each priority and overdue are taken through the project
 filter in domain/filtering.py; open membership is TaskStatus.is_open in domain/tasks.py.
 
 Checked by: tests/unit/test_summary.py (the rules), tests/integration/test_summary_tracker.py (the
-read through the Tracker), and tests/architecture/test_trace.py and tests/architecture/test_shapes.py
-(the entry and the shape).
+read through the Tracker), tests/integration/test_summary_routes.py and
+tests/integration/test_summary_pages.py (the address and the page), tests/integration/test_pages.py,
+tests/integration/test_task_pages.py and tests/integration/test_routes.py (the released titles, link
+set and route sample), tests/e2e/test_summary.py (the browser), and tests/architecture/test_trace.py
+and tests/architecture/test_shapes.py (the entry and the shape).
 """
 
 from __future__ import annotations

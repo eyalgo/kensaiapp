@@ -552,3 +552,46 @@ a.button-link:hover {
   overflow-wrap: anywhere;
   white-space: pre-wrap;
 }
+
+/* The Tasks and Summary links under a project's name: a plain row that wraps. */
+.project-views {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+  margin: 0 0 16px;
+  padding: 0 16px;
+}
+
+.project-views a {
+  min-width: 24px;
+  min-height: 36px;
+}
+
+/* A Summary group: a two-column sheet that wraps its long names instead of scrolling. */
+.summary-group table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.summary-group th,
+.summary-group td {
+  padding: 8px 0;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--surface-sunk);
+  overflow-wrap: anywhere;
+}
+
+.summary-group thead th {
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.summary-group tbody th {
+  font-weight: 400;
+}
+
+.summary-group td {
+  width: 6rem;
+}
