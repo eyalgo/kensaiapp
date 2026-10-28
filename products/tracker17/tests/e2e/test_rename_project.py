@@ -118,7 +118,7 @@ def test_a_hostile_name_survives_a_browser_rename_and_history(
     page.reload()
     expect(field(page)).to_have_accessible_description(completion)
     page.goto(tracker.address + "/")
-    expect(page.locator("ul.project-list a")).to_have_text(["Other", HOSTILE])
+    expect(page.locator("ul.project-list a")).to_have_text([HOSTILE, "Other"])
     page.goto(tracker.address + "/projects/2")
     field(page).fill(HOSTILE)
     with page.expect_navigation():

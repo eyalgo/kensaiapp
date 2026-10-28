@@ -71,6 +71,7 @@ PROJECT_PATTERN = re.compile(r"/projects/([0-9]+)")
 SUMMARY_PATTERN = re.compile(r"/projects/([0-9]+)/summary")
 TASK_PATTERN = re.compile(r"/tasks/([0-9]+)")
 ADD_TASK_PATTERN = re.compile(r"/projects/([0-9]+)/tasks")
+RENAME_PATTERN = re.compile(r"/projects/([0-9]+)/rename")
 ADD_LABEL_PATTERN = re.compile(r"/tasks/([0-9]+)/labels")
 REMOVE_LABEL_PATTERN = re.compile(r"/tasks/([0-9]+)/labels/remove")
 ADD_COMMENT_PATTERN = re.compile(r"/tasks/([0-9]+)/comments")
@@ -89,6 +90,7 @@ SORT_PREFIX = "sort_"
 TASK_FIELDS = ("title", "priority", "assignee", "due_date")
 EDIT_FAILED = "save"
 OPERATOR_NAME_FAILED = "save"
+RENAME_FAILED = "save"
 COMMENT_FAILED = "add"
 
 
@@ -110,6 +112,15 @@ class Route:
     kind: str
 
 
+@dataclass(frozen=True)
+class ProjectRefusal:
+    """A refused project name or description as the pages know it: the code an address carries,
+    and for a too-long value the field that was too long."""
+
+    code: pages.ProjectNameRefusal
+    field: TextField | None = None
+
+
 ROUTES = (
     Route("GET", "/", PAGE),
     Route("GET", "/projects/[0-9]+", PAGE),
@@ -121,6 +132,7 @@ ROUTES = (
     Route("POST", "/assignees/remove", SUBMISSION),
     Route("POST", "/operator-name", SUBMISSION),
     Route("POST", "/projects/[0-9]+/tasks", SUBMISSION),
+    Route("POST", "/projects/[0-9]+/rename", SUBMISSION),
     Route("GET", "/tasks/[0-9]+", PAGE),
     Route("POST", "/tasks/[0-9]+", SUBMISSION),
     Route("POST", "/tasks/[0-9]+/labels", SUBMISSION),
@@ -257,6 +269,16 @@ def _line_feeds(value: str) -> str:
     return value.replace("\r\n", "\n").replace("\r", "\n")
 
 
+def _project_refusal(error: BlankName | NameInUse | TextTooLong) -> ProjectRefusal:
+    """The one translation of a project's typed refusal, for creation and rename alike. It reads
+    the type of the refusal, never its message (CP-555)."""
+    if isinstance(error, TextTooLong):
+        return ProjectRefusal(pages.ProjectNameRefusal.TOO_LONG, error.field)
+    if isinstance(error, NameInUse):
+        return ProjectRefusal(pages.ProjectNameRefusal.NAME_IN_USE)
+    return ProjectRefusal(pages.ProjectNameRefusal.BLANK_NAME)
+
+
 class Site:
     """The request path in front of one tracker, for one host."""
 
@@ -296,6 +318,9 @@ class Site:
         add_task = ADD_TASK_PATTERN.fullmatch(path)
         if add_task:
             return self._add_task(add_task.group(1), form)
+        rename = RENAME_PATTERN.fullmatch(path)
+        if rename:
+            return self._rename_project(rename.group(1), form)
         edit_task = TASK_PATTERN.fullmatch(path)
         if edit_task:
             return self._edit_task(edit_task.group(1), form)
@@ -584,6 +609,7 @@ class Site:
                     lambda found: self._project_task(project, found), listing, move_outcome, shown
                 ),
                 deleted_task=deleted_task or None,
+                rename_area=self._rename_area(query),
             ),
             Site._pending_status(move_interaction),
             extra=self._stored_as_asked(query, deleting=bool(deleted_task)),
@@ -726,6 +752,22 @@ class Site:
             saved=_first(query, "operator_saved") or None,
         )
 
+    @staticmethod
+    def _rename_area(query: Mapping[str, list[str]]) -> pages.ProjectRenameArea:
+        """The Rename area's outcome from the address, by the presence of each key.
+
+        Unknown codes are ignored and an empty typed value is kept apart from none. The page
+        decides which outcome the typed text belongs to, so a forged value beside a too-long code
+        is dropped there.
+        """
+        return pages.ProjectRenameArea(
+            typed=_first(query, "rename_typed") if "rename_typed" in query else None,
+            refusal=_closed(pages.ProjectNameRefusal, _first(query, "rename_refused")),
+            failed=_first(query, "rename_failed") == RENAME_FAILED,
+            saved=_first(query, "rename_saved") or None,
+            previous=_first(query, "rename_from") or None,
+        )
+
     def _create(self, form: Mapping[str, list[str]]) -> Response:
         name = _line_feeds(_first(form, "name"))
         description = _line_feeds(_first(form, "description"))
@@ -733,17 +775,14 @@ class Site:
         def create() -> Response:
             try:
                 project = self._tracker.create_project(name, description)
-            except BlankName:
+            except (BlankName, NameInUse, TextTooLong) as error:
+                refusal = _project_refusal(error)
+                if refusal.field is not None:
+                    return self._redirect(
+                        PROJECTS_ADDRESS, refused=refusal.code.value, field=refusal.field.value
+                    )
                 return self._redirect(
-                    PROJECTS_ADDRESS, refused=pages.BLANK_NAME, name=name, description=description
-                )
-            except NameInUse:
-                return self._redirect(
-                    PROJECTS_ADDRESS, refused=pages.NAME_IN_USE, name=name, description=description
-                )
-            except TextTooLong as refusal:
-                return self._redirect(
-                    PROJECTS_ADDRESS, refused=pages.TEXT_TOO_LONG, field=refusal.field.value
+                    PROJECTS_ADDRESS, refused=refusal.code.value, name=name, description=description
                 )
             return self._redirect(f"/projects/{project.id}", "created")
 
@@ -753,6 +792,42 @@ class Site:
             lambda: self._redirect(
                 PROJECTS_ADDRESS, failed="create", name=name, description=description
             ),
+        )
+
+    def _rename_project(self, digits: str, form: Mapping[str, list[str]]) -> Response:
+        """Rename the project its route names to the typed name and land on its Tasks view.
+
+        The target is fixed by the route. The new name, the refusals and the no-change answer are
+        the tracker's: this method reads only what the outcome says. A refusal carries the typed
+        text back for a blank or in-use name only; an unexpected failure is reported once, by the
+        guarded site, and carries the typed text.
+        """
+        project = self._project_named_by(digits)
+        if project is None:
+            return self._not_found_page()
+        name = _line_feeds(_first(form, "name"))
+        address = f"/projects/{project.id}"
+
+        def rename() -> Response:
+            try:
+                outcome = self._tracker.rename_project(project.id, name)
+            except ProjectNotFound:
+                return self._not_found_page()
+            except (BlankName, NameInUse, TextTooLong) as error:
+                refusal = _project_refusal(error)
+                if refusal.field is not None:
+                    return self._redirect(address, rename_refused=refusal.code.value)
+                return self._redirect(address, rename_refused=refusal.code.value, rename_typed=name)
+            if not outcome.changed:
+                return self._redirect(address)
+            return self._redirect(
+                address, rename_saved=outcome.project.name, rename_from=outcome.previous_name
+            )
+
+        return self._guarded(
+            f"The tracker couldn't rename the project to '{name}', and nothing was changed.",
+            rename,
+            lambda: self._redirect(address, rename_failed=RENAME_FAILED, rename_typed=name),
         )
 
     def _add_task(self, digits: str, form: Mapping[str, list[str]]) -> Response:

@@ -73,7 +73,9 @@ def line_of(element: Element) -> str:
 
 def names_on_projects(world: World) -> list[str]:
     root = parse(page(get(world.site, "/")))
-    return [a.text() for a in root.find_all("a") if (a.attrs["class"] or "").startswith("project")]
+    return [
+        a.text() for a in root.find_all("a") if (a.attrs.get("class") or "").startswith("project")
+    ]
 
 
 def state_of(world: World) -> tuple[object, ...]:
@@ -205,7 +207,11 @@ def test_an_overlong_rename_discards_all_submitted_text(tmp_path: Path, sent: st
     field = name_field(root)
     assert focused(root) == [field] and field.attrs["value"] == OLD_NAME
     assert line_of(field) == TOO_LONG_REASON
-    assert sent not in shown and quote(sent) not in address and sent.strip() not in shown
+    assert (
+        sent not in shown
+        and quote(sent) not in address
+        and (not sent.strip() or sent.strip() not in shown)
+    )
     assert [h.text() for h in root.find_all("h1")] == [OLD_NAME]
     assert (world.bytes_on_disk(), world.saver.saves, state_of(world)) == before
     exact = rename(world, name="ç" * 200)
