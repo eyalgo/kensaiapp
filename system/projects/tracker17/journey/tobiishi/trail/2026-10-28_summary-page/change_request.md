@@ -6,3 +6,6 @@
 **Category:** feature
 **Behaviour:** changing
 **Classified because:** the station adds a Summary page, new Tasks and Summary links and a per-view page title, which add to the FDR-level contract (SDD § 6 S-6, SRS FR-38, UXD UX-S5), so Behaviour is `changing` and the Category is `feature`.
+
+**Sealed:** 2026-10-28 — accepted; merged to `main` via `--no-ff`.
+Environment: owners-mac — no CI
