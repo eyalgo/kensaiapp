@@ -3367,6 +3367,43 @@ def test_sort_fixture_report_reads_actual_counts_and_first_sorted_text_lengths(
     )
 
 
+def test_timed_sort_lists_and_counts_only_the_sorted_projects_tasks(
+    harness: ModuleType, tmp_path: Path
+) -> None:
+    """CP-452, CP-454: `{N}` is the number of the fixture's tasks in the project, the first sorted
+    task is that project's, and the landing must list exactly that project's tasks in order, so a
+    task of another project, even one that would sort first, is neither counted nor expected."""
+    base = _shrunk(harness.seeded_state(), tasks=40, comments=2)
+    elsewhere = set(_sorted_ids(base)[:3])
+    tasks = tuple(
+        replace(t, project_id=2, title="Elsewhere and longer than any other")
+        if t.id in elsewhere
+        else t
+        for t in base.tasks
+    )
+    state = restore_state(
+        [(1, "Volume project", "One."), (2, "Second project", "Two.")],
+        3,
+        tasks=tasks,
+        next_task_id=base.next_task_id,
+    )
+    site, saved_data, loaded = _sort_fixture(harness, tmp_path, state)
+    expected = _sorted_ids(loaded)
+    assert len(expected) == 37 and not elsewhere & set(expected)
+    first = find_task(loaded, expected[0])
+    assert first is not None
+
+    assert harness.sort_fixture_report(loaded) == (
+        "sort fixture: 40 tasks, 2 comments each (80 in all); "
+        f"title of {len(first.title)} characters, "
+        f"comment of {len(first.comments[0].text)} characters; "
+        "sort priority descending, 37 listed"
+    )
+    results = harness.measure_task_sort(site=site, saved_data=saved_data, timer=Ticks(*QUICK))
+    assert [(r.label, r.created) for r in results] == [(label, True) for label in SORT_LABELS]
+    assert harness.verdict(results, LIMIT) == 0
+
+
 def test_timed_sort_reports_apply_landing_and_sum(
     harness: ModuleType, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -3508,8 +3545,25 @@ def test_timed_sort_rejects_wrong_landing(harness: ModuleType, tmp_path: Path) -
     assert [r.created for r in results] == [True, True, True]
 
 
+class _SlowSavedData:
+    """The saved data, handed to the measurement in place of the real one, where every reach for
+    its location (each readback of the saved bytes) costs 50 seconds on the shared clock."""
+
+    def __init__(self, saved_data: SavedData, clock: list[float]) -> None:
+        self._saved_data = saved_data
+        self._clock = clock
+
+    @property
+    def location(self) -> Path:
+        self._clock[0] += 50.0
+        return self._saved_data.location
+
+    def load(self):
+        return self._saved_data.load()
+
+
 def test_timed_sort_detects_saved_byte_changes_during_either_read(
-    harness: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    harness: ModuleType, tmp_path: Path
 ) -> None:
     """T12, T13, CP-454: equivalent data with other bytes fails, whether it changed at Apply or at
     the landing; the byte reads never lengthen either measured interval."""
@@ -3542,19 +3596,15 @@ def test_timed_sort_detects_saved_byte_changes_during_either_read(
 
     site, saved_data, _ = _sort_fixture(harness, tmp_path / "intervals")
     clock = [0.0]
-    original = harness._saved_bytes
-
-    def slow_read(saved: SavedData) -> bytes:
-        clock[0] += 50.0
-        return original(saved)
 
     def advance(method: str, target: str) -> Response | None:
         clock[0] += 0.1
         return None
 
-    monkeypatch.setattr(harness, "_saved_bytes", slow_read)
     results = harness.measure_task_sort(
-        site=Intercept(site, advance), saved_data=saved_data, timer=lambda: clock[0]
+        site=Intercept(site, advance),
+        saved_data=_SlowSavedData(saved_data, clock),
+        timer=lambda: clock[0],
     )
     assert [r.seconds for r in results] == [
         pytest.approx(0.1),
