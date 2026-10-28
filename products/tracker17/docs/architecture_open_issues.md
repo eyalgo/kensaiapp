@@ -87,7 +87,31 @@ None.
   after confirming restores the deleted task's page from history on the pinned browser, and SDD
   § 9 TO-8's words stay false of the product; that is the SDD's call first, raised on its companion,
   and these records follow it.
-- **Confirm or override:** <"confirm", or "override: <what to do instead>">
+- **Confirm or override:** confirm, with three additions. SDD version 13 has now folded what this
+  item waited on (§ 4 RT-11, S-7, § 9 TO-8, § 11 R-12, RN-56; commit `cb9ef1445`), so nothing waits
+  on the SDD. ADR-0012 supersedes ADR-0010 and QC-63 is revised in place, as drafted. First, the
+  call the draft left open: the obligation the product does not yet meet is carried in QC-63 and
+  an NFDR Review Note, never in the record. QC-63 states the widened rule now. Its *verified by*
+  tail names, clause by clause, the tests that verify what the product meets, and says the task
+  deletion's 202 is unmet. At `035b97cd1`, the newest commit to `web/` and `tests/`, `_task_page`
+  hands `_pending_status` no interaction on a deletion page, so the confirmation is 200, and
+  `test_live_delete_views_have_their_response_policy` asserts that 200. A test asserting the breach
+  cannot be named as the clause's verifier. The tail names that test's `?delete_confirm` row,
+  flipped to 202, and the layer-5 deletion history test as the verifiers that land with the change
+  that aligns the product. The Review Note records the divergence, the commit it was measured at,
+  and that the aligning change is the PM's to carry (SDD RN-56). ADR-0012 states no product state:
+  it is written once, and a dated "the product answers 200" in it would read false after that
+  change. The project deletion is not built (`what_left.md`), so its pages are bound when they land,
+  verified by the layer-3 and layer-5 tests `delete-and-rename`'s project half adds. Second,
+  narrow the `Clear-Site-Data` clause. The draft's "no response carries `Clear-Site-Data`" binds
+  every page of the product, and RT-11 states nothing that wide. Write it as ADR-0010 and QC-63
+  scoped it, widened only to the three actions: no response of an action EX-6 confirms carries it,
+  neither its submissions nor its confirmation, back-out, failure or outcome pages. Third, ADR-0012's
+  *Consequences* carries the case RT-11 names and leaves: a 404 for an identity not yet issued,
+  reached only by a typed address and kept by a cache outside NFR-13's bound, goes stale once that
+  identity is issued. Its *Dependence* adds RFC 9110 § 15.5.5 and Chromium's
+  `GetFreshnessLifetimes` beside ADR-0010's admission rule. Reasoning:
+  `products/tracker17/docs/trail/architecture/self_answer-19.md` § 2.1.
 
 ## 3. Raised from downstream — an item from a seat that did not write these records
 
