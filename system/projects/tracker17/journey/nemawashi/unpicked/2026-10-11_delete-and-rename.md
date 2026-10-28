@@ -22,7 +22,7 @@ Cut from `products/tracker17/docs/SDD.md` § 6 S-7, slug `delete-and-rename` ("A
 
 ## Relation to existing work
 
-Rests on `tracker17 · nemawashi · 2026-10-07_tasks-in-a-project` (SDD § 7, `depends_on`). Reuses the confirmation built in `tracker17 · nemawashi · 2026-10-07_status-moves` (`hands_off_to`) and checks deletion against `tracker17 · nemawashi · 2026-10-07_comment-on-a-task`'s comments; both are preferences. `status-moves` is walked, so the confirmation already exists to reuse (`confirm_strip`, `products/tracker17/web/pages.py:L662`).
+Rests on `tracker17 · nemawashi · 2026-10-07_tasks-in-a-project` (SDD § 7, `depends_on`). Reuses the confirmation built in `tracker17 · nemawashi · 2026-10-07_status-moves` (`hands_off_to`) and checks deletion against `tracker17 · nemawashi · 2026-10-07_comment-on-a-task`'s comments; both are preferences. `status-moves` is walked, so the confirmation already exists to reuse (`confirm_strip`, `products/tracker17/web/pages.py:L699`).
 
 ## Out (later / elsewhere)
 
