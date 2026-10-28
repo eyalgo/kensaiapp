@@ -836,7 +836,8 @@ def _state_for_deletion() -> TrackerState:
 def test_delete_task_accepts_every_saved_status(status, comment_count):
     """CP-529, CP-533: any status deletes, with or without comments; only that task disappears."""
     comments = [
-        Comment(text=f"Note {number}", author="Dana", created_at=NOW) for number in range(comment_count)
+        Comment(text=f"Note {number}", author="Dana", created_at=NOW)
+        for number in range(comment_count)
     ]
     target = _restored(id=2, status=status, comments=comments)
     survivors = (_restored(id=1, title="First"), _restored(id=3, title="Third"))
