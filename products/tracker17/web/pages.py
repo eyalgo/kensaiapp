@@ -858,7 +858,7 @@ def _delete_strip(task: Task) -> str:
         sentence_id=CONFIRM_SENTENCE_ID,
         confirm=StripForm(DELETE_LABEL, DELETE_CONFIRM_ADDRESS.format(task_id=task.id), "post", {}),
         back_out=StripForm(BACK_OUT_LABEL, f"/tasks/{task.id}", "get", {DELETE_BACK_KEY: ""}),
-        size=TRIGGER_SIZE,
+        size=FULL_SIZE,
         focus=True,
     )
 
@@ -887,7 +887,7 @@ def _delete_section(task: Task, mode: DeleteMode) -> str:
         f'<section id="{_DELETE_SECTION_ID}" class="sheet">\n'
         '<div class="moves"><div class="move-slot">'
         f'<form method="post" action="{DELETE_ADDRESS.format(task_id=task.id)}">'
-        f'<button type="submit" class="delete-button"{focus}>{_escape(DELETE_LABEL)}</button>'
+        f'<button type="submit" class="button-secondary"{focus}>{_escape(DELETE_LABEL)}</button>'
         "</form></div></div>\n"
         f"{line}"
         "</section>\n"

@@ -193,7 +193,8 @@ def test_project_strip_uses_full_size_controls(
     trackers: TrackerFactory, location: Path, page: Page
 ) -> None:
     """CP-571, T16: the trigger, the sentence's spot and the confirming control share DESIGN's
-    control height and Back out stays full size; the existing task contexts are not resized."""
+    control height and Back out stays full size; Delete task's confirmation takes that height too,
+    and a status move's confirmation keeps the row-control height."""
     tracker = started(trackers, location, tasks=1)
     page.goto(f"{tracker.address}/projects/1")
     trigger = box_of(page.get_by_role("button", name=TRIGGER))
@@ -217,7 +218,7 @@ def test_project_strip_uses_full_size_controls(
     assert abs(move_confirm["height"] - ROW_CONTROL_HEIGHT) <= 0.5
     page.goto(f"{tracker.address}/tasks/1?delete_confirm")
     task_confirm = box_of(page.locator(".confirm-strip button.button-confirm"))
-    assert abs(task_confirm["height"] - ROW_CONTROL_HEIGHT) <= 0.5
+    assert abs(task_confirm["height"] - CONTROL_HEIGHT) <= 0.5
 
 
 NARROW_WIDTH = 1280 // 4
