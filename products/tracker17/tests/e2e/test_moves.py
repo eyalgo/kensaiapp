@@ -690,3 +690,47 @@ def test_keyboard_opening_on_a_far_row_focuses_the_visible_sentence(
     page.keyboard.press("Tab")
     assert active_text(page) == "Back out"
     assert saved_bytes(tracker) == before
+
+
+def test_all_tasks_confirmation_history_revalidates_the_saved_status(
+    tracker: RunningTracker, history_page: Page
+) -> None:
+    """CP-475, CP-476, T18: on All tasks, reload, back and forward before confirming save nothing;
+    after confirming, going back to the old confirmation shows the saved-status refusal beside the
+    status in the task's row and no strip, as a fresh load, and a real Back and Forward traversal
+    repeats that answer."""
+    page = history_page
+    page.add_init_script(RECORDER)
+    open_task(page, tracker.address)
+    everything = f"{tracker.address}/tasks"
+    page.goto(everything)
+    before = saved_bytes(tracker)
+    page.get_by_role("button", name=CANCELLED_NAME).click()
+    page.wait_for_url(lambda url: OPENED in url)
+    assert urlsplit(page.url).path == "/tasks"
+    expect(page.locator(".confirm-strip")).to_have_count(1)
+    page.reload()
+    expect(page.locator(SENTENCE_LOCATOR)).to_be_focused()
+    page.go_back(wait_until="commit")
+    page.wait_for_function(RESTORED)
+    assert page.url == everything
+    page.go_forward(wait_until="commit")
+    expect(page.locator(".confirm-strip")).to_have_count(1)
+    assert fresh_load(page)
+    assert saved_bytes(tracker) == before
+
+    page.get_by_role("button", name="Move to cancelled").click()
+    page.wait_for_url(lambda url: "moved=cancelled" in url)
+    assert urlsplit(page.url).path == "/tasks"
+    after = saved_bytes(tracker)
+    page.go_back(wait_until="commit")
+    expect(page.locator(".confirm-strip")).to_have_count(0)
+    row = page.locator("tbody tr", has_text=TITLE)
+    expect(row.locator(".status-word")).to_have_text("cancelled")
+    expect(row.locator(".status-word")).to_have_accessible_description(CANCELLED_ADDRESS)
+    assert fresh_load(page)
+    page.go_forward(wait_until="commit")
+    page.go_back(wait_until="commit")
+    expect(page.locator(".confirm-strip")).to_have_count(0)
+    expect(row.locator(MOVE_BUTTON)).to_have_count(0)
+    assert saved_bytes(tracker) == after

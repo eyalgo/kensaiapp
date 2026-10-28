@@ -18,6 +18,8 @@ Checked by: tests/unit/test_sorting.py (the rules), tests/integration/test_sort_
 read the application projects), tests/integration/test_sort_pages.py and
 tests/integration/test_sort_routes.py (the page and the request),
 tests/integration/test_sort_move_routes.py (the moves pressed on a sorted list),
+tests/integration/test_move_routes.py and tests/integration/test_move_pages.py (the move
+destinations),
 tests/integration/test_routes.py (the route walks), tests/integration/test_tracker.py (the read),
 tests/integration/test_pages.py (the pages), tests/e2e/test_sorting.py (the browser), and
 tests/architecture/test_trace.py and tests/architecture/test_shapes.py (the entry and the shape).

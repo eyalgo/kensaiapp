@@ -248,3 +248,57 @@ def test_keyboard_reaches_and_filters_all_tasks_without_script(
     scriptless.keyboard.press("Enter")
     scriptless.wait_for_url(tracker.address + "/tasks")
     assert listed(scriptless) == ["Write docs", "Fix bug", "Ship"]
+
+
+def test_keyboard_global_filter_sort_move_and_confirmation_keep_choices_without_script(
+    trackers, location: Path, scriptless: Page
+) -> None:
+    """CP-475, CP-476, CP-479, T18: with scripting off, keys press a row's move on All tasks, the
+    cancellation's confirmation and its back out; every landing is /tasks with the filter and sort
+    kept, focus where the rules put it, and a task the filter no longer matches leaves the list."""
+    seeded(location)
+    tracker = trackers.start(location)
+    choices = "filter_status=todo&sort_field=title&sort_direction=ascending"
+    scriptless.goto(f"{tracker.address}/tasks?{choices}")
+    assert listed(scriptless) == ["Fix bug", "Ship", "Write docs"]
+
+    scriptless.get_by_role("button", name="Move 'Write docs' to in-progress").focus()
+    scriptless.keyboard.press("Enter")
+    scriptless.wait_for_url(lambda url: "moved=in-progress" in url)
+    query = parse_qs(urlsplit(scriptless.url).query)
+    assert urlsplit(scriptless.url).path == "/tasks"
+    assert query["filter_status"] == ["todo"] and query["sort_field"] == ["title"]
+    assert listed(scriptless) == ["Fix bug", "Ship"]
+    assert scriptless.evaluate("document.activeElement.id") == "task-list"
+    assert scriptless.inner_text("#move-line") == (
+        "You moved 'Write docs' to in-progress, and it no longer matches this filter, "
+        "so it has left this list."
+    )
+
+    before = tracker.saved_file.read_bytes()
+    scriptless.get_by_role("button", name="Move 'Fix bug' to cancelled").focus()
+    scriptless.keyboard.press("Enter")
+    scriptless.wait_for_url(lambda url: "move_confirm=cancelled" in url)
+    assert urlsplit(scriptless.url).path == "/tasks"
+    assert scriptless.evaluate("document.activeElement.id") == "confirm-sentence"
+    assert tracker.saved_file.read_bytes() == before
+
+    scriptless.get_by_role("button", name="Back out").focus()
+    scriptless.keyboard.press("Enter")
+    scriptless.wait_for_url(lambda url: "move_back=cancelled" in url)
+    assert urlsplit(scriptless.url).path == "/tasks"
+    assert parse_qs(urlsplit(scriptless.url).query)["filter_status"] == ["todo"]
+    assert listed(scriptless) == ["Fix bug", "Ship"]
+    expect(scriptless.get_by_role("button", name="Move 'Fix bug' to cancelled")).to_be_focused()
+    assert tracker.saved_file.read_bytes() == before
+
+    scriptless.keyboard.press("Enter")
+    scriptless.wait_for_url(lambda url: "move_confirm=cancelled" in url)
+    scriptless.get_by_role("button", name="Move to cancelled").focus()
+    scriptless.keyboard.press("Enter")
+    scriptless.wait_for_url(lambda url: "moved=cancelled" in url)
+    query = parse_qs(urlsplit(scriptless.url).query)
+    assert urlsplit(scriptless.url).path == "/tasks"
+    assert query["filter_status"] == ["todo"] and query["sort_field"] == ["title"]
+    assert listed(scriptless) == ["Ship"]
+    assert tracker.saved_file.read_bytes() != before

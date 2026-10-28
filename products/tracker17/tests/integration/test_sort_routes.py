@@ -327,3 +327,22 @@ def test_global_apply_sort_and_clear_are_stateless_reads(tmp_path: Path) -> None
     later = [cells[6].text() for cells in table_rows(all_tasks(world, "filter_status=todo"))]
     assert sum("Overdue" in text for text in later) == 3
     assert (world.saver.saves, world.bytes_on_disk()) == (saves, before)
+
+
+def test_global_apply_and_clear_carry_no_old_move_outcome(tmp_path: Path) -> None:
+    """CP-472, CP-473, CP-475, T9: a page opened at a move's landing offers an Apply form and a
+    Clear link that carry the choices alone: no move task, outcome or interaction key."""
+    from test_sort_pages import two_project_world
+
+    world = two_project_world(tmp_path)
+    landing = get(
+        world.site,
+        "/tasks?filter_status=todo&sort_field=title&move_task=1&moved=in-progress",
+    )
+    root = parse(page(landing))
+    (apply_form,) = [f for f in root.find_all("form") if f.attrs.get("method") == "get"]
+    assert apply_form.attrs.get("action") == "/tasks"
+    names = [i.attrs.get("name") or "" for i in apply_form.walk() if i.tag in ("input", "select")]
+    assert names and not [n for n in names if n.startswith("move") or n == "moved"]
+    (clear,) = [a for a in root.find_all("a") if a.text() == "Clear"]
+    assert clear.attrs.get("href") == "/tasks"

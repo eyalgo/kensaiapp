@@ -5,9 +5,10 @@ workflow does not allow changes nothing and gives its reason), NFR-3 (a failed s
 nothing), NFR-4 (a submission from another site is refused), AC-10, AC-12, AC-13 and AC-18. Change
 spec rules CP-296, CP-303 to CP-311 and CP-314, the cancel-confirmation change's CP-321, CP-326 to
 CP-334 and CP-336, the history-after-confirm change's CP-343, the out-of-date-move change's CP-355
-to CP-366 and CP-370, and NFDR QC-7, QC-38, QC-56 and QC-57 are the ones each test names. Where a test checks words, they are the strings of this
-change's text record. The real Site, Tracker and SavedData are used, with an injected Clock and a
-saver that can be made to fail; no product name is patched.
+to CP-366 and CP-370, the All tasks change's CP-475, CP-477 and CP-478, and NFDR QC-7, QC-38,
+QC-56 and QC-57 are the ones each test names. Where a test checks words, they are the strings of
+this change's text record. The real Site, Tracker and SavedData are used, with an injected Clock and
+a saver that can be made to fail; no product name is patched.
 """
 
 from __future__ import annotations

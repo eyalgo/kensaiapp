@@ -17,7 +17,8 @@ list reach one validator, one matcher and one label computation; only the scope 
 Checked by: tests/unit/test_filtering.py (the rules), tests/integration/test_filter_tracker.py (the
 read through the Tracker), tests/integration/test_filter_routes.py (the request),
 tests/integration/test_filter_pages.py (the page), tests/integration/test_filter_move_routes.py
-(the moves pressed on a filtered list), tests/integration/test_tracker.py,
+(the moves pressed on a filtered list), tests/integration/test_move_routes.py and
+tests/integration/test_move_pages.py (the move destinations), tests/integration/test_tracker.py,
 tests/integration/test_pages.py, tests/integration/test_routes.py, tests/e2e/test_filters.py (the
 browser), and tests/architecture/test_trace.py and tests/architecture/test_shapes.py (the entry and
 the shape).

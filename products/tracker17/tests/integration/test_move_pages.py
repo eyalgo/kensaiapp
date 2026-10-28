@@ -812,3 +812,45 @@ def test_the_project_and_task_forms_keep_their_destinations(tmp_path: Path) -> N
         "/tasks/1/move/confirm",
         "/tasks/1",
     ]
+
+
+def test_global_forms_carry_all_nine_choices(tmp_path: Path) -> None:
+    """CP-475, T11: with every filter field and both sort fields set, each row's move form and the
+    confirmation's two forms carry all nine raw choices exactly as sent, and place=all_tasks."""
+    from test_filter_move_routes import all_world
+
+    world = all_world(tmp_path)
+    world.tracker.add_task_label(1, "bug")
+    sent = [
+        ("filter_status", "todo"),
+        ("filter_priority", "high"),
+        ("filter_assignee", "Dana"),
+        ("filter_label", "bug"),
+        ("filter_due_from", "2026-09-01"),
+        ("filter_due_to", "2026-10-31"),
+        ("filter_overdue", "on"),
+        ("sort_field", "title"),
+        ("sort_direction", "descending"),
+    ]
+    from urllib.parse import urlencode
+
+    from test_routes import get, page
+
+    def pairs(form: Element) -> list[tuple[str | None, str | None]]:
+        return [(i.attrs.get("name"), i.attrs.get("value")) for i in form.find_all("input")]
+
+    opened = get(world.site, "/tasks?" + urlencode(sent))
+    root = parse(page(opened))
+    forms = [f for f in root.find_all("form") if str(f.attrs.get("action", "")).endswith("/move")]
+    assert forms
+    for form in forms:
+        assert ("place", "all_tasks") in pairs(form)
+        assert [p for p in pairs(form) if p in sent] == sent
+    confirming = get(
+        world.site,
+        "/tasks?" + urlencode([("move_task", "1"), ("move_confirm", "cancelled"), *sent]),
+    )
+    assert confirming.status == 202
+    (strip,) = strips(parse(page(confirming, 202)))
+    for form in strip.find_all("form"):
+        assert [p for p in pairs(form) if p in sent] == sent
