@@ -378,6 +378,33 @@ def test_the_not_found_page_gives_projects_in_a_paragraph_after_its_heading() ->
     assert paragraph.text() == "Open Projects or All tasks."
 
 
+@pytest.mark.parametrize(
+    ("build", "heading"),
+    [
+        (pages.not_found_page, "There's no project at this address"),
+        (pages.task_not_found_page, "There's no task at this address"),
+    ],
+)
+def test_both_not_found_forms_offer_both_destinations(build, heading: str) -> None:
+    """CP-460: each not-found form keeps its one heading, then one paragraph that links to
+    Projects first and All tasks after, and holds no form; the header keeps its three links, so the
+    page has five links in all."""
+    root = parse(build())
+    (main,) = root.find_all("main")
+    children = [child for child in main.children if isinstance(child, Element)]
+    assert [child.tag for child in children] == ["h1", "p"]
+    assert children[0].text() == heading
+    assert children[1].text() == "Open Projects or All tasks."
+    assert [(a.attrs["href"], a.text()) for a in children[1].find_all("a")] == [
+        ("/", "Projects"),
+        ("/tasks", "All tasks"),
+    ]
+    (header,) = root.find_all("header")
+    assert [a.attrs["href"] for a in header.find_all("a")] == ["/", "/tasks", "/people"]
+    assert len(root.find_all("a")) == 5
+    assert root.find_all("form") == []
+
+
 def test_the_not_found_page_has_no_form_or_control() -> None:
     """CP-34."""
     root = parse(pages.not_found_page())

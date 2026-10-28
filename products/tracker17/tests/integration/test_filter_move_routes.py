@@ -590,6 +590,60 @@ def test_global_move_page_status_describes_the_rendered_confirmation(tmp_path: P
     assert refused.status == 200 and no_store(refused)
 
 
+@pytest.mark.parametrize(
+    ("earlier", "task", "pressed", "status_now", "allows"),
+    [
+        pytest.param([], 2, "done", "todo", "can be moved to in-progress or cancelled", id="two"),
+        pytest.param(
+            [(1, "in-progress")],
+            1,
+            "in-progress",
+            "in-progress",
+            "can be moved to done, cancelled or todo",
+            id="three",
+        ),
+        pytest.param(
+            [(1, "in-progress"), (1, "done")], 1, "todo", "done", "can't be moved", id="none"
+        ),
+    ],
+)
+def test_global_in_row_refusal_states_the_status_without_claiming_a_change(
+    tmp_path: Path,
+    earlier: list[tuple[int, str]],
+    task: int,
+    pressed: str,
+    status_now: str,
+    allows: str,
+) -> None:
+    """CP-475, change text "In the task's row, when the task is listed" and its Wording decisions:
+    a move the status no longer allows, pressed on All tasks, lands with the line that states the
+    status as it is, in each reachable form; the same press on a project's list keeps its own
+    "has changed to" line (CP-478)."""
+    world = all_world(tmp_path)
+    for moved, status in earlier:
+        world.tracker.move_task(moved, status)
+    title = {1: TITLE, 2: "Fix bug"}[task]
+    before = world.bytes_on_disk()
+    refused = all_press(world, task, pressed, [])
+    assert urlsplit(location(refused)).path == "/tasks"
+    answered, root = landing(world, refused)
+    assert answered.status == 200 and no_store(answered)
+    line = line_of(root)
+    assert line is not None
+    assert line.text() == (
+        f"The status of '{title}' is {status_now}. A task in {status_now} {allows}."
+    )
+    on_list = press(world, task, pressed, [])
+    assert urlsplit(location(on_list)).path == f"/projects/{1 if task == 1 else 2}"
+    _, list_root = landing(world, on_list)
+    list_line = line_of(list_root)
+    assert list_line is not None
+    assert list_line.text() == (
+        f"The status of '{title}' has changed to {status_now}. A task in {status_now} {allows}."
+    )
+    assert world.bytes_on_disk() == before
+
+
 def test_global_stale_refused_and_failed_move_keep_state_and_context(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:

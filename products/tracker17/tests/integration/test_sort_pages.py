@@ -400,6 +400,21 @@ def test_all_tasks_has_one_row_per_task_and_project_after_title(tmp_path: Path) 
     assert world.saver.saves == saves
 
 
+def test_project_links_carry_no_choice_while_choices_are_applied(tmp_path: Path) -> None:
+    """CP-463: with a filter and a sort applied, each Project cell still links to its project's
+    page with no filter or sort choice in the address."""
+    world = two_project_world(tmp_path)
+    root = all_tasks(world, "filter_status=todo&sort_field=title&sort_direction=descending")
+    assert task_numbers(root) == [1, 3, 4, 2]
+    links = [cells[1].find_all("a") for cells in table_rows(root)]
+    assert [[(a.text(), a.attrs["href"]) for a in cell] for cell in links] == [
+        [("Alpha", "/projects/1")],
+        [("Alpha", "/projects/1")],
+        [("Beta", "/projects/2")],
+        [("Beta", "/projects/2")],
+    ]
+
+
 def test_global_empty_page_precedes_controls_and_refusals(tmp_path: Path) -> None:
     """CP-466, T4: no project, or only empty projects, show the invitation under the heading and
     nothing else, whatever the address carries."""

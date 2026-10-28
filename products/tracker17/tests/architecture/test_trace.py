@@ -567,3 +567,22 @@ def test_sorting_entry_has_requirements_participants_and_checks() -> None:
     assert "sorting" in LANDED_FEATURE_WORDS
     assert missing_paths(text) == []
     assert unknown_requirements(text) == []
+
+
+ALL_TASKS_PARTICIPANTS = (
+    "application/tracker.py",
+    "application/__init__.py",
+    "web/routes.py",
+    "web/pages.py",
+)
+
+
+def test_list_entries_name_fr31_and_every_all_tasks_participant() -> None:
+    """CP-481: the Filtering entry names FR-31, the row SDD § 4 TS-3 gives `filtering`, and both
+    list entries name every application and web module that takes part in All tasks."""
+    filtering = entry_docstring("filtering")
+    assert "FR-31" in named_requirements(filtering)
+    for word in ("filtering", "sorting"):
+        paths = named_paths(entry_docstring(word))
+        for participant in ALL_TASKS_PARTICIPANTS:
+            assert participant in paths, (word, participant)
