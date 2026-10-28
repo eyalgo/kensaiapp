@@ -840,7 +840,8 @@ class Site:
         """Move the task to the status the form names and answer at the place the button was on.
 
         The status goes to the tracker as sent, whatever it is; the place word only says which of
-        two addresses the answer goes to (QC-38). A refusal is mapped to its code by type. A move
+        three addresses the answer goes to (QC-38): the task's page, its project's list or All
+        tasks. An unknown or missing word means the task's page. A refusal is mapped to its code by type. A move
         to cancelled is saved only by the confirming submission, whose target is fixed: the
         ordinary address only opens the confirmation, reading the workflow's answer and saving
         nothing.
@@ -853,22 +854,32 @@ class Site:
         if task is None:
             return self._redirect(task_address)
         status = TaskStatus.CANCELLED.value if confirming else _first(form, "status")
-        place = (
-            f"/projects/{task.project_id}"
-            if _first(form, "place") == pages.MOVE_PLACE_LIST
-            else task_address
+        destination = _closed(pages.MovePlace, _first(form, "place"))
+        on_all_tasks = destination is pages.MovePlace.ALL_TASKS
+        on_list = destination is pages.MovePlace.LIST
+        if on_all_tasks:
+            place = ALL_TASKS_ADDRESS
+        elif on_list:
+            place = f"/projects/{task.project_id}"
+        else:
+            place = task_address
+        carried = (
+            {**_carried_filters(form), **_carried_sorts(form)} if on_list or on_all_tasks else {}
         )
-        on_list = _first(form, "place") == pages.MOVE_PLACE_LIST
-        carried = {**_carried_filters(form), **_carried_sorts(form)} if on_list else {}
         about: dict[str, str | tuple[str, ...]] = {"move_task": str(identity), **carried}
-        if (
-            on_list
-            and self._tracker.project_task_list(
+        if on_all_tasks:
+            problems = self._tracker.all_task_list(
+                _filter_input(form), sort_fields=_sort_input(form)
+            ).problems
+        elif on_list:
+            problems = self._tracker.project_task_list(
                 task.project_id, _filter_input(form), sort_fields=_sort_input(form)
             ).problems
-        ):
+        else:
+            problems = ()
+        if problems:
             # A malformed filter or sort stops the move before it can save or open a
-            # confirmation (CP-405, CP-440).
+            # confirmation (CP-405, CP-440, CP-477).
             return self._redirect(place, **about)
         if status == TaskStatus.CANCELLED.value and not confirming:
             if TaskStatus.CANCELLED in self._tracker.allowed_moves(task.status):

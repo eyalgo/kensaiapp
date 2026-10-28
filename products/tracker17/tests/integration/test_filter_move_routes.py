@@ -641,9 +641,13 @@ def test_global_stale_refused_and_failed_move_keep_state_and_context(
 @pytest.mark.parametrize(
     ("carried", "moves", "remaining"),
     [
-        ([("filter_status", "todo")], [(1, "in-progress")], ["Fix bug", "Ship", "Plan"]),
-        ([("filter_overdue", "on")], [(1, "done")], None),
-        ([("filter_overdue", "on")], [(1, "in-progress"), (1, "cancelled")], None),
+        ([("filter_status", "todo")], [(1, "in-progress")], ["Plan", "Fix bug", "Ship"]),
+        (
+            [("filter_overdue", "on"), ("filter_assignee", "Dana")],
+            [(1, "in-progress"), (1, "done")],
+            None,
+        ),
+        ([("filter_overdue", "on"), ("filter_assignee", "Dana")], [(1, "cancelled")], None),
     ],
 )
 def test_moved_task_leaves_global_status_or_overdue_selection(
