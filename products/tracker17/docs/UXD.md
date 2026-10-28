@@ -1,9 +1,9 @@
 # UXD — tracker17
 
-**Status:** Settled
+**Status:** Draft
 **Owner:** CDO
-**Version:** 9 — the seventh answered round folded in (`products/tracker17/docs/trail/uxd/cycle-7.md`): a refusal states what holds when its page is built and claims no event before it. The overtaken move states the task's status and what that status allows, the assignee refusals say the name is not on the list, and UX-I3's out-of-date refusal no longer says the page was out of date (UX-F3, UX-F4, UX-F9, UX-I3, RN-34, RN-35). PRD version 7 read, unchanged since version 8.
-**Inputs read:** PRD Settled (version 7) · SRS Settled · Agari no Status line (`agari_template.md` carries none) · visual_restrictions Settled · voice_restrictions Settled · tracker17 doctrine no Status line (stamped, unfilled) · CONTENT Draft (version 14) (downstream; read to check what the answered round cites, not a source)
+**Version:** 10 — the eighth answered round folded in (`products/tracker17/docs/trail/uxd/cycle-8.md`): when the list's filter leaves a task off the list, a refusal reached by an address sits above the results in UX-I4's line, naming the task and its status, with no action, reload or Clear, on a project's Tasks view and on All tasks (UX-F4, UX-S4, UX-I3, UX-A3, RN-36). PRD version 7 read, unchanged since version 8. At 9: a refusal states what holds when its page is built and claims no event before it (`products/tracker17/docs/trail/uxd/cycle-7.md`).
+**Inputs read:** PRD Settled (version 7) · SRS Settled · Agari no Status line (`agari_template.md` carries none) · visual_restrictions Settled · voice_restrictions Settled · tracker17 doctrine no Status line (stamped, unfilled) · CONTENT Settled (version 15) (downstream; read to check what the answered round cites, not a source)
 
 > The UXD is the experience source of truth: the experience-level **what**, derived from the
 > settled PRD, authored concurrent with the SRS, and consumed cold by the SDD (so
@@ -30,8 +30,10 @@ is `products/tracker17/docs/trail/uxd/self_answer-2.md`, and the reasoning behin
 in `cycle-4.md` is `products/tracker17/docs/trail/uxd/self_answer-4.md`, and the reasoning behind
 the answer in `cycle-5.md` is `products/tracker17/docs/trail/uxd/self_answer-5.md`. The reasoning behind the
 answer in `cycle-6.md` is `products/tracker17/docs/trail/uxd/self_answer-6.md`, and the reasoning behind the
-answer in `cycle-7.md` is `products/tracker17/docs/trail/uxd/self_answer-7.md`. The Review Note named beside
-a marker says why this document reads as it does.
+answer in `cycle-7.md` is `products/tracker17/docs/trail/uxd/self_answer-7.md`. An entry marked *(answered:
+`trail/uxd/cycle-N.md` § 3.n)* states an item a downstream seat raised and the round settled. The
+reasoning behind the answer in `cycle-8.md` is `products/tracker17/docs/trail/uxd/self_answer-8.md`. The
+Review Note named beside a marker says why this document reads as it does.
 
 ---
 
@@ -188,7 +190,14 @@ that page, and no area of the tracker is reachable until the data is dealt with.
   `done` and `cancelled` are final, so the task is in one of them. Both addresses reach it, on a
   project's Tasks view as well as on the task's page. The refusal shows where the confirmation would
   have been asked for, beside the task's status. It says what is true now, names no action and offers
-  no reload (UX-I3). *(confirmed with an addition: `trail/uxd/cycle-5.md` § 2.1; why, RN-33)*
+  no reload (UX-I3). *(confirmed with an addition: `trail/uxd/cycle-5.md` § 2.1; why, RN-33)* When the
+  list's filter leaves the task off the list, on a project's Tasks view or on All tasks, there is no row
+  and no status to sit beside. The refusal then sits above the results, in the one line UX-I4's
+  confirmation takes, and above the no-match state when the filter leaves no rows. It names the task
+  by its title and states its status, and says the task doesn't match this filter and so isn't in this
+  list. It names no action, offers no reload and does not offer Clear. No row is shown for the task and
+  no confirmation is shown. On the task's page the status is always shown, and the refusal sits beside
+  it. *(answered: `trail/uxd/cycle-8.md` § 3.1; why, RN-36)*
 - When the list was filtered by status, the moved task no longer matches the filter. It leaves the
   list, and the confirmation names it, so the operator knows where it went.
 
@@ -334,7 +343,7 @@ from that.
 | UX-S1 | **Setup instructions** — the written document a reader arrives at. Its sections, in order: what tracker17 is, and its two reasons for existing — a worked example a reader can read end to end, run locally and judge, and kensaiapp's own testing ground, where building tracker17 is how issues in kensaiapp are found and fixed (PRD § Purpose; RN-31) · prerequisites (including the one-time network connection setup needs) · the commands that take a fresh copy to the tracker in the browser · what the start prints, and the address to open · where the saved data is kept · starting the tracker again · setting the saved data aside to start fresh. | n/a — a written document has no empty state. | n/a — a static document. | n/a in the document itself. It is where every console failure in UX-S2 and the browser's "can't reach" page point the reader. | The reader can follow it top to bottom with no section skipped and no choice to make. |
 | UX-S2 | **Start command** — the console the tracker is started from. | n/a — the command takes no input. | The console shows nothing until the tracker is ready, then UX-S2 Success. | Plain, one-paragraph messages, each saying what is wrong and what to do: the address is in use by something else · another tracker is already running on the same saved data · the saved data cannot be read (its location named). Nothing is written to the saved data in any of them. | The address to open, and the saved data's location. |
 | UX-S3 | **Projects** (home) — every project by name, with its description, sorted by name, ignoring case; the create-project form, which says beside the description field that the description cannot be changed later, and the most characters it can hold (UX-F2). | First run: no projects. The page says there are none yet and invites a first project, with the create form in view. No sample data. | UX-I8. | A create refused under UX-I3 keeps the form filled and shows the reason by the field. A failure that is not a refusal shows UX-I5's message. | The list, and after a create, the new project's Tasks view (UX-F2). |
-| UX-S4 | **Project — Tasks** — the project's name and description, the Tasks / Summary links, the filter and sort controls with the match count, the task list, the add-task form, and the rename and delete controls. Each row: title (a link to the task), status, priority, assignee or "unassigned", labels, due date with the "Overdue" marker when it applies, and the moves allowed from the task's status. | Two distinct states. **No tasks yet:** the page says the project has no tasks and invites a first one, with the add-task form in view. **No match:** the filter matched nothing. The page says so, names that the filter is the reason, and shows Clear. Neither shows a blank list. | UX-I8. | Refusals under UX-I3 at the control used. A refusal reached by an address and no control sits beside the task's status in its row (UX-F4). A non-refusal failure shows UX-I5's message. A project that no longer exists shows UX-S10. | The list as filtered and sorted, with the count. After an action, UX-I4's confirmation. |
+| UX-S4 | **Project — Tasks** — the project's name and description, the Tasks / Summary links, the filter and sort controls with the match count, the task list, the add-task form, and the rename and delete controls. Each row: title (a link to the task), status, priority, assignee or "unassigned", labels, due date with the "Overdue" marker when it applies, and the moves allowed from the task's status. | Two distinct states. **No tasks yet:** the page says the project has no tasks and invites a first one, with the add-task form in view. **No match:** the filter matched nothing. The page says so, names that the filter is the reason, and shows Clear. Neither shows a blank list. | UX-I8. | Refusals under UX-I3 at the control used. A refusal reached by an address and no control sits beside the task's status in its row (UX-F4). When the filter leaves that task off the list, it sits above the results in UX-I4's line, naming the task and its status, above the no-match state when no rows are left, with no action, reload or Clear (UX-F4) *(answered: `trail/uxd/cycle-8.md` § 3.1; why, RN-36)*. A non-refusal failure shows UX-I5's message. A project that no longer exists shows UX-S10. | The list as filtered and sorted, with the count. After an action, UX-I4's confirmation. |
 | UX-S5 | **Project — Summary** — the counts and rows UX-F6 lists, with the status, priority and overdue counts as links. | A project with no tasks: every count shows as 0, and the page invites a first task with a link to the Tasks view. | UX-I8. | A project that no longer exists shows UX-S10. | The counts, as of today's local date. |
 | UX-S6 | **Task** — the edit form (title, priority, assignee, due date), the task's project as text, its status with its allowed moves, its labels with Remove and Add, Delete task, and the comments list with the add-comment form, which says beside its text field the most characters a comment can hold (UX-F7). A task whose assignee has left the list shows that name as the assignee control's current choice, with UX-F9's sentence beside the control. | No labels: the label area says the task has none, with Add in view. No comments: the comment area says there are none yet, with the form in view. No operator name: UX-F7's notice above the comment form. | UX-I8. | Refusals under UX-I3 at the control used, keeping what was typed. A refusal reached by an address and no control sits beside the task's status (UX-F4). A non-refusal failure shows UX-I5's message. A task that no longer exists shows UX-S10. | The task as saved. After an action, UX-I4's confirmation. A task in `done` or `cancelled` shows its status with no move buttons. |
 | UX-S7 | **All tasks** — UX-S4's filter, sort and list, across every project, with a project column linking to each task's project. No add-task form, because a task is always created in a project. | **No tasks anywhere:** the page says there are no tasks yet and links to Projects. **No match:** as UX-S4. | UX-I8. | As UX-S4. | As UX-S4, across projects. |
@@ -401,7 +410,10 @@ from that.
   operator to do. The refusal says what is true now, names no action and offers no reload, for a
   task in `done` and a task in `cancelled` alike. No control was used, so it sits beside the task's
   status, in the row or on the page. *(confirmed with an addition: `trail/uxd/cycle-5.md` § 2.1;
-  why, RN-33)* Rules are checked when the action is
+  why, RN-33)* Where the list's filter leaves the task off the list, so there is neither a row nor a
+  status to sit beside, it sits above the results in UX-I4's line, and names the task and its status
+  itself. It does not offer Clear, because the task is final and showing it leaves nothing to do.
+  *(answered: `trail/uxd/cycle-8.md` § 3.1; why, RN-36)* Rules are checked when the action is
   submitted: no field is checked while the operator types. *(→ PRD § UX Notes, Refusals say why)*
 - **UX-I4** — **A completed action is confirmed in one line, on the page it leaves the operator
   on.** The line names what changed ("Moved 'Set up CI' to done"). A result is shown only once it
@@ -440,7 +452,10 @@ from that.
   Identification, SC 3.3.3 Error Suggestion). *(overridden: `trail/uxd/cycle-1.md` § 2.3; why,
   RN-24)* For a refusal reached by an address and no control (UX-I3), the control it concerns is the
   task's status, and the refusal is associated with that. *(confirmed with an addition:
-  `trail/uxd/cycle-5.md` § 2.1; why, RN-33)* *(→ PRD § UX Notes, Refusals say why)*
+  `trail/uxd/cycle-5.md` § 2.1; why, RN-33)* Where the list's filter leaves that task off the list,
+  no status is on the page to associate with, and the refusal meets this requirement by naming the task
+  and its status in its own text. *(answered: `trail/uxd/cycle-8.md` § 3.1; why, RN-36)* *(→ PRD § UX
+  Notes, Refusals say why)*
 - **UX-A4** — Status, priority and the overdue state are each shown in text, never by colour alone
   (WCAG 2.2 SC 1.4.1 Use of Color). *(overridden: `trail/uxd/cycle-1.md` § 2.3; why, RN-24)* *(→ PRD
   § UX Notes, What must feel effortless, "seeing which tasks are overdue")*
@@ -902,6 +917,22 @@ requirement, that a reader learns both purposes from the first thing they read, 
   reason for the out-of-date refusal stands: an address can outlive what it names. How each line is
   worded is `products/tracker17/docs/CONTENT.md`'s. *(re: UX-F3, UX-F4, UX-F9, UX-I3, RN-34; PRD
   source: § UX Notes, Refusals say why)*
+- **RN-36:** *(added)* A refusal reached by an address and no control, for a task the list's filter
+  leaves off the list, sits above the results in UX-I4's line, on a project's Tasks view and on All
+  tasks. It names the task by its title and states its status, says the task doesn't match this filter
+  and so isn't in this list, and names no action, offers no reload and does not offer Clear. No row is
+  shown for the task and no confirmation is shown. *Because* RN-33 placed this refusal beside the
+  task's status, and a status or Overdue filter can leave a task in `done` or `cancelled` with no row,
+  so the list page shows its status nowhere. The line above the results is the one place on a list
+  page that is about the page and not a row, and UX-F4 already uses it for a task that left the list.
+  The line names the task and its status because the row that would have shown both is missing, and
+  that is how UX-A3's association is met with no status on the page. It names no action and no Clear
+  for RN-33's reason: the task is final, so even with it shown nothing is left to do. UX-A5's
+  announcement without moving focus applies unchanged. On the task's page the status is always shown,
+  so UX-F4's placement beside it stands. The answer settled an item the PM raised from the product
+  (`products/tracker17/docs/trail/uxd/cycle-8.md` § 3.1). How the line is worded is
+  `products/tracker17/docs/CONTENT.md`'s. *(re: UX-F4, UX-S4, UX-S7, UX-I3, UX-A3, RN-33; PRD source:
+  § UX Notes, Refusals say why; § Core Features, Status workflow, Filtering)*
 
 ---
 
