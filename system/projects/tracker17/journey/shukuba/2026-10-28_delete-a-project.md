@@ -4,7 +4,7 @@
 
 ## What it is
 
-A project's Tasks view offers Delete project. It opens a confirmation naming the project and its number of tasks; confirming deletes the project with its tasks and their comments and lands on Projects with a line naming the deleted project (UXD; SDD § 6 S-7; SRS FR-13, FR-17). The confirmation behaves as the one in `status-moves` does and holds below a list long enough to scroll (SDD § 4 EX-6). The project's address then shows the not-found page, and an action sent from another tab for it is refused and changes nothing (AC-12). This station also lands what SDD v13 and ADR-0012 widened onto the slice's last station: both deletions' pending confirmations answer 202 (a task deletion's answers 200 today), every page of either deletion carries `Cache-Control: no-store`, and Back to a deletion's confirmation after confirming is a fresh load (S-7 *Command*, RT-11). Last, the opening docstrings of `domain/projects.py` and `domain/tasks.py` name the tests the whole slice added (S-7 *Artifact*). One merge closes the seed.
+A project's Tasks view offers Delete project. It opens a confirmation naming the project and its number of tasks; confirming deletes the project with its tasks and their comments and lands on Projects with a line naming the deleted project (UXD; SDD § 6 S-7; SRS FR-13, FR-17). The confirmation behaves as the one in `status-moves` does and holds below a list long enough to scroll (SDD § 4 EX-6). The project's address then shows the not-found page, and an action sent from another tab for it is refused and changes nothing (AC-12). This station also lands what SDD v13 and ADR-0012 widened onto this station: both deletions' pending confirmations answer 202 (a task deletion's answers 200 today), every page of either deletion carries `Cache-Control: no-store`, and Back to a deletion's confirmation after confirming is a fresh load (S-7 *Command*, RT-11). Last, the opening docstrings of `domain/projects.py` and `domain/tasks.py` name the tests the whole slice added (S-7 *Artifact*). One merge reaches it.
 
 ## Reached when
 
@@ -24,4 +24,4 @@ A project's Tasks view offers Delete project. It opens a confirmation naming the
 - The docstrings name tests and nothing else; no new feature module (S-7 *Artifact*).
 - No moving of tasks between projects (SRS FR-14) and no change of a project's description (UXD § 10).
 
-- **Not here:** deleting a task, `tracker17 · nemawashi · 2026-10-11_delete-and-rename` item 1, and renaming a project, item 2, both already walked; the seed's retirement after this station closes is the Scrum Master's.
+- **Not here:** deleting a task, `tracker17 · nemawashi · 2026-10-11_delete-and-rename` item 1, and renaming a project, item 2, both already walked; the redirect for a deleted project's Add task and Rename, item 4, and Delete task's full-size confirmation, item 5.
