@@ -11,3 +11,6 @@
 ---
 
 *Sizing: one capability — deleting, with the slice's deletion contract that the station carries — with its acceptance in the station's eight reached-when items; the station itself states "One merge closes the seed", and the 202 / `no-store` widening and the docstrings ride the same confirmation and the same two domain modules, with no separate operation of their own. One flow, one merge. Source: SDD § 6 S-7, ADR-0012, the station `2026-10-28_delete-a-project`, item 3 of 3 on seed `2026-10-11_delete-and-rename`. FDR fit: in-scope; `docs/SDD.md`, `docs/fdr.md`, `docs/nfdr.md` and `docs/adr/` are present.*
+
+**Sealed:** 2026-10-28 — accepted; merged to `main` via `--no-ff`.
+Environment: owners-mac — no CI

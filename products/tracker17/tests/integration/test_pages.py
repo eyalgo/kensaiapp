@@ -190,8 +190,13 @@ def test_every_page_has_a_header_with_the_projects_and_people_links() -> None:
         for link in root.find_all("a"):
             href = link.attrs["href"] or ""
             assert re.fullmatch(COUNT_AND_BASE_ADDRESS, href), (label, href)
+        shown = root.text().lower()
+        if label in ("project", "created"):
+            # CP-569, T19: a project's Tasks view offers the one Delete project control.
+            assert shown.count("delete project") == 1, label
+            shown = shown.replace("delete project", "")
         for forbidden in ("rename", "delete"):
-            assert forbidden not in root.text().lower(), (label, forbidden)
+            assert forbidden not in shown, (label, forbidden)
 
 
 def test_the_first_run_page_says_there_are_no_projects_and_has_the_form() -> None:
@@ -234,8 +239,8 @@ def test_a_project_page_shows_name_description_the_invitation_and_only_the_add_f
         main_text(root)
     )
     forms = {f.attrs["action"]: f for f in root.find_all("form")}
-    assert len(root.find_all("form")) == 2
-    assert sorted(forms) == ["/projects/7/rename", "/projects/7/tasks"]
+    assert len(root.find_all("form")) == 3
+    assert sorted(forms) == ["/projects/7/delete", "/projects/7/rename", "/projects/7/tasks"]
     form = forms["/projects/7/tasks"]
     assert root.find_all("textarea") == [] and root.find_all("table") == []
     assert [e.attrs["name"] for e in form.find_all("input")] == ["title", "due_date"]
@@ -244,6 +249,8 @@ def test_a_project_page_shows_name_description_the_invitation_and_only_the_add_f
     rename = forms["/projects/7/rename"]
     assert [b.text() for b in rename.find_all("button")] == ["Save"]
     assert [e.attrs["name"] for e in rename.find_all("input")] == ["name"]
+    delete = forms["/projects/7/delete"]
+    assert [b.text() for b in delete.find_all("button")] == ["Delete project"]
     assert [e.text() for e in root.find_all("title")] == ["  Alpha  : Tasks - tracker17"]
 
 

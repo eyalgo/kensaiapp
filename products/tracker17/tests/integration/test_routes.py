@@ -277,6 +277,8 @@ SAMPLE_ADDRESS = {
     "/operator-name": "/operator-name",
     "/projects/[0-9]+/tasks": "/projects/1/tasks",
     "/projects/[0-9]+/rename": "/projects/1/rename",
+    "/projects/[0-9]+/delete": "/projects/1/delete",
+    "/projects/[0-9]+/delete/confirm": "/projects/1/delete/confirm",
     "/tasks/[0-9]+": "/tasks/1",
     "/tasks/[0-9]+/labels": "/tasks/1/labels",
     "/tasks/[0-9]+/labels/remove": "/tasks/1/labels/remove",
@@ -294,6 +296,8 @@ SUBMITTED_BODY = {
     "/operator-name": b"name=Sam",
     "/projects/1/tasks": b"title=Write+it&priority=high&assignee=Dana&due_date=2026-12-01",
     "/projects/1/rename": b"name=Gamma",
+    "/projects/1/delete": b"",
+    "/projects/1/delete/confirm": b"",
     "/tasks/1": b"title=Renamed&shown_title=Seed+task&priority=high&shown_priority=medium",
     "/tasks/1/labels": b"label=bug",
     "/tasks/1/labels/remove": b"label=ui",
@@ -304,7 +308,7 @@ SUBMITTED_BODY = {
     "/tasks/1/delete/confirm": b"",
 }
 # What each submission sample saves: opening the deletion's confirmation saves nothing (T14).
-SAVES_FOR = {"/tasks/1/delete": 0}
+SAVES_FOR = {"/tasks/1/delete": 0, "/projects/1/delete": 0}
 AUDIT_OPERATOR_NAME = "Lee"
 
 
@@ -355,7 +359,7 @@ def test_every_route_leaves_state_and_headers_as_the_rules_say() -> None:
 
 
 def test_delete_first_press_lands_on_a_pending_view_and_confirm_on_the_project() -> None:
-    """CP-544, T14: the opening press is 303 to a 200 pending view with no save and no cookie;
+    """CP-544, CP-583, T14: the opening press is 303 to a 202 pending view with no save and no cookie;
     the confirming press saves once and lands on the owning project."""
     saver = RecordingSaver()
     site, tracker = make_site(saver)
@@ -365,7 +369,7 @@ def test_delete_first_press_lands_on_a_pending_view_and_confirm_on_the_project()
     opened = site.handle("POST", "/tasks/1/delete", {**SAME_ORIGIN, **FORM}, b"")
     assert opened.status == 303 and header(opened, "Location") == "/tasks/1?delete_confirm"
     landing = get(site, "/tasks/1?delete_confirm")
-    assert landing.status == 200 and header(landing, "Cache-Control") == "no-store"
+    assert landing.status == 202 and header(landing, "Cache-Control") == "no-store"
     assert header(landing, "Content-Security-Policy") == POLICY
     assert header(landing, "Set-Cookie") is None and len(saver.saved) == saves
     done = site.handle("POST", "/tasks/1/delete/confirm", {**SAME_ORIGIN, **FORM}, b"")
@@ -537,9 +541,17 @@ def test_no_socket_connection_is_made() -> None:
         get(site, "/projects/1?rename_saved=Renamed&rename_from=Alpha")
         site.handle("POST", "/projects/1/rename", {**SAME_ORIGIN, **FORM}, b"name=")
         get(site, "/projects/1?rename_refused=blank-name&rename_typed=")
+        site.handle("POST", "/projects/1/delete", {**SAME_ORIGIN, **FORM}, b"")
+        get(site, "/projects/1?project_delete_confirm")
+        get(site, "/projects/1?project_delete_back")
+        get(site, "/projects/1?project_delete_failed")
+        removed = site.handle("POST", "/projects/1/delete/confirm", {**SAME_ORIGIN, **FORM}, b"")
+        get(site, header(removed, "Location") or "/")
+        get(site, "/projects/1?project_delete_confirm")
     finally:
         _window["open"] = False
     assert comment.status == 303 and header(comment, "Location") == "/tasks/1?comment_added=1"
+    assert header(removed, "Location") == "/?deleted_project=Renamed&deleted_project_tasks=1"
     assert _connections == []
 
 

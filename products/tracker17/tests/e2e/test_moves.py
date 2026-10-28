@@ -282,7 +282,7 @@ def test_confirmation_preserves_trigger_geometry_and_target_sizes(
     page.wait_for_url(lambda url: OPENED in url)
     sentence = box_of(page, SENTENCE_LOCATOR)
     confirm = box_of(page, ".button-confirm")
-    back = box_of(page, ".button-secondary")
+    back = box_of(page, ".confirm-strip .button-secondary")
     assert sentence["x"] <= old["x"] + 0.5 and sentence["y"] <= old["y"] + 0.5
     assert sentence["x"] + sentence["width"] >= old["x"] + old["width"] - 0.5
     assert sentence["y"] + sentence["height"] >= old["y"] + old["height"] - 0.5

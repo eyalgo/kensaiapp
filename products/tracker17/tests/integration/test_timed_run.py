@@ -423,6 +423,7 @@ def test_timed_run_fails_when_only_the_edit_fails(
             *SUMMARY_QUICK,
             *DELETE_QUICK,
             *RENAME_QUICK,
+            *PROJECT_DELETE_QUICK,
         ),
     )
 
@@ -732,6 +733,7 @@ def test_timed_run_fails_when_only_a_label_action_fails(
         *SUMMARY_QUICK,
         *DELETE_QUICK,
         *RENAME_QUICK,
+        *PROJECT_DELETE_QUICK,
     )
 
     status = harness.main(tmp_path, ticks)
@@ -776,6 +778,8 @@ SUMMARY_QUICK = (0.0, 0.1)
 DELETE_QUICK = QUICK
 # The rename's four readings, taken after the deletion's: all under the limit (CP-566).
 RENAME_QUICK = QUICK
+# The project deletion's four readings, taken after the rename's: all under the limit (CP-590).
+PROJECT_DELETE_QUICK = QUICK
 NAME_LABEL = "set your name at 1000 tasks"
 NAME_LANDING_LABEL = "name landing page at 1000 tasks"
 NAME_ADDRESS = "/operator-name"
@@ -993,6 +997,7 @@ def test_full_timed_run_fails_when_only_name_measurement_fails(
                 *SUMMARY_QUICK,
                 *DELETE_QUICK,
                 *RENAME_QUICK,
+                *PROJECT_DELETE_QUICK,
             ),
         )
         lines = capsys.readouterr().out.splitlines()
@@ -2097,19 +2102,22 @@ def _run_readings(**slow: tuple[float, ...]) -> Ticks:
     The five old actions read first, in the order the run times them, then the comment add, the
     assignee add, the assignee remove, the status move, the status filter and the sort, as the
     run appends them, then the Summary's one interval of two readings (CP-509), and last the
-    deletion's four (CP-543) and, after the deletion, the rename's four (CP-566).
+    deletion's four (CP-543), after the deletion the rename's four (CP-566) and, last of all, the
+    project deletion's four (CP-590).
     """
     order = ("comment", "assignee add", "assignee remove", "move", "filter", "sort")
     new = [slow.get(name, QUICK) for name in order]
     summary = slow.get("summary", SUMMARY_QUICK)
     delete = slow.get("delete", DELETE_QUICK)
     rename = slow.get("rename", RENAME_QUICK)
+    project_delete = slow.get("project_delete", PROJECT_DELETE_QUICK)
     return Ticks(
         *QUICK * OLD_ACTION_READINGS,
         *[value for each in new for value in each],
         *summary,
         *delete,
         *rename,
+        *project_delete,
     )
 
 
@@ -2148,6 +2156,7 @@ def test_timed_run_appends_exactly_three_ordered_action_blocks(whole_run) -> Non
         *SUMMARY_RUN_LABELS,
         *DELETE_RUN_LABELS,
         *RENAME_RUN_LABELS,
+        *PROJECT_DELETE_RUN_LABELS,
     ]
     assert "over" not in "\n".join(lines) and "refused" not in "\n".join(lines)
 
@@ -2897,26 +2906,26 @@ def test_timed_run_appends_exact_move_block_and_nothing_after(
     _, fresh = harness.open_task_volume(SavedData(tmp_path / "fresh"))
 
     assert status == 0
-    assert [line.split(":")[0] for line in lines[:-22]] == [*OLD_RUN_LABELS, *NEW_RUN_LABELS]
-    assert lines[-22:-18] == [
+    assert [line.split(":")[0] for line in lines[:-26]] == [*OLD_RUN_LABELS, *NEW_RUN_LABELS]
+    assert lines[-26:-22] == [
         harness.move_fixture_report(fresh),
         "move a task at 1000 tasks: 100.0 ms",
         "move landing page at 1000 tasks: 100.0 ms",
         "move total at 1000 tasks: 200.0 ms",
     ]
-    assert lines[-18:-14] == [
+    assert lines[-22:-18] == [
         harness.filter_fixture_report(fresh),
         "filter a task list at 1000 tasks: 100.0 ms",
         "filter landing page at 1000 tasks: 100.0 ms",
         "filter total at 1000 tasks: 200.0 ms",
     ]
-    assert lines[-14:-10] == [
+    assert lines[-18:-14] == [
         harness.sort_fixture_report(fresh),
         "sort a task list at 1000 tasks: 100.0 ms",
         "sort landing page at 1000 tasks: 100.0 ms",
         "sort total at 1000 tasks: 200.0 ms",
     ]
-    assert lines[-10].startswith("summary fixture: ")
+    assert lines[-14].startswith("summary fixture: ")
 
 
 def test_timed_move_fixture_is_independent_and_product_data_unchanged(
@@ -3308,8 +3317,8 @@ def test_timed_filter_failures_reach_main_verdict(
     lines = capsys.readouterr().out.splitlines()
     assert status == 1
     assert [line for line in lines if "refused or failed" in line]
-    assert not [line for line in lines[:-18] if "refused" in line or "over" in line]
-    assert not [line for line in lines[-14:] if "refused" in line or "over" in line]
+    assert not [line for line in lines[:-22] if "refused" in line or "over" in line]
+    assert not [line for line in lines[-18:] if "refused" in line or "over" in line]
 
 
 # --- The sort appended to the whole run (CP-451 to CP-456) ----------------------------------------
@@ -3690,9 +3699,9 @@ def test_timed_sort_failures_reach_main_verdict(
 
     lines = capsys.readouterr().out.splitlines()
     assert status == 1
-    assert [line for line in lines[-13:-10] if "refused or failed" in line]
-    assert not [line for line in lines[:-14] if "refused" in line or "over" in line]
-    assert not [line for line in lines[-10:] if "refused" in line or "over" in line]
+    assert [line for line in lines[-17:-14] if "refused or failed" in line]
+    assert not [line for line in lines[:-18] if "refused" in line or "over" in line]
+    assert not [line for line in lines[-14:] if "refused" in line or "over" in line]
 
 
 def test_full_run_keeps_the_sort_block_before_the_summary_block(
@@ -3713,14 +3722,15 @@ def test_full_run_keeps_the_sort_block_before_the_summary_block(
         *SUMMARY_RUN_LABELS,
         *DELETE_RUN_LABELS,
         *RENAME_RUN_LABELS,
+        *PROJECT_DELETE_RUN_LABELS,
     ]
-    assert lines[-14:-10] == [
+    assert lines[-18:-14] == [
         harness.sort_fixture_report(fresh),
         "sort a task list at 1000 tasks: 100.0 ms",
         "sort landing page at 1000 tasks: 100.0 ms",
         "sort total at 1000 tasks: 200.0 ms",
     ]
-    assert lines[-14].endswith("sort priority descending, 1000 listed")
+    assert lines[-18].endswith("sort priority descending, 1000 listed")
 
 
 # --- The project Summary appended to the whole run (CP-503, CP-509) -------------------------------
@@ -4408,7 +4418,7 @@ def test_timed_run_appends_summary_after_all_existing_blocks(
     _, fresh = harness.open_summary_volume(SavedData(tmp_path / "fresh"))
 
     assert status == 0
-    assert [line.split(":")[0] for line in lines[:-10]] == [
+    assert [line.split(":")[0] for line in lines[:-14]] == [
         *OLD_RUN_LABELS,
         *NEW_RUN_LABELS,
         *MOVE_RUN_LABELS,
@@ -4416,7 +4426,7 @@ def test_timed_run_appends_summary_after_all_existing_blocks(
         *SORT_RUN_LABELS,
     ]
     assert loaded == fresh
-    assert lines[-10:-8] == [
+    assert lines[-14:-12] == [
         harness.summary_fixture_report(fresh),
         f"{SUMMARY_LABEL}: 100.0 ms",
     ]
@@ -4476,8 +4486,8 @@ def test_timed_run_includes_summary_failure_in_exit_status(
 
     lines = capsys.readouterr().out.splitlines()
     assert status == 1
-    assert "refused or failed" in lines[-9] and lines[-9].startswith(SUMMARY_LABEL)
-    others = [*lines[:-9], *lines[-8:]]
+    assert "refused or failed" in lines[-13] and lines[-13].startswith(SUMMARY_LABEL)
+    others = [*lines[:-13], *lines[-12:]]
     assert not [line for line in others if "refused" in line or "over" in line]
 
 
@@ -4625,7 +4635,7 @@ def test_full_volume_deletion_measures_post_landing_and_total(
     assert task is not None
 
     assert status == 0
-    assert lines[-8:-4] == [
+    assert lines[-12:-8] == [
         (
             "delete fixture: 1000 tasks, 20 comments each (20000 in all); "
             f"title of {len(task.title)} characters, "
@@ -4635,7 +4645,7 @@ def test_full_volume_deletion_measures_post_landing_and_total(
         "delete landing page at 1000 tasks: 100.0 ms",
         "delete total at 1000 tasks: 200.0 ms",
     ]
-    assert harness.delete_fixture_report(fresh) == lines[-8]
+    assert harness.delete_fixture_report(fresh) == lines[-12]
 
     site, saved_data, seeded = _seeded(harness, tmp_path / "one")
     results = harness.measure_task_delete(site=site, saved_data=saved_data, timer=Ticks(*QUICK))
@@ -4861,14 +4871,14 @@ def test_a_failed_deletion_fails_the_verdict_the_whole_run_returns(
 
 def test_whole_run_keeps_earlier_blocks_and_appends_deletion(whole_run) -> None:
     """CP-543, T15: the Summary immediately precedes the deletion, every earlier block keeps its
-    order and labels, and nothing follows the deletion's rows."""
+    order and labels, and only the rename's and the project deletion's rows follow it."""
     _, status, lines, _, _ = whole_run
     labels = [line.split(":")[0] for line in lines]
 
     assert status == 0
-    assert labels[-10:-8] == list(SUMMARY_RUN_LABELS)
-    assert labels[-8:-4] == list(DELETE_RUN_LABELS)
-    assert labels[-4:] == list(RENAME_RUN_LABELS)
+    assert labels[-14:-12] == list(SUMMARY_RUN_LABELS)
+    assert labels[-12:-8] == list(DELETE_RUN_LABELS)
+    assert labels[-8:-4] == list(RENAME_RUN_LABELS)
     assert labels == [
         *OLD_RUN_LABELS,
         *NEW_RUN_LABELS,
@@ -4878,6 +4888,7 @@ def test_whole_run_keeps_earlier_blocks_and_appends_deletion(whole_run) -> None:
         *SUMMARY_RUN_LABELS,
         *DELETE_RUN_LABELS,
         *RENAME_RUN_LABELS,
+        *PROJECT_DELETE_RUN_LABELS,
     ]
 
 
@@ -5154,18 +5165,19 @@ def test_whole_run_keeps_older_actions_and_appends_rename(
     harness: ModuleType, whole_run, tmp_path: Path
 ) -> None:
     """CP-566, T15: the deletion immediately precedes the rename, every earlier block keeps its
-    place, the rename's fixture is its own and holds the renamed state, and nothing follows it."""
+    place, the rename's fixture is its own and holds the renamed state, and only the project
+    deletion's block follows it."""
     directory, status, lines, _, _ = whole_run
     _, fresh = harness.open_task_volume(SavedData(tmp_path / "fresh"))
 
     assert status == 0
-    assert lines[-4:] == [
+    assert lines[-8:-4] == [
         harness.rename_fixture_report(fresh),
         "rename a project at 1000 tasks: 100.0 ms",
         "rename landing page at 1000 tasks: 100.0 ms",
         "rename total at 1000 tasks: 200.0 ms",
     ]
-    assert [line.split(":")[0] for line in lines][-8:-4] == list(DELETE_RUN_LABELS)
+    assert [line.split(":")[0] for line in lines][-12:-8] == list(DELETE_RUN_LABELS)
     rename_data = SavedData(directory / "rename-volume")
     delete_data = SavedData(directory / "delete-volume")
     assert rename_data.location != delete_data.location
@@ -5173,21 +5185,23 @@ def test_whole_run_keeps_older_actions_and_appends_rename(
     assert delete_data.load() == _without_target(fresh)
 
 
-@pytest.mark.parametrize("failing", ["rename", "delete"])
-def test_a_failed_rename_or_older_action_makes_the_run_exit_nonzero(
+@pytest.mark.parametrize("failing", ["rename", "delete", "project delete"])
+def test_a_failed_rename_or_other_action_makes_the_run_exit_nonzero(
     harness: ModuleType,
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
     monkeypatch: pytest.MonkeyPatch,
     failing: str,
 ) -> None:
-    """CP-566, T15: a refused rename, or a refused older action, alone makes the whole run exit 1,
+    """CP-566, CP-590, T15, T21: a refused rename, project deletion or older action alone makes the
+    whole run exit 1,
     and a complete success (the whole_run fixture) exits 0. `main` offers no seam for its
     measurements, so the harness's measurement is replaced by itself driven through a site that
     refuses, as the older blocks' tests do."""
     name, refused = {
         "rename": ("measure_project_rename", RENAME_REFUSALS["refused"]),
         "delete": ("measure_task_delete", DELETE_REFUSALS["refused"]),
+        "project delete": ("measure_project_delete", PROJECT_DELETE_REFUSALS["refused"]),
     }[failing]
     measure = getattr(harness, name)
 
@@ -5201,3 +5215,488 @@ def test_a_failed_rename_or_older_action_makes_the_run_exit_nonzero(
     lines = capsys.readouterr().out.splitlines()
     assert status == 1
     assert [line for line in lines if line.endswith(" — refused or failed")]
+
+
+# --- The project deletion appended to the whole run (CP-590; T21) ---------------------------------
+
+PD_ID = 1
+PD_NAME = "Volume project"
+PD_SURVIVOR_ID = 2
+PD_SURVIVOR_NAME = "Survivor project"
+PD_OPENING = f"/projects/{PD_ID}/delete"
+PD_CONFIRMING = f"/projects/{PD_ID}/delete/confirm"
+PD_CONFIRMATION = f"/projects/{PD_ID}?project_delete_confirm"
+PROJECT_DELETE_LABELS = (
+    "delete a project at 1000 tasks",
+    "delete project landing page at 1000 tasks",
+    "delete project total at 1000 tasks",
+)
+PROJECT_DELETE_RUN_LABELS = ("project delete fixture", *PROJECT_DELETE_LABELS)
+
+
+def _pd_seeded(harness: ModuleType, tmp_path: Path):
+    saved_data = SavedData(tmp_path)
+    site, seeded = harness.open_project_delete_volume(saved_data)
+    return site, saved_data, seeded
+
+
+def _pd_removed_count(state) -> int:
+    return sum(1 for task in state.tasks if task.project_id == PD_ID)
+
+
+def _pd_after(state):
+    """The expected state, worked out here by dropping one project and the tasks that name it."""
+    return replace(
+        state,
+        projects=tuple(p for p in state.projects if p.id != PD_ID),
+        tasks=tuple(t for t in state.tasks if t.project_id != PD_ID),
+    )
+
+
+def _pd_landing_address(state) -> str:
+    choices = {"deleted_project": PD_NAME, "deleted_project_tasks": str(_pd_removed_count(state))}
+    return f"/?{urlencode(choices)}"
+
+
+def _pd_line(count: int, name: str = PD_NAME) -> str:
+    return f"You deleted '{name}' and its {count} tasks."
+
+
+def _pd_landing(
+    count: int = 750, *, line: str | None = None, heading: str = "Projects", survivor: bool = True
+) -> Response:
+    shown = _pd_line(count) if line is None else line
+    kept = f"<li>{escape(PD_SURVIVOR_NAME)}</li>" if survivor else ""
+    return _page(f'<h1 tabindex="-1">{heading}</h1><p class="created">{escape(shown)}</p>{kept}')
+
+
+def _pd_replace_survivor_task(after, **changes):
+    index = next(i for i, task in enumerate(after.tasks) if task.project_id == PD_SURVIVOR_ID)
+    tasks = list(after.tasks)
+    tasks[index] = replace(tasks[index], **changes)
+    return replace(after, tasks=tuple(tasks))
+
+
+PD_WRONG_STATES = {
+    "no deletion": lambda before, after: before,
+    "tasks removed, project kept": lambda before, after: replace(
+        before, tasks=tuple(t for t in before.tasks if t.project_id != PD_ID)
+    ),
+    "a survivor comment removed": lambda before, after: _pd_replace_survivor_task(
+        after, comments=after.tasks[-1].comments[:-1]
+    ),
+    "a survivor task removed": lambda before, after: replace(after, tasks=after.tasks[1:]),
+    "a survivor task field altered": lambda before, after: _pd_replace_survivor_task(
+        after, title="Another title"
+    ),
+    "survivors reordered": lambda before, after: replace(after, tasks=tuple(reversed(after.tasks))),
+    "the surviving project altered": lambda before, after: replace(
+        after, projects=(replace(after.projects[0], description="Another description."),)
+    ),
+    "the surviving project and its tasks removed too": lambda before, after: replace(
+        after, projects=(), tasks=()
+    ),
+    "assignee list changed": lambda before, after: replace(after, assignees=("Avery Chen",)),
+    "operator name changed": lambda before, after: replace(after, operator_name="Another Name"),
+    "task counter changed": lambda before, after: replace(
+        after, next_task_id=after.next_task_id + 1
+    ),
+    "project counter changed": lambda before, after: replace(
+        after, next_project_id=after.next_project_id + 1
+    ),
+}
+
+
+class AfterProjectDelete:
+    """The real site, with the saved state rewritten once the confirming request has been answered."""
+
+    def __init__(self, site, saved_data: SavedData, change: Callable) -> None:
+        self._site = site
+        self._saved_data = saved_data
+        self._change = change
+        self._before = saved_data.load()
+
+    def handle(self, method: str, target: str, headers: dict[str, str], body: bytes) -> Response:
+        response = self._site.handle(method, target, headers, body)
+        if method == "POST" and target == PD_CONFIRMING:
+            after = self._saved_data.load()
+            assert after is not None and self._before is not None
+            self._saved_data.save(self._change(self._before, after))
+        return response
+
+
+def test_project_delete_measurement_uses_full_volume_and_reports_actual_lengths(
+    harness: ModuleType, whole_run, tmp_path: Path
+) -> None:
+    """CP-590, T21: the fixture holds 1,000 tasks of 20 comments, the deleted project holds tasks and
+    another project holds the survivors, the fixture is saved at a location of its own, and the line
+    states the actual volume and ordinary text lengths read from the loaded fixture."""
+    directory, status, lines, _, _ = whole_run
+    _, fresh = harness.open_project_delete_volume(SavedData(tmp_path / "fresh"))
+    held = [t for t in fresh.tasks if t.project_id == PD_ID]
+    elsewhere = [t for t in fresh.tasks if t.project_id == PD_SURVIVOR_ID]
+    first = min(held, key=lambda t: t.id)
+
+    assert status == 0
+    assert len(fresh.tasks) == 1000 and {len(t.comments) for t in fresh.tasks} == {20}
+    assert held and elsewhere and len(held) + len(elsewhere) == 1000
+    assert [p.name for p in fresh.projects] == [PD_NAME, PD_SURVIVOR_NAME]
+    expected = (
+        "project delete fixture: 1000 tasks, 20 comments each (20000 in all); "
+        f"{len(held)} tasks in the removed project, {len(elsewhere)} elsewhere; "
+        f"project name of {len(PD_NAME)} characters, title of {len(first.title)} characters, "
+        f"comment of {len(first.comments[0].text)} characters"
+    )
+    assert harness.project_delete_fixture_report(fresh) == expected
+    assert lines[-4:] == [
+        expected,
+        "delete a project at 1000 tasks: 100.0 ms",
+        "delete project landing page at 1000 tasks: 100.0 ms",
+        "delete project total at 1000 tasks: 200.0 ms",
+    ]
+    own = SavedData(directory / "project-delete-volume")
+    others = {
+        directory / name
+        for name in (*EARLIER_FIXTURES, "move-volume", "filter-volume", "sort-volume")
+        + ("summary-volume", "delete-volume", "rename-volume")
+    }
+    assert own.location not in others and own.location.parent == directory
+    assert own.load() == _pd_after(fresh)
+
+
+def test_project_delete_measurement_reports_post_landing_and_sum(
+    harness: ModuleType, tmp_path: Path
+) -> None:
+    """CP-590, T21: the opening press, the expected state and the saved readback sit outside the two
+    timed requests; the three labelled readings are the POST, the landing and their sum, without the
+    gap between them."""
+    site, saved_data, seeded = _pd_seeded(harness, tmp_path / "data")
+    events: list[str] = []
+
+    class Logged(Intercept):
+        def handle(self, method, target, headers, body):  # type: ignore[no-untyped-def]
+            events.append(f"{method} {target}")
+            return super().handle(method, target, headers, body)
+
+    class LoggedData:
+        location = saved_data.location
+
+        @staticmethod
+        def load():  # type: ignore[no-untyped-def]
+            events.append("load")
+            return saved_data.load()
+
+    readings = iter((0.0, 0.2, 5.0, 5.3))
+
+    def timer() -> float:
+        events.append("tick")
+        return next(readings)
+
+    recording = Logged(site)
+    results = harness.measure_project_delete(site=recording, saved_data=LoggedData(), timer=timer)
+
+    assert [(r.label, r.created) for r in results] == [(l, True) for l in PROJECT_DELETE_LABELS]
+    assert [r.seconds for r in results] == pytest.approx([0.2, 0.3, 0.5])
+    ticks = [i for i, event in enumerate(events) if event == "tick"]
+    assert len(ticks) == 4
+    assert events.index(f"POST {PD_OPENING}") < ticks[0]
+    assert events[ticks[0] + 1 : ticks[1]] == [f"POST {PD_CONFIRMING}"]
+    assert events[ticks[1] + 1 : ticks[2]] == ["load"]
+    assert events[ticks[2] + 1 : ticks[3]] == [f"GET {_pd_landing_address(seeded)}"]
+    assert saved_data.load() == _pd_after(seeded)
+
+
+@pytest.mark.parametrize("wrong", PD_WRONG_STATES.keys())
+def test_project_delete_measurement_checks_exact_saved_state(
+    harness: ModuleType, tmp_path: Path, wrong: str
+) -> None:
+    """CP-590, T21: a saved state that is not exactly the fixture without the project, its tasks and
+    their comments fails the POST and the total, however the page answers. The oracle is built here
+    by dropping one project and its tasks, and never by the deletion rule."""
+    site, saved_data, _ = _pd_seeded(harness, tmp_path / "data")
+    mutated = AfterProjectDelete(site, saved_data, PD_WRONG_STATES[wrong])
+
+    results = harness.measure_project_delete(
+        site=mutated, saved_data=saved_data, timer=Ticks(*QUICK)
+    )
+
+    assert not results[0].created
+    assert not results[2].created
+
+
+def test_project_delete_measurement_accepts_the_exact_cascade(
+    harness: ModuleType, tmp_path: Path
+) -> None:
+    """CP-590, T21: the true cascade passes, and the survivors keep their values and positions."""
+    site, saved_data, seeded = _pd_seeded(harness, tmp_path / "data")
+
+    results = harness.measure_project_delete(site=site, saved_data=saved_data, timer=Ticks(*QUICK))
+
+    after = saved_data.load()
+    assert [r.created for r in results] == [True, True, True]
+    assert after == _pd_after(seeded)
+    assert [t.id for t in after.tasks] == [t.id for t in seeded.tasks if t.project_id != PD_ID]
+    assert (after.next_task_id, after.next_project_id) == (
+        seeded.next_task_id,
+        seeded.next_project_id,
+    )
+
+
+PROJECT_DELETE_LANDINGS = {
+    "wrong status": Response(404, (("Content-Type", "text/html"),), b"<p>no</p>"),
+    "the right page under a wrong status": Response(
+        404, (("Content-Type", "text/html"),), _pd_landing().body
+    ),
+    "no completion": _page('<h1 tabindex="-1">Projects</h1>' + escape(PD_SURVIVOR_NAME)),
+    "wrong name": _pd_landing(line=_pd_line(750, "Another project")),
+    "wrong count": _pd_landing(749),
+    "another count": _pd_landing(751),
+    "not the Projects page": _pd_landing(heading=escape(PD_NAME)),
+    "survivor missing": _pd_landing(survivor=False),
+}
+
+
+@pytest.mark.parametrize("landing", PROJECT_DELETE_LANDINGS.keys())
+def test_project_delete_measurement_checks_actual_completion(
+    harness: ModuleType, tmp_path: Path, landing: str
+) -> None:
+    """CP-590, T21: a landing that is not a 200 Projects page, or lacks the removed name and the
+    actual count, fails the landing row and the total; the POST row alone still counts."""
+    site, saved_data, seeded = _pd_seeded(harness, tmp_path / "data")
+    assert _pd_removed_count(seeded) == 750
+    recording = Intercept(
+        site, lambda m, t: PROJECT_DELETE_LANDINGS[landing] if m == "GET" else None
+    )
+
+    results = harness.measure_project_delete(
+        site=recording, saved_data=saved_data, timer=Ticks(*QUICK)
+    )
+
+    assert [r.created for r in results] == [True, False, False]
+
+
+def test_project_delete_measurement_accepts_the_actual_completion(
+    harness: ModuleType, tmp_path: Path
+) -> None:
+    """CP-590, T21: the same page the fake landings imitate, served as the true answer, counts."""
+    site, saved_data, _ = _pd_seeded(harness, tmp_path / "data")
+    recording = Intercept(site, lambda m, t: _pd_landing() if m == "GET" else None)
+
+    results = harness.measure_project_delete(
+        site=recording, saved_data=saved_data, timer=Ticks(*QUICK)
+    )
+
+    assert [r.created for r in results] == [True, True, True]
+
+
+PROJECT_DELETE_REFUSALS = {
+    "refused": lambda m, t: _page("<p>no</p>") if (m, t) == ("POST", PD_CONFIRMING) else None,
+    "failed": lambda m, t: (
+        Response(500, (("Content-Type", "text/html"),), b"<p>no</p>")
+        if (m, t) == ("POST", PD_CONFIRMING)
+        else None
+    ),
+    "the project page again": lambda m, t: (
+        _found(f"/projects/{PD_ID}") if (m, t) == ("POST", PD_CONFIRMING) else None
+    ),
+    "a failure address": lambda m, t: (
+        _found(f"/projects/{PD_ID}?project_delete_failed")
+        if (m, t) == ("POST", PD_CONFIRMING)
+        else None
+    ),
+    "a wrong destination": lambda m, t: (
+        _found(f"/projects/{PD_SURVIVOR_ID}") if (m, t) == ("POST", PD_CONFIRMING) else None
+    ),
+    "a wrong name": lambda m, t: (
+        _found("/?deleted_project=Another&deleted_project_tasks=750")
+        if (m, t) == ("POST", PD_CONFIRMING)
+        else None
+    ),
+    "a wrong count": lambda m, t: (
+        _found("/?deleted_project=Volume+project&deleted_project_tasks=749")
+        if (m, t) == ("POST", PD_CONFIRMING)
+        else None
+    ),
+    "not a see-other": lambda m, t: (
+        Response(
+            302, (("Location", "/?deleted_project=Volume+project&deleted_project_tasks=750"),), b""
+        )
+        if (m, t) == ("POST", PD_CONFIRMING)
+        else None
+    ),
+}
+
+
+@pytest.mark.parametrize("refusal", PROJECT_DELETE_REFUSALS.keys())
+def test_project_delete_measurement_requires_a_successful_confirming_action(
+    harness: ModuleType, tmp_path: Path, refusal: str
+) -> None:
+    """CP-590, T21: a refused or failed confirming press, a status that is not 303 or a wrong
+    Location is no completed deletion; the landing is not requested and the total fails."""
+    site, saved_data, _ = _pd_seeded(harness, tmp_path / "data")
+    recording = Intercept(site, PROJECT_DELETE_REFUSALS[refusal])
+
+    results = harness.measure_project_delete(
+        site=recording, saved_data=saved_data, timer=Ticks(0.0, 0.1)
+    )
+
+    assert [r.created for r in results] == [False, False, False]
+    assert [r.label for r in results] == list(PROJECT_DELETE_LABELS)
+    assert not [r for r in recording.requests if r[0] == "GET"]
+
+
+@pytest.mark.parametrize("refusal", ["refused", "wrong location", "failed"])
+def test_project_delete_measurement_requires_a_successful_opening_press(
+    harness: ModuleType, tmp_path: Path, refusal: str
+) -> None:
+    """CP-590, T21: a refused, failed or misdirected opening press is no confirmation to measure;
+    nothing is timed or confirmed, and nothing is saved."""
+    site, saved_data, seeded = _pd_seeded(harness, tmp_path / "data")
+    answers = {
+        "refused": _page("<p>no</p>"),
+        "wrong location": _found(f"/projects/{PD_ID}"),
+        "failed": Response(500, (("Content-Type", "text/html"),), b"<p>no</p>"),
+    }
+    recording = Intercept(site, lambda m, t: answers[refusal] if t == PD_OPENING else None)
+
+    results = harness.measure_project_delete(
+        site=recording, saved_data=saved_data, timer=Ticks(*QUICK)
+    )
+
+    assert [r.created for r in results] == [False, False, False]
+    assert [r.label for r in results] == list(PROJECT_DELETE_LABELS)
+    assert [r[:2] for r in recording.requests] == [("POST", PD_OPENING)]
+    assert saved_data.load() == seeded
+
+
+def test_project_delete_measurement_marks_both_presses_same_origin(
+    harness: ModuleType, tmp_path: Path
+) -> None:
+    """CP-590, QC-32, T21: both POSTs reach the site with the same-origin mark and the site's own
+    host, which the passed-in wrapper reads; a mark the site would refuse fails the run."""
+    site, saved_data, seeded = _pd_seeded(harness, tmp_path / "data")
+    recording = Intercept(site)
+
+    results = harness.measure_project_delete(
+        site=recording, saved_data=saved_data, timer=Ticks(*QUICK)
+    )
+
+    assert all(r.created for r in results)
+    opening, confirming, landing = recording.requests
+    assert opening[:2] == ("POST", PD_OPENING) and confirming[:2] == ("POST", PD_CONFIRMING)
+    assert opening[2]["Sec-Fetch-Site"] == "same-origin"
+    assert confirming[2]["Sec-Fetch-Site"] == "same-origin"
+    assert opening[2]["Host"] == confirming[2]["Host"] == harness.HOST
+    assert landing[:2] == ("GET", _pd_landing_address(seeded))
+
+
+def test_project_delete_measurement_fails_when_the_site_refuses_the_mark(
+    harness: ModuleType, tmp_path: Path
+) -> None:
+    """CP-590, QC-32, T21: through a wrapper that strips the same-origin mark, the real site refuses
+    the opening press with a 403, so every row fails and nothing is saved."""
+    site, saved_data, seeded = _pd_seeded(harness, tmp_path / "data")
+
+    class Unmarked:
+        @staticmethod
+        def handle(method, target, headers, body):  # type: ignore[no-untyped-def]
+            kept = {k: v for k, v in headers.items() if k != "Sec-Fetch-Site"}
+            return site.handle(method, target, kept, body)
+
+    results = harness.measure_project_delete(
+        site=Unmarked(), saved_data=saved_data, timer=Ticks(*QUICK)
+    )
+
+    assert [r.created for r in results] == [False, False, False]
+    assert saved_data.load() == seeded
+
+
+@pytest.mark.parametrize(
+    "readings,expected",
+    [
+        ((0.0, 0.4, 5.0, 5.5), []),
+        ((0.0, 1.0, 5.0, 5.1), [PROJECT_DELETE_LABELS[0], PROJECT_DELETE_LABELS[2]]),
+        ((0.0, 0.1, 5.0, 6.0), [PROJECT_DELETE_LABELS[1], PROJECT_DELETE_LABELS[2]]),
+        ((0.0, 0.5, 5.0, 5.5), [PROJECT_DELETE_LABELS[2]]),
+        ((0.0, 0.9, 5.0, 5.9), [PROJECT_DELETE_LABELS[2]]),
+        ((0.0, 1.5, 5.0, 5.1), [PROJECT_DELETE_LABELS[0], PROJECT_DELETE_LABELS[2]]),
+    ],
+    ids=[
+        "just below",
+        "post exactly 1 s",
+        "landing exactly 1 s",
+        "sum exactly 1 s",
+        "two fast intervals whose sum is over",
+        "post over",
+    ],
+)
+def test_project_delete_each_interval_and_total_must_be_under_one_second(
+    harness: ModuleType,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    readings: tuple[float, float, float, float],
+    expected: list[str],
+) -> None:
+    """CP-590, T21: the POST, the landing and their sum each pass only strictly below one second;
+    equality fails, and so does a sum over the limit with each part below it. A fully fast correct
+    action passes."""
+    status = harness.main(tmp_path, _run_readings(project_delete=readings))
+
+    lines = capsys.readouterr().out.splitlines()
+    assert [line.split(":")[0] for line in lines if "over" in line] == expected
+    assert status == (1 if expected else 0)
+
+
+def test_whole_run_appends_project_deletion_and_keeps_every_older_action(
+    harness: ModuleType, whole_run, tmp_path: Path
+) -> None:
+    """CP-590, T21: the rename immediately precedes the project deletion, every earlier block keeps
+    its labels and place, the saved delta of each is unchanged, and nothing follows the new block."""
+    directory, status, lines, before, after = whole_run
+    labels = [line.split(":")[0] for line in lines]
+    _, fresh = harness.open_task_volume(SavedData(tmp_path / "fresh"))
+
+    assert status == 0
+    assert labels[-8:-4] == list(RENAME_RUN_LABELS)
+    assert labels[-4:] == list(PROJECT_DELETE_RUN_LABELS)
+    assert labels == [
+        *OLD_RUN_LABELS,
+        *NEW_RUN_LABELS,
+        *MOVE_RUN_LABELS,
+        *FILTER_RUN_LABELS,
+        *SORT_RUN_LABELS,
+        *SUMMARY_RUN_LABELS,
+        *DELETE_RUN_LABELS,
+        *RENAME_RUN_LABELS,
+        *PROJECT_DELETE_RUN_LABELS,
+    ]
+    assert SavedData(directory / "rename-volume").load() == _renamed(fresh)
+    assert SavedData(directory / "delete-volume").load() == _without_target(fresh)
+    assert after == before
+
+
+@pytest.mark.parametrize("failing", ["refused", "wrong landing"])
+def test_a_failed_project_deletion_fails_the_verdict_the_whole_run_returns(
+    harness: ModuleType,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    failing: str,
+) -> None:
+    """CP-590, T21: a refused project deletion, or one that lands wrong, is printed as refused or
+    failed and makes its verdict 1, however quick."""
+    site, saved_data, _ = _pd_seeded(harness, tmp_path / "data")
+    answers = {
+        "refused": PROJECT_DELETE_REFUSALS["refused"],
+        "wrong landing": lambda m, t: _page("<p>no</p>") if m == "GET" else None,
+    }
+    results = harness.measure_project_delete(
+        site=Intercept(site, answers[failing]), saved_data=saved_data, timer=Ticks(*QUICK)
+    )
+
+    status = harness.verdict(results, harness.LIMIT_SECONDS)
+
+    lines = capsys.readouterr().out.splitlines()
+    assert status == 1
+    assert [line.split(":")[0] for line in lines] == list(PROJECT_DELETE_LABELS)
+    assert [line for line in lines if line.endswith(" — refused or failed")]
+    assert not [line for line in lines if "over" in line]

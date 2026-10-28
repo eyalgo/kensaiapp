@@ -3,7 +3,8 @@
 Checks SRS FR-10 (create a project), FR-11 (list projects), FR-12 (rename a project, leaving its
 tasks the same tasks), FR-39 and FR-40 (refusals and maximum lengths), DR-1 (the project entity) and
 AC-12 (each refusal gives its own reason). Change spec rules CP-12 to CP-16 and CP-20 are the ones
-the creation tests name; CP-551 to CP-555 and CP-558 are the ones the rename tests name.
+the creation tests name; CP-551 to CP-555 and CP-558 are the ones the rename tests name; CP-575,
+CP-576, CP-581 and CP-582 are the ones the project deletion tests name (SRS FR-13).
 """
 
 from __future__ import annotations
@@ -17,8 +18,10 @@ from domain import (
     LONG_TEXT_MAX,
     SHORT_TEXT_MAX,
     BlankName,
+    Comment,
     NameInUse,
     Project,
+    ProjectDeletionOutcome,
     ProjectNotFound,
     ProjectRenameOutcome,
     Refusal,
@@ -29,10 +32,13 @@ from domain import (
     add_task_comment,
     add_task_label,
     create_project,
+    delete_project,
     empty_state,
     find_project,
     list_projects,
     rename_project,
+    restore_state,
+    restore_task,
     set_operator_name,
 )
 from errors import AppError
@@ -342,3 +348,156 @@ def test_creation_still_refuses_the_description_before_a_blank_name():
         create_project(state, "   ", "d" * 4001)
 
     assert refused.value.field is TextField.DESCRIPTION
+
+
+DELETION_WRITTEN_AT = datetime(2026, 10, 28, 8, 0, tzinfo=UTC)
+
+
+def _saved_task(**changes):
+    values = {
+        "id": 1,
+        "project_id": 1,
+        "title": "Plan",
+        "status": "todo",
+        "priority": "medium",
+        "assignee": None,
+        "labels": (),
+        "due_date": None,
+        "created_at": DELETION_WRITTEN_AT,
+        "comments": (),
+    }
+    values.update(changes)
+    return restore_task(**values)
+
+
+def _comments(count: int) -> list[Comment]:
+    return [
+        Comment(text=f"Note {number}", author="Dana", created_at=DELETION_WRITTEN_AT)
+        for number in range(count)
+    ]
+
+
+def _state_for_project_deletion():
+    """Project 2 holds a task in each status, with comments, interleaved among project 1 and 3."""
+    tasks = (
+        _saved_task(id=9, project_id=1, title="Survivor nine", comments=_comments(1)),
+        _saved_task(id=4, project_id=2, title="Todo", status="todo", comments=_comments(2)),
+        _saved_task(id=6, project_id=3, title="Survivor six"),
+        _saved_task(id=2, project_id=2, title="Running", status="in-progress"),
+        _saved_task(id=8, project_id=1, title="Survivor eight", labels=["bug"]),
+        _saved_task(id=5, project_id=2, title="Finished", status="done", comments=_comments(3)),
+        _saved_task(id=3, project_id=2, title="Dropped", status="cancelled"),
+    )
+    return restore_state(
+        [(1, "Alpha", "first"), (2, "Beta", "second"), (3, "Gamma", "")],
+        4,
+        ["Dana", "Ari"],
+        tasks=tasks,
+        next_task_id=10,
+        operator_name="Dana",
+    )
+
+
+def test_delete_project_removes_only_its_tasks_and_comments():
+    """CP-575: the project, all four statuses of its tasks and their comments go; survivors stay."""
+    state = _state_for_project_deletion()
+
+    after, _ = delete_project(state, 2)
+
+    assert [project.id for project in after.projects] == [1, 3]
+    assert after.tasks == (state.tasks[0], state.tasks[2], state.tasks[4])
+    assert [task.id for task in after.tasks] == [9, 6, 8]
+    assert [len(task.comments) for task in after.tasks] == [1, 0, 0]
+    assert all(task.project_id != 2 for task in after.tasks)
+
+
+def test_delete_empty_project_preserves_every_other_value():
+    """CP-575, CP-576: no tasks still removes the project and reports zero; the rest is untouched."""
+    held = restore_state(
+        [(1, "Alpha", ""), (2, "Beta", "")],
+        3,
+        ["Dana"],
+        tasks=(_saved_task(id=1, project_id=1, comments=_comments(2)),),
+        next_task_id=2,
+        operator_name="Dana",
+    )
+
+    after, outcome = delete_project(held, 2)
+
+    assert outcome == ProjectDeletionOutcome(project=Project(2, "Beta", ""), task_count=0)
+    assert after.projects == (Project(1, "Alpha", ""),)
+    assert after.tasks == held.tasks
+    assert (after.assignees, after.operator_name) == (("Dana",), "Dana")
+    assert (after.next_project_id, after.next_task_id) == (3, 2)
+
+
+@pytest.mark.parametrize(
+    ("project_id", "task_count"), [(3, 1), (1, 2), (2, 4)], ids=["one", "two", "many"]
+)
+def test_delete_project_reports_the_removed_project_and_actual_task_count(project_id, task_count):
+    """CP-576: the count is every task in every status, never comments, from this call's state."""
+    state = _state_for_project_deletion()
+
+    _, outcome = delete_project(state, project_id)
+
+    assert outcome.project == next(
+        project for project in state.projects if project.id == project_id
+    )
+    assert outcome.task_count == task_count
+
+
+def test_delete_project_returns_the_name_supplied_in_this_calls_state():
+    """CP-576: the name and count come from the state handed in, not from an earlier read."""
+    state = _state_for_project_deletion()
+    renamed, _ = rename_project(state, 2, "Beta, renamed")
+
+    _, outcome = delete_project(renamed, 2)
+
+    assert outcome.project.name == "Beta, renamed"
+    assert outcome.task_count == 4
+
+
+def test_delete_project_leaves_the_input_unchanged():
+    """CP-575, CP-582: the supplied state keeps every value; result and outcome are immutable."""
+    state = _state_for_project_deletion()
+    snapshot = _state_for_project_deletion()
+
+    after, outcome = delete_project(state, 2)
+
+    assert state == snapshot
+    assert after is not state
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        after.next_task_id = 1  # type: ignore[misc]
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        outcome.task_count = 0  # type: ignore[misc]
+
+
+@pytest.mark.parametrize("repeated", [False, True], ids=["never-held", "already-removed"])
+def test_delete_missing_project_is_refused(repeated):
+    """CP-582: an absent identity raises ProjectNotFound and produces no changed state."""
+    state = _state_for_project_deletion()
+    snapshot = _state_for_project_deletion()
+    target = 99
+    if repeated:
+        state, _ = delete_project(state, 2)
+        snapshot = state
+        target = 2
+
+    with pytest.raises(ProjectNotFound):
+        delete_project(state, target)
+
+    assert state == snapshot
+
+
+@pytest.mark.parametrize("project_id", [3, 2, 1])
+def test_delete_project_never_rewinds_identity_counters(project_id):
+    """CP-581: removing the highest or any identity lowers neither counter."""
+    state = _state_for_project_deletion()
+
+    after, _ = delete_project(state, project_id)
+
+    assert (after.next_project_id, after.next_task_id) == (4, 10)
+    created, project = create_project(after, "Delta", "")
+    created, task = add_task(created, project.id, "Fresh", "", "", "", DELETION_WRITTEN_AT)
+    assert project.id == 4
+    assert task.id == 10

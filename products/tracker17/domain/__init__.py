@@ -33,8 +33,10 @@ from domain.operator_name import OperatorNameOutcome, check_operator_name, set_o
 from domain.priorities import DEFAULT_PRIORITY, PRIORITY_CHOICES, Priority, parse_priority
 from domain.projects import (
     Project,
+    ProjectDeletionOutcome,
     ProjectRenameOutcome,
     create_project,
+    delete_project,
     find_project,
     list_projects,
     rename_project,
@@ -155,6 +157,7 @@ __all__ = [
     "Priority",
     "PriorityCount",
     "Project",
+    "ProjectDeletionOutcome",
     "ProjectListRefused",
     "ProjectNotFound",
     "ProjectRenameOutcome",
@@ -199,6 +202,7 @@ __all__ = [
     "check_saved_labels",
     "create_comment",
     "create_project",
+    "delete_project",
     "delete_task",
     "edit_task",
     "empty_state",

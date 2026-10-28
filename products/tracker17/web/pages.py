@@ -265,6 +265,16 @@ class DeleteArea:
 
 
 @dataclass(frozen=True)
+class ProjectDeletion:
+    """A recognized project-deletion completion: the removed project's name as it was when the
+    deletion ran and the number of tasks it removed, which may be zero. Presentation values only;
+    the rule and the count are `domain`'s."""
+
+    name: str
+    task_count: int
+
+
+@dataclass(frozen=True)
 class StripForm:
     """One of the strip's two forms: the control's words, where it goes, how, and its hidden fields.
 
@@ -583,18 +593,30 @@ def projects_page(
     failed: bool = False,
     name: str = "",
     description: str = "",
+    deleted: ProjectDeletion | None = None,
 ) -> str:
     """The Projects page: the list, and the create form with a reason or a failure when given.
 
     `refusal` is one of the three refusal codes; `field` says which field was too long. A refused
     or failed page puts focus on the control used. Over-long refusals carry no typed values, so the
     caller hands none.
+
+    A `deleted` completion opens the page on its heading, which the one completion line describes,
+    with the list or the no-projects state beneath; nothing else on the page takes focus then.
     """
-    body = (
-        "<h1>Projects</h1>\n"
-        f"{_projects_list(projects)}"
-        f"{_create_form(refusal, field, failed, name, description)}"
-    )
+    heading = "<h1>Projects</h1>\n"
+    line = ""
+    form = _create_form(refusal, field, failed, name, description)
+    if deleted is not None:
+        heading = (
+            f'<h1 tabindex="-1" autofocus aria-describedby="{DELETED_PROJECT_ID}">Projects</h1>\n'
+        )
+        line = (
+            f'<p class="created" id="{DELETED_PROJECT_ID}">'
+            f"{_escape(_deleted_project_line(deleted))}</p>\n"
+        )
+        form = _without_focus(form)
+    body = f"{heading}{line}{_projects_list(projects)}{form}"
     return _document("Projects - tracker17", body)
 
 
@@ -866,6 +888,93 @@ def _delete_section(task: Task, mode: DeleteMode) -> str:
         '<div class="moves"><div class="move-slot">'
         f'<form method="post" action="{DELETE_ADDRESS.format(task_id=task.id)}">'
         f'<button type="submit" class="delete-button"{focus}>{_escape(DELETE_LABEL)}</button>'
+        "</form></div></div>\n"
+        f"{line}"
+        "</section>\n"
+    )
+
+
+FULL_SIZE = "control"
+PROJECT_DELETE_LABEL = "Delete project"
+PROJECT_DELETE_ADDRESS = "/projects/{project_id}/delete"
+PROJECT_DELETE_CONFIRM_ADDRESS = "/projects/{project_id}/delete/confirm"
+PROJECT_DELETE_BACK_KEY = "project_delete_back"
+_PROJECT_DELETE_SECTION_ID = "delete-project"
+_PROJECT_DELETE_FAILURE_ID = "delete-project-failure"
+DELETED_PROJECT_ID = "deleted-project-line"
+
+
+def _tasks_phrase(count: int) -> str:
+    return "1 task" if count == 1 else f"{count} tasks"
+
+
+def project_delete_sentence(name: str, task_count: int) -> str:
+    """The confirmation sentence: one form each for no tasks, one task and many (text record)."""
+    if task_count == 0:
+        return f"Delete '{name}', which has no tasks? You can't undo this."
+    return f"Delete '{name}' and its {_tasks_phrase(task_count)}? You can't undo this."
+
+
+def _project_delete_failure(name: str) -> str:
+    return f"The tracker couldn't delete the project '{name}', and nothing was changed. Try again."
+
+
+def _deleted_project_line(deletion: ProjectDeletion) -> str:
+    if deletion.task_count == 0:
+        return f"You deleted '{deletion.name}', which had no tasks."
+    return f"You deleted '{deletion.name}' and its {_tasks_phrase(deletion.task_count)}."
+
+
+def _project_delete_section(
+    project: Project, mode: DeleteMode, task_count: int, carried: Carried
+) -> str:
+    """The project-level Delete project area, after the list and before Rename and outside every
+    form of the page: the control, or the shared confirmation in the control's place, or the
+    control restored with focus and, after a failed save, the one line that describes it. The
+    filter and sort choices travel in every form it sends (CP-572)."""
+    if mode is DeleteMode.CONFIRMATION:
+        strip = confirm_strip(
+            sentence=project_delete_sentence(project.name, task_count),
+            sentence_id=CONFIRM_SENTENCE_ID,
+            confirm=StripForm(
+                PROJECT_DELETE_LABEL,
+                PROJECT_DELETE_CONFIRM_ADDRESS.format(project_id=project.id),
+                "post",
+                {},
+                carried,
+            ),
+            back_out=StripForm(
+                BACK_OUT_LABEL,
+                _project_address(project),
+                "get",
+                {PROJECT_DELETE_BACK_KEY: ""},
+                carried,
+            ),
+            size=FULL_SIZE,
+            focus=True,
+        )
+        return (
+            f'<section id="{_PROJECT_DELETE_SECTION_ID}" class="sheet">\n'
+            f'<div class="moves"><div class="move-slot">{strip}</div></div>\n'
+            "</section>\n"
+        )
+    failed = mode is DeleteMode.FAILED
+    focus = " autofocus" if mode is not DeleteMode.ORDINARY else ""
+    if failed:
+        focus += f' aria-describedby="{_PROJECT_DELETE_FAILURE_ID}"'
+    line = (
+        f'<p class="reason" id="{_PROJECT_DELETE_FAILURE_ID}">'
+        f"{_escape(_project_delete_failure(project.name))}</p>\n"
+        if failed
+        else ""
+    )
+    return (
+        f'<section id="{_PROJECT_DELETE_SECTION_ID}" class="sheet">\n'
+        '<div class="moves"><div class="move-slot">'
+        f'<form method="post" action="{PROJECT_DELETE_ADDRESS.format(project_id=project.id)}">'
+        f"{_hidden(carried)}"
+        f'<button type="submit" class="button-secondary"{focus}>'
+        f"{_escape(PROJECT_DELETE_LABEL)}</button>"
         "</form></div></div>\n"
         f"{line}"
         "</section>\n"
@@ -1732,6 +1841,21 @@ def _takes_focus(markup: str) -> bool:
     return any(_AUTOFOCUS.search(_QUOTED.sub("", tag)) for tag in _TAG.findall(markup))
 
 
+_ATTRIBUTE_OR_QUOTED = re.compile(r'"[^"]*"|\sautofocus(?=[\s>])')
+
+
+def _without_focus(markup: str) -> str:
+    """The markup with every `autofocus` attribute the page itself wrote taken out, read from its
+    tags only: a quoted value, which may hold the word as typed text, is left as it is."""
+
+    def cleaned(tag: re.Match[str]) -> str:
+        return _ATTRIBUTE_OR_QUOTED.sub(
+            lambda found: found.group(0) if found.group(0).startswith('"') else "", tag.group(0)
+        )
+
+    return _TAG.sub(cleaned, markup)
+
+
 def _rename_outcome(area: ProjectRenameArea) -> _RenameOutcome | None:
     """The one outcome to show: refusal, then failure, then completion; None for a plain area."""
     if area.refusal is not None:
@@ -1829,6 +1953,7 @@ def project_page(
     off_list_task: Task | None = None,
     deleted_task: str | None = None,
     rename_area: ProjectRenameArea | None = None,
+    delete_area: DeleteArea | None = None,
 ) -> str:
     """One project's page: its add-task form, its tasks in the order and with the overdue flags
     handed in, and below every result state its Rename area. With `created`, it opens on its heading and the created line. With a
@@ -1849,7 +1974,18 @@ def project_page(
     The Rename area follows the same one-focus rule: where any other part of the page takes the
     focus, the area is the ordinary one, with the saved name and no line, whatever `rename_area`
     carries.
+
+    The Delete project section stands between the results and the Rename area in every state. An
+    active `delete_area` (a failure, a confirmation or a back-out, already resolved by the caller)
+    wins over every move marker, the deleted-task line and the created line, and owns the one focus:
+    the add-task form and the Rename area keep what their own outcomes display but give up theirs.
+    The confirmation counts the whole project, `listing.task_count`, never the rows shown.
     """
+    delete_mode = delete_area.mode if delete_area is not None else DeleteMode.ORDINARY
+    deleting = delete_mode is not DeleteMode.ORDINARY
+    if deleting:
+        created, deleted_task = False, None
+        move_outcome, move_interaction, off_list_task = None, None, None
     if deleted_task:
         created, form = False, None
         move_outcome, move_interaction, off_list_task = None, None, None
@@ -1898,8 +2034,16 @@ def project_page(
         f"{_add_task_form(project, assignees, priority_choices, form or TaskForm())}"
         f"{under_form}"
     )
-    area = ProjectRenameArea() if _takes_focus(body) else rename_area or ProjectRenameArea()
-    body += _rename_section(project, area)
+    task_count = listing.task_count if listing is not None else len(rows)
+    carried = _carried_pairs(listing) if listing is not None else ()
+    delete_section = _project_delete_section(project, delete_mode, task_count, carried)
+    if deleting:
+        rename = _without_focus(_rename_section(project, rename_area or ProjectRenameArea()))
+        body = _without_focus(body)
+    else:
+        area = ProjectRenameArea() if _takes_focus(body) else rename_area or ProjectRenameArea()
+        rename = _rename_section(project, area)
+    body += delete_section + rename
     return _document(f"{project.name}: Tasks - tracker17", body)
 
 

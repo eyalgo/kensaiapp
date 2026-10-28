@@ -35,7 +35,12 @@ def press_delete(world: World, task: int | str = 1) -> Response:
 
 
 def task_root(world: World, query: str = "", task: int = 1) -> Element:
-    return parse(page(get(world.site, f"/tasks/{task}{query}")))
+    """The task's page for this query, checked to answer 202 exactly when it shows a confirmation
+    (CP-583) and 200 otherwise."""
+    response = get(world.site, f"/tasks/{task}{query}")
+    root = parse(response.body.decode())
+    assert response.status == (202 if strips(root) else 200), query
+    return root
 
 
 def delete_forms(root: Element) -> list[Element]:
@@ -113,13 +118,18 @@ def test_delete_control_is_task_level_in_every_status(
 
 
 def test_no_list_row_offers_deletion(tmp_path: Path) -> None:
-    """CP-529: neither a project's rows nor All tasks' rows carry a delete form."""
+    """CP-529, CP-569, T15: no task row carries a delete form, and All tasks offers no deletion;
+    a project's Tasks view offers only its own Delete project section, outside the table."""
     world = world_with(tmp_path)
-    for address in ("/projects/1", "/tasks"):
-        shown = page(get(world.site, address))
-        root = parse(shown)
-        assert delete_forms(root) == [], address
-        assert "Delete" not in shown, address
+    shown = page(get(world.site, "/tasks"))
+    assert delete_forms(parse(shown)) == [] and "Delete" not in shown
+    root = parse(page(get(world.site, "/projects/1")))
+    assert delete_forms(root) == []
+    for table in root.find_all("table"):
+        assert [f for f in table.find_all("form") if "/delete" in f.attrs["action"]] == []
+    assert [f.attrs["action"] for f in root.find_all("form") if "/delete" in f.attrs["action"]] == [
+        "/projects/1/delete"
+    ]
 
 
 def test_delete_first_press_opens_confirmation_without_saving(tmp_path: Path) -> None:
@@ -131,8 +141,8 @@ def test_delete_first_press_opens_confirmation_without_saving(tmp_path: Path) ->
     assert location(response) == "/tasks/1?delete_confirm"
     assert header(response, "Cache-Control") is None
     shown = get(world.site, "/tasks/1?delete_confirm")
-    assert shown.status == 200 and header(shown, "Cache-Control") == "no-store"
-    root = parse(page(shown))
+    assert shown.status == 202 and header(shown, "Cache-Control") == "no-store"
+    root = parse(page(shown, 202))
     (strip,) = strips(root)
     sentence = root.by_id("confirm-sentence")
     assert sentence is not None and sentence.text() == SENTENCE
@@ -261,7 +271,8 @@ def test_an_active_deletion_suppresses_every_other_outcome_and_focus(
     world.tracker.add_task_comment(1, "One")
     world.tracker.add_task_label(1, "ui")
     shown = get(world.site, f"/tasks/1?{marker}&{noise}")
-    root = parse(page(shown))
+    assert shown.status == (202 if marker == "delete_confirm" else 200)
+    root = parse(shown.body.decode())
     (target,) = focused(root)
     if marker == "delete_confirm":
         assert target.attrs["id"] == "confirm-sentence" and len(strips(root)) == 1

@@ -79,6 +79,13 @@ MOVE_PATTERN = re.compile(r"/tasks/([0-9]+)/move")
 CONFIRM_MOVE_PATTERN = re.compile(r"/tasks/([0-9]+)/move/confirm")
 DELETE_PATTERN = re.compile(r"/tasks/([0-9]+)/delete")
 CONFIRM_DELETE_PATTERN = re.compile(r"/tasks/([0-9]+)/delete/confirm")
+PROJECT_DELETE_PATTERN = re.compile(r"/projects/([0-9]+)/delete")
+CONFIRM_PROJECT_DELETE_PATTERN = re.compile(r"/projects/([0-9]+)/delete/confirm")
+PROJECT_DELETE_CONFIRM_KEY = "project_delete_confirm"
+PROJECT_DELETE_BACK_KEY = pages.PROJECT_DELETE_BACK_KEY
+PROJECT_DELETE_FAILED_KEY = "project_delete_failed"
+DELETED_PROJECT_KEY = "deleted_project"
+DELETED_PROJECT_TASKS_KEY = "deleted_project_tasks"
 DELETE_CONFIRM_KEY = "delete_confirm"
 DELETE_BACK_KEY = pages.DELETE_BACK_KEY
 DELETE_FAILED_KEY = "delete_failed"
@@ -133,6 +140,8 @@ ROUTES = (
     Route("POST", "/operator-name", SUBMISSION),
     Route("POST", "/projects/[0-9]+/tasks", SUBMISSION),
     Route("POST", "/projects/[0-9]+/rename", SUBMISSION),
+    Route("POST", "/projects/[0-9]+/delete", SUBMISSION),
+    Route("POST", "/projects/[0-9]+/delete/confirm", SUBMISSION),
     Route("GET", "/tasks/[0-9]+", PAGE),
     Route("POST", "/tasks/[0-9]+", SUBMISSION),
     Route("POST", "/tasks/[0-9]+/labels", SUBMISSION),
@@ -321,6 +330,12 @@ class Site:
         rename = RENAME_PATTERN.fullmatch(path)
         if rename:
             return self._rename_project(rename.group(1), form)
+        confirm_project_delete = CONFIRM_PROJECT_DELETE_PATTERN.fullmatch(path)
+        if confirm_project_delete:
+            return self._delete_project(confirm_project_delete.group(1), form, confirming=True)
+        project_delete = PROJECT_DELETE_PATTERN.fullmatch(path)
+        if project_delete:
+            return self._delete_project(project_delete.group(1), form)
         edit_task = TASK_PATTERN.fullmatch(path)
         if edit_task:
             return self._edit_task(edit_task.group(1), form)
@@ -364,7 +379,9 @@ class Site:
         if path == "/style.css":
             return _respond(HTTPStatus.OK, STYLESHEET_FILE.read_bytes(), ("Content-Type", CSS_TYPE))
         if path == PROJECTS_ADDRESS:
-            return self._html(self._projects_page(query))
+            shown, completed = self._projects_page(query)
+            # The landing that names a completion is never stored, like every deletion outcome.
+            return self._html(shown, extra=(NOT_STORED,) if completed else ())
         if path == PEOPLE_ADDRESS:
             return self._html(self._people_page(query))
         if path == ALL_TASKS_ADDRESS:
@@ -423,35 +440,53 @@ class Site:
                 move_interaction=move_interaction,
                 delete_area=delete_area,
             ),
-            Site._pending_status(move_interaction),
+            Site._pending_status(move_interaction, delete_area),
             extra=self._stored_as_asked(
                 query, deleting=delete_area.mode is not pages.DeleteMode.ORDINARY
             ),
         )
 
     @staticmethod
-    def _delete_area(query: Mapping[str, list[str]]) -> pages.DeleteArea:
-        """The Delete task area's state from the address, by the presence of each key: a failure
-        before a confirmation before a back-out. Any other key, or none, is the ordinary area."""
-        if DELETE_FAILED_KEY in query:
+    def _delete_area(
+        query: Mapping[str, list[str]],
+        keys: tuple[str, str, str] = (DELETE_FAILED_KEY, DELETE_CONFIRM_KEY, DELETE_BACK_KEY),
+    ) -> pages.DeleteArea:
+        """A Delete area's state from the address, by the presence of each of its keys (failed,
+        confirmation, back-out, in that order of precedence). Any other key, or none, is the
+        ordinary area. The task page and a project's Tasks view each pass their own keys."""
+        failed, confirm, back = keys
+        if failed in query:
             return pages.DeleteArea(pages.DeleteMode.FAILED)
-        if DELETE_CONFIRM_KEY in query:
+        if confirm in query:
             return pages.DeleteArea(pages.DeleteMode.CONFIRMATION)
-        if DELETE_BACK_KEY in query:
+        if back in query:
             return pages.DeleteArea(pages.DeleteMode.BACKED_OUT)
         return pages.DeleteArea()
 
     @staticmethod
-    def _pending_status(interaction: pages.MoveInteraction | None) -> HTTPStatus:
+    def _project_delete_area(query: Mapping[str, list[str]]) -> pages.DeleteArea:
+        return Site._delete_area(
+            query,
+            (PROJECT_DELETE_FAILED_KEY, PROJECT_DELETE_CONFIRM_KEY, PROJECT_DELETE_BACK_KEY),
+        )
+
+    @staticmethod
+    def _pending_status(
+        interaction: pages.MoveInteraction | None, delete_area: pages.DeleteArea | None = None
+    ) -> HTTPStatus:
         """202 for a page that actually renders a pending confirmation, 200 for every other page.
 
         The decision reads the resolved view, after outcome precedence, task membership and the
-        saved workflow answer, so an address that only asks for a confirmation changes nothing.
+        saved workflow answer, so an address that only asks for a confirmation changes nothing. A
+        deletion confirmation counts only as the resolved area: a failure that won over it, or a
+        raw confirmation key on a page that shows none, stays 200.
         """
-        pending = interaction is not None and interaction.mode is pages.MoveInteractionMode.CONFIRM
+        pending = (
+            interaction is not None and interaction.mode is pages.MoveInteractionMode.CONFIRM
+        ) or (delete_area is not None and delete_area.mode is pages.DeleteMode.CONFIRMATION)
         # 202, not a page script or a cache-clearing header: the browser's history cache admits only
-        # 200 main documents, so a pending move intent, accepted and awaiting the person, is never
-        # replayed from history (CP-343).
+        # 200 main documents, so a pending move or deletion intent, accepted and awaiting the
+        # person, is never replayed from history (CP-343, CP-583).
         return HTTPStatus.ACCEPTED if pending else HTTPStatus.OK
 
     @staticmethod
@@ -581,9 +616,12 @@ class Site:
         listing = self._tracker.project_task_list(
             project.id, _filter_input(query), sort_fields=_sort_input(query)
         )
-        deleted_task = _first(query, DELETED_TASK_KEY)
-        if deleted_task:
-            # The deletion's completion wins over every move marker, even one naming no task.
+        delete_area = self._project_delete_area(query)
+        deleting = delete_area.mode is not pages.DeleteMode.ORDINARY
+        deleted_task = "" if deleting else _first(query, DELETED_TASK_KEY)
+        if deleting or deleted_task:
+            # An active project deletion, then a task deletion's completion, win over every move
+            # marker, even one naming no task: the project's existence was checked before this.
             move_outcome, move_interaction = pages.MoveOutcome(), None
         else:
             move = self._move_view(query, lambda found: self._project_task(project, found))
@@ -610,9 +648,10 @@ class Site:
                 ),
                 deleted_task=deleted_task or None,
                 rename_area=self._rename_area(query),
+                delete_area=delete_area,
             ),
-            Site._pending_status(move_interaction),
-            extra=self._stored_as_asked(query, deleting=bool(deleted_task)),
+            Site._pending_status(move_interaction, delete_area),
+            extra=self._stored_as_asked(query, deleting=bool(deleted_task) or deleting),
         )
 
     def _summary_page(self, digits: str) -> Response:
@@ -701,28 +740,52 @@ class Site:
     def _not_found_page() -> Response:
         return Site._html(pages.not_found_page(), HTTPStatus.NOT_FOUND)
 
-    def _projects_page(self, query: Mapping[str, list[str]]) -> str:
+    def _projects_page(self, query: Mapping[str, list[str]]) -> tuple[str, bool]:
+        """The Projects page for this address, and whether it shows a deletion's completion."""
         projects = self._tracker.projects()
         refusal = _first(query, "refused")
         if refusal in (pages.BLANK_NAME, pages.NAME_IN_USE):
-            return pages.projects_page(
-                projects,
-                refusal=refusal,
-                name=_first(query, "name"),
-                description=_first(query, "description"),
+            return (
+                pages.projects_page(
+                    projects,
+                    refusal=refusal,
+                    name=_first(query, "name"),
+                    description=_first(query, "description"),
+                ),
+                False,
             )
         if refusal == pages.TEXT_TOO_LONG:
             fields = {field.value: field for field in TextField}
             field = fields.get(_first(query, "field"))
-            return pages.projects_page(projects, refusal=refusal, field=field)
+            return pages.projects_page(projects, refusal=refusal, field=field), False
         if not refusal and _first(query, "failed") == "create":
-            return pages.projects_page(
-                projects,
-                failed=True,
-                name=_first(query, "name"),
-                description=_first(query, "description"),
+            return (
+                pages.projects_page(
+                    projects,
+                    failed=True,
+                    name=_first(query, "name"),
+                    description=_first(query, "description"),
+                ),
+                False,
             )
-        return pages.projects_page(projects)
+        deletion = self._project_deletion(query)
+        return pages.projects_page(projects, deleted=deletion), deletion is not None
+
+    @staticmethod
+    def _project_deletion(query: Mapping[str, list[str]]) -> pages.ProjectDeletion | None:
+        """The completion the address carries, only when both of its keys are present and valid: a
+        name, and a task count that is a canonical nonnegative decimal (zero admitted). Anything
+        else is no completion, and nothing is rebuilt from a deleted entity."""
+        name = _first(query, DELETED_PROJECT_KEY)
+        digits = _first(query, DELETED_PROJECT_TASKS_KEY)
+        if not name or not (digits.isascii() and digits.isdigit()):
+            return None
+        try:
+            count = int(digits)
+        except ValueError:
+            # More digits than Python reads as an int: no count anyone could have sent.
+            return None
+        return pages.ProjectDeletion(name, count) if str(count) == digits else None
 
     def _people_page(self, query: Mapping[str, list[str]]) -> str:
         """Read the outcome from the address and build the page; the address changes nothing."""
@@ -1036,6 +1099,48 @@ class Site:
             f"The tracker couldn't move '{task.title}' to {status}, and nothing was changed.",
             move,
             lambda: self._redirect(place, move_failed=status, **about),
+        )
+
+    def _delete_project(
+        self, digits: str, form: Mapping[str, list[str]], *, confirming: bool = False
+    ) -> Response:
+        """Open the deletion's confirmation, or delete the project its route names and land on
+        Projects.
+
+        The target is fixed by the route: nothing a form carries chooses it, or the name and the
+        count the landing shows, which are the removed project's and the number of tasks the
+        tracker removed when the deletion ran. The opening press only reads the project and saves
+        nothing. Only the filter and sort choices cross to the same-page answers. A project nothing
+        holds is sent to its bare address, which shows the not-found page; any other failure is
+        reported once, by the guarded site.
+        """
+        project = self._project_named_by(digits)
+        identity = self._identity(digits)
+        missing = f"/projects/{digits if identity is None else identity}"
+        if project is None:
+            return self._redirect(missing)
+        address = f"/projects/{project.id}"
+        carried = {**_carried_filters(form), **_carried_sorts(form)}
+        if not confirming:
+            return self._redirect(address, PROJECT_DELETE_CONFIRM_KEY, **carried)
+
+        def delete() -> Response:
+            try:
+                outcome = self._tracker.delete_project(project.id)
+            except ProjectNotFound:
+                return self._redirect(missing)
+            return self._redirect(
+                PROJECTS_ADDRESS,
+                **{
+                    DELETED_PROJECT_KEY: outcome.project.name,
+                    DELETED_PROJECT_TASKS_KEY: str(outcome.task_count),
+                },
+            )
+
+        return self._guarded(
+            f"The tracker couldn't delete the project '{project.name}', and nothing was changed.",
+            delete,
+            lambda: self._redirect(address, PROJECT_DELETE_FAILED_KEY, **carried),
         )
 
     def _delete_task(self, digits: str, *, confirming: bool = False) -> Response:

@@ -633,3 +633,65 @@ def test_summary_entry_names_every_participant_and_check() -> None:
     assert "summary" in LANDED_FEATURE_WORDS
     assert missing_paths(text) == []
     assert unknown_requirements(text) == []
+
+
+SLICE_CREATED_TEST_MODULES = [
+    "tests/integration/test_delete_pages.py",
+    "tests/integration/test_delete_routes.py",
+    "tests/e2e/test_delete_task.py",
+    "tests/integration/test_rename_pages.py",
+    "tests/integration/test_rename_routes.py",
+    "tests/integration/test_rename_tracker.py",
+    "tests/e2e/test_rename_project.py",
+]
+PROJECT_DELETION_TEST_MODULES = [
+    "tests/integration/test_delete_project_tracker.py",
+    "tests/integration/test_delete_project_pages.py",
+    "tests/integration/test_delete_project_routes.py",
+    "tests/e2e/test_delete_project.py",
+]
+DELETION_SLICE_ENTRY_WORDS = ["projects", "tasks"]
+
+
+def omitted_slice_test_modules(text: str) -> list[str]:
+    """The slice-created and project-deletion test modules the docstring does not name."""
+    paths = named_paths(text)
+    required = SLICE_CREATED_TEST_MODULES + PROJECT_DELETION_TEST_MODULES
+    return [module for module in required if module not in paths]
+
+
+def test_both_deletion_slice_entries_name_every_slice_created_test_module() -> None:
+    """QC-11, CP-592: the Projects and Tasks entries each name the seven test modules the slice
+    created and the four this change adds, with their full paths; every named path exists, each
+    requirement resolves, and each of the four new modules names a requirement."""
+    for word in DELETION_SLICE_ENTRY_WORDS:
+        text = entry_docstring(word)
+        assert omitted_slice_test_modules(text) == [], word
+        assert missing_paths(text) == [], word
+        assert unknown_requirements(text) == [], word
+    for module in PROJECT_DELETION_TEST_MODULES:
+        assert named_requirements(docstring_of(PRODUCT_ROOT / module)), module
+
+
+def test_the_projects_entry_names_the_project_deletion_requirement_and_participants() -> None:
+    """CP-592: FR-13 joins the Projects entry, and the participating web modules are named."""
+    text = entry_docstring("projects")
+    paths = named_paths(text)
+    assert "FR-13" in named_requirements(text)
+    for participant in ["application/tracker.py", "web/pages.py", "web/routes.py", "web/style.css"]:
+        assert participant in paths, participant
+    assert "tests/timed_run.py" in paths
+
+
+def test_the_slice_completeness_check_can_fail() -> None:
+    """A docstring that omits one required module, or only names it by file name, is reported."""
+    complete = " ".join(SLICE_CREATED_TEST_MODULES + PROJECT_DELETION_TEST_MODULES)
+    assert omitted_slice_test_modules(complete) == []
+    without_one = complete.replace("tests/e2e/test_delete_project.py", "")
+    assert omitted_slice_test_modules(without_one) == ["tests/e2e/test_delete_project.py"]
+    by_file_name_only = complete.replace(
+        "tests/integration/test_rename_pages.py", "test_rename_pages.py"
+    )
+    assert omitted_slice_test_modules(by_file_name_only) == [
+        "tests/integration/test_rename_pages.py"
+    ]

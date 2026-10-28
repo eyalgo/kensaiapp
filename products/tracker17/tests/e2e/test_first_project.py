@@ -69,7 +69,9 @@ def test_the_first_project_lands_on_its_page_with_spaces_line_break_and_created_
         "This project has no tasks yet. Give the first task a title and press Add."
     )
     add_form = page.locator("main form[action='/projects/1/tasks']")
-    assert page.locator("main form").count() == 2 and add_form.count() == 1
+    delete_form = page.locator("main form[action='/projects/1/delete']")
+    assert page.locator("main form").count() == 3 and add_form.count() == 1
+    assert delete_form.count() == 1
     assert add_form.locator("input").evaluate_all("e => e.map(i => i.name)") == [
         "title",
         "due_date",

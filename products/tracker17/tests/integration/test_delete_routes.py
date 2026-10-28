@@ -92,7 +92,7 @@ def test_confirmation_uses_the_title_current_at_each_request(tmp_path: Path) -> 
     POST returned; submitted values cannot choose the target or the success metadata."""
     world = world_with(tmp_path, title="First")
     world.tracker.edit_task(1, TaskFields(title="Second"), TaskFields(title="First"))
-    opened = parse(page(get(world.site, location(press_delete(world)))))
+    opened = parse(page(get(world.site, location(press_delete(world))), 202))
     sentence = opened.by_id("confirm-sentence")
     assert sentence is not None and "Delete 'Second'?" in sentence.text()
     world.tracker.edit_task(1, TaskFields(title="Third"), TaskFields(title="Second"))
@@ -449,12 +449,13 @@ def test_a_never_held_task_answers_the_same(tmp_path: Path, target: str) -> None
 
 
 def test_live_delete_views_have_their_response_policy(tmp_path: Path) -> None:
-    """T11: confirmation, back-out, failure and the landing are 200 with no-store; neither POST
-    bypasses the origin checks; no response clears site data."""
+    """T11, T14: the confirmation is 202 with no-store; back-out, failure and the landing are 200
+    with no-store; neither POST bypasses the origin checks; no response clears site data."""
     world = world_with(tmp_path)
-    for query in ("?delete_confirm", "?delete_back", "?delete_failed"):
+    for query, status in (("?delete_confirm", 202), ("?delete_back", 200), ("?delete_failed", 200)):
         shown = get(world.site, f"/tasks/1{query}")
-        assert shown.status == 200 and header(shown, "Cache-Control") == "no-store", query
+        assert shown.status == status, query
+        assert header(shown, "Cache-Control") == "no-store", query
         assert header(shown, "Clear-Site-Data") is None
     stored, saves = world.bytes_on_disk(), world.saver.saves
     for path in ("/tasks/1/delete", "/tasks/1/delete/confirm"):
@@ -475,6 +476,18 @@ def test_live_delete_views_have_their_response_policy(tmp_path: Path) -> None:
     done = get(world.site, location(landing))
     assert done.status == 200 and header(done, "Cache-Control") == "no-store"
     assert header(done, "Clear-Site-Data") is None
+
+
+def test_task_delete_failure_wins_over_confirmation_for_response_status(tmp_path: Path) -> None:
+    """CP-583, T14: a combined failure and confirmation renders the failure and answers 200; a bare
+    confirmation renders the confirmation and answers 202; both are never stored."""
+    world = world_with(tmp_path)
+    combined = get(world.site, "/tasks/1?delete_confirm&delete_failed")
+    assert combined.status == 200 and header(combined, "Cache-Control") == "no-store"
+    assert strips(parse(page(combined))) == []
+    bare = get(world.site, "/tasks/1?delete_confirm")
+    assert bare.status == 202 and header(bare, "Cache-Control") == "no-store"
+    assert len(strips(parse(bare.body.decode()))) == 1
 
 
 def test_first_press_for_a_held_task_never_saves_and_a_get_never_deletes(tmp_path: Path) -> None:
