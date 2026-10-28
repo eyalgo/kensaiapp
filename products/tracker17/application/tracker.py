@@ -40,6 +40,7 @@ from domain import (
     all_filter_options,
     allowed_moves,
     create_project,
+    delete_task,
     edit_task,
     find_project,
     find_task,
@@ -231,6 +232,16 @@ class Tracker:
         new_state, task = move_task(self._state, task_id, status)
         self._save_then_publish(new_state)
         return task
+
+    def delete_task(self, task_id: int) -> Task:
+        """Delete the task with its comments. A refusal or a saver failure propagates; the state stays.
+
+        The rule is the domain's, applied to the state held now. The deletion is saved before it
+        becomes current. Returns the task removed, as it was when the deletion ran.
+        """
+        new_state, removed = delete_task(self._state, task_id)
+        self._save_then_publish(new_state)
+        return removed
 
     def allowed_moves(self, status: TaskStatus) -> tuple[TaskStatus, ...]:
         """The statuses a task in `status` may move to, in the order `domain` gives."""
