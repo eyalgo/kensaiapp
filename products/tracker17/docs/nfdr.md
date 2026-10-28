@@ -2,8 +2,8 @@
 
 **Status:** Settled
 **Owner:** Principal Architect
-**Version:** 17 — the answer to companion § 2.1 folded in (`products/tracker17/docs/trail/architecture/cycle-15.md`): ADR-0012 supersedes ADR-0010 and widens the history-admission boundary to every pending confirmation SDD § 4 EX-6 names — a move to `cancelled`, a task deletion, a project deletion — as SDD version 13 § 4 RT-11 does; QC-63 is widened in place, its `verified by:` names its verifiers clause by clause and carries the task deletion's 202 as unmet, and its `Clear-Site-Data` clause covers the three confirmed actions (RN-50); nothing is left open, so the companion is removed and this document is Settled
-**Inputs read:** SRS Settled (version 6) · SDD Settled (version 13) · FDR Settled (version 4) · PRD Settled (version 7) · UXD Settled (version 11) · DESIGN Settled (version 4) · CONTENT Settled (version 17) · Agari no Status line · tracker17 doctrine no Status line (stamped, unfilled)
+**Version:** 18 — the answer to companion § 3.1 folded in (`products/tracker17/docs/trail/architecture/cycle-16.md`): QC-63's `verified by:` names the four deletion tests on `main` since `ac09e56af` — the task deletion's 202 by its response-policy test, every project deletion clause by the project deletion's response-policy test, and the history clause for both deletions by their two layer-5 tests — and drops the line carrying the task deletion's 202 as unmet and the line binding the project deletion's pages when they land; the obligation's text is unchanged, and RN-50's open item closes in RN-52; nothing is left open, so the companion is removed and this document is Settled
+**Inputs read:** SRS Settled (version 6) · SDD Settled (version 14) · FDR Settled (version 4) · PRD Settled (version 7) · UXD Settled (version 11) · DESIGN Settled (version 4) · CONTENT Settled (version 17) · Agari no Status line · tracker17 doctrine no Status line (stamped, unfilled)
 
 > The NFDR is the product's **standing obligations, consolidated and verifiable**: every quality
 > constraint a change is checked against, derived from the SRS, the SDD, the FDR and the ADR — never
@@ -105,22 +105,27 @@ module under `tests/architecture/`, which `pytest tests/` runs.
   `test_move_responses_do_not_clear_site_data`; layer 5, `tests/e2e/test_moves.py`,
   `test_history_matrix_revalidates_current_saved_status` and
   `test_real_history_traversal_revalidates_the_confirmation`, which fail when a return to a
-  confirmation's address is restored from history instead of loaded. **The task deletion's
-  `no-store` on its four pages, its 200 on back-out, failure and landing, and no `Clear-Site-Data`
-  on its submissions and pages:** layer 3, `tests/integration/test_delete_routes.py`,
-  `test_live_delete_views_have_their_response_policy`. **The 404 with no cache header:** layer 3,
-  the same module's `test_missing_task_wins_over_every_query` and
-  `test_a_never_held_task_answers_the_same`. **The task deletion's 202 is unmet** (RN-50): its
-  verifiers are `test_live_delete_views_have_their_response_policy`'s `?delete_confirm` row asserting
-  202, and a layer-5 deletion history test beside `tests/e2e/test_delete_task.py`,
-  `test_completion_survives_actual_reload_back_and_forward`, that goes Back to the confirmation after
-  confirming; both land with the change that aligns the product. **The project deletion's pages**
-  are bound when they land, verified by the layer-3 and layer-5 tests SDD § 6 `delete-and-rename`'s
-  *Command* half adds. Layer 5 proves the build the pinned library installs, Chromium 153.0.8010.12
+  confirmation's address is restored from history instead of loaded. **The task deletion's 202 on a
+  shown confirmation, its 200 on back-out, failure and landing, `no-store` on its four pages, and no
+  `Clear-Site-Data` on its submissions and pages:** layer 3,
+  `tests/integration/test_delete_routes.py`, `test_live_delete_views_have_their_response_policy`,
+  whose `?delete_confirm` row asserts 202. **The task's 404 with no cache header:** layer 3, the same
+  module's `test_missing_task_wins_over_every_query` and `test_a_never_held_task_answers_the_same`.
+  **Every project deletion clause — 202 on a shown confirmation; 200 on back-out, failure and
+  landing; `no-store` on all four; the deleted and the never-held project's 404 with no cache header,
+  under any query; and no `Clear-Site-Data` on either press or any of its pages:** layer 3,
+  `tests/integration/test_delete_project_routes.py`,
+  `test_project_delete_response_policy_matches_rendered_state`. **The history clause, for both
+  deletions:** layer 5, `tests/e2e/test_delete_task.py`,
+  `test_confirmation_is_loaded_afresh_after_confirming`, and `tests/e2e/test_delete_project.py`,
+  `test_project_confirmation_is_loaded_afresh_after_confirming`, which fail when Back to a
+  deletion's confirmation after confirming, or Forward then Back again, is restored from history
+  instead of loaded. Layer 5 proves the build the pinned library installs, Chromium 153.0.8010.12
   under `playwright==1.63.0`, and not the operator's current stable Chrome *(traces to: ADR-0012;
-  SDD § 4 RT-11, EX-6, EX-13, § 6 `delete-and-rename`, § 9 TO-8, § 11 R-12, RN-56; SRS NFR-3, NFR-13,
-  DR-2; UXD § 4, UX-F4, UX-I2, UX-I3, UX-S10; owner, `trail/architecture/cycle-12.md` § 2.1,
-  `trail/architecture/cycle-15.md` § 2.1; see RN-44, RN-50)*
+  SDD § 4 RT-11, EX-6, EX-13, § 6 `delete-and-rename`, § 9 TO-8, § 11 R-12, RN-56, RN-59; SRS NFR-3,
+  NFR-13, DR-2; UXD § 4, UX-F4, UX-I2, UX-I3, UX-S10; owner, `trail/architecture/cycle-12.md` § 2.1,
+  `trail/architecture/cycle-15.md` § 2.1, `trail/architecture/cycle-16.md` § 3.1; see RN-44, RN-50,
+  RN-52)*
 - **QC-9:** The two maximum text lengths are stated once, in `domain`, and every text field's
   `maxlength` is written from them, as is the maximum the description field and the comment field
   state beside them. `web` turns each submitted CR LF pair, and each remaining CR, into
@@ -1396,3 +1401,39 @@ QC-12, QC-25, QC-26, QC-27, QC-40, QC-41 and QC-60 are review gates and have no 
   version 16. `Inputs read:` now names SDD version 13, UXD version 11 and CONTENT version 17.
   Nothing is left open, so the companion is removed and this document is Settled. *(re: Version 17;
   ADR-0012, QC-63)*
+- **RN-52:** QC-63's `verified by:` names the four deletion tests and drops the line carrying the
+  task deletion's 202 as unmet and the line binding the project deletion's pages when they land; the
+  obligation's text does not change — *because* the PM raised that both lines were false
+  (`trail/architecture/cycle-16.md` § 3.1) and the owner confirmed it with three additions (same
+  item; reasoning, `trail/architecture/self_answer-20.md` § 3.1). The aligning change and the project
+  deletion landed in one merge, `ac09e56af`, on `main`. `web/routes.py`, `Site._pending_status`, now
+  answers 202 when the deletion area shows a pending confirmation (SDD RN-59), and
+  `tests/integration/test_delete_routes.py:455`, in
+  `test_live_delete_views_have_their_response_policy`, asserts `("?delete_confirm", 202)`. The first
+  addition names every project deletion clause, the 404 and `Clear-Site-Data` included, with the one
+  layer-3 test that asserts each of them,
+  `tests/integration/test_delete_project_routes.py:268`; its never-held case is `/projects/777`
+  (`:303`). The second puts the history clause for both deletions under QC-63's existing
+  pinned-browser sentence: `tests/e2e/test_delete_task.py:182` and `tests/e2e/test_delete_project.py:290`
+  each assert `PINNED_BROWSER` (`:190`, `:298`), as the move's layer-5 tests do, so the sentence needs
+  no new caveat. The third is what follows in the record. RN-50 said it closes when the aligning
+  change lands; it has landed, and this note records the close. RN-50, including its dated line that
+  the project deletion is not built, stays as written, as RN-44 and RN-48 do. ADR-0012 takes no
+  change, because it states no product state. § 10's QC-63 row keeps its commands, because
+  `pytest tests/` at layer 3 and `pytest tests/e2e/` at layer 5 already reach all four tests. This
+  run checked each locator above at `HEAD` and ran no suite; the answer records 87 of the cited tests
+  passing in a clone at `0ac110bab`. *(re: QC-63; source: owner, `trail/architecture/cycle-16.md`
+  § 3.1; SDD § 4 RT-11, § 11 R-12, RN-59; closes RN-50's open item)*
+- **RN-53:** Version 18 was written on 2026-10-28. It read the answered companion as committed at
+  `0d6542f35` and copied it whole to `trail/architecture/cycle-16.md` before the fold, with the
+  reasoning behind its one item at `trail/architecture/self_answer-20.md`. The PM opened that
+  companion; no producing run wrote it. Its one item, § 3.1, was answered and is folded (RN-52).
+  Since version 17 (`git diff --stat d459f69d9 HEAD` over the product's `docs/` and the project's
+  `agari.md`, `doctrine/` and `project.md`), only the SDD moved among the inputs, and this run read
+  its change. SDD version 14 names the four deletion tests in § 4 RT-11's *Tests* and § 11 R-12's
+  trigger (SDD RN-59), which RN-52 matches; names ADR-0012 in RT-11, counts twelve records in § 12
+  and counts RC-1 to RC-6 in § 10's preamble (SDD RN-60), which moves no entry. The SRS, the FDR,
+  the PRD, the UXD, `DESIGN.md`, `CONTENT.md`, `what_left.md`, the Agari, the project's doctrine and
+  the card are unchanged since version 17. No record was written or changed. `Inputs read:` now
+  names SDD version 14. Nothing is left open, so the companion is removed and this document is
+  Settled. *(re: Version 18; QC-63)*
