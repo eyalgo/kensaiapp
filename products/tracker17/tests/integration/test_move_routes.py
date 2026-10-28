@@ -853,3 +853,63 @@ def test_eligible_statuses_keep_both_interaction_gets(
     assert trigger.tag == "button" and trigger.text() == "cancelled"
     assert strips(backed) == [] and backed.by_id("move-line") is None
     assert snapshot(world) == before
+
+
+# --- All tasks destination (CP-475, CP-478; design T14) ----------------------------------------
+
+ALL_PLACE = "all_tasks"
+
+
+def test_global_missing_move_targets_keep_existing_not_found_handling(tmp_path: Path) -> None:
+    """CP-478, T14: a deleted POST target redirects to its task-not-found path; a missing
+    confirmation or back-out target answers 404 without no-store; malformed identities and unknown
+    outcomes keep their closed parsing."""
+    world = make_world(tmp_path, projects=("Alpha", "Beta"))
+    world.tracker.add_task(1, "Here")
+    world.tracker.add_task(2, "There")
+    before = (world.bytes_on_disk(), world.saver.saves)
+    missing = pages.task_not_found_page().encode("utf-8")
+    assert location(press(world.site, 999, "in-progress", ALL_PLACE)) == "/tasks/999"
+    assert location(press(world.site, 999, "cancelled", ALL_PLACE)) == "/tasks/999"
+    assert location(confirm(world.site, 999, ALL_PLACE)) == "/tasks/999"
+    huge = "9" * 5000
+    for response in (
+        press(world.site, huge, "cancelled", ALL_PLACE),
+        confirm(world.site, huge, ALL_PLACE),
+    ):
+        assert response.status == 404 and response.body == missing
+    for mode in ("move_confirm", "move_back"):
+        for identity in ("999", huge):
+            read = get(world.site, f"/tasks?move_task={identity}&{mode}=cancelled")
+            assert read.status == 404 and read.body == missing
+            assert header(read, "Cache-Control") != "no-store"
+    plain = page(get(world.site, "/tasks"))
+    for query in ("move_task=abc&move_confirm=cancelled", "move_task=1&moved=sideways"):
+        assert page(get(world.site, "/tasks?" + query)) == plain
+    assert (world.bytes_on_disk(), world.saver.saves) == before
+
+
+def test_project_and_task_move_destinations_remain_unchanged(tmp_path: Path) -> None:
+    """CP-478, T14: the project-list and task-page destinations keep their landings for ordinary,
+    cancellation, back-out, stale, refused and failed presses; a missing or unknown place word falls
+    back to the task page, and arbitrary address text never becomes a target."""
+    world = make_world(tmp_path, projects=("Alpha", "Beta"))
+    world.tracker.add_task(1, "First")
+    world.tracker.add_task(2, "Second")
+    assert location(press(world.site, 2, "in-progress", LIST)).startswith("/projects/2?")
+    assert location(press(world.site, 1, "in-progress", TASK_PLACE)).startswith("/tasks/1?")
+    assert location(press(world.site, 2, "cancelled", LIST)).startswith("/projects/2?")
+    assert location(confirm(world.site, 2, LIST)).startswith("/projects/2?")
+    assert location(press(world.site, 1, "todo", LIST)).startswith("/projects/1?")
+    for place in (
+        None,
+        "",
+        "elsewhere",
+        "ALL_TASKS",
+        "/tasks",
+        "https://example.com/",
+        "all-tasks",
+    ):
+        landing = location(press(world.site, 1, "done", place))
+        assert landing.startswith("/tasks/1?"), place
+    assert location(press(world.site, 1, "in-progress", ALL_PLACE)).startswith("/tasks?")

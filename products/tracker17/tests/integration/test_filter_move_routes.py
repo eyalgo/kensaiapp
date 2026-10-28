@@ -423,3 +423,327 @@ def test_special_filter_values_survive_move_and_confirmation(tmp_path: Path) -> 
     repeated = [("filter_label", label), ("filter_label", label)]
     refused = press(world, 1, "in-progress", repeated)
     assert pairs_of(urlsplit(location(refused)).query).count(("filter_label", label)) == 2
+
+
+# --- All tasks (CP-475 to CP-478; design T11 to T14) ------------------------------------------
+
+ALL = "all_tasks"
+ALL_STATUS_LEFT = (
+    "You moved '{title}' to {status}, and it no longer matches this filter, "
+    "so it has left this list."
+)
+
+
+def all_world(tmp_path: Path) -> World:
+    """Alpha holds 1 (high, Dana, overdue) and 3 (low); Beta holds 2 (medium) and 4 (high)."""
+    world = make_world(tmp_path, projects=("Alpha", "Beta"))
+    world.tracker.add_task(1, TITLE, "high", "Dana", "2026-10-01")
+    world.tracker.add_task(2, "Fix bug", "medium", "", "2026-10-20")
+    world.tracker.add_task(1, "Ship", "low", "", "")
+    world.tracker.add_task(2, "Plan", "high", "", "2026-10-09")
+    return world
+
+
+def all_press(world: World, task: int, status: str, carried: list[tuple[str, str]]) -> Response:
+    return press(world, task, status, carried, ALL)
+
+
+def all_confirm(world: World, task: int, carried: list[tuple[str, str]]) -> Response:
+    return confirm(world, task, carried, ALL)
+
+
+def sort_titles(root: Element) -> list[str]:
+    return table_titles(root)
+
+
+CHOICES = [
+    pytest.param([], id="none"),
+    pytest.param([("filter_priority", "high")], id="filter"),
+    pytest.param([("sort_field", "title"), ("sort_direction", "descending")], id="sort"),
+    pytest.param(
+        [("filter_priority", "high"), ("sort_field", "title"), ("sort_direction", "ascending")],
+        id="both",
+    ),
+]
+
+
+@pytest.mark.parametrize("carried", CHOICES)
+def test_all_offered_moves_return_to_global_choices(
+    tmp_path: Path, carried: list[tuple[str, str]]
+) -> None:
+    """CP-475, T11: every offered move lands on /tasks with the exact carried values, the current
+    status and one outcome line; the completed address read again saves nothing."""
+    world = all_world(tmp_path)
+    moved = all_press(world, 1, "in-progress", carried)
+    assert urlsplit(location(moved)).path == "/tasks"
+    query = query_of(moved)
+    assert query["moved"] == ["in-progress"] and query["move_task"] == ["1"]
+    assert pairs_of(urlsplit(location(moved)).query)[1:] != []  # the carried values ride along
+    for key, value in carried:
+        assert value in query[key]
+    answered, root = landing(world, moved)
+    assert answered.status == 200 and no_store(answered)
+    assert header(answered, "Clear-Site-Data") is None
+    assert world.tracker.task(1).status.value == "in-progress"  # type: ignore[union-attr]
+    line = line_of(root)
+    if line is not None:
+        assert line.text() in (
+            f"You moved '{TITLE}' to in-progress.",
+            ALL_STATUS_LEFT.format(title=TITLE, status="in-progress"),
+        )
+    before = world.bytes_on_disk()
+    saves = world.saver.saves
+    again = get(world.site, location(moved))
+    assert again.status == 200 and no_store(again)
+    assert world.bytes_on_disk() == before and world.saver.saves == saves
+
+    opened = all_press(world, 4, "cancelled", carried)
+    assert urlsplit(location(opened)).path == "/tasks"
+    assert query_of(opened)["move_confirm"] == ["cancelled"]
+    for key, value in carried:
+        assert value in query_of(opened)[key]
+
+
+@pytest.mark.parametrize("carried", CHOICES)
+def test_global_cancellation_open_back_out_and_confirm_keep_choices(
+    tmp_path: Path, carried: list[tuple[str, str]]
+) -> None:
+    """CP-475, T11: the initial press opens a visible-row confirmation and saves nothing; the GET
+    back-out restores the button and saves nothing; the confirming POST saves once. Every
+    destination is /tasks with the choices intact."""
+    world = all_world(tmp_path)
+    before = world.bytes_on_disk()
+    saves = world.saver.saves
+
+    opened = all_press(world, 4, "cancelled", carried)
+    assert world.bytes_on_disk() == before and world.saver.saves == saves
+    answered, root = landing(world, opened)
+    assert answered.status == 202 and no_store(answered)
+    (strip,) = [e for e in root.walk() if "confirm-strip" in (e.attrs.get("class") or "")]
+    confirming, backing = strip.find_all("form")
+    assert confirming.attrs.get("action") == "/tasks/4/move/confirm"
+    assert backing.attrs.get("action") == "/tasks" and backing.attrs.get("method") == "get"
+    for form in (confirming, backing):
+        fields = [(e.attrs.get("name"), e.attrs.get("value")) for e in form.find_all("input")]
+        assert ("place", ALL) in fields or form is backing
+        for pair in carried:
+            assert pair in fields
+
+    back_query = [(e.attrs.get("name"), e.attrs.get("value")) for e in backing.find_all("input")]
+    backed = get(world.site, "/tasks?" + urlencode(back_query))  # type: ignore[arg-type]
+    assert backed.status == 200 and no_store(backed)
+    backed_root = parse(page(backed))
+    assert [e for e in backed_root.walk() if "confirm-strip" in (e.attrs.get("class") or "")] == []
+    assert [e for e in backed_root.walk() if "autofocus" in e.attrs] != []
+    assert world.bytes_on_disk() == before and world.saver.saves == saves
+
+    confirmed = all_confirm(world, 4, carried)
+    assert urlsplit(location(confirmed)).path == "/tasks"
+    assert query_of(confirmed)["moved"] == ["cancelled"]
+    assert world.saver.saves == saves + 1
+    assert world.tracker.task(4).status.value == "cancelled"  # type: ignore[union-attr]
+    for key, value in carried:
+        assert value in query_of(confirmed)[key]
+    answered, _ = landing(world, confirmed)
+    assert answered.status == 200 and no_store(answered)
+
+
+def test_global_move_page_status_describes_the_rendered_confirmation(tmp_path: Path) -> None:
+    """CP-475, T11: 202 only for a confirmation actually rendered, otherwise 200; no-store on each,
+    no Clear-Site-Data. A hidden row, a choice-refused list and an outcome never give a 202."""
+    world = all_world(tmp_path)
+    carried = [("filter_priority", "high")]
+    moved = all_press(world, 1, "in-progress", carried)
+    opened = all_press(world, 4, "cancelled", carried)
+    for submission in (moved, opened):
+        assert header(submission, "Clear-Site-Data") is None
+    assert get(world.site, location(moved)).status == 200
+    assert get(world.site, location(opened)).status == 202
+
+    # Task 2 is not a high-priority task: its confirmation is hidden, so the page is a 200.
+    hidden = get(
+        world.site,
+        "/tasks?" + urlencode([("move_task", "2"), ("move_confirm", "cancelled"), *carried]),
+    )
+    assert hidden.status == 200 and no_store(hidden)
+    assert [
+        e for e in parse(page(hidden)).walk() if "confirm-strip" in (e.attrs.get("class") or "")
+    ] == []
+
+    # An outcome in the address wins over the pending confirmation.
+    outcome = get(
+        world.site,
+        "/tasks?"
+        + urlencode(
+            [("move_task", "4"), ("move_confirm", "cancelled"), ("moved", "done"), *carried]
+        ),
+    )
+    assert outcome.status == 200 and no_store(outcome)
+
+    refused = get(
+        world.site,
+        "/tasks?"
+        + urlencode(
+            [("move_task", "4"), ("move_confirm", "cancelled"), ("filter_status", "blocked")]
+        ),
+    )
+    assert refused.status == 200 and no_store(refused)
+
+
+def test_global_stale_refused_and_failed_move_keep_state_and_context(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """CP-475, T11: a stale disallowed move and an invalid status show the current allowed moves
+    without saving; a failing saver keeps state, choices and the /tasks landing, reports at the
+    console and leaks no Python error text; the refused and failed addresses read again save
+    nothing."""
+    world = all_world(tmp_path)
+    carried = [("filter_priority", "high")]
+    world.tracker.move_task(1, "in-progress")
+    world.tracker.move_task(1, "done")
+    before = world.bytes_on_disk()
+
+    stale = all_press(world, 1, "in-progress", carried)
+    assert urlsplit(location(stale)).path == "/tasks"
+    assert query_of(stale)["move_refused"] == ["not-allowed"]
+    answered, root = landing(world, stale)
+    assert answered.status == 200 and no_store(answered)
+    line = line_of(root)
+    assert line is not None and "The status of 'Set up CI' is done." in line.text()
+    assert "can't be moved" in line.text()
+
+    bad = all_press(world, 4, "sideways", carried)
+    assert query_of(bad)["move_refused"] == ["not-a-status"]
+    assert world.bytes_on_disk() == before
+
+    world.saver.failing = True
+    failed = all_press(world, 4, "in-progress", carried)
+    out = capsys.readouterr()
+    assert urlsplit(location(failed)).path == "/tasks"
+    assert query_of(failed)["move_failed"] == ["in-progress"]
+    answered, root = landing(world, failed)
+    assert answered.status == 200 and no_store(answered)
+    line = line_of(root)
+    assert line is not None
+    assert line.text() == (
+        "The tracker couldn't move 'Plan' to in-progress, and nothing was changed. Try again."
+    )
+    assert "Traceback" not in page(answered) and "Error" not in page(answered)
+    assert "The tracker couldn't move 'Plan' to in-progress" in out.err + out.out
+    assert world.bytes_on_disk() == before
+    world.saver.failing = False
+    saves = world.saver.saves
+    for address in (location(stale), location(bad), location(failed)):
+        assert get(world.site, address).status == 200
+    assert world.saver.saves == saves and world.bytes_on_disk() == before
+
+
+@pytest.mark.parametrize(
+    ("carried", "moves", "remaining"),
+    [
+        ([("filter_status", "todo")], [(1, "in-progress")], ["Fix bug", "Ship", "Plan"]),
+        ([("filter_overdue", "on")], [(1, "done")], None),
+        ([("filter_overdue", "on")], [(1, "in-progress"), (1, "cancelled")], None),
+    ],
+)
+def test_moved_task_leaves_global_status_or_overdue_selection(
+    tmp_path: Path,
+    carried: list[tuple[str, str]],
+    moves: list[tuple[int, str]],
+    remaining: list[str] | None,
+) -> None:
+    """CP-476, T12: moving out of a status, or to done/cancelled under Overdue, removes the row,
+    keeps the choices, names the task and new status in one completion line above the results,
+    and the results section owns focus with the line as its description."""
+    world = all_world(tmp_path)
+    for task, status in moves[:-1]:
+        world.tracker.move_task(task, status)
+    task, status = moves[-1]
+    if status == "cancelled":
+        response = all_confirm(world, task, carried)
+    else:
+        response = all_press(world, task, status, carried)
+    answered, root = landing(world, response)
+    assert answered.status == 200 and no_store(answered)
+    line = line_of(root)
+    assert line is not None
+    assert line.text() == ALL_STATUS_LEFT.format(title=TITLE, status=status)
+    section = root.by_id(LIST_ID)
+    assert section is not None
+    assert section.attrs.get("aria-describedby") == LINE_ID and "autofocus" in section.attrs
+    assert focused(root) == [section]
+    if remaining is not None:
+        assert table_titles(root) == remaining
+    else:
+        assert root.find_all("table") == []  # the final match left: the no-match state
+        assert "No tasks match this filter" in root.text()
+    for key, value in carried:
+        assert (key, value) in [
+            (e.attrs.get("name"), e.attrs.get("value"))
+            for e in root.walk()
+            if e.attrs.get("name") == key and e.tag in ("input", "select")
+        ] or selected_or_checked(root, key) == [value]
+
+
+def selected_or_checked(root: Element, name: str) -> list[str | None]:
+    for e in root.walk():
+        if e.attrs.get("name") == name and e.tag == "select":
+            return [o.attrs.get("value") for o in e.find_all("option") if "selected" in o.attrs]
+        if e.attrs.get("name") == name and e.tag == "input":
+            return [e.attrs.get("value")]
+    return []
+
+
+def test_final_task_replay_uses_visible_row_or_off_list_refusal(tmp_path: Path) -> None:
+    """CP-475, T12: a confirmation or back-out address reopened after the task is final shows the
+    refusal beside the status when the task is a listed row, and the off-list refusal above
+    unchanged selected rows (no invented row or confirmation) when the choices exclude it."""
+    world = all_world(tmp_path)
+    world.tracker.move_task(4, "in-progress")
+    world.tracker.move_task(4, "done")
+    for mode in ("move_confirm", "move_back"):
+        listed = get(
+            world.site,
+            "/tasks?" + urlencode([("move_task", "4"), (mode, "cancelled")]),
+        )
+        root = parse(page(listed))
+        assert listed.status == 200 and no_store(listed)
+        row = [r for r in root.find_all("tr")[1:] if r.find_all("td")[0].text() == "Plan"]
+        assert len(row) == 1
+        assert [e for e in root.walk() if "confirm-strip" in (e.attrs.get("class") or "")] == []
+        assert "doesn't allow a move to cancelled" in row[0].text()
+
+        excluded = get(
+            world.site,
+            "/tasks?"
+            + urlencode([("move_task", "4"), (mode, "cancelled"), ("filter_status", "todo")]),
+        )
+        excluded_root = parse(page(excluded))
+        assert excluded.status == 200 and no_store(excluded)
+        assert "Plan" not in table_titles(excluded_root)
+        line = line_of(excluded_root)
+        assert line is not None
+        assert line.text() == ADDRESS_FINAL.format(title="Plan", status="done")
+        assert [
+            e for e in excluded_root.walk() if "confirm-strip" in (e.attrs.get("class") or "")
+        ] == []
+
+    # The final matching task: the line above the no-match state, no invented row.
+    only = get(
+        world.site,
+        "/tasks?"
+        + urlencode([("move_task", "4"), ("move_confirm", "cancelled"), ("filter_status", "done")]),
+    )
+    only_root = parse(page(only))
+    assert "Plan" in table_titles(only_root)
+    nothing = get(
+        world.site,
+        "/tasks?"
+        + urlencode(
+            [("move_task", "4"), ("move_confirm", "cancelled"), ("filter_status", "cancelled")]
+        ),
+    )
+    nothing_root = parse(page(nothing))
+    assert nothing_root.find_all("table") == []
+    line = line_of(nothing_root)
+    assert line is not None and line.text() == ADDRESS_FINAL.format(title="Plan", status="done")
