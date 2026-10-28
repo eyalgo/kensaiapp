@@ -16,3 +16,12 @@ What this change held back, for `shukuba-refine` to place after the unit lands. 
 **Why not this change:** the request rules it out: "The project summary and its links into a filtered list are a later seed and are not here."
 **Owner:** none — for shukuba-refine
 **Status:** open
+
+---
+
+## CP-475's row location when the final task no longer matches — reading set aside by development-design (2026-10-28)
+**Spec lines:** CP-475, the unconditional reading of “The confirmation and back-out addresses opened again once the task is in a final status show the refusal beside the task's status in its row.”
+**Conflict:** A status or Overdue filter can exclude a final task under CP-469. The project-list behaviour in `products/tracker17/web/routes.py:508-560` (`_project_page`, `_off_list_task`) retains the selection and gives an excluded task's outcome to `products/tracker17/web/pages.py:867-897` (`_off_list_line`, `_list_section`), above results; it does not add a row for the excluded task. Requiring a row regardless of the choices conflicts with CP-469's matching-only list and CP-475's retained choices.
+**Reading taken:** The row location applies when the final task is listed. When excluded, retain the choices and selected rows, show the existing off-list refusal above results with the results section owning focus, and render no confirmation. This delivers the request's same move interactions and return to All tasks without adding an exception to filtering. The rejected alternatives are inventing a nonmatching row, dropping the choices, or hiding the refusal.
+**Owner:** none — for shukuba-refine
+**Status:** open
