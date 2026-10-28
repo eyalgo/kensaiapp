@@ -6,3 +6,6 @@
 **Category:** feature
 **Behaviour:** changing
 **Classified because:** the station adds sort controls, a new `domain/sorting.py`, and a changed list order and address, which add to the FDR-level contract (SRS FR-36, FDR R-90 to R-93), so Behaviour is `changing` and the Category is `feature`.
+
+**Sealed:** 2026-10-28 — accepted; merged to `main` via `--no-ff`.
+Environment: owners-mac — no CI
