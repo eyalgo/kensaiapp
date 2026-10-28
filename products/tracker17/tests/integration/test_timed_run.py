@@ -5182,8 +5182,9 @@ def test_a_failed_rename_or_older_action_makes_the_run_exit_nonzero(
     failing: str,
 ) -> None:
     """CP-566, T15: a refused rename, or a refused older action, alone makes the whole run exit 1,
-    and a complete success (the whole_run fixture) exits 0. The failure comes through the site
-    handed to the measurement, not a patched product module."""
+    and a complete success (the whole_run fixture) exits 0. `main` offers no seam for its
+    measurements, so the harness's measurement is replaced by itself driven through a site that
+    refuses, as the older blocks' tests do."""
     name, refused = {
         "rename": ("measure_project_rename", RENAME_REFUSALS["refused"]),
         "delete": ("measure_task_delete", DELETE_REFUSALS["refused"]),
