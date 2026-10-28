@@ -1,0 +1,11 @@
+# Flow Findings — development-content  (audited 2026-10-28)
+
+Findings for this step's output only, produced by the `development-audit` skill.
+Change-local findings live here; skill-general findings are also raised as kaizen items.
+
+Audited: `change_text.md` against `change_spec.md` (CP-459 to CP-488), `change_design.md` (`Publishes text:` line), `products/tracker17/docs/CONTENT.md` and `system/doctrine/writing_bar.md`.
+
+Lens 10 holds. Every place the `Publishes text:` line names has a block (header, both not-found pages, heading, table, empty state, controls, count, refusals, move outcomes), and no block names another place. A search of every quoted string for `CONTENT.md`'s banned words and punctuation found one hit, "left" in "has left this list". It is the verb, and the spec quotes the same ending (CP-476). No string names an identifier or file. No string claims a cause the spec does not establish.
+
+- **[non-blocking · change-local · divergence record]** The in-row refusal for a move the status no longer allows reads "is" on All tasks and "has changed to" on a project's list. CP-475 says the refusal lines "are those of a project's list". The divergence is recorded with its reason (`CONTENT.md` RN-26, RN-27), so lens 4 is met. But `change_spec.md` was not amended, so two upstream documents now disagree, and the design's reuse of the row presentation is silent on carrying two wordings. Where: `change_text.md §Wording decisions`, `change_spec.md` CP-475. The next step should read `change_text.md` as the winner and carry the split deliberately, which `tl_instruction.md` does by taking published text verbatim.
+- **[non-blocking · change-local · coverage]** The move buttons' accessible name, "Move '{title}' to {status}", is shipped knowing it collides when two projects hold tasks with the same title. The title link has a position suffix to tell such rows apart, and the move buttons and the cancel confirmation have none. The step surfaced this itself (§ Findings for the Content Manager) and shipped the project list's wording to keep to CP-475. Where: `change_text.md §The Moves cell`, `§Findings for the Content Manager`. It is a content gap the spec did not ask this step to close. The finding needs an owner ruling in `CONTENT.md` § Accessibility of text, and should route through `shukuba-refine`.
