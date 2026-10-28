@@ -5444,6 +5444,9 @@ def test_project_delete_measurement_accepts_the_exact_cascade(
 
 PROJECT_DELETE_LANDINGS = {
     "wrong status": Response(404, (("Content-Type", "text/html"),), b"<p>no</p>"),
+    "the right page under a wrong status": Response(
+        404, (("Content-Type", "text/html"),), _pd_landing().body
+    ),
     "no completion": _page('<h1 tabindex="-1">Projects</h1>' + escape(PD_SURVIVOR_NAME)),
     "wrong name": _pd_landing(line=_pd_line(750, "Another project")),
     "wrong count": _pd_landing(749),
