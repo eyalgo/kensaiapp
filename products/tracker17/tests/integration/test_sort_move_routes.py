@@ -203,8 +203,7 @@ def test_sorted_move_addresses_use_rendered_page_status(tmp_path: Path) -> None:
     # Task 3 is now cancelled: its confirmation address renders no confirmation, only the refusal.
     stale = get(
         world.site,
-        "/projects/1?"
-        + urlencode([("move_task", "3"), ("move_confirm", "cancelled"), *carried]),
+        "/projects/1?" + urlencode([("move_task", "3"), ("move_confirm", "cancelled"), *carried]),
     )
     stale_root = parse(page(stale))
     assert stale.status == 200 and no_store(stale)
@@ -216,8 +215,7 @@ def test_sorted_move_addresses_use_rendered_page_status(tmp_path: Path) -> None:
     world.tracker.move_task(1, "done")
     forged = get(
         world.site,
-        "/projects/1?"
-        + urlencode([("move_task", "1"), ("move_confirm", "cancelled"), *carried]),
+        "/projects/1?" + urlencode([("move_task", "1"), ("move_confirm", "cancelled"), *carried]),
     )
     assert forged.status == 200 and no_store(forged)
     assert [

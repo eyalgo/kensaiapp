@@ -1346,12 +1346,17 @@ def _filtered_list(
 
 
 def _carried_pairs(listing: ProjectTaskList) -> Carried:
-    """The seven filter keys with every raw value the page was asked with, in control order, for
-    the hidden fields of each move form (CP-407). Nothing but the filter is carried."""
+    """The seven filter keys, then the two sort keys, with every raw value the page was asked
+    with, in control order, for the hidden fields of each move form (CP-407, CP-439). A key the
+    address did not carry has no value and so adds no field. Nothing else is carried."""
     return tuple(
         (FILTER_QUERY_PREFIX + field.value, value)
         for field in FilterField
         for value in getattr(listing.fields, field.value)
+    ) + tuple(
+        (SORT_QUERY_PREFIX + control.value, value)
+        for control in SortControl
+        for value in listing.sort_fields.values(control)
     )
 
 

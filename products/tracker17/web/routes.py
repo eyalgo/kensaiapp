@@ -210,6 +210,16 @@ def _carried_filters(values: Mapping[str, list[str]]) -> dict[str, str | tuple[s
     }
 
 
+def _carried_sorts(values: Mapping[str, list[str]]) -> dict[str, str | tuple[str, ...]]:
+    """The sort keys a move form carries back to its list, every value kept as sent, blank and
+    repeated ones too (CP-439). A key the form lacks stays absent."""
+    return {
+        key: tuple(values[key])
+        for key in (SORT_PREFIX + control.value for control in SortControl)
+        if key in values
+    }
+
+
 def _closed(vocabulary: type[Code], value: str) -> Code | None:
     """The member of a closed vocabulary an address names, or None for a code it does not know."""
     try:
@@ -815,13 +825,16 @@ class Site:
             else task_address
         )
         on_list = _first(form, "place") == pages.MOVE_PLACE_LIST
-        carried = _carried_filters(form) if on_list else {}
+        carried = {**_carried_filters(form), **_carried_sorts(form)} if on_list else {}
         about: dict[str, str | tuple[str, ...]] = {"move_task": str(identity), **carried}
         if (
             on_list
-            and self._tracker.project_task_list(task.project_id, _filter_input(form)).problems
+            and self._tracker.project_task_list(
+                task.project_id, _filter_input(form), sort_fields=_sort_input(form)
+            ).problems
         ):
-            # A malformed filter stops the move before it can save or open a confirmation (CP-405).
+            # A malformed filter or sort stops the move before it can save or open a
+            # confirmation (CP-405, CP-440).
             return self._redirect(place, **about)
         if status == TaskStatus.CANCELLED.value and not confirming:
             if TaskStatus.CANCELLED in self._tracker.allowed_moves(task.status):
