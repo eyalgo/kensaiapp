@@ -98,9 +98,10 @@ def test_an_empty_project_has_no_controls_even_with_malformed_sort_choices(tmp_p
     ):
         root = project(world, query)
         forms = root.find_all("form")
-        assert [f.attrs.get("method") for f in forms] == ["post", "post"], query
+        assert [f.attrs.get("method") for f in forms] == ["post", "post", "post"], query
         assert [f.attrs.get("action") for f in forms] == [
             "/projects/1/tasks",
+            "/projects/1/delete",
             "/projects/1/rename",
         ], query
         assert root.find_all("table") == [] and "no tasks yet" in root.text(), query

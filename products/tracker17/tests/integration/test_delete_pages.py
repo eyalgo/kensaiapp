@@ -118,13 +118,18 @@ def test_delete_control_is_task_level_in_every_status(
 
 
 def test_no_list_row_offers_deletion(tmp_path: Path) -> None:
-    """CP-529: neither a project's rows nor All tasks' rows carry a delete form."""
+    """CP-529, CP-569, T15: no task row carries a delete form, and All tasks offers no deletion;
+    a project's Tasks view offers only its own Delete project section, outside the table."""
     world = world_with(tmp_path)
-    for address in ("/projects/1", "/tasks"):
-        shown = page(get(world.site, address))
-        root = parse(shown)
-        assert delete_forms(root) == [], address
-        assert "Delete" not in shown, address
+    shown = page(get(world.site, "/tasks"))
+    assert delete_forms(parse(shown)) == [] and "Delete" not in shown
+    root = parse(page(get(world.site, "/projects/1")))
+    assert delete_forms(root) == []
+    for table in root.find_all("table"):
+        assert [f for f in table.find_all("form") if "/delete" in f.attrs["action"]] == []
+    assert [f.attrs["action"] for f in root.find_all("form") if "/delete" in f.attrs["action"]] == [
+        "/projects/1/delete"
+    ]
 
 
 def test_delete_first_press_opens_confirmation_without_saving(tmp_path: Path) -> None:

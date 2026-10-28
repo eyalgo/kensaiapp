@@ -6,7 +6,7 @@ whole), AC-9 (an interrupted save leaves one whole state), NFR-2 and NFR-6 (the 
 atomic, and holds only the required fields) and FR-16 (an edited task keeps the saved format).
 Change spec rules CP-4, CP-6, CP-7, CP-8, CP-26, CP-96 and CP-99 to CP-101, CP-134 to CP-137,
 CP-170 and CP-171, CP-197 to CP-199, CP-209, CP-226 to CP-228, CP-233 to CP-234, CP-263, CP-264,
-CP-269 and CP-270, CP-539 and CP-542 (a deleted task and its comments, and its identity) and NFDR QC-42, QC-46 are the ones each test names. The operator name is SRS DR-5
+CP-269 and CP-270, CP-539 and CP-542 (a deleted task and its comments, and its identity), CP-575, CP-579, CP-581 and CP-586 (a deleted project with its tasks and comments, and its identity) and NFDR QC-42, QC-46 are the ones each test names. The operator name is SRS DR-5
 and FR-27: one string or null, checked at start by the rule a set applies.
 Labels are FR-23 and FR-40: saved labels are checked at start by the same rules an add applies.
 """
@@ -41,6 +41,7 @@ from domain import (
     restore_task,
 )
 from persistence import DEFAULT_LOCATION, SavedData, UnreadableData
+from web import Site
 
 PRODUCT_ROOT = Path(__file__).resolve().parents[2]
 FILE_NAME = "tracker.json"
@@ -1430,3 +1431,97 @@ def test_last_task_deletion_reloads_as_empty_without_resetting_identity(tmp_path
     assert restarted.project_tasks(project.id) == ()
     assert restarted.task(only.id) is None
     assert restarted.add_task(project.id, "Next", "", "", "").id == 2
+
+
+_HOST = "127.0.0.1:8017"
+_SUBMITTED = {"Host": _HOST, "Sec-Fetch-Site": "same-origin"}
+
+
+def _confirm_project_deletion(tracker: Tracker, project_id: int) -> str:
+    """The confirming press of Delete project through the real Site; the landing it answers with."""
+    response = Site(tracker, _HOST).handle(
+        "POST",
+        f"/projects/{project_id}/delete/confirm",
+        {**_SUBMITTED, "Content-Type": "application/x-www-form-urlencoded"},
+        b"",
+    )
+    assert response.status == 303
+    return dict(response.headers)["Location"]
+
+
+def _without_project(document: dict, project_id: int) -> dict:
+    """The expected saved document: the project and its tasks out, every other value and its place
+    as it was, both counters untouched. Derived from the saved document, not from the domain rule."""
+    return {
+        **document,
+        "projects": [p for p in document["projects"] if p["id"] != project_id],
+        "tasks": [t for t in document["tasks"] if t["project_id"] != project_id],
+    }
+
+
+def test_confirm_project_delete_persists_the_exact_cascade_and_retires_identities(tmp_path):
+    """CP-575, CP-579, CP-581, CP-586, T3: two projects with tasks in several statuses and
+    comments are saved; the confirming route deletes the first; the file read back holds the
+    second with its task and comment and every other value, and a start on that data issues a
+    project and a task above the deleted identities."""
+    location = tmp_path / "data"
+    tracker = _populated_real_file(location)
+    tracker.move_task(1, "in-progress")
+    tracker.move_task(3, "cancelled")
+    tracker.add_task(1, "Fourth", "", "", "")
+    tracker.add_task_comment(4, "also goes")
+    before = _saved_document(location)
+    assert [t["status"] for t in before["tasks"]] == [
+        "in-progress",
+        "todo",
+        "cancelled",
+        "todo",
+    ]
+
+    landing = _confirm_project_deletion(tracker, 1)
+
+    assert landing == "/?deleted_project=Alpha&deleted_project_tasks=3"
+    after = _saved_document(location)
+    assert after == _without_project(before, 1)
+    assert [p["name"] for p in after["projects"]] == ["Beta"]
+    assert [t["title"] for t in after["tasks"]] == ["Middle"]
+    assert after["tasks"][0]["comments"] == before["tasks"][1]["comments"]
+    assert (after["next_project_id"], after["next_task_id"]) == (3, 5)
+    assert (after["assignees"], after["operator_name"]) == (["Dana", "Ari"], "Sam")
+    restarted = _restart(location)
+    assert restarted.project(1) is None and restarted.task(1) is None
+    project = restarted.create_project("Gamma", "")
+    task = restarted.add_task(project.id, "New", "", "", "")
+    assert project.id == 3 and task.id == 5
+    assert _saved_document(location)["next_task_id"] == 6
+
+
+def test_confirm_last_or_empty_project_delete_persists(tmp_path):
+    """CP-575, CP-576, CP-581, T3: the only project, then an empty one, are deleted through the
+    route; each reloads with the others and the counters intact and lands with its own count."""
+    location = tmp_path / "data"
+    saved = SavedData(location)
+    tracker = Tracker(empty_state(), saved, _SteppingClock())
+    tracker.create_project("Empty", "")
+    tracker.create_project("Only", "")
+    tracker.add_assignee("Dana")
+    tracker.set_operator_name("Sam")
+    only_task = tracker.add_task(2, "Held", "", "Dana", "")
+    tracker.add_task_comment(only_task.id, "gone")
+    before = _saved_document(location)
+
+    landing = _confirm_project_deletion(tracker, 1)
+
+    assert landing == "/?deleted_project=Empty&deleted_project_tasks=0"
+    assert _saved_document(location) == _without_project(before, 1)
+    restarted = _restart(location)
+    assert [p.name for p in restarted.projects()] == ["Only"]
+    landing = _confirm_project_deletion(restarted, 2)
+    assert landing == "/?deleted_project=Only&deleted_project_tasks=1"
+    document = _saved_document(location)
+    assert (document["projects"], document["tasks"]) == ([], [])
+    assert (document["next_project_id"], document["next_task_id"]) == (3, 2)
+    assert (document["assignees"], document["operator_name"]) == (["Dana"], "Sam")
+    again = _restart(location)
+    assert again.projects() == ()
+    assert again.create_project("Fresh", "").id == 3

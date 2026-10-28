@@ -234,8 +234,8 @@ def test_a_project_page_shows_name_description_the_invitation_and_only_the_add_f
         main_text(root)
     )
     forms = {f.attrs["action"]: f for f in root.find_all("form")}
-    assert len(root.find_all("form")) == 2
-    assert sorted(forms) == ["/projects/7/rename", "/projects/7/tasks"]
+    assert len(root.find_all("form")) == 3
+    assert sorted(forms) == ["/projects/7/delete", "/projects/7/rename", "/projects/7/tasks"]
     form = forms["/projects/7/tasks"]
     assert root.find_all("textarea") == [] and root.find_all("table") == []
     assert [e.attrs["name"] for e in form.find_all("input")] == ["title", "due_date"]
@@ -244,6 +244,8 @@ def test_a_project_page_shows_name_description_the_invitation_and_only_the_add_f
     rename = forms["/projects/7/rename"]
     assert [b.text() for b in rename.find_all("button")] == ["Save"]
     assert [e.attrs["name"] for e in rename.find_all("input")] == ["name"]
+    delete = forms["/projects/7/delete"]
+    assert [b.text() for b in delete.find_all("button")] == ["Delete project"]
     assert [e.text() for e in root.find_all("title")] == ["  Alpha  : Tasks - tracker17"]
 
 

@@ -130,9 +130,10 @@ def test_empty_project_retains_first_task_page_without_filters(tmp_path: Path) -
     for query in ("", "filter_status=todo", "filter_status=blocked&filter_status=todo"):
         root = project(world, query)
         forms = root.find_all("form")
-        assert [f.attrs.get("method") for f in forms] == ["post", "post"], query
+        assert [f.attrs.get("method") for f in forms] == ["post", "post", "post"], query
         assert [f.attrs.get("action") for f in forms] == [
             "/projects/1/tasks",
+            "/projects/1/delete",
             "/projects/1/rename",
         ], query
         assert root.find_all("table") == [] and "no tasks yet" in root.text()
