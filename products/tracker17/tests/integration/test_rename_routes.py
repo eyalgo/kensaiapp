@@ -17,10 +17,16 @@ from urllib.parse import parse_qs, quote, urlencode, urlsplit
 import pytest
 from test_pages import HOSTILE, Element, parse
 from test_routes import FORM, HOST, SAME_ORIGIN, get, header, page
-from test_task_routes import World, add_task, focused, make_world
+from test_task_routes import (
+    VanishingProjectTracker,
+    World,
+    add_task,
+    focused,
+    make_world,
+)
 
 from application import SHORT_TEXT_MAX
-from web import Response, pages
+from web import Response, Site, pages
 
 OLD_NAME = "Alpha"
 BLANK_REASON = "A project needs a name. Type one."
@@ -219,16 +225,77 @@ def test_an_overlong_rename_discards_all_submitted_text(tmp_path: Path, sent: st
     assert "rename_saved" in (header(exact, "Location") or "")
 
 
-@pytest.mark.parametrize("project", ["99", "0", "9" * 5000], ids=["absent", "zero", "huge"])
-def test_a_missing_rename_project_answers_404_without_saving(tmp_path: Path, project: str) -> None:
-    """CP-558, CP-563: the existing project not-found page, no Location, nothing saved, and no
-    refusal wording of its own, even for an invalid name."""
+RENAME_NAMES = {
+    "valid": "Gamma",
+    "no-fields": None,
+    "blank": "",
+    "overlong": "x" * 201,
+    "in-use": "Beta",
+}
+
+
+def send_rename(world: World, project: int | str, name: str | None) -> Response:
+    return rename(world, project_id=project) if name is None else rename(
+        world, project_id=project, name=name
+    )
+
+
+@pytest.mark.parametrize("sent", sorted(RENAME_NAMES))
+@pytest.mark.parametrize(
+    ("project", "identity"), [("99", 99), ("0", 0), ("00", 0), ("00099", 99)]
+)
+def test_missing_project_rename_redirects_without_saving(
+    tmp_path: Path, project: str, identity: int, sent: str
+) -> None:
+    """CP-595, CP-597, CP-598, T2: a rename of an identity no project holds, whatever the form
+    carries, is sent to the bare canonical project address and saves nothing."""
+    world = make_world(tmp_path, projects=("Alpha", "Beta"))
+    before = (world.bytes_on_disk(), world.saver.saves, state_of(world))
+    response = send_rename(world, project, RENAME_NAMES[sent])
+    assert response.status == 303 and header(response, "Location") == f"/projects/{identity}"
+    assert (world.bytes_on_disk(), world.saver.saves, state_of(world)) == before
+
+
+@pytest.mark.parametrize("sent", sorted(RENAME_NAMES))
+def test_deleted_project_rename_redirects_without_saving(tmp_path: Path, sent: str) -> None:
+    """CP-595, CP-597, T2: the same for a project deleted through its confirmation."""
+    world = make_world(tmp_path, projects=("Alpha", "Beta", "Gamma"))
+    world.tracker.delete_project(1)
+    before = (world.bytes_on_disk(), world.saver.saves, world.tracker.projects())
+    response = send_rename(world, 1, RENAME_NAMES[sent])
+    assert response.status == 303 and header(response, "Location") == "/projects/1"
+    assert (world.bytes_on_disk(), world.saver.saves, world.tracker.projects()) == before
+
+
+@pytest.mark.parametrize("name", ["Gamma", "", "x" * 201])
+@pytest.mark.parametrize(("project", "identity"), [("1", 1), ("001", 1)])
+def test_rename_redirects_when_project_is_missing_at_action(
+    tmp_path: Path, name: str, project: str, identity: int
+) -> None:
+    """CP-596, CP-597, T3: the project is found, then the action reports it gone: the same bare
+    redirect, nothing saved, no refusal or typed name in the address."""
+    world = make_world(tmp_path)
+    vanishing = VanishingProjectTracker(world.saver, world.clock)
+    vanishing.create_project("Alpha", "")
+    world = World(Site(vanishing, HOST), vanishing, world.saver, world.clock, world.location)
+    before = (world.bytes_on_disk(), world.saver.saves, vanishing.projects())
+    response = rename(world, project_id=project, name=name)
+    assert vanishing.reached == [("rename_project", identity)]
+    assert response.status == 303 and header(response, "Location") == f"/projects/{identity}"
+    assert (world.bytes_on_disk(), world.saver.saves, vanishing.projects()) == before
+
+
+@pytest.mark.parametrize("sent", ["Beta", "", "x" * 201])
+def test_unreadable_project_rename_keeps_not_found_without_saving(
+    tmp_path: Path, sent: str
+) -> None:
+    """CP-558, CP-563, CP-598, T2: a number too long to read as an identity keeps the existing
+    project not-found page, no Location, nothing saved, and no refusal wording of its own."""
     world = make_world(tmp_path)
     before = (world.bytes_on_disk(), world.saver.saves)
-    for sent in ("Beta", "", "x" * 201):
-        response = rename(world, project_id=project, name=sent)
-        assert response.status == 404 and header(response, "Location") is None
-        assert response.body == pages.not_found_page().encode("utf-8")
+    response = rename(world, project_id="9" * 5000, name=sent)
+    assert response.status == 404 and header(response, "Location") is None
+    assert response.body == pages.not_found_page().encode("utf-8")
     assert (world.bytes_on_disk(), world.saver.saves) == before
 
 

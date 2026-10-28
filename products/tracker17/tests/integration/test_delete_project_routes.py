@@ -214,23 +214,24 @@ def submit_to_deleted_project(world: World, case: str) -> Response:
 
 @pytest.mark.parametrize("case", ["add-task", "rename", "first-press", "confirm", "confirm-again"])
 def test_deleted_project_submission_changes_nothing(tmp_path: Path, case: str) -> None:
-    """CP-582, CP-587, T11: a submission whose target is the deleted project saves nothing; adding
-    a task and the rename keep their direct 404; the two presses are sent to the bare project
-    address, which shows that 404. Each case deletes the project through its confirmation first."""
+    """CP-582, CP-587, CP-594, CP-595, CP-599, CP-602, T1, T4: a submission whose target is the
+    deleted project saves nothing and is sent to the bare project address, which shows the 404
+    with no Cache-Control. Each case deletes the project through its confirmation first."""
     world = two_projects(tmp_path)
     assert location(press(world, confirming=True)).startswith("/?deleted_project=")
     if case == "confirm-again":
         assert location(press(world, confirming=True)) == "/projects/1"
     before, saves = world.bytes_on_disk(), world.saver.saves
+    projects_before = world.tracker.projects()
+    survivor_before = world.tracker.project_tasks(2)
     response = submit_to_deleted_project(world, case)
-    if case in ("add-task", "rename"):
-        assert response.status == 404 and heading_of(response) == NOT_FOUND_PROJECT
-    else:
-        assert location(response) == "/projects/1"
-        shown = get(world.site, "/projects/1")
-        assert shown.status == 404 and heading_of(shown) == NOT_FOUND_PROJECT
-        assert header(shown, "Cache-Control") is None
+    assert response.status == 303 and location(response) == "/projects/1"
+    shown = get(world.site, "/projects/1")
+    assert shown.status == 404 and heading_of(shown) == NOT_FOUND_PROJECT
+    assert header(shown, "Cache-Control") is None
     assert world.bytes_on_disk() == before and world.saver.saves == saves
+    assert world.tracker.projects() == projects_before
+    assert world.tracker.project_tasks(2) == survivor_before
 
 
 CHILD_CASES: dict[str, tuple[str, dict[str, str]]] = {
