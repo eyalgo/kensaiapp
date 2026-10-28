@@ -328,6 +328,29 @@ button.delete-button:hover {
   border-color: var(--ink-muted);
 }
 
+/* A project's deletion strip (DESIGN.md confirm-strip): the first button it replaces is the
+   full-size secondary button, so the sentence and the confirming control take that height, and
+   the bottom padding is the two full-size controls and the two 8px gaps around them. */
+.strip-control .confirm-sentence {
+  min-height: 36px;
+  padding-bottom: 88px;
+}
+
+.strip-control button.button-confirm {
+  height: 36px;
+  min-width: 24px;
+  padding: 0 16px;
+  background: var(--ink);
+  color: var(--surface);
+  border: 1px solid var(--ink);
+  border-radius: 4px;
+}
+
+.strip-control button.button-confirm:hover {
+  background: var(--ink-muted);
+  border-color: var(--ink-muted);
+}
+
 button.button-secondary {
   height: 36px;
   min-width: 24px;

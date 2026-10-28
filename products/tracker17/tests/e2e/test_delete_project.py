@@ -149,7 +149,9 @@ def test_project_confirmation_is_keyboard_operable(
     assert b"Alpha" not in saved_bytes(tracker)
 
 
-@pytest.mark.parametrize("name", [NAME, "A project name long enough to wrap " * 4], ids=["short", "long"])
+@pytest.mark.parametrize(
+    "name", [NAME, "A project name long enough to wrap " * 4], ids=["short", "long"]
+)
 @pytest.mark.parametrize("position", ["part-way", "bottom"])
 def test_double_press_never_confirms_project_deletion(
     trackers: TrackerFactory, location: Path, page: Page, position: str, name: str

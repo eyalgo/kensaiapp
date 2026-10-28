@@ -190,8 +190,13 @@ def test_every_page_has_a_header_with_the_projects_and_people_links() -> None:
         for link in root.find_all("a"):
             href = link.attrs["href"] or ""
             assert re.fullmatch(COUNT_AND_BASE_ADDRESS, href), (label, href)
+        shown = root.text().lower()
+        if label in ("project", "created"):
+            # CP-569, T19: a project's Tasks view offers the one Delete project control.
+            assert shown.count("delete project") == 1, label
+            shown = shown.replace("delete project", "")
         for forbidden in ("rename", "delete"):
-            assert forbidden not in root.text().lower(), (label, forbidden)
+            assert forbidden not in shown, (label, forbidden)
 
 
 def test_the_first_run_page_says_there_are_no_projects_and_has_the_form() -> None:

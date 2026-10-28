@@ -15,8 +15,8 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlencode
 
 import pytest
-from test_delete_project_pages import landing, sentence_for
 from test_delete_pages import strips
+from test_delete_project_pages import landing, sentence_for
 from test_pages import parse
 from test_routes import FORM, HOST, SAME_ORIGIN, get, header, page
 from test_task_routes import World, add_task, location, make_world
@@ -188,7 +188,11 @@ def test_deleted_project_and_children_disappear_from_every_read(tmp_path: Path) 
     for address in ("/projects/1?project_delete_confirm", "/projects/1?project_delete_failed"):
         shown = get(world.site, address)
         assert shown.status == 404 and header(shown, "Cache-Control") is None
-    for never in ("/projects/99", "/projects/99?project_delete_confirm", "/tasks/99?delete_confirm"):
+    for never in (
+        "/projects/99",
+        "/projects/99?project_delete_confirm",
+        "/tasks/99?delete_confirm",
+    ):
         shown = get(world.site, never)
         assert shown.status == 404 and header(shown, "Cache-Control") is None, never
     for address in ("/", "/tasks", "/projects/2", "/projects/2/summary", "/tasks/5", "/people"):
@@ -286,7 +290,9 @@ def test_project_delete_response_policy_matches_rendered_state(tmp_path: Path) -
     opening = press(world)
     assert header(opening, "Clear-Site-Data") is None and header(opening, "Cache-Control") is None
     confirmed = press(world, confirming=True)
-    assert header(confirmed, "Clear-Site-Data") is None and header(confirmed, "Cache-Control") is None
+    assert (
+        header(confirmed, "Clear-Site-Data") is None and header(confirmed, "Cache-Control") is None
+    )
     done = get(world.site, location(confirmed))
     assert done.status == 200 and header(done, "Cache-Control") == "no-store"
     assert header(done, "Clear-Site-Data") is None
