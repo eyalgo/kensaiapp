@@ -255,8 +255,10 @@ def test_a_failed_rename_retains_text_and_focuses_save(
 ) -> None:
     """CP-557, QC-49, QC-56: nothing changes anywhere, the console names the rename then the
     error, Save takes focus described by the failure line, the field holds what was typed, and no
-    Python text reaches the page or the address."""
+    Python text reaches the page or the address. Every page that shows the project's name still
+    shows the old one."""
     world = make_world(tmp_path)
+    add_task(world.site, title="One")
     before = (world.bytes_on_disk(), state_of(world))
     world.saver.failing = True
     capsys.readouterr()
@@ -279,6 +281,12 @@ def test_a_failed_rename_retains_text_and_focuses_save(
     assert name_field(root).attrs["value"] == "Beta"
     assert [h.text() for h in root.find_all("h1")] == [OLD_NAME]
     assert names_on_projects(world) == [OLD_NAME]
+    summary = parse(page(get(world.site, "/projects/1/summary")))
+    assert [h.text() for h in summary.find_all("h1")] == [OLD_NAME]
+    assert [t.text() for t in summary.find_all("title")] == ["Alpha: Summary - tracker17"]
+    for other in ("/tasks", "/tasks/1"):
+        elsewhere = page(get(world.site, other))
+        assert OLD_NAME in elsewhere and "Beta" not in elsewhere, other
     assert (world.bytes_on_disk(), state_of(world)) == before
     world.saver.failing = False
     assert "rename_saved=Beta" in (header(rename(world, name="Beta"), "Location") or "")
