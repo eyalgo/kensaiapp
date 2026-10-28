@@ -22,9 +22,14 @@ and tests/integration/test_start.py (the saved task shape and the start on saved
 tests/integration/test_task_tracker.py (the add, the edit, the lookup and the list through the
 Tracker), tests/integration/test_task_routes.py, tests/integration/test_routes.py and
 tests/integration/test_task_pages.py (the requests and pages),
-tests/integration/test_delete_pages.py and tests/integration/test_delete_routes.py (the deletion's
-pages and requests), tests/e2e/test_tasks.py and tests/e2e/test_delete_task.py (the browser), and
-tests/integration/test_timed_run.py (the timed harness at task volume).
+tests/integration/test_delete_pages.py and tests/integration/test_delete_routes.py (the task
+deletion's pages and requests), tests/e2e/test_tasks.py and tests/e2e/test_delete_task.py (the
+browser), tests/integration/test_rename_tracker.py, tests/integration/test_rename_pages.py,
+tests/integration/test_rename_routes.py and tests/e2e/test_rename_project.py (the project rename
+beside the tasks), tests/integration/test_delete_project_tracker.py,
+tests/integration/test_delete_project_pages.py, tests/integration/test_delete_project_routes.py and
+tests/e2e/test_delete_project.py (the project deletion that removes a project's tasks with their
+comments), and tests/integration/test_timed_run.py (the timed harness at task volume).
 """
 
 from __future__ import annotations
