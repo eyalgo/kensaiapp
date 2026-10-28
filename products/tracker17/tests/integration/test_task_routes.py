@@ -428,9 +428,7 @@ def test_missing_task_addresses_get_the_task_not_found_page(tmp_path: Path, targ
     assert [a.text() for a in main.find_all("a")] == ["Projects", "All tasks"]
 
 
-@pytest.mark.parametrize(
-    "target", ["/tasks/abc", "/tasks/", "/projects/1/tasks", "/tasks/1/x"]
-)
+@pytest.mark.parametrize("target", ["/tasks/abc", "/tasks/", "/projects/1/tasks", "/tasks/1/x"])
 def test_other_unknown_paths_keep_the_project_not_found_page(tmp_path: Path, target: str) -> None:
     """CP-125: only a task-shaped address gets the task wording."""
     world = make_world(tmp_path)

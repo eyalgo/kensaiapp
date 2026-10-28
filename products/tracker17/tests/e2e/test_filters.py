@@ -230,8 +230,7 @@ def test_keyboard_reaches_and_filters_all_tasks_without_script(
     scriptless.goto(tracker.address + "/projects/1")
     scriptless.get_by_role("link", name="All tasks").focus()
     scriptless.keyboard.press("Enter")
-    scriptless.wait_for_load_state()
-    assert scriptless.url == tracker.address + "/tasks"
+    scriptless.wait_for_url(tracker.address + "/tasks")
     expect(scriptless.locator("h1")).to_have_text("All tasks")
     assert listed(scriptless) == ["Write docs", "Fix bug", "Ship"]
     tab_until(scriptless, "filter-priority")
@@ -240,13 +239,12 @@ def test_keyboard_reaches_and_filters_all_tasks_without_script(
     scriptless.keyboard.type("Title")
     tab_until(scriptless, "filter-apply")
     scriptless.keyboard.press("Enter")
-    scriptless.wait_for_load_state()
+    scriptless.wait_for_url(lambda url: "filter_priority=low" in url)
     query = parse_qs(urlsplit(scriptless.url).query)
     assert query["filter_priority"] == ["low"] and query["sort_field"] == ["title"]
     assert listed(scriptless) == ["Fix bug"]
     expect(scriptless.locator("#filter-priority")).to_have_value("low")
     tab_until(scriptless, "filter-clear")
     scriptless.keyboard.press("Enter")
-    scriptless.wait_for_load_state()
-    assert scriptless.url == tracker.address + "/tasks"
+    scriptless.wait_for_url(tracker.address + "/tasks")
     assert listed(scriptless) == ["Write docs", "Fix bug", "Ship"]

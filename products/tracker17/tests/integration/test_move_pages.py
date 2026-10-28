@@ -781,11 +781,18 @@ def test_global_row_forms_and_injected_move_views_keep_the_destination(tmp_path:
         for form in kept.find_all("form"):
             if str(form.attrs["action"]).startswith("/tasks/"):
                 assert ("place", "all_tasks") in hidden(form)
-    assert "has changed to" not in shown(
-        move_outcome=pages.MoveOutcome(2, refusal=pages.MoveRefusal.NOT_ALLOWED)
-    ).text()
     assert (
-        description(focused(shown(move_outcome=pages.MoveOutcome(2, refusal=pages.MoveRefusal.NOT_ALLOWED)))[0])
+        "has changed to"
+        not in shown(
+            move_outcome=pages.MoveOutcome(2, refusal=pages.MoveRefusal.NOT_ALLOWED)
+        ).text()
+    )
+    assert (
+        description(
+            focused(
+                shown(move_outcome=pages.MoveOutcome(2, refusal=pages.MoveRefusal.NOT_ALLOWED))
+            )[0]
+        )
         == "The status of 'Fix bug' is todo. A task in todo can be moved to in-progress or cancelled."
     )
 
@@ -795,7 +802,13 @@ def test_the_project_and_task_forms_keep_their_destinations(tmp_path: Path) -> N
     world = world_with(tmp_path)
     project_root = project_page(world, "?move_task=1&move_confirm=cancelled", status=202)
     (strip,) = strips(project_root)
-    assert [f.attrs["action"] for f in strip.find_all("form")] == ["/tasks/1/move/confirm", "/projects/1"]
+    assert [f.attrs["action"] for f in strip.find_all("form")] == [
+        "/tasks/1/move/confirm",
+        "/projects/1",
+    ]
     task_root = task_page(world, "?move_task=1&move_confirm=cancelled", status=202)
     (strip,) = strips(task_root)
-    assert [f.attrs["action"] for f in strip.find_all("form")] == ["/tasks/1/move/confirm", "/tasks/1"]
+    assert [f.attrs["action"] for f in strip.find_all("form")] == [
+        "/tasks/1/move/confirm",
+        "/tasks/1",
+    ]

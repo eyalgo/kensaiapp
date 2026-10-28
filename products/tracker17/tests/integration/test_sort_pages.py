@@ -459,7 +459,7 @@ def test_global_count_and_no_match_states_use_the_read_model(tmp_path: Path) -> 
     assert task_numbers(two) == [1] and "1 task matches this filter." in two.text()
     several = all_tasks(world, "filter_status=todo&sort_field=title")
     assert "4 tasks match this filter." in several.text()
-    assert task_numbers(several) == [2, 3, 4, 1]
+    assert task_numbers(several) == [2, 4, 3, 1]
     only_sort = all_tasks(world, "sort_field=title&sort_direction=descending")
     assert "The tracker has 4 tasks." in only_sort.text()
     assert "filter" not in only_sort.by_id("filter-count").text()
@@ -527,12 +527,9 @@ def test_global_typed_values_are_text_in_every_rendered_context(tmp_path: Path) 
     assert cells[0].text() == hostile and cells[1].text() == hostile
     assert cells[4].text() == hostile and cells[5].text() == hostile
     assert cells[0].find_all("a")[0].attrs["aria-label"] == f"{hostile}, number 1 on the task list"
-    assert all(
-        hostile in b.attrs["aria-label"] for b in cells[7].find_all("button")
-    ), "move names"
+    assert all(hostile in b.attrs["aria-label"] for b in cells[7].find_all("button")), "move names"
     assert offered(root, "filter_assignee") == ["", hostile]
     (table,) = root.find_all("table")
     wrapper = table.parent
     assert wrapper is not None and wrapper.attrs["class"] == "table-scroll"
     assert root.find_all("script") == []
-

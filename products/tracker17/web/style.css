@@ -412,6 +412,14 @@ main > .table-scroll {
   font-weight: 600;
 }
 
+/* The four columns that wrap (title, project, assignee, labels) keep a minimum width; below it the
+   table scrolls in its own container (DESIGN.md, Layout). */
+.task-list td:first-child,
+.task-list td.project-cell,
+.task-list td.pre-wrap {
+  min-width: 6rem;
+}
+
 /* The overdue word: the late colour on its tint, beside the date. */
 .overdue {
   padding: 0 4px;

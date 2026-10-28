@@ -55,6 +55,7 @@ TEXT_TOO_LONG = "too-long"
 PRODUCT_NAME = "tracker17"
 STYLESHEET_ADDRESS = "/style.css"
 PROJECTS_ADDRESS = "/"
+ALL_TASKS_ADDRESS = "/tasks"
 PEOPLE_ADDRESS = "/people"
 ADD_ASSIGNEE_ADDRESS = "/assignees"
 REMOVE_ASSIGNEE_ADDRESS = "/assignees/remove"
@@ -259,8 +260,17 @@ def _no_moves(status: TaskStatus) -> tuple[TaskStatus, ...]:
     return ()
 
 
-MOVE_PLACE_LIST = "list"
-MOVE_PLACE_TASK = "task"
+class MovePlace(str, Enum):
+    """Where a move was pressed, and so where its answer lands: the closed set a form carries as
+    `place`. Never a supplied address (CP-475)."""
+
+    TASK = "task"
+    LIST = "list"
+    ALL_TASKS = "all_tasks"
+
+
+MOVE_PLACE_LIST = MovePlace.LIST.value
+MOVE_PLACE_TASK = MovePlace.TASK.value
 
 
 class _CommentOutcome(Enum):
@@ -400,6 +410,7 @@ def _document(title: str, body: str) -> str:
         '<header class="site-header">'
         f'<span class="product-name">{PRODUCT_NAME}</span>'
         f'<nav><a href="{PROJECTS_ADDRESS}">Projects</a>'
+        f'<a href="{ALL_TASKS_ADDRESS}">All tasks</a>'
         f'<a href="{PEOPLE_ADDRESS}">People</a></nav>'
         "</header>\n"
         f"<main>\n{body}</main>\n"
@@ -712,10 +723,17 @@ def confirm_strip(
     )
 
 
-def _cancellation_strip(task: Task, place: str, carried: Carried = ()) -> str:
-    back_out_address = (
-        f"/projects/{task.project_id}" if place == MOVE_PLACE_LIST else f"/tasks/{task.id}"
-    )
+def _back_out_address(task: Task, place: MovePlace) -> str:
+    """The address a cancelled confirmation backs out to: the page the move was pressed on."""
+    if place is MovePlace.LIST:
+        return f"/projects/{task.project_id}"
+    if place is MovePlace.ALL_TASKS:
+        return ALL_TASKS_ADDRESS
+    return f"/tasks/{task.id}"
+
+
+def _cancellation_strip(task: Task, place: MovePlace, carried: Carried = ()) -> str:
+    back_out_address = _back_out_address(task, place)
     return confirm_strip(
         sentence=CANCEL_SENTENCE.format(title=task.title),
         sentence_id=CONFIRM_SENTENCE_ID,
@@ -723,7 +741,7 @@ def _cancellation_strip(task: Task, place: str, carried: Carried = ()) -> str:
             CONFIRM_CANCEL_LABEL,
             MOVE_CONFIRM_ADDRESS.format(task_id=task.id),
             "post",
-            {"place": place},
+            {"place": place.value},
             carried,
         ),
         back_out=StripForm(
@@ -739,13 +757,13 @@ def _cancellation_strip(task: Task, place: str, carried: Carried = ()) -> str:
 
 
 def _move_form(
-    task: Task, move: TaskStatus, place: str, carried: Carried = (), *, focus: bool = False
+    task: Task, move: TaskStatus, place: MovePlace, carried: Carried = (), *, focus: bool = False
 ) -> str:
     focus_attributes = " autofocus" if focus else ""
     return (
         f'<form method="post" action="/tasks/{task.id}/move">'
         f'<input type="hidden" name="status" value="{move.value}">'
-        f'<input type="hidden" name="place" value="{place}">'
+        f'<input type="hidden" name="place" value="{place.value}">'
         f"{_hidden(carried)}"
         f'<button type="submit" class="move-button"{focus_attributes} '
         f"aria-label=\"Move '{_escape(task.title)}' to {move.value}\">{move.value}</button>"
@@ -755,7 +773,7 @@ def _move_form(
 
 def _move_forms(
     task: Task,
-    place: str,
+    place: MovePlace,
     allowed: tuple[TaskStatus, ...],
     interaction: MoveInteraction | None = None,
     carried: Carried = (),
@@ -790,6 +808,15 @@ _OVERTAKEN_LINES = (
     _CHANGED + "A task in {status} can be moved to {0} or {1}.",
     _CHANGED + "A task in {status} can be moved to {0}, {1} or {2}.",
 )
+# On All tasks the same refusal states the status as it stands and claims no change (text record,
+# Wording decisions); a project's list and a task's page keep "has changed to".
+_IS = "The status of '{title}' is {status}. "
+_STANDING_LINES = (
+    _IS + "A task in {status} can't be moved.",
+    _IS + "A task in {status} can be moved to {0}.",
+    _IS + "A task in {status} can be moved to {0} or {1}.",
+    _IS + "A task in {status} can be moved to {0}, {1} or {2}.",
+)
 _ADDRESS_LINE = (
     "The status of '{title}' is {status}, which doesn't allow a move to cancelled. "
     "A task in {status} can't be moved."
@@ -805,18 +832,27 @@ def _has_move_line(outcome: MoveOutcome | None, task: Task) -> bool:
     )
 
 
-def _refusal_line(context: MoveRefusalContext, task: Task, allowed: tuple[TaskStatus, ...]) -> str:
+def _refusal_line(
+    context: MoveRefusalContext,
+    task: Task,
+    allowed: tuple[TaskStatus, ...],
+    place: MovePlace = MovePlace.LIST,
+) -> str:
     """The refusal's whole line. A refused submission names the moves the page offers for the
     task, in the order it offers them: `allowed` is that one tuple, also the controls' tuple."""
     words = {"title": _escape(task.title), "status": task.status.value}
     if context is MoveRefusalContext.CANCELLATION_ADDRESS:
         return _ADDRESS_LINE.format(**words)
     moves = [move.value for move in allowed]
-    return _OVERTAKEN_LINES[len(moves)].format(*moves, **words)
+    lines = _STANDING_LINES if place is MovePlace.ALL_TASKS else _OVERTAKEN_LINES
+    return lines[len(moves)].format(*moves, **words)
 
 
 def _move_line(
-    outcome: MoveOutcome | None, task: Task, allowed: tuple[TaskStatus, ...]
+    outcome: MoveOutcome | None,
+    task: Task,
+    allowed: tuple[TaskStatus, ...],
+    place: MovePlace = MovePlace.LIST,
 ) -> tuple[_MoveKind, str] | None:
     """The one line a move outcome shows for this task, or None when it is not about the task.
 
@@ -826,7 +862,7 @@ def _move_line(
     if outcome is None or not _has_move_line(outcome, task):
         return None
     if outcome.refusal is not None:
-        return _MoveKind.REFUSED, _refusal_line(outcome.refusal_context, task, allowed)
+        return _MoveKind.REFUSED, _refusal_line(outcome.refusal_context, task, allowed, place)
     title = _escape(task.title)
     if outcome.failed is not None:
         line = (
@@ -912,6 +948,15 @@ def _status_word(task: Task, line: tuple[_MoveKind, str] | None, tag: str, attri
     return f"<{tag}{attributes}>{task.status.value}</{tag}>"
 
 
+def _project_cell(task: Task, project_names: Mapping[int, str] | None) -> str:
+    """The Project cell of an All tasks row: the name as a link to the project's own page, with no
+    choice in its address. A list of one project has no such cell."""
+    if project_names is None:
+        return ""
+    name = _escape(project_names.get(task.project_id, ""))
+    return f'<td class="project-cell"><a class="pre-wrap" href="/projects/{task.project_id}">{name}</a></td>'
+
+
 def _task_row(
     position: int,
     row: TaskRow,
@@ -919,17 +964,20 @@ def _task_row(
     line: tuple[_MoveKind, str] | None,
     interaction: MoveInteraction | None = None,
     carried: Carried = (),
+    place: MovePlace = MovePlace.LIST,
+    project_names: Mapping[int, str] | None = None,
 ) -> str:
     task = row.task
     title = _escape(task.title)
     labels = ", ".join(_escape(label) for label in task.labels) or "none"
     assignee = _escape(task.assignee) if task.assignee is not None else "unassigned"
     status = _status_word(task, line, "span", ' class="status-word"') if line else task.status.value
-    moves = _move_forms(task, MOVE_PLACE_LIST, allowed, interaction, carried)
+    moves = _move_forms(task, place, allowed, interaction, carried)
     return (
         "<tr>"
         f'<td><a class="pre-wrap" href="/tasks/{task.id}" '
         f'aria-label="{title}, number {position} on the task list">{title}</a></td>'
+        f"{_project_cell(task, project_names)}"
         f"<td>{status}</td>"
         f"<td>{task.priority.value}</td>"
         f'<td class="pre-wrap">{assignee}</td>'
@@ -941,6 +989,7 @@ def _task_row(
 
 
 _TASK_COLUMNS = ("Title", "Status", "Priority", "Assignee", "Labels", "Due date", "Moves")
+_ALL_TASK_COLUMNS = (_TASK_COLUMNS[0], "Project", *_TASK_COLUMNS[1:])
 
 
 def _task_list(
@@ -949,22 +998,28 @@ def _task_list(
     outcome: MoveOutcome | None,
     interaction: MoveInteraction | None = None,
     carried: Carried = (),
+    place: MovePlace = MovePlace.LIST,
+    project_names: Mapping[int, str] | None = None,
 ) -> str:
-    """The seven-column table in the order given, or the first-task invitation when there is none."""
+    """The seven-column table in the order given, or the first-task invitation when there is none.
+    With `project_names` it is All tasks' eight columns, the Project cell after the title."""
     if not rows:
         return (
             '<p class="no-tasks">This project has no tasks yet. '
             "Give the first task a title and press Add.</p>\n"
         )
-    headers = "".join(f'<th scope="col">{name}</th>' for name in _TASK_COLUMNS)
+    columns = _TASK_COLUMNS if project_names is None else _ALL_TASK_COLUMNS
+    headers = "".join(f'<th scope="col">{name}</th>' for name in columns)
     body = "".join(
         _task_row(
             position,
             row,
             offered,
-            _move_line(outcome, row.task, offered),
+            _move_line(outcome, row.task, offered, place),
             interaction if interaction and interaction.task_id == row.task.id else None,
             carried,
+            place,
+            project_names,
         )
         for position, row in enumerate(rows, start=1)
         for offered in (allowed(row.task.status),)
@@ -1283,9 +1338,25 @@ def _sort_field(
     )
 
 
-def _filter_area(project: Project, listing: ProjectTaskList) -> str:
+@dataclass(frozen=True)
+class _Scope:
+    """What differs between a project's list and All tasks: the page's own address (the controls'
+    target and Clear), where a move lands, the words of a sort-only count, and, for All tasks, the
+    names of the projects. The controls, rows and moves are shared, not copied."""
+
+    address: str
+    place: MovePlace
+    sort_count_line: Callable[[int], str]
+    project_names: Mapping[int, str] | None = None
+
+
+def _project_scope(project: Project) -> _Scope:
+    return _Scope(f"/projects/{project.id}", MovePlace.LIST, _sort_count_line)
+
+
+def _filter_area(scope: _Scope, listing: ProjectTaskList) -> str:
     """The GET form of nine controls (the seven filters, then Sort by and Direction), Apply, and
-    Clear, for a project that has tasks. The first refused control, in that order, takes the
+    Clear, for a list that has tasks. The first refused control, in that order, takes the
     focus."""
     filter_problems = {
         problem.field: problem
@@ -1306,18 +1377,19 @@ def _filter_area(project: Project, listing: ProjectTaskList) -> str:
         for control in SortControl
     )
     return (
-        f'<form method="get" action="/projects/{project.id}" class="filter-form" '
+        f'<form method="get" action="{scope.address}" class="filter-form" '
         'id="filter" novalidate>\n'
         f'<div class="filter-row">\n{fields}</div>\n'
         '<div class="filter-actions">'
         f'<button type="submit" id="filter-apply">{FILTER_APPLY_LABEL}</button>'
-        f'<a class="button-link" id="filter-clear" href="/projects/{project.id}">'
+        f'<a class="button-link" id="filter-clear" href="{scope.address}">'
         f"{FILTER_CLEAR_LABEL}</a>"
         "</div>\n</form>\n"
     )
 
 
 def _filtered_list(
+    scope: _Scope,
     listing: ProjectTaskList,
     allowed: AllowedMoves,
     outcome: MoveOutcome | None,
@@ -1333,14 +1405,20 @@ def _filtered_list(
     if listing.narrowed and listing.match_count == 0:
         results = f'<p class="no-match" id="{_FILTER_NO_MATCH_ID}">{NO_MATCH_LINE}</p>\n'
     else:
-        words = _match_count_line if listing.narrowed else _sort_count_line
+        words = _match_count_line if listing.narrowed else scope.sort_count_line
         count = (
             f'<p class="match-count" id="{_FILTER_COUNT_ID}">{words(listing.match_count)}</p>\n'
             if listing.count_requested
             else ""
         )
         results = count + _task_list(
-            listing.rows, allowed, outcome, interaction, _carried_pairs(listing)
+            listing.rows,
+            allowed,
+            outcome,
+            interaction,
+            _carried_pairs(listing),
+            scope.place,
+            scope.project_names,
         )
     return results if off_list_line is None else _list_section(off_list_line, results)
 
@@ -1412,8 +1490,9 @@ def project_page(
     )
     shown_interaction = move_interaction if interacting else None
     if listing is not None and listing.task_count > 0:
-        under_form = _filter_area(project, listing) + _filtered_list(
-            listing, allowed_moves, move_outcome, shown_interaction, off_list_line
+        scope = _project_scope(project)
+        under_form = _filter_area(scope, listing) + _filtered_list(
+            scope, listing, allowed_moves, move_outcome, shown_interaction, off_list_line
         )
     else:
         under_form = _task_list(rows, allowed_moves, move_outcome, shown_interaction)
@@ -1425,6 +1504,67 @@ def project_page(
         f"{under_form}"
     )
     return _document(f"{project.name} - tracker17", body)
+
+
+_ALL_TASKS_EMPTY = (
+    f'<p class="no-tasks">There are no tasks yet. Open <a href="{PROJECTS_ADDRESS}">Projects</a> '
+    "to add a task to a project.</p>\n"
+)
+
+
+def _all_sort_count_line(count: int) -> str:
+    return "The tracker has 1 task." if count == 1 else f"The tracker has {count} tasks."
+
+
+def all_tasks_page(
+    listing: ProjectTaskList,
+    projects: Sequence[Project],
+    *,
+    allowed_moves: AllowedMoves = _no_moves,
+    move_outcome: MoveOutcome | None = None,
+    move_interaction: MoveInteraction | None = None,
+    off_list_task: Task | None = None,
+) -> str:
+    """The All tasks page: every project's tasks, in the order and with the overdue flags the
+    `listing` hands in, and each task's project beside its title.
+
+    With no task anywhere the page is its heading and the first-task invitation, whatever the
+    choices were. Otherwise it is the controls and what stands under them, as a project's list
+    has them. A `move_outcome` about a listed row takes the row's line and its focus; one about
+    the `off_list_task` gets one line above the results, as on a project's list. Deciding no order,
+    no overdue state and no match, it shows the rows exactly as given.
+    """
+    heading = '<h1 tabindex="-1">All tasks</h1>\n'
+    if listing.task_count == 0:
+        return _document("All tasks - tracker17", heading + _ALL_TASKS_EMPTY)
+    scope = _Scope(
+        ALL_TASKS_ADDRESS,
+        MovePlace.ALL_TASKS,
+        _all_sort_count_line,
+        {project.id: project.name for project in projects},
+    )
+    off_list_line = _off_list_line(move_outcome, off_list_task, allowed_moves)
+    lined = off_list_line is not None or any(
+        _has_move_line(move_outcome, row.task) for row in listing.rows
+    )
+    interacting = (
+        not lined
+        and move_interaction is not None
+        and any(row.task.id == move_interaction.task_id for row in listing.rows)
+    )
+    body = (
+        heading
+        + _filter_area(scope, listing)
+        + _filtered_list(
+            scope,
+            listing,
+            allowed_moves,
+            move_outcome,
+            move_interaction if interacting else None,
+            off_list_line,
+        )
+    )
+    return _document("All tasks - tracker17", body)
 
 
 def _edit_reason(
@@ -1841,7 +1981,7 @@ def _status_section(
         f'<section id="{_STATUS_ID}" class="sheet">\n'
         "<h2>Status</h2>\n"
         f"{word}\n"
-        f"{_move_forms(task, MOVE_PLACE_TASK, allowed, interaction)}"
+        f"{_move_forms(task, MovePlace.TASK, allowed, interaction)}"
         f"{_move_line_block(line)}"
         "</section>\n"
     )
@@ -1925,24 +2065,24 @@ def task_page(
     return _document(f"{task.title} - tracker17", body)
 
 
+_NOT_FOUND_NEXT = (
+    f'<p>Open <a href="{PROJECTS_ADDRESS}">Projects</a> or '
+    f'<a href="{ALL_TASKS_ADDRESS}">All tasks</a>.</p>\n'
+)
+
+
 def not_found_page() -> str:
     """The page for an address with nothing at it: the same for every address, showing none.
 
     It takes no argument, so no part of an address can reach it (CP-33).
     """
-    body = (
-        "<h1>There's no project at this address</h1>\n"
-        f'<p>Open <a href="{PROJECTS_ADDRESS}">Projects</a>.</p>\n'
-    )
+    body = f"<h1>There's no project at this address</h1>\n{_NOT_FOUND_NEXT}"
     return _document("Not found - tracker17", body)
 
 
 def task_not_found_page() -> str:
     """The page for an address shaped like a task's that names no task; it shows none of it."""
-    body = (
-        "<h1>There's no task at this address</h1>\n"
-        f'<p>Open <a href="{PROJECTS_ADDRESS}">Projects</a>.</p>\n'
-    )
+    body = f"<h1>There's no task at this address</h1>\n{_NOT_FOUND_NEXT}"
     return _document("Not found - tracker17", body)
 
 

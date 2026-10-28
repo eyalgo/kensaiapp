@@ -66,6 +66,7 @@ SAME_ORIGIN = "same-origin"
 
 PROJECTS_ADDRESS = "/"
 PEOPLE_ADDRESS = "/people"
+ALL_TASKS_ADDRESS = "/tasks"
 PROJECT_PATTERN = re.compile(r"/projects/([0-9]+)")
 TASK_PATTERN = re.compile(r"/tasks/([0-9]+)")
 ADD_TASK_PATTERN = re.compile(r"/projects/([0-9]+)/tasks")
@@ -107,6 +108,7 @@ ROUTES = (
     Route("GET", "/projects/[0-9]+", PAGE),
     Route("POST", "/projects", SUBMISSION),
     Route("GET", "/people", PAGE),
+    Route("GET", "/tasks", PAGE),
     Route("POST", "/assignees", SUBMISSION),
     Route("POST", "/assignees/remove", SUBMISSION),
     Route("POST", "/operator-name", SUBMISSION),
@@ -324,6 +326,8 @@ class Site:
             return self._html(self._projects_page(query))
         if path == PEOPLE_ADDRESS:
             return self._html(self._people_page(query))
+        if path == ALL_TASKS_ADDRESS:
+            return self._all_tasks_page(query)
         task_match = TASK_PATTERN.fullmatch(path)
         if task_match:
             return self._task_page(task_match.group(1), query)
@@ -529,7 +533,36 @@ class Site:
                 allowed_moves=self._tracker.allowed_moves,
                 move_outcome=move_outcome,
                 move_interaction=move_interaction,
-                off_list_task=self._off_list_task(project, listing, move_outcome, shown),
+                off_list_task=self._off_list_task(
+                    lambda found: self._project_task(project, found), listing, move_outcome, shown
+                ),
+            ),
+            Site._pending_status(move_interaction),
+            extra=self._stored_as_asked(query),
+        )
+
+    def _all_tasks_page(self, query: Mapping[str, list[str]]) -> Response:
+        """Read the choices from the address and build the All tasks page; it changes nothing.
+
+        The read, the move state and the off-list task are the project page's, over every task.
+        """
+        listing = self._tracker.all_task_list(_filter_input(query), sort_fields=_sort_input(query))
+        move = self._move_view(query, self._tracker.task)
+        if move is None:
+            return Site._html(pages.task_not_found_page(), HTTPStatus.NOT_FOUND)
+        move_outcome, move_interaction = move
+        shown = {row.task.id for row in listing.rows}
+        if move_interaction is not None and move_interaction.task_id not in shown:
+            # A confirmation is offered only on a row the page shows.
+            move_interaction = None
+        return self._html(
+            pages.all_tasks_page(
+                listing,
+                self._tracker.projects(),
+                allowed_moves=self._tracker.allowed_moves,
+                move_outcome=move_outcome,
+                move_interaction=move_interaction,
+                off_list_task=self._off_list_task(self._tracker.task, listing, move_outcome, shown),
             ),
             Site._pending_status(move_interaction),
             extra=self._stored_as_asked(query),
@@ -540,14 +573,15 @@ class Site:
         task = self._tracker.task(identity)
         return task if task is not None and task.project_id == project.id else None
 
+    @staticmethod
     def _off_list_task(
-        self,
-        project: Project,
+        find: Callable[[int], Task | None],
         listing: ProjectTaskList,
         outcome: pages.MoveOutcome,
         shown: set[int],
     ) -> Task | None:
-        """The task a move outcome is about when it is this project's and the list does not show it.
+        """The task a move outcome is about when `find` holds it for this list and the list does not
+        show it: a project's list finds its own tasks, All tasks finds any.
 
         Membership is the read model's selected identities; no filter rule is tested here. A refused
         filter has no list, so it has no such task.
@@ -556,7 +590,7 @@ class Site:
             return None
         if outcome.refusal is None and outcome.failed is None and outcome.moved is None:
             return None
-        return self._project_task(project, outcome.task_id)
+        return find(outcome.task_id)
 
     @staticmethod
     def _task_form(query: Mapping[str, list[str]]) -> pages.TaskForm:
