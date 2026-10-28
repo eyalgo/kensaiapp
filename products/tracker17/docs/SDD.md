@@ -2,8 +2,8 @@
 
 **Status:** Settled
 **Owner:** CTO — writes every part; the CPO and the CDO decide the parts the lane table names, through `SDD_open_issues.md` items carrying their `Seat:`
-**Version:** 12 — the ninth answered round folded in (`products/tracker17/docs/trail/sdd/cycle-9.md`), one item the PM raised from the product's filter form against § 4 RT-8, answered in the CTO's seat. RT-8 defines the word it binds on: a submission is a form sent with `method="post"`, a request for a change; a form sent with `method="get"` is a read, answered with the page at the address the browser built, 200, with no redirect, as the filter form is today, and § 11 R-10's bound reaches its values. RT-11 names ADR-0010, which now records it, and § 12 counts ten records. The UXD moved to version 9 after version 11 read it at 8, and § 10 RC-5 records it: § 6 `status-moves`'s overtaken-move refusal states the task's current status and claims no change, UX-F4's words. RN-53 to RN-55 record the round. Nothing is left open. At 11: the eighth answered round folded in (`products/tracker17/docs/trail/sdd/cycle-8.md`), two items the PM raised from the product's code and from the UXD and one a `companion-self-answer` run raised from § 11 read against the suite, all three answered in the CTO's seat. § 4 gains RT-11, the history-admission boundary: a page that shows a pending confirmation of a move to `cancelled` is answered 202 and every other move page 200, each with `Cache-Control: no-store`; § 9 TO-8 and § 11 R-12 surface the decision and its browser dependence, and RT-8's last sentence is scoped to a finished outcome. § 6 `status-moves`'s behaviour bar has the overtaken move name the moves the page now shows and offer no reload, and names the refusal reached by an address with no press; § 4 EX-4 says where that refusal sits; § 10 RC-4 records the UXD moving to version 8. § 11 R-2 counts the confirmation case verified, by four tests at `<a commit not in the public history>`, and § Open Questions keeps the assistive-technology case alone. RN-49 to RN-52 record the round. The header's *Inputs read* catches up with PRD version 7 and NFDR version 13, neither of which moves a line of this document (RN-52). Nothing is left open
-**Inputs read:** PRD Settled (version 7) · SRS Settled (version 6) · UXD Settled (version 9; no `products/tracker17/docs/UXD_open_issues.md` beside it) · Agari no Status line (`agari_template.md` carries none) · tracker17 doctrine no Status line (stamped, unfilled) · writing_bar Settled · ADR-0001 to ADR-0010 Accepted and NFDR Settled (version 15, its header; `products/tracker17/docs/architecture_open_issues.md` is also present, opened on 2026-10-27 by the PM with its one item, § 3.1, unanswered) (downstream; read for the decisions already recorded, as the authoring lens says, never as a source) · FDR Settled (version 4, its header; downstream, read to check what the answered round says does not move, not a source) · the product's code and tests the answered round cites (read to verify each citation on disk, not sources)
+**Version:** 13 — the tenth answered round folded in (`products/tracker17/docs/trail/sdd/cycle-10.md`), one item the PM raised from the product's task deletion against § 4 RT-11 and § 6 S-7, answered in the CTO's seat. RT-11 widens from a move to `cancelled` to every pending confirmation § 4 EX-6 names: a page that shows a pending confirmation of a move to `cancelled`, a task deletion or a project deletion is answered 202, read off the page as built; every other page a confirmed action's interaction or outcome lands on is 200; each carries `Cache-Control: no-store`; the address of a deleted task or project answers the not-found page, 404, with no cache header; and the case RT-11 handed to `delete-and-rename`, whether the HTTP cache may keep that 404, closes: it may, and a kept one stays true because an identity is never reused. S-7's command half gains the deletion history clause, § 11 R-12's trigger names the deletion history test once it exists, and § 7's hand-off edge names the 202. The UXD moved to version 11 after version 12 read it at 9, and § 10 RC-6 records it: a refusal or failure for a task the list's filter leaves off the list sits above the results, stated in § 4 EX-4 and in `narrow-and-sort`'s behaviour bar. RT-8 names ADR-0011, which now records it, and § 12 counts eleven records. RN-56 to RN-58 record the round. Nothing is left open. At 12: the ninth answered round folded in (`products/tracker17/docs/trail/sdd/cycle-9.md`), one item the PM raised from the product's filter form against § 4 RT-8, answered in the CTO's seat. RT-8 defines the word it binds on: a submission is a form sent with `method="post"`, a request for a change; a form sent with `method="get"` is a read, answered with the page at the address the browser built, 200, with no redirect, as the filter form is today, and § 11 R-10's bound reaches its values. RT-11 names ADR-0010, which now records it, and § 12 counts ten records. The UXD moved to version 9 after version 11 read it at 8, and § 10 RC-5 records it: § 6 `status-moves`'s overtaken-move refusal states the task's current status and claims no change, UX-F4's words. RN-53 to RN-55 record the round. Nothing is left open. At 11: the eighth answered round folded in (`products/tracker17/docs/trail/sdd/cycle-8.md`), two items the PM raised from the product's code and from the UXD and one a `companion-self-answer` run raised from § 11 read against the suite, all three answered in the CTO's seat. § 4 gains RT-11, the history-admission boundary: a page that shows a pending confirmation of a move to `cancelled` is answered 202 and every other move page 200, each with `Cache-Control: no-store`; § 9 TO-8 and § 11 R-12 surface the decision and its browser dependence, and RT-8's last sentence is scoped to a finished outcome. § 6 `status-moves`'s behaviour bar has the overtaken move name the moves the page now shows and offer no reload, and names the refusal reached by an address with no press; § 4 EX-4 says where that refusal sits; § 10 RC-4 records the UXD moving to version 8. § 11 R-2 counts the confirmation case verified, by four tests at `<a commit not in the public history>`, and § Open Questions keeps the assistive-technology case alone. RN-49 to RN-52 record the round. The header's *Inputs read* catches up with PRD version 7 and NFDR version 13, neither of which moves a line of this document (RN-52). Nothing is left open
+**Inputs read:** PRD Settled (version 7) · SRS Settled (version 6) · UXD Settled (version 11; no `products/tracker17/docs/UXD_open_issues.md` beside it) · Agari no Status line (`agari_template.md` carries none) · tracker17 doctrine no Status line (stamped, unfilled) · writing_bar Settled · ADR-0001 to ADR-0011, ADR-0006 Superseded by ADR-0011 and the rest Accepted, and NFDR Settled (version 16, its header; `products/tracker17/docs/architecture_open_issues.md` is also present, opened on 2026-10-28 by the `companion-self-answer` run that answered this round's item, with its one item, § 2.1, unanswered) (downstream; read for the decisions already recorded, as the authoring lens says, never as a source) · FDR Settled (version 4, its header; downstream, read to check what the answered round says does not move, not a source) · the product's code and tests the answered round cites (read to verify each citation on disk, not sources)
 
 > The SDD is the technical **how**, and it ends in a **cut**. It states the architecture the rest of
 > the system builds against — derived from the PRD (the *what and why*), the SRS (the system-level
@@ -35,11 +35,12 @@ the answer's value. The reasoning behind each answer is in the same folder:
 items 2.2, 2.5, 3.1 and 3.2), `self_answer-3.md` (cycle 1, items 2.3 and 2.4), `self_answer-4.md`
 (cycle 2, item 2.1), `self_answer-5.md` (cycle 3, items 5.1 to 5.3), `self_answer-6.md` (cycle 4,
 item 5.1), `self_answer-7.md` (cycle 5, item 5.1), `self_answer-8.md` (cycle 6, item 5.1),
-`self_answer-9.md` (cycle 7, item 5.1), `self_answer-10.md` (cycle 8, items 5.1 and 5.2) and
-`self_answer-11.md` (cycle 8, item 2.1). The items of cycles 3 to 8 were raised by the PM, from the
+`self_answer-9.md` (cycle 7, item 5.1), `self_answer-10.md` (cycle 8, items 5.1 and 5.2),
+`self_answer-11.md` (cycle 8, item 2.1), `self_answer-12.md` (cycle 9, item 5.1) and
+`self_answer-13.md` (cycle 10, item 5.1). The items of cycles 3 to 10 were raised by the PM, from the
 product's code, from a run of the setup instructions on Linux, from a passing end-to-end test, in
-cycles 6 and 7 from the product's code again and in cycle 8 from the product's code and from the
-UXD, not drafted by the CTO, and were answered in the CTO's seat. Cycle 8's one item in § 2 was
+cycles 6 and 7 from the product's code again, in cycle 8 from the product's code and from the
+UXD, and in cycles 9 and 10 from the product's code again, not drafted by the CTO, and were answered in the CTO's seat. Cycle 8's one item in § 2 was
 raised by the run that answered its § 5 items, in the CTO's seat, from reading § 11 against the
 suite. The Review Note named beside a marker says why this document reads as it does.
 
@@ -362,7 +363,10 @@ written so that a slice breaking it could be named.
   browser's. A reload of that page, or a return to it through back, shows the same line at the same
   place when the address names a finished outcome: a completion line, a refusal or a failure. A
   page whose address asks for a pending step is built from the saved state on every load (RT-7)
-  and shows what the state now allows, which RT-11 and UXD UX-F4 state. *(serves SRS NFR-4; UXD
+  and shows what the state now allows, which RT-11 and UXD UX-F4 state. The Principal Architect
+  records the definition as
+  `products/tracker17/docs/adr/0011-a-submission-is-a-post-form-and-its-outcome-travels-in-the-address.md`,
+  which supersedes ADR-0006, and binds it as `products/tracker17/docs/nfdr.md` QC-7. *(serves SRS NFR-4; UXD
   § 4, "the browser's back, forward and reload buttons work on every one"; UXD UX-I3, UX-I4, UX-I7)*
   *(why, RN-21, RN-24, RN-25; the scope, `trail/sdd/cycle-8.md` § 5.1; why, RN-49; the word, and
   the `get` form: `trail/sdd/cycle-9.md` § 5.1; why, RN-53)*
@@ -407,21 +411,28 @@ written so that a slice breaking it could be named.
   together, stays under 51,000 bytes of the 65,536 the listener accepts. *(serves SRS FR-40, FR-39,
   DR-6; UXD UX-I3)* *(confirmed with an addition: `trail/sdd/cycle-2.md` § 2.1; why, RN-22, RN-24,
   RN-25)*
-- **RT-11: A page that shows a pending confirmation of a move to `cancelled` is answered with HTTP
-  status 202, and every other page a move's interaction or outcome lands on with 200; each of them,
-  the confirmation included, carries `Cache-Control: no-store`.** The status is read off the page as
+- **RT-11: A page that shows a pending confirmation of any action EX-6 confirms — a move to
+  `cancelled`, a task deletion, a project deletion — is answered with HTTP status 202, and every
+  other page a confirmed action's interaction or outcome lands on with 200; each of them, the
+  confirmation included, carries `Cache-Control: no-store`.** The pages answered 200 are a move's
+  outcome, a deletion's back-out, its failure, and the landing that names the deleted task or
+  project. The status is read off the page as
   built, after outcome precedence, task membership and the workflow's answer against the saved state
   (`web/routes.py`, `Site._pending_status` and `_move_view`), so an address that asks for a
-  confirmation the page does not show is 200, and one naming a task no task holds is 404. The 202 is
+  confirmation the page does not show is 200, and one naming a task no task holds is 404, never 202,
+  a `delete_confirm` address included. The 202 is
   the history-admission boundary: the pinned browser admits only a main document answered 200 to
   its back/forward cache, so a return to a confirmation's address through Back or Forward is loaded
-  afresh from the saved status and, once the task is in a final status, shows UXD UX-F4's no-press
-  refusal and never a stale confirmation. `no-store` serves a separate purpose: it keeps the HTTP
-  cache from reusing a move's interaction or outcome page, and does not by itself keep a page out of
+  afresh from the saved state and shows what is true now: once the task is in a final status, UXD
+  UX-F4's no-press refusal, and once the task or project is deleted, the not-found page (EX-13; UXD
+  UX-S10), never a stale confirmation that offers the action again. `no-store` serves a separate purpose: it keeps the HTTP
+  cache from reusing an interaction or outcome page, and does not by itself keep a page out of
   the browser's history cache. The meaning taken for 202 is the standard's, a request accepted for
-  processing that is not complete, here a move intent awaiting the operator's confirmation; the GET
+  processing that is not complete, which "might or might not eventually be acted upon, as it might
+  be disallowed when processing actually takes place" (RFC 9110 § 15.3.3, read at the source on
+  2026-10-28), here an intent awaiting the operator's confirmation; the GET
   schedules, saves and records nothing (RT-8), and no page script, cookie or session is used (RT-7;
-  ADR-0003, ADR-0006). The earlier `Clear-Site-Data: "cache"` header on the confirming redirect was
+  ADR-0003, ADR-0011). The earlier `Clear-Site-Data: "cache"` header on the confirming redirect was
   measured not to evict the page from the pinned browser's history cache and is gone
   (`tests/integration/test_routes.py` asserts its absence). The dependence is exact: Chromium admits
   a main document to its back/forward cache only when its status is exactly 200, not any 2xx
@@ -434,22 +445,41 @@ written so that a slice breaking it could be named.
   restored from the history cache and is evicted on a cookie change (developer.chrome.com,
   "bfcache-ccns", read 2026-10-20), which is why the header alone was not enough. The rule is
   stated as the pinned browser's, as RT-9 and § 11 R-2 state `autofocus`, and SRS NFR-13 bounds the
-  product to Chromium-based browsers; § 11 R-12 covers a release that changes it. One case is named
-  and left where it occurs: a confirmation address whose task another tab has deleted answers the
-  not-found page, 404, with no `no-store` (`web/routes.py`, the `task_not_found_page` answers on
-  the task's page and on a project's Tasks view); the same exact-200 rule keeps it out of the
-  history cache, and whether the HTTP cache may keep a 404 heuristically is `delete-and-rename`'s,
-  where a task first becomes deletable. Tests: `tests/integration/test_routes.py`,
+  product to Chromium-based browsers; § 11 R-12 covers a release that changes it. The address of a
+  deleted task or project, with any query, answers the not-found page, 404, with no cache header
+  (EX-13; `web/routes.py`, `_task_page`, the `task_not_found_page` answer), and a submission naming
+  a deleted target is answered by a redirect to that address and saves nothing
+  (`delete-and-rename`'s deleted-target refusals); the same exact-200 rule keeps the 404 out of the
+  history cache. The standard lets a cache keep a 404 heuristically (RFC 9110 § 15.5.5, "A 404
+  response is heuristically cacheable", read at the source on 2026-10-28), and the tracker lets it:
+  an identity is never reused after its task is deleted (SRS DR-2; ADR-0008), so a kept 404 for a
+  deleted address stays true for good. Under the pinned browser none is kept. Chromium computes a
+  heuristic lifetime only for 200, 203 and 206 with a `Last-Modified`, treats 300, 301, 308 and 410
+  as fresh for ever, and gives every other status zero freshness
+  (`net/http/http_response_headers.cc`, `GetFreshnessLifetimes`, read at the source on
+  2026-10-28), and the listener sends neither `Date` nor `Last-Modified` (`web/listener.py`,
+  `_write`, `send_response_only`), so a 404 is revalidated on every use. One case is named and
+  left: a 404 for an identity not yet issued, reached only by a typed address, kept by a cache
+  outside NFR-13's bound. Tests: `tests/integration/test_routes.py`,
   `test_pending_confirmation_response_matches_the_rendered_page`,
   `test_non_confirmation_move_views_keep_their_response_contract` and
   `test_move_interaction_and_outcome_pages_are_not_stored`; `tests/e2e/test_moves.py`,
   `test_history_matrix_revalidates_current_saved_status` and
   `test_real_history_traversal_revalidates_the_confirmation`; 67 passed in `tests/e2e/` in a
-  fresh clone at `<a commit not in the public history>`. The Principal Architect records the decision as
+  fresh clone at `<a commit not in the public history>`; `tests/integration/test_delete_routes.py`,
+  `test_live_delete_views_have_their_response_policy` (a deletion's four live pages carry
+  `no-store`), `test_missing_task_wins_over_every_query` and `test_a_never_held_task_answers_the_same`
+  (404 with no cache header); and a deletion history test beside `tests/e2e/test_delete_task.py`'s
+  `test_completion_survives_actual_reload_back_and_forward`, which `delete-and-rename`'s command
+  half names and which does not exist at `4a9ff47d2`. The Principal Architect records the move's
+  boundary as
   `products/tracker17/docs/adr/0010-pending-confirmation-answered-202-move-pages-not-stored.md`
-  and binds it as `products/tracker17/docs/nfdr.md` QC-63. *(serves SRS NFR-3, NFR-4, NFR-13; UXD § 4, "the browser's back,
-  forward and reload buttons work on every one"; UX-F4, UX-I3; § 4 RT-7, RT-8, EX-2, EX-6, SEC-3;
-  § 9 TO-2)* *(confirmed with an addition: `trail/sdd/cycle-8.md` § 5.1; why, RN-49)*
+  and binds it as `products/tracker17/docs/nfdr.md` QC-63; the record and the obligation for a
+  deletion's pages are theirs to write (§ 12). *(serves SRS NFR-3, NFR-4, NFR-13, DR-2; UXD § 4, "the browser's back,
+  forward and reload buttons work on every one"; UX-F4, UX-I3, UX-S10; § 4 RT-7, RT-8, EX-2, EX-6,
+  EX-13, SEC-3; § 9 TO-2)* *(confirmed with an addition: `trail/sdd/cycle-8.md` § 5.1; why, RN-49;
+  widened to every pending confirmation, and the 404 case closed: `trail/sdd/cycle-10.md` § 5.1;
+  why, RN-56)*
 
 ### The saved data — CTO
 
@@ -576,9 +606,15 @@ hold them, those conditions stand and § 11 R-2's fallback applies (`trail/sdd/c
   types. The page that answers a refused or failed submission opens at the control that was used:
   the control is in view, keyboard focus is on it, and the reason is beside it. A refusal reached by
   an address and no control sits beside the task's status (UXD UX-I3), so a reader building the
-  no-press case does not look for a control that was not used. *(UXD UX-I3; UX-I5; UX-A3)*
+  no-press case does not look for a control that was not used. Where the list's filter leaves the
+  task off the list, there is no row, no control and no status to sit beside, and a refusal or a
+  failure for that task — reached by an address, or by a press another tab overtook — sits above
+  the results in the one line a completion takes (EX-5; UXD UX-I4), names the task and, for a
+  refusal, its status in its own text, and names the filter area's Clear only where the status
+  still allows a move (UXD UX-F4, UX-I3, UX-A3). *(UXD UX-I3; UX-I5; UX-A3)*
   *(overridden: `trail/sdd/cycle-1.md` § 2.3; why, RN-20; the no-press sentence:
-  `trail/sdd/cycle-8.md` § 5.2; why, RN-50)*
+  `trail/sdd/cycle-8.md` § 5.2; why, RN-50; the off-list line, UXD versions 10 and 11: § 10 RC-6;
+  why, RN-57)*
 - **EX-5: A completed action shows one line naming what changed, on the page it leaves the operator
   on.** When that page is the page the form was on, it opens at the thing acted on and not at its
   top. The thing is in view and keyboard focus is on it, so the next Tab goes on from there. When
@@ -913,9 +949,12 @@ exits 0 and `pytest tests/e2e/` exits 0.
     by a reload, by Back or from a bookmark once the task is in `done` or `cancelled`, on a
     project's Tasks view and on the task's page alike — shows where the confirmation would have
     been, beside the task's status, says what is true now, names no action and offers no reload
-    (UX-F4, UX-I3). A task moved to `done` or `cancelled` is no longer marked overdue. *(the two
+    (UX-F4, UX-I3). Both placements hold where the task's row is shown; where the list's filter
+    leaves the task off the list, the line sits above the results, which `narrow-and-sort` carries
+    (§ 10 RC-6). A task moved to `done` or `cancelled` is no longer marked overdue. *(the two
     refusals: `trail/sdd/cycle-8.md` § 5.2; why, RN-50; the overtaken move's words, UXD version 9:
-    § 10 RC-5; why, RN-54)*
+    § 10 RC-5; why, RN-54; the off-list placement, UXD versions 10 and 11: § 10 RC-6; why,
+    RN-57)*
   - *Command.* Both suites pass, including a test for every allowed move, every refused move and a
     move to the status a task already has (SRS FR-18), the out-of-date move of AC-12, and AC-13's
     third case. End-to-end tests show where focus lands in the confirmation and on backing out,
@@ -956,6 +995,14 @@ exits 0 and `pytest tests/e2e/` exits 0.
     filter offers the labels carried in the list's scope. A range whose from-date is after its
     to-date is refused. A filter that matches nothing says so and shows Clear. A task moved out of
     a status the list is filtered by leaves the list, and the completion line names it (UX-F4).
+    When the filter leaves a task off the list, on a project's Tasks view or on All tasks, a move
+    pressed for it and refused because another tab moved it, a move pressed for it that failed,
+    and a move refusal reached by an address all sit above the results, in the completion line's
+    place and above the no-match state when no rows are left. A refusal names the task, its status
+    and the moves that status allows, and names Clear unless the status is final. A failure names
+    the task and the move that failed, says nothing was changed, and names Clear. A refusal reached
+    by an address names the task and its status and names no action. None adds a control or offers
+    a reload (UX-F4, UX-I3, UX-A3). *(UXD versions 10 and 11: § 10 RC-6; why, RN-57)*
   - *Command.* Both suites pass, including the filter and sort tests SRS AC-14 lists, the reversed
     range of AC-12, and the overdue filter agreeing with the list marking on AC-13's three cases.
     `python3 tests/timed_run.py` exits 0 and covers a filter and a sort.
@@ -963,7 +1010,7 @@ exits 0 and `pytest tests/e2e/` exits 0.
 - **Rests on:** § 4 EX-3; `tasks-in-a-project`; `status-moves`.
 - **Traces to:** PRD § Key Use Cases 2 and 4, § Core Features Filtering and Sorting, § UX Notes What
   must feel effortless and Refusals say why, § Success Metrics Simple to read. SRS FR-31 to FR-37,
-  FR-39, NFR-1, NFR-9. UXD UX-F4, UX-F5, UX-S4, UX-S7, UX-S10, UX-I7.
+  FR-39, NFR-1, NFR-9. UXD UX-F4, UX-F5, UX-S4, UX-S7, UX-S10, UX-I3, UX-I4, UX-I7, UX-A3.
 - **Moves toward:** the Agari's first bar, Works, for the first half of Key Use Case 4. Its third
   bar, Simple to read, for the Filtering and Sorting features, whose entry points this slice adds
   (§ 4 TS-3).
@@ -1020,10 +1067,12 @@ exits 0 and `pytest tests/e2e/` exits 0.
     rename leaves the project's tasks unchanged (FR-12), and the deleted-target refusals of AC-12.
     An end-to-end test shows Delete project's confirmation below a list long enough to scroll: it
     opens in view with keyboard focus on its sentence, and a double press on the first button does
-    not confirm (§ 4 EX-6). `python3 tests/timed_run.py` exits 0 and covers a deletion.
+    not confirm (§ 4 EX-6), and that a return through Back to a deletion's confirmation, after
+    confirming, is a fresh load (§ 4 RT-11). `python3 tests/timed_run.py` exits 0 and covers a
+    deletion. *(the fresh-load clause: `trail/sdd/cycle-10.md` § 5.1; why, RN-56)*
   - *Artifact.* No new feature module. The opening docstrings of `domain/projects.py` and
     `domain/tasks.py` name the tests this slice adds.
-- **Rests on:** § 4 EX-6, EX-13; `tasks-in-a-project`.
+- **Rests on:** § 4 EX-6, EX-13, RT-11; `tasks-in-a-project`.
 - **Traces to:** PRD § Key Use Cases 2, § Core Features Projects and Tasks, § UX Notes Refusals say
   why, § Success Metrics Simple to read. SRS FR-12, FR-13, FR-15, FR-17, FR-39, FR-40, NFR-1,
   NFR-3, NFR-9. UXD UX-F9, UX-F10, UX-I2, UX-S4, UX-S6, UX-S10.
@@ -1084,7 +1133,7 @@ This table is a projection of § 6. Where the two disagree, § 6 is right and th
 | `comment-on-a-task` | `validates` | `first-project` | Its timed run at SRS NFR-1's full volume tests the whole-state save that `first-project` introduces. |
 | `tasks-in-a-project` | `validates` | `first-project` | Its focus test shows whether a page that runs no script can open at an element that is not a control and hold keyboard focus there (§ 4 RT-9). |
 | `status-moves` | `validates` | `first-project` | Its confirmation tests show whether pages that run no script can carry UXD UX-I2: focus on the sentence, and a double press that never confirms. |
-| `status-moves` | `hands_off_to` | `delete-and-rename` | The in-place confirmation, as built and tested, is reused for the two deletions. |
+| `status-moves` | `hands_off_to` | `delete-and-rename` | The in-place confirmation, as built and tested, § 4 RT-11's 202 included, is reused for the two deletions. |
 | `protect-saved-data` | `supersedes` | `first-project` | `first-project` stops a start that cannot read the saved data. This slice replaces that stop with a tracker that starts and shows UXD UX-S9. |
 
 ## 8. Slice → seeds
@@ -1344,6 +1393,39 @@ both.*
   `products/tracker17/docs/CONTENT.md` own (UXD RN-35), not this document's, and no slice's bar
   here names the words.
 
+### RC-6 — 2026-10-28 — the UXD placed an off-list refusal or failure above the results
+
+*Whose ground moved: the CDO's, as the owner of the UXD, which changed upstream.*
+
+- **Prior assumption:** § 4 EX-4 and § 6 `status-moves`'s behaviour bar, as RC-4 and RC-5 left
+  them against UXD version 9, placed a refusal reached by an address and no control "beside the
+  task's status", and had the overtaken move land on a page that "already shows the current status
+  and the moves it allows". Both rest on the task's row being on the page. `narrow-and-sort`'s
+  behaviour bar named no refusal for a task the filter leaves off the list.
+- **Observed reality:** UXD version 10 (commit `ae866ee35`, 2026-10-28) has a refusal reached by
+  an address, for a task the list's filter leaves off the list, sit above the results in UX-I4's
+  line, naming the task and its status, with no action, reload or Clear, on a project's Tasks view
+  and on All tasks (UX-F4, UX-S4, UX-I3, UX-A3; UXD RN-36). Version 11 (commit `6055366de`,
+  2026-10-28) has a pressed move's refusal or failure take the same line when the filter leaves
+  the task off: a refusal names the task, its status and its moves, and names Clear unless the
+  status is final; a failure names the task and the failed move, says nothing was changed, and
+  names Clear (UXD RN-37). Read on 2026-10-28 by the round that folded `trail/sdd/cycle-10.md`,
+  which caught the header's *Inputs read* up from version 9.
+- **Retained:** every slice, slug, *Delivers*, fence, order and § 7 edge. § 2's shape and § 3's
+  parts and seams. S-4's command half. S-4's two placements where the task's row is shown, and
+  S-4's fence, "A moved task leaving a list that is filtered by status — `narrow-and-sort`", which
+  is why the off-list line lands in `narrow-and-sort`'s bar and not in S-4's. § 4 RT-11, which
+  answers the no-press refusal from the saved state wherever the line sits.
+- **Changed:** § 4 EX-4 says where a refusal or a failure sits when the filter leaves the task off
+  the list. S-4's behaviour bar scopes its two placements to a task whose row is shown and names
+  where the other case is carried. `narrow-and-sort`'s behaviour bar states the off-list line as
+  UX-F4 and UX-I3 state it, and its *Traces to* gains UX-I3, UX-I4 and UX-A3. The seat whose
+  ground moved is the CDO's, and the change is the UXD's text.
+- **Stopped:** nothing.
+- **Still unresolved:** nothing this change leaves open to this document. How each line is worded
+  is `products/tracker17/docs/CONTENT.md`'s (UXD RN-36, RN-37), and whether the product shows it
+  is `narrow-and-sort`'s bar to meet.
+
 ## 11. Technical risks
 
 - **R-1: Saving the whole state is too slow at full volume.** — *shows up as* `python3
@@ -1479,12 +1561,13 @@ both.*
   on the pinned Chromium admitting only a main document answered exactly 200 to its back/forward
   cache, a rule read at its source on 2026-10-20 and promised by no standard. — *shows up as*
   `tests/e2e/test_moves.py`, `test_history_matrix_revalidates_current_saved_status` or
-  `test_real_history_traversal_revalidates_the_confirmation`, failing: a return to a confirmation's
+  `test_real_history_traversal_revalidates_the_confirmation`, or the deletion history test
+  `delete-and-rename`'s command half names once it exists, failing: a return to a confirmation's
   address restored from history instead of loaded. — *response* both run on every slice (§ 4 TS-1),
   and the fallback is TO-2's reversal confined to `web`, as R-2's. The bound R-2 states holds here
   too: the suite drives the build the pinned library installs, and the operator's browser is
   current stable Chrome (SRS NFR-13). *(confirmed with an addition: `trail/sdd/cycle-8.md` § 5.1;
-  why, RN-49)*
+  why, RN-49; the deletion test: `trail/sdd/cycle-10.md` § 5.1; why, RN-56)*
 
 ## 12. What this design is not
 
@@ -1496,7 +1579,7 @@ rewrite here.
 **Below.** This document authors no ADR. The architecturally significant decisions are surfaced in
 three places and no fourth: § 2's shape table, § 9's trade-offs and the SDD Review Notes. The
 Principal Architect records them. The records are `products/tracker17/docs/adr/`, ADR-0001 to
-ADR-0010, and `products/tracker17/docs/nfdr.md`. Where a condition in § 4 and an entry in `nfdr.md`
+ADR-0011, and `products/tracker17/docs/nfdr.md`. Where a condition in § 4 and an entry in `nfdr.md`
 disagree, the § 4 statement wins and the entry is re-derived, because downstream is rebuilt from
 upstream and never the reverse (`<CORE>/templates/product-templates/sdd_template.md` § 4). This
 document designs no individual change. It names no file inside a part beyond the feature entry points of
@@ -2467,6 +2550,96 @@ a draft, that note now says so and names the note that carries the answer.
   reach and follows the UXD's words for one refusal, and names no word a page shows or a value the
   stylesheet sets; the one string RC-5 notes is named as the UXD's and CONTENT's, not read against
   either.
+- **RN-56:** *(CTO)* *(changed)* § 4 RT-11 widens from a move to `cancelled` to every pending
+  confirmation EX-6 names — a move to `cancelled`, a task deletion, a project deletion — answered
+  202 when the page shows the confirmation; every other page a confirmed action's interaction or
+  outcome lands on is 200; each carries `no-store`; the address of a deleted task or project is
+  the not-found page, 404, with no cache header; and the case RT-11 handed to `delete-and-rename`,
+  whether the HTTP cache may keep that 404, closes. `delete-and-rename`'s command half gains the
+  deletion history clause and its *Rests on* names RT-11, § 11 R-12's trigger names the deletion
+  history test once it exists, and § 7's hand-off edge names the 202 — *because* no settled
+  section stated the rule a deletion's pages follow, and S-7's "Both confirmations behave as the
+  one in `status-moves` does" read as 202 for a confirmation the product answers 200. The PM
+  raised it from the product after the task deletion landed (`trail/sdd/cycle-10.md` § 5.1), and
+  the answer, given in the CTO's seat, chose one boundary for every pending confirmation over
+  confirming the product as built, with the reasoning in
+  `products/tracker17/docs/trail/sdd/self_answer-13.md` § 5.1. The document itself decides it:
+  § 9 TO-8 states the boundary for "a page that shows a pending confirmation" with no move in its
+  words; EX-6 defines the three confirmations as one mechanism; § 7's edge reuses that
+  confirmation "as built and tested", the history tests included; and what the 202 buys is the
+  same — Back from the landing that names the deleted task to the confirmation's address is a
+  fresh load that shows UXD UX-S10's page, not a page restored from the history cache that shows
+  the deleted task as held and offers to delete it again. The 202's meaning fits a deletion
+  intent as it fits a move's: a request accepted and not complete, which "might be disallowed
+  when processing actually takes place" (RFC 9110 § 15.3.3), the deleted-target refusal exactly.
+  The 404 is safe to keep because SRS DR-2 and ADR-0008 never reuse an identity, and the pinned
+  browser keeps none (`GetFreshnessLifetimes`, zero freshness for a 404; `web/listener.py`,
+  `send_response_only`, sends no `Date` or `Last-Modified`). S-7's *Behaviour* sentence is the
+  CDO's and stands: it names what the operator sees, EX-6's confirmation, and the status is § 4's.
+  The product meets the 200, the `no-store` and the 404 clauses
+  (`tests/integration/test_delete_routes.py`, `test_live_delete_views_have_their_response_policy`,
+  `test_missing_task_wins_over_every_query`) and diverges on one: a task deletion's confirmation is
+  200 at `4a9ff47d2`, because `web/routes.py`, `_task_page`, passes no interaction to
+  `_pending_status` for a deletion page. That is a divergence between the product and this
+  condition, for the PM to carry, and the project deletion is built to this rule; it is an added
+  condition and not a re-cut under § 10, since no slice's *Delivers*, fence, place or § 7 edge
+  moves. ADR-0010 § Decision and NFDR QC-63 are worded for a move only; they are the Principal
+  Architect's, carried on `products/tracker17/docs/architecture_open_issues.md` § 2.1, opened at
+  `5585e0b11` by the run that answered the item, and § 12 says § 4 wins where the two disagree.
+  RN-49's reading of RT-11 as a move's boundary is a dated record of that round and stays as
+  written. *(re: § 4 RT-11; § 6 `delete-and-rename`; § 7; § 11 R-12; source: SRS NFR-3, NFR-13,
+  DR-2; UXD UX-I2, UX-S10)*
+- **RN-57:** *(CDO)* *(changed)* § 4 EX-4 says where a refusal or a failure sits when the list's
+  filter leaves the task off the list; § 6 `status-moves`'s behaviour bar scopes its two
+  placements to a task whose row is shown; `narrow-and-sort`'s behaviour bar states the off-list
+  line and its *Traces to* gains UX-I3, UX-I4 and UX-A3; § 10 RC-6 records the UXD moving —
+  *because* the UXD moved after version 12 read it at version 9: version 10 (commit `ae866ee35`)
+  has a refusal reached by an address, for a task the filter leaves off the list, sit above the
+  results in UX-I4's line (UX-F4, UX-I3, UX-A3; UXD RN-36), and version 11 (commit `6055366de`)
+  has a pressed move's refusal or failure take the same line, naming Clear unless the status is
+  final (UXD RN-37). An upstream change is the legitimate reason for a change to settled content.
+  The line lands in `narrow-and-sort`'s bar and not in S-4's because S-4's fence already gives
+  "A moved task leaving a list that is filtered by status" to `narrow-and-sort`, and the off-list
+  case needs a filter. No item was raised: the UXD is settled at version 11 with no companion
+  beside it, so the call is settled by the input, and the round that read it is this one. How
+  each line is worded is `products/tracker17/docs/CONTENT.md`'s (UXD RN-36, RN-37). *(re: § 4
+  EX-4; § 6 `status-moves`, `narrow-and-sort`; § 10 RC-6; source: UXD UX-F4, UX-S4, UX-I3, UX-A3,
+  RN-36, RN-37)*
+- **RN-58:** *(CTO)* *(added)* The round that folded the tenth answered round read these things
+  beyond the inputs RN-16, RN-23, RN-27, RN-30, RN-33, RN-37, RN-40, RN-44, RN-46, RN-48, RN-52
+  and RN-55 list. It read `products/tracker17/docs/SDD_open_issues.md` as intake found it,
+  committed at `4a9ff47d2` with its one answer slot filled, and
+  `products/tracker17/docs/trail/sdd/self_answer-13.md`, the reasoning behind the answer. It read
+  `web/routes.py` (`_task_page`, `_delete_area`, `_pending_status`, `_stored_as_asked`),
+  `web/listener.py` (`_write`), `tests/integration/test_delete_routes.py` (the three tests RT-11
+  now names, `test_deleted_target_refuses_delete_confirm_without_saving`,
+  `test_failed_confirm_keeps_saved_bytes_and_current_pages`,
+  `test_last_task_delete_keeps_the_first_task_invitation` and `assert_refused_as_missing`) and
+  `tests/e2e/test_delete_task.py` (`test_completion_survives_actual_reload_back_and_forward`,
+  which goes Back to the landing and never to the confirmation), to verify on disk each line the
+  answer cites, and found each as stated. It did not re-read RFC 9110, RFC 9111 or Chromium's
+  `GetFreshnessLifetimes`: `self_answer-13.md`'s Header records each at its source on 2026-10-28,
+  and RT-11 cites them as that record does. It read `products/tracker17/docs/UXD.md`'s header,
+  UX-F4, UX-S4, UX-I3, UX-I4, UX-A3, RN-36 and RN-37, and `git log` on it, which places version 10
+  at `ae866ee35` and version 11 at `6055366de`, both 2026-10-28; what they moved is RC-6's. It
+  read `products/tracker17/docs/PRD.md` whole, at version 7 as version 12 read it, and
+  `products/tracker17/docs/SRS.md` whole, at version 6. It read `products/tracker17/docs/fdr.md`'s
+  header, at version 4. It read `products/tracker17/docs/nfdr.md`'s header, at version 16 (commit
+  `db16374d3`), `products/tracker17/docs/adr/README.md`, which lists ADR-0011 Accepted on
+  2026-10-27 and ADR-0006 superseded by it, the opening of
+  `products/tracker17/docs/adr/0011-a-submission-is-a-post-form-and-its-outcome-travels-in-the-address.md`,
+  which follows RT-8 by name, and `products/tracker17/docs/architecture_open_issues.md` whole,
+  opened on 2026-10-28 with its one item, § 2.1, unanswered. Three lines of this document caught up
+  with those records, and none moves a condition: RT-8 names ADR-0011 and QC-7 as RT-11 names
+  ADR-0010 and QC-63, RT-11's "no page script, cookie or session" cites ADR-0011 where it cited
+  the superseded ADR-0006, and § 12 counts eleven records. The header's reading guide gains
+  `self_answer-12.md` and `self_answer-13.md`: version 12 folded cycle 9 without listing its
+  report there, a defect of that round repaired here. It ran no suite: the item is about the
+  response rule a deletion's pages follow, every claim rests on code and tests read at
+  `4a9ff47d2`, and this round changed no code. It did not read `products/tracker17/docs/DESIGN.md`
+  or `products/tracker17/docs/CONTENT.md`: what this round changed states a response condition, a
+  refusal's placement and a test's name, and names no word a page shows or a value the stylesheet
+  sets; the lines RC-6 notes are named as CONTENT's, not read against it.
 
 ---
 
