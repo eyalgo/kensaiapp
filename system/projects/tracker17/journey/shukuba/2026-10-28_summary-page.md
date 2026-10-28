@@ -17,6 +17,8 @@ A project gains a Summary view beside its task list. The project's pages carry T
 
 - The counts stay plain numbers; no count links anywhere. Linking is the next station's work.
 - No second copy of the overdue, filter or sort rules: `domain/summary.py` reuses `domain/filtering.py` and the existing overdue marking.
-- Existing pages, strings and timed actions in `tests/timed_run.py` keep working; the timed run is extended at the next station, not here.
+- Existing pages, strings and timed actions in `tests/timed_run.py` keep working.
 
-- **Not here:** `tracker17 · nemawashi · 2026-10-11_project-summary` item 2, `linked-counts` (links from counts, AC-13 agreement, timed summary), and a summary across projects, which the PRD places out of scope.
+- **Not here:** `tracker17 · nemawashi · 2026-10-11_project-summary` item 2, `linked-counts` (links from counts), and a summary across projects, which the PRD places out of scope.
+
+2026-10-28, shukuba-refine: the timed summary and the AC-13 agreement test moved onto this station. The unit's spec folded them in (Locked Answers e-1, e-2), so the guardrail and **Not here** no longer give them to `linked-counts`.

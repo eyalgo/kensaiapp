@@ -15,7 +15,9 @@ Cut from `products/tracker17/docs/SDD.md` § 6 S-6, slug `project-summary` ("Aft
 ## Stations — dynamic checklist
 
 - [ ] summary-page — a project gains Tasks and Summary links, its page title takes its view (`Alpha: Tasks - tracker17`, CONTENT.md page titles), and the summary shows total, status and priority counts with zeros, overdue, no-due-date and per-assignee rows as plain numbers, an empty project showing zeros and inviting a first task; `domain/summary.py` exists and `pytest products/tracker17/tests/` exits 0 with a summary test on a project built to exercise each row
-- [ ] linked-counts — each status, priority and overdue count links to the project's list filtered to that value (the other counts stay plain), with AC-14's summary test, the overdue count agreeing with marking and filter on AC-13's three cases, and `tests/timed_run.py` exiting 0 with opening a summary timed
+- [ ] linked-counts — each status, priority and overdue count links to the project's list filtered to that value (the other counts stay plain), with AC-14's summary test covering the links; the AC-13 agreement test and the timed summary, landed with `summary-page`, still pass with `pytest products/tracker17/tests/` and `python3 products/tracker17/tests/timed_run.py` exiting 0
+
+2026-10-28, shukuba-refine after `tracker17` unit `2026-10-28_summary-page`: `linked-counts` no longer carries the AC-13 agreement test or the timed summary as new work. That unit's spec folded both in (Locked Answers e-1, e-2), and they landed: `tests/integration/test_summary_routes.py:L76` and `tests/timed_run.py:L140-L145`. The station keeps them as checks that must still pass.
 
 2026-10-28, stations-from-seed: the cutter's two-station route kept. `summary-page` and `linked-counts` each deliver one working state in one merge, and the filtered lists the links open already exist (`narrow-and-sort` and `all-tasks-list` both sealed). Only the reached-whens are sharpened, and the S-6 bar's tests and timed run sit on `linked-counts`, the last station, which carries the seed's own bar.
 
