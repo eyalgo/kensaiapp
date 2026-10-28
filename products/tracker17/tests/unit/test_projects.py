@@ -9,7 +9,7 @@ the creation tests name; CP-551 to CP-555 and CP-558 are the ones the rename tes
 from __future__ import annotations
 
 import dataclasses
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 
@@ -186,7 +186,7 @@ def test_every_refusal_is_an_app_error_and_a_refusal():
         assert issubclass(refusal, AppError)
 
 
-WRITTEN_AT = datetime(2026, 10, 28, 9, 30, tzinfo=timezone.utc)
+WRITTEN_AT = datetime(2026, 10, 28, 9, 30, tzinfo=UTC)
 
 
 def _state_with_work():
