@@ -20,6 +20,7 @@ from domain import (
     OperatorNameOutcome,
     Project,
     ProjectListRefused,
+    ProjectSummary,
     SortedSelection,
     SortFieldRefusal,
     SortInput,
@@ -53,6 +54,7 @@ from domain import (
     set_operator_name,
     sort_all_tasks,
     sort_project_tasks,
+    summarize_project,
     task_edit_context,
 )
 
@@ -253,6 +255,15 @@ class Tracker:
             TaskRow(task, is_overdue(task.due_date, task.status, today))
             for task in list_project_tasks(self._state, project_id)
         )
+
+    def project_summary(self, project_id: int) -> ProjectSummary | None:
+        """The project's counts as of now, or None when no project has this identity.
+
+        One clock read gives the date: the machine-local calendar date of that instant. The summary
+        is worked out from the current state each call and saves nothing.
+        """
+        today = self._clock.now().astimezone().date()
+        return summarize_project(self._state, project_id, today)
 
     def project_task_list(
         self,

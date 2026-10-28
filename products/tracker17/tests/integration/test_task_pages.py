@@ -142,7 +142,7 @@ def test_form_is_present_for_empty_and_populated_projects(tmp_path: Path, popula
     (button,) = form.find_all("button")
     assert button.text() == "Add" and button.attrs["type"] == "submit"
     assert root.find_all("script") == [] and focused(root) == []
-    assert [e.text() for e in root.find_all("title")] == ["Alpha - tracker17"]
+    assert [e.text() for e in root.find_all("title")] == ["Alpha: Tasks - tracker17"]
     (heading,) = root.find_all("h1")
     assert heading.text() == "Alpha"
     created = parse(page(get(world.site, "/projects/1?created")))

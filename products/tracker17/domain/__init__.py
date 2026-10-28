@@ -80,6 +80,13 @@ from domain.sorting import (
     sort_project_tasks,
 )
 from domain.state import TrackerState, empty_state, restore_state
+from domain.summary import (
+    AssigneeCount,
+    PriorityCount,
+    ProjectSummary,
+    StatusCount,
+    summarize_project,
+)
 from domain.tasks import (
     Task,
     TaskEditContext,
@@ -105,6 +112,7 @@ __all__ = [
     "LONG_TEXT_MAX",
     "PRIORITY_CHOICES",
     "SHORT_TEXT_MAX",
+    "AssigneeCount",
     "AssigneeNameInUse",
     "AssigneeNotFound",
     "AssigneeNotListed",
@@ -137,9 +145,11 @@ __all__ = [
     "OperatorNameNotSet",
     "OperatorNameOutcome",
     "Priority",
+    "PriorityCount",
     "Project",
     "ProjectListRefused",
     "ProjectNotFound",
+    "ProjectSummary",
     "Refusal",
     "RepeatedFilterValue",
     "RepeatedSavedLabel",
@@ -151,6 +161,7 @@ __all__ = [
     "SortInput",
     "SortKey",
     "SortedSelection",
+    "StatusCount",
     "Task",
     "TaskEditContext",
     "TaskEditOutcome",
@@ -201,5 +212,6 @@ __all__ = [
     "set_operator_name",
     "sort_all_tasks",
     "sort_project_tasks",
+    "summarize_project",
     "task_edit_context",
 ]

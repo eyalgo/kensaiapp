@@ -5,7 +5,7 @@ projects), FR-16 and FR-23 (the edit and the label actions are more actions ever
 covers), NFR-4 (a request from another site is refused), NFR-8 (a failed save leaves the state as
 it was), AC-10, AC-12, AC-18 and AC-20. Change spec rules CP-16, CP-18 to CP-22, CP-25, CP-30 to
 CP-38, CP-80, CP-98, CP-169, CP-177, CP-206, CP-223, CP-235 and the cancel-confirmation change's CP-326
-and CP-339, and NFDR QC-7, QC-8, QC-31, QC-32, QC-34, QC-35, QC-53, QC-54, QC-56 and QC-57 are the ones each test names. The operator-name
+and CP-339, the Summary change's CP-510, and NFDR QC-7, QC-8, QC-31, QC-32, QC-34, QC-35, QC-53, QC-54, QC-56 and QC-57 are the ones each test names. The operator-name
 submission (FR-27) is one more action every route check covers. The People requests are checked in
 tests/integration/test_people_routes.py.
 """
@@ -268,6 +268,7 @@ def test_a_percent_encoded_value_that_is_not_utf_8_answers_400_with_an_empty_bod
 SAMPLE_ADDRESS = {
     "/": "/",
     "/projects/[0-9]+": "/projects/1",
+    "/projects/[0-9]+/summary": "/projects/1/summary",
     "/projects": "/projects",
     "/people": "/people",
     "/tasks": "/tasks",
@@ -487,6 +488,8 @@ def test_no_socket_connection_is_made() -> None:
         get(site, "/projects/1?filter_status=todo&sort_field=title")
         get(site, "/projects/1?sort_field=colour&sort_direction=a&sort_direction=b")
         get(site, "/projects/1")
+        get(site, "/projects/1/summary")
+        get(site, "/projects/99/summary")
         get(site, "/tasks?filter_status=todo&sort_field=title&sort_direction=descending")
         site.handle(
             "POST",

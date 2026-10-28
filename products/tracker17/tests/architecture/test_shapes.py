@@ -173,10 +173,10 @@ def test_domain_dataclasses_are_frozen(walk_of) -> None:
 
 
 def test_only_the_task_features_are_added_to_domain() -> None:
-    """CP-105, CP-139, CP-200, CP-209, CP-238, CP-274, CP-293, CP-313, CP-412, CP-423, CP-446, CP-456:
-    the Assignees, Tasks, Priorities, Labels, Due dates, Comments, Workflow, Filtering and Sorting
-    entries exist, no later feature module does, and the state holds exactly what the saved form
-    holds, the one operator name included."""
+    """CP-105, CP-139, CP-200, CP-209, CP-238, CP-274, CP-293, CP-313, CP-412, CP-423, CP-446, CP-456,
+    CP-504: the Assignees, Tasks, Priorities, Labels, Due dates, Comments, Workflow, Filtering,
+    Sorting and Summary entries exist, no later feature module does, and the state holds exactly
+    what the saved form holds, the one operator name included."""
     domain = Path(__file__).resolve().parent.parent.parent / "domain"
     for landed in (
         "assignees",
@@ -188,9 +188,9 @@ def test_only_the_task_features_are_added_to_domain() -> None:
         "comments",
         "filtering",
         "sorting",
+        "summary",
     ):
         assert (domain / f"{landed}.py").is_file(), landed
-    assert not (domain / "summary.py").exists()
     fields = {field.name for field in dataclasses.fields(TrackerState)}
     assert fields == {
         "projects",

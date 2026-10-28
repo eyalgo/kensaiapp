@@ -32,6 +32,7 @@ LANDED_FEATURE_WORDS = [
     "comments",
     "filtering",
     "sorting",
+    "summary",
 ]
 PATH = re.compile(r"(?<![\w/.<-])((?:[A-Za-z0-9_.-]+/)*[A-Za-z0-9_-]+\.(?:py|css|md|toml|txt))\b")
 REQUIREMENT = re.compile(r"\b(?:NFR|FR|DR|AC|C)-\d+\b")
@@ -586,3 +587,49 @@ def test_list_entries_name_fr31_and_every_all_tasks_participant() -> None:
         paths = named_paths(entry_docstring(word))
         for participant in ALL_TASKS_PARTICIPANTS:
             assert participant in paths, (word, participant)
+
+
+SUMMARY_REQUIREMENTS = {"FR-38", "FR-25", "FR-35", "NFR-9"}
+SUMMARY_PARTICIPANTS = (
+    "application/tracker.py",
+    "application/__init__.py",
+    "web/routes.py",
+    "web/pages.py",
+    "web/style.css",
+)
+SUMMARY_CHECKING_TESTS = (
+    "tests/unit/test_summary.py",
+    "tests/integration/test_summary_tracker.py",
+    "tests/integration/test_summary_routes.py",
+    "tests/integration/test_summary_pages.py",
+    "tests/integration/test_pages.py",
+    "tests/integration/test_task_pages.py",
+    "tests/integration/test_routes.py",
+    "tests/e2e/test_summary.py",
+    "tests/integration/test_timed_run.py",
+    "tests/timed_run.py",
+    "tests/architecture/test_trace.py",
+    "tests/architecture/test_shapes.py",
+)
+
+
+def test_summary_entry_names_every_participant_and_check() -> None:
+    """QC-11, CP-504: the completed Summary entry names FR-38, FR-25, FR-35 and NFR-9, every
+    application and web participant, the five new test files, the modified compatibility,
+    architecture and timing checking modules and the timed run; `summary` is landed, every named
+    path exists and every requirement resolves.
+    """
+    text = entry_docstring("summary")
+    paths = named_paths(text)
+    assert SUMMARY_REQUIREMENTS <= set(named_requirements(text))
+    for participant in SUMMARY_PARTICIPANTS:
+        assert participant in paths, participant
+    for checking in SUMMARY_CHECKING_TESTS:
+        assert checking in paths, checking
+        module = PRODUCT_ROOT / checking
+        assert module.is_file(), checking
+        assert named_requirements(docstring_of(module)), checking
+        assert unknown_requirements(docstring_of(module)) == [], checking
+    assert "summary" in LANDED_FEATURE_WORDS
+    assert missing_paths(text) == []
+    assert unknown_requirements(text) == []

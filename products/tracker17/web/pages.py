@@ -32,6 +32,7 @@ from application import (
     InvalidSortDirection,
     InvalidSortField,
     Project,
+    ProjectSummary,
     ProjectTaskList,
     RepeatedFilterValue,
     RepeatedSortValue,
@@ -1438,6 +1439,76 @@ def _carried_pairs(listing: ProjectTaskList) -> Carried:
     )
 
 
+def _project_address(project: Project) -> str:
+    return f"/projects/{project.id}"
+
+
+def _project_views(project: Project) -> str:
+    """The Tasks and Summary links under a project's name, on both of its views.
+
+    Both addresses carry the project's identity only, so Tasks opens the list with no choice made.
+    """
+    address = _project_address(project)
+    return (
+        '<nav class="project-views" aria-label="Project views">'
+        f'<a href="{address}">Tasks</a><a href="{address}/summary">Summary</a></nav>\n'
+    )
+
+
+_SUMMARY_EMPTY_HEAD = "This project has no tasks yet. Open "
+_SUMMARY_EMPTY_TAIL = " to add the first task."
+
+
+def _summary_group(heading: str, first: str, second: str, rows: Iterable[tuple[str, int]]) -> str:
+    """One two-column sheet of the Summary: the labels as row headers, the counts as numerals."""
+    body = "".join(
+        f'<tr><th scope="row" class="pre-wrap">{_escape(label)}</th><td>{count}</td></tr>\n'
+        for label, count in rows
+    )
+    return (
+        '<section class="sheet summary-group">\n'
+        f"<h2>{heading}</h2>\n"
+        "<table>\n"
+        f'<thead><tr><th scope="col">{first}</th><th scope="col">{second}</th></tr></thead>\n'
+        f"<tbody>\n{body}</tbody>\n"
+        "</table>\n"
+        "</section>\n"
+    )
+
+
+def summary_page(summary: ProjectSummary) -> str:
+    """One project's Summary: its counts as plain numbers, in the order and with the zeros handed in.
+
+    Decides no count and no order. The no-tasks invitation is chosen by the total alone.
+    """
+    project = summary.project
+    invitation = (
+        f'<p class="no-tasks">{_SUMMARY_EMPTY_HEAD}<a href="{_project_address(project)}">Tasks</a>'
+        f"{_SUMMARY_EMPTY_TAIL}</p>\n"
+        if summary.total == 0
+        else ""
+    )
+    statuses = [("Total", summary.total)] + [
+        (row.status.value, row.count) for row in summary.status_counts
+    ]
+    priorities = [(row.priority.value, row.count) for row in summary.priority_counts]
+    dates = [("Overdue", summary.overdue), ("No due date", summary.no_due_date)]
+    assignees = [
+        ("(unassigned)" if row.assignee is None else row.assignee, row.count)
+        for row in summary.assignee_counts
+    ]
+    body = (
+        f'<h1 class="pre-wrap">{_escape(project.name)}</h1>\n'
+        f"{_project_views(project)}"
+        f"{invitation}"
+        f"{_summary_group('Tasks by status', 'Status', 'Tasks', statuses)}"
+        f"{_summary_group('Tasks by priority', 'Priority', 'Tasks', priorities)}"
+        f"{_summary_group('Due dates', 'Due date', 'Tasks', dates)}"
+        f"{_summary_group('Open tasks by assignee', 'Assignee', 'Open tasks', assignees)}"
+    )
+    return _document(f"{project.name}: Summary - tracker17", body)
+
+
 def project_page(
     project: Project,
     rows: Sequence[TaskRow] = (),
@@ -1498,12 +1569,13 @@ def project_page(
         under_form = _task_list(rows, allowed_moves, move_outcome, shown_interaction)
     body = (
         f'<h1 class="pre-wrap"{heading_attributes}>{_escape(project.name)}</h1>\n'
+        f"{_project_views(project)}"
         f"{created_line}"
         f"{description}"
         f"{_add_task_form(project, assignees, priority_choices, form or TaskForm())}"
         f"{under_form}"
     )
-    return _document(f"{project.name} - tracker17", body)
+    return _document(f"{project.name}: Tasks - tracker17", body)
 
 
 _ALL_TASKS_EMPTY = (
