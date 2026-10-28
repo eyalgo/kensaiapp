@@ -156,7 +156,8 @@ NINE = [
 def fixture_a(tmp_path: Path) -> World:
     """The spec's Fixture A on the clock's day 2026-10-11. Alpha: T1 todo/low/yesterday/unassigned,
     T2 in-progress/medium/undated/ari, T3 done/high/past/ari, T4 cancelled/critical/undated/dan
-    (unlisted), T5 todo/critical/today/eve (unlisted). Beta holds one todo task for bo; Gamma none."""
+    (unlisted), T5 todo/critical/today/eve (unlisted). Beta holds one todo task for bo; Gamma
+    none."""
     world = make_world(tmp_path, people=("ari", "bo"), projects=("Alpha", "Beta", "Gamma"))
     tracker = world.tracker
     tracker.add_assignee("dan")

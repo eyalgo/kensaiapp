@@ -290,9 +290,10 @@ def test_summary_links_work_with_keyboard_and_visible_focus(
 def test_summary_names_and_groups_reflow_at_four_hundred_percent(
     trackers, location: Path, browser: Browser
 ) -> None:
-    """CP-501, CP-512, CP-524, T13, T17: 400% zoom of a 1280-pixel window is a 320-pixel-wide viewport (the
-    method the filter and sort proofs use). Long, special-character names show as typed text, the
-    title is exact, the groups wrap inside the window and the page does not scroll sideways."""
+    """CP-501, CP-512, CP-524, T13, T17: 400% zoom of a 1280-pixel window is a 320-pixel-wide
+    viewport (the method the filter and sort proofs use). Long, special-character names show as
+    typed text, the title is exact, the groups wrap inside the window and the page does not scroll
+    sideways."""
     seeded(location, project=SPECIAL_NAME, assignee=SPECIAL_NAME)
     running = trackers.start(location)
     context = browser.new_context(viewport={"width": FULL_WIDTH // ZOOM_FACTOR, "height": 800})

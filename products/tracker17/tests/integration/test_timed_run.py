@@ -3789,7 +3789,8 @@ def _edit_cell(
 
 def _unlink_selected_counts(body: str) -> str:
     """The real linked page projected to bare counts: each of its nine anchored count cells made a
-    bare numeral, the rest untouched. This is the second accepted shape; the real page is the first."""
+    bare numeral, the rest untouched. This is the second accepted shape; the real page is the
+    first."""
     bare, replaced = REAL_COUNT_ANCHOR.subn(lambda m: f"<td>{m[3]}</td>", body)
     assert replaced == 9 and "</a></td>" not in bare
     return bare

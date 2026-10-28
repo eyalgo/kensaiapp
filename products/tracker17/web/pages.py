@@ -1488,7 +1488,7 @@ class _CountLink:
 
 @dataclass(frozen=True)
 class _SummaryRow:
-    """One row of a Summary group: its label, its count and, for the nine selected counts, a link."""
+    """One row of a Summary group: its label, its count and, for nine selected counts, a link."""
 
     label: str
     count: int
