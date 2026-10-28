@@ -32,6 +32,7 @@ LANDED_FEATURE_WORDS = [
     "comments",
     "filtering",
     "sorting",
+    "summary",
 ]
 PATH = re.compile(r"(?<![\w/.<-])((?:[A-Za-z0-9_.-]+/)*[A-Za-z0-9_-]+\.(?:py|css|md|toml|txt))\b")
 REQUIREMENT = re.compile(r"\b(?:NFR|FR|DR|AC|C)-\d+\b")
@@ -586,3 +587,31 @@ def test_list_entries_name_fr31_and_every_all_tasks_participant() -> None:
         paths = named_paths(entry_docstring(word))
         for participant in ALL_TASKS_PARTICIPANTS:
             assert participant in paths, (word, participant)
+
+
+SUMMARY_REQUIREMENTS = {"FR-38", "FR-25", "FR-35", "NFR-9"}
+SUMMARY_CHECKING_TESTS = (
+    "tests/unit/test_summary.py",
+    "tests/architecture/test_trace.py",
+    "tests/architecture/test_shapes.py",
+)
+
+
+def test_summary_entry_names_requirements_and_existing_participants() -> None:
+    """QC-11, CP-504: the Summary entry names FR-38, the overdue and trace requirements and every
+    checking module that exists at this point, `summary` is landed, and each named path exists.
+
+    Each later task of the change adds the participant and the checking modules it writes.
+    """
+    text = entry_docstring("summary")
+    paths = named_paths(text)
+    assert SUMMARY_REQUIREMENTS <= set(named_requirements(text))
+    for checking in SUMMARY_CHECKING_TESTS:
+        assert checking in paths, checking
+        module = PRODUCT_ROOT / checking
+        assert module.is_file(), checking
+        assert named_requirements(docstring_of(module)), checking
+        assert unknown_requirements(docstring_of(module)) == [], checking
+    assert "summary" in LANDED_FEATURE_WORDS
+    assert missing_paths(text) == []
+    assert unknown_requirements(text) == []
