@@ -355,7 +355,7 @@ def test_every_route_leaves_state_and_headers_as_the_rules_say() -> None:
 
 
 def test_delete_first_press_lands_on_a_pending_view_and_confirm_on_the_project() -> None:
-    """CP-544, T14: the opening press is 303 to a 200 pending view with no save and no cookie;
+    """CP-544, CP-583, T14: the opening press is 303 to a 202 pending view with no save and no cookie;
     the confirming press saves once and lands on the owning project."""
     saver = RecordingSaver()
     site, tracker = make_site(saver)
@@ -365,7 +365,7 @@ def test_delete_first_press_lands_on_a_pending_view_and_confirm_on_the_project()
     opened = site.handle("POST", "/tasks/1/delete", {**SAME_ORIGIN, **FORM}, b"")
     assert opened.status == 303 and header(opened, "Location") == "/tasks/1?delete_confirm"
     landing = get(site, "/tasks/1?delete_confirm")
-    assert landing.status == 200 and header(landing, "Cache-Control") == "no-store"
+    assert landing.status == 202 and header(landing, "Cache-Control") == "no-store"
     assert header(landing, "Content-Security-Policy") == POLICY
     assert header(landing, "Set-Cookie") is None and len(saver.saved) == saves
     done = site.handle("POST", "/tasks/1/delete/confirm", {**SAME_ORIGIN, **FORM}, b"")

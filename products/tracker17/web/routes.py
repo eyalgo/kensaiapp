@@ -423,7 +423,7 @@ class Site:
                 move_interaction=move_interaction,
                 delete_area=delete_area,
             ),
-            Site._pending_status(move_interaction),
+            Site._pending_status(move_interaction, delete_area),
             extra=self._stored_as_asked(
                 query, deleting=delete_area.mode is not pages.DeleteMode.ORDINARY
             ),
@@ -442,16 +442,22 @@ class Site:
         return pages.DeleteArea()
 
     @staticmethod
-    def _pending_status(interaction: pages.MoveInteraction | None) -> HTTPStatus:
+    def _pending_status(
+        interaction: pages.MoveInteraction | None, delete_area: pages.DeleteArea | None = None
+    ) -> HTTPStatus:
         """202 for a page that actually renders a pending confirmation, 200 for every other page.
 
         The decision reads the resolved view, after outcome precedence, task membership and the
-        saved workflow answer, so an address that only asks for a confirmation changes nothing.
+        saved workflow answer, so an address that only asks for a confirmation changes nothing. A
+        deletion confirmation counts only as the resolved area: a failure that won over it, or a
+        raw confirmation key on a page that shows none, stays 200.
         """
-        pending = interaction is not None and interaction.mode is pages.MoveInteractionMode.CONFIRM
+        pending = (
+            interaction is not None and interaction.mode is pages.MoveInteractionMode.CONFIRM
+        ) or (delete_area is not None and delete_area.mode is pages.DeleteMode.CONFIRMATION)
         # 202, not a page script or a cache-clearing header: the browser's history cache admits only
-        # 200 main documents, so a pending move intent, accepted and awaiting the person, is never
-        # replayed from history (CP-343).
+        # 200 main documents, so a pending move or deletion intent, accepted and awaiting the
+        # person, is never replayed from history (CP-343, CP-583).
         return HTTPStatus.ACCEPTED if pending else HTTPStatus.OK
 
     @staticmethod

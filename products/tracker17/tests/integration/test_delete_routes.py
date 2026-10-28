@@ -92,7 +92,7 @@ def test_confirmation_uses_the_title_current_at_each_request(tmp_path: Path) -> 
     POST returned; submitted values cannot choose the target or the success metadata."""
     world = world_with(tmp_path, title="First")
     world.tracker.edit_task(1, TaskFields(title="Second"), TaskFields(title="First"))
-    opened = parse(page(get(world.site, location(press_delete(world)))))
+    opened = parse(page(get(world.site, location(press_delete(world))), 202))
     sentence = opened.by_id("confirm-sentence")
     assert sentence is not None and "Delete 'Second'?" in sentence.text()
     world.tracker.edit_task(1, TaskFields(title="Third"), TaskFields(title="Second"))
@@ -487,7 +487,7 @@ def test_task_delete_failure_wins_over_confirmation_for_response_status(tmp_path
     assert strips(parse(page(combined))) == []
     bare = get(world.site, "/tasks/1?delete_confirm")
     assert bare.status == 202 and header(bare, "Cache-Control") == "no-store"
-    assert len(strips(parse(page(bare)))) == 1
+    assert len(strips(parse(bare.body.decode()))) == 1
 
 
 def test_first_press_for_a_held_task_never_saves_and_a_get_never_deletes(tmp_path: Path) -> None:

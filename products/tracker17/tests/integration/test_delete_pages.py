@@ -35,7 +35,12 @@ def press_delete(world: World, task: int | str = 1) -> Response:
 
 
 def task_root(world: World, query: str = "", task: int = 1) -> Element:
-    return parse(page(get(world.site, f"/tasks/{task}{query}")))
+    """The task's page for this query, checked to answer 202 exactly when it shows a confirmation
+    (CP-583) and 200 otherwise."""
+    response = get(world.site, f"/tasks/{task}{query}")
+    root = parse(response.body.decode())
+    assert response.status == (202 if strips(root) else 200), query
+    return root
 
 
 def delete_forms(root: Element) -> list[Element]:
@@ -132,7 +137,7 @@ def test_delete_first_press_opens_confirmation_without_saving(tmp_path: Path) ->
     assert header(response, "Cache-Control") is None
     shown = get(world.site, "/tasks/1?delete_confirm")
     assert shown.status == 202 and header(shown, "Cache-Control") == "no-store"
-    root = parse(page(shown))
+    root = parse(page(shown, 202))
     (strip,) = strips(root)
     sentence = root.by_id("confirm-sentence")
     assert sentence is not None and sentence.text() == SENTENCE
@@ -261,7 +266,8 @@ def test_an_active_deletion_suppresses_every_other_outcome_and_focus(
     world.tracker.add_task_comment(1, "One")
     world.tracker.add_task_label(1, "ui")
     shown = get(world.site, f"/tasks/1?{marker}&{noise}")
-    root = parse(page(shown))
+    assert shown.status == (202 if marker == "delete_confirm" else 200)
+    root = parse(shown.body.decode())
     (target,) = focused(root)
     if marker == "delete_confirm":
         assert target.attrs["id"] == "confirm-sentence" and len(strips(root)) == 1
