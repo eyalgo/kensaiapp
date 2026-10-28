@@ -15,7 +15,7 @@ Cut from `products/tracker17/docs/SDD.md` § 6 S-6, slug `project-summary` ("Aft
 ## Stations — dynamic checklist
 
 - [x] summary-page — a project gains Tasks and Summary links, its page title takes its view (`Alpha: Tasks - tracker17`, CONTENT.md page titles), and the summary shows total, status and priority counts with zeros, overdue, no-due-date and per-assignee rows as plain numbers, an empty project showing zeros and inviting a first task; `domain/summary.py` exists and `pytest products/tracker17/tests/` exits 0 with a summary test on a project built to exercise each row
-- [ ] linked-counts — each status, priority and overdue count links to the project's list filtered to that value (the other counts stay plain), with AC-14's summary test covering the links; the AC-13 agreement test and the timed summary, landed with `summary-page`, still pass with `pytest products/tracker17/tests/` and `python3 products/tracker17/tests/timed_run.py` exiting 0
+- [x] linked-counts — each status, priority and overdue count links to the project's list filtered to that value (the other counts stay plain), with AC-14's summary test covering the links; the AC-13 agreement test and the timed summary, landed with `summary-page`, still pass with `pytest products/tracker17/tests/` and `python3 products/tracker17/tests/timed_run.py` exiting 0
 
 2026-10-28, shukuba-refine after `tracker17` unit `2026-10-28_summary-page`: `linked-counts` no longer carries the AC-13 agreement test or the timed summary as new work. That unit's spec folded both in (Locked Answers e-1, e-2), and they landed: `tests/integration/test_summary_routes.py:L76` and `tests/timed_run.py:L140-L145`. The station keeps them as checks that must still pass.
 
