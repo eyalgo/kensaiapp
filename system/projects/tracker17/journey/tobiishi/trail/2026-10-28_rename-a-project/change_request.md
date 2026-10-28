@@ -11,3 +11,6 @@
 ---
 
 *Sizing: one capability — renaming a project — with its acceptance in the station's five reached-when items (new name shown, refusals and own-name acceptance, tasks unchanged, suites, timed run); one flow, one merge. Source: SDD § 6 S-7, the station `2026-10-28_rename-a-project`, item 2 of 3 on seed `2026-10-11_delete-and-rename`. FDR fit: in-scope; `docs/SDD.md`, `docs/fdr.md`, `docs/nfdr.md` and `docs/adr/` are present.*
+
+**Sealed:** 2026-10-28 — accepted; merged to `main` via `--no-ff`.
+Environment: owners-mac — no CI
