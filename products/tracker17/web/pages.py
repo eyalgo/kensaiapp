@@ -10,6 +10,7 @@ that shows its reason.
 from __future__ import annotations
 
 import html
+import re
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -50,9 +51,19 @@ from application import (
     TextField,
 )
 
-BLANK_NAME = "blank-name"
-NAME_IN_USE = "name-in-use"
-TEXT_TOO_LONG = "too-long"
+
+class ProjectNameRefusal(str, Enum):
+    """The refusals of a project name, valued by the code an address carries. Creation and rename
+    both show them through `_name_reason`, so they are one closed set (CP-555)."""
+
+    BLANK_NAME = "blank-name"
+    NAME_IN_USE = "name-in-use"
+    TOO_LONG = "too-long"
+
+
+BLANK_NAME = ProjectNameRefusal.BLANK_NAME.value
+NAME_IN_USE = ProjectNameRefusal.NAME_IN_USE.value
+TEXT_TOO_LONG = ProjectNameRefusal.TOO_LONG.value
 
 PRODUCT_NAME = "tracker17"
 STYLESHEET_ADDRESS = "/style.css"
@@ -335,12 +346,41 @@ class _OperatorOutcome(Enum):
     COMPLETED = "completed"
 
 
+@dataclass(frozen=True)
+class ProjectRenameArea:
+    """What the Rename area last had, as plain values; it decides no rule and keeps nothing.
+
+    `typed` is the text a blank or in-use refusal or a failed save sent back, with None for text the
+    request did not carry (absence is not the empty string). `saved` and `previous` name the two
+    names a completed rename carried; a completion needs both. A too-long refusal shows none of the
+    typed text whatever else is carried.
+    """
+
+    typed: str | None = None
+    refusal: ProjectNameRefusal | None = None
+    failed: bool = False
+    saved: str | None = None
+    previous: str | None = None
+
+
+class _RenameOutcome(Enum):
+    """What an action on the Rename area left for the page to say."""
+
+    REFUSED = "refused"
+    FAILED = "failed"
+    COMPLETED = "completed"
+
+
 _YOUR_NAME_ID = "your-name"
 _YOUR_NAME_HEADING_ID = "your-name-heading"
 _OPERATOR_FIELD_ID = "operator-name"
 _OPERATOR_SAVE_ID = "save-operator-name"
 _OPERATOR_OUTCOME_ID = "operator-name-outcome"
 _NAME_REASON_ID = "name-reason"
+_RENAME_ID = "rename-project"
+_RENAME_FIELD_ID = "project-name"
+_RENAME_SAVE_ID = "save-project-name"
+_RENAME_OUTCOME_ID = "rename-outcome"
 _DESCRIPTION_REASON_ID = "description-reason"
 _DESCRIPTION_NOTE_ID = "description-note"
 _CREATE_FAILURE_ID = "create-failure"
@@ -1678,6 +1718,102 @@ def summary_page(summary: ProjectSummary) -> str:
     return _document(f"{project.name}: Summary - tracker17", body)
 
 
+_TAG = re.compile(r'<[a-zA-Z][^<>"]*(?:"[^"]*"[^<>"]*)*>')
+_AUTOFOCUS = re.compile(r"\sautofocus(?=[\s>])")
+_QUOTED = re.compile(r'"[^"]*"')
+
+
+def _takes_focus(markup: str) -> bool:
+    """Whether some element in the markup is marked `autofocus`, read from its tags only.
+
+    A value is escaped, so a quoted attribute value and the text between tags can never hold a
+    tag: dropping the quoted values of each tag leaves only the attributes the page itself wrote.
+    """
+    return any(_AUTOFOCUS.search(_QUOTED.sub("", tag)) for tag in _TAG.findall(markup))
+
+
+def _rename_outcome(area: ProjectRenameArea) -> _RenameOutcome | None:
+    """The one outcome to show: refusal, then failure, then completion; None for a plain area."""
+    if area.refusal is not None:
+        return _RenameOutcome.REFUSED
+    if area.failed:
+        return _RenameOutcome.FAILED
+    if area.saved is not None and area.previous is not None:
+        return _RenameOutcome.COMPLETED
+    return None
+
+
+def _rename_field_value(
+    project: Project, outcome: _RenameOutcome | None, area: ProjectRenameArea
+) -> str:
+    """The text in the field: what was typed after a blank or in-use refusal or a failure, else the
+    saved name. A too-long refusal keeps none of the typed text."""
+    kept_by_refusal = area.refusal in (
+        ProjectNameRefusal.BLANK_NAME,
+        ProjectNameRefusal.NAME_IN_USE,
+    )
+    keeps_typed = (
+        kept_by_refusal if outcome is _RenameOutcome.REFUSED else outcome is _RenameOutcome.FAILED
+    )
+    if keeps_typed and area.typed is not None:
+        return area.typed
+    return project.name
+
+
+def _rename_line(outcome: _RenameOutcome, shown: str, area: ProjectRenameArea) -> str:
+    if outcome is _RenameOutcome.REFUSED:
+        return _name_reason(area.refusal, TextField.NAME, shown) or ""
+    if outcome is _RenameOutcome.FAILED:
+        return (
+            f"The tracker couldn't rename the project to '{_escape(shown)}', and nothing was "
+            "changed. What you typed is still in the form. Try again."
+        )
+    return f"You renamed '{_escape(area.previous or '')}' to '{_escape(area.saved or '')}'."
+
+
+def _rename_section(project: Project, area: ProjectRenameArea) -> str:
+    """The Rename area: the labelled field holding the saved name, then Save, and the one outcome
+    line. Success and a refusal focus the field; a failure focuses Save (CP-546, CP-550)."""
+    outcome = _rename_outcome(area)
+    shown = _rename_field_value(project, outcome, area)
+    field_attributes = (
+        f'type="text" id="{_RENAME_FIELD_ID}" name="name" maxlength="{SHORT_TEXT_MAX}" '
+        f'value="{_escape(shown)}"'
+    )
+    button_attributes = f'type="submit" id="{_RENAME_SAVE_ID}"'
+    completion_block = reason_block = failure_block = ""
+    if outcome is not None:
+        line = _rename_line(outcome, shown, area)
+
+        def paragraph(kind: str) -> str:
+            return f'<p class="{kind}" id="{_RENAME_OUTCOME_ID}">{line}</p>\n'
+
+        description = f' autofocus aria-describedby="{_RENAME_OUTCOME_ID}"'
+        if outcome is _RenameOutcome.FAILED:
+            button_attributes += description
+            failure_block = paragraph("reason")
+        else:
+            field_attributes += description
+            if outcome is _RenameOutcome.COMPLETED:
+                completion_block = paragraph("outcome")
+            else:
+                reason_block = paragraph("reason")
+    return (
+        f'<section class="sheet" id="{_RENAME_ID}">\n'
+        f"{completion_block}"
+        f'<form method="post" action="/projects/{project.id}/rename" class="create-form">\n'
+        '<div class="field">\n'
+        f'<label for="{_RENAME_FIELD_ID}">Project name</label>\n'
+        f"{reason_block}"
+        f"<input {field_attributes}>\n"
+        "</div>\n"
+        f"{failure_block}"
+        f"<button {button_attributes}>Save</button>\n"
+        "</form>\n"
+        "</section>\n"
+    )
+
+
 def project_page(
     project: Project,
     rows: Sequence[TaskRow] = (),
@@ -1692,9 +1828,10 @@ def project_page(
     move_interaction: MoveInteraction | None = None,
     off_list_task: Task | None = None,
     deleted_task: str | None = None,
+    rename_area: ProjectRenameArea | None = None,
 ) -> str:
-    """One project's page: its add-task form, and its tasks in the order and with the overdue
-    flags handed in. With `created`, it opens on its heading and the created line. With a
+    """One project's page: its add-task form, its tasks in the order and with the overdue flags
+    handed in, and below every result state its Rename area. With `created`, it opens on its heading and the created line. With a
     `deleted_task` title, it opens on its heading and the deletion line, which takes precedence
     over every other outcome and interaction.
 
@@ -1708,6 +1845,10 @@ def project_page(
     button and owns the one focus in the same way. A `move_outcome` about the `off_list_task`, a
     task of the project the filtered list does not show, gets one line above the results, and the
     list section, not the line, owns the focus.
+
+    The Rename area follows the same one-focus rule: where any other part of the page takes the
+    focus, the area is the ordinary one, with the saved name and no line, whatever `rename_area`
+    carries.
     """
     if deleted_task:
         created, form = False, None
@@ -1757,6 +1898,8 @@ def project_page(
         f"{_add_task_form(project, assignees, priority_choices, form or TaskForm())}"
         f"{under_form}"
     )
+    area = ProjectRenameArea() if _takes_focus(body) else rename_area or ProjectRenameArea()
+    body += _rename_section(project, area)
     return _document(f"{project.name}: Tasks - tracker17", body)
 
 

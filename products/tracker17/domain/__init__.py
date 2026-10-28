@@ -31,7 +31,14 @@ from domain.filtering import (
 from domain.labels import add_label, check_label, check_saved_labels, remove_label
 from domain.operator_name import OperatorNameOutcome, check_operator_name, set_operator_name
 from domain.priorities import DEFAULT_PRIORITY, PRIORITY_CHOICES, Priority, parse_priority
-from domain.projects import Project, create_project, find_project, list_projects
+from domain.projects import (
+    Project,
+    ProjectRenameOutcome,
+    create_project,
+    find_project,
+    list_projects,
+    rename_project,
+)
 from domain.refusals import (
     AssigneeNameInUse,
     AssigneeNotFound,
@@ -150,6 +157,7 @@ __all__ = [
     "Project",
     "ProjectListRefused",
     "ProjectNotFound",
+    "ProjectRenameOutcome",
     "ProjectSummary",
     "Refusal",
     "RepeatedFilterValue",
@@ -209,6 +217,7 @@ __all__ = [
     "remove_assignee",
     "remove_label",
     "remove_task_label",
+    "rename_project",
     "restore_state",
     "restore_task",
     "set_operator_name",

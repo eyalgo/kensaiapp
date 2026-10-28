@@ -5,7 +5,7 @@ included, a label added or removed too, the operator's name saved, a comment add
 to or removed from the assignee list, a task moved from `todo` to `in-progress`, and a project
 list filtered by a status, which realizes FR-32, and sorted by priority, which realizes FR-36) and AC-15 (the response time). Change spec rules CP-143 (the add), CP-179 (the edit), CP-208 (the label add and
 remove), CP-237 (the name save), CP-276 to CP-289 (the comment add and the assignee add and remove)
-CP-371 to CP-392 (the status move), CP-418 to CP-423 (the status filter) and CP-451 to CP-456 (the sort), CP-543 (the task deletion, FR-17) and NFDR QC-48 are the ones each test names. The harness is
+CP-371 to CP-392 (the status move), CP-418 to CP-423 (the status filter) and CP-451 to CP-456 (the sort), CP-543 (the task deletion, FR-17), CP-566 (the project rename, FR-12) and NFDR QC-48 are the ones each test names. The harness is
 tests/timed_run.py; it is loaded by its path and handed its own collaborators (a request site, a
 timer, a location), so no product name is patched. A script that only exits 0 could time the wrong
 path, so these tests prove it exercises the real one and refuses a wrong one.
@@ -422,6 +422,7 @@ def test_timed_run_fails_when_only_the_edit_fails(
             *SORT_QUICK,
             *SUMMARY_QUICK,
             *DELETE_QUICK,
+            *RENAME_QUICK,
         ),
     )
 
@@ -730,6 +731,7 @@ def test_timed_run_fails_when_only_a_label_action_fails(
         *SORT_QUICK,
         *SUMMARY_QUICK,
         *DELETE_QUICK,
+        *RENAME_QUICK,
     )
 
     status = harness.main(tmp_path, ticks)
@@ -772,6 +774,8 @@ SORT_QUICK = QUICK
 SUMMARY_QUICK = (0.0, 0.1)
 # The deletion's four readings, taken after the Summary's: all under the limit (CP-543).
 DELETE_QUICK = QUICK
+# The rename's four readings, taken after the deletion's: all under the limit (CP-566).
+RENAME_QUICK = QUICK
 NAME_LABEL = "set your name at 1000 tasks"
 NAME_LANDING_LABEL = "name landing page at 1000 tasks"
 NAME_ADDRESS = "/operator-name"
@@ -988,6 +992,7 @@ def test_full_timed_run_fails_when_only_name_measurement_fails(
                 *SORT_QUICK,
                 *SUMMARY_QUICK,
                 *DELETE_QUICK,
+                *RENAME_QUICK,
             ),
         )
         lines = capsys.readouterr().out.splitlines()
@@ -2092,17 +2097,19 @@ def _run_readings(**slow: tuple[float, ...]) -> Ticks:
     The five old actions read first, in the order the run times them, then the comment add, the
     assignee add, the assignee remove, the status move, the status filter and the sort, as the
     run appends them, then the Summary's one interval of two readings (CP-509), and last the
-    deletion's four (CP-543).
+    deletion's four (CP-543) and, after the deletion, the rename's four (CP-566).
     """
     order = ("comment", "assignee add", "assignee remove", "move", "filter", "sort")
     new = [slow.get(name, QUICK) for name in order]
     summary = slow.get("summary", SUMMARY_QUICK)
     delete = slow.get("delete", DELETE_QUICK)
+    rename = slow.get("rename", RENAME_QUICK)
     return Ticks(
         *QUICK * OLD_ACTION_READINGS,
         *[value for each in new for value in each],
         *summary,
         *delete,
+        *rename,
     )
 
 
@@ -2140,6 +2147,7 @@ def test_timed_run_appends_exactly_three_ordered_action_blocks(whole_run) -> Non
         *SORT_RUN_LABELS,
         *SUMMARY_RUN_LABELS,
         *DELETE_RUN_LABELS,
+        *RENAME_RUN_LABELS,
     ]
     assert "over" not in "\n".join(lines) and "refused" not in "\n".join(lines)
 
@@ -2355,6 +2363,12 @@ DELETE_LABELS = (
     "delete total at 1000 tasks",
 )
 DELETE_RUN_LABELS = ("delete fixture", *DELETE_LABELS)
+RENAME_LABELS = (
+    "rename a project at 1000 tasks",
+    "rename landing page at 1000 tasks",
+    "rename total at 1000 tasks",
+)
+RENAME_RUN_LABELS = ("rename fixture", *RENAME_LABELS)
 MOVE_OPERATOR = "Jordan Rivera"
 MOVE_ASSIGNEES = ("Zed Quinn", "Mara Lopez")
 
@@ -2883,26 +2897,26 @@ def test_timed_run_appends_exact_move_block_and_nothing_after(
     _, fresh = harness.open_task_volume(SavedData(tmp_path / "fresh"))
 
     assert status == 0
-    assert [line.split(":")[0] for line in lines[:-18]] == [*OLD_RUN_LABELS, *NEW_RUN_LABELS]
-    assert lines[-18:-14] == [
+    assert [line.split(":")[0] for line in lines[:-22]] == [*OLD_RUN_LABELS, *NEW_RUN_LABELS]
+    assert lines[-22:-18] == [
         harness.move_fixture_report(fresh),
         "move a task at 1000 tasks: 100.0 ms",
         "move landing page at 1000 tasks: 100.0 ms",
         "move total at 1000 tasks: 200.0 ms",
     ]
-    assert lines[-14:-10] == [
+    assert lines[-18:-14] == [
         harness.filter_fixture_report(fresh),
         "filter a task list at 1000 tasks: 100.0 ms",
         "filter landing page at 1000 tasks: 100.0 ms",
         "filter total at 1000 tasks: 200.0 ms",
     ]
-    assert lines[-10:-6] == [
+    assert lines[-14:-10] == [
         harness.sort_fixture_report(fresh),
         "sort a task list at 1000 tasks: 100.0 ms",
         "sort landing page at 1000 tasks: 100.0 ms",
         "sort total at 1000 tasks: 200.0 ms",
     ]
-    assert lines[-6].startswith("summary fixture: ")
+    assert lines[-10].startswith("summary fixture: ")
 
 
 def test_timed_move_fixture_is_independent_and_product_data_unchanged(
@@ -3294,8 +3308,8 @@ def test_timed_filter_failures_reach_main_verdict(
     lines = capsys.readouterr().out.splitlines()
     assert status == 1
     assert [line for line in lines if "refused or failed" in line]
-    assert not [line for line in lines[:-14] if "refused" in line or "over" in line]
-    assert not [line for line in lines[-10:] if "refused" in line or "over" in line]
+    assert not [line for line in lines[:-18] if "refused" in line or "over" in line]
+    assert not [line for line in lines[-14:] if "refused" in line or "over" in line]
 
 
 # --- The sort appended to the whole run (CP-451 to CP-456) ----------------------------------------
@@ -3676,9 +3690,9 @@ def test_timed_sort_failures_reach_main_verdict(
 
     lines = capsys.readouterr().out.splitlines()
     assert status == 1
-    assert [line for line in lines[-9:-6] if "refused or failed" in line]
-    assert not [line for line in lines[:-10] if "refused" in line or "over" in line]
-    assert not [line for line in lines[-6:] if "refused" in line or "over" in line]
+    assert [line for line in lines[-13:-10] if "refused or failed" in line]
+    assert not [line for line in lines[:-14] if "refused" in line or "over" in line]
+    assert not [line for line in lines[-10:] if "refused" in line or "over" in line]
 
 
 def test_full_run_keeps_the_sort_block_before_the_summary_block(
@@ -3698,14 +3712,15 @@ def test_full_run_keeps_the_sort_block_before_the_summary_block(
         *SORT_RUN_LABELS,
         *SUMMARY_RUN_LABELS,
         *DELETE_RUN_LABELS,
+        *RENAME_RUN_LABELS,
     ]
-    assert lines[-10:-6] == [
+    assert lines[-14:-10] == [
         harness.sort_fixture_report(fresh),
         "sort a task list at 1000 tasks: 100.0 ms",
         "sort landing page at 1000 tasks: 100.0 ms",
         "sort total at 1000 tasks: 200.0 ms",
     ]
-    assert lines[-10].endswith("sort priority descending, 1000 listed")
+    assert lines[-14].endswith("sort priority descending, 1000 listed")
 
 
 # --- The project Summary appended to the whole run (CP-503, CP-509) -------------------------------
@@ -4393,7 +4408,7 @@ def test_timed_run_appends_summary_after_all_existing_blocks(
     _, fresh = harness.open_summary_volume(SavedData(tmp_path / "fresh"))
 
     assert status == 0
-    assert [line.split(":")[0] for line in lines[:-6]] == [
+    assert [line.split(":")[0] for line in lines[:-10]] == [
         *OLD_RUN_LABELS,
         *NEW_RUN_LABELS,
         *MOVE_RUN_LABELS,
@@ -4401,7 +4416,7 @@ def test_timed_run_appends_summary_after_all_existing_blocks(
         *SORT_RUN_LABELS,
     ]
     assert loaded == fresh
-    assert lines[-6:-4] == [
+    assert lines[-10:-8] == [
         harness.summary_fixture_report(fresh),
         f"{SUMMARY_LABEL}: 100.0 ms",
     ]
@@ -4461,8 +4476,8 @@ def test_timed_run_includes_summary_failure_in_exit_status(
 
     lines = capsys.readouterr().out.splitlines()
     assert status == 1
-    assert "refused or failed" in lines[-5] and lines[-5].startswith(SUMMARY_LABEL)
-    others = [*lines[:-5], *lines[-4:]]
+    assert "refused or failed" in lines[-9] and lines[-9].startswith(SUMMARY_LABEL)
+    others = [*lines[:-9], *lines[-8:]]
     assert not [line for line in others if "refused" in line or "over" in line]
 
 
@@ -4610,7 +4625,7 @@ def test_full_volume_deletion_measures_post_landing_and_total(
     assert task is not None
 
     assert status == 0
-    assert lines[-4:] == [
+    assert lines[-8:-4] == [
         (
             "delete fixture: 1000 tasks, 20 comments each (20000 in all); "
             f"title of {len(task.title)} characters, "
@@ -4620,7 +4635,7 @@ def test_full_volume_deletion_measures_post_landing_and_total(
         "delete landing page at 1000 tasks: 100.0 ms",
         "delete total at 1000 tasks: 200.0 ms",
     ]
-    assert harness.delete_fixture_report(fresh) == lines[-4]
+    assert harness.delete_fixture_report(fresh) == lines[-8]
 
     site, saved_data, seeded = _seeded(harness, tmp_path / "one")
     results = harness.measure_task_delete(site=site, saved_data=saved_data, timer=Ticks(*QUICK))
@@ -4851,8 +4866,9 @@ def test_whole_run_keeps_earlier_blocks_and_appends_deletion(whole_run) -> None:
     labels = [line.split(":")[0] for line in lines]
 
     assert status == 0
-    assert labels[-6:-4] == list(SUMMARY_RUN_LABELS)
-    assert labels[-4:] == list(DELETE_RUN_LABELS)
+    assert labels[-10:-8] == list(SUMMARY_RUN_LABELS)
+    assert labels[-8:-4] == list(DELETE_RUN_LABELS)
+    assert labels[-4:] == list(RENAME_RUN_LABELS)
     assert labels == [
         *OLD_RUN_LABELS,
         *NEW_RUN_LABELS,
@@ -4861,4 +4877,327 @@ def test_whole_run_keeps_earlier_blocks_and_appends_deletion(whole_run) -> None:
         *SORT_RUN_LABELS,
         *SUMMARY_RUN_LABELS,
         *DELETE_RUN_LABELS,
+        *RENAME_RUN_LABELS,
     ]
+
+
+# --- The project rename appended to the whole run (CP-566; T15) -----------------------------------
+
+RENAME_PROJECT = 1
+RENAME_OLD = "Volume project"
+RENAME_NEW = "Renamed volume project"
+RENAME_ADDRESS = f"/projects/{RENAME_PROJECT}/rename"
+RENAME_LANDING = f"/projects/{RENAME_PROJECT}?{urlencode({'rename_saved': RENAME_NEW, 'rename_from': RENAME_OLD})}"
+RENAME_LINE = f"You renamed '{escape(RENAME_OLD)}' to '{escape(RENAME_NEW)}'."
+RENAME_WRONG_STATES = {
+    "no rename": lambda before, after: before,
+    "a different name": lambda before, after: replace(
+        after, projects=(replace(after.projects[0], name="Another name"),)
+    ),
+    "description changed": lambda before, after: replace(
+        after, projects=(replace(after.projects[0], description="Another description."),)
+    ),
+    "another project added": lambda before, after: replace(
+        after,
+        projects=(*after.projects, replace(after.projects[0], id=2, name="Other project")),
+        next_project_id=3,
+    ),
+    "a task removed": lambda before, after: replace(after, tasks=after.tasks[1:]),
+    "a task field altered": lambda before, after: replace(
+        after, tasks=(replace(after.tasks[0], title="Another title"), *after.tasks[1:])
+    ),
+    "a comment removed": lambda before, after: replace(
+        after,
+        tasks=(replace(after.tasks[0], comments=after.tasks[0].comments[:-1]), *after.tasks[1:]),
+    ),
+    "assignee list changed": lambda before, after: replace(after, assignees=("Avery Chen",)),
+    "operator name changed": lambda before, after: replace(after, operator_name="Jordan Rivera"),
+    "task counter changed": lambda before, after: replace(
+        after, next_task_id=after.next_task_id + 1
+    ),
+    "project counter changed": lambda before, after: replace(
+        after, next_project_id=after.next_project_id + 1
+    ),
+}
+
+
+def _renamed(state):
+    """The expected state, worked out here by replacing only the target project's name."""
+    return replace(
+        state,
+        projects=tuple(
+            replace(p, name=RENAME_NEW) if p.id == RENAME_PROJECT else p for p in state.projects
+        ),
+    )
+
+
+def _renamed_landing(heading: str = RENAME_NEW, line: str = RENAME_LINE) -> Response:
+    return _page(f'<h1 class="pre-wrap">{escape(heading)}</h1><p>{line}</p>')
+
+
+class AfterRename:
+    """The real site, with the saved state rewritten once the rename request has been answered."""
+
+    def __init__(self, site, saved_data: SavedData, change: Callable) -> None:
+        self._site = site
+        self._saved_data = saved_data
+        self._change = change
+        self._before = saved_data.load()
+
+    def handle(self, method: str, target: str, headers: dict[str, str], body: bytes) -> Response:
+        response = self._site.handle(method, target, headers, body)
+        if method == "POST" and target == RENAME_ADDRESS:
+            after = self._saved_data.load()
+            assert after is not None and self._before is not None
+            self._saved_data.save(self._change(self._before, after))
+        return response
+
+
+def test_timed_rename_records_request_landing_and_total(
+    harness: ModuleType, tmp_path: Path
+) -> None:
+    """CP-566, T15: a same-origin POST of the new name saves exactly the renamed state and answers
+    the exact redirect; the 200 landing shows the new heading and the completion. Four readings
+    give three results, and the disk readback is outside every interval."""
+    site, saved_data, seeded = _seeded(harness, tmp_path / "data")
+    events: list[str] = []
+
+    class Logged(Intercept):
+        def handle(self, method, target, headers, body):  # type: ignore[no-untyped-def]
+            events.append(f"{method} {target}")
+            return super().handle(method, target, headers, body)
+
+    class LoggedData:
+        location = saved_data.location
+
+        @staticmethod
+        def load():  # type: ignore[no-untyped-def]
+            events.append("load")
+            return saved_data.load()
+
+    recording = Logged(site)
+    readings = iter((0.0, 0.2, 5.0, 5.3))
+
+    def timer() -> float:
+        events.append("tick")
+        return next(readings)
+
+    results = harness.measure_project_rename(site=recording, saved_data=LoggedData(), timer=timer)
+
+    assert [(r.label, r.created) for r in results] == [(label, True) for label in RENAME_LABELS]
+    assert [r.seconds for r in results] == pytest.approx([0.2, 0.3, 0.5])
+    post, landing = recording.requests
+    assert post[:2] == ("POST", RENAME_ADDRESS)
+    assert post[2]["Sec-Fetch-Site"] == "same-origin"
+    assert parse_qs(post[3].decode("utf-8")) == {"name": [RENAME_NEW]}
+    assert landing[:2] == ("GET", RENAME_LANDING)
+    assert saved_data.load() == _renamed(seeded)
+    ticks = [i for i, event in enumerate(events) if event == "tick"]
+    assert len(ticks) == 4 and events[: ticks[0]] == ["load"]
+    assert events[ticks[0] + 1 : ticks[1]] == [f"POST {RENAME_ADDRESS}"]
+    assert events[ticks[1] + 1 : ticks[2]] == ["load"]
+    assert events[ticks[2] + 1 : ticks[3]] == [f"GET {RENAME_LANDING}"]
+
+
+@pytest.mark.parametrize("wrong", RENAME_WRONG_STATES.keys())
+def test_timed_rename_requires_the_exact_saved_delta(
+    harness: ModuleType, tmp_path: Path, wrong: str
+) -> None:
+    """CP-566, T15: no rename, a wrong name, or any other change to the saved state fails the
+    request and the total, however the page answers. The expected state is built here, by
+    replacing one project's name, never by the rename rule."""
+    site, saved_data, _ = _seeded(harness, tmp_path / "data")
+    mutated = AfterRename(site, saved_data, RENAME_WRONG_STATES[wrong])
+
+    results = harness.measure_project_rename(
+        site=mutated, saved_data=saved_data, timer=Ticks(*QUICK)
+    )
+
+    assert not results[0].created
+    assert not results[2].created
+
+
+RENAME_REFUSALS = {
+    "refused": lambda m, t: _page("<p>no</p>") if (m, t) == ("POST", RENAME_ADDRESS) else None,
+    "failed": lambda m, t: (
+        Response(500, (("Content-Type", "text/html"),), b"<p>no</p>")
+        if (m, t) == ("POST", RENAME_ADDRESS)
+        else None
+    ),
+    "a refusal address": lambda m, t: (
+        _found(f"/projects/1?rename_refused=name_in_use&rename_typed={RENAME_NEW}")
+        if (m, t) == ("POST", RENAME_ADDRESS)
+        else None
+    ),
+    "a failure address": lambda m, t: (
+        _found("/projects/1?rename_failed=save") if (m, t) == ("POST", RENAME_ADDRESS) else None
+    ),
+    "the bare address": lambda m, t: (
+        _found("/projects/1") if (m, t) == ("POST", RENAME_ADDRESS) else None
+    ),
+    "another project": lambda m, t: (
+        _found(RENAME_LANDING.replace("/projects/1?", "/projects/2?"))
+        if (m, t) == ("POST", RENAME_ADDRESS)
+        else None
+    ),
+    "a wrong name": lambda m, t: (
+        _found("/projects/1?rename_saved=Another&rename_from=Volume+project")
+        if (m, t) == ("POST", RENAME_ADDRESS)
+        else None
+    ),
+    "not a see-other": lambda m, t: (
+        Response(302, (("Location", RENAME_LANDING),), b"")
+        if (m, t) == ("POST", RENAME_ADDRESS)
+        else None
+    ),
+}
+
+
+@pytest.mark.parametrize("refusal", RENAME_REFUSALS.keys())
+def test_timed_rename_rejects_bad_request_outcomes(
+    harness: ModuleType, tmp_path: Path, refusal: str
+) -> None:
+    """CP-566, T15: a refusal, a failure, a status that is not 303 or a wrong Location is not a
+    completed rename; the landing is not requested and the total fails."""
+    site, saved_data, _ = _seeded(harness, tmp_path / "data")
+    recording = Intercept(site, RENAME_REFUSALS[refusal])
+
+    results = harness.measure_project_rename(
+        site=recording, saved_data=saved_data, timer=Ticks(0.0, 0.1)
+    )
+
+    assert [r.created for r in results] == [False, False, False]
+    assert [r.label for r in results] == list(RENAME_LABELS)
+    assert not [r for r in recording.requests if r[0] == "GET"]
+
+
+RENAME_LANDINGS = {
+    "wrong status": Response(404, (("Content-Type", "text/html"),), b"<p>no</p>"),
+    "old heading": _renamed_landing(heading=RENAME_OLD),
+    "no completion": _page(f'<h1 class="pre-wrap">{escape(RENAME_NEW)}</h1>'),
+    "wrong completion": _renamed_landing(line=f"You renamed '{RENAME_NEW}' to '{RENAME_OLD}'."),
+    "wrong previous name": _renamed_landing(line=f"You renamed 'Another' to '{RENAME_NEW}'."),
+}
+
+
+@pytest.mark.parametrize("landing", RENAME_LANDINGS.keys())
+def test_timed_rename_requires_the_correct_landing(
+    harness: ModuleType, tmp_path: Path, landing: str
+) -> None:
+    """CP-566, T15: a landing that is not a 200, carries the old heading, or lacks or misstates the
+    completion fails the landing row and the total; the request row alone still counts."""
+    site, saved_data, _ = _seeded(harness, tmp_path / "data")
+    recording = Intercept(site, lambda m, t: RENAME_LANDINGS[landing] if m == "GET" else None)
+
+    results = harness.measure_project_rename(
+        site=recording, saved_data=saved_data, timer=Ticks(*QUICK)
+    )
+
+    assert [r.created for r in results] == [True, False, False]
+
+
+@pytest.mark.parametrize(
+    "readings,expected",
+    [
+        ((0.0, 0.4, 5.0, 5.5), []),
+        ((0.0, 1.0, 5.0, 5.1), [RENAME_LABELS[0], RENAME_LABELS[2]]),
+        ((0.0, 0.1, 5.0, 6.0), [RENAME_LABELS[1], RENAME_LABELS[2]]),
+        ((0.0, 0.5, 5.0, 5.5), [RENAME_LABELS[2]]),
+        ((0.0, 1.5, 5.0, 5.1), [RENAME_LABELS[0], RENAME_LABELS[2]]),
+    ],
+    ids=[
+        "just below",
+        "request exactly 1 s",
+        "landing exactly 1 s",
+        "sum exactly 1 s",
+        "request over",
+    ],
+)
+def test_timed_rename_enforces_each_interval_and_total(
+    harness: ModuleType,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    readings: tuple[float, float, float, float],
+    expected: list[str],
+) -> None:
+    """CP-566, T15: the request, the landing and their sum each pass only strictly below one
+    second; equality fails, and so does a sum over the limit with each part below it."""
+    status = harness.main(tmp_path, _run_readings(rename=readings))
+
+    lines = capsys.readouterr().out.splitlines()
+    assert [line.split(":")[0] for line in lines if "over" in line] == expected
+    assert status == (1 if expected else 0)
+
+
+def test_rename_fixture_report_states_real_volume_and_lengths(
+    harness: ModuleType, tmp_path: Path
+) -> None:
+    """CP-566, T15: the report is worked out from the loaded fixture: its task and comment counts,
+    the target project's nonempty task set, and the ordinary text and name lengths."""
+    _, _, fresh = _seeded(harness, tmp_path / "data")
+    held = [t for t in fresh.tasks if t.project_id == RENAME_PROJECT]
+    project = next(p for p in fresh.projects if p.id == RENAME_PROJECT)
+    first = min(held, key=lambda t: t.id)
+
+    assert len(fresh.tasks) == 1000 and len(held) == 1000
+    assert {len(t.comments) for t in fresh.tasks} == {20}
+    assert project.name == RENAME_OLD
+    assert harness.rename_fixture_report(fresh) == (
+        "rename fixture: 1000 tasks, 20 comments each (20000 in all); "
+        f"title of {len(first.title)} characters, "
+        f"comment of {len(first.comments[0].text)} characters, "
+        f"old name of {len(RENAME_OLD)} characters, new name of {len(RENAME_NEW)} characters"
+    )
+
+
+def test_whole_run_keeps_older_actions_and_appends_rename(
+    harness: ModuleType, whole_run, tmp_path: Path
+) -> None:
+    """CP-566, T15: the deletion immediately precedes the rename, every earlier block keeps its
+    place, the rename's fixture is its own and holds the renamed state, and nothing follows it."""
+    directory, status, lines, _, _ = whole_run
+    _, fresh = harness.open_task_volume(SavedData(tmp_path / "fresh"))
+
+    assert status == 0
+    assert lines[-4:] == [
+        harness.rename_fixture_report(fresh),
+        "rename a project at 1000 tasks: 100.0 ms",
+        "rename landing page at 1000 tasks: 100.0 ms",
+        "rename total at 1000 tasks: 200.0 ms",
+    ]
+    assert [line.split(":")[0] for line in lines][-8:-4] == list(DELETE_RUN_LABELS)
+    rename_data = SavedData(directory / "rename-volume")
+    delete_data = SavedData(directory / "delete-volume")
+    assert rename_data.location != delete_data.location
+    assert rename_data.load() == _renamed(fresh)
+    assert delete_data.load() == _without_target(fresh)
+
+
+@pytest.mark.parametrize("failing", ["rename", "delete"])
+def test_a_failed_rename_or_older_action_makes_the_run_exit_nonzero(
+    harness: ModuleType,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+    failing: str,
+) -> None:
+    """CP-566, T15: a refused rename, or a refused older action, alone makes the whole run exit 1,
+    and a complete success (the whole_run fixture) exits 0. `main` offers no seam for its
+    measurements, so the harness's measurement is replaced by itself driven through a site that
+    refuses, as the older blocks' tests do."""
+    name, refused = {
+        "rename": ("measure_project_rename", RENAME_REFUSALS["refused"]),
+        "delete": ("measure_task_delete", DELETE_REFUSALS["refused"]),
+    }[failing]
+    measure = getattr(harness, name)
+
+    def rejected(*, site, saved_data, timer):
+        return measure(site=Intercept(site, refused), saved_data=saved_data, timer=timer)
+
+    monkeypatch.setattr(harness, name, rejected)
+
+    status = harness.main(tmp_path, _run_readings())
+
+    lines = capsys.readouterr().out.splitlines()
+    assert status == 1
+    assert [line for line in lines if line.endswith(" — refused or failed")]

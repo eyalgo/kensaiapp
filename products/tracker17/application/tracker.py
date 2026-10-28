@@ -20,6 +20,7 @@ from domain import (
     OperatorNameOutcome,
     Project,
     ProjectListRefused,
+    ProjectRenameOutcome,
     ProjectSummary,
     SortedSelection,
     SortFieldRefusal,
@@ -52,6 +53,7 @@ from domain import (
     project_filter_options,
     remove_assignee,
     remove_task_label,
+    rename_project,
     set_operator_name,
     sort_all_tasks,
     sort_project_tasks,
@@ -115,6 +117,18 @@ class Tracker:
         new_state, project = create_project(self._state, name, description)
         self._save_then_publish(new_state)
         return project
+
+    def rename_project(self, project_id: int, name: str) -> ProjectRenameOutcome:
+        """Rename the project. A refusal or a saver failure propagates; the state stays as it was.
+
+        The domain decides whether the name is valid and whether it differs from the name saved now.
+        An outcome that reports a change is saved before it becomes current; one that reports none,
+        the exact name already saved, saves and publishes nothing.
+        """
+        new_state, outcome = rename_project(self._state, project_id, name)
+        if outcome.changed:
+            self._save_then_publish(new_state)
+        return outcome
 
     def operator_name(self) -> str | None:
         """The one operator name, exactly as saved, or None when none is set."""
