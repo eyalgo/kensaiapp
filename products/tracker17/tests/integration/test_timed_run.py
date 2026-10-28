@@ -3800,7 +3800,10 @@ def _link_selected_counts(body: str) -> str:
 def _set_count(body: str, heading: str, label: str, count: int) -> str:
     """The body with this row's numeral replaced, whether the cell is bare or anchored."""
     return _edit_cell(
-        body, heading, label, lambda old: re.sub(r"[0-9]+", str(count), old, count=1)
+        body,
+        heading,
+        label,
+        lambda old: re.sub(r"(^|>)[0-9]+($|<)", lambda m: f"{m[1]}{count}{m[2]}", old, count=1),
     )
 
 
@@ -4018,7 +4021,7 @@ def test_timed_summary_rejects_ambiguous_count_cells(
     substring is recovered from extra markup, extra text or a second anchor, and no group loses
     its identity because the cell's markup was stripped. In every case the edited page differs from
     the page it was made from."""
-    site, saved_data, loaded = _summary_fixture(harness, tmp_path)
+    site, saved_data, _ = _summary_fixture(harness, tmp_path)
     bare = _real_summary(harness, site)
     linked = _edited(bare, _link_selected_counts)
     assert _created(harness, site, saved_data, linked)
