@@ -42,7 +42,25 @@
   it is shown. Where the status is final, it names no action, as RN-36. This moves UX-F4's
   failure/recovery, UX-I3's placement sentence, UX-S4's and UX-S7's error column, and UX-A3's
   association for these cases. The words are `CONTENT.md`'s.
-- **Answer:** <the owner fills this in>
+- **Answer:** Take the reading above, with two additions. When a pressed move is refused or fails and
+  the list's filter leaves the task off the list, on a project's Tasks view (UX-S4) and on All tasks
+  (UX-S7), the line sits where RN-36 puts the refusal reached by an address: above the results, in the
+  one line UX-I4's confirmation takes, and above the no-match state when no rows are left. A refusal
+  names the task by its title, states its status and the moves that status allows, and says the task
+  doesn't match this filter. Where the status still allows a move, it names Clear as what is left to
+  do, because the task can be acted on only once it is shown. Where the status is final, it names no
+  action and does not name Clear, as RN-36. A failure that is not a refusal names the task and the
+  move that failed, says nothing was changed (UX-I5), and names Clear, because a move that could fail
+  was one the task's status allowed. Addition 1: the line names the filter area's own Clear and adds
+  no control of its own, and it offers no reload, because the page is built after the press and only
+  the task is out of view. Addition 2: a failure line does not state the task's status, because the
+  failure is not about the status, and Clear brings back the row that shows it. With no status on the
+  page, UX-A3's association is met by the line naming the task, and for a refusal its status, in its
+  own text. UX-A5's announcement without moving focus applies unchanged. This changes UX-F4's
+  failure/recovery, where "It offers no reload" holds off the list because the line itself carries
+  the status and moves. It also changes UX-I3's placement sentence, UX-S4's error column (UX-S7 takes
+  it as UX-S4) and UX-A3. The task's page always shows the status, so placement there is unchanged.
+  The words are `CONTENT.md`'s. Reasoning: `docs/trail/uxd/self_answer-9.md`.
 
 ## 2. Choices to confirm — the CDO drafted a best-effort answer; confirm or override
 
