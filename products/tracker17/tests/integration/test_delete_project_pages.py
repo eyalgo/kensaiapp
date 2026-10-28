@@ -179,6 +179,8 @@ def test_project_confirmation_counts_all_current_tasks(tmp_path: Path) -> None:
                 assert len(task_rows(root)) == 1
             if count == 4 and query.endswith("filter_label=nothing"):
                 assert task_rows(root) == []
+            if count == 4 and query.endswith(("filter_status=bogus", "sort_field=bogus")):
+                assert task_rows(root) == [], query  # a refused filter or sort lists no row
             (strip,) = strips(root)
             sentence = root.by_id("confirm-sentence")
             assert sentence is not None and sentence.text() == sentence_for(name, count), query

@@ -473,7 +473,8 @@ def test_missing_project_add_redirects_without_saving(
 
 @pytest.mark.parametrize("form", sorted(ADD_FORMS))
 def test_deleted_project_add_redirects_without_saving(tmp_path: Path, form: str) -> None:
-    """CP-594, CP-597, T2: the same for a project deleted through its confirmation."""
+    """CP-594, CP-597, T2: the same for a deleted project, removed by the tracker call its
+    confirmation makes."""
     world = make_world(tmp_path, projects=("Alpha", "Beta"))
     world.tracker.delete_project(1)
     before = (world.bytes_on_disk(), world.saver.saves, state_of(world))
@@ -483,8 +484,11 @@ def test_deleted_project_add_redirects_without_saving(tmp_path: Path, form: str)
 
 
 def state_of(world: World) -> tuple[object, ...]:
+    """Every project, every project's tasks and the people list: what CP-594 keeps unchanged."""
     tracker = world.tracker
-    return (tracker.projects(), tracker.project_tasks(2), tracker.assignees())
+    projects = tracker.projects()
+    tasks = tuple(tracker.project_tasks(project.id) for project in projects)
+    return (projects, tasks, tracker.assignees())
 
 
 class VanishingProjectTracker(Tracker):

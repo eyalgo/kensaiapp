@@ -258,8 +258,9 @@ def test_missing_project_rename_redirects_without_saving(
 
 @pytest.mark.parametrize("sent", sorted(RENAME_NAMES))
 def test_deleted_project_rename_redirects_without_saving(tmp_path: Path, sent: str) -> None:
-    """CP-595, CP-597, T2: the same for a project deleted through its confirmation."""
-    world = make_world(tmp_path, projects=("Alpha", "Beta", "Gamma"))
+    """CP-595, CP-597, T2: the same for a deleted project, removed by the tracker call its
+    confirmation makes; `Gamma` is a name no remaining project holds, `Beta` one that is in use."""
+    world = make_world(tmp_path, projects=("Alpha", "Beta"))
     world.tracker.delete_project(1)
     before = (world.bytes_on_disk(), world.saver.saves, world.tracker.projects())
     response = send_rename(world, 1, RENAME_NAMES[sent])
