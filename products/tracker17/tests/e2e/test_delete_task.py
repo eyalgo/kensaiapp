@@ -15,7 +15,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import pytest
-from playwright.sync_api import Page, expect
+from playwright.sync_api import Locator, Page, expect
 from test_delete_project import CONTROL_HEIGHT, box_of
 from test_moves import PINNED_BROWSER
 
@@ -246,14 +246,24 @@ def assert_full_size(box: dict[str, float], what: str) -> None:
     assert abs(box["height"] - CONTROL_HEIGHT) <= TOLERANCE, f"{what} is {box['height']}px tall"
 
 
+def secondary_look(button: Locator) -> dict[str, str]:
+    """The paint DESIGN's secondary button gives: surface fill, ink type, and a muted edge."""
+    return button.evaluate(
+        "(e) => { const s = getComputedStyle(e);"
+        " return {fill: s.backgroundColor, ink: s.color, edge: s.borderTopColor,"
+        " edgeWidth: s.borderTopWidth}; }"
+    )
+
+
 @pytest.mark.parametrize("scrolled", [False, True], ids=["short-page", "scrolled-page"])
 def test_delete_task_confirmation_matches_full_size_trigger(
     tracker: RunningTracker, page: Page, scrolled: bool
 ) -> None:
     """CP-609 to CP-612, CP-614, T1: the first press and the confirming button are each 36px and
     within half a pixel of each other, the sentence is at least as tall as the first press, Back out
-    is 36px, and the sentence covers the whole rectangle the first press stood in, in document
-    coordinates across the two page loads."""
+    is 36px, the first press is painted as the secondary button Back out is, and the sentence
+    covers the whole rectangle the first press stood in, in document coordinates across the two
+    page loads."""
     open_task(page, tracker.address)
     page.goto(f"{tracker.address}/tasks/1")
     trigger = page.get_by_role("button", name=TRIGGER)
@@ -261,6 +271,7 @@ def test_delete_task_confirmation_matches_full_size_trigger(
         page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
         assert page.evaluate("window.scrollY") > 0
     first_press = box_of(trigger)
+    first_press_look = secondary_look(trigger)
     if scrolled:
         trigger.click()
     else:
@@ -269,7 +280,11 @@ def test_delete_task_confirmation_matches_full_size_trigger(
     page.wait_for_load_state("load")
     sentence = box_of(page.locator("#confirm-sentence"))
     confirm = box_of(page.locator(".confirm-strip button.button-confirm"))
-    back = box_of(page.locator(".confirm-strip button.button-secondary"))
+    back_out = page.locator(".confirm-strip button.button-secondary")
+    back = box_of(back_out)
+    assert first_press_look == secondary_look(back_out), (
+        "the first press is not the secondary button"
+    )
     assert_full_size(first_press, "the first press")
     assert_full_size(confirm, "the confirming button")
     assert_full_size(back, "Back out")
