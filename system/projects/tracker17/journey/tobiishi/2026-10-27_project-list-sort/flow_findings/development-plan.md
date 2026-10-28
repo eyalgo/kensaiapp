@@ -1,0 +1,12 @@
+# Flow Findings — development-plan  (audited 2026-10-28)
+
+Findings for this step's output only (`tl_instruction.md`), produced by the `development-audit` skill.
+Read cold against `change_design.md`, `change_spec.md` (CP-426–CP-458, 36 Examples), `docs/SDD.md` § 3 and the ADR/NFDR set.
+
+Lenses 1–6 and 8 walked; lenses 7, 9 and 10 do not apply to this step. Classification (`feature` / `changing`) is copied verbatim from the design. Both atomic-landing edges (sorting module + landed-word/shape tests in Task 1; timed-run activation + CP-456 expectations in Task 5) sit inside one task each. CP-457's Ruff/mypy/compile/e2e commands are carried by Task 6. The task split, zero-match reading, buildable trace, gate environment and Task 6 are recorded in `## TL Review Notes` with reasons.
+
+- **[non-blocking · change-local · coverage]** Task 5 never asserts the fixture's size or text lengths. Where: `tl_instruction.md` Task 5 §Behaviours to verify. Design T12 and CP-451 require 1,000 tasks, 20 comments on each, 20,000 in all, and ordinary text lengths. The first listed case asserts only an "independent saved directory and loaded fixture". The sibling report case reads a different fixture, so nothing pins the run's own fixture shape. Direction: name the counts in that case's assertions.
+- **[non-blocking · change-local · divergence-record]** Task 3's hint and Task 4's hint carry the same sentence and disagree with Task 3's scope. Where: `tl_instruction.md` Task 3 §Hint and Task 4 §Hint. Task 3's hint says to carry raw tuples "through address decoding, row forms and the shared address builder" and then says row-form and address carrying belongs to Task 4. The split is a recorded TL decision, but the hint copied from design § 4 C was not narrowed to it. Direction: narrow Task 3's hint to decoding and presentation.
+- **[non-blocking · change-local · handed-down-constraint]** Task 5 carries the atomic edge as structure but does not state the property. Where: `tl_instruction.md` Task 5 §What to build. Design § 3 says there is no green point between D's activation in `main` and the CP-456 expectations, because activation consumes extra readings and appends four lines. The plan puts both in one task but says only "as the measurement activates". The successor is left to infer that the 28 adaptations cannot land separately. Direction: state the property in the task.
+
+No other flow-issues found.
