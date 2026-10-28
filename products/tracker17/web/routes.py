@@ -38,6 +38,8 @@ from application import (
     Project,
     ProjectNotFound,
     ProjectTaskList,
+    SortControl,
+    SortInput,
     Task,
     TaskFields,
     TaskNotFound,
@@ -75,6 +77,7 @@ CONFIRM_MOVE_PATTERN = re.compile(r"/tasks/([0-9]+)/move/confirm")
 NOT_STORED = ("Cache-Control", "no-store")
 SHOWN_PREFIX = "shown_"
 FILTER_PREFIX = "filter_"
+SORT_PREFIX = "sort_"
 TASK_FIELDS = ("title", "priority", "assignee", "due_date")
 EDIT_FAILED = "save"
 OPERATOR_NAME_FAILED = "save"
@@ -183,12 +186,36 @@ def _filter_input(values: Mapping[str, list[str]]) -> FilterInput:
     )
 
 
+def _sort_input(values: Mapping[str, list[str]]) -> SortInput:
+    """The two sort keys an address carries, every value of each kept as sent: blank values stay,
+    repeats stay, and nothing is trimmed, folded or aliased (CP-441).
+
+    A key the address lacks is an empty tuple; any other key is not a sort and is not read.
+    """
+    return SortInput(
+        **{
+            control.value: tuple(values.get(SORT_PREFIX + control.value, ()))
+            for control in SortControl
+        }
+    )
+
+
 def _carried_filters(values: Mapping[str, list[str]]) -> dict[str, str | tuple[str, ...]]:
     """The filter keys a move form carries back to its list, every value kept as sent, in control
     order. A key the form lacks is left out; nothing else the form carries is read."""
     return {
         key: tuple(values[key])
         for key in (FILTER_PREFIX + field.value for field in FilterField)
+        if key in values
+    }
+
+
+def _carried_sorts(values: Mapping[str, list[str]]) -> dict[str, str | tuple[str, ...]]:
+    """The sort keys a move form carries back to its list, every value kept as sent, blank and
+    repeated ones too (CP-439). A key the form lacks stays absent."""
+    return {
+        key: tuple(values[key])
+        for key in (SORT_PREFIX + control.value for control in SortControl)
         if key in values
     }
 
@@ -480,7 +507,9 @@ class Site:
 
     def _project_page(self, project: Project, query: Mapping[str, list[str]]) -> Response:
         """Read the add form's outcome from the address and build the page; it changes nothing."""
-        listing = self._tracker.project_task_list(project.id, _filter_input(query))
+        listing = self._tracker.project_task_list(
+            project.id, _filter_input(query), sort_fields=_sort_input(query)
+        )
         move = self._move_view(query, lambda found: self._project_task(project, found))
         if move is None:
             return Site._html(pages.task_not_found_page(), HTTPStatus.NOT_FOUND)
@@ -796,13 +825,16 @@ class Site:
             else task_address
         )
         on_list = _first(form, "place") == pages.MOVE_PLACE_LIST
-        carried = _carried_filters(form) if on_list else {}
+        carried = {**_carried_filters(form), **_carried_sorts(form)} if on_list else {}
         about: dict[str, str | tuple[str, ...]] = {"move_task": str(identity), **carried}
         if (
             on_list
-            and self._tracker.project_task_list(task.project_id, _filter_input(form)).problems
+            and self._tracker.project_task_list(
+                task.project_id, _filter_input(form), sort_fields=_sort_input(form)
+            ).problems
         ):
-            # A malformed filter stops the move before it can save or open a confirmation (CP-405).
+            # A malformed filter or sort stops the move before it can save or open a
+            # confirmation (CP-405, CP-440).
             return self._redirect(place, **about)
         if status == TaskStatus.CANCELLED.value and not confirming:
             if TaskStatus.CANCELLED in self._tracker.allowed_moves(task.status):

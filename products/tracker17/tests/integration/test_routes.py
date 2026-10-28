@@ -482,6 +482,9 @@ def test_no_socket_connection_is_made() -> None:
         get(site, "/tasks/99")
         get(site, "/projects/1?filter_status=todo&filter_overdue=on")
         get(site, "/projects/1?filter_status=blocked")
+        get(site, "/projects/1?sort_field=priority&sort_direction=descending")
+        get(site, "/projects/1?filter_status=todo&sort_field=title")
+        get(site, "/projects/1?sort_field=colour&sort_direction=a&sort_direction=b")
         get(site, "/projects/1")
     finally:
         _window["open"] = False
@@ -1101,9 +1104,15 @@ def test_filter_apply_reload_and_clear_are_pages_that_save_and_set_nothing() -> 
         "/projects/1?filter_status=todo",
         "/projects/1",
         "/projects/1?filter_status=blocked",
+        "/projects/1?filter_status=todo&sort_field=title&sort_direction=descending",
+        "/projects/1?filter_status=todo&sort_field=title&sort_direction=descending",
+        "/projects/1?sort_field=priority",
+        "/projects/1?sort_field=colour",
+        "/projects/1?sort_direction=sideways&sort_direction=ascending",
     ):
         response = get(site, target)
         assert response.status == 200, target
+        assert header(response, "Location") is None, target
         assert header(response, "Content-Security-Policy") == POLICY, target
         assert header(response, "Set-Cookie") is None, target
         assert (tracker.project_tasks(1), len(saver.saved)) == before, target

@@ -29,10 +29,17 @@ from application import (
     InvalidFilterOverdue,
     InvalidFilterPriority,
     InvalidFilterStatus,
+    InvalidSortDirection,
+    InvalidSortField,
     Project,
     ProjectTaskList,
     RepeatedFilterValue,
+    RepeatedSortValue,
     ReversedFilterRange,
+    SortControl,
+    SortDirection,
+    SortFieldRefusal,
+    SortKey,
     Task,
     TaskEditContext,
     TaskFields,
@@ -999,6 +1006,27 @@ NO_MATCH_LINE = "No tasks match this filter. Press Clear to see every task."
 _FILTER_COUNT_ID = "filter-count"
 _FILTER_NO_MATCH_ID = "filter-no-match"
 
+# The sort controls: the label, the offered choices in order as (the word an address carries, the
+# words shown), and the action each reason closes with (text record, The project's task list).
+SORT_QUERY_PREFIX = "sort_"
+SORT_LABELS = {SortControl.FIELD: "Sort by", SortControl.DIRECTION: "Direction"}
+SORT_CHOICES = {
+    SortControl.FIELD: (
+        (SortKey.DUE_DATE.value, "Due date"),
+        (SortKey.PRIORITY.value, "Priority"),
+        (SortKey.CREATED_TIME.value, "Created time"),
+        (SortKey.TITLE.value, "Title"),
+    ),
+    SortControl.DIRECTION: (
+        (SortDirection.ASCENDING.value, "Ascending"),
+        (SortDirection.DESCENDING.value, "Descending"),
+    ),
+}
+_SORT_PICK = {
+    SortControl.FIELD: "Pick Due date, Priority, Created time or Title.",
+    SortControl.DIRECTION: "Pick Ascending or Descending.",
+}
+
 # One whole string for each repeated-value reason; Assignee and Label have a second form for a
 # list that offers no choice beyond Any (text record, Wording decisions).
 _REPEATED_REASONS = {
@@ -1080,8 +1108,35 @@ def _filter_reason(problem: FilterFieldRefusal, listing: ProjectTaskList) -> str
     raise TypeError(f"no reason for the filter refusal {type(problem).__name__}")
 
 
+def _sort_id(control: SortControl) -> str:
+    return f"sort-{control.value}"
+
+
+def _sort_reason(problem: SortFieldRefusal) -> str:
+    """The reason a sort refusal type is shown with, by its type alone (QC-5). Values are escaped
+    here."""
+    pick = _SORT_PICK[problem.control]
+    if isinstance(problem, RepeatedSortValue):
+        return f"{SORT_LABELS[problem.control]} takes one value, not {problem.count}. {pick}"
+    if isinstance(problem, InvalidSortField):
+        return (
+            f"Sort by can't be '{_escape(problem.value)}', because the list doesn't sort by "
+            f"that. {pick}"
+        )
+    if isinstance(problem, InvalidSortDirection):
+        return (
+            f"Direction can't be '{_escape(problem.value)}', because the list doesn't sort that "
+            f"way. {pick}"
+        )
+    raise TypeError(f"no reason for the sort refusal {type(problem).__name__}")
+
+
 def _match_count_line(count: int) -> str:
     return "1 task matches this filter." if count == 1 else f"{count} tasks match this filter."
+
+
+def _sort_count_line(count: int) -> str:
+    return "This project has 1 task." if count == 1 else f"This project has {count} tasks."
 
 
 def _filter_select(
@@ -1178,12 +1233,77 @@ def _filter_field(
     )
 
 
+def _sort_select(control: SortControl, raw: tuple[str, ...], attributes: str) -> str:
+    """A single-choice list of the offered choices. One nonempty value the address carried that is
+    not offered is kept as the selected choice, exactly as it came; an absent, blank or repeated
+    choice shows the first offered one, which is the default."""
+    choices = SORT_CHOICES[control]
+    offered = [value for value, _ in choices]
+    chosen = raw[0] if len(raw) == 1 and raw[0] != "" else offered[0]
+    shown = list(choices) if chosen in offered else [*choices, (chosen, chosen)]
+    options = "".join(_option(value, words, value == chosen) for value, words in shown)
+    return (
+        f'<select id="{_sort_id(control)}" name="{SORT_QUERY_PREFIX}{control.value}"'
+        f"{attributes}>\n{options}</select>\n"
+    )
+
+
+def _sort_attempt(
+    control: SortControl, raw: tuple[str, ...], problem: SortFieldRefusal | None
+) -> str:
+    """Every value a repeated control was sent with, as it came and escaped, with no words of the
+    tracker's between them."""
+    if not isinstance(problem, RepeatedSortValue):
+        return ""
+    values = "".join(f'<span class="attempted">{_escape(value)}</span>' for value in raw)
+    return f'<p class="attempt" id="{_sort_id(control)}-attempt">{values}</p>\n'
+
+
+def _sort_field(
+    control: SortControl,
+    listing: ProjectTaskList,
+    problems: Mapping[SortControl, SortFieldRefusal],
+    first: bool,
+) -> str:
+    """One labelled sort control: its label, its reason when refused, the control, the attempt."""
+    problem = problems.get(control)
+    identifier = _sort_id(control)
+    attributes = ""
+    reason = ""
+    if problem is not None:
+        attributes = f' aria-describedby="{identifier}-reason"' + (" autofocus" if first else "")
+        reason = f'<p class="reason" id="{identifier}-reason">{_sort_reason(problem)}</p>\n'
+    raw = listing.sort_fields.values(control)
+    return (
+        '<div class="field filter-field">\n'
+        f'<label for="{identifier}">{SORT_LABELS[control]}</label>\n'
+        f"{reason}{_sort_select(control, raw, attributes)}"
+        f"{_sort_attempt(control, raw, problem)}"
+        "</div>\n"
+    )
+
+
 def _filter_area(project: Project, listing: ProjectTaskList) -> str:
-    """The GET form of seven controls, Apply, and Clear, for a project that has tasks."""
-    problems = {problem.field: problem for problem in listing.problems}
-    first = listing.problems[0].field if listing.problems else None
+    """The GET form of nine controls (the seven filters, then Sort by and Direction), Apply, and
+    Clear, for a project that has tasks. The first refused control, in that order, takes the
+    focus."""
+    filter_problems = {
+        problem.field: problem
+        for problem in listing.problems
+        if isinstance(problem, FilterFieldRefusal)
+    }
+    sort_problems = {
+        problem.control: problem
+        for problem in listing.problems
+        if isinstance(problem, SortFieldRefusal)
+    }
+    first = listing.problems[0] if listing.problems else None
     fields = "".join(
-        _filter_field(field, listing, problems, field is first) for field in FilterField
+        _filter_field(field, listing, filter_problems, filter_problems.get(field) is first)
+        for field in FilterField
+    ) + "".join(
+        _sort_field(control, listing, sort_problems, sort_problems.get(control) is first)
+        for control in SortControl
     )
     return (
         f'<form method="get" action="/projects/{project.id}" class="filter-form" '
@@ -1205,17 +1325,18 @@ def _filtered_list(
     off_list_line: tuple[_MoveKind, str] | None = None,
 ) -> str:
     """What stands under the controls: nothing while a field is refused, the empty state when a
-    filter matched nothing, otherwise the count of an active filter and the table. A line about a
+    filter matched nothing, otherwise the count the read model owes (the filter's words when a
+    filter narrows, the project's own when only a sort was chosen) and the table. A line about a
     task the list does not show stands above either, in a section that takes the focus."""
     if listing.problems:
         return ""
-    active = listing.narrowed
-    if active and listing.match_count == 0:
+    if listing.narrowed and listing.match_count == 0:
         results = f'<p class="no-match" id="{_FILTER_NO_MATCH_ID}">{NO_MATCH_LINE}</p>\n'
     else:
+        words = _match_count_line if listing.narrowed else _sort_count_line
         count = (
-            f'<p class="match-count" id="{_FILTER_COUNT_ID}">{_match_count_line(listing.match_count)}</p>\n'
-            if active
+            f'<p class="match-count" id="{_FILTER_COUNT_ID}">{words(listing.match_count)}</p>\n'
+            if listing.count_requested
             else ""
         )
         results = count + _task_list(
@@ -1225,12 +1346,17 @@ def _filtered_list(
 
 
 def _carried_pairs(listing: ProjectTaskList) -> Carried:
-    """The seven filter keys with every raw value the page was asked with, in control order, for
-    the hidden fields of each move form (CP-407). Nothing but the filter is carried."""
+    """The seven filter keys, then the two sort keys, with every raw value the page was asked
+    with, in control order, for the hidden fields of each move form (CP-407, CP-439). A key the
+    address did not carry has no value and so adds no field. Nothing else is carried."""
     return tuple(
         (FILTER_QUERY_PREFIX + field.value, value)
         for field in FilterField
         for value in getattr(listing.fields, field.value)
+    ) + tuple(
+        (SORT_QUERY_PREFIX + control.value, value)
+        for control in SortControl
+        for value in listing.sort_fields.values(control)
     )
 
 
