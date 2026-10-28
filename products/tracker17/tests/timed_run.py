@@ -2,7 +2,7 @@
 removing a task's label, saving the operator's name, adding a comment, adding and removing a
 name on the People assignee list, moving a task from `todo` to `in-progress`, and filtering a
 project's list by the status `in-progress` and sorting it by priority, each with the page it lands
-on.
+on, and opening a project's Summary.
 
 A script, not a collected test: pytest does not pick it up, because its name does not start with
 `test_`. Run it from the product root with `python3 tests/timed_run.py`. It uses locations of its
@@ -31,7 +31,12 @@ lists exactly the fixture's `in-progress` tasks, each once, under their count. T
 on a fixture of its own: it sends the GET Apply press for priority descending with no filter, then a
 GET of the sorted address a reload opens, and counts only when the saved bytes are untouched and the
 page lists every task of the project exactly once, in priority-descending then task-number order
-worked out here from the loaded fixture, under their count. Its harness is checked by
+worked out here from the loaded fixture, under their count. The Summary comes last of all, on a
+fixture of its own that holds every status and priority, past-due and undated tasks and listed and
+unlisted assignees: it sends the one GET of the project's Summary and times only that request. It
+counts only when the response is the HTML page of that project's Summary, whose title, heading and
+every row (label and plain count, in order) match what is worked out here from the loaded fixture
+alone, and the saved bytes are untouched (CP-509, FR-38). Its harness is checked by
 tests/integration/test_timed_run.py.
 """
 
@@ -56,6 +61,7 @@ from domain import (
     LONG_TEXT_MAX,
     SHORT_TEXT_MAX,
     Comment,
+    Priority,
     Task,
     TaskStatus,
     TrackerState,
@@ -131,6 +137,15 @@ FILTER_CONTROLS = (
     "filter_due_to",
 )
 FILTER_SAVED_FILE = "tracker.json"
+SUMMARY_PROJECT_ID = 1
+SUMMARY_ADDRESS = f"/projects/{SUMMARY_PROJECT_ID}/summary"
+SUMMARY_LABEL = f"open a project summary at {TASK_VOLUME} tasks"
+SUMMARY_LISTED_ASSIGNEES = ("Zed Quinn", "Avery Chen")
+SUMMARY_PAST_DUE = date(2000, 1, 1)
+SUMMARY_HEADINGS = ("Tasks by status", "Tasks by priority", "Due dates", "Open tasks by assignee")
+SUMMARY_ROW = re.compile(r'<tr><th scope="row" class="pre-wrap">(.*?)</th><td>([0-9]+)</td></tr>')
+SUMMARY_HEADING = re.compile(r"<h2>(.*?)</h2>")
+OPEN_STATUSES = (TaskStatus.TODO, TaskStatus.IN_PROGRESS)
 REDIRECTS = (301, 302, 303, 307, 308)
 FILTER_TASK_LINK = re.compile(r'<a class="pre-wrap" href="/tasks/([0-9]+)"')
 FILTER_COUNT_LINE = re.compile(r'id="filter-count">([^<]*)<')
@@ -250,6 +265,59 @@ def _open_volume(saved_data: SavedData, state: TrackerState) -> tuple[Site, Trac
     loaded = saved_data.load()
     assert loaded is not None
     return Site(Tracker(loaded, saved_data, RealClock()), HOST), loaded
+
+
+def _summary_task(number: int) -> Task:
+    """The number-th Summary task: the seeded task with a status, priority, assignee and due date
+    that vary, so no two groups of counts are equal and no row can be swapped unseen."""
+    place = number % 10
+    if place < 4:
+        status = TaskStatus.TODO
+    elif place < 7:
+        status = TaskStatus.IN_PROGRESS
+    elif place < 9:
+        status = TaskStatus.DONE
+    else:
+        status = TaskStatus.CANCELLED
+    if place == 0:
+        priority = Priority.CRITICAL
+    elif place < 3:
+        priority = Priority.HIGH
+    elif place < 6:
+        priority = Priority.MEDIUM
+    else:
+        priority = Priority.LOW
+    assignee = (
+        SUMMARY_LISTED_ASSIGNEES[1],
+        SUMMARY_LISTED_ASSIGNEES[0],
+        "Amy" if number % 8 == 2 else "amy",
+        None,
+    )[number % 4]
+    task = _seeded_task(number)
+    return replace(
+        task,
+        status=status,
+        priority=priority,
+        assignee=assignee,
+        due_date=SUMMARY_PAST_DUE if number % 7 == 0 else task.due_date,
+    )
+
+
+def summary_state() -> TrackerState:
+    """One project holding 1,000 tasks of 20 comments each, varied for the Summary's counts."""
+    tasks = [_summary_task(number) for number in range(1, TASK_VOLUME + 1)]
+    return restore_state(
+        [(SUMMARY_PROJECT_ID, VOLUME_PROJECT_NAME, "Holds the Summary fixture.")],
+        2,
+        SUMMARY_LISTED_ASSIGNEES,
+        tasks=tasks,
+        next_task_id=TASK_VOLUME + 1,
+    )
+
+
+def open_summary_volume(saved_data: SavedData) -> tuple[Site, TrackerState]:
+    """The Summary fixture, saved, loaded and served."""
+    return _open_volume(saved_data, summary_state())
 
 
 def open_task_volume(saved_data: SavedData) -> tuple[Site, TrackerState]:
@@ -1115,10 +1183,110 @@ def sort_fixture_report(state: TrackerState) -> str:
     )
 
 
+def _local_today() -> date:
+    """The machine's local calendar day, which is the day the Summary counts overdue against."""
+    return datetime.now().astimezone().date()
+
+
+def _summary_expected(state: TrackerState, today: date) -> list[tuple[str, int]]:
+    """The rows the Summary of the timed project must show, in page order, for this day.
+
+    Worked out from the loaded fixture by a plain comparison of each task, never by the product's
+    Summary, its project filter or its application read: the total, each status, each priority,
+    overdue, no due date, then the listed names, the unlisted names carried by open tasks in
+    case-folded order, and last the unassigned.
+    """
+    held = [task for task in state.tasks if task.project_id == SUMMARY_PROJECT_ID]
+    open_tasks = [task for task in held if task.status in OPEN_STATUSES]
+    rows = [("Total", len(held))]
+    rows += [(word, sum(task.status.value == word for task in held)) for word in SEED_STATUSES]
+    rows += [(word, sum(task.priority.value == word for task in held)) for word in SEED_PRIORITIES]
+    overdue = sum(1 for task in open_tasks if task.due_date is not None and task.due_date < today)
+    rows += [("Overdue", overdue), ("No due date", sum(task.due_date is None for task in held))]
+    listed = list(state.assignees)
+    unlisted = sorted(
+        {task.assignee for task in open_tasks if task.assignee is not None} - set(listed),
+        key=lambda name: (name.casefold(), name),
+    )
+    rows += [
+        (name, sum(task.assignee == name for task in open_tasks)) for name in [*listed, *unlisted]
+    ]
+    rows.append(("(unassigned)", sum(task.assignee is None for task in open_tasks)))
+    return rows
+
+
+def _summary_landing_shows(
+    response_body: str, state: TrackerState, days: tuple[date, date]
+) -> bool:
+    """True when the page is the timed project's Summary with every row as the fixture says.
+
+    The title and the heading carry the project's name, every group heading is there in order, and
+    the rows (label, then a count that is plain text) equal the expected rows for one of the days
+    the response may have been counted on: the day before the request and the day after it, so a
+    run that crosses midnight is not failed for it.
+    """
+    project = next((each for each in state.projects if each.id == SUMMARY_PROJECT_ID), None)
+    if project is None:
+        return False
+    name = escape(project.name)
+    rows = [(unescape(label), int(count)) for label, count in SUMMARY_ROW.findall(response_body)]
+    return (
+        f"<title>{name}: Summary - tracker17</title>" in response_body
+        and f'<h1 class="pre-wrap">{name}</h1>' in response_body
+        and tuple(SUMMARY_HEADING.findall(response_body)) == SUMMARY_HEADINGS
+        and any(rows == _summary_expected(state, day) for day in days)
+    )
+
+
+def measure_project_summary(
+    *, site: Site, saved_data: SavedData, timer: Callable[[], float]
+) -> list[Timed]:
+    """Open the timed project's Summary and time that one GET.
+
+    Only `site.handle` lies between the two readings. The fixture is loaded and its saved bytes
+    read before the first reading, and the bytes are read again after the second, so no readback
+    lengthens the interval. It counts only when the response is a 200 HTML page the fixture alone
+    accounts for (`_summary_landing_shows`) and the saved bytes are untouched. One row comes back;
+    `verdict` prints it and holds it to the limit. Nothing is printed here.
+    """
+    before = saved_data.load()
+    assert before is not None
+    bytes_before = _saved_bytes(saved_data)
+    first_day = _local_today()
+    started = timer()
+    response = site.handle("GET", SUMMARY_ADDRESS, FILTER_HEADERS, b"")
+    seconds = timer() - started
+    days = (first_day, _local_today())
+    shown = (
+        response.status == 200
+        and dict(response.headers).get("Content-Type", "").startswith("text/html")
+        and _summary_landing_shows(response.body.decode("utf-8"), before, days)
+        and _saved_bytes(saved_data) == bytes_before
+    )
+    return [Timed(SUMMARY_LABEL, seconds, shown)]
+
+
+def summary_fixture_report(state: TrackerState) -> str:
+    """The volume, the lengths of the first task's title and first comment, and of the timed
+    project's name, all read from the fixture as loaded back, in code points.
+
+    The first task is the lowest task number, which is not necessarily the first stored. Nothing is
+    printed here.
+    """
+    volume = _volume_line(state)
+    first = min(state.tasks, key=lambda task: task.id)
+    project = next(each for each in state.projects if each.id == SUMMARY_PROJECT_ID)
+    return (
+        f"summary fixture: {volume}; title of {len(first.title)} characters, "
+        f"comment of {len(first.comments[0].text)} characters; "
+        f"project name of {len(project.name)} characters"
+    )
+
+
 def main(directory: Path | None = None, timer: Callable[[], float] = time.perf_counter) -> int:
     """Run the project creates, then the add, the edit, the label add and remove, the name save, the
-    comment add, the assignee add and remove, the status move, the status filter and the sort at
-    task volume; 1 when any failed."""
+    comment add, the assignee add and remove, the status move, the status filter, the sort and the
+    project Summary at task volume; 1 when any failed."""
     if directory is None:
         with tempfile.TemporaryDirectory() as temporary:
             return main(Path(temporary), timer)
@@ -1150,6 +1318,7 @@ def main(directory: Path | None = None, timer: Callable[[], float] = time.perf_c
     move_status = _run_move(directory, timer)
     filter_status = _run_filter(directory, timer)
     sort_status = _run_sort(directory, timer)
+    summary_status = _run_summary(directory, timer)
     return max(
         status,
         task_status,
@@ -1160,6 +1329,7 @@ def main(directory: Path | None = None, timer: Callable[[], float] = time.perf_c
         move_status,
         filter_status,
         sort_status,
+        summary_status,
     )
 
 
@@ -1197,7 +1367,7 @@ def _run_move(directory: Path, timer: Callable[[], float]) -> int:
     """Time the status move on a fixture of its own, after every older line the run prints.
 
     Prints the fixture line, then the move's three rows: the POST, the landing and the total. The
-    filter block follows it, and the sort block follows that and is the last.
+    filter block follows it, then the sort block, and the Summary block is the last.
     """
     move_data = SavedData(directory / "move-volume")
     move_site, move_seeded = open_task_volume(move_data)
@@ -1219,7 +1389,8 @@ def _run_filter(directory: Path, timer: Callable[[], float]) -> int:
 
 
 def _run_sort(directory: Path, timer: Callable[[], float]) -> int:
-    """Time the priority sort on a fixture of its own, after the filter block and last of all.
+    """Time the priority sort on a fixture of its own, after the filter block and before the
+    Summary block.
 
     Prints the fixture line, then the sort's three rows: Apply, the landing and the total.
     """
@@ -1227,6 +1398,18 @@ def _run_sort(directory: Path, timer: Callable[[], float]) -> int:
     sort_site, sort_seeded = open_task_volume(sort_data)
     print(sort_fixture_report(sort_seeded))
     results = measure_task_sort(site=sort_site, saved_data=sort_data, timer=timer)
+    return verdict(results, LIMIT_SECONDS)
+
+
+def _run_summary(directory: Path, timer: Callable[[], float]) -> int:
+    """Time the project Summary on a fixture of its own, after the sort block and last of all.
+
+    Prints the fixture line, then the one result row: the single GET.
+    """
+    summary_data = SavedData(directory / "summary-volume")
+    summary_site, summary_seeded = open_summary_volume(summary_data)
+    print(summary_fixture_report(summary_seeded))
+    results = measure_project_summary(site=summary_site, saved_data=summary_data, timer=timer)
     return verdict(results, LIMIT_SECONDS)
 
 

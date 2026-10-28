@@ -3962,8 +3962,8 @@ def test_timed_summary_validates_rows_independently(harness: ModuleType, tmp_pat
     )
     assert [r.created for r in stale] == [False]
 
-    for forbidden in ("summarize_project", "project_summary", "filter_project_tasks"):
-        assert forbidden not in SUMMARY_HARNESS_TEXT, forbidden
+    oracle_names = r"(?<![A-Za-z_])(summarize_project|project_summary|filter_project_tasks)\b"
+    assert re.findall(oracle_names, SUMMARY_HARNESS_TEXT) == []
 
 
 def test_timed_summary_checks_fixture_and_saved_bytes_outside_the_interval(

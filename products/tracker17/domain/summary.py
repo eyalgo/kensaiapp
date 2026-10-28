@@ -17,8 +17,9 @@ Checked by: tests/unit/test_summary.py (the rules), tests/integration/test_summa
 read through the Tracker), tests/integration/test_summary_routes.py and
 tests/integration/test_summary_pages.py (the address and the page), tests/integration/test_pages.py,
 tests/integration/test_task_pages.py and tests/integration/test_routes.py (the released titles, link
-set and route sample), tests/e2e/test_summary.py (the browser), and tests/architecture/test_trace.py
-and tests/architecture/test_shapes.py (the entry and the shape).
+set and route sample), tests/e2e/test_summary.py (the browser), tests/timed_run.py (the timed read
+of the Summary at task volume) with tests/integration/test_timed_run.py (that harness), and
+tests/architecture/test_trace.py and tests/architecture/test_shapes.py (the entry and the shape).
 """
 
 from __future__ import annotations
