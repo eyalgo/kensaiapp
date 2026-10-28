@@ -11,3 +11,6 @@
 ---
 
 *Sizing: one capability — deleting a task — with its acceptance in the station's five reached-when items (confirmation and landing, not-found and refusals, identity and comments, suites, timed run); one flow, one merge. Source: SDD § 6 S-7, the station `2026-10-28_delete-a-task`, item 1 of 3 on seed `2026-10-11_delete-and-rename`. FDR fit: in-scope; `docs/SDD.md`, `docs/fdr.md`, `docs/nfdr.md` and `docs/adr/` are present.*
+
+**Sealed:** 2026-10-28 — accepted; merged to `main` via `--no-ff`.
+Environment: owners-mac — no CI
