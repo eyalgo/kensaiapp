@@ -4888,7 +4888,7 @@ RENAME_OLD = "Volume project"
 RENAME_NEW = "Renamed volume project"
 RENAME_ADDRESS = f"/projects/{RENAME_PROJECT}/rename"
 RENAME_LANDING = f"/projects/{RENAME_PROJECT}?{urlencode({'rename_saved': RENAME_NEW, 'rename_from': RENAME_OLD})}"
-RENAME_LINE = escape(f"You renamed '{RENAME_OLD}' to '{RENAME_NEW}'.")
+RENAME_LINE = f"You renamed '{escape(RENAME_OLD)}' to '{escape(RENAME_NEW)}'."
 RENAME_WRONG_STATES = {
     "no rename": lambda before, after: before,
     "a different name": lambda before, after: replace(
@@ -4900,6 +4900,7 @@ RENAME_WRONG_STATES = {
     "another project added": lambda before, after: replace(
         after,
         projects=(*after.projects, replace(after.projects[0], id=2, name="Other project")),
+        next_project_id=3,
     ),
     "a task removed": lambda before, after: replace(after, tasks=after.tasks[1:]),
     "a task field altered": lambda before, after: replace(
@@ -5074,12 +5075,8 @@ RENAME_LANDINGS = {
     "wrong status": Response(404, (("Content-Type", "text/html"),), b"<p>no</p>"),
     "old heading": _renamed_landing(heading=RENAME_OLD),
     "no completion": _page(f'<h1 class="pre-wrap">{escape(RENAME_NEW)}</h1>'),
-    "wrong completion": _renamed_landing(
-        line=escape(f"You renamed '{RENAME_NEW}' to '{RENAME_OLD}'.")
-    ),
-    "wrong previous name": _renamed_landing(
-        line=escape(f"You renamed 'Another' to '{RENAME_NEW}'.")
-    ),
+    "wrong completion": _renamed_landing(line=f"You renamed '{RENAME_NEW}' to '{RENAME_OLD}'."),
+    "wrong previous name": _renamed_landing(line=f"You renamed 'Another' to '{RENAME_NEW}'."),
 }
 
 
