@@ -38,8 +38,8 @@ counts only when the response is the HTML page of that project's Summary, whose 
 every row (label and count, in order) match what is worked out here from the loaded fixture
 alone, and the saved bytes are untouched (CP-509, FR-38, CP-527). A count is a bare numeral or, in
 the four status, four priority and overdue cells alone, one anchor holding the numeral; a link in
-the total, the no-due-date count, an assignee count or a label does not count. Its harness is checked by
-tests/integration/test_timed_run.py.
+the total, the no-due-date count, an assignee count or a label does not count. Its harness is
+checked by tests/integration/test_timed_run.py.
 """
 
 from __future__ import annotations
