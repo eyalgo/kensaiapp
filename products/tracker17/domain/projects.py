@@ -1,15 +1,20 @@
-"""The Projects feature entry point: the project entity and the rules that accept or refuse one.
+"""The Projects feature entry point: the project entity and the rules that accept, rename or refuse
+one.
 
 Realizes SRS FR-10, FR-11, FR-12, FR-39 and FR-40 and data requirement DR-1.
 
-Taking part: application/tracker.py applies these rules and saves the result; web/pages.py shows
-the projects and the create form, and web/routes.py turns a submission into a create and a refusal
-into its reason. persistence/saved_data.py restores a saved state through restore_state.
+Taking part: application/tracker.py applies the create and rename rules and saves the result before
+it is shown; web/pages.py shows the projects, the create form and a project's Rename area, and
+web/routes.py turns a create or a rename submission into the action and a refusal into its reason.
+persistence/saved_data.py restores a saved state through restore_state.
 
 Checked by: tests/unit/test_projects.py and tests/unit/test_state.py (the rules),
-tests/integration/test_tracker.py, tests/integration/test_pages.py and
-tests/integration/test_routes.py (the actions and pages), and tests/e2e/test_first_project.py (the
-whole path in a browser).
+tests/integration/test_tracker.py and tests/integration/test_rename_tracker.py (the actions),
+tests/integration/test_pages.py, tests/integration/test_filter_pages.py,
+tests/integration/test_sort_pages.py and tests/integration/test_rename_pages.py (the pages),
+tests/integration/test_routes.py and tests/integration/test_rename_routes.py (the requests),
+tests/integration/test_timed_run.py with tests/timed_run.py (the rename at task volume), and
+tests/e2e/test_first_project.py and tests/e2e/test_rename_project.py (the whole path in a browser).
 """
 
 from __future__ import annotations
