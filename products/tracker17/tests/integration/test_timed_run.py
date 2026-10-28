@@ -3690,7 +3690,12 @@ def test_full_run_keeps_the_sort_block_before_the_summary_block(
 # --- The project Summary appended to the whole run (CP-503, CP-509) -------------------------------
 
 SUMMARY_ADDRESS = "/projects/1/summary"
-SUMMARY_ROW = re.compile(r'<tr><th scope="row" class="pre-wrap">(.*?)</th><td>([0-9]+)</td></tr>')
+# The test's own reader of a count cell, which is a bare numeral or the numeral inside one anchor.
+# It is written apart from the harness's reader and shares nothing with it.
+SUMMARY_ROW = re.compile(
+    r'<tr><th scope="row" class="pre-wrap">(.*?)</th>'
+    r'<td>(<a href="[^"]*">)?([0-9]+)(</a>)?</td></tr>'
+)
 SUMMARY_HEADINGS = (
     "Tasks by status",
     "Tasks by priority",
@@ -3731,6 +3736,87 @@ def _summary_row(label: str, count: int) -> str:
     return f'<tr><th scope="row" class="pre-wrap">{escape(label)}</th><td>{count}</td></tr>'
 
 
+# The nine count cells that may hold an anchor, by the group that holds them. The rest of the page
+# (the total, no due date, every assignee count and every label) may not.
+SELECTED_COUNT_ROWS = {
+    "Tasks by status": STATUS_WORDS,
+    "Tasks by priority": PRIORITY_WORDS,
+    "Due dates": ("Overdue",),
+}
+
+
+SELECTED_CELLS = {(h, label) for h, labels in SELECTED_COUNT_ROWS.items() for label in labels}
+
+
+def _count_href(label: str) -> str:
+    if label == "Overdue":
+        return "/projects/1?filter_overdue=on"
+    field = "filter_status" if label in STATUS_WORDS else "filter_priority"
+    return f"/projects/1?{field}={label}"
+
+
+def _in_group(body: str, heading: str, edit: Callable[[str], str]) -> str:
+    """The body with `edit` applied to the one group under this heading; the edit must change it."""
+    start = body.index(f"<h2>{heading}</h2>")
+    end = body.index("</section>", start)
+    changed = edit(body[start:end])
+    assert changed != body[start:end], f"nothing changed in {heading}"
+    return body[:start] + changed + body[end:]
+
+
+def _edit_cell(
+    body: str, heading: str, label: str, inner: Callable[[str], str], occurrences: int = 1
+) -> str:
+    """The body with the content of this label's count cell, in this group, replaced by
+    `inner(old content)`; the first such row, or every one when `occurrences` is 0. The row is
+    located by its group and label, never by the number."""
+    pattern = (
+        rf'(<tr><th scope="row" class="pre-wrap">{re.escape(escape(label))}</th><td>)'
+        r"(.*?)(</td></tr>)"
+    )
+    return _in_group(
+        body,
+        heading,
+        lambda section: re.sub(
+            pattern, lambda m: m[1] + inner(m[2]) + m[3], section, count=occurrences
+        ),
+    )
+
+
+def _link_selected_counts(body: str) -> str:
+    """The real bare-count page with an anchor inside each of its nine selected count cells."""
+    for heading, labels in SELECTED_COUNT_ROWS.items():
+        for label in labels:
+            body = _edit_cell(
+                body,
+                heading,
+                label,
+                lambda old, label=label: f'<a href="{_count_href(label)}">{old}</a>',
+            )
+    assert body.count('<td><a href="/projects/1?filter_') == 9
+    return body
+
+
+def _set_count(body: str, heading: str, label: str, count: int) -> str:
+    """The body with this row's numeral replaced, whether the cell is bare or anchored."""
+    return _edit_cell(
+        body, heading, label, lambda old: re.sub(r"[0-9]+", str(count), old, count=1)
+    )
+
+
+def _drop_row(body: str, heading: str, label: str) -> str:
+    """The body without this row of this group."""
+    pattern = rf'<tr><th scope="row" class="pre-wrap">{re.escape(escape(label))}</th>.*?</tr>'
+    return _in_group(body, heading, lambda section: re.sub(pattern, "", section, count=1))
+
+
+def _bare(body: str) -> str:
+    return body
+
+
+SUMMARY_SHAPES = {"bare": _bare, "linked": _link_selected_counts}
+
+
 def _summary_fixture(harness: ModuleType, location: Path, state=None):
     """The real site over a small Summary fixture (or the given state), saved and loaded."""
     chosen = _shrunk(harness.summary_state(), tasks=120, comments=2) if state is None else state
@@ -3746,18 +3832,26 @@ def _edited(response: Response, edit: Callable[[str], str]) -> Response:
     return Response(response.status, response.headers, body)
 
 
+@pytest.mark.parametrize("shape", SUMMARY_SHAPES)
 def test_summary_oracle_reads_the_real_page_as_the_fixture_says(
-    harness: ModuleType, tmp_path: Path
+    harness: ModuleType, tmp_path: Path, shape: str
 ) -> None:
-    """CP-503, CP-509: the test's own oracle and the real page agree on the fixture, in order."""
+    """CP-503, CP-509, CP-527, T14: the test's own oracle and the page agree on the fixture, in
+    order, in both accepted shapes: the real bare counts, and the same page with an anchor in each
+    of the nine selected count cells. Only those nine cells hold an anchor in the linked shape."""
     site, _, loaded = _summary_fixture(harness, tmp_path)
 
-    body = _real_summary(harness, site).body.decode("utf-8")
+    real = _real_summary(harness, site).body.decode("utf-8")
+    body = SUMMARY_SHAPES[shape](real)
 
-    rows = [(unescape(label), int(count)) for label, count in SUMMARY_ROW.findall(body)]
+    found = SUMMARY_ROW.findall(body)
+    rows = [(unescape(label), int(count)) for label, _, count, _ in found]
     assert rows == _summary_oracle(loaded, _local_today())
     assert re.findall(r"<h2>(.*?)</h2>", body) == list(SUMMARY_HEADINGS)
     assert len({count for _, count in rows[1:5]}) > 1 and len(rows) > 14
+    linked = [unescape(label) for label, opened, _, closed in found if opened and closed]
+    assert linked == ([] if shape == "bare" else [*STATUS_WORDS, *PRIORITY_WORDS, "Overdue"])
+    assert (body != real) == (shape == "linked")
 
 
 def test_timed_summary_reads_real_full_volume_once(harness: ModuleType, tmp_path: Path) -> None:
@@ -3778,6 +3872,169 @@ def test_timed_summary_reads_real_full_volume_once(harness: ModuleType, tmp_path
     assert headers["Sec-Fetch-Site"] == "same-origin" and body == b""
     assert [(r.label, r.created) for r in results] == [(SUMMARY_LABEL, True)]
     assert harness.verdict(results, LIMIT) == 0
+
+
+def _created(harness: ModuleType, site, saved_data: SavedData, response: Response) -> bool:
+    """Whether the measurement counts this response, served in place of the real Summary."""
+    results = harness.measure_project_summary(
+        site=Intercept(site, lambda method, target: response),
+        saved_data=saved_data,
+        timer=Ticks(*SUMMARY_QUICK),
+    )
+    assert len(results) == 1
+    return results[0].created
+
+
+@pytest.mark.parametrize("empty", [False, True], ids=["varied fixture", "empty fixture"])
+def test_timed_summary_accepts_bare_and_selected_linked_counts(
+    harness: ModuleType, tmp_path: Path, empty: bool
+) -> None:
+    """T14, CP-509, CP-527: the measurement counts the real bare-count Summary and the same page
+    with an anchor in each of the four status, four priority and the overdue count cells, with the
+    group, label and count of every row agreeing in order. On an empty fixture all nine counts are
+    zero, and the nine anchors still pass."""
+    state = _shrunk(harness.summary_state(), tasks=120, comments=2)
+    state = replace(state, tasks=()) if empty else state
+    site, saved_data, loaded = _summary_fixture(harness, tmp_path, state)
+    bare = _real_summary(harness, site)
+    linked = _edited(bare, _link_selected_counts)
+
+    assert linked.body != bare.body
+    assert linked.body.decode("utf-8").count("</a></td>") == 9
+    for response in (bare, linked):
+        found = SUMMARY_ROW.findall(response.body.decode("utf-8"))
+        assert [(unescape(label), int(count)) for label, _, count, _ in found] == _summary_oracle(
+            loaded, _local_today()
+        )
+        assert _created(harness, site, saved_data, response)
+    if empty:
+        assert {count for _, count in _summary_oracle(loaded, _local_today())} == {0}
+        assert linked.body.decode("utf-8").count('">0</a></td>') == 9
+
+
+LOOKALIKES = ("todo", "low", "Overdue", "(unassigned)")
+LOOKALIKE_LAYOUTS = {
+    "todo and (unassigned) listed": ("todo", "(unassigned)"),
+    "low and Overdue listed": ("low", "Overdue"),
+}
+OUTSIDE_THE_NINE = [
+    ("Tasks by status", "Total"),
+    ("Due dates", "No due date"),
+]
+
+
+@pytest.mark.parametrize("layout", LOOKALIKE_LAYOUTS)
+def test_timed_summary_forbids_links_outside_selected_count_cells(
+    harness: ModuleType, tmp_path: Path, layout: str
+) -> None:
+    """T15, CP-514, CP-527: an anchor in the total, the no-due-date count, any assignee count or
+    any row label fails the measurement, in the linked shape. Assignees spelled `todo`, `low`,
+    `Overdue` and `(unassigned)`, listed or not, sit beside the real categories and the real
+    unassigned bucket: the page that links only the nine real cells passes, and an anchor on an
+    assignee of the same name fails, so a cell is told by its group and row, not its label."""
+    listed = LOOKALIKE_LAYOUTS[layout]
+    state = _shrunk(harness.summary_state(), tasks=120, comments=2)
+    for number, name in enumerate(LOOKALIKES, start=1):
+        state = _with_task(state, number, status=TaskStatus.TODO, assignee=name)
+    state = replace(state, assignees=listed)
+    site, saved_data, loaded = _summary_fixture(harness, tmp_path, state)
+    bare = _real_summary(harness, site)
+    linked = _edited(bare, _link_selected_counts)
+    oracle = _summary_oracle(loaded, _local_today())
+    assignees = oracle[oracle.index(("No due date", dict(oracle)["No due date"])) + 1 :]
+    assert set(LOOKALIKES) <= {label for label, _ in assignees}
+    assert [label for label, _ in assignees].count("(unassigned)") == 2
+
+    assert _created(harness, site, saved_data, bare)
+    assert _created(harness, site, saved_data, linked)
+
+    def anchored(old: str) -> str:
+        return f'<a href="/projects/1">{old}</a>'
+
+    cells = [*OUTSIDE_THE_NINE, *[("Open tasks by assignee", label) for label, _ in assignees]]
+    for heading, label in cells:
+        edited = _edited(
+            linked, lambda t, h=heading, label=label: _edit_cell(t, h, label, anchored, 0)
+        )
+        assert edited.body != linked.body, (heading, label)
+        assert not _created(harness, site, saved_data, edited), (heading, label)
+    every_label = [
+        (heading, label)
+        for heading, rows in (
+            ("Tasks by status", ["Total", *STATUS_WORDS]),
+            ("Tasks by priority", PRIORITY_WORDS),
+            ("Due dates", ["Overdue", "No due date"]),
+            ("Open tasks by assignee", [label for label, _ in assignees]),
+        )
+        for label in rows
+    ]
+    for heading, label in every_label:
+        cell = f'class="pre-wrap">{escape(label)}</th>'
+        edited = _edited(
+            linked,
+            lambda t, h=heading, cell=cell, label=label: _in_group(
+                t,
+                h,
+                lambda section: section.replace(
+                    cell, f'class="pre-wrap"><a href="/projects/1">{escape(label)}</a></th>'
+                ),
+            ),
+        )
+        assert edited.body != linked.body, (heading, label)
+        assert not _created(harness, site, saved_data, edited), (heading, label)
+
+
+AMBIGUOUS_COUNT_CELLS = {
+    "two anchors": lambda n, href: f'<a href="{href}">{n}</a><a href="{href}">{n}</a>',
+    "an anchor and trailing text": lambda n, href: f'<a href="{href}">{n}</a> more',
+    "text before an anchor": lambda n, href: f'see <a href="{href}">{n}</a>',
+    "nested markup in the anchor": lambda n, href: f'<a href="{href}"><b>{n}</b></a>',
+    "markup around a bare numeral": lambda n, href: f"<b>{n}</b>",
+    "a numeral and a second markup": lambda n, href: f"{n}<span>0</span>",
+    "a numeral and a word": lambda n, href: f"{n} tasks",
+    "a split numeral": lambda n, href: f'<a href="{href}">{n}</a>{n}',
+    "an empty cell": lambda n, href: "",
+    "an empty anchor": lambda n, href: f'<a href="{href}"></a>',
+    "a nonnumeric anchor": lambda n, href: f'<a href="{href}">many</a>',
+    "a nonnumeric bare cell": lambda n, href: "many",
+    "a signed numeral": lambda n, href: f"-{n}",
+}
+AMBIGUOUS_TARGETS = [
+    ("Tasks by status", "todo"),
+    ("Tasks by status", "cancelled"),
+    ("Tasks by priority", "high"),
+    ("Due dates", "Overdue"),
+    ("Tasks by status", "Total"),
+    ("Due dates", "No due date"),
+]
+
+
+@pytest.mark.parametrize("variant", AMBIGUOUS_COUNT_CELLS)
+def test_timed_summary_rejects_ambiguous_count_cells(
+    harness: ModuleType, tmp_path: Path, variant: str
+) -> None:
+    """T15, CP-514, CP-527, design 4 B: a count cell that is not one bare numeral, or one anchor
+    holding one numeral, fails the measurement, in a selected cell and in a plain one. No digit
+    substring is recovered from extra markup, extra text or a second anchor, and no group loses
+    its identity because the cell's markup was stripped. In every case the edited page differs from
+    the page it was made from."""
+    site, saved_data, loaded = _summary_fixture(harness, tmp_path)
+    bare = _real_summary(harness, site)
+    linked = _edited(bare, _link_selected_counts)
+    assert _created(harness, site, saved_data, linked)
+
+    for heading, label in AMBIGUOUS_TARGETS:
+        href = _count_href(label) if (heading, label) in SELECTED_CELLS else "/projects/1"
+
+        def make(old: str, href: str = href) -> str:
+            numeral = re.search(r"[0-9]+", old)
+            assert numeral is not None
+            return AMBIGUOUS_COUNT_CELLS[variant](numeral[0], href)
+
+        for page in (bare, linked):
+            edited = _edited(page, lambda t, h=heading, label=label: _edit_cell(t, h, label, make))
+            assert edited.body != page.body, (variant, heading, label)
+            assert not _created(harness, site, saved_data, edited), (variant, heading, label)
 
 
 @pytest.mark.parametrize(
@@ -3812,9 +4069,11 @@ def test_timed_summary_enforces_the_strict_one_second_limit(
     assert ("over" in capsys.readouterr().out) == failing
 
 
-def _summary_rejections(harness: ModuleType, site, saved_data, loaded):
-    """Each way a fast answer is still wrong, as the Intercept that serves it."""
-    real = _real_summary(harness, site)
+def _summary_rejections(harness: ModuleType, site, saved_data, loaded, shape: str = "bare"):
+    """Each way a fast answer is still wrong, as the Intercept that serves it, over the page in
+    this shape. Each wrong answer is the real page in that shape with one edit, located by its group
+    and label, and it must differ from the real page."""
+    real = _edited(_real_summary(harness, site), SUMMARY_SHAPES[shape])
     oracle = dict(_summary_oracle(loaded, _local_today()))
     todo, total = oracle["todo"], oracle["Total"]
     name = loaded.projects[0].name
@@ -3823,26 +4082,24 @@ def _summary_rejections(harness: ModuleType, site, saved_data, loaded):
     def serve(response: Response) -> Intercept:
         return Intercept(site, lambda method, target: response)
 
+    def wrong(edit: Callable[[str], str]) -> Intercept:
+        edited = _edited(real, edit)
+        assert edited.body != real.body
+        return serve(edited)
+
     return {
         "the Tasks view instead": serve(
             site.handle("GET", "/projects/1", harness.FILTER_HEADERS, b"")
         ),
-        "another project's Summary": serve(
-            _edited(real, lambda t: t.replace(name, "Other project"))
-        ),
-        "a heading of another project": serve(
-            _edited(
-                real,
-                lambda t: t.replace(
-                    f'<h1 class="pre-wrap">{escape(name)}</h1>', '<h1 class="pre-wrap">Other</h1>'
-                ),
+        "another project's Summary": wrong(lambda t: t.replace(name, "Other project")),
+        "a heading of another project": wrong(
+            lambda t: t.replace(
+                f'<h1 class="pre-wrap">{escape(name)}</h1>', '<h1 class="pre-wrap">Other</h1>'
             )
         ),
-        "a missing group heading": serve(
-            _edited(real, lambda t: t.replace("<h2>Due dates</h2>", ""))
-        ),
-        "a title of another view": serve(
-            _edited(real, lambda t: t.replace(": Summary - tracker17", ": Tasks - tracker17"))
+        "a missing group heading": wrong(lambda t: t.replace("<h2>Due dates</h2>", "")),
+        "a title of another view": wrong(
+            lambda t: t.replace(": Summary - tracker17", ": Tasks - tracker17")
         ),
         "a project not found": serve(
             site.handle("GET", "/projects/99/summary", harness.FILTER_HEADERS, b"")
@@ -3853,30 +4110,17 @@ def _summary_rejections(harness: ModuleType, site, saved_data, loaded):
         "forbidden": serve(Response(403, page_headers, real.body)),
         "failed": serve(Response(500, page_headers, real.body)),
         "a redirect": serve(Response(303, (("Location", "/projects/1"),), b"")),
-        "a missing row": serve(
-            _edited(real, lambda t: t.replace(_summary_row("Overdue", oracle["Overdue"]), ""))
-        ),
-        "a wrong count": serve(
-            _edited(
-                real,
-                lambda t: t.replace(_summary_row("todo", todo), _summary_row("todo", todo + 1)),
+        "a missing row": wrong(lambda t: _drop_row(t, "Due dates", "Overdue")),
+        "a wrong count": wrong(lambda t: _set_count(t, "Tasks by status", "todo", todo + 1)),
+        "a linked count": wrong(
+            lambda t: t.replace(
+                f"<td>{total}</td>", f'<td><a href="/projects/1">{total}</a></td>', 1
             )
         ),
-        "a linked count": serve(
-            _edited(
-                real,
-                lambda t: t.replace(
-                    f"<td>{total}</td>", f'<td><a href="/projects/1">{total}</a></td>', 1
-                ),
-            )
-        ),
-        "a linked label": serve(
-            _edited(
-                real,
-                lambda t: t.replace(
-                    '<th scope="row" class="pre-wrap">Total</th>',
-                    '<th scope="row" class="pre-wrap"><a href="/projects/1">Total</a></th>',
-                ),
+        "a linked label": wrong(
+            lambda t: t.replace(
+                '<th scope="row" class="pre-wrap">Total</th>',
+                '<th scope="row" class="pre-wrap"><a href="/projects/1">Total</a></th>',
             )
         ),
         "changed saved bytes": Intercept(site, lambda method, target: _rewritten_bytes(saved_data)),
@@ -3902,13 +4146,15 @@ SUMMARY_REJECTION_NAMES = (
 )
 
 
+@pytest.mark.parametrize("shape", SUMMARY_SHAPES)
 @pytest.mark.parametrize("rejection", SUMMARY_REJECTION_NAMES)
 def test_timed_summary_rejects_fast_incorrect_responses(
-    harness: ModuleType, tmp_path: Path, rejection: str
+    harness: ModuleType, tmp_path: Path, rejection: str, shape: str
 ) -> None:
-    """T14, CP-503, CP-509: each wrong answer fails the measurement even with a fast timer."""
+    """T14, T15, CP-503, CP-509, CP-514, CP-527: each wrong answer fails the measurement even with a
+    fast timer, whether the page it was made from has bare counts or the selected anchored ones."""
     site, saved_data, loaded = _summary_fixture(harness, tmp_path)
-    served = _summary_rejections(harness, site, saved_data, loaded)[rejection]
+    served = _summary_rejections(harness, site, saved_data, loaded, shape)[rejection]
 
     results = harness.measure_project_summary(
         site=served, saved_data=saved_data, timer=Ticks(*SUMMARY_QUICK)
@@ -3919,33 +4165,42 @@ def test_timed_summary_rejects_fast_incorrect_responses(
     assert harness.verdict(results, LIMIT) == 1
 
 
-def _swapped_counts(first: tuple[str, int], second: tuple[str, int]) -> Callable[[str], str]:
+def _swapped_counts(
+    heading: str, first: tuple[str, int], second: tuple[str, int]
+) -> Callable[[str], str]:
+    """The edit that gives each of two rows of one group the other's count, whichever shape the
+    cells are in."""
     (a, count_a), (b, count_b) = first, second
     assert count_a != count_b
 
     def edit(text: str) -> str:
-        return text.replace(_summary_row(a, count_a), _summary_row(a, count_b)).replace(
-            _summary_row(b, count_b), _summary_row(b, count_a)
-        )
+        return _set_count(_set_count(text, heading, a, count_b), heading, b, count_a)
 
     return edit
 
 
-def test_timed_summary_validates_rows_independently(harness: ModuleType, tmp_path: Path) -> None:
-    """T14, CP-509: equal totals do not pass. A page whose category counts or assignee rows differ
-    from what the loaded fixture holds fails, and the expectation is worked out from the loaded
-    saved data and never from the Summary, the project filter or the application read."""
+@pytest.mark.parametrize("shape", SUMMARY_SHAPES)
+def test_timed_summary_validates_rows_independently(
+    harness: ModuleType, tmp_path: Path, shape: str
+) -> None:
+    """T14, CP-509, CP-527: equal totals do not pass. A page whose category counts or assignee rows
+    differ from what the loaded fixture holds fails, in both accepted shapes, and the expectation is
+    worked out from the loaded saved data and never from the Summary, the project filter or the
+    application read. Each edit is located by its group and label and must change the page."""
     site, saved_data, loaded = _summary_fixture(harness, tmp_path / "rows")
-    real = _real_summary(harness, site)
+    real = _edited(_real_summary(harness, site), SUMMARY_SHAPES[shape])
     oracle = _summary_oracle(loaded, _local_today())
     named = [(label, count) for label, count in oracle if label in (*STATUS_WORDS,)]
     priorities = [(label, count) for label, count in oracle if label in PRIORITY_WORDS]
     assignees = oracle[oracle.index(("No due date", dict(oracle)["No due date"])) + 1 :]
     assert len(assignees) >= 3
+    assignee_group = "Open tasks by assignee"
     wrong = {
-        "two status counts swapped": _swapped_counts(named[0], named[1]),
-        "two priority counts swapped": _swapped_counts(priorities[0], priorities[1]),
-        "two assignee counts swapped": _swapped_counts(assignees[0], assignees[1]),
+        "two status counts swapped": _swapped_counts("Tasks by status", named[0], named[1]),
+        "two priority counts swapped": _swapped_counts(
+            "Tasks by priority", priorities[0], priorities[1]
+        ),
+        "two assignee counts swapped": _swapped_counts(assignee_group, assignees[0], assignees[1]),
         "an assignee name in another case": lambda t: t.replace(
             _summary_row(assignees[1][0], assignees[1][1]),
             _summary_row(assignees[1][0].swapcase(), assignees[1][1]),
@@ -3966,16 +4221,21 @@ def test_timed_summary_validates_rows_independently(harness: ModuleType, tmp_pat
         )
         assert [r.created for r in results] == [False], name
     control = harness.measure_project_summary(
-        site=site, saved_data=saved_data, timer=Ticks(*SUMMARY_QUICK)
+        site=Intercept(site, lambda method, target: real),
+        saved_data=saved_data,
+        timer=Ticks(*SUMMARY_QUICK),
     )
     assert [r.created for r in control] == [True]
 
     other_site, other_data, other = _summary_fixture(harness, tmp_path / "other")
+    served = _edited(_real_summary(harness, other_site), SUMMARY_SHAPES[shape])
     changed = _with_task(other, 1, status=TaskStatus.CANCELLED, assignee=None)
     assert changed != other
     other_data.save(changed)
     stale = harness.measure_project_summary(
-        site=other_site, saved_data=other_data, timer=Ticks(*SUMMARY_QUICK)
+        site=Intercept(other_site, lambda method, target: served),
+        saved_data=other_data,
+        timer=Ticks(*SUMMARY_QUICK),
     )
     assert [r.created for r in stale] == [False]
 
@@ -4043,43 +4303,52 @@ def _measured_with_slow_readbacks(harness: ModuleType, served: Intercept, saved_
     )
 
 
+@pytest.mark.parametrize("shape", SUMMARY_SHAPES)
 def test_timed_summary_accepts_a_run_that_crosses_midnight(
-    harness: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    harness: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, shape: str
 ) -> None:
-    """T14, CP-497, CP-509: the overdue row is counted on the local day, so a GET answered on the
-    day after the one the run started on passes with the later day's row, and not with a row
-    that fits neither day."""
+    """T14, CP-497, CP-509, CP-527: the overdue row is counted on the local day, so a GET answered
+    on either of the two days that bracket the request passes with that day's row, and a row that
+    fits neither day fails. The edited cell is the overdue count, anchored in the linked shape."""
     site, saved_data, loaded = _summary_fixture(harness, tmp_path)
-    real = _real_summary(harness, site)
-    first = date(2000, 1, 1)
+    real = _edited(_real_summary(harness, site), SUMMARY_SHAPES[shape])
+    first, next_day = date(2000, 1, 1), date(2000, 1, 2)
     overdue_first = dict(_summary_oracle(loaded, first))["Overdue"]
-    overdue_next = dict(_summary_oracle(loaded, first.replace(day=2)))["Overdue"]
+    overdue_next = dict(_summary_oracle(loaded, next_day))["Overdue"]
     assert overdue_first != overdue_next
-    real_overdue = dict(_summary_oracle(loaded, _local_today()))["Overdue"]
-    served = _edited(
-        real,
-        lambda t: t.replace(
-            _summary_row("Overdue", real_overdue), _summary_row("Overdue", overdue_next)
-        ),
-    )
-    days = iter([first, first.replace(day=2)])
-    monkeypatch.setattr(harness, "_local_today", lambda: next(days))
 
-    crossed = harness.measure_project_summary(
-        site=Intercept(site, lambda method, target: served),
-        saved_data=saved_data,
-        timer=Ticks(*SUMMARY_QUICK),
-    )
+    shown_now = {
+        unescape(label): int(count)
+        for label, _, count, _ in SUMMARY_ROW.findall(real.body.decode("utf-8"))
+    }["Overdue"]
 
-    assert [r.created for r in crossed] == [True]
-    same_day = iter([first, first])
-    monkeypatch.setattr(harness, "_local_today", lambda: next(same_day))
-    missed = harness.measure_project_summary(
-        site=Intercept(site, lambda method, target: served),
-        saved_data=saved_data,
-        timer=Ticks(*SUMMARY_QUICK),
-    )
-    assert [r.created for r in missed] == [False]
+    def with_overdue(count: int) -> Response:
+        """The real page showing this overdue count; the page itself when it shows it already."""
+        if count == shown_now:
+            return real
+        edited = _edited(real, lambda t: _set_count(t, "Due dates", "Overdue", count))
+        assert edited.body != real.body
+        return edited
+
+    earlier = with_overdue(overdue_first)
+    later = with_overdue(overdue_next)
+    neither = with_overdue(overdue_first + overdue_next + 1)
+    for page in (earlier, later, neither):
+        shown = f'<a href="{_count_href("Overdue")}">'
+        assert (shown in page.body.decode("utf-8")) == (shape == "linked")
+    assert neither.body != real.body and neither.body not in (earlier.body, later.body)
+    assert earlier.body != later.body
+
+    def passes(days: tuple[date, date], page: Response) -> bool:
+        readings = iter(days)
+        monkeypatch.setattr(harness, "_local_today", lambda: next(readings))
+        return _created(harness, site, saved_data, page)
+
+    assert passes((first, next_day), earlier) and passes((first, next_day), later)
+    assert not passes((first, next_day), neither)
+    assert passes((first, first), earlier) and not passes((first, first), later)
+    assert passes((next_day, next_day), later) and not passes((next_day, next_day), earlier)
+    assert not passes((first, first), neither)
 
 
 def test_timed_run_appends_summary_after_all_existing_blocks(
