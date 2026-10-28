@@ -590,10 +590,22 @@ def test_list_entries_name_fr31_and_every_all_tasks_participant() -> None:
 
 
 SUMMARY_REQUIREMENTS = {"FR-38", "FR-25", "FR-35", "NFR-9"}
-SUMMARY_PARTICIPANTS = ("application/tracker.py", "application/__init__.py")
+SUMMARY_PARTICIPANTS = (
+    "application/tracker.py",
+    "application/__init__.py",
+    "web/routes.py",
+    "web/pages.py",
+    "web/style.css",
+)
 SUMMARY_CHECKING_TESTS = (
     "tests/unit/test_summary.py",
     "tests/integration/test_summary_tracker.py",
+    "tests/integration/test_summary_routes.py",
+    "tests/integration/test_summary_pages.py",
+    "tests/integration/test_pages.py",
+    "tests/integration/test_task_pages.py",
+    "tests/integration/test_routes.py",
+    "tests/e2e/test_summary.py",
     "tests/architecture/test_trace.py",
     "tests/architecture/test_shapes.py",
 )

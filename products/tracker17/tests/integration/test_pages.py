@@ -15,7 +15,14 @@ from html.parser import HTMLParser
 
 import pytest
 
-from application import LONG_TEXT_MAX, SHORT_TEXT_MAX, Project, TextField
+from application import (
+    LONG_TEXT_MAX,
+    SHORT_TEXT_MAX,
+    AssigneeCount,
+    Project,
+    ProjectSummary,
+    TextField,
+)
 from web import pages
 
 VOID_TAGS = {"input", "meta", "link", "br", "img", "hr"}
@@ -135,6 +142,9 @@ def all_pages() -> dict[str, str]:
         "people list": pages.people_page(["Dana", "Ari"]),
         "people added": pages.people_page(["Dana"], added="Dana"),
         "project": pages.project_page(alpha),
+        "summary": pages.summary_page(
+            ProjectSummary(alpha, 0, (), (), 0, 0, (AssigneeCount(None, 0),))
+        ),
         "created": pages.project_page(alpha, created=True),
         "not found": pages.not_found_page(),
     }
@@ -170,7 +180,7 @@ def test_every_page_has_a_header_with_the_projects_and_people_links() -> None:
         assert header.text().startswith("tracker17"), label
         for link in root.find_all("a"):
             href = link.attrs["href"] or ""
-            assert re.fullmatch(r"/|/tasks|/people|/projects/\d+", href), (label, href)
+            assert re.fullmatch(r"/|/tasks|/people|/projects/\d+(/summary)?", href), (label, href)
         for forbidden in ("rename", "delete"):
             assert forbidden not in root.text().lower(), (label, forbidden)
 
@@ -221,7 +231,7 @@ def test_a_project_page_shows_name_description_the_invitation_and_only_the_add_f
     assert [e.attrs["name"] for e in form.find_all("select")] == ["priority", "assignee"]
     (button,) = root.find_all("button")
     assert button.text() == "Add"
-    assert [e.text() for e in root.find_all("title")] == ["  Alpha   - tracker17"]
+    assert [e.text() for e in root.find_all("title")] == ["  Alpha  : Tasks - tracker17"]
 
 
 def test_the_created_line_names_the_project() -> None:
