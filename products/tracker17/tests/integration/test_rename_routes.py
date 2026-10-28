@@ -19,6 +19,7 @@ from test_pages import HOSTILE, Element, parse
 from test_routes import FORM, HOST, SAME_ORIGIN, get, header, page
 from test_task_routes import World, add_task, focused, make_world
 
+from application import SHORT_TEXT_MAX
 from web import Response, pages
 
 OLD_NAME = "Alpha"
@@ -323,6 +324,25 @@ def test_a_rename_normalizes_line_breaks_once_and_keeps_everything_else(tmp_path
     rename(world, name="alpha")
     project = world.tracker.project(1)
     assert project is not None and project.name == "alpha"
+
+
+def test_a_rename_counts_its_length_on_the_name_as_saved(tmp_path: Path) -> None:
+    """CP-552, CP-555, RT-10: the 200 code points are counted after line breaks are normalized, so
+    a name sent as 300 code points of CR LF pairs that saves as 200 is accepted, and one more code
+    point after normalization is refused as too long with nothing saved."""
+    world = make_world(tmp_path)
+    wire, saved = "a\r\n" * 100, "a\n" * 100
+    assert len(wire) > SHORT_TEXT_MAX and len(saved) == SHORT_TEXT_MAX
+    response = rename(world, name=wire)
+    assert "rename_saved" in (header(response, "Location") or "")
+    project = world.tracker.project(1)
+    assert project is not None and project.name == saved
+    before = (world.bytes_on_disk(), world.saver.saves, state_of(world))
+    refused = rename(world, name="c\r\n" * 100 + "c")
+    assert parse_qs(urlsplit(header(refused, "Location") or "").query) == {
+        "rename_refused": ["too-long"]
+    }
+    assert (world.bytes_on_disk(), world.saver.saves, state_of(world)) == before
 
 
 def test_a_rename_shows_hostile_text_literally(tmp_path: Path) -> None:
