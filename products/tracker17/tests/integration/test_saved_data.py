@@ -6,7 +6,7 @@ whole), AC-9 (an interrupted save leaves one whole state), NFR-2 and NFR-6 (the 
 atomic, and holds only the required fields) and FR-16 (an edited task keeps the saved format).
 Change spec rules CP-4, CP-6, CP-7, CP-8, CP-26, CP-96 and CP-99 to CP-101, CP-134 to CP-137,
 CP-170 and CP-171, CP-197 to CP-199, CP-209, CP-226 to CP-228, CP-233 to CP-234, CP-263, CP-264,
-CP-269 and CP-270 and NFDR QC-42, QC-46 are the ones each test names. The operator name is SRS DR-5
+CP-269 and CP-270, CP-539 and CP-542 (a deleted task and its comments, and its identity) and NFDR QC-42, QC-46 are the ones each test names. The operator name is SRS DR-5
 and FR-27: one string or null, checked at start by the rule a set applies.
 Labels are FR-23 and FR-40: saved labels are checked at start by the same rules an add applies.
 """
@@ -1362,3 +1362,71 @@ def test_comment_restart_has_only_the_existing_saved_keys(tmp_path):
         "author": "Lee",
         "created_at": "2026-10-11T09:32:00Z",
     }
+
+
+def _populated_real_file(location: Path) -> Tracker:
+    """Two projects, two assignees, three tasks of which the highest and the middle carry comments."""
+    saved = SavedData(location)
+    tracker = Tracker(empty_state(), saved, _SteppingClock())
+    alpha = tracker.create_project("Alpha", "first project")
+    beta = tracker.create_project("Beta", "")
+    tracker.add_assignee("Dana")
+    tracker.add_assignee("Ari")
+    tracker.set_operator_name("Sam")
+    first = tracker.add_task(alpha.id, "First", "low", "Dana", "2026-10-20")
+    middle = tracker.add_task(beta.id, "Middle", "high", "Ari", "")
+    highest = tracker.add_task(alpha.id, "Highest", "critical", "", "2026-11-01")
+    tracker.add_task_label(first.id, "bug")
+    tracker.add_task_comment(first.id, "kept")
+    tracker.add_task_comment(middle.id, "kept too")
+    tracker.add_task_comment(highest.id, "goes")
+    tracker.add_task_comment(highest.id, "also goes")
+    return tracker
+
+
+def test_highest_deleted_identity_stays_retired_after_restart(tmp_path):
+    """CP-539, CP-542: the deleted task and its comments leave the saved data; the rest is unchanged;
+    a tracker started again on that data issues an identity above every earlier one."""
+    location = tmp_path / "data"
+    acted = _populated_real_file(location)
+    before = _saved_document(location)
+    survivors = [acted.task(1), acted.task(2)]
+
+    removed = acted.delete_task(3)
+
+    assert removed.title == "Highest" and len(removed.comments) == 2
+    after = _saved_document(location)
+    assert after == {**before, "tasks": before["tasks"][:2]}
+    reloaded = SavedData(location).load()
+    assert reloaded is not None
+    assert list(reloaded.tasks) == survivors
+    assert reloaded.next_task_id == 4
+    restarted = _restart(location)
+    added = restarted.add_task(1, "After the restart", "", "", "")
+    assert added.id == 4
+    assert [row.task.id for row in restarted.project_tasks(1)] == [1, 4]
+    assert _saved_document(location)["next_task_id"] == 5
+
+
+def test_last_task_deletion_reloads_as_empty_without_resetting_identity(tmp_path):
+    """CP-539, CP-542: the only task and its comments go; the empty collection reloads, projects,
+    assignees, operator name and both counters stay, and the next task is not the deleted identity."""
+    location = tmp_path / "data"
+    saved = SavedData(location)
+    tracker = Tracker(empty_state(), saved, _SteppingClock())
+    project = tracker.create_project("Alpha", "")
+    tracker.add_assignee("Dana")
+    tracker.set_operator_name("Sam")
+    only = tracker.add_task(project.id, "Only", "", "Dana", "")
+    tracker.add_task_comment(only.id, "gone with it")
+
+    tracker.delete_task(only.id)
+
+    document = _saved_document(location)
+    assert document["tasks"] == []
+    assert (document["next_task_id"], document["next_project_id"]) == (2, 2)
+    assert (document["assignees"], document["operator_name"]) == (["Dana"], "Sam")
+    restarted = _restart(location)
+    assert restarted.project_tasks(project.id) == ()
+    assert restarted.task(only.id) is None
+    assert restarted.add_task(project.id, "Next", "", "", "").id == 2
