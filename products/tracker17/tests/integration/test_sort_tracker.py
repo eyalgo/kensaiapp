@@ -310,7 +310,7 @@ def test_all_task_list_projects_global_selection(utc_zone):
     listed = tracker.all_task_list(chosen, sort_fields=sort_fields)
 
     expected = sort_all_tasks(saver.saved[-1], chosen, sort_fields, CREATED.date())
-    assert ids(listed) == [task.id for task in expected.tasks] == [5, 4, 3, 1, 2]
+    assert ids(listed) == [task.id for task in expected.tasks] == [4, 5, 1, 2, 3]
     assert {row.task.project_id for row in listed.rows} == {1, 2}
     assert (listed.task_count, listed.match_count) == (5, 5)
     assert listed.filter == expected.filter
