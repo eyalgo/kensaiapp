@@ -6,7 +6,8 @@ rules), FR-16 (editing a task's title, priority, assignee and due date) and FR-2
 labels, added and removed and checked on restoration). Change spec rules CP-111 to CP-113, CP-116
 to CP-121, CP-130, CP-135, CP-137 and CP-140 are the ones each test names, and CP-151 to CP-154,
 CP-157 to CP-160, CP-162 to CP-165, CP-167, CP-171 and CP-172 for the edit, and CP-189, CP-194,
-CP-197, CP-199 and CP-201 for the labels.
+CP-197, CP-199 and CP-201 for the labels, and CP-529, CP-533 and CP-539 for deleting a task
+(SRS FR-15 and FR-17).
 """
 
 from __future__ import annotations
@@ -46,6 +47,7 @@ from domain import (
     add_task,
     add_task_label,
     create_project,
+    delete_task,
     edit_task,
     find_task,
     list_project_tasks,
@@ -805,3 +807,97 @@ def test_restore_task_checks_saved_label_rules():
         assert _restored(labels=readable).labels == tuple(readable)
     with pytest.raises(BlankComment):
         _restored(comments=[Comment(text="", author="", created_at=NOW)])
+
+
+def _state_for_deletion() -> TrackerState:
+    """Three tasks stored out of identity order, in two projects, the middle one commented."""
+    comments = [
+        Comment(text="First note", author="Dana", created_at=NOW),
+        Comment(text="Second note", author="Ari", created_at=NOW + timedelta(minutes=1)),
+        Comment(text="Third note", author="Dana", created_at=NOW + timedelta(minutes=2)),
+    ]
+    tasks = (
+        _restored(id=7, title="Seven", project_id=2, labels=["bug"]),
+        _restored(id=2, title="Two", comments=comments, assignee="Dana", due_date="2026-10-20"),
+        _restored(id=5, title="Five"),
+    )
+    return restore_state(
+        [(1, "Alpha", ""), (2, "Beta", "x")],
+        3,
+        ["Dana", "Ari"],
+        tasks=tasks,
+        next_task_id=8,
+        operator_name="Dana",
+    )
+
+
+@pytest.mark.parametrize("status", ["todo", "in-progress", "done", "cancelled"])
+@pytest.mark.parametrize("comment_count", [0, 3])
+def test_delete_task_accepts_every_saved_status(status, comment_count):
+    """CP-529, CP-533: any status deletes, with or without comments; only that task disappears."""
+    comments = [
+        Comment(text=f"Note {number}", author="Dana", created_at=NOW)
+        for number in range(comment_count)
+    ]
+    target = _restored(id=2, status=status, comments=comments)
+    survivors = (_restored(id=1, title="First"), _restored(id=3, title="Third"))
+    state = restore_state(
+        [(1, "Alpha", "")], 2, tasks=(survivors[0], target, survivors[1]), next_task_id=4
+    )
+
+    after, removed = delete_task(state, 2)
+
+    assert removed == target
+    assert after.tasks == survivors
+    assert find_task(after, 2) is None
+
+
+def test_delete_task_returns_the_current_removed_task():
+    """Design A: the returned task is the full one the supplied state held."""
+    state = _state_for_deletion()
+
+    _, removed = delete_task(state, 2)
+
+    assert removed is state.tasks[1]
+    assert (removed.title, removed.project_id, len(removed.comments)) == ("Two", 1, 3)
+
+
+def test_delete_task_keeps_the_input_and_survivors_unchanged():
+    """CP-533: a new state; survivors, order, projects, assignees and operator name unchanged."""
+    state = _state_for_deletion()
+    snapshot = _state_for_deletion()
+
+    after, _ = delete_task(state, 2)
+
+    assert state == snapshot
+    assert after is not state
+    assert after.tasks == (state.tasks[0], state.tasks[2])
+    assert [task.id for task in after.tasks] == [7, 5]
+    assert (after.projects, after.assignees, after.operator_name) == (
+        state.projects,
+        state.assignees,
+        "Dana",
+    )
+    assert after.next_project_id == state.next_project_id
+
+
+@pytest.mark.parametrize("task_id", [7, 2, 5])
+def test_delete_task_preserves_both_identity_counters(task_id):
+    """CP-539, ADR-0008: deleting the highest, a middle or the last identity lowers neither counter."""
+    state = _state_for_deletion()
+
+    after, _ = delete_task(state, task_id)
+
+    assert (after.next_task_id, after.next_project_id) == (8, 3)
+
+
+@pytest.mark.parametrize("held", [True, False])
+def test_delete_task_refuses_an_absent_identity(held):
+    """Design T1: an unheld identity raises TaskNotFound, with tasks held or none at all."""
+    state = _state_for_deletion() if held else restore_state([(1, "Alpha", "")], 2)
+    snapshot = _state_for_deletion() if held else restore_state([(1, "Alpha", "")], 2)
+
+    with pytest.raises(TaskNotFound):
+        delete_task(state, 99)
+
+    assert state == snapshot

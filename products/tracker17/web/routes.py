@@ -76,6 +76,12 @@ REMOVE_LABEL_PATTERN = re.compile(r"/tasks/([0-9]+)/labels/remove")
 ADD_COMMENT_PATTERN = re.compile(r"/tasks/([0-9]+)/comments")
 MOVE_PATTERN = re.compile(r"/tasks/([0-9]+)/move")
 CONFIRM_MOVE_PATTERN = re.compile(r"/tasks/([0-9]+)/move/confirm")
+DELETE_PATTERN = re.compile(r"/tasks/([0-9]+)/delete")
+CONFIRM_DELETE_PATTERN = re.compile(r"/tasks/([0-9]+)/delete/confirm")
+DELETE_CONFIRM_KEY = "delete_confirm"
+DELETE_BACK_KEY = pages.DELETE_BACK_KEY
+DELETE_FAILED_KEY = "delete_failed"
+DELETED_TASK_KEY = "deleted_task"
 NOT_STORED = ("Cache-Control", "no-store")
 SHOWN_PREFIX = "shown_"
 FILTER_PREFIX = "filter_"
@@ -122,6 +128,8 @@ ROUTES = (
     Route("POST", "/tasks/[0-9]+/comments", SUBMISSION),
     Route("POST", "/tasks/[0-9]+/move", SUBMISSION),
     Route("POST", "/tasks/[0-9]+/move/confirm", SUBMISSION),
+    Route("POST", "/tasks/[0-9]+/delete", SUBMISSION),
+    Route("POST", "/tasks/[0-9]+/delete/confirm", SUBMISSION),
     Route("GET", "/style.css", PAGE),
 )
 
@@ -306,6 +314,12 @@ class Site:
         move = MOVE_PATTERN.fullmatch(path)
         if move:
             return self._move_task(move.group(1), form)
+        confirm_delete = CONFIRM_DELETE_PATTERN.fullmatch(path)
+        if confirm_delete:
+            return self._delete_task(confirm_delete.group(1), confirming=True)
+        delete = DELETE_PATTERN.fullmatch(path)
+        if delete:
+            return self._delete_task(delete.group(1))
         actions = {
             "/projects": self._create,
             "/assignees": self._add_assignee,
@@ -361,10 +375,15 @@ class Site:
         if context is None:
             return Site._html(pages.task_not_found_page(), HTTPStatus.NOT_FOUND)
         shown = context.task
-        move = self._move_view(query, lambda found: shown if found == shown.id else None)
-        if move is None:
-            return Site._html(pages.task_not_found_page(), HTTPStatus.NOT_FOUND)
-        move_outcome, move_interaction = move
+        delete_area = self._delete_area(query)
+        if delete_area.mode is pages.DeleteMode.ORDINARY:
+            move = self._move_view(query, lambda found: shown if found == shown.id else None)
+            if move is None:
+                return Site._html(pages.task_not_found_page(), HTTPStatus.NOT_FOUND)
+            move_outcome, move_interaction = move
+        else:
+            # An active deletion state wins over every move marker, even one naming no task.
+            move_outcome, move_interaction = pages.MoveOutcome(), None
         return self._html(
             pages.task_page(
                 context,
@@ -377,10 +396,25 @@ class Site:
                 allowed_moves=self._tracker.allowed_moves,
                 move_outcome=move_outcome,
                 move_interaction=move_interaction,
+                delete_area=delete_area,
             ),
             Site._pending_status(move_interaction),
-            extra=self._stored_as_asked(query),
+            extra=self._stored_as_asked(
+                query, deleting=delete_area.mode is not pages.DeleteMode.ORDINARY
+            ),
         )
+
+    @staticmethod
+    def _delete_area(query: Mapping[str, list[str]]) -> pages.DeleteArea:
+        """The Delete task area's state from the address, by the presence of each key: a failure
+        before a confirmation before a back-out. Any other key, or none, is the ordinary area."""
+        if DELETE_FAILED_KEY in query:
+            return pages.DeleteArea(pages.DeleteMode.FAILED)
+        if DELETE_CONFIRM_KEY in query:
+            return pages.DeleteArea(pages.DeleteMode.CONFIRMATION)
+        if DELETE_BACK_KEY in query:
+            return pages.DeleteArea(pages.DeleteMode.BACKED_OUT)
+        return pages.DeleteArea()
 
     @staticmethod
     def _pending_status(interaction: pages.MoveInteraction | None) -> HTTPStatus:
@@ -396,9 +430,12 @@ class Site:
         return HTTPStatus.ACCEPTED if pending else HTTPStatus.OK
 
     @staticmethod
-    def _stored_as_asked(query: Mapping[str, list[str]]) -> tuple[tuple[str, str], ...]:
-        """A page that carries a move's interaction or outcome is never stored (design § 3 A.3)."""
-        return (NOT_STORED,) if "move_task" in query else ()
+    def _stored_as_asked(
+        query: Mapping[str, list[str]], *, deleting: bool = False
+    ) -> tuple[tuple[str, str], ...]:
+        """A page that carries a move's interaction or outcome is never stored (design § 3 A.3),
+        nor one showing a deletion's interaction or outcome (`deleting`, design § 3 C)."""
+        return (NOT_STORED,) if "move_task" in query or deleting else ()
 
     def _move_view(
         self, query: Mapping[str, list[str]], on_page: Callable[[int], Task | None]
@@ -519,10 +556,15 @@ class Site:
         listing = self._tracker.project_task_list(
             project.id, _filter_input(query), sort_fields=_sort_input(query)
         )
-        move = self._move_view(query, lambda found: self._project_task(project, found))
-        if move is None:
-            return Site._html(pages.task_not_found_page(), HTTPStatus.NOT_FOUND)
-        move_outcome, move_interaction = move
+        deleted_task = _first(query, DELETED_TASK_KEY)
+        if deleted_task:
+            # The deletion's completion wins over every move marker, even one naming no task.
+            move_outcome, move_interaction = pages.MoveOutcome(), None
+        else:
+            move = self._move_view(query, lambda found: self._project_task(project, found))
+            if move is None:
+                return Site._html(pages.task_not_found_page(), HTTPStatus.NOT_FOUND)
+            move_outcome, move_interaction = move
         shown = {row.task.id for row in listing.rows}
         if move_interaction is not None and move_interaction.task_id not in shown:
             # A confirmation is offered only on a row the page shows.
@@ -541,9 +583,10 @@ class Site:
                 off_list_task=self._off_list_task(
                     lambda found: self._project_task(project, found), listing, move_outcome, shown
                 ),
+                deleted_task=deleted_task or None,
             ),
             Site._pending_status(move_interaction),
-            extra=self._stored_as_asked(query),
+            extra=self._stored_as_asked(query, deleting=bool(deleted_task)),
         )
 
     def _summary_page(self, digits: str) -> Response:
@@ -918,6 +961,40 @@ class Site:
             f"The tracker couldn't move '{task.title}' to {status}, and nothing was changed.",
             move,
             lambda: self._redirect(place, move_failed=status, **about),
+        )
+
+    def _delete_task(self, digits: str, *, confirming: bool = False) -> Response:
+        """Open the deletion's confirmation, or delete the task its route names and land on the
+        project it belonged to.
+
+        The target is fixed by the route: nothing a form carries chooses it, or the title the
+        landing shows, which is the removed task's as the tracker held it when the deletion ran.
+        The opening press only reads the task and saves nothing. A task nothing holds is the
+        typed missing-task answer; any other failure is reported once, by the guarded site.
+        """
+        identity = self._identity(digits)
+        if identity is None:
+            return Site._html(pages.task_not_found_page(), HTTPStatus.NOT_FOUND)
+        task_address = f"/tasks/{identity}"
+        task = self._tracker.task(identity)
+        if task is None:
+            return self._redirect(task_address)
+        if not confirming:
+            return self._redirect(task_address, DELETE_CONFIRM_KEY)
+
+        def delete() -> Response:
+            try:
+                removed = self._tracker.delete_task(identity)
+            except TaskNotFound:
+                return self._redirect(task_address)
+            return self._redirect(
+                f"/projects/{removed.project_id}", **{DELETED_TASK_KEY: removed.title}
+            )
+
+        return self._guarded(
+            f"The tracker couldn't delete '{task.title}', and nothing was changed.",
+            delete,
+            lambda: self._redirect(task_address, DELETE_FAILED_KEY),
         )
 
     def _add_comment(self, digits: str, form: Mapping[str, list[str]]) -> Response:

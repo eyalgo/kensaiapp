@@ -2,7 +2,7 @@
 removing a task's label, saving the operator's name, adding a comment, adding and removing a
 name on the People assignee list, moving a task from `todo` to `in-progress`, and filtering a
 project's list by the status `in-progress` and sorting it by priority, each with the page it lands
-on, and opening a project's Summary.
+on, opening a project's Summary, and confirming the deletion of a task.
 
 A script, not a collected test: pytest does not pick it up, because its name does not start with
 `test_`. Run it from the product root with `python3 tests/timed_run.py`. It uses locations of its
@@ -31,15 +31,19 @@ lists exactly the fixture's `in-progress` tasks, each once, under their count. T
 on a fixture of its own: it sends the GET Apply press for priority descending with no filter, then a
 GET of the sorted address a reload opens, and counts only when the saved bytes are untouched and the
 page lists every task of the project exactly once, in priority-descending then task-number order
-worked out here from the loaded fixture, under their count. The Summary comes last of all, on a
+worked out here from the loaded fixture, under their count. The Summary comes next, on a
 fixture of its own that holds every status and priority, past-due and undated tasks and listed and
 unlisted assignees: it sends the one GET of the project's Summary and times only that request. It
 counts only when the response is the HTML page of that project's Summary, whose title, heading and
 every row (label and count, in order) match what is worked out here from the loaded fixture
 alone, and the saved bytes are untouched (CP-509, FR-38, CP-527). A count is a bare numeral or, in
 the four status, four priority and overdue cells alone, one anchor holding the numeral; a link in
-the total, the no-due-date count, an assignee count or a label does not count. Its harness is
-checked by tests/integration/test_timed_run.py.
+the total, the no-due-date count, an assignee count or a label does not count. The deletion comes
+last of all, on a task-volume fixture of its own: the press that opens the confirmation sits
+outside the timing, then the confirming POST and the project page it lands on are timed apart and
+together. It counts only when the saved file is the fixture without that task and its comments, and
+nothing else changed, and the landing is the owning project's page carrying the completion line
+(CP-543). Its harness is checked by tests/integration/test_timed_run.py.
 """
 
 from __future__ import annotations
@@ -144,6 +148,11 @@ SUMMARY_PROJECT_ID = 1
 SUMMARY_ADDRESS = f"/projects/{SUMMARY_PROJECT_ID}/summary"
 SUMMARY_LABEL = f"open a project summary at {TASK_VOLUME} tasks"
 SUMMARY_LISTED_ASSIGNEES = ("Zed Quinn", "Avery Chen")
+DELETE_TASK_ID = TASK_VOLUME // 2
+DELETE_LABEL = f"delete a task at {TASK_VOLUME} tasks"
+DELETE_LANDING_LABEL = f"delete landing page at {TASK_VOLUME} tasks"
+DELETE_TOTAL_LABEL = f"delete total at {TASK_VOLUME} tasks"
+DELETED_KEY = "deleted_task"
 SUMMARY_PAST_DUE = date(2000, 1, 1)
 SUMMARY_HEADINGS = ("Tasks by status", "Tasks by priority", "Due dates", "Open tasks by assignee")
 # The rows of each group whose count cell may hold one anchor, by position in the group: the four
@@ -1408,10 +1417,102 @@ def summary_fixture_report(state: TrackerState) -> str:
     )
 
 
+def _expected_after_deletion(before: TrackerState) -> TrackerState:
+    """The fixture without the deleted task, which takes its comments with it.
+
+    Worked out here by dropping one task from the loaded pre-state, and never by the domain's
+    deletion rule, so a product that deleted wrongly cannot pass itself. Every other task, project,
+    counter, the assignee list and the operator name stay as loaded.
+    """
+    kept = tuple(task for task in before.tasks if task.id != DELETE_TASK_ID)
+    return replace(before, tasks=kept)
+
+
+def _delete_landing_shows(page: str, task: Task, project_name: str) -> bool:
+    """True when the page is the owning project's, with the completion line for the removed title.
+
+    The page escapes the whole sentence, its quotes included, so the expected line is escaped whole.
+    """
+    line = escape(f"You deleted '{task.title}'.")
+    return f"{escape(project_name)}</h1>" in page and line in page
+
+
+def measure_task_delete(
+    *, site: Site, saved_data: SavedData, timer: Callable[[], float]
+) -> list[Timed]:
+    """Confirm the deletion of one task and fetch the project page it lands on, timing each apart.
+
+    Three rows come back, in order: the confirming POST, the landing GET and their total. The task,
+    its project and the expected state are read from the loaded pre-state, and the press that opens
+    the confirmation is sent, before the first reading. The POST counts as done only when it is a
+    303 to the owning project with the removed title and the saved file read back is exactly the
+    expected state. The landing counts as done only when it is a 200 whose page is that project's
+    and carries the completion line. The total, the two intervals added and not the gap between
+    them, counts only when both do. The readback sits between the two intervals. With a refused
+    opening press or any other answer to the POST the landing is not requested: its row is zero and
+    failed, and the total is the POST's time. Nothing is printed here; `verdict` prints the rows.
+    """
+    before = saved_data.load()
+    assert before is not None
+    task = find_task(before, DELETE_TASK_ID)
+    assert task is not None
+    project = next(each for each in before.projects if each.id == task.project_id)
+    expected = _expected_after_deletion(before)
+    address = f"{ADDED_PREFIX}{DELETE_TASK_ID}/delete"
+    opened = site.handle("POST", address, FORM_HEADERS, b"")
+    confirmation = f"{ADDED_PREFIX}{DELETE_TASK_ID}?delete_confirm"
+    if opened.status != 303 or dict(opened.headers).get("Location", "") != confirmation:
+        return [
+            Timed(DELETE_LABEL, 0.0, False),
+            Timed(DELETE_LANDING_LABEL, 0.0, False),
+            Timed(DELETE_TOTAL_LABEL, 0.0, False),
+        ]
+    started = timer()
+    response = site.handle("POST", f"{address}/confirm", FORM_HEADERS, b"")
+    post_seconds = timer() - started
+    location = dict(response.headers).get("Location", "")
+    landing_address = f"/projects/{task.project_id}?{urlencode({DELETED_KEY: task.title})}"
+    redirected = response.status == 303 and location == landing_address
+    saved = redirected and saved_data.load() == expected
+    results = [Timed(DELETE_LABEL, post_seconds, saved)]
+    if not redirected:
+        return [
+            *results,
+            Timed(DELETE_LANDING_LABEL, 0.0, False),
+            Timed(DELETE_TOTAL_LABEL, post_seconds, False),
+        ]
+    started = timer()
+    landing = site.handle("GET", location, {"Host": HOST}, b"")
+    landing_seconds = timer() - started
+    shown = landing.status == 200 and _delete_landing_shows(
+        landing.body.decode("utf-8"), task, project.name
+    )
+    return [
+        *results,
+        Timed(DELETE_LANDING_LABEL, landing_seconds, shown),
+        Timed(DELETE_TOTAL_LABEL, post_seconds + landing_seconds, saved and shown),
+    ]
+
+
+def delete_fixture_report(state: TrackerState) -> str:
+    """The volume and the actual lengths of the ordinary text the deletion measurement ran on.
+
+    Every number is read from the fixture as loaded back: the counts from all its tasks, the
+    lengths, in code points, from the task the deletion acts on and its first comment. Nothing is
+    printed here.
+    """
+    task = find_task(state, DELETE_TASK_ID)
+    assert task is not None
+    return (
+        f"delete fixture: {_volume_line(state)}; title of {len(task.title)} characters, "
+        f"comment of {len(task.comments[0].text)} characters"
+    )
+
+
 def main(directory: Path | None = None, timer: Callable[[], float] = time.perf_counter) -> int:
     """Run the project creates, then the add, the edit, the label add and remove, the name save, the
-    comment add, the assignee add and remove, the status move, the status filter, the sort and the
-    project Summary at task volume; 1 when any failed."""
+    comment add, the assignee add and remove, the status move, the status filter, the sort, the
+    project Summary and the task deletion at task volume; 1 when any failed."""
     if directory is None:
         with tempfile.TemporaryDirectory() as temporary:
             return main(Path(temporary), timer)
@@ -1444,6 +1545,7 @@ def main(directory: Path | None = None, timer: Callable[[], float] = time.perf_c
     filter_status = _run_filter(directory, timer)
     sort_status = _run_sort(directory, timer)
     summary_status = _run_summary(directory, timer)
+    delete_status = _run_delete(directory, timer)
     return max(
         status,
         task_status,
@@ -1455,6 +1557,7 @@ def main(directory: Path | None = None, timer: Callable[[], float] = time.perf_c
         filter_status,
         sort_status,
         summary_status,
+        delete_status,
     )
 
 
@@ -1492,7 +1595,7 @@ def _run_move(directory: Path, timer: Callable[[], float]) -> int:
     """Time the status move on a fixture of its own, after every older line the run prints.
 
     Prints the fixture line, then the move's three rows: the POST, the landing and the total. The
-    filter block follows it, then the sort block, and the Summary block is the last.
+    filter block follows it, then the sort block, the Summary block and the deletion block.
     """
     move_data = SavedData(directory / "move-volume")
     move_site, move_seeded = open_task_volume(move_data)
@@ -1527,7 +1630,8 @@ def _run_sort(directory: Path, timer: Callable[[], float]) -> int:
 
 
 def _run_summary(directory: Path, timer: Callable[[], float]) -> int:
-    """Time the project Summary on a fixture of its own, after the sort block and last of all.
+    """Time the project Summary on a fixture of its own, after the sort block and before the
+    deletion block.
 
     Prints the fixture line, then the one result row: the single GET.
     """
@@ -1535,6 +1639,18 @@ def _run_summary(directory: Path, timer: Callable[[], float]) -> int:
     summary_site, summary_seeded = open_summary_volume(summary_data)
     print(summary_fixture_report(summary_seeded))
     results = measure_project_summary(site=summary_site, saved_data=summary_data, timer=timer)
+    return verdict(results, LIMIT_SECONDS)
+
+
+def _run_delete(directory: Path, timer: Callable[[], float]) -> int:
+    """Time the task deletion on a fixture of its own, after the Summary block and last of all.
+
+    Prints the fixture line, then the deletion's three rows: the POST, the landing and the total.
+    """
+    delete_data = SavedData(directory / "delete-volume")
+    delete_site, delete_seeded = open_task_volume(delete_data)
+    print(delete_fixture_report(delete_seeded))
+    results = measure_task_delete(site=delete_site, saved_data=delete_data, timer=timer)
     return verdict(results, LIMIT_SECONDS)
 
 

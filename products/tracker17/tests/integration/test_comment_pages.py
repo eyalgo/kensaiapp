@@ -440,11 +440,12 @@ def test_written_comments_offer_no_edit_delete_or_reply_control(tmp_path: Path) 
         "/tasks/1/labels/remove",
         "/tasks/1/labels",
         "/tasks/1/comments",
+        "/tasks/1/delete",
     ]
     removers = [f for f in root.find_all("form") if f.attrs["action"].endswith("/labels/remove")]
     assert [f.find_all("input")[0].attrs["value"] for f in removers] == ["ui", "bug"]
     text = root.text().lower()
-    for absent in ("delete", "reply", "edit comment"):
+    for absent in ("reply", "edit comment"):
         assert absent not in text, absent
 
 

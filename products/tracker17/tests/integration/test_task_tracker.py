@@ -4,7 +4,7 @@ Checks SRS FR-9 (an action is reported done only after the save), FR-15 (creatin
 (editing a task's four fields), FR-25 and FR-36 (the overdue flag and the list order), FR-39 (a
 refused action saves nothing), NFR-8 (a failed save leaves the state as it was) and DR-2 (the Task
 entity). Change spec rules CP-107, CP-111, CP-114, CP-124, CP-125 and CP-131 are the ones each test
-names, and CP-152, CP-155, CP-157, CP-160, CP-167, CP-168, CP-171 and CP-172 for the edit. No
+names, CP-533, CP-534 and CP-536 for deleting a task (FR-17), and CP-152, CP-155, CP-157, CP-160, CP-167, CP-168, CP-171 and CP-172 for the edit. No
 product name is patched:
 the real Tracker is handed each fake, and the machine's time zone is set through the environment.
 """
@@ -22,6 +22,7 @@ from application import (
     SHORT_TEXT_MAX,
     AssigneeNotListed,
     BlankTitle,
+    FilterInput,
     InvalidDueDate,
     InvalidPriority,
     ProjectNotFound,
@@ -445,3 +446,127 @@ def test_tracker_edited_due_date_updates_list_order_and_overdue():
         ("B", False),
         ("C", False),
     ]
+
+
+def _every_read(tracker: Tracker) -> tuple:
+    """The public reads a deletion must change together or not at all, without any clock read."""
+    return (
+        tracker.task(1),
+        tracker.task(2),
+        tracker.task_edit_context(1),
+        tracker.task_edit_context(2),
+        tracker.project_tasks(1),
+        tracker.project_tasks(2),
+        tracker.project_task_list(1, FilterInput()),
+        tracker.all_task_list(FilterInput()),
+        tracker.project_summary(1),
+        tracker.project_summary(2),
+        tracker.projects(),
+        tracker.assignees(),
+        tracker.operator_name(),
+    )
+
+
+def _holding_two_tasks(saver, clock=None) -> Tracker:
+    second_comments = (
+        Comment(text="One", author="Dana", created_at=CREATED),
+        Comment(text="Two", author="Ari", created_at=CREATED),
+    )
+    return _tracker_holding(
+        saver,
+        _stored_task(id=1, title="First"),
+        _stored_task(id=2, title="Second", comments=second_comments),
+        clock=clock,
+    )
+
+
+class _ReadingSaver(RecordingSaver):
+    """A recording saver that also keeps every public read the tracker gave at the moment of a save."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.reads_during_save: list[tuple] = []
+
+    def save(self, state: TrackerState) -> None:
+        if self.tracker is not None:
+            self.reads_during_save.append(_every_read(self.tracker))
+        super().save(state)
+
+
+def test_delete_task_saves_once_before_publishing():
+    """CP-533: the saver gets the exact candidate once while every read still shows the old task."""
+    saver = _ReadingSaver()
+    tracker = _holding_two_tasks(saver)
+    saver.tracker = tracker
+    original = tracker.task(2)
+    survivor = tracker.task(1)
+    assert original is not None and survivor is not None
+    held = _every_read(tracker)
+    expected = restore_state(
+        PROJECTS, NEXT_PROJECT_ID, ("Dana", "Ari"), tasks=(survivor,), next_task_id=3
+    )
+
+    removed = tracker.delete_task(2)
+
+    assert removed == original
+    assert saver.saved == [expected]
+    assert saver.reads_during_save == [held]
+    assert saver.held_during_save == [(survivor, original)]
+    assert tracker.task(2) is None and tracker.task_edit_context(2) is None
+    assert [row.task.id for row in tracker.project_tasks(1)] == [1]
+    assert [row.task.id for row in tracker.all_task_list(FilterInput()).rows] == [1]
+    summary = tracker.project_summary(1)
+    assert summary is not None and summary.total == 1
+
+
+def test_delete_task_returns_metadata_from_the_current_task():
+    """CP-534: a title edited before the deletion is the one returned, with the owning project."""
+    saver = RecordingSaver()
+    tracker = _tracker_holding(saver, _stored_task(id=1, title="Old", project_id=2))
+    tracker.edit_task(1, TaskFields(title="Edited by now"), TaskFields(title="Old"))
+
+    removed = tracker.delete_task(1)
+
+    assert (removed.title, removed.project_id) == ("Edited by now", 2)
+    assert tracker.task(1) is None
+
+
+def test_missing_delete_calls_no_saver():
+    """A task nobody holds is refused as TaskNotFound with no save, and every read is unchanged."""
+    saver = RecordingSaver()
+    tracker = _holding_two_tasks(saver)
+    before = _every_read(tracker)
+
+    with pytest.raises(TaskNotFound):
+        tracker.delete_task(99)
+
+    assert saver.saved == []
+    assert _every_read(tracker) == before
+
+
+def test_failed_delete_preserves_every_application_read():
+    """CP-536: the saver's own error propagates after one attempt; nothing read has changed."""
+    saver = FailingSaver()
+    tracker = _holding_two_tasks(saver)
+    before = _every_read(tracker)
+
+    with pytest.raises(PermissionError, match="the disk said no"):
+        tracker.delete_task(2)
+
+    assert saver.calls == 1
+    assert _every_read(tracker) == before
+
+
+def test_deletion_needs_no_clock_read():
+    """Design B: a successful, a refused and a failed deletion never ask the clock for an instant."""
+    clock = SequenceClock()
+    tracker = _holding_two_tasks(RecordingSaver(), clock=clock)
+    with pytest.raises(TaskNotFound):
+        tracker.delete_task(99)
+    failing = _holding_two_tasks(FailingSaver(), clock=clock)
+    with pytest.raises(PermissionError):
+        failing.delete_task(2)
+
+    tracker.delete_task(2)
+
+    assert clock.reads == 0

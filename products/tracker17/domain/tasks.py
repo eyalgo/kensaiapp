@@ -1,26 +1,30 @@
-"""The Tasks feature entry point: the task entity and the rules that create, edit, restore and
-order one.
+"""The Tasks feature entry point: the task entity and the rules that create, edit, delete, restore
+and order one.
 
 Realizes SRS FR-15 (creating a task: its defaults and its fields), FR-16 (editing a task's title,
 priority, assignee and due date, writing only the fields that differ from what the form showed),
 FR-23 (adding a label to a task and removing one, replacing that task's labels alone), FR-28
-(adding a comment to a task, after the comments it already holds), FR-39 and
+(adding a comment to a task, after the comments it already holds), FR-17 (deleting a task with its
+comments, never reissuing its identity), FR-39 and
 FR-40 (refusals and the title maximum), FR-36 (the order a project's list is read in) and DR-2 (the
 Task entity, one identity across all projects, issued from a counter held in the state).
 
 Taking part: application/tracker.py applies these rules and saves the result, and prepares the
 rows of a project's list and the edit's page values; web/pages.py shows the form, the list and a
-task with its edit form, and web/routes.py turns a submission into an add or an edit and each
-refusal into its reason. persistence/saved_data.py restores a saved task through restore_task and
+task with its edit form and its Delete task area, and web/routes.py turns a submission into an add,
+an edit or a deletion and each refusal into its reason. persistence/saved_data.py restores a saved task through restore_task and
 the saved state through restore_state.
 
-Checked by: tests/unit/test_tasks.py, tests/unit/test_priorities.py, tests/unit/test_due_dates.py
-and tests/unit/test_state.py (the rules and restoration), and tests/integration/test_saved_data.py
+Checked by: tests/unit/test_tasks.py (including the deletion rule), tests/unit/test_priorities.py,
+tests/unit/test_due_dates.py and tests/unit/test_state.py (the rules and restoration), and
+tests/integration/test_saved_data.py
 and tests/integration/test_start.py (the saved task shape and the start on saved data), and
 tests/integration/test_task_tracker.py (the add, the edit, the lookup and the list through the
 Tracker), tests/integration/test_task_routes.py, tests/integration/test_routes.py and
-tests/integration/test_task_pages.py (the requests and pages), tests/e2e/test_tasks.py (the
-browser), and tests/integration/test_timed_run.py (the timed harness at task volume).
+tests/integration/test_task_pages.py (the requests and pages),
+tests/integration/test_delete_pages.py and tests/integration/test_delete_routes.py (the deletion's
+pages and requests), tests/e2e/test_tasks.py and tests/e2e/test_delete_task.py (the browser), and
+tests/integration/test_timed_run.py (the timed harness at task volume).
 """
 
 from __future__ import annotations
@@ -276,6 +280,19 @@ def _with_labels(
     labelled = replace(current, labels=labels)
     labelled_tasks = tuple(labelled if task.id == current.id else task for task in state.tasks)
     return replace(state, tasks=labelled_tasks), TaskLabelOutcome(task=labelled, changed=True)
+
+
+def delete_task(state: TrackerState, task_id: int) -> tuple[TrackerState, Task]:
+    """Return the state without the task, and the task removed, or refuse.
+
+    Any status is deletable. The task goes with the comments nested in it; every other value of the
+    state, the order of the surviving tasks and both identity counters stay as they were, so the
+    removed identity is never issued again. A task no state holds is refused before any new state
+    exists.
+    """
+    removed = _find_task_or_refuse(state, task_id)
+    survivors = tuple(task for task in state.tasks if task.id != task_id)
+    return replace(state, tasks=survivors), removed
 
 
 def add_task_comment(

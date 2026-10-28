@@ -282,6 +282,8 @@ SAMPLE_ADDRESS = {
     "/tasks/[0-9]+/comments": "/tasks/1/comments",
     "/tasks/[0-9]+/move": "/tasks/1/move",
     "/tasks/[0-9]+/move/confirm": "/tasks/1/move/confirm",
+    "/tasks/[0-9]+/delete": "/tasks/1/delete",
+    "/tasks/[0-9]+/delete/confirm": "/tasks/1/delete/confirm",
     "/style.css": "/style.css",
 }
 SUBMITTED_BODY = {
@@ -296,7 +298,11 @@ SUBMITTED_BODY = {
     "/tasks/1/comments": b"text=Looks+good",
     "/tasks/1/move": b"status=in-progress&place=list",
     "/tasks/1/move/confirm": b"place=list",
+    "/tasks/1/delete": b"",
+    "/tasks/1/delete/confirm": b"",
 }
+# What each submission sample saves: opening the deletion's confirmation saves nothing (T14).
+SAVES_FOR = {"/tasks/1/delete": 0}
 AUDIT_OPERATOR_NAME = "Lee"
 
 
@@ -331,7 +337,7 @@ def test_every_route_leaves_state_and_headers_as_the_rules_say() -> None:
             # rather than refused, so the route's redirect is the one its action gives.
             location = header(response, "Location") or ""
             assert "refused=" not in location and "failed=" not in location, (route, location)
-            assert len(saver.saved) == before[3] + 1, route
+            assert len(saver.saved) == before[3] + SAVES_FOR.get(target, 1), route
         else:
             response = site.handle(route.method, target, SAME_ORIGIN, b"")
             assert response.status == 200, route
@@ -344,6 +350,26 @@ def test_every_route_leaves_state_and_headers_as_the_rules_say() -> None:
             ) == before, route
         assert header(response, "Content-Security-Policy") == POLICY, route
         assert header(response, "Set-Cookie") is None, route
+
+
+def test_delete_first_press_lands_on_a_pending_view_and_confirm_on_the_project() -> None:
+    """CP-544, T14: the opening press is 303 to a 200 pending view with no save and no cookie;
+    the confirming press saves once and lands on the owning project."""
+    saver = RecordingSaver()
+    site, tracker = make_site(saver)
+    post(site, name="Alpha", description="seed")
+    tracker.add_task(1, "Seed task", "", "", "")
+    saves = len(saver.saved)
+    opened = site.handle("POST", "/tasks/1/delete", {**SAME_ORIGIN, **FORM}, b"")
+    assert opened.status == 303 and header(opened, "Location") == "/tasks/1?delete_confirm"
+    landing = get(site, "/tasks/1?delete_confirm")
+    assert landing.status == 200 and header(landing, "Cache-Control") == "no-store"
+    assert header(landing, "Content-Security-Policy") == POLICY
+    assert header(landing, "Set-Cookie") is None and len(saver.saved) == saves
+    done = site.handle("POST", "/tasks/1/delete/confirm", {**SAME_ORIGIN, **FORM}, b"")
+    assert done.status == 303
+    assert header(done, "Location") == "/projects/1?deleted_task=Seed+task"
+    assert len(saver.saved) == saves + 1 and tracker.task(1) is None
 
 
 def test_route_audit_accepts_and_saves_the_comment_sample() -> None:
@@ -498,6 +524,13 @@ def test_no_socket_connection_is_made() -> None:
             b"status=in-progress&place=all_tasks&filter_status=todo&sort_field=title",
         )
         get(site, "/tasks?filter_status=todo&sort_field=title&moved=in-progress&move_task=1")
+        site.handle("POST", "/projects/1/tasks", {**SAME_ORIGIN, **FORM}, b"title=Doomed")
+        site.handle("POST", "/tasks/2/delete", {**SAME_ORIGIN, **FORM}, b"")
+        get(site, "/tasks/2?delete_confirm")
+        get(site, "/tasks/2?delete_back")
+        site.handle("POST", "/tasks/2/delete/confirm", {**SAME_ORIGIN, **FORM}, b"")
+        get(site, "/projects/1?deleted_task=Doomed")
+        get(site, "/tasks/2?delete_failed")
     finally:
         _window["open"] = False
     assert comment.status == 303 and header(comment, "Location") == "/tasks/1?comment_added=1"

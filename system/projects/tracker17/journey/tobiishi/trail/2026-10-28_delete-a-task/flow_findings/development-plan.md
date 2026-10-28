@@ -1,0 +1,11 @@
+# Flow Findings — development-plan  (audited 2026-10-28)
+
+Findings for this step's output only (`tl_instruction.md`), produced by the `development-audit` skill.
+Cross-checked against `change_design.md` and `change_spec.md`. `docs/adr/`, `nfdr.md`, `fdr.md` not re-read; the plan's cites to them were taken from the design.
+Lenses 1–8 walked; 9 and 10 do not apply to this step.
+
+- **[non-blocking · change-local · divergence-record]** The plan's TL Review Notes record the baseline as red (`20 failed, 2039 passed, 31 errors`; `socket.bind` `PermissionError`), yet every task's gate says "Pass: all commands exit 0" for `pytest products/tracker17/tests/`. The Developer is handed a pass condition the recorded baseline cannot meet and no rule for telling a new failure from a pre-existing one. Where: `tl_instruction.md §TL Review Notes` (Verification command checked) vs. `§Task 1–4 Verification gate`. The ruling is missing: either name the failing set as the allowed baseline, or state where the gate is meant to run green. Direction only.
+- **[non-blocking · change-local · coverage]** The design's T8 puts the title-as-text proof in `tests/e2e/test_delete_task.py` as well as in `test_delete_routes.py`. The plan's `test_deletion_titles_are_text_in_every_outcome` names no file, and none of the three e2e behaviours covers titles. Where: `tl_instruction.md §Task 3 Behaviours to verify` vs. `change_design.md §5 T8`. The browser-side half of T8 has no row.
+- **[non-blocking · change-local · step-contract]** Tasks 1 and 2 gate on pytest and compileall only. Tasks 3 and 4 add `ruff format --check`, `ruff check` and `mypy`. Lint or type errors introduced by the domain and application tasks first surface at Task 3, after the dependent code is written. Where: `tl_instruction.md §Task 1 / Task 2 Verification gate`. The plan does not say the omission is deliberate.
+
+No blocking findings. Classification (`feature` / `changing`) copied verbatim from the design. The rules, the nine deleted-target refusal families, the two atomic-landing edges (C, D), the no-clock check and the Gap 12 releases all map to plan rows. Design T1–T3, T4–T7 and T9–T16 map to rows. Altitude holds: the plan decides task granularity itself and does not enact any property the design merely states.
