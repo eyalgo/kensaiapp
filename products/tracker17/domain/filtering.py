@@ -1,21 +1,27 @@
-"""The Filtering feature entry point: the rules that narrow a project's task list.
+"""The Filtering feature entry point: the rules that narrow a task list, a project's or all tasks.
 
-Realizes SRS FR-32 (a list is filtered by any combination of status, priority, assignee, label, a
+Realizes SRS FR-31 (the All tasks list, every task of every project in one place, narrowed by the
+same rules), FR-32 (a list is filtered by any combination of status, priority, assignee, label, a
 due-date range and overdue), FR-33 (the assignee filter accepts only a name on the current list),
 FR-34 (the due-date range, either end optional, and the refusal of a reversed one), FR-35 (the
 overdue filter shows the tasks that are overdue under FR-25), FR-39 (every refusal is typed and
 leaves the saved data unchanged) and NFR-9 (the trace from the requirement to this code).
 
 Taking part: application/tracker.py reads the clock once, applies these rules to the current state
-and projects the result for the page. Nothing here reads a clock or a file: today arrives as an
-argument. The request and the page that carry the choices are web/routes.py, web/pages.py and
-web/style.css, which decode the address, map each refusal type to its reason and place the words.
+and projects the result for the page, and application/__init__.py hands the values and refusal types
+to the web part. Nothing here reads a clock or a file: today arrives as an argument. The request and
+the page that carry the choices are web/routes.py, web/pages.py and web/style.css, which decode the
+address, map each refusal type to its reason and place the words. A project's list and the All tasks
+list reach one validator, one matcher and one label computation; only the scope differs.
 
 Checked by: tests/unit/test_filtering.py (the rules), tests/integration/test_filter_tracker.py (the
 read through the Tracker), tests/integration/test_filter_routes.py (the request),
 tests/integration/test_filter_pages.py (the page), tests/integration/test_filter_move_routes.py
-(the moves pressed on a filtered list), tests/e2e/test_filters.py (the browser), and
-tests/architecture/test_trace.py and tests/architecture/test_shapes.py (the entry and the shape).
+(the moves pressed on a filtered list), tests/integration/test_move_routes.py and
+tests/integration/test_move_pages.py (the move destinations), tests/integration/test_tracker.py,
+tests/integration/test_pages.py, tests/integration/test_routes.py, tests/e2e/test_filters.py (the
+browser), and tests/architecture/test_trace.py and tests/architecture/test_shapes.py (the entry and
+the shape).
 """
 
 from __future__ import annotations
@@ -43,7 +49,7 @@ from domain.refusals import (
     ReversedFilterRange,
 )
 from domain.state import TrackerState
-from domain.tasks import Task, TaskStatus, list_project_tasks
+from domain.tasks import Task, TaskStatus, list_all_tasks, list_project_tasks
 
 Chosen = TypeVar("Chosen")
 
@@ -56,7 +62,7 @@ class FilterInput:
     """The raw choices of a request: for each field, every value it was sent with, as sent.
 
     An absent field is an empty tuple. Duplicate, empty and spaced values are kept exactly until
-    `filter_project_tasks` checks them. It is a plain value with no request, address or markup in it.
+    a filter entry point checks them, whichever list it is for. It is a plain value with no request, address or markup in it.
     """
 
     status: tuple[str, ...] = ()
@@ -92,8 +98,8 @@ class TaskFilter:
 
 @dataclass(frozen=True)
 class FilterOptions:
-    """What a project offers the controls: how many tasks it holds, the current assignee names in
-    list order, and the exact labels its tasks carry, once each, in code-point order."""
+    """What a list's scope offers the controls: how many tasks it holds, the current assignee names
+    in list order, and the exact labels its tasks carry, once each, in code-point order."""
 
     task_count: int
     assignees: tuple[str, ...]
@@ -102,8 +108,8 @@ class FilterOptions:
 
 @dataclass(frozen=True)
 class FilterSelection:
-    """A valid filter applied: the matching tasks in list order, and how many, beside the
-    project's whole task count, the validated choices and the options of the whole project."""
+    """A valid filter applied: the matching tasks in list order, and how many, beside the scope's
+    whole task count, the validated choices and the options of the whole scope."""
 
     task_count: int
     tasks: tuple[Task, ...]
@@ -129,9 +135,15 @@ def project_filter_options(state: TrackerState, project_id: int) -> FilterOption
     Labels come from every task of the project, never from the matches, so filtering a labelled
     task out does not remove its choice.
     """
-    tasks = [task for task in state.tasks if task.project_id == project_id]
-    labels = sorted({label for task in tasks for label in task.labels})
-    return FilterOptions(task_count=len(tasks), assignees=state.assignees, labels=tuple(labels))
+    return _options(state, list_project_tasks(state, project_id))
+
+
+def all_filter_options(state: TrackerState) -> FilterOptions:
+    """The whole tracker's task count and the choices the All tasks controls offer.
+
+    Labels come from every task of every project, never from the matches.
+    """
+    return _options(state, list_all_tasks(state))
 
 
 def filter_project_tasks(
@@ -143,13 +155,34 @@ def filter_project_tasks(
     every field is checked, and all refused fields are reported together. `today` is the date the
     overdue verdict is worked out against; nothing here reads a clock.
     """
-    options = project_filter_options(state, project_id)
+    return _select(state, list_project_tasks(state, project_id), fields, today)
+
+
+def filter_all_tasks(state: TrackerState, fields: FilterInput, today: date) -> FilterSelection:
+    """Every task of every project that matches every field set, in list order, or raise
+    FilterRefused.
+
+    A tracker with no tasks returns its empty selection without checking the choices. Otherwise
+    the rules are the project entry point's, applied to the whole scope.
+    """
+    return _select(state, list_all_tasks(state), fields, today)
+
+
+def _options(state: TrackerState, scope: tuple[Task, ...]) -> FilterOptions:
+    """The task count and the controls' choices of the scope, which is in list order."""
+    labels = sorted({label for task in scope for label in task.labels})
+    return FilterOptions(task_count=len(scope), assignees=state.assignees, labels=tuple(labels))
+
+
+def _select(
+    state: TrackerState, scope: tuple[Task, ...], fields: FilterInput, today: date
+) -> FilterSelection:
+    """The scope's tasks that match the fields, or an empty selection for an empty scope."""
+    options = _options(state, scope)
     if options.task_count == 0:
         return FilterSelection(0, (), 0, TaskFilter(), options.assignees, options.labels)
     chosen = _validated(fields, state.assignees)
-    matches = tuple(
-        task for task in list_project_tasks(state, project_id) if _matches(task, chosen, today)
-    )
+    matches = tuple(task for task in scope if _matches(task, chosen, today))
     return FilterSelection(
         task_count=options.task_count,
         tasks=matches,

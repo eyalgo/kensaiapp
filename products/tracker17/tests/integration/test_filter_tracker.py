@@ -4,7 +4,8 @@ Checks SRS FR-32 to FR-35 (a list narrowed by filter, with the count and the cho
 AC-13 (the overdue filter and the row marking agree on the same date), FR-39 (a refusal keeps every
 typed problem and saves nothing), AC-12 and AC-14 (the refusal and filter tests) and NFR-8 (a read
 never reaches the saver). Change spec rules CP-393, CP-396, CP-399, CP-405, CP-406, CP-412, CP-413
-and CP-415 are the ones each test names; the design rows are T4. No product name is patched: the
+and CP-415 are the ones each test names; the design rows are T4. The All tasks read (FR-31) adds
+CP-466 and CP-468, with design rows T4 and T5. No product name is patched: the
 real Tracker is handed each fake, and the machine's time zone is set through the environment.
 """
 
@@ -266,3 +267,25 @@ def test_the_read_model_says_whether_the_filter_narrows(utc_zone):
     assert tracker.project_task_list(1, one("priority", "")).narrowed is False
     assert tracker.project_task_list(1, FilterInput()).narrowed is False
     assert tracker.project_task_list(1, one("priority", "urgent")).narrowed is False
+
+
+def test_all_task_list_empty_and_no_match_are_distinct():
+    """CP-466, CP-468, CP-471, T4, T5: no task anywhere returns the defaults whatever was chosen;
+    tasks that match nothing keep their valid choices and the whole-scope options, with no count."""
+    tracker = make_tracker(RecordingSaver())
+
+    empty = tracker.all_task_list(one("status", "blocked"))
+    assert (empty.task_count, empty.rows, empty.match_count, empty.problems) == (0, (), 0, ())
+    assert empty.filter is not None and empty.filter.narrows is False
+    assert empty.count_requested is False
+
+    tracker.add_task(1, "Alpha", "low", "dana", "")
+    tracker.add_task(2, "Beta", "low", "ali", "")
+    tracker.add_task_label(2, "Bug")
+    nothing = tracker.all_task_list(one("label", "no such label"))
+
+    assert nothing.task_count == 2
+    assert nothing.rows == () and nothing.match_count == 0 and nothing.problems == ()
+    assert nothing.filter is not None and nothing.filter.label == "no such label"
+    assert nothing.count_requested is False
+    assert (nothing.assignees, nothing.labels) == (("dana", "ali"), ("Bug",))

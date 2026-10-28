@@ -14,6 +14,7 @@ from pathlib import Path
 
 import pytest
 from test_filter_pages import (
+    FIELD_LABELS,
     FIELD_NAMES,
     control,
     filter_form,
@@ -23,8 +24,9 @@ from test_filter_pages import (
     shown_in_field,
     three_task_world,
 )
-from test_pages import Element
-from test_task_routes import focused, make_world, utc_zone  # noqa: F401
+from test_pages import Element, parse
+from test_routes import get, page
+from test_task_routes import World, focused, make_world, utc_zone  # noqa: F401
 
 SORT_NAMES = ["sort_field", "sort_direction"]
 SORT_LABELS = ["Sort by", "Direction"]
@@ -315,3 +317,234 @@ def test_applying_a_sort_adds_no_message(tmp_path: Path) -> None:
     text = root.text().lower()
     assert "applied" not in text and "saved" not in text and "sorted" not in text
     assert rows_of(root) == ["Write docs", "Ship", "Fix bug"]
+
+
+# ---- All tasks: the page over every project (CP-459 to CP-466, CP-470, CP-474, T3, T4, T8, T10) ----
+
+ALL_TASKS_COLUMNS = [
+    "Title",
+    "Project",
+    "Status",
+    "Priority",
+    "Assignee",
+    "Labels",
+    "Due date",
+    "Moves",
+]
+NO_TASKS_YET = "There are no tasks yet. Open Projects to add a task to a project."
+
+
+def two_project_world(tmp_path: Path) -> World:
+    """Alpha and Beta interleaved. By due date the order is 2, 1, 4, 3 (3 is undated); task 2 is
+    overdue on the clock's day, 2026-10-11."""
+    world = make_world(tmp_path, projects=("Alpha", "Beta"))
+    world.tracker.add_task(1, "Write docs", "high", "Dana", "2026-10-20")
+    world.tracker.add_task(2, "Fix bug", "low", " Ari", "2026-10-10")
+    world.tracker.add_task(1, "Ship", "medium", "", "")
+    world.tracker.add_task(2, "Plan", "critical", "", "2026-10-25")
+    world.tracker.add_task_label(1, "bug")
+    world.tracker.add_task_label(2, "ui")
+    world.tracker.add_task_label(4, "Bug")
+    return world
+
+
+def offered(root: Element, name: str) -> list[str]:
+    return [o.attrs["value"] or "" for o in control(root, name).find_all("option")]
+
+
+def all_tasks(world: World, query: str = "", status: int = 200) -> Element:
+    target = "/tasks" + (f"?{query}" if query else "")
+    return parse(page(get(world.site, target), status))
+
+
+def table_rows(root: Element) -> list[list[Element]]:
+    (table,) = root.find_all("table")
+    (body,) = table.find_all("tbody")
+    return [row.find_all("td") for row in body.find_all("tr")]
+
+
+def task_numbers(root: Element) -> list[int]:
+    return [
+        int(str(cells[0].find_all("a")[0].attrs["href"]).rsplit("/", 1)[1])
+        for cells in table_rows(root)
+    ]
+
+
+def test_all_tasks_has_one_row_per_task_and_project_after_title(tmp_path: Path) -> None:
+    """CP-462, CP-463, CP-464, CP-465, T3: title, one h1, eight headers, every task once in the
+    default order, the project as a plain link, the row's own cells and no project controls."""
+    world = two_project_world(tmp_path)
+    saves = world.saver.saves
+    root = all_tasks(world)
+    assert [e.text() for e in root.find_all("title")] == ["All tasks - tracker17"]
+    assert [e.text() for e in root.find_all("h1")] == ["All tasks"]
+    (table,) = root.find_all("table")
+    assert [th.text() for th in table.find_all("th")] == ALL_TASKS_COLUMNS
+    assert task_numbers(root) == [2, 1, 4, 3]
+    first = table_rows(root)[0]
+    (title_link,) = first[0].find_all("a")
+    assert title_link.attrs["aria-label"] == "Fix bug, number 1 on the task list"
+    (project_link,) = first[1].find_all("a")
+    assert (project_link.text(), project_link.attrs["href"]) == ("Beta", "/projects/2")
+    assert "aria-label" not in project_link.attrs
+    assert [cell.text() for cell in first[2:6]] == ["todo", "low", " Ari", "ui"]
+    assert "2026-10-10" in first[6].text() and "Overdue" in first[6].text()
+    assert [b.text() for b in first[7].find_all("button")] == ["in-progress", "cancelled"]
+    assert table_rows(root)[3][5].text() == "none" and table_rows(root)[3][4].text() == "unassigned"
+    assert [link.text() for link in table_rows(root)[2][1].find_all("a")] == ["Beta"]
+    names = {e.attrs.get("name") for e in root.walk()}
+    assert not names & {"title", "name", "description", "assignee", "priority"}
+    text = root.text().lower()
+    for absent in ("rename", "delete", "summary"):
+        assert absent not in text, absent
+    assert world.saver.saves == saves
+
+
+def test_project_links_carry_no_choice_while_choices_are_applied(tmp_path: Path) -> None:
+    """CP-463: with a filter and a sort applied, each Project cell still links to its project's
+    page with no filter or sort choice in the address."""
+    world = two_project_world(tmp_path)
+    root = all_tasks(world, "filter_status=todo&sort_field=title&sort_direction=descending")
+    assert task_numbers(root) == [1, 3, 4, 2]
+    links = [cells[1].find_all("a") for cells in table_rows(root)]
+    assert [[(a.text(), a.attrs["href"]) for a in cell] for cell in links] == [
+        [("Alpha", "/projects/1")],
+        [("Alpha", "/projects/1")],
+        [("Beta", "/projects/2")],
+        [("Beta", "/projects/2")],
+    ]
+
+
+def test_global_empty_page_precedes_controls_and_refusals(tmp_path: Path) -> None:
+    """CP-466, T4: no project, or only empty projects, show the invitation under the heading and
+    nothing else, whatever the address carries."""
+    queries = [
+        "",
+        "filter_status=done&sort_field=title",
+        "filter_status=nope&sort_field=colour&sort_direction=a&sort_direction=b",
+        "filter_label=x&filter_label=y&filter_due_from=2026-10-20&filter_due_to=2026-10-01",
+    ]
+    for projects in ((), ("Alpha", "Beta")):
+        world = make_world(tmp_path / f"p{len(projects)}", projects=projects)
+        saves = world.saver.saves
+        for query in queries:
+            root = all_tasks(world, query)
+            (main,) = root.find_all("main")
+            children = [child for child in main.children if isinstance(child, Element)]
+            assert [child.tag for child in children] == ["h1", "p"], query
+            assert children[1].text() == NO_TASKS_YET, query
+            (link,) = children[1].find_all("a")
+            assert (link.text(), link.attrs["href"]) == ("Projects", "/"), query
+            for tag in ("form", "table", "select", "input", "button"):
+                assert root.find_all(tag) == [], (query, tag)
+            assert "filter" not in main.text().lower() and "match" not in main.text(), query
+        assert world.saver.saves == saves
+
+
+def test_all_tasks_controls_and_options_cover_the_whole_scope(tmp_path: Path) -> None:
+    """CP-467, CP-468, T5: nine labelled controls in order, one Apply and one Clear, assignees in
+    list order, and every label of every task once in code-point order, before any matching."""
+    world = two_project_world(tmp_path)
+    root = all_tasks(world, "filter_status=done")
+    form = filter_form(root)
+    assert form.attrs["action"] == "/tasks" and "novalidate" in form.attrs
+    names = [*FIELD_NAMES, *SORT_NAMES]
+    assert [labelled(root, name.replace("_", "-")) for name in names] == [
+        *FIELD_LABELS,
+        *SORT_LABELS,
+    ]
+    assert [e.text() for e in form.find_all("button")] == ["Apply"]
+    clear = [a for a in form.find_all("a") if a.text() == "Clear"]
+    assert len(clear) == 1 and clear[0].attrs["href"] == "/tasks"
+    assert offered(root, "filter_assignee") == ["", "Dana", " Ari"]
+    assert offered(root, "filter_label") == ["", "Bug", "bug", "ui"]
+    assert "applied" not in root.text().lower()
+
+
+def test_global_count_and_no_match_states_use_the_read_model(tmp_path: Path) -> None:
+    """CP-470, CP-471, T8: the filter's count, the sort-only count over the whole tracker, the
+    no-match state without table or count, and no count without a choice."""
+    world = two_project_world(tmp_path)
+    assert "tasks match" not in all_tasks(world).text() and "The tracker has" not in (
+        all_tasks(world).text()
+    )
+    one = all_tasks(world, "filter_priority=critical")
+    assert "1 task matches this filter." in one.text() and task_numbers(one) == [4]
+    two = all_tasks(world, "filter_status=todo&filter_label=bug")
+    assert task_numbers(two) == [1] and "1 task matches this filter." in two.text()
+    several = all_tasks(world, "filter_status=todo&sort_field=title")
+    assert "4 tasks match this filter." in several.text()
+    assert task_numbers(several) == [2, 4, 3, 1]
+    only_sort = all_tasks(world, "sort_field=title&sort_direction=descending")
+    assert "The tracker has 4 tasks." in only_sort.text()
+    assert "filter" not in only_sort.by_id("filter-count").text()
+    explicit_default = all_tasks(world, "sort_field=due_date&sort_direction=ascending")
+    assert "The tracker has 4 tasks." in explicit_default.text()
+    nothing = all_tasks(world, "filter_status=done&sort_field=title")
+    assert "No tasks match this filter. Press Clear to see every task." in nothing.text()
+    assert nothing.find_all("table") == [] and nothing.by_id("filter-count") is None
+    assert "no tasks yet" not in nothing.text().lower()
+    assert control(nothing, "filter_status").find_all("option")[0].text() == "Any status"
+    single = make_world(tmp_path / "single", projects=("Alpha",))
+    single.tracker.add_task(1, "Only", "low", "", "")
+    assert "The tracker has 1 task." in all_tasks(single, "sort_field=title").text()
+
+
+def test_every_global_choice_refusal_keeps_raw_values_and_first_field_focus(
+    tmp_path: Path,
+) -> None:
+    """CP-474, T10: ordered reasons beside their fields, raw values kept, the first refused field
+    owning the focus, no list, no count, Clear still offered, and nothing saved."""
+    world = two_project_world(tmp_path)
+    saves = world.saver.saves
+    root = all_tasks(
+        world,
+        "filter_due_from=2026-10-20&filter_due_to=2026-10-01&filter_status=nope"
+        "&filter_label=a&filter_label=b&sort_field=colour&sort_direction=up&sort_direction=down",
+    )
+    assert root.find_all("table") == [] and root.by_id("filter-count") is None
+    assert [e.attrs.get("name") for e in focused(root)] == ["filter_status"]
+    reasons = [
+        control(root, name).described_by()[0].text()
+        for name in (
+            "filter_status",
+            "filter_label",
+            "filter_due_from",
+            "sort_field",
+            "sort_direction",
+        )
+    ]
+    assert reasons[0].startswith("The status filter can't be 'nope'")
+    assert reasons[1].startswith("The label filter takes one label, not 2.")
+    assert reasons[2].startswith("The Due from date, 2026-10-20, is later than the Due to date")
+    assert reasons[3].startswith("Sort by can't be 'colour'")
+    assert reasons[4].startswith("Direction takes one value, not 2.")
+    assert attempts(root, "filter-label") == ["a", "b"]
+    assert any(a.text() == "Clear" for a in filter_form(root).find_all("a"))
+    assert world.saver.saves == saves
+    repeated_assignee = all_tasks(world, "filter_assignee=Dana&filter_assignee=Dana")
+    assert "The assignee filter takes one name, not 2." in repeated_assignee.text()
+    unlisted = all_tasks(world, "filter_assignee=Zed&sort_field=title")
+    assert "The name 'Zed' isn't on the assignee list." in unlisted.text()
+
+
+def test_global_typed_values_are_text_in_every_rendered_context(tmp_path: Path) -> None:
+    """CP-479, T15: project names, titles, labels and assignees with markup characters are text in
+    cells, options, hidden fields and accessible names; the table keeps its scroll wrapper."""
+    hostile = '<b>&"x"'
+    world = make_world(tmp_path, people=(hostile,), projects=(hostile, "Beta"))
+    world.tracker.add_task(1, hostile, "low", hostile, "")
+    world.tracker.add_task_label(1, hostile)
+    page_text = page(get(world.site, "/tasks?filter_label=" + "%3Cb%3E%26%22x%22"))
+    root = parse(page_text)
+    assert root.find_all("b") == [] and "<b>&" not in page_text
+    (cells,) = table_rows(root)
+    assert cells[0].text() == hostile and cells[1].text() == hostile
+    assert cells[4].text() == hostile and cells[5].text() == hostile
+    assert cells[0].find_all("a")[0].attrs["aria-label"] == f"{hostile}, number 1 on the task list"
+    assert all(hostile in b.attrs["aria-label"] for b in cells[7].find_all("button")), "move names"
+    assert offered(root, "filter_assignee") == ["", hostile]
+    (table,) = root.find_all("table")
+    wrapper = table.parent
+    assert wrapper is not None and wrapper.attrs["class"] == "table-scroll"
+    assert root.find_all("script") == []

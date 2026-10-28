@@ -1,6 +1,8 @@
-"""The Sorting feature entry point: the rules that order a project's task list, and the refusals.
+"""The Sorting feature entry point: the rules that order a task list, a project's or all tasks, and
+the refusals.
 
-Realizes SRS FR-36 (a task list sorts by one field at a time, due date, priority, created time or
+Realizes SRS FR-31 (the All tasks list is sorted by the same rules, over every project at once),
+FR-36 (a task list sorts by one field at a time, due date, priority, created time or
 title, in either direction, ascending when none is chosen; tasks equal on the field keep creation
 order), FR-39 (every refusal is typed and leaves the saved data unchanged) and NFR-9 (the trace from
 the requirement to this code).
@@ -9,27 +11,35 @@ Taking part: application/tracker.py reads the clock once, applies these rules to
 and projects the result for the page, and application/__init__.py hands the values and refusal types
 to the web part. The request and the page that carry the choices are web/routes.py and
 web/pages.py, which decode the address, map each refusal type to its reason and place the words.
-Nothing here reads a clock or a file: today arrives as an argument.
+Nothing here reads a clock or a file: today arrives as an argument. A project's list and the All
+tasks list reach one sort validator and one ordering; only the scope differs.
 
 Checked by: tests/unit/test_sorting.py (the rules), tests/integration/test_sort_tracker.py (the
 read the application projects), tests/integration/test_sort_pages.py and
 tests/integration/test_sort_routes.py (the page and the request),
 tests/integration/test_sort_move_routes.py (the moves pressed on a sorted list),
-tests/integration/test_routes.py (the route walks), tests/e2e/test_sorting.py (the browser), and
+tests/integration/test_move_routes.py and tests/integration/test_move_pages.py (the move
+destinations),
+tests/integration/test_routes.py (the route walks), tests/integration/test_tracker.py (the read),
+tests/integration/test_pages.py (the pages), tests/e2e/test_sorting.py (the browser), and
 tests/architecture/test_trace.py and tests/architecture/test_shapes.py (the entry and the shape).
 """
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date
 from enum import Enum
 
 from domain.filtering import (
     FilterInput,
+    FilterOptions,
     FilterRefused,
     FilterSelection,
     TaskFilter,
+    all_filter_options,
+    filter_all_tasks,
     filter_project_tasks,
     project_filter_options,
 )
@@ -95,8 +105,8 @@ class TaskSort:
 @dataclass(frozen=True)
 class SortedSelection:
     """A valid filter and sort applied: the matching tasks in the sort's order, and how many,
-    beside the project's whole task count, the validated choices and the options of the whole
-    project. `count_requested` says whether the page owes the operator a count of the list."""
+    beside the scope's whole task count, the validated choices and the options of the whole
+    scope. `count_requested` says whether the page owes the operator a count of the list."""
 
     task_count: int
     tasks: tuple[Task, ...]
@@ -174,7 +184,40 @@ def sort_project_tasks(
     and a valid filter that matches nothing still has its sort checked. `today` is the date the
     overdue verdict is worked out against; nothing here reads a clock.
     """
-    options = project_filter_options(state, project_id)
+    return _sorted_selection(
+        project_filter_options(state, project_id),
+        lambda: filter_project_tasks(state, project_id, fields, today),
+        fields,
+        sort_fields,
+    )
+
+
+def sort_all_tasks(
+    state: TrackerState, fields: FilterInput, sort_fields: SortInput, today: date
+) -> SortedSelection:
+    """Every task of every project that matches the filter, in the one order the sort gives, or
+    raise ProjectListRefused.
+
+    The rules are the project entry point's, applied to the whole scope: a tracker with no tasks
+    returns its empty selection without checking either input, and otherwise the filter and the
+    sort are checked independently. The order is one order over all the matches, never project
+    lists joined.
+    """
+    return _sorted_selection(
+        all_filter_options(state),
+        lambda: filter_all_tasks(state, fields, today),
+        fields,
+        sort_fields,
+    )
+
+
+def _sorted_selection(
+    options: FilterOptions,
+    select: Callable[[], FilterSelection],
+    fields: FilterInput,
+    sort_fields: SortInput,
+) -> SortedSelection:
+    """Filter through `select`, check the sort alongside it, and order the matches."""
     if options.task_count == 0:
         return SortedSelection(
             0, (), 0, TaskFilter(), TaskSort(), options.assignees, options.labels, False
@@ -182,7 +225,7 @@ def sort_project_tasks(
     refusals: list[FilterFieldRefusal | SortFieldRefusal] = []
     selection: FilterSelection | None = None
     try:
-        selection = filter_project_tasks(state, project_id, fields, today)
+        selection = select()
     except FilterRefused as refused:
         refusals.extend(refused.refusals)
     sorting, sort_refusals = _validated_sort(sort_fields)

@@ -378,3 +378,8 @@ def list_project_tasks(state: TrackerState, project_id: int) -> tuple[Task, ...]
     """Every task of the project in list order, whatever order the state holds them in."""
     own = (task for task in state.tasks if task.project_id == project_id)
     return tuple(sorted(own, key=_due_then_identity))
+
+
+def list_all_tasks(state: TrackerState) -> tuple[Task, ...]:
+    """Every task of every project in list order, whatever order the state holds them in."""
+    return tuple(sorted(state.tasks, key=_due_then_identity))

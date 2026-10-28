@@ -4,6 +4,10 @@ Checks SRS FR-36 (a task list sorts by one field at a time, ties and created tim
 creation order), FR-39 (each refusal is typed) and AC-12, AC-14 (the refusals and the sorting
 tests). Change spec rules CP-428 to CP-435 and CP-441 to CP-443 and CP-447 and CP-448 are the ones
 each test names. The design rows T1 to T3 are the coverage references.
+
+The All tasks scope (FR-31) is checked beside the project's: change spec rules CP-465, CP-466,
+CP-469 to CP-471, CP-474, CP-480 and CP-481 are the ones its tests name, and design rows T4, T7,
+T10 and T16 the coverage references. It reaches the same sort validator and ordering as a project's.
 """
 
 from __future__ import annotations
@@ -37,14 +41,17 @@ from domain import (
     TaskSort,
     TaskStatus,
     TrackerState,
+    filter_all_tasks,
     filter_project_tasks,
     list_project_tasks,
+    sort_all_tasks,
     sort_project_tasks,
 )
 
 TODAY = date(2026, 10, 6)
 CREATED = datetime(2026, 10, 1, 9, 0, tzinfo=UTC)
 NO_FILTER = FilterInput()
+NO_SORT = SortInput()
 ASCENDING = ("ascending",)
 DESCENDING = ("descending",)
 
@@ -553,3 +560,231 @@ def test_the_sort_values_are_immutable() -> None:
         SortInput().field = ("x",)  # type: ignore[misc]
     with pytest.raises(FrozenInstanceError):
         TaskSort().key = SortKey.TITLE  # type: ignore[misc]
+
+
+# ---------------------------------------------------------------------------------------------
+# The All tasks scope (FR-31): one order over every project's tasks.
+# ---------------------------------------------------------------------------------------------
+
+
+def ordered_all(
+    state: TrackerState, sort_fields: SortInput = NO_SORT, fields: FilterInput = NO_FILTER
+) -> list[int]:
+    return [task.id for task in sort_all_tasks(state, fields, sort_fields, TODAY).tasks]
+
+
+def refused_all(
+    state: TrackerState, sort_fields: SortInput, fields: FilterInput = NO_FILTER
+) -> ProjectListRefused:
+    with pytest.raises(ProjectListRefused) as caught:
+        sort_all_tasks(state, fields, sort_fields, TODAY)
+    return caught.value
+
+
+def problem_shapes(problem: ProjectListRefused) -> list[tuple[type, tuple[object, ...]]]:
+    return [(type(item), item.args) for item in problem.refusals]
+
+
+def test_default_all_order_interleaves_projects():
+    """CP-465: the spec's Alpha/Beta fixture lists 2, 1, 4, 3 whatever order the tasks arrive in."""
+    alpha_beta = [
+        make_task(1, project_id=1, due=date(2026, 10, 9)),
+        make_task(2, project_id=2, due=date(2026, 10, 1)),
+        make_task(3, project_id=1),
+        make_task(4, project_id=2, due=date(2026, 10, 9)),
+    ]
+
+    for arrival in (
+        alpha_beta,
+        alpha_beta[::-1],
+        [alpha_beta[2], alpha_beta[0], alpha_beta[3], alpha_beta[1]],
+    ):
+        assert ordered_all(make_state(*arrival)) == [2, 1, 4, 3]
+
+
+def test_all_sort_fields_work_in_both_directions():
+    """CP-469: due date, priority, created time and title each run both ways across projects;
+    the four priority ranks, a title that ignores case, and undated tasks last either way."""
+    early, late = CREATED, CREATED + timedelta(hours=1)
+    state = make_state(
+        make_task(
+            1,
+            project_id=1,
+            title="banana",
+            priority=Priority.HIGH,
+            due=date(2026, 10, 3),
+            created_at=late,
+        ),
+        make_task(
+            2,
+            project_id=2,
+            title="Apple",
+            priority=Priority.LOW,
+            due=date(2026, 10, 1),
+            created_at=early,
+        ),
+        make_task(3, project_id=1, title="cherry", priority=Priority.CRITICAL, created_at=early),
+        make_task(
+            4,
+            project_id=2,
+            title="Date",
+            priority=Priority.MEDIUM,
+            due=date(2026, 10, 2),
+            created_at=late,
+        ),
+    )
+
+    assert ordered_all(state, sort_of("due_date", "ascending")) == [2, 4, 1, 3]
+    assert ordered_all(state, sort_of("due_date", "descending")) == [1, 4, 2, 3]
+    assert ordered_all(state, sort_of("priority", "ascending")) == [2, 4, 1, 3]
+    assert ordered_all(state, sort_of("priority", "descending")) == [3, 1, 4, 2]
+    assert ordered_all(state, sort_of("title", "ascending")) == [2, 1, 3, 4]
+    assert ordered_all(state, sort_of("title", "descending")) == [4, 3, 1, 2]
+    assert ordered_all(state, sort_of("created_time", "ascending")) == [1, 2, 3, 4]
+    assert ordered_all(state, sort_of("created_time", "descending")) == [4, 3, 2, 1]
+
+
+@pytest.mark.parametrize("direction", ["ascending", "descending"])
+def test_cross_project_ties_keep_creation_order(direction):
+    """CP-469: tasks equal on the field keep ascending identity in both directions, and recorded
+    timestamps, equal or running backwards, never replace the identity."""
+    backwards = [CREATED + timedelta(hours=hours) for hours in (3, 1, 3, 2)]
+    state = make_state(
+        *(
+            make_task(
+                number,
+                project_id=1 + number % 2,
+                title="same",
+                priority=Priority.HIGH,
+                due=date(2026, 10, 5),
+                created_at=backwards[number - 1],
+            )
+            for number in (4, 2, 1, 3)
+        )
+    )
+
+    for field in ("due_date", "priority", "title"):
+        assert ordered_all(state, sort_of(field, direction)) == [1, 2, 3, 4]
+    expected = [1, 2, 3, 4] if direction == "ascending" else [4, 3, 2, 1]
+    assert ordered_all(state, sort_of("created_time", direction)) == expected
+
+
+def test_sort_preserves_exact_global_matches():
+    """CP-469: filter and sort compose across projects, and ordering neither adds nor drops a match
+    and leaves the counts about the whole scope and its matches."""
+    state = make_state(
+        make_task(1, project_id=1, status=TaskStatus.DONE, due=date(2026, 10, 9)),
+        make_task(2, project_id=2, status=TaskStatus.TODO, due=date(2026, 10, 2)),
+        make_task(3, project_id=1, status=TaskStatus.TODO, due=date(2026, 10, 1)),
+        make_task(4, project_id=2, status=TaskStatus.TODO),
+    )
+    fields = FilterInput(status=("todo",))
+
+    selection = sort_all_tasks(state, fields, sort_of("due_date", "descending"), TODAY)
+    unsorted = filter_all_tasks_ids(state, fields)
+
+    assert [task.id for task in selection.tasks] == [2, 3, 4]
+    assert sorted(task.id for task in selection.tasks) == sorted(unsorted)
+    assert (selection.task_count, selection.match_count) == (4, 3)
+    assert selection.filter == TaskFilter(status=TaskStatus.TODO)
+
+
+def filter_all_tasks_ids(state: TrackerState, fields: FilterInput) -> list[int]:
+    return [task.id for task in filter_all_tasks(state, fields, TODAY).tasks]
+
+
+def test_global_count_is_requested_only_when_owed():
+    """CP-470, CP-471: no choice owes no count; a filter, a sort-only choice, both, or an explicit
+    nonempty default sort do, and only when there are results."""
+    state = make_state(make_task(1, project_id=1), make_task(2, project_id=2))
+
+    def requested(fields: FilterInput, sort_fields: SortInput) -> bool:
+        return sort_all_tasks(state, fields, sort_fields, TODAY).count_requested
+
+    assert requested(NO_FILTER, SortInput()) is False
+    assert requested(NO_FILTER, SortInput(field=("",), direction=("",))) is False
+    assert requested(FilterInput(status=("todo",)), SortInput()) is True
+    assert requested(NO_FILTER, sort_of("title")) is True
+    assert requested(FilterInput(status=("todo",)), sort_of("title", "descending")) is True
+    assert requested(NO_FILTER, sort_of("due_date", "ascending")) is True
+    assert requested(FilterInput(status=("done",)), sort_of("title")) is False
+
+
+@pytest.mark.parametrize(
+    "state",
+    [TrackerState(projects=(), next_project_id=1), make_state()],
+    ids=["no projects", "only empty projects"],
+)
+@pytest.mark.parametrize(
+    ("fields", "sort_fields"),
+    [
+        (NO_FILTER, SortInput()),
+        (FilterInput(status=("todo",)), sort_of("title", "descending")),
+        (FilterInput(status=("blocked",)), sort_of("nonsense", "sideways")),
+        (FilterInput(label=("a", "b")), SortInput(field=("title", "title"))),
+    ],
+    ids=["absent", "valid", "invalid", "repeated"],
+)
+def test_empty_all_sort_scope_precedes_both_validations(state, fields, sort_fields):
+    """CP-466: with no task anywhere neither input is validated and the default comes back."""
+    selection = sort_all_tasks(state, fields, sort_fields, TODAY)
+
+    assert selection.task_count == 0
+    assert selection.tasks == ()
+    assert selection.match_count == 0
+    assert selection.filter == TaskFilter()
+    assert selection.sorting == TaskSort()
+    assert selection.count_requested is False
+
+
+def test_all_list_refusals_include_filter_then_sort_problems():
+    """CP-474: every bad sort field, direction and repeat, with filter problems beside them,
+    gives typed problems in the nine controls' order and both raw inputs; a no-match filter still
+    has its sort checked."""
+    state = make_state(make_task(1, project_id=1), make_task(2, project_id=2))
+    cases = [
+        (NO_FILTER, sort_of("nonsense"), [InvalidSortField]),
+        (NO_FILTER, sort_of("title", "sideways"), [InvalidSortDirection]),
+        (
+            NO_FILTER,
+            SortInput(field=("title", "title"), direction=("", "")),
+            [RepeatedSortValue] * 2,
+        ),
+        (
+            FilterInput(status=("blocked",), due_from=("2026-10-10",), due_to=("2026-10-01",)),
+            sort_of("nonsense", "sideways"),
+            [InvalidFilterStatus, ReversedFilterRange, InvalidSortField, InvalidSortDirection],
+        ),
+        (FilterInput(status=("done",)), sort_of("nonsense"), [InvalidSortField]),
+        (
+            FilterInput(label=("a", "b")),
+            SortInput(direction=("x", "y")),
+            [RepeatedFilterValue, RepeatedSortValue],
+        ),
+    ]
+
+    for fields, sort_fields, kinds in cases:
+        problem = refused_all(state, sort_fields, fields)
+        assert [type(item) for item in problem.refusals] == kinds
+        assert problem.fields is fields
+        assert problem.sort_fields is sort_fields
+        assert problem_shapes(problem) == problem_shapes(refused(state, sort_fields, fields))
+
+
+def test_project_sort_contract_survives_shared_ordering():
+    """CP-480: a project's sort keeps its own scope, empty shortcut, refusals and counts after the
+    ordering and validation are shared with the All tasks scope."""
+    state = make_state(
+        make_task(1, project_id=1, due=date(2026, 10, 9)),
+        make_task(2, project_id=2, due=date(2026, 10, 1)),
+        make_task(3, project_id=1, due=date(2026, 10, 2)),
+    )
+
+    selection = sort_project_tasks(state, 1, NO_FILTER, sort_of("due_date", "descending"), TODAY)
+
+    assert [task.id for task in selection.tasks] == [1, 3]
+    assert (selection.task_count, selection.match_count) == (2, 2)
+    empty = sort_project_tasks(state, 7, FilterInput(status=("blocked",)), sort_of("x"), TODAY)
+    assert (empty.tasks, empty.task_count, empty.sorting) == ((), 0, TaskSort())
+    with pytest.raises(ProjectListRefused):
+        sort_project_tasks(state, 1, NO_FILTER, sort_of("x"), TODAY)

@@ -66,6 +66,7 @@ SAME_ORIGIN = "same-origin"
 
 PROJECTS_ADDRESS = "/"
 PEOPLE_ADDRESS = "/people"
+ALL_TASKS_ADDRESS = "/tasks"
 PROJECT_PATTERN = re.compile(r"/projects/([0-9]+)")
 TASK_PATTERN = re.compile(r"/tasks/([0-9]+)")
 ADD_TASK_PATTERN = re.compile(r"/projects/([0-9]+)/tasks")
@@ -107,6 +108,7 @@ ROUTES = (
     Route("GET", "/projects/[0-9]+", PAGE),
     Route("POST", "/projects", SUBMISSION),
     Route("GET", "/people", PAGE),
+    Route("GET", "/tasks", PAGE),
     Route("POST", "/assignees", SUBMISSION),
     Route("POST", "/assignees/remove", SUBMISSION),
     Route("POST", "/operator-name", SUBMISSION),
@@ -324,6 +326,8 @@ class Site:
             return self._html(self._projects_page(query))
         if path == PEOPLE_ADDRESS:
             return self._html(self._people_page(query))
+        if path == ALL_TASKS_ADDRESS:
+            return self._all_tasks_page(query)
         task_match = TASK_PATTERN.fullmatch(path)
         if task_match:
             return self._task_page(task_match.group(1), query)
@@ -529,7 +533,36 @@ class Site:
                 allowed_moves=self._tracker.allowed_moves,
                 move_outcome=move_outcome,
                 move_interaction=move_interaction,
-                off_list_task=self._off_list_task(project, listing, move_outcome, shown),
+                off_list_task=self._off_list_task(
+                    lambda found: self._project_task(project, found), listing, move_outcome, shown
+                ),
+            ),
+            Site._pending_status(move_interaction),
+            extra=self._stored_as_asked(query),
+        )
+
+    def _all_tasks_page(self, query: Mapping[str, list[str]]) -> Response:
+        """Read the choices from the address and build the All tasks page; it changes nothing.
+
+        The read, the move state and the off-list task are the project page's, over every task.
+        """
+        listing = self._tracker.all_task_list(_filter_input(query), sort_fields=_sort_input(query))
+        move = self._move_view(query, self._tracker.task)
+        if move is None:
+            return Site._html(pages.task_not_found_page(), HTTPStatus.NOT_FOUND)
+        move_outcome, move_interaction = move
+        shown = {row.task.id for row in listing.rows}
+        if move_interaction is not None and move_interaction.task_id not in shown:
+            # A confirmation is offered only on a row the page shows.
+            move_interaction = None
+        return self._html(
+            pages.all_tasks_page(
+                listing,
+                self._tracker.projects(),
+                allowed_moves=self._tracker.allowed_moves,
+                move_outcome=move_outcome,
+                move_interaction=move_interaction,
+                off_list_task=self._off_list_task(self._tracker.task, listing, move_outcome, shown),
             ),
             Site._pending_status(move_interaction),
             extra=self._stored_as_asked(query),
@@ -540,14 +573,15 @@ class Site:
         task = self._tracker.task(identity)
         return task if task is not None and task.project_id == project.id else None
 
+    @staticmethod
     def _off_list_task(
-        self,
-        project: Project,
+        find: Callable[[int], Task | None],
         listing: ProjectTaskList,
         outcome: pages.MoveOutcome,
         shown: set[int],
     ) -> Task | None:
-        """The task a move outcome is about when it is this project's and the list does not show it.
+        """The task a move outcome is about when `find` holds it for this list and the list does not
+        show it: a project's list finds its own tasks, All tasks finds any.
 
         Membership is the read model's selected identities; no filter rule is tested here. A refused
         filter has no list, so it has no such task.
@@ -556,7 +590,7 @@ class Site:
             return None
         if outcome.refusal is None and outcome.failed is None and outcome.moved is None:
             return None
-        return self._project_task(project, outcome.task_id)
+        return find(outcome.task_id)
 
     @staticmethod
     def _task_form(query: Mapping[str, list[str]]) -> pages.TaskForm:
@@ -806,7 +840,8 @@ class Site:
         """Move the task to the status the form names and answer at the place the button was on.
 
         The status goes to the tracker as sent, whatever it is; the place word only says which of
-        two addresses the answer goes to (QC-38). A refusal is mapped to its code by type. A move
+        three addresses the answer goes to (QC-38): the task's page, its project's list or All
+        tasks. An unknown or missing word means the task's page. A refusal is mapped to its code by type. A move
         to cancelled is saved only by the confirming submission, whose target is fixed: the
         ordinary address only opens the confirmation, reading the workflow's answer and saving
         nothing.
@@ -819,22 +854,32 @@ class Site:
         if task is None:
             return self._redirect(task_address)
         status = TaskStatus.CANCELLED.value if confirming else _first(form, "status")
-        place = (
-            f"/projects/{task.project_id}"
-            if _first(form, "place") == pages.MOVE_PLACE_LIST
-            else task_address
+        destination = _closed(pages.MovePlace, _first(form, "place"))
+        on_all_tasks = destination is pages.MovePlace.ALL_TASKS
+        on_list = destination is pages.MovePlace.LIST
+        if on_all_tasks:
+            place = ALL_TASKS_ADDRESS
+        elif on_list:
+            place = f"/projects/{task.project_id}"
+        else:
+            place = task_address
+        carried = (
+            {**_carried_filters(form), **_carried_sorts(form)} if on_list or on_all_tasks else {}
         )
-        on_list = _first(form, "place") == pages.MOVE_PLACE_LIST
-        carried = {**_carried_filters(form), **_carried_sorts(form)} if on_list else {}
         about: dict[str, str | tuple[str, ...]] = {"move_task": str(identity), **carried}
-        if (
-            on_list
-            and self._tracker.project_task_list(
+        if on_all_tasks:
+            problems = self._tracker.all_task_list(
+                _filter_input(form), sort_fields=_sort_input(form)
+            ).problems
+        elif on_list:
+            problems = self._tracker.project_task_list(
                 task.project_id, _filter_input(form), sort_fields=_sort_input(form)
             ).problems
-        ):
+        else:
+            problems = ()
+        if problems:
             # A malformed filter or sort stops the move before it can save or open a
-            # confirmation (CP-405, CP-440).
+            # confirmation (CP-405, CP-440, CP-477).
             return self._redirect(place, **about)
         if status == TaskStatus.CANCELLED.value and not confirming:
             if TaskStatus.CANCELLED in self._tracker.allowed_moves(task.status):

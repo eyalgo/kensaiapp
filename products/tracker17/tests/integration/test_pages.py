@@ -157,20 +157,21 @@ def test_the_note_number_equals_the_description_maxlength() -> None:
 
 
 def test_every_page_has_a_header_with_the_projects_and_people_links() -> None:
-    """CP-9, CP-80."""
+    """CP-9, CP-80, CP-459."""
     for label, page in all_pages().items():
         root = parse(page)
         (header,) = root.find_all("header")
         links = header.find_all("a")
         assert [(link.attrs["href"], link.text()) for link in links] == [
             ("/", "Projects"),
+            ("/tasks", "All tasks"),
             ("/people", "People"),
         ], label
         assert header.text().startswith("tracker17"), label
         for link in root.find_all("a"):
             href = link.attrs["href"] or ""
-            assert re.fullmatch(r"/|/people|/projects/\d+", href), (label, href)
-        for forbidden in ("all tasks", "rename", "delete"):
+            assert re.fullmatch(r"/|/tasks|/people|/projects/\d+", href), (label, href)
+        for forbidden in ("rename", "delete"):
             assert forbidden not in root.text().lower(), (label, forbidden)
 
 
@@ -244,7 +245,7 @@ def test_values_are_escaped_everywhere() -> None:
     for page in (listed, on_project, refused, failed):
         assert "<b>" not in page
         assert '"quoted"' not in page  # a bare quote would end an attribute early
-    assert parse(listed).find_all("a")[2].text() == HOSTILE
+    assert parse(listed).find_all("a")[3].text() == HOSTILE
     assert HOSTILE in main_text(parse(listed))
     project_root = parse(on_project)
     assert project_root.find_all("h1")[0].text() == HOSTILE
@@ -351,27 +352,57 @@ def test_the_created_project_page_opens_on_its_heading() -> None:
 
 
 def test_the_not_found_page_has_one_heading_and_one_link_to_projects() -> None:
-    """CP-33, CP-34."""
+    """CP-33, CP-34, CP-460."""
     root = parse(pages.not_found_page())
     assert len(root.find_all("h1")) == 1
     (main,) = root.find_all("main")
-    (link,) = main.find_all("a")
-    assert link.attrs["href"] == "/"
+    links = main.find_all("a")
+    assert [(link.attrs["href"], link.text()) for link in links] == [
+        ("/", "Projects"),
+        ("/tasks", "All tasks"),
+    ]
     (header,) = root.find_all("header")
-    assert [anchor.attrs["href"] for anchor in header.find_all("a")] == ["/", "/people"]
-    assert len(root.find_all("a")) == 3
+    assert [anchor.attrs["href"] for anchor in header.find_all("a")] == ["/", "/tasks", "/people"]
+    assert len(root.find_all("a")) == 5
     assert root.find_all("form") == []
 
 
 def test_the_not_found_page_gives_projects_in_a_paragraph_after_its_heading() -> None:
-    """CP-33: the sentence, then Projects as the place to go, in a paragraph directly in main."""
+    """CP-33, CP-460: the sentence, then Projects and All tasks in the one paragraph in main."""
     (main,) = parse(pages.not_found_page()).find_all("main")
     children = [child for child in main.children if isinstance(child, Element)]
     assert [child.tag for child in children] == ["h1", "p"]
     heading, paragraph = children
     assert heading.find_all("a") == []
-    (link,) = paragraph.find_all("a")
-    assert link.parent is paragraph
+    assert [link.parent for link in paragraph.find_all("a")] == [paragraph, paragraph]
+    assert paragraph.text() == "Open Projects or All tasks."
+
+
+@pytest.mark.parametrize(
+    ("build", "heading"),
+    [
+        (pages.not_found_page, "There's no project at this address"),
+        (pages.task_not_found_page, "There's no task at this address"),
+    ],
+)
+def test_both_not_found_forms_offer_both_destinations(build, heading: str) -> None:
+    """CP-460: each not-found form keeps its one heading, then one paragraph that links to
+    Projects first and All tasks after, and holds no form; the header keeps its three links, so the
+    page has five links in all."""
+    root = parse(build())
+    (main,) = root.find_all("main")
+    children = [child for child in main.children if isinstance(child, Element)]
+    assert [child.tag for child in children] == ["h1", "p"]
+    assert children[0].text() == heading
+    assert children[1].text() == "Open Projects or All tasks."
+    assert [(a.attrs["href"], a.text()) for a in children[1].find_all("a")] == [
+        ("/", "Projects"),
+        ("/tasks", "All tasks"),
+    ]
+    (header,) = root.find_all("header")
+    assert [a.attrs["href"] for a in header.find_all("a")] == ["/", "/tasks", "/people"]
+    assert len(root.find_all("a")) == 5
+    assert root.find_all("form") == []
 
 
 def test_the_not_found_page_has_no_form_or_control() -> None:
@@ -383,7 +414,11 @@ def test_the_not_found_page_has_no_form_or_control() -> None:
 
 def test_the_not_found_page_says_nothing_of_a_task() -> None:
     """CP-33."""
-    text = main_text(parse(pages.not_found_page())).lower()
+    (main,) = parse(pages.not_found_page()).find_all("main")
+    text = " ".join(
+        child.text() if isinstance(child, Element) and child.tag == "h1" else ""
+        for child in main.children
+    ).lower()
     assert "task" not in text
     assert "delete" not in text and "gone" not in text
 

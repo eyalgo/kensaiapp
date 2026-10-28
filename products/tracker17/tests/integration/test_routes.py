@@ -270,6 +270,7 @@ SAMPLE_ADDRESS = {
     "/projects/[0-9]+": "/projects/1",
     "/projects": "/projects",
     "/people": "/people",
+    "/tasks": "/tasks",
     "/assignees": "/assignees",
     "/assignees/remove": "/assignees/remove",
     "/operator-name": "/operator-name",
@@ -486,6 +487,14 @@ def test_no_socket_connection_is_made() -> None:
         get(site, "/projects/1?filter_status=todo&sort_field=title")
         get(site, "/projects/1?sort_field=colour&sort_direction=a&sort_direction=b")
         get(site, "/projects/1")
+        get(site, "/tasks?filter_status=todo&sort_field=title&sort_direction=descending")
+        site.handle(
+            "POST",
+            "/tasks/1/move",
+            {**SAME_ORIGIN, **FORM},
+            b"status=in-progress&place=all_tasks&filter_status=todo&sort_field=title",
+        )
+        get(site, "/tasks?filter_status=todo&sort_field=title&moved=in-progress&move_task=1")
     finally:
         _window["open"] = False
     assert comment.status == 303 and header(comment, "Location") == "/tasks/1?comment_added=1"
@@ -1116,3 +1125,63 @@ def test_filter_apply_reload_and_clear_are_pages_that_save_and_set_nothing() -> 
         assert header(response, "Content-Security-Policy") == POLICY, target
         assert header(response, "Set-Cookie") is None, target
         assert (tracker.project_tasks(1), len(saver.saved)) == before, target
+
+
+def test_global_apply_and_move_hand_a_recording_saver_only_the_moves_save() -> None:
+    """CP-485, T17: opening, applying, reloading and clearing All tasks ask the saver for nothing;
+    a successful global move reaches it as one save of a whole state, and its landing reads none."""
+    calls: list[tuple[str, tuple[object, ...]]] = []
+
+    class RecordingEverything:
+        def save(self, *arguments: object) -> None:
+            calls.append(("save", arguments))
+
+        def __getattr__(self, name: str) -> object:
+            calls.append((name, ()))
+            raise AssertionError(f"the saver was asked for {name}")
+
+    site, tracker = make_site(RecordingEverything())  # type: ignore[arg-type]
+    tracker.create_project("Alpha", "")
+    tracker.create_project("Beta", "")
+    tracker.add_task(1, "Seed", "", "", "")
+    tracker.add_task(2, "Other", "", "", "")
+    calls.clear()
+    apply = "/tasks?filter_status=todo&sort_field=title&sort_direction=descending"
+    for address in ("/tasks", apply, apply, "/tasks", "/tasks?filter_status=blocked"):
+        answered = get(site, address)
+        assert answered.status == 200 and header(answered, "Set-Cookie") is None
+    assert calls == []
+    moved = site.handle(
+        "POST",
+        "/tasks/2/move",
+        {**SAME_ORIGIN, **FORM},
+        b"status=in-progress&place=all_tasks&filter_status=todo",
+    )
+    assert moved.status == 303
+    assert header(moved, "Location") is not None
+    assert str(header(moved, "Location")).startswith("/tasks?")
+    get(site, str(header(moved, "Location")))
+    assert [name for name, _ in calls] == ["save"]
+    assert all(isinstance(arguments[0], TrackerState) for _, arguments in calls)
+
+
+def test_all_tasks_open_apply_reload_clear_and_refusal_leave_state_and_headers() -> None:
+    """CP-485, T17: the All tasks address with no choice, an Apply, its reload, Clear and a refused
+    choice each answer 200 with no redirect, the page policy and no cookie, and change nothing."""
+    saver = RecordingSaver()
+    site, tracker = make_site(saver)
+    post(site, name="Alpha", description="seed")
+    post(site, name="Beta", description="seed")
+    tracker.add_task(1, "Seed task", "", "", "")
+    tracker.add_task(2, "Other task", "", "", "")
+    saves = len(saver.saved)
+    before = (tracker.projects(), tracker.project_tasks(1), tracker.project_tasks(2))
+    apply = "/tasks?filter_status=todo&sort_field=title&sort_direction=descending"
+    for address in ("/tasks", apply, apply, "/tasks", "/tasks?filter_status=blocked"):
+        response = site.handle("GET", address, SAME_ORIGIN, b"")
+        assert response.status == 200, address
+        assert header(response, "Location") is None, address
+        assert header(response, "Content-Security-Policy") == POLICY, address
+        assert header(response, "Set-Cookie") is None, address
+    assert (tracker.projects(), tracker.project_tasks(1), tracker.project_tasks(2)) == before
+    assert len(saver.saved) == saves

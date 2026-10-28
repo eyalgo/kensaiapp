@@ -6,3 +6,6 @@
 **Category:** feature
 **Behaviour:** changing
 **Classified because:** the station adds a new All tasks page, a header link and a not-found link, which add to the FDR-level contract (SDD § 6 S-5, UXD UX-S7 and UX-S10), so Behaviour is `changing` and the Category is `feature`.
+
+**Sealed:** 2026-10-28 — accepted; merged to `main` via `--no-ff`.
+Environment: owners-mac — no CI

@@ -17,10 +17,14 @@ from test_filter_move_routes import (
     LEFT,
     LINE_ID,
     LIST_ID,
+    all_confirm,
+    all_press,
+    all_world,
     confirm,
     landing,
     line_of,
     no_store,
+    pairs_of,
     press,
     query_of,
     selected,
@@ -316,3 +320,61 @@ def test_move_carrying_preserves_blank_repeats_and_absence(tmp_path: Path) -> No
     confirmed = confirm(world, 3, [])
     assert not [key for key in query_of(confirmed) if key.startswith("sort_")]
     assert set(query_of(plain)) == {"filter_priority", "moved", "move_task"}
+
+
+# --- All tasks (CP-477; design T13) ----------------------------------------------------------
+
+GLOBAL_BAD = [
+    pytest.param([("filter_status", "blocked")], "filter_status", id="status"),
+    pytest.param([("filter_priority", "urgent")], "filter_priority", id="priority"),
+    pytest.param([("filter_assignee", "Zed")], "filter_assignee", id="assignee"),
+    pytest.param([("filter_due_from", "nope")], "filter_due_from", id="from"),
+    pytest.param([("filter_due_to", "2026-13-01")], "filter_due_to", id="to"),
+    pytest.param([("filter_overdue", "yes")], "filter_overdue", id="overdue"),
+    pytest.param([("filter_status", "todo"), ("filter_status", "todo")], "filter_status", id="rs"),
+    pytest.param([("filter_label", "a"), ("filter_label", "b")], "filter_label", id="repeat-label"),
+    pytest.param([("filter_priority", ""), ("filter_priority", "")], "filter_priority", id="rp"),
+    pytest.param(
+        [("filter_due_from", "2026-10-09"), ("filter_due_to", "2026-10-01")],
+        "filter_due_from",
+        id="reversed",
+    ),
+    pytest.param([("sort_field", "colour")], "sort_field", id="sort-field"),
+    pytest.param([("sort_direction", "up")], "sort_direction", id="sort-direction"),
+    pytest.param([("sort_field", "title"), ("sort_field", "title")], "sort_field", id="rsort"),
+    pytest.param(
+        [("filter_status", "blocked"), ("sort_field", "colour")], "filter_status", id="both"
+    ),
+    pytest.param(
+        [("filter_label", "nothing-has-this"), ("sort_field", "colour")],
+        "sort_field",
+        id="sort-after-no-match",
+    ),
+]
+
+
+@pytest.mark.parametrize("confirming", [False, True])
+@pytest.mark.parametrize(("bad", "focus"), GLOBAL_BAD)
+def test_bad_global_choices_prevent_both_move_posts(
+    tmp_path: Path, bad: list[tuple[str, str]], focus: str, confirming: bool
+) -> None:
+    """CP-477, T13: invalid or repeated choices stop the ordinary and confirming POSTs before any
+    save, status change or confirmation; /tasks keeps the raw values and the ordered reasons."""
+    world = all_world(tmp_path)
+    before = world.bytes_on_disk()
+    saves = world.saver.saves
+    response = all_confirm(world, 1, bad) if confirming else all_press(world, 1, "in-progress", bad)
+    assert urlsplit(location(response)).path == "/tasks"
+    assert pairs_of(urlsplit(location(response)).query)[1:] == bad
+    assert "move_confirm" not in query_of(response) and "moved" not in query_of(response)
+    assert world.bytes_on_disk() == before and world.saver.saves == saves
+    assert world.tracker.task(1).status.value == "todo"  # type: ignore[union-attr]
+    assert "move_confirm" not in query_of(all_press(world, 1, "cancelled", bad))
+    answered, root = landing(world, response)
+    assert answered.status == 200 and no_store(answered)
+    assert root.find_all("table") == []
+    assert [e for e in root.walk() if (e.attrs.get("id") or "").endswith("-reason")]
+    assert line_of(root) is None
+    (owner,) = focused(root)
+    assert owner.attrs.get("name") == focus
+    assert world.bytes_on_disk() == before

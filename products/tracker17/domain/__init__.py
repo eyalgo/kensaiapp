@@ -23,6 +23,8 @@ from domain.filtering import (
     FilterRefused,
     FilterSelection,
     TaskFilter,
+    all_filter_options,
+    filter_all_tasks,
     filter_project_tasks,
     project_filter_options,
 )
@@ -74,6 +76,7 @@ from domain.sorting import (
     SortInput,
     SortKey,
     TaskSort,
+    sort_all_tasks,
     sort_project_tasks,
 )
 from domain.state import TrackerState, empty_state, restore_state
@@ -165,6 +168,7 @@ __all__ = [
     "add_task",
     "add_task_comment",
     "add_task_label",
+    "all_filter_options",
     "allowed_moves",
     "check_assignee_names",
     "check_comment_text",
@@ -177,6 +181,7 @@ __all__ = [
     "create_project",
     "edit_task",
     "empty_state",
+    "filter_all_tasks",
     "filter_project_tasks",
     "find_project",
     "find_task",
@@ -194,6 +199,7 @@ __all__ = [
     "restore_state",
     "restore_task",
     "set_operator_name",
+    "sort_all_tasks",
     "sort_project_tasks",
     "task_edit_context",
 ]

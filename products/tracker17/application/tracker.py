@@ -8,15 +8,19 @@ a save. It decides no rule, and knows nothing of how or where the state is saved
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import date
 
 from application.contracts import Clock, Saver
 from domain import (
     FilterFieldRefusal,
     FilterInput,
+    FilterOptions,
     OperatorNameOutcome,
     Project,
     ProjectListRefused,
+    SortedSelection,
     SortFieldRefusal,
     SortInput,
     Task,
@@ -32,6 +36,7 @@ from domain import (
     add_task,
     add_task_comment,
     add_task_label,
+    all_filter_options,
     allowed_moves,
     create_project,
     edit_task,
@@ -46,6 +51,7 @@ from domain import (
     remove_assignee,
     remove_task_label,
     set_operator_name,
+    sort_all_tasks,
     sort_project_tasks,
     task_edit_context,
 )
@@ -55,7 +61,8 @@ NO_SORT = SortInput()
 
 @dataclass(frozen=True)
 class TaskRow:
-    """One row of a project's task list: the task, and whether it is overdue on the page's date."""
+    """One row of a task list, a project's or all tasks: the task, and whether it is overdue on the
+    page's date."""
 
     task: Task
     overdue: bool
@@ -63,12 +70,13 @@ class TaskRow:
 
 @dataclass(frozen=True)
 class ProjectTaskList:
-    """A project's task list read for one page: the whole project's task count, the matching rows
-    in list order, how many matched and the choices as validated.
+    """A task list read for one page, whichever scope the read supplied (one project's tasks, or all
+    tasks): the whole scope's task count, the matching rows in list order, how many matched and the
+    choices as validated.
 
     A refusal of the filter or of the sort has no rows, no match count, no validated choices and no
     visible count: it carries the typed problems in control order beside the raw choices it was sent
-    with. Both kinds carry the options of the whole project, so the controls can be built from
+    with. Both kinds carry the options of the whole scope, so the controls can be built from
     either. `narrowed` speaks of the filter alone; `count_requested` is the domain's word on
     whether the page owes the operator the number of tasks it lists.
     """
@@ -260,11 +268,46 @@ class Tracker:
         instant serves the selection and every row's overdue flag. A refused filter or sort comes
         back as the typed problems, never raised, with the options of the whole project.
         """
+        return self._read_list(
+            fields,
+            sort_fields,
+            lambda today: sort_project_tasks(self._state, project_id, fields, sort_fields, today),
+            project_filter_options(self._state, project_id),
+        )
+
+    def all_task_list(
+        self,
+        fields: FilterInput,
+        *,
+        sort_fields: SortInput = NO_SORT,
+    ) -> ProjectTaskList:
+        """Every project's tasks narrowed by the filter and ordered by the sort, read for one page,
+        saving nothing.
+
+        The rules, the clock read and the refusal as page data are the project read's. A refused
+        choice comes back with the options of all tasks. Project names are not in the result: a
+        page gets them from `projects()`.
+        """
+        return self._read_list(
+            fields,
+            sort_fields,
+            lambda today: sort_all_tasks(self._state, fields, sort_fields, today),
+            all_filter_options(self._state),
+        )
+
+    def _read_list(
+        self,
+        fields: FilterInput,
+        sort_fields: SortInput,
+        select: Callable[[date], SortedSelection],
+        options: FilterOptions,
+    ) -> ProjectTaskList:
+        """Read the clock once, run the scope's selection against that date and project the
+        selection, or the refusal that stops it, for the page."""
         today = self._clock.now().astimezone().date()
         try:
-            selection = sort_project_tasks(self._state, project_id, fields, sort_fields, today)
+            selection = select(today)
         except ProjectListRefused as refused:
-            options = project_filter_options(self._state, project_id)
             return ProjectTaskList(
                 task_count=options.task_count,
                 rows=(),
