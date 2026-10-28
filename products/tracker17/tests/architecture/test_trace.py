@@ -590,8 +590,10 @@ def test_list_entries_name_fr31_and_every_all_tasks_participant() -> None:
 
 
 SUMMARY_REQUIREMENTS = {"FR-38", "FR-25", "FR-35", "NFR-9"}
+SUMMARY_PARTICIPANTS = ("application/tracker.py", "application/__init__.py")
 SUMMARY_CHECKING_TESTS = (
     "tests/unit/test_summary.py",
+    "tests/integration/test_summary_tracker.py",
     "tests/architecture/test_trace.py",
     "tests/architecture/test_shapes.py",
 )
@@ -606,6 +608,8 @@ def test_summary_entry_names_requirements_and_existing_participants() -> None:
     text = entry_docstring("summary")
     paths = named_paths(text)
     assert SUMMARY_REQUIREMENTS <= set(named_requirements(text))
+    for participant in SUMMARY_PARTICIPANTS:
+        assert participant in paths, participant
     for checking in SUMMARY_CHECKING_TESTS:
         assert checking in paths, checking
         module = PRODUCT_ROOT / checking
