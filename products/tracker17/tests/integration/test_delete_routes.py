@@ -266,7 +266,7 @@ def test_deletion_disappears_from_every_list_and_summary_count(tmp_path: Path) -
                 for group in groups(parse(page(get(world.site, f"/projects/{project}/summary"))))
                 for _, count in rows_of(group)
             ]
-            assert page_counts[:8] == flat[1:9]
+            assert page_counts[:11] == flat
         everything = parse(page(get(world.site, "/tasks")))
         assert sorted(row_titles(everything)) == sorted(spec[1] for spec in live)
         assert world.bytes_on_disk() == stored

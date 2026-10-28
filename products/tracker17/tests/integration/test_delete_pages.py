@@ -93,18 +93,19 @@ def test_delete_control_is_task_level_in_every_status(
     add_comments(world, comments)
     root = task_root(world)
     (main,) = root.find_all("main")
+    comments_section = root.by_id("comments")
+    assert comments_section is not None
     forms = main.find_all("form")
     delete_form = forms[-1]
     assert delete_form.attrs["action"] == TRIGGER_ACTION and delete_form.attrs["method"] == "post"
     assert [f.attrs["action"] for f in forms].count(TRIGGER_ACTION) == 1
     (button,) = delete_form.find_all("button")
     assert button.text() == TRIGGER_LABEL and "aria-label" not in button.attrs
-    assert delete_form.find_all("form") == [] and not inside(delete_form, root.by_id("comments"))
+    assert [e for e in delete_form.walk() if e.tag == "form"] == [delete_form]
+    assert not inside(delete_form, comments_section)
     for other in forms[:-1]:
         assert not inside(delete_form, other) and not inside(other, delete_form)
     assert focused(root) == []
-    comments_section = root.by_id("comments")
-    assert comments_section is not None
     order = list(root.walk())
     assert order.index(delete_form) > order.index(comments_section)
     for item in comments_section.find_all("li"):

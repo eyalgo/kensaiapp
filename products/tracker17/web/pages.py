@@ -233,6 +233,26 @@ class MoveInteraction:
     mode: MoveInteractionMode
 
 
+class DeleteMode(Enum):
+    """Which of the four states the task page's Delete task area is in."""
+
+    ORDINARY = "ordinary"
+    CONFIRMATION = "confirmation"
+    BACKED_OUT = "backed-out"
+    FAILED = "failed"
+
+
+@dataclass(frozen=True)
+class DeleteArea:
+    """The task page's Delete task area, as presentation state only; it decides no rule.
+
+    The title the sentence and the failure line name is the supplied task's, held now. An ordinary
+    area adds no outcome, so a caller that knows nothing of deletion builds the page it always did.
+    """
+
+    mode: DeleteMode = DeleteMode.ORDINARY
+
+
 @dataclass(frozen=True)
 class StripForm:
     """One of the strip's two forms: the control's words, where it goes, how, and its hidden fields.
@@ -755,6 +775,60 @@ def _cancellation_strip(task: Task, place: MovePlace, carried: Carried = ()) -> 
         ),
         size=TRIGGER_SIZE,
         focus=True,
+    )
+
+
+DELETE_LABEL = "Delete task"
+DELETE_SENTENCE = "Delete '{title}'? You can't undo this."
+DELETE_FAILURE = "The tracker couldn't delete '{title}', and nothing was changed. Try again."
+DELETED_LINE = "You deleted '{title}'."
+DELETE_ADDRESS = "/tasks/{task_id}/delete"
+DELETE_CONFIRM_ADDRESS = "/tasks/{task_id}/delete/confirm"
+DELETE_BACK_KEY = "delete_back"
+_DELETE_SECTION_ID = "delete-task"
+_DELETE_FAILURE_ID = "delete-failure"
+_DELETED_LINE_ID = "deleted-line"
+
+
+def _delete_strip(task: Task) -> str:
+    return confirm_strip(
+        sentence=DELETE_SENTENCE.format(title=task.title),
+        sentence_id=CONFIRM_SENTENCE_ID,
+        confirm=StripForm(DELETE_LABEL, DELETE_CONFIRM_ADDRESS.format(task_id=task.id), "post", {}),
+        back_out=StripForm(BACK_OUT_LABEL, f"/tasks/{task.id}", "get", {DELETE_BACK_KEY: ""}),
+        size=TRIGGER_SIZE,
+        focus=True,
+    )
+
+
+def _delete_section(task: Task, mode: DeleteMode) -> str:
+    """The task-level Delete task area, after everything else the page shows and outside every
+    form of it: the control, or the confirmation in the control's place, or the control restored
+    with focus and, after a failed save, the one line that describes it."""
+    if mode is DeleteMode.CONFIRMATION:
+        return (
+            f'<section id="{_DELETE_SECTION_ID}" class="sheet">\n'
+            f'<div class="moves"><div class="move-slot">{_delete_strip(task)}</div></div>\n'
+            "</section>\n"
+        )
+    failed = mode is DeleteMode.FAILED
+    focus = " autofocus" if mode is not DeleteMode.ORDINARY else ""
+    if failed:
+        focus += f' aria-describedby="{_DELETE_FAILURE_ID}"'
+    line = (
+        f'<p class="reason" id="{_DELETE_FAILURE_ID}">'
+        f"{_escape(DELETE_FAILURE.format(title=task.title))}</p>\n"
+        if failed
+        else ""
+    )
+    return (
+        f'<section id="{_DELETE_SECTION_ID}" class="sheet">\n'
+        '<div class="moves"><div class="move-slot">'
+        f'<form method="post" action="{DELETE_ADDRESS.format(task_id=task.id)}">'
+        f'<button type="submit" class="delete-button"{focus}>{_escape(DELETE_LABEL)}</button>'
+        "</form></div></div>\n"
+        f"{line}"
+        "</section>\n"
     )
 
 
@@ -1617,9 +1691,12 @@ def project_page(
     move_outcome: MoveOutcome | None = None,
     move_interaction: MoveInteraction | None = None,
     off_list_task: Task | None = None,
+    deleted_task: str | None = None,
 ) -> str:
     """One project's page: its add-task form, and its tasks in the order and with the overdue
-    flags handed in. With `created`, it opens on its heading and the created line.
+    flags handed in. With `created`, it opens on its heading and the created line. With a
+    `deleted_task` title, it opens on its heading and the deletion line, which takes precedence
+    over every other outcome and interaction.
 
     A `listing` adds the filter area, the count and the empty and refused states a filtered read
     carries, for a project that has tasks; without one the page is the plain list of `rows`.
@@ -1632,6 +1709,9 @@ def project_page(
     task of the project the filtered list does not show, gets one line above the results, and the
     list section, not the line, owns the focus.
     """
+    if deleted_task:
+        created, form = False, None
+        move_outcome, move_interaction, off_list_task = None, None, None
     off_list_line = _off_list_line(move_outcome, off_list_task, allowed_moves)
     lined = off_list_line is not None or any(_has_move_line(move_outcome, row.task) for row in rows)
     interacting = (
@@ -1648,6 +1728,13 @@ def project_page(
         created_line = (
             f'<p class="created" id="{_CREATED_LINE_ID}">You created '
             f"'{_escape(project.name)}'.</p>\n"
+        )
+    if deleted_task:
+        heading_attributes += f' autofocus aria-describedby="{_DELETED_LINE_ID}"'
+        # The completion look is the created line's: one style for one kind of landing line.
+        created_line = (
+            f'<p class="created" id="{_DELETED_LINE_ID}">'
+            f"{_escape(DELETED_LINE.format(title=deleted_task))}</p>\n"
         )
     description = (
         f'<p class="description pre-wrap">{_escape(project.description)}</p>\n'
@@ -2166,9 +2253,10 @@ def task_page(
     allowed_moves: AllowedMoves = _no_moves,
     move_outcome: MoveOutcome | None = None,
     move_interaction: MoveInteraction | None = None,
+    delete_area: DeleteArea | None = None,
 ) -> str:
     """One task: its title, its project as text, the form that edits its four fields, its labels
-    and its comments.
+    and its comments, then the Delete task area.
 
     The form shows the saved values, or the retained ones `form` hands in after a refusal or a
     failure. With `added` or `saved` it opens on its heading, which the completion line describes;
@@ -2180,9 +2268,15 @@ def task_page(
     area offers the moves `allowed_moves` gives for the saved status; a `move_outcome` about this
     task takes precedence over every other outcome, and the status word takes the one focus. A
     `move_interaction` about this task, with no such outcome, replaces its cancelled button and
-    owns the one focus instead.
+    owns the one focus instead. A `delete_area` that is not ordinary takes precedence over all of
+    them: its confirmation, restored control or failure line then owns the one focus, and no
+    other outcome, interaction or autofocus shows.
     """
     task = context.task
+    delete_mode = (delete_area or DeleteArea()).mode
+    deleting = delete_mode is not DeleteMode.ORDINARY
+    if deleting:
+        move_outcome, move_interaction = None, None
     offered = allowed_moves(task.status)
     move_line = _move_line(move_outcome, task, offered)
     interaction = (
@@ -2192,7 +2286,7 @@ def task_page(
         and move_interaction.task_id == task.id
         else None
     )
-    if move_line is not None or interaction is not None:
+    if deleting or move_line is not None or interaction is not None:
         form, added, saved, label_area, comment_area = None, False, False, None, None
     comment_area = comment_area or CommentArea()
     comment_outcome = _comment_outcome(comment_area, task)
@@ -2228,6 +2322,7 @@ def task_page(
         f"{_status_section(task, offered, move_line, interaction)}"
         f"{_label_section(task, label_area, label_outcome)}"
         f"{_comment_section(task, comment_area, operator_name, comment_outcome)}"
+        f"{_delete_section(task, delete_mode)}"
     )
     return _document(f"{task.title} - tracker17", body)
 

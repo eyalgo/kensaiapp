@@ -226,8 +226,11 @@ button:hover {
 }
 
 /* A status move on a task row or on the task page: row-control tall (28px, clearing the 24px
-   target floor), the surface fill, the control type, and the secondary button's 1px muted edge. */
-button.move-button {
+   target floor), the surface fill, the control type, and the secondary button's 1px muted edge.
+   The task page's Delete task control is the same size and look, under a class of its own, since
+   it is not a move. */
+button.move-button,
+button.delete-button {
   height: 28px;
   min-width: 24px;
   padding: 0 12px;
@@ -240,7 +243,8 @@ button.move-button {
   line-height: 1.2;
 }
 
-button.move-button:hover {
+button.move-button:hover,
+button.delete-button:hover {
   background: var(--surface-sunk);
   color: var(--ink);
 }

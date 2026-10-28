@@ -11,17 +11,20 @@ Task entity, one identity across all projects, issued from a counter held in the
 
 Taking part: application/tracker.py applies these rules and saves the result, and prepares the
 rows of a project's list and the edit's page values; web/pages.py shows the form, the list and a
-task with its edit form, and web/routes.py turns a submission into an add or an edit and each
-refusal into its reason. persistence/saved_data.py restores a saved task through restore_task and
+task with its edit form and its Delete task area, and web/routes.py turns a submission into an add,
+an edit or a deletion and each refusal into its reason. persistence/saved_data.py restores a saved task through restore_task and
 the saved state through restore_state.
 
-Checked by: tests/unit/test_tasks.py (including the deletion rule), tests/unit/test_priorities.py, tests/unit/test_due_dates.py
-and tests/unit/test_state.py (the rules and restoration), and tests/integration/test_saved_data.py
+Checked by: tests/unit/test_tasks.py (including the deletion rule), tests/unit/test_priorities.py,
+tests/unit/test_due_dates.py and tests/unit/test_state.py (the rules and restoration), and
+tests/integration/test_saved_data.py
 and tests/integration/test_start.py (the saved task shape and the start on saved data), and
 tests/integration/test_task_tracker.py (the add, the edit, the lookup and the list through the
 Tracker), tests/integration/test_task_routes.py, tests/integration/test_routes.py and
-tests/integration/test_task_pages.py (the requests and pages), tests/e2e/test_tasks.py (the
-browser), and tests/integration/test_timed_run.py (the timed harness at task volume).
+tests/integration/test_task_pages.py (the requests and pages),
+tests/integration/test_delete_pages.py and tests/integration/test_delete_routes.py (the deletion's
+pages and requests), tests/e2e/test_tasks.py and tests/e2e/test_delete_task.py (the browser), and
+tests/integration/test_timed_run.py (the timed harness at task volume).
 """
 
 from __future__ import annotations
