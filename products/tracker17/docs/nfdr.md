@@ -2,8 +2,8 @@
 
 **Status:** Settled
 **Owner:** Principal Architect
-**Version:** 16 — the answer to companion § 3.1 folded in (`products/tracker17/docs/trail/architecture/cycle-14.md`): ADR-0011 supersedes ADR-0006 and defines a submission as a form sent with `method="post"`, a `get` form being a read answered with its page, as SDD version 12 § 4 RT-8 does; QC-7 defines the word and names the filter test, QC-8 and § 4 re-point to ADR-0011 (RN-48); nothing is left open, so the companion is removed and this document is Settled
-**Inputs read:** SRS Settled (version 6) · SDD Settled (version 12) · FDR Settled (version 4) · PRD Settled (version 7) · UXD Settled (version 9) · DESIGN Settled (version 4) · CONTENT Settled (version 15) · Agari no Status line · tracker17 doctrine no Status line (stamped, unfilled)
+**Version:** 17 — the answer to companion § 2.1 folded in (`products/tracker17/docs/trail/architecture/cycle-15.md`): ADR-0012 supersedes ADR-0010 and widens the history-admission boundary to every pending confirmation SDD § 4 EX-6 names — a move to `cancelled`, a task deletion, a project deletion — as SDD version 13 § 4 RT-11 does; QC-63 is widened in place, its `verified by:` names its verifiers clause by clause and carries the task deletion's 202 as unmet, and its `Clear-Site-Data` clause covers the three confirmed actions (RN-50); nothing is left open, so the companion is removed and this document is Settled
+**Inputs read:** SRS Settled (version 6) · SDD Settled (version 13) · FDR Settled (version 4) · PRD Settled (version 7) · UXD Settled (version 11) · DESIGN Settled (version 4) · CONTENT Settled (version 17) · Agari no Status line · tracker17 doctrine no Status line (stamped, unfilled)
 
 > The NFDR is the product's **standing obligations, consolidated and verifiable**: every quality
 > constraint a change is checked against, derived from the SRS, the SDD, the FDR and the ADR — never
@@ -88,23 +88,39 @@ module under `tests/architecture/`, which `pytest tests/` runs.
   layer 6 fails on an import of `http.cookies`; the keeps-nothing half is a review at
   `development-design` for a change to `web`, because state held in a module-level value is not
   reliably distinguishable from a constant by a scanner *(traces to: ADR-0011; SDD § 4 RT-7)*
-- **QC-63:** A page that shows a pending confirmation of a move to `cancelled` is answered with HTTP
-  status 202, and every other page a move's interaction or outcome lands on with 200. Each of them
-  carries `Cache-Control: no-store`. The status is read off the page as built, never off the address
-  alone. A confirmation address naming a task no task holds answers the not-found page, 404, with no
-  `no-store`, and is outside this obligation. No move response carries `Clear-Site-Data`: no move
-  submission's response, and neither the confirmation page nor the back-out page.
-  — *verified by:* layer 3, `tests/integration/test_routes.py`,
-  `test_pending_confirmation_response_matches_the_rendered_page`,
+- **QC-63:** A page that shows a pending confirmation of any action SDD § 4 EX-6 confirms — a move
+  to `cancelled`, a task deletion, a project deletion — is answered with HTTP status 202, and every
+  other page a confirmed action's interaction or outcome lands on — a move's outcome, a deletion's
+  back-out, its failure, and the landing that names the deleted task or project — with 200. Each of
+  them carries `Cache-Control: no-store`. The status is read off the page as built, never off the
+  address alone. The address of a deleted task or project, with any query, and an address naming a
+  task no task ever held, answers the not-found page, 404, with no cache header, never 202; the 202
+  and `no-store` clauses do not reach it. No response of an action EX-6 confirms carries
+  `Clear-Site-Data`: neither its submissions nor its confirmation, back-out, failure or outcome
+  pages.
+  — *verified by:* clause by clause. **The move's clauses:** layer 3,
+  `tests/integration/test_routes.py`, `test_pending_confirmation_response_matches_the_rendered_page`,
   `test_non_confirmation_move_views_keep_their_response_contract`,
   `test_move_interaction_and_outcome_pages_are_not_stored` and
   `test_move_responses_do_not_clear_site_data`; layer 5, `tests/e2e/test_moves.py`,
   `test_history_matrix_revalidates_current_saved_status` and
   `test_real_history_traversal_revalidates_the_confirmation`, which fail when a return to a
-  confirmation's address is restored from history instead of loaded. Layer 5 proves the build the
-  pinned library installs, Chromium 153.0.8010.12 under `playwright==1.63.0`, and not the operator's
-  current stable Chrome *(traces to: ADR-0010; SDD § 4 RT-11, § 9 TO-8, § 11 R-12; SRS NFR-3, NFR-13;
-  UXD § 4, UX-F4, UX-I3; owner, `trail/architecture/cycle-12.md` § 2.1; see RN-44)*
+  confirmation's address is restored from history instead of loaded. **The task deletion's
+  `no-store` on its four pages, its 200 on back-out, failure and landing, and no `Clear-Site-Data`
+  on its submissions and pages:** layer 3, `tests/integration/test_delete_routes.py`,
+  `test_live_delete_views_have_their_response_policy`. **The 404 with no cache header:** layer 3,
+  the same module's `test_missing_task_wins_over_every_query` and
+  `test_a_never_held_task_answers_the_same`. **The task deletion's 202 is unmet** (RN-50): its
+  verifiers are `test_live_delete_views_have_their_response_policy`'s `?delete_confirm` row asserting
+  202, and a layer-5 deletion history test beside `tests/e2e/test_delete_task.py`,
+  `test_completion_survives_actual_reload_back_and_forward`, that goes Back to the confirmation after
+  confirming; both land with the change that aligns the product. **The project deletion's pages**
+  are bound when they land, verified by the layer-3 and layer-5 tests SDD § 6 `delete-and-rename`'s
+  *Command* half adds. Layer 5 proves the build the pinned library installs, Chromium 153.0.8010.12
+  under `playwright==1.63.0`, and not the operator's current stable Chrome *(traces to: ADR-0012;
+  SDD § 4 RT-11, EX-6, EX-13, § 6 `delete-and-rename`, § 9 TO-8, § 11 R-12, RN-56; SRS NFR-3, NFR-13,
+  DR-2; UXD § 4, UX-F4, UX-I2, UX-I3, UX-S10; owner, `trail/architecture/cycle-12.md` § 2.1,
+  `trail/architecture/cycle-15.md` § 2.1; see RN-44, RN-50)*
 - **QC-9:** The two maximum text lengths are stated once, in `domain`, and every text field's
   `maxlength` is written from them, as is the maximum the description field and the comment field
   state beside them. `web` turns each submitted CR LF pair, and each remaining CR, into
@@ -638,7 +654,7 @@ Every row's command is typed from the product root, inside the virtual environme
 | QC-62 | formatting | `ruff format --check .` | the tree | suite |
 | QC-62 | lint | `ruff check .` | the tree | suite |
 | QC-62 | types | `mypy main.py errors.py domain application persistence web` | the tree | suite |
-| QC-63 | move pages: 202 for a pending confirmation, `no-store` | `pytest tests/` · layer 3; `pytest tests/e2e/` · layer 5 | the tree | suite |
+| QC-63 | confirmed actions' pages: 202 for a pending confirmation, `no-store`; the bare 404 | `pytest tests/` · layer 3; `pytest tests/e2e/` · layer 5 | the tree | suite |
 
 QC-12, QC-25, QC-26, QC-27, QC-40, QC-41 and QC-60 are review gates and have no row.
 
@@ -1329,3 +1345,54 @@ QC-12, QC-25, QC-26, QC-27, QC-40, QC-41 and QC-60 are review gates and have no 
   project's doctrine and the card are unchanged since version 15. `Inputs read:` now names SDD
   version 12, UXD version 9 and CONTENT version 15. Nothing is left open, so the companion is
   removed and this document is Settled. *(re: Version 16; ADR-0011, QC-7, QC-8)*
+- **RN-50:** ADR-0012 supersedes ADR-0010 and QC-63 is widened in place to every pending
+  confirmation SDD § 4 EX-6 names — *because* the owner confirmed companion § 2.1 with three
+  additions (`trail/architecture/cycle-15.md` § 2.1; reasoning, `trail/architecture/self_answer-19.md`
+  § 2.1), and SDD version 13 settled the decision in § 4 RT-11, § 6 `delete-and-rename`, § 9 TO-8
+  and § 11 R-12 (SDD RN-56). ADR-0010, held to its words, reached no deletion page, so this is a
+  change of decision, and an accepted record takes a change only by supersession, as ADR-0011 took
+  ADR-0006 (RN-48). ADR-0012 carries ADR-0010's decision, alternatives and consequences whole; its
+  Status line is the one line changed in ADR-0010. The first addition is how an obligation the
+  product does not yet meet is carried: in QC-63 and this note, never in the record. This run
+  measured the product at `035b97cd1`, the newest commit to `web/` and `tests/`: `web/routes.py`,
+  `Site._task_page`, hands `Site._pending_status` no interaction on a page in a deletion state, so
+  the task deletion's confirmation is answered 200, with `no-store`, and
+  `tests/integration/test_delete_routes.py`, `test_live_delete_views_have_their_response_policy`,
+  asserts that 200. A test that passes on the breach cannot verify the clause, so QC-63's tail names
+  the clauses the product meets with the tests that verify them, says the task deletion's 202 is
+  unmet, and names the verifiers that land with the change that aligns the product. That change is
+  the PM's to carry, as SDD RN-56 says; this note closes when it lands. ADR-0012 states no product
+  state, because it is written once and a dated "the product answers 200" in it would read false
+  after that change. The second addition scopes the `Clear-Site-Data` clause to the three actions
+  EX-6 confirms, as ADR-0010 and QC-63 scoped it to a move: RT-11 says only that the header on the
+  confirming redirect is gone, and a product-wide ban is an SDD line first. The third addition is
+  RT-11's one left case, a 404 for an identity not yet issued kept by a cache outside SRS NFR-13's
+  bound, which ADR-0012's *Consequences* names, and RFC 9110 § 15.5.5 and Chromium's
+  `GetFreshnessLifetimes` beside the admission rule in its *Dependence*. The project deletion is not
+  built (`products/tracker17/docs/what_left.md`), so QC-63 binds its pages when they land. This run
+  checked each locator at `HEAD`: `web/routes.py`, `_task_page`, `_delete_area`, `_pending_status`
+  and `_stored_as_asked` (`deleting` sets `NOT_STORED`); `web/listener.py`, `_write`, which calls
+  `send_response_only`; `tests/integration/test_delete_routes.py:432`, `:444` and `:451`;
+  `tests/e2e/test_delete_task.py:151`, which goes Back only to the landing; and QC-63's six move
+  tests in `tests/integration/test_routes.py` and `tests/e2e/test_moves.py`. It ran no suite. RN-44
+  and RN-48 are dated records and are not edited. § 10's QC-63 row names the widened obligation and
+  keeps its commands. *(re: ADR-0010, ADR-0012, QC-63, § 10; source: owner,
+  `trail/architecture/cycle-15.md` § 2.1; SDD § 4 RT-11, EX-6, EX-13, § 6 `delete-and-rename`,
+  § 9 TO-8, § 11 R-12, RN-56; SRS NFR-3, NFR-13, DR-2; UXD UX-I2, UX-S10)*
+- **RN-51:** Version 17 was written on 2026-10-28. It read the answered companion as committed at
+  `38e20bf81` and copied it whole to `trail/architecture/cycle-15.md` before the fold, with the
+  reasoning behind its one item at `trail/architecture/self_answer-19.md`. A `companion-self-answer`
+  run opened that companion in the CTO's seat, at `5585e0b11`; no producing run wrote it. Its one
+  item, § 2.1, was answered and is folded (RN-50). Since version 16 (`git diff --stat db16374d3 HEAD`
+  over the product's `docs/` and the project's `agari.md`, `doctrine/` and `project.md`), upstream
+  moved, and this run read each change. SDD version 13 widens § 4 RT-11, which RN-50 folds; names
+  ADR-0011 in RT-8 and counts eleven records in § 12, which moves no entry; and its § 10 RC-6 and
+  RN-57 place a refusal or failure for a task the list's filter leaves off the list above the
+  results, which is behaviour. UXD versions 10 and 11 make that placement, and `CONTENT.md` versions
+  16 and 17 word it and count what § Needs confirming counts; both are behaviour and experience
+  (RN-12) and move no entry. `what_left.md` lost the lines for the tasks, the filtering, the
+  no-match state, the sorting and the project summary, since built, and moves no entry. The SRS, the
+  FDR, the PRD, `DESIGN.md`, the Agari, the project's doctrine and the card are unchanged since
+  version 16. `Inputs read:` now names SDD version 13, UXD version 11 and CONTENT version 17.
+  Nothing is left open, so the companion is removed and this document is Settled. *(re: Version 17;
+  ADR-0012, QC-63)*

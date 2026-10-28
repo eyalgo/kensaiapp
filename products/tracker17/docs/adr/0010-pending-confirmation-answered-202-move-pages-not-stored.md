@@ -1,6 +1,6 @@
 # ADR-0010: Answer a page that shows a pending confirmation with 202, and store no move page
 
-**Status:** Accepted
+**Status:** Superseded by ADR-0012
 **Date:** 2026-10-21
 
 ## Context
