@@ -768,16 +768,8 @@ def test_global_move_markup_is_escaped_in_lines_confirmation_and_carried_choices
     raw = page(landed)
     assert "<b>" not in raw and "&lt;b&gt;" in raw
     line = line_of(root)
-    assert (
-        line is not None
-        and line.text()
-        == (
-            f"You moved '{hostile}' to in-progress, and it no longer matches this filter, "
-            "so it has left this list."
-        )
-        or line is not None
-        and hostile in line.text()
-    )
+    assert line is not None
+    assert hostile in line.text()
     opened = all_press(world, 1, "cancelled", [])
     answered, opened_root = landing(world, opened)
     assert answered.status == 202 and "<b>" not in page(answered, 202)
