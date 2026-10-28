@@ -131,7 +131,7 @@ def test_delete_first_press_opens_confirmation_without_saving(tmp_path: Path) ->
     assert location(response) == "/tasks/1?delete_confirm"
     assert header(response, "Cache-Control") is None
     shown = get(world.site, "/tasks/1?delete_confirm")
-    assert shown.status == 200 and header(shown, "Cache-Control") == "no-store"
+    assert shown.status == 202 and header(shown, "Cache-Control") == "no-store"
     root = parse(page(shown))
     (strip,) = strips(root)
     sentence = root.by_id("confirm-sentence")

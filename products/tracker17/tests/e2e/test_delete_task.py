@@ -2,7 +2,8 @@
 
 Checks SRS FR-17 (deleting a task with its comments), NFR-12 (state is carried by words and every
 control has a name), NFR-3 (nothing is saved until the confirming press) and AC-12. Change spec
-rules CP-531, CP-532 and CP-534, and the design's T5 and T8, are the ones each test names. Only what
+rules CP-531, CP-532, CP-534, CP-584, CP-585 and CP-589, and the design's T5, T8 and T18, are the
+ones each test names. Only what
 a browser settles is tested here: the keys that press a button, the real double click, the focus
 landing and the history traversal.
 """
@@ -13,6 +14,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 from playwright.sync_api import Page, expect
+from test_moves import PINNED_BROWSER
 
 if TYPE_CHECKING:
     from conftest import RunningTracker
@@ -23,6 +25,7 @@ COMPLETION = f"You deleted '{TITLE}'."
 OPENED = "delete_confirm"
 BACKED = "delete_back"
 TRIGGER = "Delete task"
+NOT_FOUND_HEADING = "There's no task at this address"
 KEYS = ("Enter", "Space")
 MAXIMUM_TABS = 60
 RECORDER = (
@@ -174,6 +177,43 @@ def test_completion_survives_actual_reload_back_and_forward(
     page.go_back(wait_until="commit")
     expect(page.locator("#deleted-line")).to_have_text(COMPLETION)
     assert saved_bytes(tracker) == after
+
+
+def test_confirmation_is_loaded_afresh_after_confirming(
+    tracker: RunningTracker, history_page: Page
+) -> None:
+    """CP-584, CP-585, CP-589, T18: on the pinned browser, going back to the confirmation after
+    confirming issues a new request and shows the task's not-found page, and so does Forward then
+    Back again; the saved bytes do not change."""
+    page = history_page
+    browser = page.context.browser
+    assert browser is not None and browser.version == PINNED_BROWSER
+    page.add_init_script(RECORDER)
+    open_task(page, tracker.address)
+    page.goto(f"{tracker.address}/tasks/1")
+    page.get_by_role("button", name=TRIGGER).click()
+    page.wait_for_url(lambda url: OPENED in url)
+    confirmation = page.url
+    page.get_by_role("button", name=TRIGGER).click()
+    page.wait_for_url(lambda url: "deleted_task=" in url)
+    landing = page.url
+    after = saved_bytes(tracker)
+    requested: list[str] = []
+    page.on("request", lambda request: requested.append(request.url))
+
+    for step in ("back", "forward-then-back"):
+        if step == "forward-then-back":
+            page.go_forward(wait_until="commit")
+            page.wait_for_url(landing, wait_until="commit")
+        requested.clear()
+        page.go_back(wait_until="commit")
+        page.wait_for_url(confirmation, wait_until="commit")
+        expect(page.locator("main h1")).to_have_text(NOT_FOUND_HEADING)
+        expect(page.locator(".confirm-strip")).to_have_count(0)
+        assert confirmation in requested, step
+        page.wait_for_function("window.__shows && window.__shows.length >= 1")
+        assert page.evaluate("window.__shows") == [False], step
+        assert saved_bytes(tracker) == after, step
 
 
 @pytest.mark.parametrize("title", ['<b>x</b> & "q"', "it's ünï"])
