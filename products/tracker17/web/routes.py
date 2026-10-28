@@ -637,6 +637,7 @@ class Site:
                 project,
                 listing.rows,
                 self._tracker.assignees(),
+                task_count=listing.task_count,
                 listing=listing,
                 form=self._task_form(query),
                 created="created" in query,

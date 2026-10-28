@@ -245,7 +245,9 @@ def test_renderer_preserves_supplied_row_order_and_overdue_flags() -> None:
     late = a_task(2, "Late", due=date(2027, 1, 1))
     undated = a_task(3, "Undated")
     rows = (TaskRow(undated, False), TaskRow(late, True), TaskRow(early, False))
-    root = parse(pages.project_page(ALPHA, rows, (), priority_choices=pages.PRIORITY_CHOICES))
+    root = parse(
+        pages.project_page(ALPHA, rows, (), task_count=3, priority_choices=pages.PRIORITY_CHOICES)
+    )
     shown = list_rows(root)
     assert [cells[0].text() for cells in shown] == ["Undated", "Late", "Early"]
     assert ["Overdue" in cells[5].text() for cells in shown] == [False, True, False]
@@ -265,7 +267,7 @@ def test_the_page_builder_shows_no_sent_text_beside_a_too_long_title() -> None:
         due_date="2026-01-01",
         refusal=pages.TaskRefusal.TOO_LONG,
     )
-    shown_page = pages.project_page(ALPHA, (), ("Dana",), form=handed)
+    shown_page = pages.project_page(ALPHA, (), ("Dana",), task_count=0, form=handed)
     for sent in ("Leaked title", "2026-01-01"):
         assert sent not in shown_page, sent
     root = parse(shown_page)
@@ -347,11 +349,12 @@ def test_every_rendered_value_is_literal_text() -> None:
     project = Project(id=1, name=HOSTILE, description="")
     form = pages.TaskForm(title=HOSTILE, priority="high", assignee=HOSTILE, due_date=HOSTILE)
     built = {
-        "list": pages.project_page(project, (TaskRow(task, True),), (HOSTILE,)),
+        "list": pages.project_page(project, (TaskRow(task, True),), (HOSTILE,), task_count=1),
         "retained": pages.project_page(
             project,
             (),
             (HOSTILE,),
+            task_count=0,
             form=pages.TaskForm(
                 title=HOSTILE,
                 assignee=HOSTILE,
@@ -359,7 +362,7 @@ def test_every_rendered_value_is_literal_text() -> None:
                 refusal=pages.TaskRefusal.ASSIGNEE_NOT_LISTED,
             ),
         ),
-        "failed": pages.project_page(project, (), (HOSTILE,), form=_failed(form)),
+        "failed": pages.project_page(project, (), (HOSTILE,), task_count=0, form=_failed(form)),
         "task": pages.task_page(context_of(task, (HOSTILE,), project), added=True),
         "plain task": pages.task_page(context_of(task, (HOSTILE,), project)),
     }
@@ -397,7 +400,7 @@ def _failed(form: pages.TaskForm) -> pages.TaskForm:
 
 def test_the_page_builders_need_no_world_to_show_an_empty_project() -> None:
     """The defaults: no rows, no people, the opening form, and the invitation."""
-    root = parse(pages.project_page(ALPHA))
+    root = parse(pages.project_page(ALPHA, task_count=0))
     assert "Give the first task a title and press Add." in root.text()
     assert chosen(control(root, "task-priority")) == ["medium"]
 

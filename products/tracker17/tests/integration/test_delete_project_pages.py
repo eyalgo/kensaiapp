@@ -18,7 +18,7 @@ from test_pages import Element, parse
 from test_routes import get
 from test_task_routes import World, add_task, focused, make_world
 
-from domain import FilterInput
+from application import FilterInput
 from web import pages
 
 TRIGGER_LABEL = "Delete project"

@@ -353,7 +353,7 @@ def test_project_and_assignee_text_is_escaped_without_normalization() -> None:
 def test_project_page_title_and_pair_are_the_tasks_view_forms() -> None:
     """CP-491, CP-492, T09: the Tasks view is titled for its view, the pair sits under the heading,
     and the name's spaces are kept in the title."""
-    root = parse(pages.project_page(Project(id=7, name="  Alpha  ", description="d")))
+    root = parse(pages.project_page(Project(id=7, name="  Alpha  ", description="d"), task_count=0))
     assert [e.text() for e in root.find_all("title")] == ["  Alpha  : Tasks - tracker17"]
     assert main_links(root)[:2] == [("/projects/7", "Tasks"), ("/projects/7/summary", "Summary")]
     (main,) = root.find_all("main")

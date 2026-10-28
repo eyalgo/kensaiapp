@@ -182,9 +182,11 @@ def test_the_page_builder_shows_each_rename_outcome_by_the_closed_choice() -> No
     refusal = pages.ProjectNameRefusal
 
     def built(**area: object) -> Element:
-        return parse(pages.project_page(project, rename_area=pages.ProjectRenameArea(**area)))  # type: ignore[arg-type]
+        return parse(
+            pages.project_page(project, task_count=0, rename_area=pages.ProjectRenameArea(**area))
+        )  # type: ignore[arg-type]
 
-    plain = parse(pages.project_page(project))
+    plain = parse(pages.project_page(project, task_count=0))
     assert name_field(plain).attrs["value"] == "Saved" and focused(plain) == []
     blank = built(typed="", refusal=refusal.BLANK_NAME, failed=True, saved="N", previous="O")
     assert focused(blank) == [name_field(blank)] and name_field(blank).attrs["value"] == ""
