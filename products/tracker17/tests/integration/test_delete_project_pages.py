@@ -367,6 +367,9 @@ def test_projects_completion_covers_zero_one_many_and_empty_projects(
         ("deleted_project=Alpha&deleted_project_tasks=007", "padded"),
         ("deleted_project=Alpha&deleted_project_tasks=%D9%A3", "other digits"),
         ("deleted_project=&deleted_project_tasks=3", "blank name"),
+        # More digits than Python reads as an int: no deletion removed that many tasks, so it is no
+        # count, and the page must not fail on it.
+        (f"deleted_project=Alpha&deleted_project_tasks={'9' * 5000}", "too long to read"),
     ],
 )
 def test_malformed_or_incomplete_completions_are_ignored(
