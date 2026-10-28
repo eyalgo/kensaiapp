@@ -16,3 +16,12 @@ What this change held back, for `shukuba-refine` to place after the unit lands. 
 **Why not this change:** this change leaves both submissions as they are. It only adds a deleted project as new data that reaches their existing refusal. The request asks only that such an action "is refused and changes nothing", which both already do. The two presses this change adds are built to the redirect (`change_spec.md` CP-582).
 **Owner:** none — for shukuba-refine
 **Status:** open
+
+---
+
+## The task deletion's confirming control uses the row-size context — record gap, handed on by development-design (2026-10-28)
+**Record:** `products/tracker17/docs/DESIGN.md:450-469` § Components, `components.confirm-strip`: the sentence and confirming button take the height token of the trigger, `spacing.control` for Delete task's full-size first press.
+**Product today:** `products/tracker17/web/pages.py:743-743,833-841` supplies the `row-control` context to the task deletion's shared strip. `products/tracker17/web/style.css:316-325` gives that context's confirming button a height of 28px. This is a source inspection of the task strip, not a browser measurement.
+**Why not this change:** the request expressly keeps task-deletion behaviour unchanged except for its pending confirmation's status (`change_spec.md:173-175`, CP-585). The new project deletion gets its own full-size context without changing the task's context. No spec reading is set aside.
+**Owner:** none — for shukuba-refine
+**Status:** open
