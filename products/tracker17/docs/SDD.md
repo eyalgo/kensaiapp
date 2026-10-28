@@ -2,8 +2,8 @@
 
 **Status:** Settled
 **Owner:** CTO — writes every part; the CPO and the CDO decide the parts the lane table names, through `SDD_open_issues.md` items carrying their `Seat:`
-**Version:** 13 — the tenth answered round folded in (`products/tracker17/docs/trail/sdd/cycle-10.md`), one item the PM raised from the product's task deletion against § 4 RT-11 and § 6 S-7, answered in the CTO's seat. RT-11 widens from a move to `cancelled` to every pending confirmation § 4 EX-6 names: a page that shows a pending confirmation of a move to `cancelled`, a task deletion or a project deletion is answered 202, read off the page as built; every other page a confirmed action's interaction or outcome lands on is 200; each carries `Cache-Control: no-store`; the address of a deleted task or project answers the not-found page, 404, with no cache header; and the case RT-11 handed to `delete-and-rename`, whether the HTTP cache may keep that 404, closes: it may, and a kept one stays true because an identity is never reused. S-7's command half gains the deletion history clause, § 11 R-12's trigger names the deletion history test once it exists, and § 7's hand-off edge names the 202. The UXD moved to version 11 after version 12 read it at 9, and § 10 RC-6 records it: a refusal or failure for a task the list's filter leaves off the list sits above the results, stated in § 4 EX-4 and in `narrow-and-sort`'s behaviour bar. RT-8 names ADR-0011, which now records it, and § 12 counts eleven records. RN-56 to RN-58 record the round. Nothing is left open. At 12: the ninth answered round folded in (`products/tracker17/docs/trail/sdd/cycle-9.md`), one item the PM raised from the product's filter form against § 4 RT-8, answered in the CTO's seat. RT-8 defines the word it binds on: a submission is a form sent with `method="post"`, a request for a change; a form sent with `method="get"` is a read, answered with the page at the address the browser built, 200, with no redirect, as the filter form is today, and § 11 R-10's bound reaches its values. RT-11 names ADR-0010, which now records it, and § 12 counts ten records. The UXD moved to version 9 after version 11 read it at 8, and § 10 RC-5 records it: § 6 `status-moves`'s overtaken-move refusal states the task's current status and claims no change, UX-F4's words. RN-53 to RN-55 record the round. Nothing is left open. At 11: the eighth answered round folded in (`products/tracker17/docs/trail/sdd/cycle-8.md`), two items the PM raised from the product's code and from the UXD and one a `companion-self-answer` run raised from § 11 read against the suite, all three answered in the CTO's seat. § 4 gains RT-11, the history-admission boundary: a page that shows a pending confirmation of a move to `cancelled` is answered 202 and every other move page 200, each with `Cache-Control: no-store`; § 9 TO-8 and § 11 R-12 surface the decision and its browser dependence, and RT-8's last sentence is scoped to a finished outcome. § 6 `status-moves`'s behaviour bar has the overtaken move name the moves the page now shows and offer no reload, and names the refusal reached by an address with no press; § 4 EX-4 says where that refusal sits; § 10 RC-4 records the UXD moving to version 8. § 11 R-2 counts the confirmation case verified, by four tests at `<a commit not in the public history>`, and § Open Questions keeps the assistive-technology case alone. RN-49 to RN-52 record the round. The header's *Inputs read* catches up with PRD version 7 and NFDR version 13, neither of which moves a line of this document (RN-52). Nothing is left open
-**Inputs read:** PRD Settled (version 7) · SRS Settled (version 6) · UXD Settled (version 11; no `products/tracker17/docs/UXD_open_issues.md` beside it) · Agari no Status line (`agari_template.md` carries none) · tracker17 doctrine no Status line (stamped, unfilled) · writing_bar Settled · ADR-0001 to ADR-0011, ADR-0006 Superseded by ADR-0011 and the rest Accepted, and NFDR Settled (version 16, its header; `products/tracker17/docs/architecture_open_issues.md` is also present, opened on 2026-10-28 by the `companion-self-answer` run that answered this round's item, with its one item, § 2.1, unanswered) (downstream; read for the decisions already recorded, as the authoring lens says, never as a source) · FDR Settled (version 4, its header; downstream, read to check what the answered round says does not move, not a source) · the product's code and tests the answered round cites (read to verify each citation on disk, not sources)
+**Version:** 14 — the eleventh answered round folded in (`products/tracker17/docs/trail/sdd/cycle-11.md`), one item the PM raised from the product's deletion tests against § 4 RT-11 and § 11 R-12, answered in the CTO's seat. RT-11's *Tests* and R-12's trigger name the four deletion tests on disk, landed at `ac09e56af` — the task deletion's response-policy test, which now asserts 202 on a shown confirmation; the project deletion's response-policy test; and the two history tests that go Back to a deletion's confirmation after confirming — in place of a test to come, and the divergence RN-56 recorded, a task deletion's confirmation answered 200, is closed in the product. The records caught up without an answer, as the round's § 2.1 anticipated: RT-11 names ADR-0012, which supersedes ADR-0010, as the record of its boundary and drops the line that a deletion's record was still to be written; § 12 counts twelve records; the header reads ADR-0012 and NFDR version 17. § 10's preamble counts RC-1 to RC-6, and the Review Notes' prologue gains the ninth and tenth rounds it omitted. RN-59 to RN-61 record the round. Nothing is left open. At 13: the tenth answered round folded in (`products/tracker17/docs/trail/sdd/cycle-10.md`), one item the PM raised from the product's task deletion against § 4 RT-11 and § 6 S-7, answered in the CTO's seat. RT-11 widens from a move to `cancelled` to every pending confirmation § 4 EX-6 names: a page that shows a pending confirmation of a move to `cancelled`, a task deletion or a project deletion is answered 202, read off the page as built; every other page a confirmed action's interaction or outcome lands on is 200; each carries `Cache-Control: no-store`; the address of a deleted task or project answers the not-found page, 404, with no cache header; and the case RT-11 handed to `delete-and-rename`, whether the HTTP cache may keep that 404, closes: it may, and a kept one stays true because an identity is never reused. S-7's command half gains the deletion history clause, § 11 R-12's trigger names the deletion history test once it exists, and § 7's hand-off edge names the 202. The UXD moved to version 11 after version 12 read it at 9, and § 10 RC-6 records it: a refusal or failure for a task the list's filter leaves off the list sits above the results, stated in § 4 EX-4 and in `narrow-and-sort`'s behaviour bar. RT-8 names ADR-0011, which now records it, and § 12 counts eleven records. RN-56 to RN-58 record the round. Nothing is left open. At 12: the ninth answered round folded in (`products/tracker17/docs/trail/sdd/cycle-9.md`), one item the PM raised from the product's filter form against § 4 RT-8, answered in the CTO's seat. RT-8 defines the word it binds on: a submission is a form sent with `method="post"`, a request for a change; a form sent with `method="get"` is a read, answered with the page at the address the browser built, 200, with no redirect, as the filter form is today, and § 11 R-10's bound reaches its values. RT-11 names ADR-0010, which now records it, and § 12 counts ten records. The UXD moved to version 9 after version 11 read it at 8, and § 10 RC-5 records it: § 6 `status-moves`'s overtaken-move refusal states the task's current status and claims no change, UX-F4's words. RN-53 to RN-55 record the round. Nothing is left open. At 11: the eighth answered round folded in (`products/tracker17/docs/trail/sdd/cycle-8.md`), two items the PM raised from the product's code and from the UXD and one a `companion-self-answer` run raised from § 11 read against the suite, all three answered in the CTO's seat. § 4 gains RT-11, the history-admission boundary: a page that shows a pending confirmation of a move to `cancelled` is answered 202 and every other move page 200, each with `Cache-Control: no-store`; § 9 TO-8 and § 11 R-12 surface the decision and its browser dependence, and RT-8's last sentence is scoped to a finished outcome. § 6 `status-moves`'s behaviour bar has the overtaken move name the moves the page now shows and offer no reload, and names the refusal reached by an address with no press; § 4 EX-4 says where that refusal sits; § 10 RC-4 records the UXD moving to version 8. § 11 R-2 counts the confirmation case verified, by four tests at `<a commit not in the public history>`, and § Open Questions keeps the assistive-technology case alone. RN-49 to RN-52 record the round. The header's *Inputs read* catches up with PRD version 7 and NFDR version 13, neither of which moves a line of this document (RN-52). Nothing is left open
+**Inputs read:** PRD Settled (version 7) · SRS Settled (version 6) · UXD Settled (version 11; no `products/tracker17/docs/UXD_open_issues.md` beside it) · Agari no Status line (`agari_template.md` carries none) · tracker17 doctrine no Status line (stamped, unfilled) · writing_bar Settled · ADR-0001 to ADR-0012, ADR-0006 Superseded by ADR-0011, ADR-0010 Superseded by ADR-0012 and the rest Accepted, and NFDR Settled (version 17, its header; `products/tracker17/docs/architecture_open_issues.md` is also present, opened on 2026-10-28 by the PM, with its one item, § 3.1, on QC-63's verifiers, unanswered) (downstream; read for the decisions already recorded, as the authoring lens says, never as a source) · FDR Settled (version 4, its header; downstream, read to check what the answered round says does not move, not a source) · the product's code and tests the answered round cites (read to verify each citation on disk, not sources)
 
 > The SDD is the technical **how**, and it ends in a **cut**. It states the architecture the rest of
 > the system builds against — derived from the PRD (the *what and why*), the SRS (the system-level
@@ -36,13 +36,16 @@ items 2.2, 2.5, 3.1 and 3.2), `self_answer-3.md` (cycle 1, items 2.3 and 2.4), `
 (cycle 2, item 2.1), `self_answer-5.md` (cycle 3, items 5.1 to 5.3), `self_answer-6.md` (cycle 4,
 item 5.1), `self_answer-7.md` (cycle 5, item 5.1), `self_answer-8.md` (cycle 6, item 5.1),
 `self_answer-9.md` (cycle 7, item 5.1), `self_answer-10.md` (cycle 8, items 5.1 and 5.2),
-`self_answer-11.md` (cycle 8, item 2.1), `self_answer-12.md` (cycle 9, item 5.1) and
-`self_answer-13.md` (cycle 10, item 5.1). The items of cycles 3 to 10 were raised by the PM, from the
-product's code, from a run of the setup instructions on Linux, from a passing end-to-end test, in
-cycles 6 and 7 from the product's code again, in cycle 8 from the product's code and from the
-UXD, and in cycles 9 and 10 from the product's code again, not drafted by the CTO, and were answered in the CTO's seat. Cycle 8's one item in § 2 was
-raised by the run that answered its § 5 items, in the CTO's seat, from reading § 11 against the
-suite. The Review Note named beside a marker says why this document reads as it does.
+`self_answer-11.md` (cycle 8, item 2.1), `self_answer-12.md` (cycle 9, item 5.1),
+`self_answer-13.md` (cycle 10, item 5.1) and `self_answer-14.md` (cycle 11, item 5.1). The items of
+cycles 3 to 11 were raised by the PM, from the product's code, from a run of the setup instructions
+on Linux, from a passing end-to-end test, in cycles 6 and 7 from the product's code again, in cycle
+8 from the product's code and from the UXD, in cycles 9 and 10 from the product's code again, and in
+cycle 11 from the product's tests, not drafted by the CTO, and were answered in the CTO's seat.
+Cycle 8's one item in § 2 was raised by the run that answered its § 5 items, in the CTO's seat, from
+reading § 11 against the suite. Cycle 11's one item in § 2 was raised the same way, from reading
+RT-11, § 12 and the header against the records; its answer slot was empty, and the records on disk
+settled it (RN-60). The Review Note named beside a marker says why this document reads as it does.
 
 No statement in this document awaits an answer. `products/tracker17/docs/SDD_open_issues.md` does not
 exist, and its absence is the done signal.
@@ -467,19 +470,27 @@ written so that a slice breaking it could be named.
   `test_history_matrix_revalidates_current_saved_status` and
   `test_real_history_traversal_revalidates_the_confirmation`; 67 passed in `tests/e2e/` in a
   fresh clone at `<a commit not in the public history>`; `tests/integration/test_delete_routes.py`,
-  `test_live_delete_views_have_their_response_policy` (a deletion's four live pages carry
-  `no-store`), `test_missing_task_wins_over_every_query` and `test_a_never_held_task_answers_the_same`
-  (404 with no cache header); and a deletion history test beside `tests/e2e/test_delete_task.py`'s
-  `test_completion_survives_actual_reload_back_and_forward`, which `delete-and-rename`'s command
-  half names and which does not exist at `4a9ff47d2`. The Principal Architect records the move's
+  `test_live_delete_views_have_their_response_policy` (a task deletion's shown confirmation is 202,
+  its back-out, failure and landing are 200, and each of the four carries `no-store`),
+  `test_missing_task_wins_over_every_query` and `test_a_never_held_task_answers_the_same` (404 with
+  no cache header); `tests/integration/test_delete_project_routes.py`,
+  `test_project_delete_response_policy_matches_rendered_state` (a shown project deletion
+  confirmation is 202, its back-out, its failure and the Projects landing are 200, each carries
+  `no-store`, and the deleted address answers 404 with no cache header under any query); and the
+  two history tests, `tests/e2e/test_delete_task.py`,
+  `test_confirmation_is_loaded_afresh_after_confirming`, and `tests/e2e/test_delete_project.py`,
+  `test_project_confirmation_is_loaded_afresh_after_confirming`, each asserting that Back to the
+  confirmation after confirming, and Forward then Back again, issues a new request, shows the
+  not-found page and restores nothing from history. The four landed at `ac09e56af`; the two
+  integration modules passed in a fresh clone at `958a36c7c`, 85 passed, and no code under the
+  product root moved between that commit and `9d6677aa6`. The Principal Architect records the
   boundary as
-  `products/tracker17/docs/adr/0010-pending-confirmation-answered-202-move-pages-not-stored.md`
-  and binds it as `products/tracker17/docs/nfdr.md` QC-63; the record and the obligation for a
-  deletion's pages are theirs to write (§ 12). *(serves SRS NFR-3, NFR-4, NFR-13, DR-2; UXD § 4, "the browser's back,
+  `products/tracker17/docs/adr/0012-pending-confirmation-answered-202-confirmed-action-pages-not-stored.md`,
+  which supersedes ADR-0010, and binds it as `products/tracker17/docs/nfdr.md` QC-63. *(serves SRS NFR-3, NFR-4, NFR-13, DR-2; UXD § 4, "the browser's back,
   forward and reload buttons work on every one"; UX-F4, UX-I3, UX-S10; § 4 RT-7, RT-8, EX-2, EX-6,
   EX-13, SEC-3; § 9 TO-2)* *(confirmed with an addition: `trail/sdd/cycle-8.md` § 5.1; why, RN-49;
   widened to every pending confirmation, and the 404 case closed: `trail/sdd/cycle-10.md` § 5.1;
-  why, RN-56)*
+  why, RN-56; the deletion tests on disk: `trail/sdd/cycle-11.md` § 5.1; why, RN-59)*
 
 ### The saved data — CTO
 
@@ -1247,7 +1258,7 @@ A cut meets a reality that contradicts it, and the contradiction is recorded bef
 redrawn. A re-cut is written only when a slice's *Reached when* cannot be met as written, a slice
 turned out to be a fragment, no slice is left that can be started, or the PRD, the SRS or the UXD
 changed upstream. A re-cut that moves § 2's shape or § 3's seams is also an ADR for the Principal
-Architect to record. None of RC-1 to RC-4 moves either.
+Architect to record. None of RC-1 to RC-6 moves either.
 
 ### RC-1 — 2026-10-06 — the SRS gained a requirement no slice realized
 
@@ -1561,13 +1572,15 @@ both.*
   on the pinned Chromium admitting only a main document answered exactly 200 to its back/forward
   cache, a rule read at its source on 2026-10-20 and promised by no standard. — *shows up as*
   `tests/e2e/test_moves.py`, `test_history_matrix_revalidates_current_saved_status` or
-  `test_real_history_traversal_revalidates_the_confirmation`, or the deletion history test
-  `delete-and-rename`'s command half names once it exists, failing: a return to a confirmation's
-  address restored from history instead of loaded. — *response* both run on every slice (§ 4 TS-1),
+  `test_real_history_traversal_revalidates_the_confirmation`, or the two deletion history tests,
+  `tests/e2e/test_delete_task.py`, `test_confirmation_is_loaded_afresh_after_confirming`, and
+  `tests/e2e/test_delete_project.py`, `test_project_confirmation_is_loaded_afresh_after_confirming`,
+  failing: a return to a confirmation's address restored from history instead of loaded. — *response* both run on every slice (§ 4 TS-1),
   and the fallback is TO-2's reversal confined to `web`, as R-2's. The bound R-2 states holds here
   too: the suite drives the build the pinned library installs, and the operator's browser is
   current stable Chrome (SRS NFR-13). *(confirmed with an addition: `trail/sdd/cycle-8.md` § 5.1;
-  why, RN-49; the deletion test: `trail/sdd/cycle-10.md` § 5.1; why, RN-56)*
+  why, RN-49; the deletion test: `trail/sdd/cycle-10.md` § 5.1; why, RN-56; the two on disk:
+  `trail/sdd/cycle-11.md` § 5.1; why, RN-59)*
 
 ## 12. What this design is not
 
@@ -1579,7 +1592,7 @@ rewrite here.
 **Below.** This document authors no ADR. The architecturally significant decisions are surfaced in
 three places and no fourth: § 2's shape table, § 9's trade-offs and the SDD Review Notes. The
 Principal Architect records them. The records are `products/tracker17/docs/adr/`, ADR-0001 to
-ADR-0011, and `products/tracker17/docs/nfdr.md`. Where a condition in § 4 and an entry in `nfdr.md`
+ADR-0012, and `products/tracker17/docs/nfdr.md`. Where a condition in § 4 and an entry in `nfdr.md`
 disagree, the § 4 statement wins and the entry is re-derived, because downstream is rebuilt from
 upstream and never the reverse (`<CORE>/templates/product-templates/sdd_template.md` § 4). This
 document designs no individual change. It names no file inside a part beyond the feature entry points of
@@ -1613,7 +1626,16 @@ the product's code, answered in the CTO's seat. RN-49 to RN-52 were written on 2
 eighth answered round was folded in (`products/tracker17/docs/trail/sdd/cycle-8.md`): two items the
 PM raised from the product's code and from the UXD, and one a `companion-self-answer` run raised
 from § 11 read against the suite, all three answered in the CTO's seat, and the document caught up
-with UXD version 8 (§ 10 RC-4). Where an answer settled what an earlier note called
+with UXD version 8 (§ 10 RC-4). RN-53 to RN-55 were written on 2026-10-27, when the ninth answered
+round was folded in (`products/tracker17/docs/trail/sdd/cycle-9.md`): one item the PM raised from
+the product's code, answered in the CTO's seat, and the document caught up with UXD version 9 (§ 10
+RC-5). RN-56 to RN-58 were written on 2026-10-28, when the tenth answered round was folded in
+(`products/tracker17/docs/trail/sdd/cycle-10.md`): one item the PM raised from the product's code,
+answered in the CTO's seat, and the document caught up with UXD version 11 (§ 10 RC-6). RN-59 to
+RN-61 were written the same day, when the eleventh answered round was folded in
+(`products/tracker17/docs/trail/sdd/cycle-11.md`): one item the PM raised from the product's tests,
+answered in the CTO's seat, and the document caught up with ADR-0012 and NFDR version 17. Where an
+answer settled what an earlier note called
 a draft, that note now says so and names the note that carries the answer.
 
 - **RN-1:** *(CPO)* *(added)* § 1 is drafted and treated as settled by the inputs. Each sentence
@@ -2640,6 +2662,101 @@ a draft, that note now says so and names the note that carries the answer.
   or `products/tracker17/docs/CONTENT.md`: what this round changed states a response condition, a
   refusal's placement and a test's name, and names no word a page shows or a value the stylesheet
   sets; the lines RC-6 notes are named as CONTENT's, not read against it.
+
+- **RN-59:** *(CTO)* *(changed)* § 4 RT-11's *Tests* and § 11 R-12's trigger name the four
+  deletion tests on disk — the task deletion's response-policy test, now asserting 202 on a shown
+  confirmation; the project deletion's response-policy test; and the two history tests that go Back
+  to a deletion's confirmation after confirming — in place of a test to come, and the clauses
+  "which does not exist at `4a9ff47d2`" and "once it exists" go — *because* the document said a
+  test was missing that is present, and sent a reader tracing RT-11 or R-12 to the suite after a
+  test to come. The PM raised it from the product's deletion tests (`trail/sdd/cycle-11.md`
+  § 5.1), and the answer, given in the CTO's seat, named the tests as they stand, with the
+  reasoning in `products/tracker17/docs/trail/sdd/self_answer-14.md` § 5.1. Each was verified on
+  disk at `9d6677aa6`. `tests/integration/test_delete_routes.py`,
+  `test_live_delete_views_have_their_response_policy`, asserts `("?delete_confirm", 202)` with
+  `no-store`. `tests/integration/test_delete_project_routes.py`,
+  `test_project_delete_response_policy_matches_rendered_state`, asserts 202 on
+  `?project_delete_confirm`, 200 on the back-out, the failure and the Projects landing, `no-store`
+  on each, and 404 with no cache header on the deleted address under every query.
+  `tests/e2e/test_delete_task.py`, `test_confirmation_is_loaded_afresh_after_confirming`, and
+  `tests/e2e/test_delete_project.py`, `test_project_confirmation_is_loaded_afresh_after_confirming`,
+  each assert the confirmation's address among the requests made on Back, and on Forward then Back
+  again, the not-found heading, no confirmation strip, `pageshow` reporting `persisted` false, and
+  the saved bytes unchanged. They test what RT-11 and R-12 say: R-12's trigger is a confirmation
+  restored from history instead of loaded, and the two response-policy tests assert RT-11's rule
+  clause by clause. The divergence RN-56 recorded closes with them: `web/routes.py`,
+  `Site._pending_status`, now takes the deletion area beside the move interaction and answers 202
+  when either shows a pending confirmation, so a task deletion's confirmation is 202 as RT-11
+  states. RN-56's "200 at `4a9ff47d2`" is a dated record of that round and stays as written, as
+  RN-49's reading does. The two integration modules passed in a fresh clone at `958a36c7c`, 85
+  passed, in the run that answered the item; the end-to-end pair was read on disk and not run,
+  because that clone's interpreter had no `playwright`; and `git diff --stat 958a36c7c 9d6677aa6 --
+  products/tracker17 ':!products/tracker17/docs'` printed nothing, so the code the run read is the
+  code on `main`. The four tests are placed by the commit they landed in, `ac09e56af`. This is a
+  correction of a condition's trace to the suite and of a risk's trigger, not a re-cut under § 10:
+  no slice's *Reached when*, fence or place moves, no edge in § 7 changes, and S-7's command half,
+  which already asks for the fresh-load test, stands. *(re: § 4 RT-11; § 11 R-12; source: SRS
+  NFR-3, NFR-13; UXD UX-F4, UX-S10)*
+- **RN-60:** *(CTO)* *(changed)* § 4 RT-11 names
+  `products/tracker17/docs/adr/0012-pending-confirmation-answered-202-confirmed-action-pages-not-stored.md`,
+  which supersedes ADR-0010, as the record of its boundary, and drops the sentence that the record
+  and the obligation for a deletion's pages were the Principal Architect's to write; § 12 counts
+  twelve records; the header's *Inputs read* names ADR-0012 Accepted, ADR-0010 Superseded by
+  ADR-0012 and NFDR version 17; and § 10's preamble says none of RC-1 to RC-6 moves the shape or the
+  seams, where it counted to RC-4 — *because* the records landed after version 13 read them, and a
+  settled document refers to the records once they exist (RN-29). ADR-0012, Accepted on 2026-10-28
+  at `d459f69d9`, says in its § Context that it follows "SDD version 13 § 4 RT-11" and in its
+  § Decision that this is "the CTO's call, settled in SDD § 4 RT-11 at version 13";
+  `products/tracker17/docs/adr/README.md` lists ADR-0010 "Superseded by ADR-0012"; and
+  `products/tracker17/docs/nfdr.md` is at version 17, with QC-63 widened to every pending
+  confirmation EX-6 names, as RT-11 states it. `trail/sdd/cycle-11.md` § 2.1 raised the catch-up as
+  a choice for the CTO's seat, from the `companion-self-answer` run that answered § 5.1, and its
+  answer slot is empty. This run made the change without one, as RN-26, RN-28 and RN-29 did,
+  because the records on disk are the authority for what the records say, the three lines are facts
+  about them and not a call of this seat's, and the item itself said the fold's own input catch-up
+  may reach the same lines. One entry downstream reads thinner now: QC-63's *verified by:* still
+  says "The task deletion's 202 is unmet" and names a layer-5 deletion history test as still to
+  land, while the product answers 202 and both history tests exist (RN-59). That is the Principal
+  Architect's, already carried on `products/tracker17/docs/architecture_open_issues.md` § 3.1,
+  raised by the PM on 2026-10-28 and unanswered, and § 12 says § 4 wins where the two disagree, so
+  nothing is raised from here. The preamble's count was found while walking and is a clause-1
+  repair under `<CORE>/doctrine/governance/found_while_walking.md`: RC-5 and RC-6 move the words of
+  two bars and of EX-4, not § 2's shape or § 3's seams, which is what the count claims. *(re: § 4
+  RT-11; § 10; § 12; the header)*
+- **RN-61:** *(CTO)* *(added)* The round that folded the eleventh answered round read these things
+  beyond the inputs RN-16, RN-23, RN-27, RN-30, RN-33, RN-37, RN-40, RN-44, RN-46, RN-48, RN-52,
+  RN-55 and RN-58 list. It read `products/tracker17/docs/SDD_open_issues.md` as intake found it,
+  committed at `9d6677aa6` with § 5.1's answer slot filled and § 2.1's empty, and
+  `products/tracker17/docs/trail/sdd/self_answer-14.md`, the reasoning behind the answer and behind
+  the raising of § 2.1. It read `tests/integration/test_delete_routes.py`
+  (`test_a_never_held_task_answers_the_same` and `test_live_delete_views_have_their_response_policy`),
+  `tests/integration/test_delete_project_routes.py`
+  (`test_project_delete_response_policy_matches_rendered_state`), `tests/e2e/test_delete_task.py`
+  (`test_completion_survives_actual_reload_back_and_forward` and
+  `test_confirmation_is_loaded_afresh_after_confirming`), `tests/e2e/test_delete_project.py`
+  (`test_project_confirmation_is_loaded_afresh_after_confirming`) and `web/routes.py`
+  (`Site._pending_status`), to verify on disk each line the answer cites, and found each as stated.
+  It ran `git log` on the two project-deletion test modules, which places them at `5d4e38017` and
+  `aef556b6c` under the merge `ac09e56af`, and `git diff --stat 958a36c7c 9d6677aa6 --
+  products/tracker17 ':!products/tracker17/docs'`, which printed nothing. It ran no suite: the item
+  is about which tests exist, which was read on disk; the answer records its own run of the two
+  integration modules; no code moved since; and this round changed no code. It read
+  `products/tracker17/docs/PRD.md` whole, at version 7 as version 13 read it;
+  `products/tracker17/docs/SRS.md` whole, at version 6; `products/tracker17/docs/UXD.md` whole, at
+  version 11; and `products/tracker17/docs/fdr.md`'s header, at version 4. It read
+  `products/tracker17/docs/adr/README.md`,
+  `products/tracker17/docs/adr/0012-pending-confirmation-answered-202-confirmed-action-pages-not-stored.md`
+  whole, and the opening of each of ADR-0001 to ADR-0011; `products/tracker17/docs/nfdr.md`'s
+  header and QC-63, at version 17 (commit `d459f69d9`); and
+  `products/tracker17/docs/architecture_open_issues.md` whole, opened on 2026-10-28 by the PM with
+  its one item, § 3.1, unanswered. It did not re-read RFC 9110 or Chromium's sources: nothing this
+  round changed rests on them, and RT-11 cites them as `self_answer-13.md`'s Header records them.
+  It did not read `products/tracker17/docs/DESIGN.md` or `products/tracker17/docs/CONTENT.md`: what
+  this round changed names tests and records, and names no word a page shows or a value the
+  stylesheet sets. Two things in this document's own apparatus were repaired on the way, as clause-1
+  fixes under `<CORE>/doctrine/governance/found_while_walking.md`: the Review Notes' prologue, which
+  stopped at RN-52 and now names the ninth, tenth and eleventh rounds, and the header's reading
+  guide, which gains `self_answer-14.md` and cycle 11.
 
 ---
 
