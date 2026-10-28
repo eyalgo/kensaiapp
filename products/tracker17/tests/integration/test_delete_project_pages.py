@@ -18,6 +18,9 @@ from test_pages import Element, parse
 from test_routes import get
 from test_task_routes import World, add_task, focused, make_world
 
+from domain import FilterInput
+from web import pages
+
 TRIGGER_LABEL = "Delete project"
 TRIGGER_ACTION = "/projects/1/delete"
 CONFIRM_ACTION = "/projects/1/delete/confirm"
@@ -46,6 +49,11 @@ def completion_for(name: str, count: int) -> str:
         return f"You deleted '{name}', which had no tasks."
     noun = "1 task" if count == 1 else f"{count} tasks"
     return f"You deleted '{name}' and its {noun}."
+
+
+def task_rows(root: Element) -> list[Element]:
+    """The titles listed in the page's table; none when it shows no table."""
+    return [a for table in root.find_all("table") for a in table.find_all("a")]
 
 
 def project_root(world: World, query: str = "", project: int = 1) -> Element:
@@ -157,8 +165,20 @@ def test_project_confirmation_counts_all_current_tasks(tmp_path: Path) -> None:
     none = make_world(tmp_path / "none", projects=("Empty",))
     cases = [(many, "Alpha", 4), (one, "Solo", 1), (none, "Empty", 0)]
     for world, name, count in cases:
-        for query in (f"?{OPEN}", f"?{OPEN}&filter_status=done", f"?{OPEN}&filter_label=nothing"):
+        assert world.tracker.project_task_list(1, FilterInput()).task_count == count
+        for query in (
+            f"?{OPEN}",
+            f"?{OPEN}&filter_status=done",
+            f"?{OPEN}&filter_label=nothing",
+            f"?{OPEN}&sort_field=title",
+            f"?{OPEN}&filter_status=bogus",
+            f"?{OPEN}&sort_field=bogus",
+        ):
             root = project_root(world, query)
+            if count == 4 and query.endswith("filter_status=done"):
+                assert len(task_rows(root)) == 1
+            if count == 4 and query.endswith("filter_label=nothing"):
+                assert task_rows(root) == []
             (strip,) = strips(root)
             sentence = root.by_id("confirm-sentence")
             assert sentence is not None and sentence.text() == sentence_for(name, count), query
@@ -175,6 +195,29 @@ def test_project_confirmation_counts_all_current_tasks(tmp_path: Path) -> None:
     many.tracker.rename_project(1, "Alpha Two")
     renamed = project_root(many, f"?{OPEN}").by_id("confirm-sentence")
     assert renamed is not None and renamed.text() == sentence_for("Alpha Two", 4)
+
+
+@pytest.mark.parametrize(("statuses", "shown"), [((), 0), (("todo",), 0), (("todo",) * 4, 2)])
+def test_project_confirmation_uses_supplied_count_without_listing(
+    tmp_path: Path, statuses: tuple[str, ...], shown: int
+) -> None:
+    """CP-600, CP-601, T6: with the confirmation open and no listing, the sentence carries the
+    count the application answered, whatever number of rows the page is handed."""
+    world = make_world(tmp_path, projects=("Alpha",))
+    with_statuses(world, statuses)
+    supplied = world.tracker.project_task_list(1, FilterInput()).task_count
+    assert supplied == len(statuses)
+    project = world.tracker.project(1)
+    assert project is not None
+    rows = world.tracker.project_tasks(1)[:shown]
+    html = pages.project_page(
+        project,
+        rows,
+        task_count=supplied,
+        delete_area=pages.DeleteArea(pages.DeleteMode.CONFIRMATION),
+    )
+    sentence = parse(html).by_id("confirm-sentence")
+    assert sentence is not None and sentence.text() == sentence_for("Alpha", supplied)
 
 
 CHOICES = (
