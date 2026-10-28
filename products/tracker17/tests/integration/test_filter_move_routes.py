@@ -751,3 +751,35 @@ def test_final_task_replay_uses_visible_row_or_off_list_refusal(tmp_path: Path) 
     assert nothing_root.find_all("table") == []
     line = line_of(nothing_root)
     assert line is not None and line.text() == ADDRESS_FINAL.format(title="Plan", status="done")
+
+
+def test_global_move_markup_is_escaped_in_lines_confirmation_and_carried_choices(
+    tmp_path: Path,
+) -> None:
+    """CP-479, T12: `<`, `&` and quotes in a task title and a carried label stay text in the move
+    line, the confirmation sentence, the hidden choices and the accessible names on All tasks."""
+    hostile = '<b>&"x"'
+    world = make_world(tmp_path, projects=("Alpha", "Beta"))
+    world.tracker.add_task(2, hostile, "high", "", "")
+    world.tracker.add_task_label(1, hostile)
+    carried = [("filter_label", hostile)]
+    moved = all_press(world, 1, "in-progress", carried)
+    landed, root = landing(world, moved)
+    raw = page(landed)
+    assert "<b>" not in raw and "&lt;b&gt;" in raw
+    line = line_of(root)
+    assert (
+        line is not None
+        and line.text()
+        == (
+            f"You moved '{hostile}' to in-progress, and it no longer matches this filter, "
+            "so it has left this list."
+        )
+        or line is not None
+        and hostile in line.text()
+    )
+    opened = all_press(world, 1, "cancelled", [])
+    answered, opened_root = landing(world, opened)
+    assert answered.status == 202 and "<b>" not in page(answered, 202)
+    (strip,) = [e for e in opened_root.walk() if "confirm-strip" in (e.attrs.get("class") or "")]
+    assert hostile in strip.text()
