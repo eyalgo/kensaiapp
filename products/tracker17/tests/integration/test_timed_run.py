@@ -3830,6 +3830,17 @@ def _summary_rejections(harness: ModuleType, site, saved_data, loaded):
         "another project's Summary": serve(
             _edited(real, lambda t: t.replace(name, "Other project"))
         ),
+        "a heading of another project": serve(
+            _edited(
+                real,
+                lambda t: t.replace(
+                    f'<h1 class="pre-wrap">{escape(name)}</h1>', '<h1 class="pre-wrap">Other</h1>'
+                ),
+            )
+        ),
+        "a missing group heading": serve(
+            _edited(real, lambda t: t.replace("<h2>Due dates</h2>", ""))
+        ),
         "a title of another view": serve(
             _edited(real, lambda t: t.replace(": Summary - tracker17", ": Tasks - tracker17"))
         ),
@@ -3875,6 +3886,8 @@ def _summary_rejections(harness: ModuleType, site, saved_data, loaded):
 SUMMARY_REJECTION_NAMES = (
     "the Tasks view instead",
     "another project's Summary",
+    "a heading of another project",
+    "a missing group heading",
     "a title of another view",
     "a project not found",
     "a body that is not HTML",
