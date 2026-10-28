@@ -227,11 +227,26 @@ NOISE = [
     "edit_refused=blank-title&title=&shown_title=Set+up+CI",
     "edit_failed=save&title=x",
     "label_added=ui&label=ui",
-    "label_refused=blank",
+    "label_refused=empty&label=",
     "comment_added=1",
     "comment_refused=blank",
     "comment_failed=add",
 ]
+
+# Every line a move, edit, label or comment outcome puts on the task page.
+OTHER_OUTCOME_IDS = (
+    "move-line",
+    "saved-line",
+    "added-line",
+    "edit-failure",
+    "label-reason",
+    "label-failure",
+    "label-added-line",
+    "label-removed-line",
+    "comment-reason",
+    "comment-failure",
+    "comment-added-line",
+)
 
 
 @pytest.mark.parametrize("noise", NOISE)
@@ -252,9 +267,26 @@ def test_an_active_deletion_suppresses_every_other_outcome_and_focus(
         assert target.attrs["id"] == "confirm-sentence" and len(strips(root)) == 1
     else:
         assert target is trigger_of(root) and strips(root) == []
-    for absent in ("move-line", "saved-line", "added-line", "edit-failure", "comment-failure"):
+    for absent in OTHER_OUTCOME_IDS:
         assert root.by_id(absent) is None, absent
     assert header(shown, "Cache-Control") == "no-store"
+
+
+@pytest.mark.parametrize("noise", [noise for noise in NOISE if "move_task=999" not in noise])
+def test_the_noise_shows_its_own_outcome_without_a_deletion_state(
+    tmp_path: Path, noise: str
+) -> None:
+    """T12, control: each address the suppression test pairs with a deletion marker, other than a
+    move reference to a task nothing holds, shows an outcome of its own when sent alone, so its
+    absence beside the marker is the deletion's doing."""
+    world = world_with(tmp_path)
+    world.tracker.set_operator_name("Lee")
+    world.tracker.add_task_comment(1, "One")
+    world.tracker.add_task_label(1, "ui")
+    # A pending cancellation is a 202, so the body is read without `page`'s 200 check.
+    root = parse(get(world.site, f"/tasks/1?{noise}").body.decode())
+    lines = [i for i in OTHER_OUTCOME_IDS if root.by_id(i) is not None]
+    assert lines or strips(root) or focused(root), noise
 
 
 @pytest.mark.parametrize(

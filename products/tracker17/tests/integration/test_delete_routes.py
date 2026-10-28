@@ -274,10 +274,19 @@ def test_deletion_disappears_from_every_list_and_summary_count(tmp_path: Path) -
     assert world.tracker.project_summary(1).total == 0  # type: ignore[union-attr]
 
 
+def held_world(tmp_path: Path, status: str = "todo") -> World:
+    """Task 1 in the given status, carrying the label `ui`, with a saved operator name, beside a
+    survivor: every refusal payload below is one this world would accept for task 1."""
+    world = world_with(tmp_path, status)
+    world.tracker.set_operator_name("Lee")
+    world.tracker.add_task_label(1, "ui")
+    world.tracker.add_task(1, "Survivor")
+    return world
+
+
 def stale_world(tmp_path: Path, status: str = "todo") -> tuple[World, bytes]:
     """A world whose task 1 was genuinely deleted, with the bytes saved right after."""
-    world = world_with(tmp_path, status)
-    world.tracker.add_task(1, "Survivor")
+    world = held_world(tmp_path, status)
     assert location(confirm(world)).startswith("/projects/1?deleted_task=")
     return world, world.bytes_on_disk()
 
@@ -306,7 +315,7 @@ def test_deleted_target_refuses_edit_without_saving(tmp_path: Path) -> None:
 def test_deleted_target_refuses_label_add_without_saving(tmp_path: Path) -> None:
     """CP-540, CP-541, T10."""
     world, stored = stale_world(tmp_path)
-    assert_refused_as_missing(world, send(world, "/tasks/1/labels", {"label": "ui"}), stored)
+    assert_refused_as_missing(world, send(world, "/tasks/1/labels", {"label": "bug"}), stored)
 
 
 def test_deleted_target_refuses_label_remove_without_saving(tmp_path: Path) -> None:
@@ -369,6 +378,34 @@ def test_deleted_target_refuses_delete_confirm_without_saving(tmp_path: Path) ->
     world, stored = stale_world(tmp_path)
     assert_refused_as_missing(world, confirm(world), stored)
     assert_refused_as_missing(world, confirm(world), stored)
+
+
+@pytest.mark.parametrize(
+    ("status", "path", "body", "landing", "saves"),
+    [
+        ("todo", "/tasks/1", {"title": "New", "shown_title": TITLE}, "/tasks/1?saved", 1),
+        ("todo", "/tasks/1/labels", {"label": "bug"}, "/tasks/1?label_added=bug", 1),
+        ("todo", "/tasks/1/labels/remove", {"label": "ui"}, "/tasks/1?label_removed=ui", 1),
+        ("todo", "/tasks/1/comments", {"text": "hi"}, "/tasks/1?comment_added=1", 1),
+        ("todo", "/tasks/1/move", {"status": "in-progress", "place": "task"}, "moved=", 1),
+        ("in-progress", "/tasks/1/move", {"status": "done", "place": "task"}, "moved=", 1),
+        ("in-progress", "/tasks/1/move", {"status": "todo", "place": "task"}, "moved=", 1),
+        ("todo", "/tasks/1/move", {"status": "cancelled", "place": "task"}, "move_confirm=", 0),
+        ("todo", "/tasks/1/move/confirm", {"place": "task"}, "moved=cancelled", 1),
+        ("todo", "/tasks/1/delete", {}, "/tasks/1?delete_confirm", 0),
+        ("todo", "/tasks/1/delete/confirm", {}, "/projects/1?deleted_task=", 1),
+    ],
+)
+def test_each_refused_payload_is_accepted_for_a_held_task(
+    tmp_path: Path, status: str, path: str, body: dict[str, str], landing: str, saves: int
+) -> None:
+    """T10: the payloads the deleted-target tests send are whole and otherwise valid, so their
+    refusal is the deleted target's and not the payload's: sent for the held task, each is accepted."""
+    world = held_world(tmp_path, status)
+    before = world.saver.saves
+    where = location(send(world, path, body))
+    assert landing in where and "refused=" not in where and "failed=" not in where, where
+    assert world.saver.saves == before + saves
 
 
 def test_a_deleted_identity_is_never_reissued(tmp_path: Path) -> None:

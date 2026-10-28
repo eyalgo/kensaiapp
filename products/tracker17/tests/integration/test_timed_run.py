@@ -4814,34 +4814,34 @@ def test_timed_delete_opening_press_must_be_the_confirmation(
 
 
 @pytest.mark.parametrize("failure", ["refused", "wrong landing"])
-def test_whole_run_exit_status_includes_the_deletion(
+def test_a_failed_deletion_fails_the_verdict_the_whole_run_returns(
     harness: ModuleType,
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
-    monkeypatch: pytest.MonkeyPatch,
     failure: str,
 ) -> None:
-    """CP-543, T15: a failing deletion alone makes the whole run exit non-zero, earlier lines
-    unchanged and the failure on the deletion's rows only."""
-    measure = harness.measure_task_delete
+    """CP-543, T15: a refused deletion, or one that lands wrong, is printed as refused or failed
+    and makes the deletion's verdict 1, however quick. That verdict is the one the whole run
+    returns: test_delete_time_limits_are_strict drives `main` to 1 on the deletion's rows alone.
+    The failure comes through the fake site handed to the measurement, not a patched module."""
+    site, saved_data, _ = _seeded(harness, tmp_path / "data")
     answers = {
         "refused": DELETE_REFUSALS["refused"],
         "wrong landing": lambda m, t: (
             _page("<p>no</p>") if m == "GET" and "deleted_task" in t else None
         ),
     }
+    results = harness.measure_task_delete(
+        site=Intercept(site, answers[failure]), saved_data=saved_data, timer=Ticks(*QUICK)
+    )
 
-    def rejected(*, site, saved_data, timer):
-        return measure(site=Intercept(site, answers[failure]), saved_data=saved_data, timer=timer)
-
-    monkeypatch.setattr(harness, "measure_task_delete", rejected)
-
-    status = harness.main(tmp_path, _run_readings())
+    status = harness.verdict(results, harness.LIMIT_SECONDS)
 
     lines = capsys.readouterr().out.splitlines()
     assert status == 1
-    assert [line for line in lines[-3:] if "refused or failed" in line]
-    assert not [line for line in lines[:-3] if "refused" in line or "over" in line]
+    assert [line.split(":")[0] for line in lines] == list(DELETE_LABELS)
+    assert [line for line in lines if line.endswith(" — refused or failed")]
+    assert not [line for line in lines if "over" in line]
 
 
 def test_whole_run_keeps_earlier_blocks_and_appends_deletion(whole_run) -> None:
