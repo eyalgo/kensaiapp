@@ -239,7 +239,9 @@ def test_empty_summary_invites_first_task_beside_all_zero_rows() -> None:
 def test_summary_count_names_identify_zero_one_and_many_tasks() -> None:
     """CP-521, CP-522, T06: every category names zero, one and many tasks with the change text's
     own strings, the numeral first and the visible text an unbroken prefix; 12 todo and 3 overdue
-    are the two pinned examples; equal names imply equal addresses across the Summary's links."""
+    are the two pinned examples; equal names imply equal addresses across the Summary's links, on
+    a Summary whose nine counts share one numeral and on an empty one, whose two Tasks links share a
+    name and an address."""
     for statuses, priorities, overdue in (
         ((0, 0, 0, 0), (0, 0, 0, 0), 0),
         ((1, 1, 1, 1), (1, 1, 1, 1), 1),
@@ -273,16 +275,30 @@ def test_summary_count_names_identify_zero_one_and_many_tasks() -> None:
         "1 task with critical priority",
         "1 overdue task",
     ]
-    root = parse(
-        pages.summary_page(
-            make_summary(ALPHA, statuses=(2, 2, 2, 2), priorities=(2, 2, 2, 2), overdue=2)
-        )
+    same_numeral = make_summary(ALPHA, statuses=(2, 2, 2, 2), priorities=(2, 2, 2, 2), overdue=2)
+    empty = make_summary(
+        Project(id=3, name="Gamma", description=""),
+        statuses=(0, 0, 0, 0),
+        priorities=(0, 0, 0, 0),
+        overdue=0,
+        undated=0,
+        assignees=((None, 0),),
     )
-    every = [(a.attrs["href"], a.attrs.get("aria-label") or a.text()) for a in root.find_all("a")]
-    for first in every:
-        for second in every:
-            if first[1] == second[1]:
-                assert first[0] == second[0], (first, second)
+    for summary in (same_numeral, empty):
+        root = parse(pages.summary_page(summary))
+        every = [
+            (a.attrs["href"], a.attrs.get("aria-label") or a.text()) for a in root.find_all("a")
+        ]
+        for first in every:
+            for second in every:
+                if first[1] == second[1]:
+                    assert first[0] == second[0], (first, second)
+    # On the empty project the invitation's Tasks link shares the view link's name and address,
+    # which CP-522 allows, and the nine 0 links still have nine names.
+    empty_root = parse(pages.summary_page(empty))
+    tasks_links = [a.attrs["href"] for a in empty_root.find_all("a") if a.text() == "Tasks"]
+    assert tasks_links == ["/projects/3", "/projects/3"]
+    assert len({name for _, name, _ in count_links(empty_root)}) == 9
 
 
 def test_assignee_identity_never_selects_a_count_link() -> None:

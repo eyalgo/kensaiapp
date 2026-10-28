@@ -88,6 +88,8 @@ EVERY_COUNT_TARGET = [
     "/projects/1?filter_overdue=on",
 ]
 FILTER_FIELDS = ("status", "priority", "assignee", "label", "due_from", "due_to", "overdue")
+# The Tasks view's no-tasks state, as change_spec.md CP-518 writes it.
+NO_TASKS_LINE = "This project has no tasks yet. Give the first task a title and press Add."
 
 
 def count_anchors(root: Element) -> list[Element]:
@@ -257,41 +259,57 @@ def test_count_destinations_select_one_filter_and_default_sort(tmp_path: Path) -
 
 def test_zero_links_on_populated_project_show_no_match(tmp_path: Path) -> None:
     """CP-513, CP-518, CP-525, T04: each zero status, priority and overdue count of populated Beta
-    (its done 0 among them) opens a 200 page with its one selected control, the exact no-match
-    line, no task row and no not-found page."""
+    (its done 0 among them) is Beta's own one-choice address and opens a 200 page whose controls
+    show that one choice and no other, with the exact no-match line, no task row and no not-found
+    page."""
     world = fixture_a(tmp_path)
     root = parse(page(get(world.site, SUMMARY_OF.format(2))))
     zeros = [a for a in count_anchors(root) if a.text() == "0"]
     assert len(zeros) == 7
-    for anchor in zeros:
+    # Beta holds one todo/medium/undated task, so every other selected count is a zero; each zero
+    # link is Beta's own one-choice address, and its list shows that choice and no other.
+    beta_zeros = [
+        (address.replace("/projects/1?", "/projects/2?"), field, choice)
+        for address, field, choice in NINE
+        if choice not in ("todo", "medium")
+    ]
+    assert [a.attrs["href"] for a in zeros] == [address for address, _, _ in beta_zeros]
+    for anchor, (_, field, choice) in zip(zeros, beta_zeros, strict=True):
         response = get(world.site, anchor.attrs["href"] or "")
+        assert response.status == 200, anchor.attrs["href"]
         destination = parse(page(response))
         assert [e.text() for e in destination.find_all("title")] == ["Beta: Tasks - tracker17"]
         line = destination.by_id("filter-no-match")
         assert line is not None and line.text() == NO_MATCH_LINE
         assert destination.find_all("tbody") == [] or listed_ids(destination) == []
-        chosen = chosen_filters(destination)
-        assert sorted(value for value in chosen.values() if value) != []
-        assert len([value for value in chosen.values() if value]) == 1
+        assert chosen_filters(destination) == lone(field, choice), anchor.attrs["href"]
     done = [a for a in zeros if "done" in label_of(a)]
     assert len(done) == 1 and done[0].attrs["href"] == "/projects/2?filter_status=done"
 
 
 def test_empty_project_count_links_keep_no_tasks_state(tmp_path: Path) -> None:
-    """CP-513, CP-515, CP-518, T05: all nine of empty Gamma's count links answer 200 with the
-    existing no-tasks invitation, never the no-match line or a not-found page, and Gamma's
+    """CP-513, CP-515, CP-518, T05: all nine of empty Gamma's count links are 0 links to Gamma's
+    own one-choice addresses, and each answers 200 with the existing no-tasks invitation in
+    CP-518's words, never the no-match line or a not-found page, and Gamma's
     Summary keeps its invitation and base Tasks target."""
     world = fixture_a(tmp_path)
     summary = parse(page(get(world.site, SUMMARY_OF.format(3))))
     anchors = count_anchors(summary)
-    assert len(anchors) == 9
+    assert [a.attrs["href"] for a in anchors] == [
+        address.replace("/projects/1?", "/projects/3?") for address in EVERY_COUNT_TARGET
+    ]
+    assert [a.text() for a in anchors] == ["0"] * 9
     (invitation,) = [p for p in summary.find_all("p") if p.attrs.get("class") == "no-tasks"]
     assert [a.attrs["href"] for a in invitation.find_all("a")] == ["/projects/3"]
     for anchor in anchors:
-        destination = parse(page(get(world.site, anchor.attrs["href"] or "")))
+        response = get(world.site, anchor.attrs["href"] or "")
+        assert response.status == 200, anchor.attrs["href"]
+        destination = parse(page(response))
         assert [e.text() for e in destination.find_all("title")] == ["Gamma: Tasks - tracker17"]
         assert destination.by_id("filter-no-match") is None
-        assert [p for p in destination.find_all("p") if p.attrs.get("class") == "no-tasks"]
+        assert [
+            p.text() for p in destination.find_all("p") if p.attrs.get("class") == "no-tasks"
+        ] == [NO_TASKS_LINE], anchor.attrs["href"]
 
 
 def test_followed_count_reads_current_saved_state(tmp_path: Path) -> None:
