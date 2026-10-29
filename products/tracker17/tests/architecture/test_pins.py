@@ -1,4 +1,4 @@
-"""Layer-6 pin checks: every dependency is pinned exactly, and the lock file is exact.
+"""Layer-6 pin checks: every dependency is pinned exactly, and `uv.lock` fixes each at its pin.
 
 Checks SRS NFR-9 (the product can be rebuilt as it was). Change spec rule CP-28 and NFDR QC-39 and
 QC-59 are the ones each test names.
@@ -36,19 +36,25 @@ def test_every_declared_dependency_is_pinned_exactly() -> None:
     assert [entry for entry in dependencies if not EXACT.fullmatch(entry)] == []
 
 
-def test_the_lock_file_exists_and_every_line_is_exact() -> None:
-    lock = PRODUCT_ROOT / "tests" / "requirements.txt"
+def normalized(name: str) -> str:
+    """A name as the packaging specification compares it: lowercase, with runs of `._-` as `-`."""
+    return re.sub(r"[-_.]+", "-", name).lower()
+
+
+def test_uv_lock_fixes_every_declared_dependency_at_its_declared_version() -> None:
+    """QC-39, CP-662."""
+    lock = PRODUCT_ROOT / "uv.lock"
     assert lock.is_file()
-    lines = [
-        line.strip()
-        for line in lock.read_text(encoding="utf-8").splitlines()
-        if line.strip() and not line.lstrip().startswith("#")
-    ]
-    assert lines
-    assert [line for line in lines if not EXACT.fullmatch(line)] == []
-    locked = {line.split("==")[0].lower() for line in lines}
-    declared = {re.split(r"[=\[]", entry)[0].lower() for entry in declared_dependencies(manifest())}
-    assert declared <= locked
+    packages = tomllib.loads(lock.read_text(encoding="utf-8")).get("package", [])
+    assert packages, "uv.lock holds no package record"
+    locked = {(normalized(package["name"]), package.get("version")) for package in packages}
+    declared = declared_dependencies(manifest())
+    assert [entry for entry in declared if not EXACT.fullmatch(entry)] == []
+    wanted = []
+    for entry in declared:
+        name, version = entry.split("==", 1)
+        wanted.append((normalized(name.partition("[")[0]), version))
+    assert [pair for pair in wanted if pair not in locked] == []
 
 
 def test_requires_python_is_3_11() -> None:
