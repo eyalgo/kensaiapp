@@ -50,3 +50,6 @@ pin test now fails on a missing `uv.lock` instead of a missing `tests/requiremen
 **Sizing:** one capability, one honest merge. The acceptance boundary is the station's reached-when
 (`lock-and-pins-test`, items 1-4); the lock file, its test and the comment that names it have one source
 contract (ADR-0013, QC-39) and cannot land alone.
+
+**Sealed:** 2026-10-29 — accepted; merged to `main` via `--no-ff`.
+Environment: owners-mac — no CI
