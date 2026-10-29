@@ -4,9 +4,10 @@ Checks SRS FR-20 and FR-22 (the assignee list and removing a name), FR-27 (the o
 FR-39 and FR-40 (refusals and the maximum length), NFR-4 (a request from another site is refused),
 NFR-8 (a failed save leaves the state as it was), DR-4 (the assignee list) and DR-5 (the operator
 name). Change spec rules CP-80, CP-82, CP-86, CP-88 to CP-93, CP-95 to CP-101, CP-216 to CP-223,
-CP-225, CP-226, CP-232 and CP-238, CP-619 to CP-626 and NFDR QC-7, QC-8, QC-31, QC-34, QC-35, QC-53, QC-56 and QC-57
-are the ones each test names. The handed fakes are the savers; no product name is patched. The real
-listener tests serve the real Site on a loopback port and speak HTTP to it.
+CP-225, CP-226, CP-232 and CP-238, CP-619 to CP-626 and NFDR QC-7, QC-8, QC-31, QC-34, QC-35,
+QC-53, QC-56 and QC-57 are the ones each test names. The handed fakes are the savers; no product
+name is patched. The real listener tests serve the real Site on a loopback port and speak HTTP to
+it.
 """
 
 from __future__ import annotations

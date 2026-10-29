@@ -3,10 +3,9 @@
 Checks SRS FR-20 and FR-22 (the assignee list and removing a name), FR-27 (the operator's name),
 FR-39 and FR-40 (refusals and the maximum length), NFR-4 (no outside content or script) and NFR-5
 (typed text is shown as text). Change spec rules CP-80 to CP-85, CP-87, CP-89 to CP-91, CP-94, CP-96
-and CP-97, and CP-211 to CP-217, CP-220 to CP-222, CP-225, CP-232 and CP-238, CP-619 to CP-624, and NFDR
-QC-36 are
-the ones each test names. Where a test checks words, they are the strings of this change's text
-record; the focus tests check where a line sits and which element it describes.
+and CP-97, and CP-211 to CP-217, CP-220 to CP-222, CP-225, CP-232 and CP-238, CP-619 to CP-624,
+and NFDR QC-36 are the ones each test names. Where a test checks words, they are the strings of
+this change's text record; the focus tests check where a line sits and which element it describes.
 """
 
 from __future__ import annotations
