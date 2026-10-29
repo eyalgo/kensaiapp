@@ -4,9 +4,10 @@ Checks SRS FR-20 and FR-22 (the assignee list and removing a name), FR-27 (the o
 FR-39 and FR-40 (refusals and the maximum length), NFR-4 (a request from another site is refused),
 NFR-8 (a failed save leaves the state as it was), DR-4 (the assignee list) and DR-5 (the operator
 name). Change spec rules CP-80, CP-82, CP-86, CP-88 to CP-93, CP-95 to CP-101, CP-216 to CP-223,
-CP-225, CP-226, CP-232 and CP-238 and NFDR QC-7, QC-8, QC-31, QC-34, QC-35, QC-53, QC-56 and QC-57
-are the ones each test names. The handed fakes are the savers; no product name is patched. The real
-listener tests serve the real Site on a loopback port and speak HTTP to it.
+CP-225, CP-226, CP-232 and CP-238, CP-619 to CP-626 and NFDR QC-7, QC-8, QC-31, QC-34, QC-35,
+QC-53, QC-56 and QC-57 are the ones each test names. The handed fakes are the savers; no product
+name is patched. The real listener tests serve the real Site on a loopback port and speak HTTP to
+it.
 """
 
 from __future__ import annotations
@@ -477,6 +478,136 @@ def named_site(saver: Saver | None = None, name: str | None = None) -> tuple[Sit
     if name is not None:
         tracker.set_operator_name(name)
     return site, tracker
+
+
+BRACE_BOUNDARY = "{a}}" * 25 + "{{a}" * 25
+BRACE_NAMES = [
+    "{x}",
+    "}",
+    "{0}",
+    "{}",
+    "a{b",
+    "{x!r}",
+    "{{x}}",
+    '{<b>&"}',
+    "{",
+    BRACE_BOUNDARY,
+]
+BRACE_IDS = [
+    "x-in-braces",
+    "closing",
+    "position",
+    "empty-pair",
+    "inside-word",
+    "conversion",
+    "doubled",
+    "markup",
+    "opening",
+    "200-code-points",
+]
+PYTHON_TEXT = ("Traceback", "KeyError", "ValueError", "IndexError")
+
+
+def outcome_lines(root: Element) -> list[Element]:
+    return [e for e in root.walk() if e.attrs.get("id") == "operator-name-outcome"]
+
+
+def assert_no_python_text(shown: str) -> None:
+    for forbidden in PYTHON_TEXT:
+        assert forbidden not in shown
+
+
+@pytest.mark.parametrize("name", BRACE_NAMES, ids=BRACE_IDS)
+def test_saved_operator_name_with_braces_is_shown_exactly(name: str) -> None:
+    """CP-619, CP-621, CP-622, CP-624, CP-625: the redirect after a save shows the name as
+    typed, braces and markup characters included, on the one line that describes the field."""
+    assert len(BRACE_BOUNDARY) == SHORT_TEXT_MAX
+    saver = RecordingSaver()
+    site, tracker = named_site(saver)
+    saves = len(saver.saved)
+    response = set_name(site, name)
+    assert query_of(response) == {"operator_saved": [name]}
+    shown = follow(site, response)
+    root = parse(shown)
+    (line,) = outcome_lines(root)
+    assert line.text() == COMPLETED.format(name=name)
+    assert operator_field(root).attrs["value"] == name
+    (target,) = focused(root)
+    assert target is operator_field(root) and described(target) == COMPLETED.format(name=name)
+    assert tracker.operator_name() == name and len(saver.saved) == saves + 1
+    if name == '{<b>&"}':
+        assert "{&lt;b&gt;&amp;&quot;}" in shown
+    assert_no_python_text(shown)
+
+
+@pytest.mark.parametrize("name", BRACE_NAMES, ids=BRACE_IDS)
+def test_failed_operator_name_with_braces_is_shown_exactly(
+    name: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """CP-620 to CP-622, CP-624, CP-625: a failed save shows the typed name as typed, the field
+    keeps it, Save has the focus, and nothing of the error reaches the page."""
+    recorder = RecordingSaver()
+    seeded = Tracker(empty_state(), recorder, FixedClock())
+    seeded.set_operator_name("Sam")
+    failing = RaisingSaver(OSError("distinctive-disk-message-7731"))
+    tracker = Tracker(recorder.saved[-1], failing, FixedClock())
+    site = Site(tracker, HOST)
+    capsys.readouterr()
+    response = set_name(site, name)
+    assert query_of(response) == {"operator_failed": ["save"], "operator_typed": [name]}
+    shown = follow(site, response)
+    root = parse(shown)
+    (line,) = outcome_lines(root)
+    assert line.text() == FAILED.format(name=name)
+    assert operator_field(root).attrs["value"] == name
+    (target,) = focused(root)
+    assert target is root.by_id("save-operator-name") and described(target) == line.text()
+    if name == '{<b>&"}':
+        assert "{&lt;b&gt;&amp;&quot;}" in shown
+    for forbidden in ("OSError", "distinctive-disk-message-7731", *PYTHON_TEXT):
+        assert forbidden not in shown
+    assert failing.calls == 1 and tracker.operator_name() == "Sam"
+
+
+def test_blank_operator_name_after_brace_name_shows_refusal() -> None:
+    """CP-623, CP-624, CP-626: with `{x}` saved, a blank submission is refused on a page that
+    carries no Python error text, and nothing is saved."""
+    saver = RecordingSaver()
+    site, tracker = named_site(saver, "{x}")
+    saves = len(saver.saved)
+    response = set_name(site, "")
+    assert query_of(response) == {"operator_refused": ["blank-name"], "operator_typed": [""]}
+    shown = follow(site, response)
+    root = parse(shown)
+    (line,) = outcome_lines(root)
+    assert line.text() == BLANK_REASON
+    assert operator_field(root).attrs["value"] == ""
+    (target,) = focused(root)
+    assert target is operator_field(root) and described(target) == BLANK_REASON
+    assert_no_python_text(shown)
+    assert tracker.operator_name() == "{x}" and len(saver.saved) == saves
+
+
+def test_overlong_operator_name_after_brace_name_shows_refusal() -> None:
+    """CP-623, CP-624, CP-626: with `{x}` saved, 201 characters are refused with the saved name
+    back in the field, no sent text anywhere and nothing saved."""
+    sent = "y" * (SHORT_TEXT_MAX + 1)
+    saver = RecordingSaver()
+    site, tracker = named_site(saver, "{x}")
+    saves = len(saver.saved)
+    response = set_name(site, sent)
+    assert query_of(response) == {"operator_refused": ["too-long"]}
+    assert sent not in location(response)
+    shown = follow(site, response)
+    root = parse(shown)
+    (line,) = outcome_lines(root)
+    assert line.text() == TOO_LONG_REASON
+    assert operator_field(root).attrs["value"] == "{x}"
+    (target,) = focused(root)
+    assert target is operator_field(root) and described(target) == TOO_LONG_REASON
+    assert sent not in shown
+    assert_no_python_text(shown)
+    assert tracker.operator_name() == "{x}" and len(saver.saved) == saves
 
 
 @pytest.mark.parametrize("starting", [None, "Sam"], ids=["unset", "saved"])

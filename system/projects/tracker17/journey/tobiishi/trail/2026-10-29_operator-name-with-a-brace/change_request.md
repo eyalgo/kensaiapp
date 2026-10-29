@@ -4,3 +4,6 @@
 **Category:** bug
 **Behaviour:** changing
 **Classified because:** the station's reached-when 1 says `POST /operator-name` with `{x}` then `GET` of the redirect address "returns the People page with no error", where it raises today. A functional defect (wrong observable behaviour) is `bug` and `changing` by `change_classification.md`.
+
+**Sealed:** 2026-10-29 — accepted; merged to `main` via `--no-ff`.
+Environment: owners-mac — no CI
