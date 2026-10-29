@@ -20,7 +20,9 @@ Earlier units met it and worked around it: `tracker17 · tobiishi · 2026-10-28_
 
 ## Stations — dynamic checklist
 
-- [ ] start-tests-under-ignored-sigint — `pytest products/tracker17/tests/` launched as a background job (SIGINT ignored) passes with no `test_start.py` timeout, as it does in the foreground; the full automated suite (unit, integration, e2e, architecture) passes
+- [ ] start-tests-under-ignored-sigint — `pytest products/tracker17/tests/` run as a background job (SIGINT ignored) exits 0 with no `test_start.py` timeout, same as in the foreground, so the full suite (unit, integration, e2e, architecture) passes either way
+
+Route re-cut (stations-from-seed, 2026-10-29): kept as one station, since the ask is one capability with one acceptance boundary, and tightened its reached-when to an exit-0 background run; the foreground-versus-background wording was prose, not a check.
 
 ## Out (later / elsewhere)
 
