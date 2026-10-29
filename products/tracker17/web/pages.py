@@ -2816,17 +2816,18 @@ def _your_name_section(operator_name: str | None, area: OperatorNameArea) -> str
     completion_block = reason_block = failure_block = ""
     if outcome is not None:
         line = _operator_line(outcome, shown, area)
-        paragraph = f'<p class="{{}}" id="{_OPERATOR_OUTCOME_ID}">{line}</p>\n'
+        css_class = "outcome" if outcome is _OperatorOutcome.COMPLETED else "reason"
+        paragraph = f'<p class="{css_class}" id="{_OPERATOR_OUTCOME_ID}">{line}</p>\n'
         description = f' autofocus aria-describedby="{_OPERATOR_OUTCOME_ID}"'
         if outcome is _OperatorOutcome.FAILED:
             button_attributes += description
-            failure_block = paragraph.format("reason")
+            failure_block = paragraph
         else:
             field_attributes += description
             if outcome is _OperatorOutcome.COMPLETED:
-                completion_block = paragraph.format("outcome")
+                completion_block = paragraph
             else:
-                reason_block = paragraph.format("reason")
+                reason_block = paragraph
     no_name_block = (
         '<p class="empty">No name is set. You need a name to comment.</p>\n'
         if operator_name is None
