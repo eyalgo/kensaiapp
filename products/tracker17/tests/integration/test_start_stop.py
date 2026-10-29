@@ -18,6 +18,7 @@ needs no symbol this change adds, so it also runs against the code before this c
 
 from __future__ import annotations
 
+import contextlib
 import http.client
 import json
 import os
@@ -332,6 +333,16 @@ class Child:
         return self.process.returncode, stdout, stderr, lines
 
 
+def _seen(phase: str) -> int:
+    """How many handler calls the child's profile hook can count for a signal sent at the phase.
+
+    The hook is switched off while its own callback runs, so a signal sent from inside it, as the
+    one just before the coordinator returns is, runs the handler unseen. Its completion shows in the
+    report written after the send and in the flag the handler sets.
+    """
+    return 0 if phase == "before-return" else 1
+
+
 def snapshot(root: Path) -> dict[str, bytes | None]:
     """Every path under the root, relative to it, with the bytes of each file."""
     return {
@@ -368,7 +379,7 @@ def test_real_signal_stops_quietly_at_each_lifecycle_phase(tmp_path: Path, phase
     assert stderr == b""
     assert stdout == b"The tracker is running. (a handed announcement)\n"
     assert f"delivered {phase}" in reports
-    assert reports[-3:] == ["result 0", "stop-requested True", "handler-calls 1"]
+    assert reports[-3:] == ["result 0", "stop-requested True", f"handler-calls {_seen(phase)}"]
     assert reports.count("closed") == 1
 
 
@@ -396,7 +407,8 @@ def test_real_signal_accepts_separately_delivered_repeated_stops(
     assert stdout == b"The tracker is running. (a handed announcement)\n"
     delivered = [line for line in reports if line.startswith("delivered ")]
     assert delivered == [f"delivered {phase}" for phase in phases]
-    assert reports[-3:] == ["result 0", "stop-requested True", f"handler-calls {len(phases)}"]
+    seen = sum(_seen(phase) for phase in phases)
+    assert reports[-3:] == ["result 0", "stop-requested True", f"handler-calls {seen}"]
 
 
 def test_real_start_keeps_the_non_raising_handler_through_its_return(tmp_path: Path) -> None:
@@ -452,7 +464,8 @@ def test_real_start_stops_while_a_real_request_is_saving(tmp_path: Path) -> None
         child.process.send_signal(signal.SIGINT)
         status, _stdout, stderr, reports = child.finish()
     finally:
-        os.write(release_write, b"x")
+        with contextlib.suppress(BrokenPipeError):  # the child has ended and closed its end
+            os.write(release_write, b"x")
         os.close(release_write)
 
     assert status == 0, stderr.decode("utf-8", errors="replace")
