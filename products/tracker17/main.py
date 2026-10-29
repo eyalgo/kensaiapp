@@ -79,11 +79,12 @@ def serve_until_stopped(
 ) -> int:
     """Arm the stop, announce readiness, serve until a stop is asked for, and close the listener.
 
-    Returns 0. The listener is closed once, also when the announcement or serving fails; such a
-    failure propagates unchanged. A stop asked for during the announcement ends serving at once.
+    Returns 0. The listener is closed once, also when arming, the announcement or serving fails;
+    such a failure propagates unchanged. A stop asked for during the announcement ends serving at
+    once.
     """
-    stops.arm()
     try:
+        stops.arm()
         announce()
         listener.serve_until(stops.stop_requested)
     finally:
