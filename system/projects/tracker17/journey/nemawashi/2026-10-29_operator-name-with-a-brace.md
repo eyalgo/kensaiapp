@@ -18,7 +18,9 @@ Measured there: `POST /operator-name` with `name={x}`, then `GET` the address it
 
 ## Stations — dynamic checklist
 
-- [ ] operator-name-with-a-brace — a name holding `{`, `}` or `{0}` is saved and shown on the People page as typed, on every outcome the Your name section shows (saved, refused, failed); a test per outcome; both suites pass
+- [ ] operator-name-with-a-brace — `POST /operator-name` with `{x}` and then `GET` of the address it redirects to returns the page with the name shown as typed (no `KeyError`), likewise for `}` and `{0}`, on each outcome the Your name section shows (saved, refused, failed); one test per outcome fails on `main` and passes after; the full automated suite (unit, integration, e2e, architecture) passes
+
+Route kept at one station, re-cut by the PM: the proposal's one item is a single defect in one function (`_your_name_section`), so it is one merge and splitting by outcome would leave two outcomes still crashing. Its reached-when is reworded, not narrowed: "both suites" named no suites, so it now names the request that failed and the full suite `tests/` holds.
 
 ## Out (later / elsewhere)
 
