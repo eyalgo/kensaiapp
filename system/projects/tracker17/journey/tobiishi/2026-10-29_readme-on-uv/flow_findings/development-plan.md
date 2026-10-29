@@ -1,0 +1,9 @@
+# Flow Findings — development-plan  (audited 2026-10-29)
+
+Findings for this step's output only, produced by the `development-audit` skill.
+Change-local findings live here; skill-general findings are also raised as kaizen items.
+
+Lenses 3 (classification copied verbatim: nfdr / changing), 4 (every departure from the spec or card is recorded in TL Review Notes with its reason), 6 and 8 hold. Lens 7's implementation items and lenses 9 and 10 do not apply to this step.
+
+- **[non-blocking · change-local · coverage]** The task's "place the supplied text verbatim" has no check. The gate never compares the README with `change_text.md`, and V1–V14 test properties of the result (grep, slices, headings). CP-669's "exactly these five lines, in this order" and CP-677's "no ADR-0002 link" are also read only; the spec's own Examples give a `grep -n 'docs/adr/…'` for CP-677, which was not carried. Where: `tl_instruction.md §Task 1 Deliverables / Verification gate`. These are mechanically checkable and the plan's "verified by review" lane leaves them to a reading; direction: a block-extract compare and the CP-677 grep in the gate.
+- **[non-blocking · change-local · contract-realized]** The per-task regression pass condition ("both exit 0 with no new failure") conflicts with the plan's own baseline note. The note records `38 failed, 31 errors` from loopback `PermissionError`s and says no valid verdict exists without an environment that permits listeners. Where: `tl_instruction.md §TL Review Notes (Baseline run)` vs `§Verification gate`, last paragraph. The plan does not say what the implementer records when the sandbox refuses the listeners, so exit 0 may be unreachable and the outcome is left to the implementer to invent. Direction: state the pass as a property (the failures are the same listener errors, or the run ran in a permitting environment).
