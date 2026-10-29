@@ -39,7 +39,7 @@ OUTER_DEADLINE_SECONDS = 120
 ONE_CASE_PASSED = re.compile(r"^1 passed(, \d+ warnings?)? in ", re.MULTILINE)
 
 
-def test_real_start_stops_when_pytest_launch_ignores_sigint() -> None:
+def test_real_start_stops_when_pytest_launch_ignores_sigint():
     """NFR-11: a real start stops on SIGINT in a pytest whose launch ignored SIGINT."""
     command = [
         "/bin/sh",
