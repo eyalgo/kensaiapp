@@ -226,11 +226,8 @@ button:hover {
 }
 
 /* A status move on a task row or on the task page: row-control tall (28px, clearing the 24px
-   target floor), the surface fill, the control type, and the secondary button's 1px muted edge.
-   The task page's Delete task control is the same size and look, under a class of its own, since
-   it is not a move. */
-button.move-button,
-button.delete-button {
+   target floor), the surface fill, the control type, and the secondary button's 1px muted edge. */
+button.move-button {
   height: 28px;
   min-width: 24px;
   padding: 0 12px;
@@ -243,8 +240,7 @@ button.delete-button {
   line-height: 1.2;
 }
 
-button.move-button:hover,
-button.delete-button:hover {
+button.move-button:hover {
   background: var(--surface-sunk);
   color: var(--ink);
 }
@@ -328,9 +324,10 @@ button.delete-button:hover {
   border-color: var(--ink-muted);
 }
 
-/* A project's deletion strip (DESIGN.md confirm-strip): the first button it replaces is the
-   full-size secondary button, so the sentence and the confirming control take that height, and
-   the bottom padding is the two full-size controls and the two 8px gaps around them. */
+/* A full-size confirmation strip (DESIGN.md confirm-strip), a task's deletion or a project's: the
+   first button it replaces is the full-size secondary button, so the sentence and the confirming
+   control take that height, and the bottom padding is the two full-size controls and the two 8px
+   gaps around them. */
 .strip-control .confirm-sentence {
   min-height: 36px;
   padding-bottom: 88px;

@@ -4,3 +4,6 @@
 **Category:** feature
 **Behaviour:** changing
 **Classified because:** the station's reached-when changes what `/tasks/<id>?delete_confirm` renders, a 36px confirming button where the suite pins 28px today, and makes an existing e2e assertion false, so it alters a contract the suite pins.
+
+**Sealed:** 2026-10-29 — accepted; merged to `main` via `--no-ff`.
+Environment: owners-mac — no CI
