@@ -2,8 +2,8 @@
 
 **Status:** Settled
 **Owner:** CTO — writes every part; the CPO and the CDO decide the parts the lane table names, through `SDD_open_issues.md` items carrying their `Seat:`
-**Version:** 15 — the twelfth answered round folded in (`products/tracker17/docs/trail/sdd/cycle-12.md`), one item the owner raised by hand against § 4 RT-4 and answered in their own words: the test suite's environment is made with uv, not with Python's `venv` and the bundled installer. RT-4 says it, and settles what the answer left to this seat: the lock file is `uv.lock`, committed beside `pyproject.toml`, in place of `tests/requirements.txt`; setup is `uv sync --locked`, which makes `.venv` and refuses a lock file out of step with the manifest; every suite command is typed through `uv run`; and the suite runs on the interpreter uv picks for the floor, which is not always the machine's `python3`. uv is a prerequisite of the suite and not of the tracker, so SRS C-7's bound on the tracker's setup is untouched. § 6's preamble and `first-project`'s artifact bar read uv; § 9 gains TO-9, the trade-off; § 11 R-8 names the run that would settle it, `uv run --python 3.11 pytest tests/`. Verified in a fresh clone at `e38121b11` with uv 0.11.14: `uv lock` resolved 17 packages at the four pins `pyproject.toml` declares, `uv sync --locked` installed them, 670 unit and architecture tests passed, 1,843 integration tests passed before a time cap with no failure, and `uv run pytest tests/e2e/` gave 120 passed and one timeout under machine load that passed twice when run alone. The header catches up with NFDR version 18 and the architecture companion's removal. RN-62 to RN-64 record the round. Nothing is left open. At 14: the eleventh answered round folded in (`products/tracker17/docs/trail/sdd/cycle-11.md`), one item the PM raised from the product's deletion tests against § 4 RT-11 and § 11 R-12, answered in the CTO's seat. RT-11's *Tests* and R-12's trigger name the four deletion tests on disk, landed at `ac09e56af` — the task deletion's response-policy test, which now asserts 202 on a shown confirmation; the project deletion's response-policy test; and the two history tests that go Back to a deletion's confirmation after confirming — in place of a test to come, and the divergence RN-56 recorded, a task deletion's confirmation answered 200, is closed in the product. The records caught up without an answer, as the round's § 2.1 anticipated: RT-11 names ADR-0012, which supersedes ADR-0010, as the record of its boundary and drops the line that a deletion's record was still to be written; § 12 counts twelve records; the header reads ADR-0012 and NFDR version 17. § 10's preamble counts RC-1 to RC-6, and the Review Notes' prologue gains the ninth and tenth rounds it omitted. RN-59 to RN-61 record the round. Nothing is left open. At 13: the tenth answered round folded in (`products/tracker17/docs/trail/sdd/cycle-10.md`), one item the PM raised from the product's task deletion against § 4 RT-11 and § 6 S-7, answered in the CTO's seat. RT-11 widens from a move to `cancelled` to every pending confirmation § 4 EX-6 names: a page that shows a pending confirmation of a move to `cancelled`, a task deletion or a project deletion is answered 202, read off the page as built; every other page a confirmed action's interaction or outcome lands on is 200; each carries `Cache-Control: no-store`; the address of a deleted task or project answers the not-found page, 404, with no cache header; and the case RT-11 handed to `delete-and-rename`, whether the HTTP cache may keep that 404, closes: it may, and a kept one stays true because an identity is never reused. S-7's command half gains the deletion history clause, § 11 R-12's trigger names the deletion history test once it exists, and § 7's hand-off edge names the 202. The UXD moved to version 11 after version 12 read it at 9, and § 10 RC-6 records it: a refusal or failure for a task the list's filter leaves off the list sits above the results, stated in § 4 EX-4 and in `narrow-and-sort`'s behaviour bar. RT-8 names ADR-0011, which now records it, and § 12 counts eleven records. RN-56 to RN-58 record the round. Nothing is left open. At 12: the ninth answered round folded in (`products/tracker17/docs/trail/sdd/cycle-9.md`), one item the PM raised from the product's filter form against § 4 RT-8, answered in the CTO's seat. RT-8 defines the word it binds on: a submission is a form sent with `method="post"`, a request for a change; a form sent with `method="get"` is a read, answered with the page at the address the browser built, 200, with no redirect, as the filter form is today, and § 11 R-10's bound reaches its values. RT-11 names ADR-0010, which now records it, and § 12 counts ten records. The UXD moved to version 9 after version 11 read it at 8, and § 10 RC-5 records it: § 6 `status-moves`'s overtaken-move refusal states the task's current status and claims no change, UX-F4's words. RN-53 to RN-55 record the round. Nothing is left open. At 11: the eighth answered round folded in (`products/tracker17/docs/trail/sdd/cycle-8.md`), two items the PM raised from the product's code and from the UXD and one a `companion-self-answer` run raised from § 11 read against the suite, all three answered in the CTO's seat. § 4 gains RT-11, the history-admission boundary: a page that shows a pending confirmation of a move to `cancelled` is answered 202 and every other move page 200, each with `Cache-Control: no-store`; § 9 TO-8 and § 11 R-12 surface the decision and its browser dependence, and RT-8's last sentence is scoped to a finished outcome. § 6 `status-moves`'s behaviour bar has the overtaken move name the moves the page now shows and offer no reload, and names the refusal reached by an address with no press; § 4 EX-4 says where that refusal sits; § 10 RC-4 records the UXD moving to version 8. § 11 R-2 counts the confirmation case verified, by four tests at `<a commit not in the public history>`, and § Open Questions keeps the assistive-technology case alone. RN-49 to RN-52 record the round. The header's *Inputs read* catches up with PRD version 7 and NFDR version 13, neither of which moves a line of this document (RN-52). Nothing is left open
-**Inputs read:** PRD Settled (version 7) · SRS Settled (version 6) · UXD Settled (version 11; no `products/tracker17/docs/UXD_open_issues.md` beside it) · Agari no Status line (`agari_template.md` carries none) · tracker17 doctrine no Status line (stamped, unfilled) · writing_bar Settled · ADR-0001 to ADR-0012, ADR-0006 Superseded by ADR-0011, ADR-0010 Superseded by ADR-0012 and the rest Accepted, and NFDR Settled (version 18, its header; `products/tracker17/docs/architecture_open_issues.md` no longer exists, removed at `66e29daa9` when its one item was folded) (downstream; read for the decisions already recorded, as the authoring lens says, never as a source) · FDR Settled (version 4, its header; downstream, read to check what the answered round says does not move, not a source) · the product's code and tests the answered round cites (read to verify each citation on disk, not sources)
+**Version:** 16 — the thirteenth answered round folded in (`products/tracker17/docs/trail/sdd/cycle-13.md`), one item the PM raised from the product's README against § 6 S-1 and § 4 RT-4 and answered in the CTO's seat: the two disagreed on whether the setup instructions' prerequisites section names uv, and S-1 holds. RT-4 now says that the prerequisites section names uv as the suite's alone, beside the one-time network connection RT-1 already places there, and that "the tracker's own setup", which names uv nowhere, is the tracker's prerequisites and RT-2's two commands. No slice, fence or edge moves, and SRS C-7's bound on the tracker's setup is untouched. The round's one item in § 2, raised by the run that answered § 5.1 with its slot left empty, is settled by the records on disk: RT-4 names ADR-0013, which supersedes ADR-0002, as the record of the suite's environment; § 12 counts thirteen records; and the header reads ADR-0013, NFDR version 19 and the architecture companion open again. RN-65 to RN-67 record the round. Nothing is left open. At 15: the twelfth answered round folded in (`products/tracker17/docs/trail/sdd/cycle-12.md`), one item the owner raised by hand against § 4 RT-4 and answered in their own words: the test suite's environment is made with uv, not with Python's `venv` and the bundled installer. RT-4 says it, and settles what the answer left to this seat: the lock file is `uv.lock`, committed beside `pyproject.toml`, in place of `tests/requirements.txt`; setup is `uv sync --locked`, which makes `.venv` and refuses a lock file out of step with the manifest; every suite command is typed through `uv run`; and the suite runs on the interpreter uv picks for the floor, which is not always the machine's `python3`. uv is a prerequisite of the suite and not of the tracker, so SRS C-7's bound on the tracker's setup is untouched. § 6's preamble and `first-project`'s artifact bar read uv; § 9 gains TO-9, the trade-off; § 11 R-8 names the run that would settle it, `uv run --python 3.11 pytest tests/`. Verified in a fresh clone at `e38121b11` with uv 0.11.14: `uv lock` resolved 17 packages at the four pins `pyproject.toml` declares, `uv sync --locked` installed them, 670 unit and architecture tests passed, 1,843 integration tests passed before a time cap with no failure, and `uv run pytest tests/e2e/` gave 120 passed and one timeout under machine load that passed twice when run alone. The header catches up with NFDR version 18 and the architecture companion's removal. RN-62 to RN-64 record the round. Nothing is left open. At 14: the eleventh answered round folded in (`products/tracker17/docs/trail/sdd/cycle-11.md`), one item the PM raised from the product's deletion tests against § 4 RT-11 and § 11 R-12, answered in the CTO's seat. RT-11's *Tests* and R-12's trigger name the four deletion tests on disk, landed at `ac09e56af` — the task deletion's response-policy test, which now asserts 202 on a shown confirmation; the project deletion's response-policy test; and the two history tests that go Back to a deletion's confirmation after confirming — in place of a test to come, and the divergence RN-56 recorded, a task deletion's confirmation answered 200, is closed in the product. The records caught up without an answer, as the round's § 2.1 anticipated: RT-11 names ADR-0012, which supersedes ADR-0010, as the record of its boundary and drops the line that a deletion's record was still to be written; § 12 counts twelve records; the header reads ADR-0012 and NFDR version 17. § 10's preamble counts RC-1 to RC-6, and the Review Notes' prologue gains the ninth and tenth rounds it omitted. RN-59 to RN-61 record the round. Nothing is left open. At 13: the tenth answered round folded in (`products/tracker17/docs/trail/sdd/cycle-10.md`), one item the PM raised from the product's task deletion against § 4 RT-11 and § 6 S-7, answered in the CTO's seat. RT-11 widens from a move to `cancelled` to every pending confirmation § 4 EX-6 names: a page that shows a pending confirmation of a move to `cancelled`, a task deletion or a project deletion is answered 202, read off the page as built; every other page a confirmed action's interaction or outcome lands on is 200; each carries `Cache-Control: no-store`; the address of a deleted task or project answers the not-found page, 404, with no cache header; and the case RT-11 handed to `delete-and-rename`, whether the HTTP cache may keep that 404, closes: it may, and a kept one stays true because an identity is never reused. S-7's command half gains the deletion history clause, § 11 R-12's trigger names the deletion history test once it exists, and § 7's hand-off edge names the 202. The UXD moved to version 11 after version 12 read it at 9, and § 10 RC-6 records it: a refusal or failure for a task the list's filter leaves off the list sits above the results, stated in § 4 EX-4 and in `narrow-and-sort`'s behaviour bar. RT-8 names ADR-0011, which now records it, and § 12 counts eleven records. RN-56 to RN-58 record the round. Nothing is left open. At 12: the ninth answered round folded in (`products/tracker17/docs/trail/sdd/cycle-9.md`), one item the PM raised from the product's filter form against § 4 RT-8, answered in the CTO's seat. RT-8 defines the word it binds on: a submission is a form sent with `method="post"`, a request for a change; a form sent with `method="get"` is a read, answered with the page at the address the browser built, 200, with no redirect, as the filter form is today, and § 11 R-10's bound reaches its values. RT-11 names ADR-0010, which now records it, and § 12 counts ten records. The UXD moved to version 9 after version 11 read it at 8, and § 10 RC-5 records it: § 6 `status-moves`'s overtaken-move refusal states the task's current status and claims no change, UX-F4's words. RN-53 to RN-55 record the round. Nothing is left open. At 11: the eighth answered round folded in (`products/tracker17/docs/trail/sdd/cycle-8.md`), two items the PM raised from the product's code and from the UXD and one a `companion-self-answer` run raised from § 11 read against the suite, all three answered in the CTO's seat. § 4 gains RT-11, the history-admission boundary: a page that shows a pending confirmation of a move to `cancelled` is answered 202 and every other move page 200, each with `Cache-Control: no-store`; § 9 TO-8 and § 11 R-12 surface the decision and its browser dependence, and RT-8's last sentence is scoped to a finished outcome. § 6 `status-moves`'s behaviour bar has the overtaken move name the moves the page now shows and offer no reload, and names the refusal reached by an address with no press; § 4 EX-4 says where that refusal sits; § 10 RC-4 records the UXD moving to version 8. § 11 R-2 counts the confirmation case verified, by four tests at `<a commit not in the public history>`, and § Open Questions keeps the assistive-technology case alone. RN-49 to RN-52 record the round. The header's *Inputs read* catches up with PRD version 7 and NFDR version 13, neither of which moves a line of this document (RN-52). Nothing is left open
+**Inputs read:** PRD Settled (version 7) · SRS Settled (version 6) · UXD Settled (version 11; no `products/tracker17/docs/UXD_open_issues.md` beside it) · Agari no Status line (`agari_template.md` carries none) · tracker17 doctrine no Status line (stamped, unfilled) · writing_bar Settled · ADR-0001 to ADR-0013, ADR-0002 Superseded by ADR-0013, ADR-0006 Superseded by ADR-0011, ADR-0010 Superseded by ADR-0012 and the rest Accepted, and NFDR Settled (version 19, its header; `products/tracker17/docs/architecture_open_issues.md` is live again, opened on 2026-10-29 by the PM at `f86543f50` with one item, § 3.1 on QC-40, unanswered and the Principal Architect's) (downstream; read for the decisions already recorded, as the authoring lens says, never as a source) · FDR Settled (version 4, its header; downstream, read to check what the answered round says does not move, not a source) · the product's code and tests the answered round cites (read to verify each citation on disk, not sources)
 
 > The SDD is the technical **how**, and it ends in a **cut**. It states the architecture the rest of
 > the system builds against — derived from the PRD (the *what and why*), the SRS (the system-level
@@ -37,17 +37,21 @@ items 2.2, 2.5, 3.1 and 3.2), `self_answer-3.md` (cycle 1, items 2.3 and 2.4), `
 item 5.1), `self_answer-7.md` (cycle 5, item 5.1), `self_answer-8.md` (cycle 6, item 5.1),
 `self_answer-9.md` (cycle 7, item 5.1), `self_answer-10.md` (cycle 8, items 5.1 and 5.2),
 `self_answer-11.md` (cycle 8, item 2.1), `self_answer-12.md` (cycle 9, item 5.1),
-`self_answer-13.md` (cycle 10, item 5.1), `self_answer-14.md` (cycle 11, item 5.1) and
+`self_answer-13.md` (cycle 10, item 5.1), `self_answer-14.md` (cycle 11, item 5.1),
 `self_answer-15.md` (cycle 12, item 5.1, which records that the run left the owner's own answer as
-written and decided nothing). The items of
-cycles 3 to 11 were raised by the PM, from the product's code, from a run of the setup instructions
+written and decided nothing) and `self_answer-16.md` (cycle 13, item 5.1, and the raising of its
+item 2.1). The items of
+cycles 3 to 11 and of cycle 13 were raised by the PM, from the product's code, from a run of the setup instructions
 on Linux, from a passing end-to-end test, in cycles 6 and 7 from the product's code again, in cycle
 8 from the product's code and from the UXD, in cycles 9 and 10 from the product's code again, and in
-cycle 11 from the product's tests, not drafted by the CTO, and were answered in the CTO's seat.
+cycle 11 from the product's tests, and in cycle 13 from the product's README read against § 6 S-1
+and § 4 RT-4, not drafted by the CTO, and were answered in the CTO's seat.
 Cycle 8's one item in § 2 was raised by the run that answered its § 5 items, in the CTO's seat, from
 reading § 11 against the suite. Cycle 11's one item in § 2 was raised the same way, from reading
 RT-11, § 12 and the header against the records; its answer slot was empty, and the records on disk
-settled it (RN-60). The Review Note named beside a marker says why this document reads as it does.
+settled it (RN-60). Cycle 13's one item in § 2 was raised the same way, from reading the header,
+RT-4 and § 12 against the records; its answer slot was empty too, and the records on disk settled it
+(RN-66). The Review Note named beside a marker says why this document reads as it does.
 
 No statement in this document awaits an answer. `products/tracker17/docs/SDD_open_issues.md` does not
 exist, and its absence is the done signal.
@@ -299,10 +303,16 @@ written so that a slice breaking it could be named.
 - **RT-4: Only the tests have dependencies, and each is fixed to an exact version.** They are
   declared in `pyproject.toml`, in its `dev` dependency group, and locked, with every dependency
   they pull in, in one committed file, `uv.lock`, beside `pyproject.toml`. The suite's environment
-  is made and filled by uv, which is a prerequisite of the suite and not of the tracker: the
-  instructions' section on running the suite says to install uv first, as uv's own documentation
-  says (https://docs.astral.sh/uv/getting-started/installation/, "Standalone installer", read
-  2026-10-29), and the tracker's own setup names it nowhere, because RT-1 and RT-2 hold without it.
+  is made and filled by uv, which is a prerequisite of the suite and not of the tracker. The
+  instructions' prerequisites section names uv as the suite's alone, beside the one-time network
+  connection RT-1 places there as the suite's, so a reader checking what they need learns of it
+  before the suite's section (SRS FR-4, the prerequisites; UXD UX-F1, UX-S1). The instructions'
+  section on running the suite says how to install it, as uv's own documentation says
+  (https://docs.astral.sh/uv/getting-started/installation/, "Standalone installer", read
+  2026-10-29). The tracker's own setup names it nowhere, because RT-1 and RT-2 hold without it. The
+  tracker's own setup is the tracker's prerequisites, Python 3.11 or later on macOS or Linux, and
+  the two commands RT-2 gives. A prerequisite stated as the suite's does not enter it, as the
+  network line does not, so SRS C-7's bound on the tracker's setup is untouched.
   One command, `uv sync --locked`, typed from the product root, makes the virtual environment at
   `.venv` and installs the locked set into it. The `--locked` flag refuses a lock file out of step
   with `pyproject.toml` instead of rewriting it, which is how SRS C-8 is held at setup: a fresh copy
@@ -333,10 +343,14 @@ written so that a slice breaking it could be named.
   `uv run pytest tests/e2e/` is a missing prerequisite. The list is the pin's and moves only when
   the pin does (SRS C-8). The system libraries are the operating system's, as Python is, and are
   not declared dependencies under C-8, so nothing pins them. No module outside `tests/` imports a
-  test dependency. *(serves SRS C-8, NFR-11, NFR-13, FR-4)* *(confirmed with an addition:
+  test dependency. The Principal Architect records this condition as
+  `products/tracker17/docs/adr/0013-standard-library-only-no-web-framework-suite-environment-made-by-uv.md`,
+  which supersedes ADR-0002, and binds it as `products/tracker17/docs/nfdr.md` QC-19, QC-36, QC-39,
+  QC-43, QC-59 and QC-60. *(serves SRS C-8, NFR-11, NFR-13, FR-4)* *(confirmed with an addition:
   `trail/sdd/cycle-1.md` § 2.1; why, RN-18; the Linux step and bound, `trail/sdd/cycle-4.md` § 5.1;
   why, RN-38; uv in place of `venv` and the bundled installer, the owner's own call,
-  `trail/sdd/cycle-12.md` § 5.1; why, RN-62)*
+  `trail/sdd/cycle-12.md` § 5.1; why, RN-62; uv in the prerequisites section, and what the tracker's
+  own setup is, `trail/sdd/cycle-13.md` § 5.1; why, RN-65)*
 - **RT-5: The tracker listens on one loopback address and on no other.** The address is
   `127.0.0.1:8017`, fixed in one constant, `ADDRESS` in `main.py`. `main` passes it to `web`, so a
   test can start a tracker on another port. *(serves SRS FR-2, FR-3)* *(confirmed with an addition:
@@ -845,7 +859,8 @@ pytest tests/e2e/` exits 0.
     `domain/projects.py`, `application/`, `persistence/` and `web/` exist. *(the Linux line and the
     Git prerequisite: `trail/sdd/cycle-4.md` § 5.1; why, RN-38, RN-39; the opening paragraph: SRS
     version 6, § 10 RC-3; why, RN-43; uv in the prerequisites and the suite's section:
-    `trail/sdd/cycle-12.md` § 5.1; why, RN-62)*
+    `trail/sdd/cycle-12.md` § 5.1; why, RN-62; the prerequisites section holds over RT-4's earlier
+    clause: `trail/sdd/cycle-13.md` § 5.1; why, RN-65)*
 - **Rests on:** § 2; § 3, all five parts and all seven seams; § 4, every condition. No earlier
   slice.
 - **Traces to:** PRD § Purpose, § Key Use Cases 1, 2 and 3, § Core Features Projects and Tested
@@ -1634,7 +1649,7 @@ rewrite here.
 **Below.** This document authors no ADR. The architecturally significant decisions are surfaced in
 three places and no fourth: § 2's shape table, § 9's trade-offs and the SDD Review Notes. The
 Principal Architect records them. The records are `products/tracker17/docs/adr/`, ADR-0001 to
-ADR-0012, and `products/tracker17/docs/nfdr.md`. Where a condition in § 4 and an entry in `nfdr.md`
+ADR-0013, and `products/tracker17/docs/nfdr.md`. Where a condition in § 4 and an entry in `nfdr.md`
 disagree, the § 4 statement wins and the entry is re-derived, because downstream is rebuilt from
 upstream and never the reverse (`<CORE>/templates/product-templates/sdd_template.md` § 4). This
 document designs no individual change. It names no file inside a part beyond the feature entry points of
@@ -1679,8 +1694,11 @@ RN-61 were written the same day, when the eleventh answered round was folded in
 answered in the CTO's seat, and the document caught up with ADR-0012 and NFDR version 17. RN-62 to
 RN-64 were written on 2026-10-29, when the twelfth answered round was folded in
 (`products/tracker17/docs/trail/sdd/cycle-12.md`): one item the owner raised by hand against § 4
-RT-4 and answered themselves, and the document caught up with NFDR version 18. Where an
-answer settled what an earlier note called
+RT-4 and answered themselves, and the document caught up with NFDR version 18. RN-65 to RN-67
+were written the same day, when the thirteenth answered round was folded in
+(`products/tracker17/docs/trail/sdd/cycle-13.md`): one item the PM raised from the product's README
+against § 6 S-1 and § 4 RT-4, answered in the CTO's seat, and the document caught up with ADR-0013
+and NFDR version 19. Where an answer settled what an earlier note called
 a draft, that note now says so and names the note that carries the answer.
 
 - **RN-1:** *(CPO)* *(added)* § 1 is drafted and treated as settled by the inputs. Each sentence
@@ -2895,6 +2913,96 @@ a draft, that note now says so and names the note that carries the answer.
   afterwards. This round changed no code. It did not read `products/tracker17/docs/DESIGN.md` or
   `products/tracker17/docs/CONTENT.md`: what this round changed names commands, a file and a
   prerequisite, and no word a page shows or a value the stylesheet sets.
+
+- **RN-65:** *(CTO)* *(changed)* § 4 RT-4 has the setup instructions' prerequisites section name
+  uv as the suite's alone, beside the one-time network connection, and says what "the tracker's own
+  setup" is: the tracker's prerequisites, Python 3.11 or later on macOS or Linux, and the two
+  commands RT-2 gives. § 6 `first-project`'s artifact bar, which already has the prerequisites
+  section hold "for the test suite only, uv and a network connection needed once", stands as
+  written — *because* the two disagreed on where the README first names uv, and the README could
+  meet only one. The PM raised it from the product's README after the unit that moved the suite's
+  instructions to uv (`trail/sdd/cycle-13.md` § 5.1): `products/tracker17/README.md`'s `### What
+  you need` names Python 3.11 or later, the operating systems and the tests' one-time network
+  connection and not uv, and uv is first named under `### Running the tests`, so the README held
+  RT-4's reading and fell short of S-1's. The answer, given in the CTO's seat, keeps S-1, with the
+  reasoning in `products/tracker17/docs/trail/sdd/self_answer-16.md` § 5.1, and this round
+  verified each ground on disk at `d648214ab`. The document's own precedent decides it: RT-1
+  already says the one-time network connection "is needed only to set up the test suite" and
+  places it among the prerequisites, and the README carries it in `### What you need` as the
+  tests' alone, so "the tracker's own setup" could not mean the prerequisites section without also
+  forbidding RT-1's line. The inputs put uv there too. SRS FR-4's first bullet has the
+  prerequisites say that setup needs a network connection once "to fetch the declared
+  dependencies", which only the tests have under RT-4; UXD UX-S1 lists "prerequisites (including
+  the one-time network connection setup needs)"; and UX-F1 has the reader check "the stated
+  prerequisites" before the commands, so a reader learns what the suite needs before they reach
+  its section. RN-62 already read uv as joining that list. SRS C-7 and AC-3 do not move: C-7
+  bounds the tracker's setup "on a machine with only the stated prerequisites" at three commands
+  and ten minutes, and a prerequisite stated as the suite's leaves the tracker at RT-2's two
+  commands on Python alone, as the network line already does. SRS RN-23 says a change of what
+  the prerequisites name "leaves all three true". UX-F1 keeps "Decision points: none": a sentence
+  stating what the tests need asks the reader to choose nothing. ADR-0013 § Decision's "the
+  tracker's own setup names it nowhere" stays true under the reworded RT-4 and is owed no change.
+  The close reading was the opposite one, uv named in the suite's section alone, which keeps
+  `### What you need` shorter. It lost because it would leave the network line as the one suite
+  prerequisite stated up front and send a reader who checked their prerequisites to a tool they
+  meet seventy lines later, and because it would move S-1's settled artifact bar and RN-62's
+  reading to spare one ambiguous clause in RT-4. This is a correction of one clause of a
+  condition, not a re-cut under § 10: S-1's *Reached when* holds as written, no fence or place
+  moves, and no edge in § 7 changes. The README's `### What you need` is owed one sentence, and
+  which unit carries it is the PM's, as it was when RT-4 gained its Linux step (RN-38) and uv
+  (RN-62). No item is raised for the CPO or the CDO: the edit lands in § 4 and in S-1's
+  *Artifact*, both the CTO's columns in § *Who decides what*, and the owner's call of 2026-10-29
+  chose uv and said nothing about where the README names it. *(re: § 4 RT-4; § 6 `first-project`;
+  source: SRS FR-4, C-7, AC-3, RN-23; UXD UX-F1, UX-S1)*
+- **RN-66:** *(CTO)* *(changed)* § 4 RT-4 names
+  `products/tracker17/docs/adr/0013-standard-library-only-no-web-framework-suite-environment-made-by-uv.md`,
+  which supersedes ADR-0002, as the record of the suite's environment, and the six NFDR
+  obligations it binds, the way RT-8 names ADR-0011 and RT-11 names ADR-0012; § 12 counts thirteen
+  records; and the header's *Inputs read* names ADR-0013 Accepted, ADR-0002 Superseded by
+  ADR-0013, NFDR version 19 and `products/tracker17/docs/architecture_open_issues.md` live again —
+  *because* the records landed after version 15 read them, and a settled document refers to the
+  records once they exist (RN-29). ADR-0013, Accepted on 2026-10-29 at `909fc536c`, says in its
+  § Context that "SDD version 15 § 4 RT-4 settled it" and in its § Binds "QC-19, QC-36, QC-39,
+  QC-43, QC-59, QC-60"; `products/tracker17/docs/adr/README.md` lists ADR-0002 "Superseded by
+  ADR-0013"; `products/tracker17/docs/nfdr.md` is at version 19, its header tracing those six
+  obligations to ADR-0013; and the architecture companion was opened again at `f86543f50` by the
+  PM, with one item, § 3.1 on QC-40, unanswered. `trail/sdd/cycle-13.md` § 2.1 raised the
+  catch-up as a choice for the CTO's seat, from the `companion-self-answer` run that answered
+  § 5.1, and its answer slot is empty. This run made the change without one, as RN-60 did for
+  ADR-0012, because the records on disk are the authority for what the records say, the three
+  lines are facts about them and not a call of this seat's, and the item itself said the fold's
+  own catch-up may reach the same lines. RN-63's "a new record superseding it is theirs to write"
+  is a dated record of the twelfth round and stays as written: ADR-0013 is that record. What
+  QC-40 asks, how its first review is met when the dependency graph cannot be read, is the
+  Principal Architect's, carried on that companion, and § 12 says § 4 wins where the two disagree,
+  so nothing is raised from here. *(re: § 4 RT-4; § 12; the header)*
+- **RN-67:** *(CTO)* *(added)* The round that folded the thirteenth answered round read these
+  things beyond the inputs RN-16, RN-23, RN-27, RN-30, RN-33, RN-37, RN-40, RN-44, RN-46, RN-48,
+  RN-52, RN-55, RN-58, RN-61 and RN-64 list. It read `products/tracker17/docs/SDD_open_issues.md`
+  as intake found it, committed at `d648214ab` with § 5.1's answer slot filled and § 2.1's empty,
+  and `products/tracker17/docs/trail/sdd/self_answer-16.md` and `self_answer-15.md`, the reasoning
+  behind the answer and behind the raising of § 2.1. It read `products/tracker17/README.md` whole,
+  to verify on disk where uv is first named: `### What you need` holds Python 3.11 or later, macOS
+  and Linux, and the tests' one-time network connection, and `### Running the tests` opens "The
+  tests need uv, which the tracker itself doesn't". It read `products/tracker17/docs/PRD.md` whole,
+  at version 7 as version 15 read it; `products/tracker17/docs/SRS.md` whole, at version 6;
+  `products/tracker17/docs/UXD.md` whole, at version 11; `products/tracker17/docs/fdr.md`'s header,
+  at version 4; `products/tracker17/docs/adr/README.md` and
+  `products/tracker17/docs/adr/0013-standard-library-only-no-web-framework-suite-environment-made-by-uv.md`
+  whole; `products/tracker17/docs/nfdr.md`'s header, at version 19 (commit `909fc536c`); and
+  `products/tracker17/docs/architecture_open_issues.md` whole, with its one item § 3.1 unanswered.
+  It ran `git status --short` on the product's docs, which printed nothing, so the companion it
+  consumed is the committed one, and `git log` on `SDD.md`, the companion and `trail/sdd/`, which
+  places the companion's opening at `b50787bc4` and its answer at `d648214ab`. It ran no suite and
+  read no code under the product root beyond the README: the item is about which of two sentences
+  in this document the README's prerequisites section follows, every ground is a sentence in this
+  document, the SRS, the UXD, the README or a record, and this round changed no code. It did not
+  re-read uv's documentation: RT-4's pointer to the installer page is kept where it was and nothing
+  this round changed rests on it. It did not read `products/tracker17/docs/DESIGN.md` or
+  `products/tracker17/docs/CONTENT.md`: what this round changed names where a prerequisite is
+  stated and which record holds a condition, and no word a page shows or a value the stylesheet
+  sets. It read the open station in the project's journey, as the overlay directs when one is open,
+  as an input and not as a source: nothing in this document cites it.
 
 ---
 
