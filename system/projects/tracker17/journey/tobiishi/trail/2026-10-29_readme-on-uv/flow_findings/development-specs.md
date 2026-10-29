@@ -1,0 +1,8 @@
+# Flow Findings — development-specs  (audited 2026-10-29)
+
+Findings for this step's output only, produced by the `development-audit` skill.
+Change-local findings live here; skill-general findings are also raised as kaizen items.
+
+Lenses 1 (coverage), 2 (altitude), 3 (classification: `nfdr` / `changing` copied from the request's "Classified because"), 4 (divergence: Gaps 1–13 each carry a reason; the two beyond-request edits, CP-677 and CP-678, are recorded), 5, 6 and 8 found nothing. Lenses 9 and 10 do not apply to this step. The deferred prerequisites-section gap is recorded in `deferred_decisions.md`, and the spec's Out of Scope matches it.
+
+- **[non-blocking · change-local · evidence-that-could-have-failed]** Three `## Verified Claims` rows state what a checker decides but rest on reading its source, with no run beside them. (a) "`uv run pytest tests/` does not collect the end-to-end tests (CP-672)": the evidence is the `tests/conftest.py:15` docstring, and the separate 2698 and 121 pass counts don't show that tests/ left e2e out. (b) "The dot-directory statement CP-673 keeps is true": the evidence is `tests/conftest.py:142`, the `walk_of` fixture's skip, read, not run. (c) "Two tests read the README's headings": found by grep and read at `test_start.py:35,37,166,196-208`; the row doesn't say whether those two tests ran green against the hand-built post-change README, which CP-681 depends on. Where: `change_spec.md §Verified Claims`. Each verdict is derived from the checker's source or comment, not from a run. Direction: run the two heading tests and a collection listing (`uv run pytest tests/ --collect-only -q`, no `e2e` ids) against the built README, and state the tree under which each ran.
