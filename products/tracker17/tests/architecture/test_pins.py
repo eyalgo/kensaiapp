@@ -41,7 +41,7 @@ def normalized(name: str) -> str:
     return re.sub(r"[-_.]+", "-", name).lower()
 
 
-def test_uv_lock_fixes_every_declared_dependency_at_its_declared_version() -> None:
+def test_uv_lock_fixes_every_declared_dependency_at_its_declared_version():
     """QC-39, CP-662."""
     lock = PRODUCT_ROOT / "uv.lock"
     assert lock.is_file()
