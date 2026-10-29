@@ -20,9 +20,10 @@ Earlier units met it and worked around it: `tracker17 · tobiishi · 2026-10-28_
 
 ## Stations — dynamic checklist
 
-- [ ] start-tests-under-ignored-sigint — `pytest products/tracker17/tests/` run as a background job (SIGINT ignored) exits 0 with no `test_start.py` timeout, same as in the foreground, so the full suite (unit, integration, e2e, architecture) passes either way
+- [ ] start-tests-under-ignored-sigint — the product's two suites, `products/tracker17/tests/` and `products/tracker17/tests/e2e/`, each exit 0 in the foreground and with SIGINT ignored, with no `test_start.py` timeout, and a test that fails on `970f6a4ca` proves it
 
 Route re-cut (stations-from-seed, 2026-10-29): kept as one station, since the ask is one capability with one acceptance boundary, and tightened its reached-when to an exit-0 background run; the foreground-versus-background wording was prose, not a check.
+Route amended (shukuba-refine, 2026-10-29): the one root run covering four folders became the product's two suites, because the collection rule and five basenames shared by `unit/` and `e2e/` keep them apart; the proof test the first unit deferred was added to the line, so the station is not reached until it lands.
 
 ## Out (later / elsewhere)
 
