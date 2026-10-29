@@ -3,7 +3,8 @@
 Checks SRS FR-20 and FR-22 (the assignee list and removing a name), FR-27 (the operator's name),
 FR-39 and FR-40 (refusals and the maximum length), NFR-4 (no outside content or script) and NFR-5
 (typed text is shown as text). Change spec rules CP-80 to CP-85, CP-87, CP-89 to CP-91, CP-94, CP-96
-and CP-97, and CP-211 to CP-217, CP-220 to CP-222, CP-225, CP-232 and CP-238, and NFDR QC-36 are
+and CP-97, and CP-211 to CP-217, CP-220 to CP-222, CP-225, CP-232 and CP-238, CP-619 to CP-624, and NFDR
+QC-36 are
 the ones each test names. Where a test checks words, they are the strings of this change's text
 record; the focus tests check where a line sits and which element it describes.
 """
@@ -19,6 +20,8 @@ from application import SHORT_TEXT_MAX
 from web import pages
 
 HOSTILE = '<b>A&B</b> "quoted"'
+BRACE_HOSTILE = '{<b>&"}'
+BRACE_HOSTILE_SOURCE = "{&lt;b&gt;&amp;&quot;}"
 VARIANTS = ["Dana", "dana", "Dana ", "Dana  ", " Dana"]
 EMPTY_TEXT = "There are no assignees yet. Tasks can be assigned only to names on this list."
 FIELD_FAILURES = (
@@ -570,30 +573,54 @@ def test_people_name_field_uses_saved_name_and_shared_maximum() -> None:
 
 
 @pytest.mark.parametrize(
-    ("area", "saved", "target", "line"),
+    ("area", "saved", "target", "line", "css", "place"),
     [
         (
             pages.OperatorNameArea(saved="Sam"),
             "Sam",
             "input",
             OPERATOR_COMPLETED.format(name="Sam"),
+            "outcome",
+            "above-form",
         ),
-        (pages.OperatorNameArea(refusal=BLANK, typed="  "), "Sam", "input", BLANK_REASON),
-        (pages.OperatorNameArea(refusal=TOO_LONG), None, "input", OPERATOR_TOO_LONG),
+        (
+            pages.OperatorNameArea(refusal=BLANK, typed="  "),
+            "Sam",
+            "input",
+            BLANK_REASON,
+            "reason",
+            "in-field-block",
+        ),
+        (
+            pages.OperatorNameArea(refusal=TOO_LONG),
+            None,
+            "input",
+            OPERATOR_TOO_LONG,
+            "reason",
+            "in-field-block",
+        ),
         (
             pages.OperatorNameArea(failed=True, typed="Lee"),
             "Sam",
             "button",
             OPERATOR_FAILURE.format(name="Lee"),
+            "reason",
+            "after-field-block",
         ),
     ],
     ids=["completed", "blank", "too-long", "failed"],
 )
 def test_operator_outcome_focus_has_one_linked_accessible_description(
-    area: pages.OperatorNameArea, saved: str | None, target: str, line: str
+    area: pages.OperatorNameArea,
+    saved: str | None,
+    target: str,
+    line: str,
+    css: str,
+    place: str,
 ) -> None:
-    """CP-216, CP-220 to CP-222: success and both refusals focus the field, a failure focuses Save,
-    each described by its one line, with one focus and one action outcome; the line takes none."""
+    """CP-216, CP-220 to CP-222, CP-624: success and both refusals focus the field, a failure
+    focuses Save, each described by its one line, with one focus and one action outcome; the line
+    takes none, and it keeps its tag, class, id and place."""
     root = parse(pages.people_page(["Dana"], operator_name=saved, operator_area=area))
     (focus,) = focused(root)
     assert focus.tag == target
@@ -602,6 +629,20 @@ def test_operator_outcome_focus_has_one_linked_accessible_description(
     assert described.tag == "p" and described.text() == line
     assert operator_lines(root) == [described]
     assert "autofocus" not in described.attrs and "tabindex" not in described.attrs
+    assert described.attrs == {"class": css, "id": "operator-name-outcome"}
+    own, field, button = your_name_section(root), operator_field(root), operator_button(root)
+    (form,) = own.find_all("form")
+    if place == "above-form":
+        assert described.parent is own and own.children.index(described) < own.children.index(form)
+    elif place == "in-field-block":
+        block = described.parent
+        assert block is field.parent and block is not None and block.attrs["class"] == "field"
+        assert block.children.index(described) < block.children.index(field)
+    else:
+        block = field.parent
+        assert described.parent is form and block is not None and block.parent is form
+        assert form.children.index(block) < form.children.index(described)
+        assert form.children.index(described) < form.children.index(button)
     assert described in list(your_name_section(root).walk())
     assert root.find_all("script") == []
     assert all("#" not in (a.attrs.get("href") or "") for a in root.find_all("a"))
@@ -609,14 +650,17 @@ def test_operator_outcome_focus_has_one_linked_accessible_description(
 
 
 def test_operator_name_and_outcome_values_render_as_text() -> None:
-    """CP-225, QC-36: the field and the completion and failure lines carry `<`, `&` and quotes as
-    typed, with no injected tags, no duplicate identifiers and the surrounding structure intact."""
+    """CP-225, CP-622, CP-624, QC-36: the field and the completion and failure lines carry `<`,
+    `&`, quotes and braces as typed, with no injected tags, no duplicate identifiers and the
+    surrounding structure intact."""
     plain_structure = [e.tag for e in parse(pages.people_page([])).walk() if e.tag != "p"]
-    for saved, area in (
-        (HOSTILE, pages.OperatorNameArea(saved=HOSTILE)),
-        (None, pages.OperatorNameArea(failed=True, typed=HOSTILE)),
-        (None, pages.OperatorNameArea(refusal=BLANK, typed=HOSTILE)),
-        (HOSTILE, None),
+    for name, saved, area in (
+        (HOSTILE, HOSTILE, pages.OperatorNameArea(saved=HOSTILE)),
+        (HOSTILE, None, pages.OperatorNameArea(failed=True, typed=HOSTILE)),
+        (HOSTILE, None, pages.OperatorNameArea(refusal=BLANK, typed=HOSTILE)),
+        (HOSTILE, HOSTILE, None),
+        (BRACE_HOSTILE, BRACE_HOSTILE, pages.OperatorNameArea(saved=BRACE_HOSTILE)),
+        (BRACE_HOSTILE, None, pages.OperatorNameArea(failed=True, typed=BRACE_HOSTILE)),
     ):
         page = pages.people_page([], operator_name=saved, operator_area=area)
         root = parse(page)
@@ -625,13 +669,15 @@ def test_operator_name_and_outcome_values_render_as_text() -> None:
         ids = [e.attrs["id"] for e in root.walk() if "id" in e.attrs]
         assert len(ids) == len(set(ids))
         assert [e.tag for e in root.walk() if e.tag != "p"] == plain_structure
-        assert operator_field(root).attrs["value"] == HOSTILE
+        assert operator_field(root).attrs["value"] == name
+        if name == BRACE_HOSTILE:
+            assert page.count(BRACE_HOSTILE_SOURCE) == 2
         if area is not None and area.saved is not None:
             (line,) = operator_lines(root)
-            assert line.text() == OPERATOR_COMPLETED.format(name=HOSTILE)
+            assert line.text() == OPERATOR_COMPLETED.format(name=name)
         if area is not None and area.failed:
             (line,) = operator_lines(root)
-            assert line.text() == OPERATOR_FAILURE.format(name=HOSTILE)
+            assert line.text() == OPERATOR_FAILURE.format(name=name)
 
 
 def test_people_operator_precedence_holds_for_direct_page_values() -> None:
