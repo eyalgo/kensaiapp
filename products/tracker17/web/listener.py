@@ -4,11 +4,16 @@ Decides no rule and builds no page. It writes nothing to the console while it se
 every answer it writes itself, an error included, carries no text the standard library made up
 (CP-23). `listen` raises `AddressTaken` when something else already holds the address and lets
 every other bind failure propagate; it words nothing for the operator.
+
+`Listener.serve_until` serves until a predicate the caller hands in turns true (SRS FR-1 and FR-2,
+change spec rules CP-644, CP-650 and CP-651; checked at SRS NFR-11's integration layer). It knows
+no signal, no saved data and no clock, and it leaves closing the listener to its caller.
 """
 
 from __future__ import annotations
 
 import errno
+from collections.abc import Callable
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
@@ -19,6 +24,9 @@ from web.routes import PAGE_POLICY, Response, Site
 
 class AddressTaken(AppError):
     """The address cannot be bound because another program already holds it."""
+
+
+IDLE_WAIT_SECONDS = 0.5  # how long cooperative serving waits for a request before asking again
 
 
 class _Handler(BaseHTTPRequestHandler):
@@ -58,6 +66,21 @@ class Listener(ThreadingHTTPServer):
 
     daemon_threads = True
     server_address: tuple[str, int]  # The loopback IPv4 address `listen` binds: a host and a port.
+
+    def serve_until(self, stop_requested: Callable[[], bool]) -> None:
+        """Answer requests until `stop_requested()` is true, asking again within half a second.
+
+        Returns without closing the listener; the caller calls `server_close`. A request already
+        accepted is answered on its own thread. Whatever `stop_requested` raises propagates, and the
+        listener's timeout is put back as found either way.
+        """
+        timeout_before = self.timeout
+        self.timeout = IDLE_WAIT_SECONDS
+        try:
+            while not stop_requested():
+                self.handle_request()
+        finally:
+            self.timeout = timeout_before
 
 
 def listen(address: tuple[str, int], tracker: Tracker) -> Listener:
