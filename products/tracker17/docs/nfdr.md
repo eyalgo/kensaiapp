@@ -2,7 +2,7 @@
 
 **Status:** Draft
 **Owner:** Principal Architect
-**Version:** 20 — the answer to companion § 3.1 folded in (`products/tracker17/docs/trail/architecture/cycle-18.md`): QC-40 says the package feed for the packages `uv.lock` fixes is down, Dependabot alerts being disabled on the repository that holds tracker17, and says how a review meets the moment that checks it — from an account with admin on the repository, the alerts endpoint read first, the dependency graph read through its page or the asynchronous SBOM export, a call that answers neither way meeting nothing, and the moment owed until a review reads the graph listing the packages (RN-56); companion § 2.1, raised by the run that answered § 3.1, is drafted as RN-57, the provenance for QC-39's tail, which two Developer commits moved to "is met" after version 19, checked against the tree; `Inputs read:` names SDD version 16, which moves no entry (RN-58); § 2.1 is left for the owner to confirm, so the companion stays and this document is Draft.
+**Version:** 20 — the answer to companion § 3.1 folded in (`products/tracker17/docs/trail/architecture/cycle-18.md`): QC-40 says the package feed for the packages `uv.lock` fixes is down, Dependabot alerts being disabled on the repository that holds tracker17, and says how a review meets the moment that checks it — from an account with admin on the repository, the alerts endpoint read first, the dependency graph read through its page or the asynchronous SBOM export, a call that answers neither way meeting nothing, and the moment owed until a review reads the graph listing the packages (RN-56); companion § 2.1, raised by the run that answered § 3.1, is drafted as RN-57, the provenance for QC-39's tail, which two Developer commits moved to "is met" after version 19, checked against the tree; QC-27's review-gate tail gains the reason it lacked, and `Inputs read:` names SDD version 16, which moves no entry (RN-58); § 2.1 is left for the owner to confirm, so the companion stays and this document is Draft.
 **Inputs read:** SRS Settled (version 6) · SDD Settled (version 16) · FDR Settled (version 4) · PRD Settled (version 7) · UXD Settled (version 11) · DESIGN Settled (version 4) · CONTENT Settled (version 17) · Agari no Status line · tracker17 doctrine no Status line (stamped, unfilled)
 
 > The NFDR is the product's **standing obligations, consolidated and verifiable**: every quality
@@ -262,9 +262,9 @@ is checked by § 3's capability entries, named in each clause.
 - **QC-27:** Replacing the browser interface — adding a framework, a script, or a store for the last
   outcome — touches `web` and the wiring in `main.py` only. `domain`, `application` and `persistence`
   do not change.
-  — *verified by:* review at `development-design` when a change touches `web`; QC-16 and QC-14 keep
-  HTML and request detail out of the inner parts *(traces to: ADR-0001; SDD § 9 TO-1, TO-2, TO-7; FDR
-  PD-15)*
+  — *verified by:* review at `development-design` when a change touches `web`. No test can exercise
+  a swap that has not happened; QC-16 and QC-14 keep HTML and request detail out of the inner parts
+  *(traces to: ADR-0001; SDD § 9 TO-1, TO-2, TO-7; FDR PD-15; see RN-58)*
 - **QC-28:** The source of the current date and time is replaceable: a test hands `application` a
   clock, and no test patches a name inside a product module.
   — *verified by:* SRS AC-13's tests, which set today's date through a clock handed in; layer 6, a
@@ -1584,5 +1584,8 @@ QC-12, QC-25, QC-26, QC-27, QC-40, QC-41 and QC-60 are review gates and have no 
   counts thirteen records (SDD RN-65 to RN-67). B-4 already holds uv as a prerequisite of the suite
   that no lock file reaches, so no entry moves. The SRS, the FDR, the PRD, the UXD, `DESIGN.md`,
   `CONTENT.md`, `what_left.md`, the Agari, the project's doctrine and the card are unchanged since
-  version 19. No record was written or changed. `Inputs read:` now names SDD version 16. One item is
-  left open, so the companion stays and this document is Draft. *(re: Version 20; QC-39; QC-40)*
+  version 19. No record was written or changed. The finish walk found one class-2 tail that did not
+  argue its downgrade: QC-27's. It now carries the reason QC-25's and QC-26's carry for the same kind
+  of swap, "No test can exercise a swap that has not happened"; its obligation and its review moment
+  are unchanged. `Inputs read:` now names SDD version 16. One item is left open, so the companion
+  stays and this document is Draft. *(re: Version 20; QC-27; QC-39; QC-40)*
