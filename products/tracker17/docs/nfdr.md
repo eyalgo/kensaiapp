@@ -2,7 +2,7 @@
 
 **Status:** Settled
 **Owner:** Principal Architect
-**Version:** 19 — the answer to companion § 3.1 folded in (`products/tracker17/docs/trail/architecture/cycle-17.md`): the records follow SDD version 15 § 4 RT-4 to uv. ADR-0013 supersedes ADR-0002, carrying it whole with the suite's environment made by uv, and QC-19, QC-36, QC-39, QC-43, QC-59 and QC-60 trace to it; QC-39 names `uv.lock` and adds `uv lock --check`, which fails on a lock file out of step with `pyproject.toml`, and starts unmet until the product moves to RT-4; QC-40's package feed is re-derived for `uv.lock` from GitHub's Dependabot pages, with a review moment that confirms it on the repository; QC-60's tail names the interpreter uv picks and the command SDD § 11 R-8 names, and stays a review gate; B-4 names uv as a prerequisite no lock file reaches; § 9 and § 10 type the suite commands through `uv run`; RN-54 and RN-55 record the round; nothing is left open, so the companion is removed and this document is Settled
+**Version:** 19 — the answer to companion § 3.1 folded in (`products/tracker17/docs/trail/architecture/cycle-17.md`): the records follow SDD version 15 § 4 RT-4 to uv. ADR-0013 supersedes ADR-0002, carrying it whole with the suite's environment made by uv, and QC-19, QC-36, QC-39, QC-43, QC-59 and QC-60 trace to it; QC-39 names `uv.lock` and adds `uv lock --check`, which fails on a lock file out of step with `pyproject.toml`, and starts unmet until the product moves to RT-4; QC-40's package feed is re-derived for `uv.lock` from GitHub's Dependabot pages, with a review moment that confirms it on the repository; QC-60's tail names the interpreter uv picks and the command SDD § 11 R-8 names, and stays a review gate; B-4 names uv as a prerequisite no lock file reaches; QC-26's review-gate tail gains the reason it lacked; § 9 and § 10 type the suite commands through `uv run`; RN-54 and RN-55 record the round; nothing is left open, so the companion is removed and this document is Settled
 **Inputs read:** SRS Settled (version 6) · SDD Settled (version 15) · FDR Settled (version 4) · PRD Settled (version 7) · UXD Settled (version 11) · DESIGN Settled (version 4) · CONTENT Settled (version 17) · Agari no Status line · tracker17 doctrine no Status line (stamped, unfilled)
 
 > The NFDR is the product's **standing obligations, consolidated and verifiable**: every quality
@@ -257,8 +257,8 @@ is checked by § 3's capability entries, named in each clause.
 - **QC-26:** Replacing the whole-state save with one operation per kind of change touches
   `persistence`, the saving contract and the `application` actions that call it. `domain` and `web`
   do not change, and the change lands with a record superseding ADR-0004.
-  — *verified by:* review at `development-design` when a change touches the saving contract
-  *(traces to: ADR-0004; SDD § 9 TO-3)*
+  — *verified by:* review at `development-design` when a change touches the saving contract. No test
+  can exercise a swap that has not happened *(traces to: ADR-0004; SDD § 9 TO-3; see RN-55)*
 - **QC-27:** Replacing the browser interface — adding a framework, a script, or a store for the last
   outcome — touches `web` and the wiring in `main.py` only. `domain`, `application` and `persistence`
   do not change.
@@ -1518,5 +1518,8 @@ QC-12, QC-25, QC-26, QC-27, QC-40, QC-41 and QC-60 are review gates and have no 
   `<CORE>/doctrine/engineering/languages/README.md` § Gate environment defaults its gates run on the
   owner's Mac, and it owes no environment decision; § 8 records none. This run read
   `pyproject.toml`, `tests/architecture/test_pins.py` and the imports of `tests/timed_run.py` on disk,
-  and ran no suite. `Inputs read:` now names SDD version 15. Nothing is left open, so the companion
-  is removed and this document is Settled. *(re: Version 19; ADR-0013)*
+  and ran no suite. The finish walk found one class-2 tail that did not argue its downgrade: QC-26's.
+  It now carries the reason QC-25's carries for the same kind of swap, "No test can exercise a swap
+  that has not happened". Its obligation and its review moment are unchanged. `Inputs read:` now
+  names SDD version 15. Nothing is left open, so the companion is removed and this document is
+  Settled. *(re: Version 19; ADR-0013; QC-26)*
