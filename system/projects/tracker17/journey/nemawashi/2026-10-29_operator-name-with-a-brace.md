@@ -18,7 +18,7 @@ Measured there: `POST /operator-name` with `name={x}`, then `GET` the address it
 
 ## Stations — dynamic checklist
 
-- [ ] operator-name-with-a-brace — `POST /operator-name` with `{x}` and then `GET` of the address it redirects to returns the page with the name shown as typed (no `KeyError`), likewise for `}` and `{0}`, on each outcome the Your name section shows (saved, refused, failed); for the saved and failed outcomes, one test each fails on `main` and passes after; for each refusal (blank, too long), one test with `{x}` already saved shows its refusal line with no `KeyError`; the full automated suite (unit, integration, e2e, architecture) passes
+- [ ] operator-name-with-a-brace — `POST /operator-name` with `{x}` and then `GET` of the address it redirects to returns the page with no error, likewise for `}` and `{0}`, on each outcome the Your name section shows (saved, refused, failed), and the saved and failed lines show the name as typed; for the saved and failed outcomes, one test each fails on `main` and passes after; for each refusal (blank, too long), one test with `{x}` already saved shows its refusal line with no error; the full automated suite (unit, integration, e2e, architecture) passes
 
 Route kept at one station, re-cut by the PM: the proposal's one item is a single defect in one function (`_your_name_section`), so it is one merge and splitting by outcome would leave two outcomes still crashing. Its reached-when is reworded, not narrowed: "both suites" named no suites, so it now names the request that failed and the full suite `tests/` holds.
 
