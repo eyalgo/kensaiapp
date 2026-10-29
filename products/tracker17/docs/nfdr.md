@@ -355,9 +355,15 @@ is checked by § 3's capability entries, named in each clause.
   — *verified by:* layer 6, a test that reads `pyproject.toml` with `tomllib` and fails on a test
   dependency not pinned with `==`, or on a missing `uv.lock`; and `uv lock --check`, which exits 1 on
   a lock file out of step with `pyproject.toml` and 0 otherwise, `--offline` included. The entry
-  starts unmet: at `9219be1e1` the product holds `tests/requirements.txt` and no `uv.lock`, and
-  `tests/architecture/test_pins.py`, `test_the_lock_file_exists_and_every_line_is_exact`, reads the
-  former. The change that moves the product to SDD § 4 RT-4 moves the test with the file (SDD RN-63)
+  is met: `uv.lock` is committed beside `pyproject.toml`, and `tests/architecture/test_pins.py`,
+  `test_uv_lock_fixes_every_declared_dependency_at_its_declared_version`, reads it and fails on a
+  declared dependency the lock does not fix at its declared version. It started unmet: at `9219be1e1`
+  the product held `tests/requirements.txt` and no `uv.lock`, and
+  `test_the_lock_file_exists_and_every_line_is_exact` read the former (SDD RN-63). Verified when
+  the lock landed, 2026-10-29: `uv lock --check` and `uv lock --check --offline` with an empty
+  cache exited 0, and in a fresh clone `uv sync --locked` then
+  `uv run pytest tests/unit tests/architecture` exited 0 with 686 passed and `uv.lock`
+  byte-identical
   *(traces to: ADR-0013; SRS C-8, AC-3; SDD § 4 RT-4; see RN-54)*
 - **QC-40:** *(B-4)* A change that adds a test dependency, or moves a pin, picks no version that a
   known critical advisory is against when a version free of one is published on the index the pin

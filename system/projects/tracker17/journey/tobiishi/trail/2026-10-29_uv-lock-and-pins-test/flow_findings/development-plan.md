@@ -1,0 +1,12 @@
+# Flow Findings — development-plan  (audited 2026-10-29)
+
+Findings for this step's output only, produced by the `development-audit` skill.
+Change-local findings live here; skill-general findings are also raised as kaizen items.
+
+Read against `change_spec.md`, `change_design.md`, `change_text.md`, `docs/nfdr.md` and `test_pins.py` (all coverage, classification, divergence, constraint and step-contract lenses walked).
+
+- **[non-blocking · change-local · divergence]** The plan files the stale `docs/nfdr.md` QC-39 wording as "owed outside this change's reach" and its scope review expects `docs` to print nothing, yet the plan never records an owner for that correction, and `deferred_decisions.md` holds only the README entry. Where: `tl_instruction.md §Corrections owed while there`, `§One-change scope review`; `change_design.md §Records this change makes false`. The design lists the QC-39 record as made false by this change and says only "after landing", while the spec's Out of Scope keeps every `docs/` record unchanged. The plan resolved that tension one way without a TL Review Notes entry or a deferred entry. The developer later edited `docs/nfdr.md` in this branch (commits `79a743286`, `5eb5ec557`), so the plan's own scope review (first diff, `docs`) cannot print nothing. Direction: record the decision and its owner at the plan step (a deferred entry for `shukuba-refine`, or an explicit instruction to correct it here).
+
+- **[non-blocking · change-local · coverage]** The committed suite holds only the replacement test's happy path. Every rule-implied failure edge of CP-662 (missing package record, wrong version, empty `package`, malformed TOML, extras, separator normalization, pair order) is held only by disposable probes. Where: `tl_instruction.md §Behaviours to verify`, `§Temporary failure and normalization probes`. The design chose this (T6–T7, "not additional permanent tests"), so the plan follows its input and the coverage is mapped, not dropped. Noted so the owner sees that a later edit to the reader is unguarded. No fix asked.
+
+Lenses 3 (Category `nfdr` / Behaviour `changing` copied verbatim), 5, 6 and 8: clean. The plan enacts no downstream role's decision, and every design T1–T11 row and every spec Example maps to a gate row or a held-by-review line. The deviations (merge base replacing the fixed commit, the gate command differing from the card, the merged Task 1) are recorded with reasons in TL Review Notes.
