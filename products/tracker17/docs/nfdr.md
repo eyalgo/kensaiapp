@@ -1,9 +1,9 @@
 # NFDR — tracker17
 
-**Status:** Settled
+**Status:** Draft
 **Owner:** Principal Architect
-**Version:** 19 — the answer to companion § 3.1 folded in (`products/tracker17/docs/trail/architecture/cycle-17.md`): the records follow SDD version 15 § 4 RT-4 to uv. ADR-0013 supersedes ADR-0002, carrying it whole with the suite's environment made by uv, and QC-19, QC-36, QC-39, QC-43, QC-59 and QC-60 trace to it; QC-39 names `uv.lock` and adds `uv lock --check`, which fails on a lock file out of step with `pyproject.toml`, and starts unmet until the product moves to RT-4; QC-40's package feed is re-derived for `uv.lock` from GitHub's Dependabot pages, with a review moment that confirms it on the repository; QC-60's tail names the interpreter uv picks and the command SDD § 11 R-8 names, and stays a review gate; B-4 names uv as a prerequisite no lock file reaches; QC-26's review-gate tail gains the reason it lacked; § 9 and § 10 type the suite commands through `uv run`; RN-54 and RN-55 record the round; nothing is left open, so the companion is removed and this document is Settled
-**Inputs read:** SRS Settled (version 6) · SDD Settled (version 15) · FDR Settled (version 4) · PRD Settled (version 7) · UXD Settled (version 11) · DESIGN Settled (version 4) · CONTENT Settled (version 17) · Agari no Status line · tracker17 doctrine no Status line (stamped, unfilled)
+**Version:** 20 — the answer to companion § 3.1 folded in (`products/tracker17/docs/trail/architecture/cycle-18.md`): QC-40 says the package feed for the packages `uv.lock` fixes is down, Dependabot alerts being disabled on the repository that holds tracker17, and says how a review meets the moment that checks it — from an account with admin on the repository, the alerts endpoint read first, the dependency graph read through its page or the asynchronous SBOM export, a call that answers neither way meeting nothing, and the moment owed until a review reads the graph listing the packages (RN-56); companion § 2.1, raised by the run that answered § 3.1, is drafted as RN-57, the provenance for QC-39's tail, which two Developer commits moved to "is met" after version 19, checked against the tree; `Inputs read:` names SDD version 16, which moves no entry (RN-58); § 2.1 is left for the owner to confirm, so the companion stays and this document is Draft.
+**Inputs read:** SRS Settled (version 6) · SDD Settled (version 16) · FDR Settled (version 4) · PRD Settled (version 7) · UXD Settled (version 11) · DESIGN Settled (version 4) · CONTENT Settled (version 17) · Agari no Status line · tracker17 doctrine no Status line (stamped, unfilled)
 
 > The NFDR is the product's **standing obligations, consolidated and verifiable**: every quality
 > constraint a change is checked against, derived from the SRS, the SDD, the FDR and the ADR — never
@@ -375,24 +375,33 @@ is checked by § 3's capability entries, named in each clause.
   the day the advisory is published**. A fix moves the pin; where none comes within the window, the
   dependency is replaced or removed, or the owner records a dated exception with its reason in a
   Review Note here, which is the only way to be past the window without being late. **The owner
-  watches the advisories**, through two feeds: Dependabot alerts on the repository that holds
-  tracker17, for the packages `uv.lock` fixes, which reach them only while GitHub's Dependabot reads
-  that format; and, for the browser, which no manifest or lock file names, a comparison of
-  the installed browser version with the browser vendor's security releases at each
-  `development-design` review.
+  watches the advisories.** For the browser, which no manifest or lock file names, the feed is a
+  comparison of the installed browser version with the browser vendor's security releases at each
+  `development-design` review. For the packages `uv.lock` fixes, the feed is Dependabot alerts on
+  the repository that holds tracker17, and **that feed is down**: on 2026-10-29 the repository
+  refused its alerts as disabled, and its dependency graph is off. Until the feed is on, package
+  advisories reach the owner only at the `development-design` reviews below, and a stretch with no
+  review leaves the packages unwatched.
   — *verified by:* review at `development-design`, at two moments: when a change adds or changes a
   test dependency or chooses the lock file's format, where the version chosen is checked against
   published advisories and against the versions on the index the pin installs from, and at every review, where the pins and the
   browser build are checked against published advisories and a critical advisory more than 30 days
-  old blocks the change until the pin moves or a dated exception is recorded. The first review after
-  `uv.lock` is on `main` also checks that the repository's dependency graph lists the packages
-  `uv.lock` fixes; where it lists none, the package feed is down, and the reviewer surfaces that to
-  the Principal Architect as a discrepancy in this entry. No command can measure
+  old blocks the change until the pin moves or a dated exception is recorded. A review also checks
+  the package feed, until one finds it on. The check is made from an account with admin on the
+  repository that holds tracker17. It reads the repository's Dependabot alerts endpoint first: a list
+  means the feed is on, and the refusal "Dependabot alerts are disabled for this repository" means it
+  is down. It then checks that the dependency graph lists the packages `uv.lock` fixes, through the
+  repository's dependency-graph page or GitHub's asynchronous SBOM export, never the synchronous
+  `dependency-graph/sbom` call, which GitHub closes after 2026-11-13. A call that answers neither way,
+  for want of access or a network, is not a reading, and the moment is not met. The moment stays owed
+  until a review reads the graph listing those packages, and that review surfaces the feed's return
+  to the Principal Architect as a discrepancy in this entry. No command can measure
   a window, and no audit command exists for this product: the Python packet names none and tracker17
   installs none *(traces to: `<CORE>/doctrine/engineering/quality_defaults.md` § Dependencies;
   owner, `trail/architecture/cycle-2.md` § 1.1, `trail/architecture/cycle-6.md` § 2.1,
-  `trail/architecture/cycle-7.md` § 3.1, `trail/architecture/cycle-17.md` § 3.1; SDD § 4 RT-4, RN-63;
-  see RN-10, RN-18, RN-31, RN-54, and RN-33 for the dated exception in force)*
+  `trail/architecture/cycle-7.md` § 3.1, `trail/architecture/cycle-17.md` § 3.1,
+  `trail/architecture/cycle-18.md` § 3.1; SDD § 4 RT-4, RN-63; see RN-10, RN-18, RN-31, RN-54,
+  RN-56, and RN-33 for the dated exception in force)*
 - **QC-41:** The product reads, holds and writes no secret: no account, no key, no credential, at
   setup or in use. A change that introduces one is out of bounds.
   — *verified by:* review at `development-design`. No secrets scanner exists for this product, and
@@ -1529,3 +1538,51 @@ QC-12, QC-25, QC-26, QC-27, QC-40, QC-41 and QC-60 are review gates and have no 
   that has not happened". Its obligation and its review moment are unchanged. `Inputs read:` now
   names SDD version 15. Nothing is left open, so the companion is removed and this document is
   Settled. *(re: Version 19; ADR-0013; QC-26)*
+- **RN-56:** QC-40 says the package feed is down, and says how a review meets the moment that
+  checks it — *because* the owner answered companion § 3.1, "The feed is down, not unreadable, and
+  QC-40 should say so and say how the moment is met" (`trail/architecture/cycle-18.md` § 3.1, with
+  the reasoning at `trail/architecture/self_answer-22.md`). The PM raised the item: the first review
+  after `uv.lock` reached `main` recorded that the synchronous `dependency-graph/sbom` call returned
+  HTTP 404, which reads neither way. The owner's answer measured the repository from an account with
+  admin on it, on 2026-10-29: its Dependabot alerts endpoint refuses with HTTP 403, "Dependabot alerts
+  are disabled for this repository", and its organization, on GitHub's free plan, turns the
+  dependency graph on for no new repository. So the review's "where it lists none" branch fired, and
+  the item is the discrepancy QC-40 asked for. The entry now names the access the check needs, reads
+  the alerts endpoint before the graph, names the dependency-graph page or the asynchronous SBOM
+  export and no synchronous call, which GitHub closes after 2026-11-13, holds that a call answering
+  neither way meets nothing, and keeps the moment owed until a review reads the graph listing the
+  packages. The obligation says the package feed is down and names the cost, a stretch with no
+  review leaving the packages unwatched. Its 30-day window, the owner as watcher, the browser's feed,
+  the review moments that already stood and its class are unchanged. Turning on Dependabot alerts and
+  the dependency graph is a setting on the owner's repository, and choosing another feed stays the
+  owner's call (RN-54); the entry writes in neither. RN-18 and RN-54 are dated records and are not
+  edited. This run did not repeat the measurement; it rests on the owner's answer.
+  *(re: QC-40; source: owner, `trail/architecture/cycle-18.md` § 3.1)*
+- **RN-57:** QC-39's tail says the entry is met and how that was verified, and this note is the
+  provenance it lacked — drafted, and open for the owner's confirmation as companion § 2.1. Two
+  Developer commits after version 19, `79a743286` and `5eb5ec557`, rewrote the tail from "starts
+  unmet" to "is met" with no new version and no Review Note. The delivery tier does not edit this
+  document; a discrepancy it finds comes back here to be recorded. Version 19's header and RN-54 say
+  QC-39 starts unmet, and both are dated records, left as written. This run checked the new text
+  against the tree at `1bfb63f7f`: `uv.lock` sits beside `pyproject.toml`, and
+  `tests/architecture/test_pins.py:44` holds
+  `test_uv_lock_fixes_every_declared_dependency_at_its_declared_version`. In a disposable clone, with
+  uv 0.11.14, `uv lock --check` and `uv lock --check --offline` exited 0, `uv sync --locked` exited 0,
+  and `uv run pytest tests/architecture/test_pins.py` passed its 4 tests. It did not re-run the
+  686-test count the tail cites. Every fact checked holds, so the entry's words stay as the Developer
+  wrote them, and its obligation, its checks and its trace are unchanged. *(re: QC-39; source:
+  `trail/architecture/self_answer-22.md` § Raised on this document; companion § 2.1)*
+- **RN-58:** Version 20 was written on 2026-10-29. It read the answered companion as committed at
+  `1bfb63f7f` and copied it whole to `trail/architecture/cycle-18.md` before the fold. The PM opened
+  its § 3.1; `trail/architecture/self_answer-22.md` records the run that answered it and raised § 2.1.
+  § 3.1 is folded (RN-56). § 2.1's slot was empty, so its draft is written into this document (RN-57)
+  and the item stays for the owner to confirm. Since version 19 (`git diff --stat 53ad18603 HEAD`
+  over the product's `docs/` and the project's `agari.md`, `doctrine/` and `project.md`), the SDD and
+  this document moved among the inputs, and this run read both changes. SDD version 16 has § 4 RT-4
+  say that the setup instructions' prerequisites section names uv as the suite's alone, and that the
+  tracker's own setup is its prerequisites and RT-2's two commands; RT-4 names ADR-0013, and § 12
+  counts thirteen records (SDD RN-65 to RN-67). B-4 already holds uv as a prerequisite of the suite
+  that no lock file reaches, so no entry moves. The SRS, the FDR, the PRD, the UXD, `DESIGN.md`,
+  `CONTENT.md`, `what_left.md`, the Agari, the project's doctrine and the card are unchanged since
+  version 19. No record was written or changed. `Inputs read:` now names SDD version 16. One item is
+  left open, so the companion stays and this document is Draft. *(re: Version 20; QC-39; QC-40)*
