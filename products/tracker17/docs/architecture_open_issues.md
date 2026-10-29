@@ -48,7 +48,16 @@ None.
   back to its version-19 text until a `product-architecture` run moves it. Either way the entry's
   obligation and checks do not move. Leaving the Developer's edit with no note keeps the precedent
   that a delivery-tier run edits the constraint set directly.
-- **Confirm or override:** <"confirm", or "override: <what to do instead>">
+- **Confirm or override:** confirm, with an addition. RN-57 also says why the edit happened and
+  what still lets it recur. The Developer acted on `development-implementation`'s rule that a
+  correction line naming a file tracked on the branch is mislabelled. For a product kept in the same
+  repository, that rule puts this document in a delivery change's reach, against the line before it
+  in the same skill. The contradiction is filed as a finding against the skill
+  (`docs/findings/2026-10-29_the-developer-skill-puts-a-same-repo-product-record-in-reach.md` at the
+  instance root) and is not this document's to settle. Until it is settled, no check refuses a
+  delivery commit that edits this document, and the next `product-architecture` run's diff of its
+  inputs is what finds one. QC-39's words, obligation, checks and trace stay as RN-57 has them.
+  Reasoning: `docs/trail/architecture/self_answer-23.md`.
 
 ## 3. Raised from downstream — an item from a seat that did not write these records
 
