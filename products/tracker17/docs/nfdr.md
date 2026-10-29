@@ -1,8 +1,8 @@
 # NFDR — tracker17
 
-**Status:** Draft
+**Status:** Settled
 **Owner:** Principal Architect
-**Version:** 20 — the answer to companion § 3.1 folded in (`products/tracker17/docs/trail/architecture/cycle-18.md`): QC-40 says the package feed for the packages `uv.lock` fixes is down, Dependabot alerts being disabled on the repository that holds tracker17, and says how a review meets the moment that checks it — from an account with admin on the repository, the alerts endpoint read first, the dependency graph read through its page or the asynchronous SBOM export, a call that answers neither way meeting nothing, and the moment owed until a review reads the graph listing the packages (RN-56); companion § 2.1, raised by the run that answered § 3.1, is drafted as RN-57, the provenance for QC-39's tail, which two Developer commits moved to "is met" after version 19, checked against the tree; QC-27's review-gate tail gains the reason it lacked, and `Inputs read:` names SDD version 16, which moves no entry (RN-58); § 2.1 is left for the owner to confirm, so the companion stays and this document is Draft.
+**Version:** 21 — the answer to companion § 2.1 folded in (`products/tracker17/docs/trail/architecture/cycle-19.md`): the owner confirmed RN-57 as QC-39's provenance and added why the edit happened — `development-implementation`'s rule that a correction line naming a file tracked on the branch is mislabelled puts this document in a same-repository delivery change's reach, a contradiction filed against that skill and not settled here — so RN-57 is confirmed and says so, and QC-39's words, obligation, checks and trace do not move (RN-59); nothing is left open, so the companion is removed and this document is Settled.
 **Inputs read:** SRS Settled (version 6) · SDD Settled (version 16) · FDR Settled (version 4) · PRD Settled (version 7) · UXD Settled (version 11) · DESIGN Settled (version 4) · CONTENT Settled (version 17) · Agari no Status line · tracker17 doctrine no Status line (stamped, unfilled)
 
 > The NFDR is the product's **standing obligations, consolidated and verifiable**: every quality
@@ -1559,7 +1559,9 @@ QC-12, QC-25, QC-26, QC-27, QC-40, QC-41 and QC-60 are review gates and have no 
   edited. This run did not repeat the measurement; it rests on the owner's answer.
   *(re: QC-40; source: owner, `trail/architecture/cycle-18.md` § 3.1)*
 - **RN-57:** QC-39's tail says the entry is met and how that was verified, and this note is the
-  provenance it lacked — drafted, and open for the owner's confirmation as companion § 2.1. Two
+  provenance it lacked. Version 20 drafted it; the owner confirmed it, with an addition
+  (`trail/architecture/cycle-19.md` § 2.1, with the reasoning at
+  `trail/architecture/self_answer-23.md`). Two
   Developer commits after version 19, `79a743286` and `5eb5ec557`, rewrote the tail from "starts
   unmet" to "is met" with no new version and no Review Note. The delivery tier does not edit this
   document; a discrepancy it finds comes back here to be recorded. Version 19's header and RN-54 say
@@ -1570,8 +1572,18 @@ QC-12, QC-25, QC-26, QC-27, QC-40, QC-41 and QC-60 are review gates and have no 
   uv 0.11.14, `uv lock --check` and `uv lock --check --offline` exited 0, `uv sync --locked` exited 0,
   and `uv run pytest tests/architecture/test_pins.py` passed its 4 tests. It did not re-run the
   686-test count the tail cites. Every fact checked holds, so the entry's words stay as the Developer
-  wrote them, and its obligation, its checks and its trace are unchanged. *(re: QC-39; source:
-  `trail/architecture/self_answer-22.md` § Raised on this document; companion § 2.1)*
+  wrote them, and its obligation, its checks and its trace are unchanged. **Why the edit happened,
+  and what lets it recur** — the owner's addition. The Developer acted on `development-implementation`'s
+  rule that a correction line naming a file tracked on the change's branch is mislabelled and does
+  not bind. tracker17's `docs/` is tracked in the same repository as its code, so that rule puts this
+  document in a delivery change's reach, against the line before it in the same skill, which names a
+  product record under `docs/` as one the change may not edit. The contradiction is the skill's to
+  settle, not this document's: it is filed as a finding against the skill,
+  `docs/findings/2026-10-29_the-developer-skill-puts-a-same-repo-product-record-in-reach.md` at the
+  instance root. Until it is settled, no check refuses a delivery commit that edits this document, and
+  the next `product-architecture` run's diff of its inputs is what finds one.
+  *(re: QC-39; source: owner, `trail/architecture/cycle-19.md` § 2.1;
+  `trail/architecture/self_answer-22.md` § Raised on this document)*
 - **RN-58:** Version 20 was written on 2026-10-29. It read the answered companion as committed at
   `1bfb63f7f` and copied it whole to `trail/architecture/cycle-18.md` before the fold. The PM opened
   its § 3.1; `trail/architecture/self_answer-22.md` records the run that answered it and raised § 2.1.
@@ -1589,3 +1601,13 @@ QC-12, QC-25, QC-26, QC-27, QC-40, QC-41 and QC-60 are review gates and have no 
   of swap, "No test can exercise a swap that has not happened"; its obligation and its review moment
   are unchanged. `Inputs read:` now names SDD version 16. One item is left open, so the companion
   stays and this document is Draft. *(re: Version 20; QC-27; QC-39; QC-40)*
+- **RN-59:** Version 21 was written on 2026-10-29. It read the answered companion as committed at
+  `98a0a2497` and copied it whole to `trail/architecture/cycle-19.md` before the fold. Its one item,
+  § 2.1, was answered "confirm, with an addition", and is folded into RN-57, which now records the
+  owner's confirmation and the cause of the edit it covers. This run re-read the rule the addition
+  names in `development-implementation`'s `SKILL.md` and found it as the answer quotes it. QC-39 is
+  unchanged. Since version 20 (`git diff --stat 7ed698a82 HEAD` over the product and the project's
+  `agari.md`, `doctrine/` and `project.md`), only this document, the companion and the trail moved;
+  every other input is unchanged, so `Inputs read:` stands. No record was written or changed. Nothing
+  is left open, so the companion is removed and this document is Settled. *(re: Version 21; RN-57;
+  QC-39)*
