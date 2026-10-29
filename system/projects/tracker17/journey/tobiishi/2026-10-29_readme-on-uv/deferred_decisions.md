@@ -16,3 +16,12 @@ What this change held back, for `shukuba-refine` to place after the unit lands. 
 **Why not this change:** the request rules it out: "The tracker's own setup text (`## Setup instructions` down to `### Running the tests`) names uv nowhere". The station's reached-when item 4 checks the same range. Settling it is the SDD's call on which of its two sentences holds, not a README edit.
 **Owner:** none — for shukuba-refine
 **Status:** open
+
+---
+
+## Dependency graph coverage of uv.lock — record gap, handed on by development-design (2026-10-29)
+**Record:** `products/tracker17/docs/nfdr.md:383-391`, QC-40, requires the first review after the lock lands to verify that the repository dependency graph lists its packages. A graph listing none is a discrepancy for the Principal Architect.
+**Product today:** The authenticated command `gh api repos/kensaiapp/<the instance KensaiApp is developed in>/dependency-graph/sbom` returned `Not Found (HTTP 404)`, exit 1. The graph's contents are unknown; this response is not evidence that the graph is empty. The exact 16 registry versions in the product's `uv.lock` returned no matching advisories from `https://api.osv.dev/v1/querybatch` on 2026-10-29, which does not verify GitHub's feed.
+**Why not this change:** CP-682 limits product edits to the README. No dependency or lock-format change is requested. Verify the repository's dependency graph with access that can read it, and surface any missing lock-file coverage to the Principal Architect under QC-40.
+**Owner:** Principal Architect — for shukuba-refine to place
+**Status:** open
