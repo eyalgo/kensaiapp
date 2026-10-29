@@ -1,0 +1,10 @@
+# Flow Findings — development-specs  (audited 2026-10-29)
+
+Findings for this step's output only, produced by the `development-audit` skill.
+Change-local findings live here; skill-general findings are also raised as kaizen items.
+
+- **[non-blocking · change-local · coverage]** CP-662's second clause (the lock-file test fails when a declared dependency is not fixed in `uv.lock` at its declared version) has no Examples row and no Verified Claims run of its own. Where: `change_spec.md §Rules CP-662`, `§Examples`. The only failing scenarios shown are a missing `uv.lock` and `pytest>=9`; the rule-implied edge (lock present, entry absent or at another version) is unexercised. Direction: add the row, or state why the first two cover it.
+- **[non-blocking · change-local · divergence-record]** CP-664's extra demand that neither command changes `uv.lock` (byte-identical afterwards) goes beyond the request and has no `## Locked Answers` entry. Where: `change_spec.md §Rules CP-664`, `§Locked Answers`. Gaps 4-7 record each other addition drawn from NFDR/SDD with its reason; this one cites RT-4 inline only. Direction: log it as a gap with its reason.
+- **[non-blocking · change-local · handed-down-constraint]** The Examples row for the `development-design` review of CP-666 prescribes that review's verdict ("the Windows-only `colorama` included", "the Chromium build … does not block, under RN-33"). Where: `change_spec.md §Examples`, `§Rules CP-666`. Deciding the outcome of a downstream role's check enacts it; the rule should state the property and stop, leaving the verdict to that review. Direction: drop the verdict wording from the row.
+
+Lenses 2, 3, 5, 6, 7 clean: header `Category: nfdr` / `Behaviour: changing` copied verbatim from the request; `## Verified Claims` present in full with command, tree, conditions and result for every verdict-bearing claim; no mechanism leaks into the rules. Lens 4 otherwise clean: Gaps 1-3 and 8-9 record the load-bearing divergences from the request with reasons. Lenses 8 (dropped), 9 and 10 do not apply or find nothing: no request property was dropped.
