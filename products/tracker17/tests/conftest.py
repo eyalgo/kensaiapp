@@ -1,12 +1,21 @@
-"""Three duties for every test run: the import shim, the collection rule and the source walk.
+"""Four duties for every test run: the import shim, the launch condition, the collection rule and the
+source walk.
 
 The shim puts the project root on sys.path so a test can import its subject by module name. The
 frame ships no build system and does not install the product itself, so a module at the project
 root cannot be imported by package name without it.
 
-The collection rule keeps ``pytest tests/`` from collecting ``tests/e2e/``. The two are separate
-suites (docs/nfdr.md § 10): the end-to-end one needs the browser the lock file installs, which the
-machine's own pytest does not have. ``pytest tests/e2e/`` names the directory and collects it.
+The launch condition is the ``_interruptible_test_session`` fixture. A suite started as a
+background job can arrive with SIGINT ignored, and every tracker a test starts inherits that, so
+the SIGINT the test sends never stops it. For the session the fixture gives the test process
+Python's own interrupt handler, which a started tracker does not inherit, and puts back the exact
+handler it found when the session ends. It covers the setup and teardown of every fixture that
+starts a tracker, and changes nothing about what Ctrl-C does to a tracker an operator starts.
+
+The collection rule keeps the product-local ``pytest tests/`` from collecting ``tests/e2e/``. The
+two are separate suites (docs/nfdr.md § 10): the end-to-end one needs the browser the lock file
+installs, which the machine's own pytest does not have. ``pytest tests/e2e/`` names the directory
+and collects it.
 
 The source walk is the ``walk_of`` fixture: it reads every product module outside ``tests/`` as a
 syntax tree, so the layer-6 tests in ``tests/architecture/`` walk code and never run it. A walk
@@ -17,7 +26,9 @@ that finds no module in the part it covers fails, so a wrong root cannot pass by
 from __future__ import annotations
 
 import ast
+import signal
 import sys
+import threading
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
@@ -46,6 +57,29 @@ def pytest_ignore_collect(collection_path: Path, config: pytest.Config) -> bool 
     if not inside_end_to_end:
         return None
     return not _command_line_names_end_to_end([str(arg) for arg in config.invocation_params.args])
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _interruptible_test_session() -> Iterator[None]:
+    """Let a SIGINT sent to a tracker a test starts stop it, whatever the suite inherited.
+
+    A suite launched with SIGINT ignored passes that on to every child. Python's interrupt handler
+    is installed only where the parent has not ignored the signal, so such a child never stops. The
+    fixture runs before the session's other fixtures and ends after them, so it encloses every one
+    that starts a tracker. It sets the handler only in the main thread, the one thread that may,
+    and gives back exactly the handler it found, ignored or callable, whether or not the session
+    passed.
+    """
+    if threading.current_thread() is not threading.main_thread():
+        yield
+        return
+    incoming = signal.getsignal(signal.SIGINT)
+    signal.signal(signal.SIGINT, signal.default_int_handler)
+    try:
+        yield
+    finally:
+        if incoming is not None:
+            signal.signal(signal.SIGINT, incoming)
 
 
 @dataclass(frozen=True)
