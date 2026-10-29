@@ -6,3 +6,6 @@
 **Classified because:** the station `2026-10-29_start-tests-under-ignored-sigint` reads "the start tests pass when the suite is launched with SIGINT ignored", a violated suite-passes contract whose remaining work is a test and a 101-column reflow; no operator-visible behaviour and no public name moves.
 
 **Sizing:** one capability, one honest merge. The acceptance boundary is the station's reached-when (source: the station file's `## Reached when`); the signal half is in place at `3b2c0dd28`, so what remains is the proof test and the reflow, which belong together as the station's last obligations.
+
+**Sealed:** 2026-10-29 — accepted; merged to `main` via `--no-ff`.
+Environment: owners-mac — no CI
