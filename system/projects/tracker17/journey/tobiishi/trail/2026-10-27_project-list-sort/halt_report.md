@@ -18,14 +18,14 @@ path-unresolved
 The following command executed from the instance root and exited 2:
 
 ```text
-<a path on Eyal's machine> <a path on Eyal's machine> resolve --format json --worktree <a path on Eyal's machine> --project tracker17 --key 2026-10-27_project-list-sort
+<the host's core>/tools/locked_python.sh <the host's core>/tools/development_path.py resolve --format json --worktree <the instance>/.worktrees/2026-10-27_project-list-sort --project tracker17 --key 2026-10-27_project-list-sort
 ```
 
 Actual output:
 
 ```text
-error: Failed to initialize cache at `<a path on Eyal's machine>`
-  Caused by: failed to open file `<a path on Eyal's machine>`: Operation not permitted (os error 1)
+error: Failed to initialize cache at `<home>/.cache/uv`
+  Caused by: failed to open file `<home>/.cache/uv/sdists-v9/.git`: Operation not permitted (os error 1)
 ```
 
 The command returned no path contract; the evidence is its output above.

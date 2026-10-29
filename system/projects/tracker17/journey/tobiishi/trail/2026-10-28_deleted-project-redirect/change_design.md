@@ -177,7 +177,7 @@ package/version pairs in `products/tracker17/tests/requirements.txt` returned
 `{"results":[{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}]}`: no matching advisory was returned for
 those pins. This is the query result, not a claim that the database contains every advisory.
 The installed cached Chromium's `CFBundleShortVersionString`, read with
-`/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' '<a path on Eyal's machine> Chrome for Testing.app/Contents/Info.plist'`,
+`/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' '<the Playwright cache>/chromium-1243/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Info.plist'`,
 printed `153.0.8010.12`.
 Google's [September 8 security release](https://chromereleases.googleblog.com/2026/09/stable-channel-update-for-desktop_0808145027.html)
 lists critical fixes in the later 153.0.8010.36/.37 builds; the browser is not judged current.
