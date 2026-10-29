@@ -2,8 +2,8 @@
 
 **Status:** Settled
 **Owner:** CTO — writes every part; the CPO and the CDO decide the parts the lane table names, through `SDD_open_issues.md` items carrying their `Seat:`
-**Version:** 14 — the eleventh answered round folded in (`products/tracker17/docs/trail/sdd/cycle-11.md`), one item the PM raised from the product's deletion tests against § 4 RT-11 and § 11 R-12, answered in the CTO's seat. RT-11's *Tests* and R-12's trigger name the four deletion tests on disk, landed at `ac09e56af` — the task deletion's response-policy test, which now asserts 202 on a shown confirmation; the project deletion's response-policy test; and the two history tests that go Back to a deletion's confirmation after confirming — in place of a test to come, and the divergence RN-56 recorded, a task deletion's confirmation answered 200, is closed in the product. The records caught up without an answer, as the round's § 2.1 anticipated: RT-11 names ADR-0012, which supersedes ADR-0010, as the record of its boundary and drops the line that a deletion's record was still to be written; § 12 counts twelve records; the header reads ADR-0012 and NFDR version 17. § 10's preamble counts RC-1 to RC-6, and the Review Notes' prologue gains the ninth and tenth rounds it omitted. RN-59 to RN-61 record the round. Nothing is left open. At 13: the tenth answered round folded in (`products/tracker17/docs/trail/sdd/cycle-10.md`), one item the PM raised from the product's task deletion against § 4 RT-11 and § 6 S-7, answered in the CTO's seat. RT-11 widens from a move to `cancelled` to every pending confirmation § 4 EX-6 names: a page that shows a pending confirmation of a move to `cancelled`, a task deletion or a project deletion is answered 202, read off the page as built; every other page a confirmed action's interaction or outcome lands on is 200; each carries `Cache-Control: no-store`; the address of a deleted task or project answers the not-found page, 404, with no cache header; and the case RT-11 handed to `delete-and-rename`, whether the HTTP cache may keep that 404, closes: it may, and a kept one stays true because an identity is never reused. S-7's command half gains the deletion history clause, § 11 R-12's trigger names the deletion history test once it exists, and § 7's hand-off edge names the 202. The UXD moved to version 11 after version 12 read it at 9, and § 10 RC-6 records it: a refusal or failure for a task the list's filter leaves off the list sits above the results, stated in § 4 EX-4 and in `narrow-and-sort`'s behaviour bar. RT-8 names ADR-0011, which now records it, and § 12 counts eleven records. RN-56 to RN-58 record the round. Nothing is left open. At 12: the ninth answered round folded in (`products/tracker17/docs/trail/sdd/cycle-9.md`), one item the PM raised from the product's filter form against § 4 RT-8, answered in the CTO's seat. RT-8 defines the word it binds on: a submission is a form sent with `method="post"`, a request for a change; a form sent with `method="get"` is a read, answered with the page at the address the browser built, 200, with no redirect, as the filter form is today, and § 11 R-10's bound reaches its values. RT-11 names ADR-0010, which now records it, and § 12 counts ten records. The UXD moved to version 9 after version 11 read it at 8, and § 10 RC-5 records it: § 6 `status-moves`'s overtaken-move refusal states the task's current status and claims no change, UX-F4's words. RN-53 to RN-55 record the round. Nothing is left open. At 11: the eighth answered round folded in (`products/tracker17/docs/trail/sdd/cycle-8.md`), two items the PM raised from the product's code and from the UXD and one a `companion-self-answer` run raised from § 11 read against the suite, all three answered in the CTO's seat. § 4 gains RT-11, the history-admission boundary: a page that shows a pending confirmation of a move to `cancelled` is answered 202 and every other move page 200, each with `Cache-Control: no-store`; § 9 TO-8 and § 11 R-12 surface the decision and its browser dependence, and RT-8's last sentence is scoped to a finished outcome. § 6 `status-moves`'s behaviour bar has the overtaken move name the moves the page now shows and offer no reload, and names the refusal reached by an address with no press; § 4 EX-4 says where that refusal sits; § 10 RC-4 records the UXD moving to version 8. § 11 R-2 counts the confirmation case verified, by four tests at `<a commit not in the public history>`, and § Open Questions keeps the assistive-technology case alone. RN-49 to RN-52 record the round. The header's *Inputs read* catches up with PRD version 7 and NFDR version 13, neither of which moves a line of this document (RN-52). Nothing is left open
-**Inputs read:** PRD Settled (version 7) · SRS Settled (version 6) · UXD Settled (version 11; no `products/tracker17/docs/UXD_open_issues.md` beside it) · Agari no Status line (`agari_template.md` carries none) · tracker17 doctrine no Status line (stamped, unfilled) · writing_bar Settled · ADR-0001 to ADR-0012, ADR-0006 Superseded by ADR-0011, ADR-0010 Superseded by ADR-0012 and the rest Accepted, and NFDR Settled (version 17, its header; `products/tracker17/docs/architecture_open_issues.md` is also present, opened on 2026-10-28 by the PM, with its one item, § 3.1, on QC-63's verifiers, unanswered) (downstream; read for the decisions already recorded, as the authoring lens says, never as a source) · FDR Settled (version 4, its header; downstream, read to check what the answered round says does not move, not a source) · the product's code and tests the answered round cites (read to verify each citation on disk, not sources)
+**Version:** 15 — the twelfth answered round folded in (`products/tracker17/docs/trail/sdd/cycle-12.md`), one item the owner raised by hand against § 4 RT-4 and answered in their own words: the test suite's environment is made with uv, not with Python's `venv` and the bundled installer. RT-4 says it, and settles what the answer left to this seat: the lock file is `uv.lock`, committed beside `pyproject.toml`, in place of `tests/requirements.txt`; setup is `uv sync --locked`, which makes `.venv` and refuses a lock file out of step with the manifest; every suite command is typed through `uv run`; and the suite runs on the interpreter uv picks for the floor, which is not always the machine's `python3`. uv is a prerequisite of the suite and not of the tracker, so SRS C-7's bound on the tracker's setup is untouched. § 6's preamble and `first-project`'s artifact bar read uv; § 9 gains TO-9, the trade-off; § 11 R-8 names the run that would settle it, `uv run --python 3.11 pytest tests/`. Verified in a fresh clone at `e38121b11` with uv 0.11.14: `uv lock` resolved 17 packages at the four pins `pyproject.toml` declares, `uv sync --locked` installed them, 670 unit and architecture tests passed, 1,843 integration tests passed before a time cap with no failure, and `uv run pytest tests/e2e/` gave 120 passed and one timeout under machine load that passed twice when run alone. The header catches up with NFDR version 18 and the architecture companion's removal. RN-62 to RN-64 record the round. Nothing is left open. At 14: the eleventh answered round folded in (`products/tracker17/docs/trail/sdd/cycle-11.md`), one item the PM raised from the product's deletion tests against § 4 RT-11 and § 11 R-12, answered in the CTO's seat. RT-11's *Tests* and R-12's trigger name the four deletion tests on disk, landed at `ac09e56af` — the task deletion's response-policy test, which now asserts 202 on a shown confirmation; the project deletion's response-policy test; and the two history tests that go Back to a deletion's confirmation after confirming — in place of a test to come, and the divergence RN-56 recorded, a task deletion's confirmation answered 200, is closed in the product. The records caught up without an answer, as the round's § 2.1 anticipated: RT-11 names ADR-0012, which supersedes ADR-0010, as the record of its boundary and drops the line that a deletion's record was still to be written; § 12 counts twelve records; the header reads ADR-0012 and NFDR version 17. § 10's preamble counts RC-1 to RC-6, and the Review Notes' prologue gains the ninth and tenth rounds it omitted. RN-59 to RN-61 record the round. Nothing is left open. At 13: the tenth answered round folded in (`products/tracker17/docs/trail/sdd/cycle-10.md`), one item the PM raised from the product's task deletion against § 4 RT-11 and § 6 S-7, answered in the CTO's seat. RT-11 widens from a move to `cancelled` to every pending confirmation § 4 EX-6 names: a page that shows a pending confirmation of a move to `cancelled`, a task deletion or a project deletion is answered 202, read off the page as built; every other page a confirmed action's interaction or outcome lands on is 200; each carries `Cache-Control: no-store`; the address of a deleted task or project answers the not-found page, 404, with no cache header; and the case RT-11 handed to `delete-and-rename`, whether the HTTP cache may keep that 404, closes: it may, and a kept one stays true because an identity is never reused. S-7's command half gains the deletion history clause, § 11 R-12's trigger names the deletion history test once it exists, and § 7's hand-off edge names the 202. The UXD moved to version 11 after version 12 read it at 9, and § 10 RC-6 records it: a refusal or failure for a task the list's filter leaves off the list sits above the results, stated in § 4 EX-4 and in `narrow-and-sort`'s behaviour bar. RT-8 names ADR-0011, which now records it, and § 12 counts eleven records. RN-56 to RN-58 record the round. Nothing is left open. At 12: the ninth answered round folded in (`products/tracker17/docs/trail/sdd/cycle-9.md`), one item the PM raised from the product's filter form against § 4 RT-8, answered in the CTO's seat. RT-8 defines the word it binds on: a submission is a form sent with `method="post"`, a request for a change; a form sent with `method="get"` is a read, answered with the page at the address the browser built, 200, with no redirect, as the filter form is today, and § 11 R-10's bound reaches its values. RT-11 names ADR-0010, which now records it, and § 12 counts ten records. The UXD moved to version 9 after version 11 read it at 8, and § 10 RC-5 records it: § 6 `status-moves`'s overtaken-move refusal states the task's current status and claims no change, UX-F4's words. RN-53 to RN-55 record the round. Nothing is left open. At 11: the eighth answered round folded in (`products/tracker17/docs/trail/sdd/cycle-8.md`), two items the PM raised from the product's code and from the UXD and one a `companion-self-answer` run raised from § 11 read against the suite, all three answered in the CTO's seat. § 4 gains RT-11, the history-admission boundary: a page that shows a pending confirmation of a move to `cancelled` is answered 202 and every other move page 200, each with `Cache-Control: no-store`; § 9 TO-8 and § 11 R-12 surface the decision and its browser dependence, and RT-8's last sentence is scoped to a finished outcome. § 6 `status-moves`'s behaviour bar has the overtaken move name the moves the page now shows and offer no reload, and names the refusal reached by an address with no press; § 4 EX-4 says where that refusal sits; § 10 RC-4 records the UXD moving to version 8. § 11 R-2 counts the confirmation case verified, by four tests at `<a commit not in the public history>`, and § Open Questions keeps the assistive-technology case alone. RN-49 to RN-52 record the round. The header's *Inputs read* catches up with PRD version 7 and NFDR version 13, neither of which moves a line of this document (RN-52). Nothing is left open
+**Inputs read:** PRD Settled (version 7) · SRS Settled (version 6) · UXD Settled (version 11; no `products/tracker17/docs/UXD_open_issues.md` beside it) · Agari no Status line (`agari_template.md` carries none) · tracker17 doctrine no Status line (stamped, unfilled) · writing_bar Settled · ADR-0001 to ADR-0012, ADR-0006 Superseded by ADR-0011, ADR-0010 Superseded by ADR-0012 and the rest Accepted, and NFDR Settled (version 18, its header; `products/tracker17/docs/architecture_open_issues.md` no longer exists, removed at `66e29daa9` when its one item was folded) (downstream; read for the decisions already recorded, as the authoring lens says, never as a source) · FDR Settled (version 4, its header; downstream, read to check what the answered round says does not move, not a source) · the product's code and tests the answered round cites (read to verify each citation on disk, not sources)
 
 > The SDD is the technical **how**, and it ends in a **cut**. It states the architecture the rest of
 > the system builds against — derived from the PRD (the *what and why*), the SRS (the system-level
@@ -37,7 +37,9 @@ items 2.2, 2.5, 3.1 and 3.2), `self_answer-3.md` (cycle 1, items 2.3 and 2.4), `
 item 5.1), `self_answer-7.md` (cycle 5, item 5.1), `self_answer-8.md` (cycle 6, item 5.1),
 `self_answer-9.md` (cycle 7, item 5.1), `self_answer-10.md` (cycle 8, items 5.1 and 5.2),
 `self_answer-11.md` (cycle 8, item 2.1), `self_answer-12.md` (cycle 9, item 5.1),
-`self_answer-13.md` (cycle 10, item 5.1) and `self_answer-14.md` (cycle 11, item 5.1). The items of
+`self_answer-13.md` (cycle 10, item 5.1), `self_answer-14.md` (cycle 11, item 5.1) and
+`self_answer-15.md` (cycle 12, item 5.1, which records that the run left the owner's own answer as
+written and decided nothing). The items of
 cycles 3 to 11 were raised by the PM, from the product's code, from a run of the setup instructions
 on Linux, from a passing end-to-end test, in cycles 6 and 7 from the product's code again, in cycle
 8 from the product's code and from the UXD, in cycles 9 and 10 from the product's code again, and in
@@ -295,26 +297,46 @@ written so that a slice breaking it could be named.
   § 2.2; why, RN-11, RN-19; the suite's narrower bound on Linux, `trail/sdd/cycle-4.md` § 5.1; why,
   RN-38)*
 - **RT-4: Only the tests have dependencies, and each is fixed to an exact version.** They are
-  declared in `pyproject.toml` and locked, with every dependency they pull in, in one committed
-  file. They are installed with the installer that ships with Python, into a virtual environment
-  made with Python's own `venv` module. Setting up the suite is the one step that needs a network
+  declared in `pyproject.toml`, in its `dev` dependency group, and locked, with every dependency
+  they pull in, in one committed file, `uv.lock`, beside `pyproject.toml`. The suite's environment
+  is made and filled by uv, which is a prerequisite of the suite and not of the tracker: the
+  instructions' section on running the suite says to install uv first, as uv's own documentation
+  says (https://docs.astral.sh/uv/getting-started/installation/, "Standalone installer", read
+  2026-10-29), and the tracker's own setup names it nowhere, because RT-1 and RT-2 hold without it.
+  One command, `uv sync --locked`, typed from the product root, makes the virtual environment at
+  `.venv` and installs the locked set into it. The `--locked` flag refuses a lock file out of step
+  with `pyproject.toml` instead of rewriting it, which is how SRS C-8 is held at setup: a fresh copy
+  gets the versions the lock file names or nothing
+  (https://docs.astral.sh/uv/concepts/projects/sync/, "Automatic lock and sync", read 2026-10-29).
+  A change to `pyproject.toml` is followed by `uv lock`, so the lock file moves in the same change,
+  and `uv sync --locked` is what catches one that did not. Every suite command is then typed
+  through `uv run`, which runs the command in that environment with nothing to activate: `uv run
+  pytest tests/`, `uv run pytest tests/e2e/`, and `uv run playwright install chromium` for the
+  browser. The interpreter in `.venv` is the one uv finds for `requires-python`: the machine's own
+  `python3` when it meets the floor and uv manages no Python on that machine, a uv-managed one
+  otherwise, fetched only when no Python on the machine meets the floor
+  (https://docs.astral.sh/uv/concepts/python-versions/, "Adjusting Python version preferences" and
+  "Discovery of Python versions", read 2026-10-29). So the suite, and the tracker the end-to-end
+  tests start from `sys.executable`, may run on a Python other than the one `python3 main.py`
+  uses; § 11 R-8 reads that both ways. Setting up the suite is the one step that needs a network
   connection, once, to fetch the test dependencies and the browser the end-to-end tests drive. The
   end-to-end layer drives Chromium. On Linux that browser needs system libraries the operating
   system does not ship by default, and the same one-time step fetches them: the instructions'
-  section on running the suite gives, for Linux, `python -m playwright install --with-deps chromium`
-  in place of `python -m playwright install chromium`, says that the command runs the distribution's
-  package manager and asks for administrator rights, and says that the tracker and `pytest tests/`
-  need none of this. On Linux the end-to-end suite runs where the pinned browser-driving library
-  does. For the pin in `tests/requirements.txt`, `playwright==1.63.0`, that library's documentation
+  section on running the suite gives, for Linux, `uv run playwright install --with-deps chromium`
+  in place of `uv run playwright install chromium`, says that the command runs the distribution's
+  package manager and asks for administrator rights, and says that the tracker and `uv run pytest
+  tests/` need none of this. On Linux the end-to-end suite runs where the pinned browser-driving
+  library does. For the pin in `pyproject.toml`, `playwright==1.63.0`, that library's documentation
   lists "Debian 12 / 13, Ubuntu 22.04 / 24.04 / 26.04 (x86-64 or arm64)"
   (https://playwright.dev/python/docs/intro, "System requirements", read 2026-10-08), and the
-  instructions carry that list. On another Linux the tracker and `pytest tests/` run, and `pytest
-  tests/e2e/` is a missing prerequisite. The list is the pin's and moves only when the pin does
-  (SRS C-8). The system libraries are the operating system's, as Python is, and are not declared
-  dependencies under C-8, so nothing pins them. No module outside `tests/` imports a test
-  dependency. *(serves SRS C-8, NFR-11, NFR-13, FR-4)* *(confirmed with an addition:
+  instructions carry that list. On another Linux the tracker and `uv run pytest tests/` run, and
+  `uv run pytest tests/e2e/` is a missing prerequisite. The list is the pin's and moves only when
+  the pin does (SRS C-8). The system libraries are the operating system's, as Python is, and are
+  not declared dependencies under C-8, so nothing pins them. No module outside `tests/` imports a
+  test dependency. *(serves SRS C-8, NFR-11, NFR-13, FR-4)* *(confirmed with an addition:
   `trail/sdd/cycle-1.md` § 2.1; why, RN-18; the Linux step and bound, `trail/sdd/cycle-4.md` § 5.1;
-  why, RN-38)*
+  why, RN-38; uv in place of `venv` and the bundled installer, the owner's own call,
+  `trail/sdd/cycle-12.md` § 5.1; why, RN-62)*
 - **RT-5: The tracker listens on one loopback address and on no other.** The address is
   `127.0.0.1:8017`, fixed in one constant, `ADDRESS` in `main.py`. `main` passes it to `web`, so a
   test can start a tracker on another port. *(serves SRS FR-2, FR-3)* *(confirmed with an addition:
@@ -764,9 +786,10 @@ CDO's clauses *(confirmed with an addition: `trail/sdd/cycle-1.md` § 2.4; why, 
 *(confirmed with an addition: `trail/sdd/cycle-1.md` § 2.5; the two cut calls kept, § 3.1 and
 § 3.2; why, RN-13)*.
 
-Every suite command is typed from the product root, inside the virtual environment the setup
-instructions make for the test dependencies (§ 4 RT-4). "Both suites pass" means `pytest tests/`
-exits 0 and `pytest tests/e2e/` exits 0.
+Every suite command is typed from the product root through `uv run`, after the `uv sync --locked`
+the setup instructions give for the test dependencies (§ 4 RT-4); a slice's `pytest tests/` is typed
+as `uv run pytest tests/`. "Both suites pass" means `uv run pytest tests/` exits 0 and `uv run
+pytest tests/e2e/` exits 0.
 
 ### S-1 — From a fresh copy to a first project that stays
 
@@ -808,11 +831,12 @@ exits 0 and `pytest tests/e2e/` exits 0.
     wording is `products/tracker17/docs/CONTENT.md`'s; the check is AC-21's inspection). Its
     prerequisites section holds what § 4 RT-1, RT-3 and RT-4 give it: Python 3.11 or later, with the command that shows the version and
     what to do when the version is lower; macOS and Linux, checked on macOS only, and Windows not
-    supported; and a network connection needed once, only to set up the test suite. Its section on
-    running the suite says how to make the virtual environment and install the test dependencies,
-    and holds what § 4 RT-4 gives it for Linux: the install command that also fetches the browser's
+    supported; and, for the test suite only, uv and a network connection needed once. Its section on
+    running the suite says how to install uv, gives `uv sync --locked` as the command that makes the
+    suite's environment and installs the test dependencies, and `uv run` as the way every suite
+    command is typed, and holds what § 4 RT-4 gives it for Linux: the install command that also fetches the browser's
     system libraries, that the command runs the package manager and asks for administrator rights,
-    that the tracker and `pytest tests/` need none of it, and the Linux systems the pinned library's
+    that the tracker and `uv run pytest tests/` need none of it, and the Linux systems the pinned library's
     documentation lists. The same section says the full suite needs the copy to be a Git repository
     with `git` on the path, which the tracker's own setup does not, and says what the one test that
     does not pass otherwise checks: that Git ignores the saved data (SRS FR-6). That test is
@@ -820,7 +844,8 @@ exits 0 and `pytest tests/e2e/` exits 0.
     `git check-ignore`. `pyproject.toml` declares `requires-python = ">=3.11"`. `main.py`,
     `domain/projects.py`, `application/`, `persistence/` and `web/` exist. *(the Linux line and the
     Git prerequisite: `trail/sdd/cycle-4.md` § 5.1; why, RN-38, RN-39; the opening paragraph: SRS
-    version 6, § 10 RC-3; why, RN-43)*
+    version 6, § 10 RC-3; why, RN-43; uv in the prerequisites and the suite's section:
+    `trail/sdd/cycle-12.md` § 5.1; why, RN-62)*
 - **Rests on:** § 2; § 3, all five parts and all seven seams; § 4, every condition. No earlier
   slice.
 - **Traces to:** PRD § Purpose, § Key Use Cases 1, 2 and 3, § Core Features Projects and Tested
@@ -1251,6 +1276,16 @@ one of its seeds without one.
   pinned browser, which `test_real_history_traversal_revalidates_the_confirmation` failed on before
   the change. `domain`, `application` and `persistence` are untouched. *(confirmed with an
   addition: `trail/sdd/cycle-8.md` § 5.1; why, RN-49)*
+- **TO-9: The test suite's environment is uv's, not Python's own.** The design gives up a suite that
+  needs nothing the tracker does not: uv is one more prerequisite, installed before the suite is
+  set up, with its own installer and its own release cadence outside the lock file. — *buys* one
+  command from a fresh copy to a filled environment, `uv sync --locked`, with nothing to activate
+  and no second terminal to remember; a lock file uv refuses to drift from; and a run of the suite
+  on any Python that meets the floor, which is the check § 11 R-8 lacked. — *undoing it costs* a
+  pinned requirements file regenerated from `pyproject.toml`, the `venv` and installer commands
+  back in the setup instructions, and the pins test reading that file again. `domain`,
+  `application`, `persistence` and `web` are untouched: no line the tracker runs changes. The
+  owner's own call (`trail/sdd/cycle-12.md` § 5.1; RN-62).
 
 ## 10. Re-cut record
 
@@ -1522,13 +1557,20 @@ both.*
   (https://docs.python.org/3/library/http.server.html). — *shows up as* a change that makes the
   tracker listen on an address other than loopback. — *response* § 4 RT-5 and SEC-2 hold the
   listener to the machine, and SRS AC-10 inspects the address.
-- **R-8: The Python floor is declared and nothing checks it.** The suite runs only on the Python
-  the machine has. On the owner's machine that is 3.14.7 today (`python3 --version` printed `Python
-  3.14.7` on 2026-10-06). Code written and tested there can use something Python 3.11 lacks, and
-  no test on that machine would fail. — *shows up as* a start or a suite failure on a Python
-  between 3.11 and the one the suite last passed on. — *response* § 4 RT-1 keeps the run-time code
-  to the standard library, and `pyproject.toml` declares the floor. One run of `pytest tests/`
-  under a Python 3.11 interpreter would settle it, and no slice requires that run.
+- **R-8: The Python floor is declared and nothing checks it.** The suite runs on the interpreter uv
+  picks for `requires-python` (§ 4 RT-4), which is the newest Python that meets the floor among
+  those it finds, and not the floor itself. On the owner's machine that was 3.14.7 on 2026-10-06
+  (`python3 --version` printed `Python 3.14.7`), and in the fresh clone of 2026-10-29 uv picked its
+  own managed 3.14.5 over the machine's 3.15.0 (`uv python find` printed
+  `cpython-3.14-macos-aarch64-none/bin/python3.14`; `python3 --version` printed `Python 3.15.0`).
+  Code written and tested there can use something Python 3.11 lacks, and no test on that machine
+  would fail. The end-to-end tests start the tracker from `sys.executable`, so they check the
+  tracker on uv's interpreter and not on the `python3` a reader's `python3 main.py` uses, which can
+  be another version of the two. — *shows up as* a start or a suite failure on a Python between
+  3.11 and the one the suite last passed on. — *response* § 4 RT-1 keeps the run-time code to the
+  standard library, and `pyproject.toml` declares the floor. One run of `uv run --python 3.11
+  pytest tests/` would settle it, and uv fetches that interpreter when the machine has none
+  (RT-4's sources); no slice requires that run.
 - **R-9: Linux is named as supported, and the end-to-end suite has not passed there.** The owner's
   machine is macOS (`uname -s` printed `Darwin` on 2026-10-06), and no run in the Agari's check uses
   Linux. One run outside that check has happened. On 2026-10-08, on Debian 12 (bookworm), aarch64,
@@ -1634,7 +1676,10 @@ RC-5). RN-56 to RN-58 were written on 2026-10-28, when the tenth answered round 
 answered in the CTO's seat, and the document caught up with UXD version 11 (§ 10 RC-6). RN-59 to
 RN-61 were written the same day, when the eleventh answered round was folded in
 (`products/tracker17/docs/trail/sdd/cycle-11.md`): one item the PM raised from the product's tests,
-answered in the CTO's seat, and the document caught up with ADR-0012 and NFDR version 17. Where an
+answered in the CTO's seat, and the document caught up with ADR-0012 and NFDR version 17. RN-62 to
+RN-64 were written on 2026-10-29, when the twelfth answered round was folded in
+(`products/tracker17/docs/trail/sdd/cycle-12.md`): one item the owner raised by hand against § 4
+RT-4 and answered themselves, and the document caught up with NFDR version 18. Where an
 answer settled what an earlier note called
 a draft, that note now says so and names the note that carries the answer.
 
@@ -2757,6 +2802,99 @@ a draft, that note now says so and names the note that carries the answer.
   fixes under `<CORE>/doctrine/governance/found_while_walking.md`: the Review Notes' prologue, which
   stopped at RN-52 and now names the ninth, tenth and eleventh rounds, and the header's reading
   guide, which gains `self_answer-14.md` and cycle 11.
+- **RN-62:** *(CTO)* *(changed)* § 4 RT-4 has the test suite's environment made and filled by uv:
+  the lock file is `uv.lock`, committed beside `pyproject.toml`, in place of `tests/requirements.txt`;
+  setup is `uv sync --locked`; every suite command is typed through `uv run`; uv is a prerequisite
+  of the suite and not of the tracker; and the interpreter the suite runs on is the one uv picks for
+  the floor. § 6's preamble reads a slice's `pytest tests/` as `uv run pytest tests/`;
+  `first-project`'s artifact bar has the prerequisites name uv for the suite and the suite's
+  section give `uv sync --locked` and `uv run`; § 9 TO-9 states the cost; § 11 R-8 says which
+  interpreter the suite runs on and names `uv run --python 3.11 pytest tests/` as the run that
+  would settle it — *because* the owner made the call, top-down, on 2026-10-29: "can we switch to
+  uv instead of python?", then "yes" to uv as tracker17's way to run its tests
+  (`trail/sdd/cycle-12.md` § 5.1, the item the owner opened by hand at `ca9de2cce` and answered
+  themselves; `products/tracker17/docs/trail/sdd/self_answer-15.md` records that the self-answer
+  run left that answer as written). What the answer left to this seat, the lock file and the shape
+  of the suite commands, is settled from uv's own documentation, each page named in RT-4 with the
+  date it was read, and from a fresh clone: `uv lock` in `products/tracker17` at `e38121b11`
+  resolved 17 packages, `uv.lock` names `mypy` 2.4.0, `playwright` 1.63.0, `pytest` 9.1.1 and
+  `ruff` 0.16.10, the four pins `pyproject.toml` declares, and `uv sync --locked` installed them.
+  `--locked` is taken over a plain `uv sync` because SRS C-8 asks that a fresh copy get "the same
+  versions the suite last passed with", and a plain sync would rewrite a stale lock file rather than
+  refuse it; uv's settings reference, read the same day, carries no setting that makes the flag the
+  default (https://docs.astral.sh/uv/reference/settings/), so the flag is typed. The interpreter
+  is left to uv's own preference and not pinned to the machine's `python3` with a setting, because
+  the floor is what `requires-python` states and a uv-managed interpreter meets it as a system one
+  does; R-8 reads the consequence. Nothing upstream moves: SRS FR-4 asks the instructions to state
+  the prerequisites in general terms, and SRS RN-23 says a later change of what they name "leaves
+  all three true" of FR-4, C-7 and AC-3; C-7's three commands and ten minutes bound the tracker's
+  setup, which § 4 RT-2 keeps at two commands with uv nowhere in them; § 5.3 lets setup fetch
+  declared dependencies from "public sources that need no account, key or sign-up", which uv's
+  installer and the package index are; UXD UX-S1 lists "prerequisites (including the one-time
+  network connection setup needs)" and names no tool, so uv joins the list without a word of the
+  UXD moving. No item is raised for the CPO or the CDO. This is a change to a condition, to the
+  artifact bar that reads it and to a risk, not a re-cut under § 10: no slice's *Reached when*
+  fails as written, no fence or place moves, and no edge in § 7 changes. The product follows this
+  document, as it did when RT-4 gained its Linux step (RN-38): `products/tracker17/README.md`'s
+  suite section, `tests/requirements.txt` and the test that reads it are the product's to move,
+  and which unit carries that is the PM's. *(re: § 4 RT-4; § 6, the preamble and
+  `first-project`; § 9 TO-9; § 11 R-8; source: SRS FR-4, § 5.3, C-7, C-8, AC-3, RN-23; UXD UX-S1)*
+- **RN-63:** *(CTO)* *(added)* Five things downstream read `venv`, the bundled installer or
+  `tests/requirements.txt` and now read thinner against RT-4, and none is this document's to edit.
+  `products/tracker17/docs/adr/0002-standard-library-only-no-web-framework.md` § Decision says the
+  test dependencies are "installed into a virtual environment made with Python's `venv`" and
+  records the owner's addition that they "go into a `venv`"; the record is the Principal
+  Architect's, append-only, and a new record superseding it is theirs to write.
+  `products/tracker17/docs/nfdr.md` says every row's command is typed "inside the virtual
+  environment of SDD § 4 RT-4" and, in its RN-18, that "RT-4's `venv` was forced by the owner's
+  machine, not chosen"; QC-39's "one committed lock file" stays true of `uv.lock`; QC-40's package
+  feed rests on the lock file being "in a format GitHub's dependency graph reads", and GitHub's own
+  page, read on 2026-10-29, lists for pip `requirements.txt` and `pipfile.lock` and for Poetry
+  `poetry.lock`, with no row for `uv.lock`
+  (https://docs.github.com/en/code-security/supply-chain-security/understanding-your-software-supply-chain/dependency-graph-supported-package-ecosystems),
+  so QC-40's condition is the Principal Architect's to re-derive against the new format, and § 12
+  says § 4 wins where the two disagree. `products/tracker17/README.md`'s section on running the
+  tests gives `python3 -m venv .venv`, `source .venv/bin/activate` and `python -m pip install -r
+  tests/requirements.txt`, and its "How it's built" names "a virtual environment made with Python's
+  `venv`". `products/tracker17/tests/architecture/test_pins.py`,
+  `test_the_lock_file_exists_and_every_line_is_exact`, reads `tests/requirements.txt` as the lock
+  file and parses `name==version` lines, which `uv.lock` does not hold; the test moves with the
+  file. `system/projects/tracker17/project.md`'s `**Setup command:** none` and `**Test command:**
+  pytest products/tracker17/tests/` were written against a `venv` on the path, as RN-18 recorded,
+  and follow this document the same way. RT-4 is written so that none of the five needs a second
+  reading of it: the file, the commands and the prerequisite are each named once. *(re: § 4 RT-4;
+  § 12)*
+- **RN-64:** *(CTO)* *(added)* The round that folded the twelfth answered round read these things
+  beyond the inputs RN-16, RN-23, RN-27, RN-30, RN-33, RN-37, RN-40, RN-44, RN-46, RN-48, RN-52,
+  RN-55, RN-58 and RN-61 list. It read `products/tracker17/docs/SDD_open_issues.md` as intake found
+  it, committed at `e38121b11` with § 5.1's answer slot filled by the owner, and
+  `products/tracker17/docs/trail/sdd/self_answer-15.md`. It read `products/tracker17/pyproject.toml`,
+  `products/tracker17/tests/requirements.txt`, `products/tracker17/tests/architecture/test_pins.py`,
+  `products/tracker17/tests/architecture/test_reach.py` at the line that skips `.venv`,
+  `products/tracker17/tests/e2e/conftest.py` at the line that starts the tracker from
+  `sys.executable`, `products/tracker17/tests/integration/test_sigint_launch.py`'s docstring,
+  `products/tracker17/.gitignore` and `products/tracker17/README.md` whole, to verify on disk what
+  the item cites and what RT-4 now binds. It read `products/tracker17/docs/SRS.md` at FR-4, § 5.3,
+  C-4, C-7, C-8, AC-3, NFR-11, NFR-13, RN-20 and RN-23; `products/tracker17/docs/PRD.md` and
+  `products/tracker17/docs/UXD.md` at every line that names a prerequisite, an installer or a
+  virtual environment; `products/tracker17/docs/adr/README.md` and
+  `products/tracker17/docs/adr/0002-standard-library-only-no-web-framework.md` whole; and
+  `products/tracker17/docs/nfdr.md`'s header, at version 18 (commit `66e29daa9`), QC-39, QC-59, its
+  line on the virtual environment and its RN-18. It read four pages of uv's documentation and one
+  of GitHub's, each named with its URL where this document rests on it. It ran, in a disposable
+  clone of this repository at `e38121b11`, with uv 0.11.14 and from `products/tracker17`: `uv
+  python find`; `uv lock`, which resolved 17 packages; `uv sync --locked`; `.venv/bin/python
+  --version`, which printed `Python 3.14.5`; `uv run --locked playwright --version`, which printed
+  `Version 1.63.0`; `uv run pytest tests/unit tests/architecture`, 670 passed in 4.72 s; `uv run
+  pytest tests/`, 1,843 passed when a 420-second cap stopped it inside
+  `tests/integration/test_timed_run.py`, with no failure; and `uv run pytest tests/e2e/`, 1 failed
+  and 120 passed in 255 s, the failure
+  `tests/e2e/test_moves.py::test_double_click_never_confirms_at_the_original_trigger_coordinates[row-40-of-60-far-edge]`
+  on a Playwright `TimeoutError` while 640 other pytest processes ran on the machine; run alone
+  twice, that test's six cases passed each time, in 30.18 s and 27.10 s. The clone was removed
+  afterwards. This round changed no code. It did not read `products/tracker17/docs/DESIGN.md` or
+  `products/tracker17/docs/CONTENT.md`: what this round changed names commands, a file and a
+  prerequisite, and no word a page shows or a value the stylesheet sets.
 
 ---
 
