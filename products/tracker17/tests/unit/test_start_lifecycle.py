@@ -116,7 +116,9 @@ class Lifetime:
 
         sys.setprofile(before_return)
         try:
-            return main.serve_until_stopped(self.listener, self.announce, self.stops)
+            return main.serve_until_stopped(
+                listener=self.listener, announce=self.announce, stops=self.stops
+            )
         finally:
             sys.setprofile(previous)
 

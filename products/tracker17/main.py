@@ -75,7 +75,7 @@ class SystemClock:
 
 
 def serve_until_stopped(
-    listener: Serving, announce: Callable[[], None], stops: StopRequests
+    *, listener: Serving, announce: Callable[[], None], stops: StopRequests
 ) -> int:
     """Arm the stop, announce readiness, serve until a stop is asked for, and close the listener.
 
@@ -130,7 +130,7 @@ def start(address: tuple[str, int], location: Path) -> int:
             flush=True,
         )
 
-    return serve_until_stopped(listener, announce, SigintStopRequests())
+    return serve_until_stopped(listener=listener, announce=announce, stops=SigintStopRequests())
 
 
 def main(argv: list[str] | None = None) -> int:

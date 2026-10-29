@@ -141,7 +141,7 @@ def observer(frame, event, argument):
     if event == "return" and frame.f_code is main.serve_until_stopped.__code__:
         reach("before-return")
 sys.setprofile(observer)
-result = main.serve_until_stopped(Listener(), announce, stops)
+result = main.serve_until_stopped(listener=Listener(), announce=announce, stops=stops)
 sys.setprofile(None)
 ack("result " + str(result))
 ack("stop-requested " + str(stops.stop_requested()))
@@ -243,10 +243,10 @@ class Listener:
 def announce():
     pass
 first, second = main.SigintStopRequests(), main.SigintStopRequests()
-main.serve_until_stopped(Listener(True), announce, first)
+main.serve_until_stopped(listener=Listener(True), announce=announce, stops=first)
 ack("first " + str(first.stop_requested()))
 ack("second-before " + str(second.stop_requested()))
-main.serve_until_stopped(Listener(False), announce, second)
+main.serve_until_stopped(listener=Listener(False), announce=announce, stops=second)
 ack("second-after " + str(second.stop_requested()))
 """
 )
