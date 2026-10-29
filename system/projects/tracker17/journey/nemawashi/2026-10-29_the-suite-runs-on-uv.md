@@ -14,11 +14,18 @@ Cut from `products/tracker17/docs/SDD.md` § 4 RT-4 and Review Notes RN-62/RN-63
 
 ## Stations — dynamic checklist
 
-- [ ] lock-and-pins-test — `uv.lock` committed from the four pins, `uv lock --check` exits 0, `test_pins.py` reads `pyproject.toml` and the lock, `tests/requirements.txt` removed, `pyproject.toml` comments follow
-- [ ] readme-on-uv — the README's suite section and "How it's built" give `uv sync --locked` and `uv run`, and the tracker's setup still names uv nowhere
-- [ ] project-card-commands — the project card's Setup command and Test command read the uv commands, as SDD RN-63 says they follow RT-4
+- [ ] lock-and-pins-test — `uv.lock` committed beside `pyproject.toml`; `uv lock --check` exits 0; `test_pins.py` fails on a missing `uv.lock` or an unpinned test dependency and reads no `tests/requirements.txt`; that file is gone and `pyproject.toml` comments no longer name it; `uv sync --locked` then `uv run pytest tests/unit tests/architecture` pass in a fresh clone
+- [ ] readme-on-uv — the README's suite section gives `uv sync --locked` and `uv run` and holds no `venv` or `pip install` line; "How it's built" says uv makes the suite's environment; the tracker's own setup lines still name uv nowhere
+- [ ] project-card-commands — the project card's Setup and Test commands, run from a fresh change worktree's root, make the environment from `uv.lock` and run the suite through uv, both exiting 0
 
 ## Relation to existing work
+
+Route re-cut at the pick; three stations kept, in the proposed order. Divergences:
+
+- Station 1: the bar now names the fresh-clone suite run and the test's two failures (missing `uv.lock`, unpinned dependency), so each part can be checked and fails today; the proposal named the parts without how to check them.
+- Station 2: the bar leads with the README lines that must be gone and the uv lines that must exist, which fail today; "names uv nowhere" was already true and stays only as a guard.
+- Station 3: the bar is the card's commands run from the worktree root in a fresh clone, since the card runs there while `uv.lock` sits in the product; the proposal's "read the uv commands" could be met by text alone.
+- Order: station 1 is a hard dependency of 2 and 3 (`uv sync --locked` needs `uv.lock`); 2 and 3 do not depend on each other and may be walked either way.
 
 Independent of `tracker17 · nemawashi · 2026-10-11_protect-saved-data`: neither needs the other, and both can be picked at any point. It follows `tracker17 · nemawashi · 2026-10-29_start-tests-under-ignored-sigint`, retired to `trail/`, which named it.
 
