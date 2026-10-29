@@ -41,9 +41,12 @@ class RecordingStops:
     def __init__(self, events: list[str]) -> None:
         self.events = events
         self.stopped = False
+        self.arming_failure: Exception | None = None
 
     def arm(self) -> None:
         self.events.append("arm")
+        if self.arming_failure is not None:
+            raise self.arming_failure
 
     def stop_requested(self) -> bool:
         return self.stopped
@@ -208,3 +211,16 @@ def test_lifecycle_closes_once_and_propagates_unrelated_serving_failure() -> Non
 
     assert caught.value is failure
     assert lifetime.events == ["arm", "announce", "serve", "close"]
+
+
+def test_lifecycle_closes_once_and_propagates_unrelated_arming_failure() -> None:
+    """A stop that cannot be armed closes the listener once and surfaces unchanged, unannounced."""
+    lifetime = Lifetime()
+    failure = SentinelFailure()
+    lifetime.stops.arming_failure = failure
+
+    with pytest.raises(SentinelFailure) as caught:
+        lifetime.run()
+
+    assert caught.value is failure
+    assert lifetime.events == ["arm", "close"]
