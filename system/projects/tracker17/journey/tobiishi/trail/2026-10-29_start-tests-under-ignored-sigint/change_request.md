@@ -6,3 +6,8 @@
 **Category:** bug
 **Behaviour:** preserving
 **Classified because:** the station's reached-when says the suite must exit 0 under both launches while it fails today under ignored SIGINT, which is a violated pass-the-suite contract (the Agari's Works bar), and its guardrail fixes Ctrl-C behaviour for an operator as unchanged, so no public name or FDR-level behaviour moves; a fix that would alter what the start does for an operator is outside this request and goes back to the PM.
+
+**Sealed:** 2026-10-29 — sealed with deferrals; merged to `main` via `--no-ff`.
+Environment: owners-mac — no CI
+Deferred: task 1 — the outer whole-directory collection of all four folders cannot be built: the unit and e2e folders hold five files with one basename each and no __init__.py, so one pytest process cannot collect both — system/projects/tracker17/journey/tobiishi/2026-10-29_start-tests-under-ignored-sigint/change_spec.md § Invariants
+Deferred: task 2 — depends on task 1 — system/projects/tracker17/journey/tobiishi/2026-10-29_start-tests-under-ignored-sigint/change_spec.md § Invariants
