@@ -1,0 +1,12 @@
+# Flow Findings — development-design  (audited 2026-10-29)
+
+Findings for this step's output only, produced by the `development-audit` skill.
+Change-local findings live here; skill-general findings are also raised as kaizen items.
+
+Lenses 1–8 walked; 9 (implementation only) and 10 (content only) do not apply. Header `Category: bug` / `Behaviour: preserving` copied verbatim from the spec (lens 3 clean). The departure from the spec's Out of Scope (shared `conftest.py` collection change) and from the relocation-shaped template is recorded with reasons in § Architect Review Notes (lens 4 clean).
+
+- **[non-blocking · change-local · altitude/enacted]** The design prescribes the shape of the new test, which the plan/developer own: the driver process, the `sys.executable` use, the exact node `...keeps_all_existing_values[current]`, the order of checks inside it (signal check before collection checks), and that all T3 collection checks sit inside the one proof. Where: `change_design.md §3 Regression boundary`, `§4 Code Strategy`, `§5 T2/T3`. Constraint-as-property would be: the proof fails on the starting commit at the stop wait, restores the inherited disposition, and pins both sides of the collection boundary. Direction: state the properties and leave the test's construction to the successor.
+- **[non-blocking · change-local · contract realized/coverage]** The collection change has no named home. `_command_line_names_end_to_end` is to "retain its signature and direct end-to-end selection behavior", and `pytest_ignore_collect` is "Existing", yet the new whole-directory rule needs a predicate or hook change and the Layout Plan lists no symbol for it. Where: `change_design.md §3 Layout Plan table`, `§2 conftest.py row`. The successor must invent where the outer-invocation rule lives. Direction: list the new or changed collection symbol, or state that the existing hook body changes.
+- **[non-blocking · change-local · coverage]** The spec invariant that a tracker started with SIGINT already ignored keeps running (`change_spec.md §Invariants`) is covered only "by construction" (T5: empty production diff). The design adds no check that the fixture cannot leak into a tracker an operator starts, and its stated mechanism, a handler set only in the pytest process, is not exercised against that clause. Where: `change_design.md §5 T5`. Direction: say what would fail if production code gained a handler, or accept the empty-diff review explicitly as the check.
+
+_No blocking findings._
