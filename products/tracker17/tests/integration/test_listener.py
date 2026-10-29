@@ -4,7 +4,10 @@ Checks SRS FR-1 and FR-2 (the tracker answers on the machine's own address and s
 FR-3 (an address something else holds is told apart from every other bind failure) and NFR-4 (a
 page that cannot be served carries no text the browser did not get from this product). Change spec
 rules CP-23, CP-30 to CP-38 and CP-39 to CP-46, NFDR QC-30 and QC-58, and the console's silence
-while it serves (SDD § 4 OB-1) are what each test names.
+while it serves (SDD § 4 OB-1) are what each test names. The cooperative listening tests check
+SRS NFR-11's integration layer for change spec rules CP-644, CP-650 and CP-651: serving that ends
+when a handed-in predicate turns true, without a client to wake it, and leaves the closing to the
+caller.
 """
 
 from __future__ import annotations
@@ -12,7 +15,7 @@ from __future__ import annotations
 import http.client
 import socket
 import threading
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from datetime import UTC, datetime
 
 import pytest
@@ -20,7 +23,7 @@ import pytest
 from application import Tracker, TrackerState
 from domain import empty_state
 from errors import AppError
-from web import AddressTaken, listen, pages
+from web import AddressTaken, Listener, listen, pages
 
 PYTHON_TEXT = (
     "Error response",
@@ -251,3 +254,160 @@ def test_a_filter_apply_over_a_real_socket_is_a_page_with_no_python_text(
         text = body.decode("utf-8", errors="replace")
         assert status == 404  # this tracker holds no project; the query changes nothing about it
         assert not any(word in text for word in PYTHON_TEXT)
+
+
+JOIN_SCALE = 10
+
+
+class SentinelFailure(Exception):
+    """A failure no product code raises, so a test knows whose it is."""
+
+
+class Serving:
+    """A listener serving cooperatively in a thread, with whatever failure ended it kept."""
+
+    def __init__(self, listener: Listener, predicate: Callable[[], bool]) -> None:
+        self.failure: Exception | None = None
+        self._listener = listener
+        self._predicate = predicate
+        self._thread = threading.Thread(target=self._run, daemon=True)
+        self._thread.start()
+
+    def _run(self) -> None:
+        try:
+            self._listener.serve_until(self._predicate)
+        except Exception as error:  # noqa: BLE001 - kept for the test to read, never swallowed
+            self.failure = error
+
+    def is_serving(self) -> bool:
+        return self._thread.is_alive()
+
+    def finish(self) -> None:
+        """Wait for serving to end within the suite's scale; it must end without failing."""
+        self._thread.join(timeout=JOIN_SCALE)
+        assert not self._thread.is_alive()
+        assert self.failure is None
+
+
+def _cooperative_listener() -> Listener:
+    return listen(("127.0.0.1", 0), Tracker(empty_state(), NullSaver(), FixedClock()))
+
+
+def _address_of(listener: Listener) -> tuple[str, int]:
+    return str(listener.server_address[0]), int(listener.server_address[1])
+
+
+def test_cooperative_listener_returns_when_stop_is_already_requested() -> None:
+    """CP-644: a true predicate at entry returns at once, and the caller still owns the port."""
+    listener = _cooperative_listener()
+    try:
+        Serving(listener, lambda: True).finish()
+        assert listener.socket.fileno() != -1
+    finally:
+        listener.server_close()
+
+
+def test_cooperative_listener_observes_stop_while_idle_without_a_client() -> None:
+    """CP-644: a stop that turns true during an idle wait is seen with no client to wake it."""
+    listener = _cooperative_listener()
+    stop = threading.Event()
+    asked_again = threading.Event()
+    asks: list[None] = []
+
+    def predicate() -> bool:
+        asks.append(None)
+        if len(asks) >= 2:
+            asked_again.set()
+        return stop.is_set()
+
+    try:
+        serving = Serving(listener, predicate)
+        assert asked_again.wait(timeout=JOIN_SCALE)
+        assert serving.is_serving()
+        stop.set()
+        serving.finish()
+    finally:
+        listener.server_close()
+
+
+def test_cooperative_listener_serves_a_real_request(capfd: pytest.CaptureFixture[str]) -> None:
+    """FR-1, OB-1: a real request gets the page while the predicate is false; nothing is printed."""
+    listener = _cooperative_listener()
+    stop = threading.Event()
+    try:
+        serving = Serving(listener, stop.is_set)
+        status, body = request(_address_of(listener), "GET", "/")
+        assert status == 200
+        assert b"<h1>Projects</h1>" in body
+        stop.set()
+        serving.finish()
+    finally:
+        listener.server_close()
+    captured = capfd.readouterr()
+    assert captured.out == "" and captured.err == ""
+
+
+def test_cooperative_listener_stops_after_a_request() -> None:
+    """FR-2: a stop latched after a request ends serving; the caller's close frees the port."""
+    listener = _cooperative_listener()
+    address = _address_of(listener)
+    stop = threading.Event()
+    serving = Serving(listener, stop.is_set)
+    try:
+        assert request(address, "GET", "/")[0] == 200
+        stop.set()
+        serving.finish()
+    finally:
+        listener.server_close()
+    with pytest.raises(ConnectionRefusedError):
+        socket.create_connection(address, timeout=5).close()
+
+
+def test_cooperative_listener_preserves_threaded_dispatch() -> None:
+    """FR-1: a client that holds its request open does not keep a second client waiting."""
+    listener = _cooperative_listener()
+    address = _address_of(listener)
+    stop = threading.Event()
+    serving = Serving(listener, stop.is_set)
+    holder = socket.create_connection(address, timeout=JOIN_SCALE)
+    try:
+        holder.sendall(b"GET / HTTP/1.1\r\nHost: held\r\n")  # the headers never end
+        status, body = request(address, "GET", "/")
+        assert status == 200
+        assert b"<h1>Projects</h1>" in body
+    finally:
+        holder.close()
+        stop.set()
+        serving.finish()
+        listener.server_close()
+
+
+@pytest.mark.parametrize("before", [None, 3.0], ids=["no-timeout", "a-timeout"])
+def test_cooperative_listener_restores_timeout_after_return(before: float | None) -> None:
+    """The cooperative lifetime borrows the listener's timeout and gives back the one it found."""
+    listener = _cooperative_listener()
+    listener.timeout = before
+    try:
+        Serving(listener, lambda: True).finish()
+        assert listener.timeout == before
+    finally:
+        listener.server_close()
+
+
+def test_cooperative_listener_restores_timeout_and_propagates_failure() -> None:
+    """A failing predicate surfaces as itself, with the timeout back and the closing left alone."""
+    listener = _cooperative_listener()
+    listener.timeout = 3.0
+    failure = SentinelFailure()
+
+    def predicate() -> bool:
+        raise failure
+
+    try:
+        with pytest.raises(SentinelFailure) as caught:
+            listener.serve_until(predicate)
+        assert caught.value is failure
+        assert listener.timeout == 3.0
+        assert listener.socket.fileno() != -1
+    finally:
+        listener.server_close()
