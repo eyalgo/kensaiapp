@@ -88,25 +88,23 @@ Start the tracker again with `python3 main.py`. It starts empty, with no project
 
 ### Running the tests
 
-The tests run in a virtual environment that holds their dependencies. Setting it up needs a network connection, for the install commands only. Open a terminal at the top of your copy and type these commands.
+The tests need uv, which the tracker itself doesn't. Install uv first. Get it from https://docs.astral.sh/uv/getting-started/installation/. Setting up the tests needs a network connection, for `uv sync --locked` and `uv run playwright install chromium` only. Open a terminal at the top of your copy and type these commands.
 
-On Linux, where the commands say `python -m playwright install chromium`, type `python -m playwright install --with-deps chromium` instead. That command also installs the system libraries the browser needs, using the operating system's package manager. It asks for administrator rights. The tracker and `pytest tests/` need none of what it installs. On Linux, the end-to-end tests need Debian 12 or 13, or Ubuntu 22.04, 24.04 or 26.04, on x86-64 or arm64.
+On Linux, where the commands say `uv run playwright install chromium`, type `uv run playwright install --with-deps chromium` instead. That command also installs the system libraries the browser needs, using the operating system's package manager. It asks for administrator rights. The tracker and `uv run pytest tests/` need none of what it installs. On Linux, the end-to-end tests need Debian 12 or 13, or Ubuntu 22.04, 24.04 or 26.04, on x86-64 or arm64.
 
 ```
 cd products/tracker17
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install -r tests/requirements.txt
-python -m playwright install chromium
-pytest tests/
-pytest tests/e2e/
+uv sync --locked
+uv run playwright install chromium
+uv run pytest tests/
+uv run pytest tests/e2e/
 ```
 
-`pytest tests/` runs every test except the end-to-end ones. `pytest tests/e2e/` runs the end-to-end tests, which drive Chromium.
+`uv sync --locked` makes the tests' virtual environment and installs the test dependencies into it. Every test command is then typed through `uv run`, which runs it in that virtual environment. `uv run pytest tests/` runs every test except the end-to-end ones. `uv run pytest tests/e2e/` runs the end-to-end tests, which drive Chromium.
 
-Keep the virtual environment in `.venv`, where the second command makes it. The tests read the Python in `products/tracker17` as the tracker's own, except in directories whose names start with a dot. A virtual environment anywhere else inside `products/tracker17` stops them passing.
+Keep the virtual environment in `.venv`, inside `products/tracker17`, where `uv sync --locked` makes it. The tests read the Python in `products/tracker17` as the tracker's own, except in directories whose names start with a dot. A virtual environment anywhere else inside `products/tracker17` stops them passing.
 
-In a new terminal, type `source .venv/bin/activate` inside `products/tracker17` before you run `pytest` again.
+In a new terminal, run the tests again inside `products/tracker17` with `uv run pytest tests/` or `uv run pytest tests/e2e/`. They use the virtual environment `uv sync --locked` already made.
 
 For every test to pass, your copy needs to be a Git repository, with `git` on the path. If either is missing, as in a copy unpacked from a download, 1 test doesn't pass. That test checks that Git ignores the saved data. The tracker itself needs neither a Git repository nor `git`.
 
@@ -118,7 +116,7 @@ kensaiapp built tracker17, and wrote much of its definition too. It began as tra
 
 - **Python 3.11 or later, and nothing outside its standard library.** There's no web framework and no
   template engine, and the tracker needs no network connection to run
-  ([ADR-0002](docs/adr/0002-standard-library-only-no-web-framework.md)).
+  ([ADR-0013](docs/adr/0013-standard-library-only-no-web-framework-suite-environment-made-by-uv.md)).
 - **macOS and Linux.** Windows isn't supported
   ([ADR-0009](docs/adr/0009-one-unix-lock-no-windows.md)).
 - **Whole pages, built on the server.** No page runs a script
@@ -132,7 +130,7 @@ kensaiapp built tracker17, and wrote much of its definition too. It began as tra
   - `main.py` wires the four together, and is the start command.
 - **Tests in pytest**, at three layers: unit, integration and end-to-end. The end-to-end tests drive
   Chromium. Only the tests have dependencies, each fixed to an exact version, installed into a
-  virtual environment made with Python's `venv` (`docs/SDD.md` § 4 RT-4, TS-1).
+  virtual environment made by uv (`docs/SDD.md` § 4 RT-4, TS-1).
 
 ## The documents
 
@@ -144,4 +142,4 @@ Every decision tracker17 is built against is in `docs/`:
 - `docs/SDD.md` — the parts, and the slices the work is cut into.
 - `docs/fdr.md` — the behaviour every change is built against.
 - `docs/nfdr.md` — the quality constraints, and the check behind each one.
-- `docs/adr/` — the nine architecture decisions, indexed in `docs/adr/README.md`.
+- `docs/adr/` — the architecture decisions, indexed in `docs/adr/README.md`.
