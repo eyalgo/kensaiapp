@@ -23,3 +23,6 @@ Each command is the one SDD § 4 RT-4 gives, and works from `products/tracker17`
 ---
 
 *Sizing (`pm_right_size.md`): one capability, one merge. Acceptance boundary: the station's four reached-when items, source `journey/shukuba/2026-10-29_readme-on-uv.md`. The two README places state one fact and must not disagree, so they move together.*
+
+**Sealed:** 2026-10-29 — accepted; merged to `main` via `--no-ff`.
+Environment: owners-mac — no CI
