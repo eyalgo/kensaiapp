@@ -2,8 +2,8 @@
 
 **Status:** Settled
 **Owner:** Principal Architect
-**Version:** 18 — the answer to companion § 3.1 folded in (`products/tracker17/docs/trail/architecture/cycle-16.md`): QC-63's `verified by:` names the four deletion tests on `main` since `ac09e56af` — the task deletion's 202 by its response-policy test, every project deletion clause by the project deletion's response-policy test, and the history clause for both deletions by their two layer-5 tests — and drops the line carrying the task deletion's 202 as unmet and the line binding the project deletion's pages when they land; the obligation's text is unchanged, and RN-50's open item closes in RN-52; nothing is left open, so the companion is removed and this document is Settled
-**Inputs read:** SRS Settled (version 6) · SDD Settled (version 14) · FDR Settled (version 4) · PRD Settled (version 7) · UXD Settled (version 11) · DESIGN Settled (version 4) · CONTENT Settled (version 17) · Agari no Status line · tracker17 doctrine no Status line (stamped, unfilled)
+**Version:** 19 — the answer to companion § 3.1 folded in (`products/tracker17/docs/trail/architecture/cycle-17.md`): the records follow SDD version 15 § 4 RT-4 to uv. ADR-0013 supersedes ADR-0002, carrying it whole with the suite's environment made by uv, and QC-19, QC-36, QC-39, QC-43, QC-59 and QC-60 trace to it; QC-39 names `uv.lock` and adds `uv lock --check`, which fails on a lock file out of step with `pyproject.toml`, and starts unmet until the product moves to RT-4; QC-40's package feed is re-derived for `uv.lock` from GitHub's Dependabot pages, with a review moment that confirms it on the repository; QC-60's tail names the interpreter uv picks and the command SDD § 11 R-8 names, and stays a review gate; B-4 names uv as a prerequisite no lock file reaches; § 9 and § 10 type the suite commands through `uv run`; RN-54 and RN-55 record the round; nothing is left open, so the companion is removed and this document is Settled
+**Inputs read:** SRS Settled (version 6) · SDD Settled (version 15) · FDR Settled (version 4) · PRD Settled (version 7) · UXD Settled (version 11) · DESIGN Settled (version 4) · CONTENT Settled (version 17) · Agari no Status line · tracker17 doctrine no Status line (stamped, unfilled)
 
 > The NFDR is the product's **standing obligations, consolidated and verifiable**: every quality
 > constraint a change is checked against, derived from the SRS, the SDD, the FDR and the ADR — never
@@ -194,7 +194,7 @@ no module, so a walk rooted at the wrong path cannot pass by finding nothing (§
   `errors.py`")*
 - **QC-19:** No module outside `tests/` imports a third-party module, and no module outside `tests/`
   imports from `tests/`.
-  — *verified by:* layer 6, import walk *(traces to: ADR-0002; SDD § 4 RT-1, RT-4)*
+  — *verified by:* layer 6, import walk *(traces to: ADR-0013; SDD § 4 RT-1, RT-4)*
 
 ### 1.3 Layer isolation
 
@@ -288,7 +288,10 @@ is checked by § 3's capability entries, named in each clause.
   Linux, the system libraries that browser needs, which the same one-time step installs through the
   distribution's package manager with administrator rights (SDD § 4 RT-4). The system libraries are
   the operating system's, as Python is: no lock file names them, nothing pins them, and QC-39 and
-  QC-40 do not reach them (see RN-27).
+  QC-40 do not reach them (see RN-27). uv, which the suite's instructions have installed first with
+  its own installer, stands where they do: it is a prerequisite of the suite, as Python is of the
+  tracker, no lock file names it, and QC-39 and QC-40 do not reach it (SDD § 4 RT-4; § 9 TO-9; see
+  RN-54).
 
 - **QC-30:** *(B-1)* The tracker listens on one loopback address and no other; the address constant's
   host is a loopback address.
@@ -331,7 +334,7 @@ is checked by § 3's capability entries, named in each clause.
   — *verified by:* the end-to-end tests at layer 5 that enter `<`, `&` and `"` in every text field a
   change adds and assert the page shows them as typed (SDD § 11 R-3); the one-function half is a
   review at `development-design` for a change to page building, because a scanner cannot tell an
-  escaped value from one that needs no escaping *(traces to: ADR-0002; SDD § 4 SEC-4; § 11 R-3; FDR
+  escaped value from one that needs no escaping *(traces to: ADR-0013; SDD § 4 SEC-4; § 11 R-3; FDR
   R-112)*
 - **QC-37:** *(B-2)* The saved data is read as data. It is parsed by a reader that executes nothing,
   built only through `domain`'s constructors, and refused whole when any part breaks a rule; it is
@@ -347,10 +350,15 @@ is checked by § 3's capability entries, named in each clause.
   *(traces to: SRS FR-39; SDD § 4 SD-5, § 3 `web` row; `<CORE>/doctrine/engineering/quality_defaults.md`
   § Input at the boundary; see RN-7)*
 - **QC-39:** *(B-4)* Every test dependency is declared in `pyproject.toml` at an exact version, and
-  one committed lock file fixes it and everything it pulls in.
+  one committed lock file, `uv.lock` beside `pyproject.toml`, fixes it and everything it pulls in, in
+  step with `pyproject.toml`.
   — *verified by:* layer 6, a test that reads `pyproject.toml` with `tomllib` and fails on a test
-  dependency not pinned with `==`, or on a missing lock file *(traces to: ADR-0002; SRS C-8, AC-3;
-  SDD § 4 RT-4)*
+  dependency not pinned with `==`, or on a missing `uv.lock`; and `uv lock --check`, which exits 1 on
+  a lock file out of step with `pyproject.toml` and 0 otherwise, `--offline` included. The entry
+  starts unmet: at `9219be1e1` the product holds `tests/requirements.txt` and no `uv.lock`, and
+  `tests/architecture/test_pins.py`, `test_the_lock_file_exists_and_every_line_is_exact`, reads the
+  former. The change that moves the product to SDD § 4 RT-4 moves the test with the file (SDD RN-63)
+  *(traces to: ADR-0013; SRS C-8, AC-3; SDD § 4 RT-4; see RN-54)*
 - **QC-40:** *(B-4)* A change that adds a test dependency, or moves a pin, picks no version that a
   known critical advisory is against when a version free of one is published on the index the pin
   installs from. Moving the browser-driving library's pin chooses the browser build, so the browser
@@ -362,20 +370,23 @@ is checked by § 3's capability entries, named in each clause.
   dependency is replaced or removed, or the owner records a dated exception with its reason in a
   Review Note here, which is the only way to be past the window without being late. **The owner
   watches the advisories**, through two feeds: Dependabot alerts on the repository that holds
-  tracker17, for the packages, which reach them only while the lock file is in a format GitHub's
-  dependency graph reads; and, for the browser, which no manifest or lock file names, a comparison of
+  tracker17, for the packages `uv.lock` fixes, which reach them only while GitHub's Dependabot reads
+  that format; and, for the browser, which no manifest or lock file names, a comparison of
   the installed browser version with the browser vendor's security releases at each
   `development-design` review.
   — *verified by:* review at `development-design`, at two moments: when a change adds or changes a
   test dependency or chooses the lock file's format, where the version chosen is checked against
   published advisories and against the versions on the index the pin installs from, and at every review, where the pins and the
   browser build are checked against published advisories and a critical advisory more than 30 days
-  old blocks the change until the pin moves or a dated exception is recorded. No command can measure
+  old blocks the change until the pin moves or a dated exception is recorded. The first review after
+  `uv.lock` is on `main` also checks that the repository's dependency graph lists the packages
+  `uv.lock` fixes; where it lists none, the package feed is down, and the reviewer surfaces that to
+  the Principal Architect as a discrepancy in this entry. No command can measure
   a window, and no audit command exists for this product: the Python packet names none and tracker17
   installs none *(traces to: `<CORE>/doctrine/engineering/quality_defaults.md` § Dependencies;
   owner, `trail/architecture/cycle-2.md` § 1.1, `trail/architecture/cycle-6.md` § 2.1,
-  `trail/architecture/cycle-7.md` § 3.1; see RN-10, RN-18, RN-31, and RN-33 for the dated exception in
-  force)*
+  `trail/architecture/cycle-7.md` § 3.1, `trail/architecture/cycle-17.md` § 3.1; SDD § 4 RT-4, RN-63;
+  see RN-10, RN-18, RN-31, RN-54, and RN-33 for the dated exception in force)*
 - **QC-41:** The product reads, holds and writes no secret: no account, no key, no credential, at
   setup or in use. A change that introduces one is out of bounds.
   — *verified by:* review at `development-design`. No secrets scanner exists for this product, and
@@ -412,7 +423,7 @@ accepts it. A second account on the machine in scope would be a change to SRS C-
 - **QC-43:** Only `web` opens a socket, and only to listen. No module outside `web/` imports `socket`,
   `socketserver` or `http.server`, and no module imports `http.client`, `urllib.request`, `ftplib` or
   `smtplib`.
-  — *verified by:* layer 6, import walk *(traces to: ADR-0002; SDD § 4 RT-5, SEC-3;
+  — *verified by:* layer 6, import walk *(traces to: ADR-0013; SDD § 4 RT-5, SEC-3;
   `<CORE>/doctrine/engineering/quality_defaults.md` § Capability)*
 - **QC-44:** No module in `domain/`, `application/`, `persistence/` or `web/` reads the machine's
   clock. The real clock is built in `main.py` and handed in.
@@ -518,13 +529,17 @@ The execution context — headless, and the suite command — is `system/project
 The start command and the setup steps are behaviour (FDR R-1, R-8 to R-13). What exceeds both:
 
 - **QC-59:** `pyproject.toml` declares `requires-python = ">=3.11"`.
-  — *verified by:* layer 6, a test that reads `pyproject.toml` with `tomllib` *(traces to: ADR-0002;
+  — *verified by:* layer 6, a test that reads `pyproject.toml` with `tomllib` *(traces to: ADR-0013;
   SDD § 4 RT-1)*
 - **QC-60:** The tracker and its tests run on Python 3.11.
   — *verified by:* review at `development-design` for a change that uses a language or library
-  feature. The harness is missing: the suite runs only on the machine's Python, 3.14.7 on the owner's
-  machine, and one run of `pytest tests/` under a 3.11 interpreter would settle it (SDD § 11 R-8)
-  *(traces to: ADR-0002; SDD § 4 RT-1; § 11 R-8)*
+  feature. The command exists and no stage runs it. The suite runs on the interpreter uv picks for
+  `requires-python`, the newest that meets the floor among those it finds — uv's managed 3.14.5 in a
+  fresh clone on 2026-10-29 — and one run of `uv run --python 3.11 pytest tests/` would settle it,
+  with uv fetching that interpreter when the machine has none (SDD § 11 R-8). SDD R-8 has no slice
+  require that run, and the suite gates run the project card's `Test command:`, which names no
+  interpreter, so the check is held as this review bar until a stage runs it (see RN-54)
+  *(traces to: ADR-0013; SDD § 4 RT-1, RT-4; § 11 R-8)*
 - **QC-61:** The tracker checks no operating system and carries no code for one: no module outside
   `tests/` reads `sys.platform`, `os.name` or `platform.system`, or imports `msvcrt` or `winreg`.
   — *verified by:* layer 6, an import and attribute walk *(traces to: ADR-0009; SDD § 4 RT-3; see
@@ -577,8 +592,8 @@ names on the doctrine's seven.
 - **Layer 5 runs on fewer systems than the rest.** On macOS it runs where the tracker does. On Linux
   it runs where the pinned browser-driving library does — for `playwright==1.63.0`, the Debian and
   Ubuntu releases SDD § 4 RT-4 lists — with the browser's system libraries RT-4 names installed. On
-  any other Linux the tracker and `pytest tests/` run, and `pytest tests/e2e/` is a missing
-  prerequisite (SDD § 4 RT-3, RT-4). The list is the pin's and moves only when the pin does. Layers
+  any other Linux the tracker and `uv run pytest tests/` run, and `uv run pytest tests/e2e/` is a
+  missing prerequisite (SDD § 4 RT-3, RT-4). The list is the pin's and moves only when the pin does. Layers
   1 to 4 and 6 need neither the browser nor administrator rights (see RN-27).
 - **Outside the layers.** `python3 tests/timed_run.py` is the measurement of § 5, and the pointer test
   of QC-11 runs in `pytest tests/`. The two Python gates of
@@ -594,7 +609,10 @@ already *there*; a dependency audit is only meaningful over the whole resolved s
 test runs against the entry points a change touches. Two values, and a row that cannot pick one has not
 decided what it is checking.
 
-Every row's command is typed from the product root, inside the virtual environment of SDD § 4 RT-4.
+Every row's command is typed from the product root. A command that runs a test dependency — pytest,
+Ruff, mypy — is typed through `uv run`, after the `uv sync --locked` of SDD § 4 RT-4, and a row's
+`pytest tests/` reads as `uv run pytest tests/`, as SDD § 6's preamble reads a slice's.
+`uv lock --check` is uv's own command and needs no environment.
 "Suite" in the last column means the green suite that `development-implementation`,
 `development-code-integrity` and the step that seals a change each end on, stages 5 to 7 of
 `<CORE>/doctrine/flow/development_flow.md` § The stages, run with the project card's `Test command:`; typed from the product root, as every row here is, that command is `pytest tests/`. SDD § 6 names
@@ -637,6 +655,7 @@ Every row's command is typed from the product root, inside the virtual environme
 | QC-37 | saved data read as data | `pytest tests/` · layers 2 and 6 | the tree | suite |
 | QC-38 | rules before state changes | `pytest tests/` · layer 3 (AC-12) | the tree | suite |
 | QC-39 | test dependencies pinned | `pytest tests/` · layer 6 | the tree | suite |
+| QC-39 | lock file in step with `pyproject.toml` | `uv lock --check` | the tree | suite |
 | QC-42 | file writes | `pytest tests/` · layers 2 and 6 | the tree | suite |
 | QC-43 | sockets | `pytest tests/` · layer 6 | the tree | suite |
 | QC-44 | clock reads | `pytest tests/` · layer 6 | the tree | suite |
@@ -1437,3 +1456,67 @@ QC-12, QC-25, QC-26, QC-27, QC-40, QC-41 and QC-60 are review gates and have no 
   the card are unchanged since version 17. No record was written or changed. `Inputs read:` now
   names SDD version 14. Nothing is left open, so the companion is removed and this document is
   Settled. *(re: Version 18; QC-63)*
+- **RN-54:** ADR-0013 supersedes ADR-0002, and QC-39, QC-40, QC-60, B-4, § 9 and § 10 follow SDD
+  version 15 § 4 RT-4 to uv — *because* the owner answered companion § 3.1, "Yes — the records follow
+  RT-4 to uv", and left how QC-40's feed holds for `uv.lock` to this seat
+  (`trail/architecture/cycle-17.md` § 3.1; the owner's call, `trail/sdd/cycle-12.md` § 5.1; SDD
+  RN-62, RN-63). ADR-0002's decision said `venv` twice, so this is a change of decision, and it lands
+  by supersession, as ADR-0012 took ADR-0010 (RN-50). ADR-0002's Status line is the one line changed
+  in it. ADR-0013 carries ADR-0002 whole. It adds, as alternatives ruled out, the three choices RT-4
+  and SDD RN-62 settle: `venv`, a plain `uv sync`, and the machine's `python3` as the suite's
+  interpreter. Its *Dependence* names uv's facts. It names ADR-0011 where ADR-0002 named ADR-0006 for
+  the address bound, because ADR-0011 superseded ADR-0006 and carries that bound
+  (`adr/0011-a-submission-is-a-post-form-and-its-outcome-travels-in-the-address.md:89`). The six
+  entries ADR-0002 bound trace to ADR-0013. RN-13 says RT-4's `venv` "was forced by the owner's
+  machine, not chosen", and RN-18 says QC-39 "leaves the lock file's format unchosen". Both are dated
+  records and are not edited. SDD version 15 chose the format, and uv was a choice, which is why it
+  earns a record where `venv` did not.
+  **QC-39** names `uv.lock`, the file RT-4 names, so a missing one fails the layer-6 test. It adds
+  `uv lock --check`, the class-1 form of RT-4's "`uv sync --locked` is what catches one that did
+  not". This run proved the command in a disposable copy of `pyproject.toml`, with uv 0.11.14: `uv
+  lock` resolved 17 packages and `uv lock --check` exited 0; with one pin moved it exited 1, saying
+  the lock file needs to be updated; with the pin restored, `uv lock --check --offline` exited 0. The
+  product has not moved. At `9219be1e1` it holds `tests/requirements.txt` and no `uv.lock`, and
+  `test_pins.py` reads the former, so QC-39 starts unmet, as QC-62 started red (RN-22). Which change
+  moves it is the PM's (SDD RN-63).
+  **QC-40's package feed** rested on the lock file being in a format GitHub's dependency graph
+  reads. GitHub's own pages, read 2026-10-29, disagree about `uv.lock`. The dependency graph's
+  ecosystem page lists pip's `requirements.txt` and `pipfile.lock` and Poetry's `poetry.lock`, and
+  names uv nowhere
+  (https://docs.github.com/en/code-security/supply-chain-security/understanding-your-software-supply-chain/dependency-graph-supported-package-ecosystems).
+  Dependabot's ecosystem page lists uv at v0.11 with security updates supported
+  (https://docs.github.com/en/code-security/dependabot/ecosystems-supported-by-dependabot/supported-ecosystems-and-repositories),
+  and GitHub's changelog of 2025-12-16 says "Dependabot now supports security alerts and updates for
+  uv" (https://github.blog/changelog/2025-12-16-dependabot-security-updates-now-support-uv/). So the
+  condition now names Dependabot's reading of the format, and the entry gains a moment that settles
+  the disagreement on the repository itself: the first review after `uv.lock` is on `main` checks
+  that the dependency graph lists its packages, and a miss comes back here as a discrepancy. Until
+  `uv.lock` lands, the feed reads `tests/requirements.txt`, as it did. Choosing another feed would be
+  the owner's call, so no fallback is written.
+  **QC-60** keeps its obligation and its class. SDD § 11 R-8 now names a command, `uv run --python
+  3.11 pytest tests/`, so the old argument, "The harness is missing", no longer holds. The new one is
+  that R-8 has no slice require the run and no stage runs it, so it stays a review bar until one does.
+  A class-1 row would give the suite gates a second run on another interpreter, which R-8 declined to
+  require, and changing that is the CTO's, in R-8.
+  **B-4** names uv as a prerequisite no lock file names, where Python and the system libraries stand
+  (RN-27), from RT-4's "a prerequisite of the suite and not of the tracker" and TO-9's "its own
+  release cadence outside the lock file". *(re: ADR-0002, ADR-0013, QC-19, QC-36, QC-39, QC-40,
+  QC-43, QC-59, QC-60, B-4, §§ 9–10; source: owner, `trail/architecture/cycle-17.md` § 3.1; SDD § 4
+  RT-4, § 9 TO-9, § 11 R-8, RN-62, RN-63)*
+- **RN-55:** Version 19 was written on 2026-10-29. It read the answered companion as committed at
+  `566d7903d` and copied it whole to `trail/architecture/cycle-17.md` before the fold. The owner
+  opened that companion by hand, carrying SDD RN-63 down; no producing run wrote it.
+  `trail/architecture/self_answer-21.md` records that the self-answer run left its one item as the
+  owner answered it. That item, § 3.1, is folded (RN-54). Since version 18 (`git diff --stat
+  66e29daa9 HEAD` over the product's `docs/` and the project's `agari.md`, `doctrine/` and
+  `project.md`), only the SDD moved among the inputs, and this run read its change. Version 15 moves
+  § 4 RT-4 to uv, adds § 9 TO-9, rewrites § 11 R-8, reads uv in § 6's preamble and `first-project`'s
+  artifact bar, and records the round in RN-62 to RN-64; RN-54 folds it. `what_left.md` lost its last
+  line, the project rename and deletion, since built, and moves no entry. The SRS, the FDR, the PRD,
+  the UXD, `DESIGN.md`, `CONTENT.md`, the Agari, the project's doctrine and the card are unchanged
+  since version 18. The repository that holds tracker17 tracks no CI configuration, so by
+  `<CORE>/doctrine/engineering/languages/README.md` § Gate environment defaults its gates run on the
+  owner's Mac, and it owes no environment decision; § 8 records none. This run read
+  `pyproject.toml`, `tests/architecture/test_pins.py` and the imports of `tests/timed_run.py` on disk,
+  and ran no suite. `Inputs read:` now names SDD version 15. Nothing is left open, so the companion
+  is removed and this document is Settled. *(re: Version 19; ADR-0013)*

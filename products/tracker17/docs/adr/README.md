@@ -13,7 +13,7 @@
 | # | Title | Status | Date |
 |---|---|---|---|
 | [ADR-0001](0001-rule-core-behind-server-rendered-pages.md) | Put the task rules in a core with no input or output, behind server-rendered pages | Accepted | 2026-10-06 |
-| [ADR-0002](0002-standard-library-only-no-web-framework.md) | Run on Python's standard library alone, with no web framework and no template engine | Accepted | 2026-10-06 |
+| [ADR-0002](0002-standard-library-only-no-web-framework.md) | Run on Python's standard library alone, with no web framework and no template engine | Superseded by ADR-0013 | 2026-10-06 |
 | [ADR-0003](0003-no-script-in-any-page.md) | Run no script in any page, and answer every action with a whole page | Accepted | 2026-10-06 |
 | [ADR-0004](0004-whole-state-saved-atomically-on-every-change.md) | Save the whole tracker state on every change, and replace the file in one step | Accepted | 2026-10-06 |
 | [ADR-0005](0005-state-in-memory-one-action-at-a-time.md) | Hold the state in memory in one process, read the file only at start, and apply one action at a time | Accepted | 2026-10-06 |
@@ -24,3 +24,4 @@
 | [ADR-0010](0010-pending-confirmation-answered-202-move-pages-not-stored.md) | Answer a page that shows a pending confirmation with 202, and store no move page | Superseded by ADR-0012 | 2026-10-21 |
 | [ADR-0011](0011-a-submission-is-a-post-form-and-its-outcome-travels-in-the-address.md) | Keep no session, carry what a page says about the last action in its address, and count only a `post` form as a submission | Accepted | 2026-10-27 |
 | [ADR-0012](0012-pending-confirmation-answered-202-confirmed-action-pages-not-stored.md) | Answer a page that shows a pending confirmation of any confirmed action with 202, and store no page of a confirmed action | Accepted | 2026-10-28 |
+| [ADR-0013](0013-standard-library-only-no-web-framework-suite-environment-made-by-uv.md) | Run on Python's standard library alone, with no web framework and no template engine, and make the test suite's environment with uv | Accepted | 2026-10-29 |

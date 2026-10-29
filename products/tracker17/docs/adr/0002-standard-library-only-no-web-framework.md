@@ -1,6 +1,6 @@
 # ADR-0002: Run on Python's standard library alone, with no web framework and no template engine
 
-**Status:** Accepted
+**Status:** Superseded by ADR-0013
 **Date:** 2026-10-06
 
 ## Context
