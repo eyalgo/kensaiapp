@@ -1,5 +1,5 @@
-"""Four duties for every test run: the import shim, the launch condition, the collection rule and the
-source walk.
+"""Four duties for every test run: the import shim, the launch condition, the collection rule and
+the source walk.
 
 The shim puts the project root on sys.path so a test can import its subject by module name. The
 frame ships no build system and does not install the product itself, so a module at the project
