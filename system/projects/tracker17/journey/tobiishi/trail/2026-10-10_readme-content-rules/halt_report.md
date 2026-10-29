@@ -38,7 +38,7 @@ Failed end-to-end cases, from the completed pytest output:
 
 ```text
 COMMAND   PID      USER   FD   TYPE             DEVICE SIZE/OFF NODE NAME
-Python  86069 eyalgolan    3u  IPv4 0xbf9181051f494f3e      0t0  TCP 127.0.0.1:8017 (LISTEN)
+Python  86069 <user>       3u  IPv4 0xbf9181051f494f3e      0t0  TCP 127.0.0.1:8017 (LISTEN)
 ```
 
 Process inspection via `ps -p 86069 -o pid=,ppid=,command=` did not execute successfully: the sandbox returned `operation not permitted: ps`.

@@ -120,7 +120,7 @@ The Tech Lead made these task-cut and precision decisions on 2026-10-28.
   "languages": {"declared": ["python"], "invoked": null},
   "ci": {
     "finding": "none",
-    "inventory": "git -C <a path on Eyal's machine> ls-files returned the product-relative tracked tree: .gitignore, README.md, application/, docs/, domain/, errors.py, main.py, persistence/, pyproject.toml, tests/ and web/. No build-service, pipeline, runner or workflow configuration appears in that inventory; the product's pyproject.toml contains project metadata, exact dev dependency pins and Ruff/mypy/pytest configuration only."
+    "inventory": "git -C <the instance>/.worktrees/2026-10-28_all-tasks-list/products/tracker17 ls-files returned the product-relative tracked tree: .gitignore, README.md, application/, docs/, domain/, errors.py, main.py, persistence/, pyproject.toml, tests/ and web/. No build-service, pipeline, runner or workflow configuration appears in that inventory; the product's pyproject.toml contains project metadata, exact dev dependency pins and Ruff/mypy/pytest configuration only."
   },
   "decisions": {"override": null, "amd64": null},
   "candidates": [

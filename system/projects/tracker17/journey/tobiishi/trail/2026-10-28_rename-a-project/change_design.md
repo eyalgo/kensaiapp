@@ -306,7 +306,7 @@ Decisions and review verdicts below are the architect's, 2026-10-28.
   https://github.com/advisories/GHSA-fff8-4w9p-7v76). This verdict covers that published feed,
   not unpublished advisories. The installed full-browser Info.plist reports 153.0.8010.12
   (`/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString'` on
-  `<a path on Eyal's machine> Chrome for Testing.app/Contents/Info.plist`
+  `<the Playwright cache>/chromium-1243/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Info.plist`
   → `153.0.8010.12`), matching `tests/e2e/test_moves.py`, `PINNED_BROWSER`, and the
   `playwright==1.63.0` lock. Chrome's September 15 release lists critical fixes at
   153.0.8010.47/.48, and its October 20 release lists further critical fixes

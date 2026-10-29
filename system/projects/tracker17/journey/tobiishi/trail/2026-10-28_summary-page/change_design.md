@@ -396,6 +396,6 @@ Every endpoint below returned `vulnerabilities: []` in the version-specific JSON
 The installed browser metadata command and its actual output were:
 
 ```text
-/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' '<a path on Eyal's machine> Chrome for Testing.app/Contents/Info.plist'
+/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' '<the Playwright cache>/chromium-1243/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Info.plist'
 153.0.8010.12
 ```
