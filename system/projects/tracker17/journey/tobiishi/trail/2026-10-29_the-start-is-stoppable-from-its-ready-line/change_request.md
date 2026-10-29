@@ -55,3 +55,6 @@ traceback and a non-zero exit, a wrong observable (`change_classification.md` §
 `bug`: "a functional bug (wrong observable behaviour) is `changing`").
 
 **Sizing:** one capability, one honest merge — the start's stop path and the test that proves it.
+
+**Sealed:** 2026-10-29 — accepted; merged to `main` via `--no-ff`.
+Environment: owners-mac — no CI
