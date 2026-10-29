@@ -10,7 +10,7 @@ field** — the project is implied by which project's `journey/tobiishi/` this s
 
 ---
 
-**Request:** Make the tracker stop cleanly on Ctrl-C from the moment it prints its ready line. Today
+**Request:** Make the tracker stop cleanly on Ctrl-C from the moment it prints its ready line until `start` returns. Today
 `start` in `products/tracker17/main.py` prints "The tracker is running. Open http://… in your
 browser." and only then enters the `try` whose `except KeyboardInterrupt` stops it quietly
 (`main.py:L59-L72`). A Ctrl-C that lands between the two ends the tracker with a traceback on
@@ -28,6 +28,12 @@ its own. With a one-second pause added between the ready print and the `try`, th
 `assert (status, errors) == (0, b"")`. With the ready print moved inside the `try`, the same case
 passed with the pause still there (`1 passed in 4.31s`).
 
+**The span ends when `start` returns.** After that the tracker has stopped, and what a Ctrl-C does
+while Python itself shuts down is the interpreter's, not the product's: CPython resets every Python
+signal handler during finalization, so no product code can keep the quiet stop past that point. The
+first walk of this change halted at its plan on exactly that, on 2026-10-29, after its spec
+stretched the span to the process's end.
+
 **What must not be weakened:** the ready line's words and when it is printed; Ctrl-C's effect for an
 operator, which is a quiet stop with exit 0; the two refusals `start` prints before it listens; the
 start tests keep driving the real start in a child process and stopping it with a real SIGINT; no
@@ -35,9 +41,9 @@ test is deleted, skipped, retried or marked expected-to-fail; no deadline is len
 gap.
 
 **Proof:**
-- A test that fails on `main` every time, not only under load, and passes after: it shows that no
-  point after the ready line is printed lets a Ctrl-C end the tracker with a traceback or a non-zero
-  exit. A test whose red depends on timing is not the proof.
+- A test that fails on `main` every time, not only under load, and passes after: it shows that a
+  Ctrl-C at any point from the ready line being printed until `start` returns stops the tracker with
+  exit 0 and nothing on standard error. A test whose red depends on timing is not the proof.
 - `python -m pytest products/tracker17/tests/ -q` and `python -m pytest products/tracker17/tests/e2e/ -q`
   exit 0, in the foreground and with SIGINT ignored, run in the product's own test environment as
   the setup instructions make it.
