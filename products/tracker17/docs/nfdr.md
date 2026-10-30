@@ -2,8 +2,8 @@
 
 **Status:** Settled
 **Owner:** Principal Architect
-**Version:** 22 — the answer to companion § 3.1 folded in (`products/tracker17/docs/trail/architecture/cycle-20.md`): the owner ruled that § 10's preamble follows the project card, so it no longer quotes the card's `Test command:` as `pytest tests/`; it says the suite gate runs both suites through `uv run`, `pytest tests/` and `pytest tests/e2e/`, and that the layer-5 rows are gated at the suite like the rest (RN-60). No entry, row or record moves; nothing is left open, so the companion is removed and this document is Settled.
-**Inputs read:** SRS Settled (version 6) · SDD Settled (version 16) · FDR Settled (version 4) · PRD Settled (version 7) · UXD Settled (version 11) · DESIGN Settled (version 4) · CONTENT Settled (version 17) · Agari no Status line · tracker17 doctrine no Status line (stamped, unfilled)
+**Version:** 23 — the answer to companion § 3.1 folded in (`products/tracker17/docs/trail/architecture/cycle-21.md`): QC-40's tail says that an export answering 404 to the admin account, while the alerts endpoint refuses as disabled, is what a feed that is down looks like, so the review records the feed as down and the moment as still owed and raises no discrepancy (RN-61). QC-40's obligation, window and review moments do not move, and no row or record moves. Nothing is left open, so the companion is removed and this document is Settled.
+**Inputs read:** SRS Settled (version 6) · SDD Settled (version 16) · FDR Settled (version 4) · PRD Settled (version 7) · UXD Settled (version 11) · DESIGN Settled (version 4) · CONTENT Settled (version 18) · Agari no Status line · tracker17 doctrine no Status line (stamped, unfilled)
 
 > The NFDR is the product's **standing obligations, consolidated and verifiable**: every quality
 > constraint a change is checked against, derived from the SRS, the SDD, the FDR and the ADR — never
@@ -393,15 +393,19 @@ is checked by § 3's capability entries, named in each clause.
   is down. It then checks that the dependency graph lists the packages `uv.lock` fixes, through the
   repository's dependency-graph page or GitHub's asynchronous SBOM export, never the synchronous
   `dependency-graph/sbom` call, which GitHub closes after 2026-11-13. A call that answers neither way,
-  for want of access or a network, is not a reading, and the moment is not met. The moment stays owed
+  for want of access or a network, is not a reading, and the moment is not met. An export that answers
+  404 to that account, while the alerts endpoint refuses as disabled, is what a feed that is down
+  looks like: the review records the feed as down and the moment as still owed, and raises no
+  discrepancy. The moment stays owed
   until a review reads the graph listing those packages, and that review surfaces the feed's return
   to the Principal Architect as a discrepancy in this entry. No command can measure
   a window, and no audit command exists for this product: the Python packet names none and tracker17
   installs none *(traces to: `<CORE>/doctrine/engineering/quality_defaults.md` § Dependencies;
   owner, `trail/architecture/cycle-2.md` § 1.1, `trail/architecture/cycle-6.md` § 2.1,
   `trail/architecture/cycle-7.md` § 3.1, `trail/architecture/cycle-17.md` § 3.1,
-  `trail/architecture/cycle-18.md` § 3.1; SDD § 4 RT-4, RN-63; see RN-10, RN-18, RN-31, RN-54,
-  RN-56, and RN-33 for the dated exception in force)*
+  `trail/architecture/cycle-18.md` § 3.1; answer, `trail/architecture/cycle-21.md` § 3.1; SDD § 4
+  RT-4, RN-63; see RN-10, RN-18, RN-31, RN-54, RN-56, RN-61, and RN-33 for the dated exception in
+  force)*
 - **QC-41:** The product reads, holds and writes no secret: no account, no key, no credential, at
   setup or in use. A change that introduces one is out of bounds.
   — *verified by:* review at `development-design`. No secrets scanner exists for this product, and
@@ -1632,3 +1636,38 @@ QC-12, QC-25, QC-26, QC-27, QC-40, QC-41 and QC-60 are review gates and have no 
   `Inputs read:` stands. No record was written or changed. Nothing is left open, so the companion is
   removed and this document is Settled. *(re: Version 22; § 10; QC-60; source: owner,
   `trail/architecture/cycle-20.md` § 3.1)*
+- **RN-61:** QC-40's tail says how a review reads a 404 from the export — *because* the answer to
+  companion § 3.1 settled it (`trail/architecture/cycle-21.md` § 3.1, with the reasoning at
+  `trail/architecture/self_answer-25.md`). The PM raised the item: a 404 to an admin account is
+  neither of the failures the tail names, want of access or a network. A `companion-self-answer` run
+  answered it; the owner has not. The answer's measurement of 2026-10-30, from an account with admin
+  on the repository and a token carrying `repo`: the alerts endpoint refuses as disabled,
+  `generate-report` answers 404, and the same call answers 201 with an `sbom_url` on a public
+  repository, so the address is right. The sentence names no cause for the 404, *because* GitHub
+  defines that answer only as "Resource not found", no private repository with the graph on was
+  available to compare, and every remaining cause leaves the review doing the same thing: the graph
+  has not been read listing the packages, so the moment stays owed. That the export reads at all on a
+  private repository with the graph on is therefore unmeasured. If it answers 404 there too, the
+  export is no reading and the tail must name another. The sentence stops a review raising the same
+  item again; it does not end the moment, which still ends only after the owner turns the graph on
+  or chooses another feed (RN-54, RN-56). The obligation, the window, the "want of access or a
+  network" clause and the class do not move. QC-40 is a review gate, so § 10 gains no row. No record
+  in `adr/` moves: ADR-0013's mention of the feed predates this and is not contradicted by it, and a
+  sentence on how a review reads an answer is cheap to reverse. This run did not repeat the
+  measurement; it rests on the answer and on the PM's identical reading in the item. *(re: QC-40;
+  source: `trail/architecture/cycle-21.md` § 3.1)*
+- **RN-62:** Version 23 was written on 2026-10-30. It read the answered companion as committed at
+  `69cf933f8` and copied it whole to `trail/architecture/cycle-21.md` before the fold. The PM opened
+  its one item, § 3.1; no producing run wrote it. It is folded (RN-61). Since version 22
+  (`git diff --stat 1d11b7047 HEAD` over the product's `docs/` and the project's `agari.md`,
+  `doctrine/` and `project.md`), two inputs moved, and this run read both changes. `CONTENT.md`
+  version 18 adds the term "killed" for a tracker the reader ended by force, which is wording (RN-12)
+  and moves no entry. The card now holds the two-suite `Test command:` through `uv run` and the
+  `Setup command:`, committed at `d4fec9c85` and on `main`, so what RN-60 recorded closes: § 10's
+  preamble and the card agree, and RN-60 stays as written. The SRS, the SDD, the FDR, the PRD, the
+  UXD, `DESIGN.md`, `what_left.md`, the Agari and the project's doctrine are unchanged since version
+  22. This run read their headers and searched them for the feed, and did not re-read them in full,
+  because a fold re-derives nothing from text that has not moved; it searched the records in `adr/`
+  the same way. `Inputs read:` now names CONTENT version 18. No record was written or changed.
+  Nothing is left open, so the companion is removed and this document is Settled. *(re: Version 23;
+  QC-40; RN-60)*
