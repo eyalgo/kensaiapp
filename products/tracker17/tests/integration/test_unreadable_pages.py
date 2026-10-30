@@ -1,9 +1,10 @@
 """Integration tests of web's unreadable-data page builder, read back as a browser parses it.
 
-Checks the page a start on saved data it cannot read serves (SDD § 6 S-8, UXD UX-F11 and UX-S9):
-change spec rules CP-716 (its words), CP-717 (no navigation and no data control) and CP-723 (the
-location is shown as text), and NFDR QC-36 (a value enters a page through one escaping function)
-and QC-57 (no Python error text). The words are the approved text of the change's content step.
+Checks the page a start on saved data it cannot read serves (SRS DR-6, AC-7 and NFR-4; SDD § 6
+S-8, UXD UX-F11 and UX-S9): change spec rules CP-716 (its words), CP-717 (no navigation and no
+data control) and CP-723 (the location is shown as text), and NFDR QC-36 (a value enters a page
+through one escaping function) and QC-57 (no Python error text). The words are the approved text
+of the change's content step.
 """
 
 from __future__ import annotations
