@@ -15,7 +15,7 @@ from web import pages
 LOCATION = "/Users/sam/copy/products/tracker17/data"
 HOSTILE_LOCATION = '/Users/sam/<b>&"data"'
 CONTROL_TAGS = ("a", "form", "button", "input", "select", "textarea", "nav")
-PYTHON_ERROR_TEXT = ("Traceback", "Error", "Exception", "File \"")
+PYTHON_ERROR_TEXT = ("Traceback", "Error", "Exception", 'File "')
 
 
 def test_unreadable_page_names_the_location_and_the_setup_section() -> None:
