@@ -1,0 +1,9 @@
+# Flow Findings — development-plan  (audited 2026-10-30)
+
+Findings for this step's output only, produced by the `development-audit` skill.
+Change-local findings live here; skill-general findings are also raised as kaizen items.
+
+- **[non-blocking · change-local · coverage]** Design T2 (the one-time red observation on unchanged code, which is also CP-752's "fails on `main` before the change") has no verification gate and no review criterion. Where: `tl_instruction.md` §Task 1 Verification gate / §Task 2 Deliverables verified by review. The red case is described under Task 1's behaviours, but neither Task 1's Pass line nor any of Task 2's three review bullets asks for evidence that it was seen, so the CP-752 requirement can be dropped without any gate noticing. Direction: add a Developer Review Notes verdict line for the red observation to Task 2.
+- **[non-blocking · change-local · divergence-record]** The plan narrows design T5 to "an otherwise ASCII path for the strict ASCII console", but TL Review Notes gives no reason for it. Where: `tl_instruction.md` §Task 1 `test_readable_start_path_is_independent_of_console_policy` against `change_design.md` §5 T5. T5 puts the consecutive `0xe9`/`0xff` path across all the variants. The spec's Out of Scope (valid characters an ASCII console cannot write) probably explains it, but the plan does not say so. Direction: record the reason in TL Review Notes.
+
+Lenses 2, 3, 5, 6 and 8: Clean. `Category: feature` and `Behaviour: changing` are copied verbatim from the spec and design. The plan states properties and does not enact any other role's decisions. The skip boundary and the independent expected text are realized by construction. Every Example and rule-implied edge in design T1–T9 maps to a task or behaviour. Lenses 7 (implementation and specs only), 9 and 10 do not apply to this step.
