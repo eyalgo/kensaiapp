@@ -228,14 +228,18 @@ def test_unreadable_byte_path_answers_as_a_plain_path_does() -> None:
     byte_site = UnreadableSite(DECODED_LOCATION, HOST)
     plain_site = UnreadableSite("/tmp/plain/data", HOST)
     own = {"Host": HOST}
-    pages_read = [("GET", "/", own), ("GET", "/people?x=1", own), ("HEAD", "/", own)]
+    pages_read = [
+        ("GET", "/", own),
+        ("GET", "/people?x=1", own),
+        ("HEAD", "/", own),
+        ("PUT", "/", own),
+    ]
     other_answers = [
         ("GET", "/style.css", own),
         ("POST", "/projects", {**own, "Sec-Fetch-Site": "same-origin"}),
         ("POST", "/projects", {**own, "Sec-Fetch-Site": "cross-site"}),
         ("POST", "/projects", own),
         ("GET", "/", {"Host": "example.com"}),
-        ("PUT", "/", own),
     ]
 
     for method, target, headers in pages_read:
