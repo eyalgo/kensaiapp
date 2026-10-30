@@ -1,31 +1,38 @@
-"""Integration tests of the start: unreadable saved data, a held address and the data directory.
+"""Integration tests of the start: unreadable saved data served as one page, a held address and the
+data directory, through real starts in child processes.
 
-Checks SRS NFR-3 and AC-16 as well (a start whose location cannot be read, or whose address is
-held, releases the location it claimed; a location that is no directory keeps the unreadable
-start), by change spec rules CP-700, CP-701 and CP-702.
+Checks SRS NFR-3 and AC-16 (a start whose location cannot be read, or whose address is held,
+releases the location it claimed; a location that is no directory serves the unreadable page), by
+change spec rules CP-700, CP-701 and CP-702.
 
 Checks SRS FR-1 (the start prints where to open the tracker and where the data is), FR-3 (a start
 whose address something else holds says so in one line), FR-4 and AC-7 (unreadable saved data is
-refused whole, left as it was, and points to the setup instructions in README.md), DR-4 (the
-assignee list), DR-2 (the task rules), DR-6 and FR-23 (a saved label breaking the label rules) and
-DR-5 (a saved operator name breaking the name rule, or not text) and DR-6 and FR-28 (a saved
-comment breaking a comment rule). Change spec rules CP-5, CP-7, CP-39 to CP-46, CP-55, CP-65, CP-67
-and CP-101, CP-137, CP-197, CP-205, CP-227, CP-228, CP-233 and CP-264, CP-265 and CP-270 and NFDR
-QC-47 and QC-58 are the ones each test names.
+served as one page, left as it was, and points to the setup instructions in README.md), AC-8 (after
+the data is set aside the next start is empty), DR-4 (the assignee list), DR-2 (the task rules),
+DR-6 and FR-23 (a saved label breaking the label rules) and DR-5 (a saved operator name breaking
+the name rule, or not text) and DR-6 and FR-28 (a saved comment breaking a comment rule). Change
+spec rules CP-710 to CP-715, CP-724 to CP-726, CP-728, CP-729, CP-732 and CP-734 and the earlier CP-5,
+CP-39 to CP-46, CP-55, CP-137, CP-197, CP-205, CP-227, CP-228, CP-233, CP-264, CP-265 and CP-270 and
+NFDR QC-47 and QC-58 are the ones each test names. Every unreadable start runs as a child process
+read with a deadline, so a start that exits early or never answers fails the test instead of
+hanging it.
 """
 
 from __future__ import annotations
 
+import html
 import http.client
 import json
 import os
 import re
+import select
 import signal
 import socket
 import subprocess
 import sys
 import threading
-from collections.abc import Iterator
+import time
+from collections.abc import Iterator, Mapping
 from pathlib import Path
 from typing import Any
 
@@ -41,11 +48,43 @@ PRODUCT_ROOT = Path(main.__file__).resolve().parent
 AGAIN_SECTION = "Starting the tracker again"
 UNREADABLE = b'{"next_project_id": 3, "projects": [ truncated'
 SET_ASIDE_SECTION = "Setting saved data aside"
-CLOSING_SENTENCE = f"See {SET_ASIDE_SECTION} in the setup instructions."
-UNREADABLE_LINE = (
-    "The tracker didn't start, because it couldn't read its saved data at {location}. "
-    "Nothing in it was changed. " + CLOSING_SENTENCE
+CLOSING_SENTENCE = (
+    f"To start fresh on purpose, follow {SET_ASIDE_SECTION} in the setup instructions."
 )
+ANNOUNCEMENT_LINE = (
+    "The tracker couldn't read its saved data at {location}, and nothing in it was changed. "
+    "Open http://127.0.0.1:{port} in your browser to read this on a page. " + CLOSING_SENTENCE
+)
+READY_LINE = (
+    "The tracker is running. Open http://127.0.0.1:{port} in your browser. "
+    "Saved data is kept at {location}."
+)
+FORM_HEADERS = {
+    "Sec-Fetch-Site": "same-origin",
+    "Content-Type": "application/x-www-form-urlencoded",
+}
+PAGE_CONTROLS = re.compile(r"<(?:a|form|button|input|select|textarea|nav)[\s>/]", re.IGNORECASE)
+DEADLINE_SECONDS = 30
+REFUSAL_DEADLINE_SECONDS = 10
+SERVE_PROGRAM = (
+    "import sys; from pathlib import Path; import main; "
+    "sys.exit(main.start(('127.0.0.1', int(sys.argv[2])), Path(sys.argv[1])))"
+)
+# The same start with an audit hook that notes any outbound connection the server process makes.
+AUDITED_PROGRAM = """
+import sys
+from pathlib import Path
+import main
+
+marker = Path(sys.argv[3])
+
+def audit(event, args):
+    if event == "socket.connect":
+        marker.write_text("connected")
+
+sys.addaudithook(audit)
+sys.exit(main.start(('127.0.0.1', int(sys.argv[2])), Path(sys.argv[1])))
+"""
 _FENCE = re.compile(r" {0,3}(`{3,}|~{3,})")
 _ATX_HEADING = re.compile(r"#{1,6} (.*)")
 
@@ -54,93 +93,223 @@ def _listing(directory: Path) -> list[str]:
     return sorted(str(path.relative_to(directory)) for path in directory.rglob("*"))
 
 
-def test_an_unreadable_start_returns_non_zero_with_one_message_naming_the_location(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+def _snapshot(directory: Path) -> dict[str, bytes | None]:
+    """Every path under the directory with the bytes of each file."""
+    return {
+        str(path.relative_to(directory)): path.read_bytes() if path.is_file() else None
+        for path in sorted(directory.rglob("*"))
+    }
+
+
+def announcement(location: Path, port: int) -> str:
+    """The one line an unreadable start writes, for the location as the start shows it."""
+    return ANNOUNCEMENT_LINE.format(location=location.absolute(), port=port)
+
+
+class _Child:
+    """A real `main.start` in its own interpreter, read with a deadline on every wait."""
+
+    def __init__(self, location: Path, port: int, program: str, *extra: str) -> None:
+        self.process = subprocess.Popen(
+            [sys.executable, "-c", program, str(location), str(port), *extra],
+            cwd=PRODUCT_ROOT,
+            env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        self._pending = b""
+        self.port = port
+        self.first_line = ""
+
+    def read_first_line(self) -> None:
+        """Wait for the first line on standard output; fail at once if the start ends first."""
+        assert self.process.stdout is not None
+        descriptor = self.process.stdout.fileno()
+        end = time.monotonic() + DEADLINE_SECONDS
+        while b"\n" not in self._pending:
+            if time.monotonic() >= end:
+                self.close()
+                raise AssertionError(f"no first line within {DEADLINE_SECONDS}s")
+            if not select.select([descriptor], [], [], 0.2)[0]:
+                continue
+            chunk = os.read(descriptor, 4096)
+            if not chunk:
+                out, err = self.process.communicate(timeout=REFUSAL_DEADLINE_SECONDS)
+                raise AssertionError(
+                    f"the start ended with status {self.process.returncode} before it served: "
+                    f"stdout {(self._pending + out)!r}, stderr {err!r}"
+                )
+            self._pending += chunk
+        line, _, self._pending = self._pending.partition(b"\n")
+        self.first_line = line.decode("utf-8")
+        found = re.search(r"http://127\.0\.0\.1:(\d+)", self.first_line)
+        assert found is not None, self.first_line
+        self.port = int(found.group(1))
+
+    def request(
+        self,
+        method: str,
+        target: str = "/",
+        headers: Mapping[str, str] | None = None,
+        body: bytes | None = None,
+    ) -> tuple[int, dict[str, str], bytes]:
+        connection = http.client.HTTPConnection("127.0.0.1", self.port, timeout=DEADLINE_SECONDS)
+        try:
+            connection.request(method, target, body, dict(headers or {}))
+            response = connection.getresponse()
+            names = {name.lower(): value for name, value in response.getheaders()}
+            return response.status, names, response.read()
+        finally:
+            connection.close()
+
+    def finish(self, deadline: int = REFUSAL_DEADLINE_SECONDS) -> tuple[int, str, str]:
+        """Wait for the start to end by itself: status, everything after the first line, stderr."""
+        try:
+            out, err = self.process.communicate(timeout=deadline)
+        except subprocess.TimeoutExpired:
+            self.close()
+            raise AssertionError("the start kept running: it served instead of ending") from None
+        return self.process.returncode, (self._pending + out).decode(), err.decode()
+
+    def stop(self) -> tuple[int, str, str]:
+        """Ctrl-C, then status, everything written after the first line, and stderr."""
+        self.process.send_signal(signal.SIGINT)
+        return self.finish(DEADLINE_SECONDS)
+
+    def close(self) -> None:
+        if self.process.poll() is None:
+            self.process.kill()
+        self.process.communicate()
+
+
+class _Starts:
+    """Starts trackers in child processes and ends any still running when the test is over."""
+
+    def __init__(self) -> None:
+        self._children: list[_Child] = []
+
+    def serve(
+        self, location: Path, port: int = 0, program: str = SERVE_PROGRAM, *extra: str
+    ) -> _Child:
+        """A start that must answer: returns once its first line is read."""
+        child = _Child(location, port, program, *extra)
+        self._children.append(child)
+        child.read_first_line()
+        return child
+
+    def refused(self, location: Path, port: int) -> tuple[int, str, str]:
+        """A start that must end by itself: its status, standard output and standard error."""
+        child = _Child(location, port, SERVE_PROGRAM)
+        self._children.append(child)
+        return child.finish()
+
+    def close(self) -> None:
+        for child in self._children:
+            child.close()
+
+
+@pytest.fixture
+def starts() -> Iterator[_Starts]:
+    started = _Starts()
+    yield started
+    started.close()
+
+
+def _serves_the_page(starts: _Starts, location: Path, content: bytes) -> None:
+    """A start on content the tracker cannot read, on a free port, serves the unreadable page.
+
+    The data is independently unreadable, the first line is the announcement, the page is a 503
+    naming the heading, and the location's bytes and listing are as they were after a quiet stop.
+    """
+    saved = location / "tracker.json"
+    saved.write_bytes(content)
+    before = _listing(location)
+    with pytest.raises(UnreadableData) as error:
+        SavedData(location).load()
+    assert error.value.location == location
+
+    served = starts.serve(location)
+
+    assert served.first_line == announcement(location, served.port)
+    status, _, body = served.request("GET", "/")
+    assert status == 503
+    assert "The saved data can't be read" in html.unescape(body.decode("utf-8"))
+    assert served.stop() == (0, "", "")
+    assert saved.read_bytes() == content and _listing(location) == before
+
+
+def test_an_unreadable_start_serves_one_page_and_announces_once(
+    starts: _Starts, tmp_path: Path
 ) -> None:
-    """CP-7: one message, naming the location, and no ready message."""
+    """CP-710, CP-711, CP-729: the start stays up, its first line is the one approved line, the
+    port is the one it bound, and the same page answers the root, a real route and an unknown one."""
     (tmp_path / "tracker.json").write_bytes(UNREADABLE)
-    status = main.start(("127.0.0.1", 0), tmp_path)
-    captured = capsys.readouterr()
-    assert status != 0
-    messages = [line for line in (captured.out + captured.err).splitlines() if line.strip()]
-    assert len(messages) == 1
-    assert str(tmp_path) in messages[0]
-    assert "http://" not in captured.out + captured.err
+    before = _listing(tmp_path)
+
+    served = starts.serve(tmp_path)
+
+    assert served.port != 0
+    assert served.first_line == announcement(tmp_path, served.port)
+    answers = [served.request("GET", target) for target in ("/", "/people", "/nothing?x=1")]
+    assert {status for status, _, _ in answers} == {503}
+    assert len({body for _, _, body in answers}) == 1
+    page = answers[0][2].decode("utf-8")
+    assert PAGE_CONTROLS.search(page) is None
+    assert str(tmp_path.absolute()) in html.unescape(page)
+    assert served.stop() == (0, "", "")
+    assert _listing(tmp_path) == before
 
 
-def test_an_unreadable_start_changes_nothing_in_the_location(tmp_path: Path) -> None:
-    """CP-7: every byte of the file, and the directory's listing, are as they were."""
+def test_an_unreadable_start_changes_nothing_in_the_location(
+    starts: _Starts, tmp_path: Path
+) -> None:
+    """CP-710, CP-725: every byte of the file, and the directory's listing, are as they were."""
     saved = tmp_path / "tracker.json"
     saved.write_bytes(UNREADABLE)
     before = _listing(tmp_path)
-    assert main.start(("127.0.0.1", 0), tmp_path) != 0
+    served = starts.serve(tmp_path)
+    assert served.request("GET", "/")[0] == 503
+    assert served.stop()[0] == 0
     assert saved.read_bytes() == UNREADABLE
     assert _listing(tmp_path) == before
 
 
-@pytest.mark.parametrize(
-    "content",
-    [b"", b"\xff\xfe\x00", b'{"next_project_id": 1}', b"[]"],
-    ids=["empty", "not-utf8", "missing-key", "wrong-shape"],
-)
-def test_other_unreadable_files_are_refused_the_same_way(
-    tmp_path: Path, content: bytes, capsys: pytest.CaptureFixture[str]
-) -> None:
-    (tmp_path / "tracker.json").write_bytes(content)
-    assert main.start(("127.0.0.1", 0), tmp_path) == 1
-    assert (tmp_path / "tracker.json").read_bytes() == content
-    assert capsys.readouterr().out == ""
+INVALID_FILES = {
+    "empty": b"",
+    "not-utf8": b"\xff\xfe\x00",
+    "missing-key": b'{"next_project_id": 1}',
+    "wrong-shape": b"[]",
+}
+
+INVALID_ASSIGNEES: dict[str, object] = {
+    "empty-name": ["Dana", ""],
+    "whitespace-name": ["Dana", "   "],
+    "duplicate": ["Dana", "Ari", "Dana"],
+    "name-201-characters": ["n" * 201],
+    "number-member": ["Dana", 7],
+    "null": None,
+    "scalar-text": "Dana",
+    "mapping": {"Dana": 1},
+}
 
 
-def test_an_unreadable_start_writes_exactly_the_one_line_with_the_closing_sentence(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
-    """CP-65: one line on standard error, the first half intact and the closing sentence last."""
-    (tmp_path / "tracker.json").write_bytes(UNREADABLE)
-    status = main.start(("127.0.0.1", 0), tmp_path)
-    captured = capsys.readouterr()
-    assert status != 0
-    assert captured.out == ""
-    assert captured.err == UNREADABLE_LINE.format(location=tmp_path.absolute()) + "\n"
-
-
-INVALID_ASSIGNEE_DOCUMENTS = [
-    pytest.param(["Dana", ""], id="empty-name"),
-    pytest.param(["Dana", "   "], id="whitespace-name"),
-    pytest.param(["Dana", "Ari", "Dana"], id="duplicate"),
-    pytest.param(["n" * 201], id="name-201-characters"),
-    pytest.param(["Dana", 7], id="number-member"),
-    pytest.param(None, id="null"),
-    pytest.param("Dana", id="scalar-text"),
-    pytest.param({"Dana": 1}, id="mapping"),
-]
-
-
-@pytest.mark.parametrize("assignees", INVALID_ASSIGNEE_DOCUMENTS)
-def test_invalid_assignees_stop_start_with_the_existing_plain_message(
-    tmp_path: Path, assignees: object, capsys: pytest.CaptureFixture[str]
-) -> None:
-    """CP-101: the same one line as any unreadable saved data, no ready line, bytes untouched."""
-    content = json.dumps(
+def _assignee_document(assignees: object) -> bytes:
+    return json.dumps(
         {
             "next_project_id": 2,
             "projects": [{"id": 1, "name": "Alpha", "description": ""}],
             "assignees": assignees,
         }
     ).encode()
-    saved = tmp_path / "tracker.json"
-    saved.write_bytes(content)
-    before = _listing(tmp_path)
 
-    status = main.start(("127.0.0.1", 0), tmp_path)
 
-    captured = capsys.readouterr()
-    assert status == 1
-    assert captured.out == ""
-    assert captured.err == UNREADABLE_LINE.format(location=tmp_path.absolute()) + "\n"
-    assert "Traceback" not in captured.err
-    assert saved.read_bytes() == content
-    assert _listing(tmp_path) == before
+def test_the_announcement_quotes_a_heading_the_readme_has(starts: _Starts, tmp_path: Path) -> None:
+    """CP-711, CP-734: the section the announcement names is a heading README.md has."""
+    (tmp_path / "tracker.json").write_bytes(UNREADABLE)
+    served = starts.serve(tmp_path)
+    assert served.first_line.endswith(CLOSING_SENTENCE)
+    assert served.stop()[0] == 0
+    assert SET_ASIDE_SECTION in _readme_headings()
 
 
 def _headings(markdown: str) -> list[str]:
@@ -194,17 +363,6 @@ def test_the_heading_reader_counts_a_heading_and_no_other_line() -> None:
         "### Real heading\n"
     )
     assert _headings(markdown) == ["Title", "Setting saved data aside again", "Real heading"]
-
-
-def test_the_message_closing_sentence_quotes_a_heading_the_readme_has(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
-    """CP-67: the section the unreadable-data line names is a heading README.md has."""
-    (tmp_path / "tracker.json").write_bytes(UNREADABLE)
-    assert main.start(("127.0.0.1", 0), tmp_path) != 0
-    line = capsys.readouterr().err.rstrip("\n")
-    assert line.endswith(CLOSING_SENTENCE)
-    assert SET_ASIDE_SECTION in _readme_headings()
 
 
 def test_the_readme_has_both_fixed_headings() -> None:
@@ -300,23 +458,48 @@ def test_a_held_address_leaves_existing_saved_data_untouched(
     assert captured.err == ADDRESS_TAKEN_LINE.format(address=f"{host}:{port}") + "\n"
 
 
-def test_unreadable_saved_data_wins_over_a_held_address(
-    tmp_path: Path, holder: socket.socket, capsys: pytest.CaptureFixture[str]
+def test_a_held_address_wins_on_an_unreadable_start(
+    starts: _Starts, tmp_path: Path, holder: socket.socket
 ) -> None:
-    """CP-43: the saved data is read first, so its refusal is the one line shown."""
+    """CP-714, CP-732: the address-taken line only, status 1, no announcement, nothing changed,
+    and the released address then serves the page."""
     saved = tmp_path / "tracker.json"
     saved.write_bytes(UNREADABLE)
-    before_listing = _listing(tmp_path)
-    assert main.start(holder.getsockname(), tmp_path) != 0
+    before = _listing(tmp_path)
+    host, port = holder.getsockname()
+
+    status, out, err = starts.refused(tmp_path, port)
+
+    assert (status, out) == (1, "")
+    assert err == ADDRESS_TAKEN_LINE.format(address=f"{host}:{port}") + "\n"
+    assert "couldn't read" not in err and "http://" not in err
+    assert saved.read_bytes() == UNREADABLE and _listing(tmp_path) == before
+    holder.close()
+    served = starts.serve(tmp_path, port)
+    assert served.first_line == announcement(tmp_path, port)
+    assert served.request("GET", "/")[0] == 503
+    assert served.stop() == (0, "", "")
+
+
+def test_an_unrelated_bind_error_on_unreadable_data_propagates_without_a_line(
+    starts: _Starts, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """CP-714: another bind failure is not told the address is taken and announces nothing; the
+    location it claimed is free for the next start."""
+    saved = tmp_path / "tracker.json"
+    saved.write_bytes(UNREADABLE)
+    before = _listing(tmp_path)
+    with pytest.raises(OSError) as caught:
+        main.start(("192.0.2.1", 0), tmp_path)
+    assert not isinstance(caught.value, AddressTaken)
     captured = capsys.readouterr()
     assert captured.out == ""
-    lines = captured.err.splitlines()
-    assert len(lines) == 1
-    assert captured.err == lines[0] + "\n"
-    assert str(tmp_path) in lines[0]
     assert "already using the address" not in captured.err
-    assert saved.read_bytes() == UNREADABLE
-    assert _listing(tmp_path) == before_listing
+    assert "couldn't read" not in captured.err
+    assert saved.read_bytes() == UNREADABLE and _listing(tmp_path) == before
+    served = starts.serve(tmp_path)
+    assert served.request("GET", "/")[0] == 503
+    assert served.stop()[0] == 0
 
 
 def test_a_start_refused_the_address_for_another_reason_is_not_told_it_is_taken(
@@ -332,56 +515,76 @@ def test_a_start_refused_the_address_for_another_reason_is_not_told_it_is_taken(
     assert not (tmp_path / "data").exists()
 
 
-TASK_BREAKS = [
-    pytest.param({"priority": "urgent"}, id="unknown-priority"),
-    pytest.param({"status": "started"}, id="unknown-status"),
-    pytest.param({"project_id": 9}, id="unknown-project"),
-    pytest.param({"due_date": "2026-02-30"}, id="impossible-date"),
-    pytest.param({"title": "  "}, id="blank-title"),
-    pytest.param({"title": "t" * 201}, id="long-title"),
-    pytest.param({"assignee": " "}, id="blank-assignee"),
-    pytest.param({"id": 2}, id="identity-not-yet-issued"),
-]
+TASK_BASE: dict[str, object] = {
+    "id": 1,
+    "project_id": 1,
+    "title": "Plan",
+    "status": "todo",
+    "priority": "medium",
+    "assignee": None,
+    "labels": [],
+    "due_date": None,
+    "created_at": "2026-10-11T09:30:00Z",
+    "comments": [],
+}
+TASK_BREAKS: dict[str, dict[str, object]] = {
+    "unknown-priority": {"priority": "urgent"},
+    "unknown-status": {"status": "started"},
+    "unknown-project": {"project_id": 9},
+    "impossible-date": {"due_date": "2026-02-30"},
+    "blank-title": {"title": "  "},
+    "long-title": {"title": "t" * 201},
+    "blank-assignee": {"assignee": " "},
+    "identity-not-yet-issued": {"id": 2},
+}
 
 
-@pytest.mark.parametrize("change", TASK_BREAKS)
-def test_a_saved_task_that_breaks_a_task_rule_stops_start_with_the_plain_message(
-    tmp_path: Path, change: dict[str, object], capsys: pytest.CaptureFixture[str]
-) -> None:
-    """CP-137: the same one line as any unreadable saved data, no ready line, bytes untouched."""
-    task = {
-        "id": 1,
-        "project_id": 1,
-        "title": "Plan",
-        "status": "todo",
-        "priority": "medium",
-        "assignee": None,
-        "labels": [],
-        "due_date": None,
-        "created_at": "2026-10-11T09:30:00Z",
-        "comments": [],
-    }
-    content = json.dumps(
+def _task_break_document(change: dict[str, object]) -> bytes:
+    return json.dumps(
         {
             "next_project_id": 2,
             "projects": [{"id": 1, "name": "Alpha", "description": ""}],
             "assignees": [],
             "next_task_id": 2,
-            "tasks": [{**task, **change}],
+            "tasks": [{**TASK_BASE, **change}],
         }
     ).encode()
-    saved = tmp_path / "tracker.json"
-    saved.write_bytes(content)
-    before = _listing(tmp_path)
 
-    status = main.start(("127.0.0.1", 0), tmp_path)
 
-    captured = capsys.readouterr()
-    assert status == 1
-    assert captured.out == ""
-    assert captured.err == UNREADABLE_LINE.format(location=tmp_path.absolute()) + "\n"
-    assert saved.read_bytes() == content
-    assert _listing(tmp_path) == before
+DR6_BREAKS = {
+    "cannot-read-all-of-it": UNREADABLE,
+    "unknown-status": _task_break_document({"status": "started"}),
+    "unknown-priority": _task_break_document({"priority": "urgent"}),
+    "task-without-its-project": _task_break_document({"project_id": 9}),
+    "duplicate-project-name": json.dumps(
+        {
+            "next_project_id": 3,
+            "projects": [
+                {"id": 1, "name": "Alpha", "description": ""},
+                {"id": 2, "name": "Alpha", "description": ""},
+            ],
+        }
+    ).encode(),
+    "reused-task-identity": json.dumps(
+        {
+            "next_project_id": 2,
+            "projects": [{"id": 1, "name": "Alpha", "description": ""}],
+            "assignees": [],
+            "next_task_id": 2,
+            "tasks": [TASK_BASE, {**TASK_BASE, "title": "Other"}],
+        }
+    ).encode(),
+    "overlong-saved-field": _task_break_document({"title": "t" * 201}),
+}
+
+
+@pytest.mark.parametrize("content", list(DR6_BREAKS.values()), ids=list(DR6_BREAKS))
+def test_each_dr6_break_serves_without_changing_saved_data(
+    starts: _Starts, tmp_path: Path, content: bytes
+) -> None:
+    """CP-728, CP-725: each kind of break SRS DR-6 names reaches a real 503 page and leaves the
+    file's bytes and the location's listing as they were, through the stop."""
+    _serves_the_page(starts, tmp_path, content)
 
 
 def _task_with_labels(identity: int, labels: list[str]) -> dict[str, object]:
@@ -399,29 +602,16 @@ def _task_with_labels(identity: int, labels: list[str]) -> dict[str, object]:
     }
 
 
-INVALID_LABEL_COLLECTIONS = [
-    pytest.param([""], id="empty-label"),
-    pytest.param(["x" * 201], id="label-201-code-points"),
-    pytest.param(["bug", "ui", "bug"], id="repeated-label"),
-]
+INVALID_LABELS = {
+    "empty-label": [""],
+    "label-201-code-points": ["x" * 201],
+    "repeated-label": ["bug", "ui", "bug"],
+}
 
 
-@pytest.mark.parametrize("labels", INVALID_LABEL_COLLECTIONS)
-def test_invalid_saved_labels_stop_start_with_existing_message(
-    tmp_path: Path,
-    labels: list[str],
-    holder: socket.socket,
-    capsys: pytest.CaptureFixture[str],
-) -> None:
-    """CP-197, CP-205: the existing one line naming the location, nonzero, no ready line and no
-    listener, a valid task before the break loaded by nothing, and the bytes and listing as they
-    were.
-
-    The start is given an address something else holds. A start that wrongly read the data would
-    then print the address-taken line and return, where on a free address it would serve forever;
-    the unreadable line comes first (`main.start`), so it is the one asserted here.
-    """
-    content = json.dumps(
+def _label_document(labels: list[str]) -> bytes:
+    """A valid task before the break, so the load that refuses it has loaded nothing."""
+    return json.dumps(
         {
             "next_project_id": 2,
             "projects": [{"id": 1, "name": "Alpha", "description": ""}],
@@ -430,21 +620,6 @@ def test_invalid_saved_labels_stop_start_with_existing_message(
             "tasks": [_task_with_labels(1, ["bug"]), _task_with_labels(2, labels)],
         }
     ).encode()
-    saved = tmp_path / "tracker.json"
-    saved.write_bytes(content)
-    before = _listing(tmp_path)
-
-    host, port = holder.getsockname()
-
-    status = main.start((host, port), tmp_path)
-
-    captured = capsys.readouterr()
-    assert status != 0
-    assert captured.out == ""
-    assert captured.err == UNREADABLE_LINE.format(location=tmp_path.absolute()) + "\n"
-    assert "http://" not in captured.out + captured.err
-    assert saved.read_bytes() == content
-    assert _listing(tmp_path) == before
 
 
 # --- The operator name at start (SRS DR-5, DR-6; change spec CP-227, CP-228, CP-233) ---
@@ -466,57 +641,6 @@ RUN_START = (
 
 def _name_document(**changes: object) -> bytes:
     return json.dumps({**NAME_DOCUMENT, "operator_name": None, **changes}).encode("utf-8")
-
-
-def _unreadable_start(
-    tmp_path: Path, content: bytes, capsys: pytest.CaptureFixture[str], holder: socket.socket
-) -> None:
-    """The existing one line, nonzero, no ready line, and the bytes and listing as they were.
-
-    The address is one something else holds, so a start that wrongly read the data would print the
-    address-taken line, or serve forever, instead of the unreadable line asserted here.
-    """
-    saved = tmp_path / "tracker.json"
-    saved.write_bytes(content)
-    before = _listing(tmp_path)
-
-    status = main.start(holder.getsockname(), tmp_path)
-
-    captured = capsys.readouterr()
-    assert status == 1
-    assert captured.out == ""
-    assert captured.err == UNREADABLE_LINE.format(location=tmp_path.absolute()) + "\n"
-    assert "Traceback" not in captured.err and "http://" not in captured.err
-    assert saved.read_bytes() == content
-    assert _listing(tmp_path) == before
-
-
-def test_start_refuses_saved_empty_operator_name(
-    tmp_path: Path, holder: socket.socket, capsys: pytest.CaptureFixture[str]
-) -> None:
-    """CP-228, CP-233: an empty saved operator name stops the start."""
-    _unreadable_start(tmp_path, _name_document(operator_name=""), capsys, holder)
-
-
-def test_start_refuses_saved_whitespace_operator_name(
-    tmp_path: Path, holder: socket.socket, capsys: pytest.CaptureFixture[str]
-) -> None:
-    """CP-228, CP-233: a whitespace-only saved operator name stops the start."""
-    _unreadable_start(tmp_path, _name_document(operator_name="   "), capsys, holder)
-
-
-def test_start_refuses_saved_overlong_operator_name(
-    tmp_path: Path, holder: socket.socket, capsys: pytest.CaptureFixture[str]
-) -> None:
-    """CP-228, CP-233: a saved operator name of 201 code points stops the start."""
-    _unreadable_start(tmp_path, _name_document(operator_name="n" * 201), capsys, holder)
-
-
-def test_start_refuses_saved_numeric_operator_name(
-    tmp_path: Path, holder: socket.socket, capsys: pytest.CaptureFixture[str]
-) -> None:
-    """CP-228, CP-233: a saved operator name that is a number stops the start."""
-    _unreadable_start(tmp_path, _name_document(operator_name=7), capsys, holder)
 
 
 def _run_real_start(location: Path) -> tuple[int, bytes]:
@@ -614,70 +738,44 @@ def _comment_document(comments: list[dict[str, object]], **changes: object) -> b
     )
 
 
-def _unreadable_comment(
-    tmp_path: Path,
-    holder: socket.socket,
-    capsys: pytest.CaptureFixture[str],
-    comment: dict[str, object],
+INVALID_OPERATOR_NAMES: dict[str, object] = {
+    "empty": "",
+    "whitespace": "   ",
+    "overlong": "n" * 201,
+    "numeric": 7,
+}
+INVALID_COMMENTS = {
+    "blank-text": _comment(text=""),
+    "whitespace-text": _comment(text=" \n\t 　 \n"),
+    "overlong-text": _comment(text="t" * 4001),
+    "blank-author": _comment(author=""),
+    "whitespace-author": _comment(author="  　"),
+    "overlong-author": _comment(author="a" * 201),
+}
+OTHER_INVALID: dict[str, bytes] = {
+    **{f"file-{name}": content for name, content in INVALID_FILES.items()},
+    **{f"assignees-{name}": _assignee_document(v) for name, v in INVALID_ASSIGNEES.items()},
+    **{f"task-{name}": _task_break_document(change) for name, change in TASK_BREAKS.items()},
+    **{f"labels-{name}": _label_document(labels) for name, labels in INVALID_LABELS.items()},
+    **{
+        f"operator-name-{name}": _name_document(operator_name=v)
+        for name, v in INVALID_OPERATOR_NAMES.items()
+    },
+    **{
+        f"comment-{name}": _comment_document([_comment(), c])
+        for name, c in INVALID_COMMENTS.items()
+    },
+}
+
+
+@pytest.mark.parametrize("content", list(OTHER_INVALID.values()), ids=list(OTHER_INVALID))
+def test_other_invalid_saved_values_serve_without_changing_data(
+    starts: _Starts, tmp_path: Path, content: bytes
 ) -> None:
-    """The whole load refuses and names the location, and the start gives its one existing line.
-
-    The address is held by another program, so a start that read the data would print the
-    address-taken line, or serve, instead of the unreadable line.
-    """
-    content = _comment_document([_comment(), comment])
-    saved = tmp_path / "tracker.json"
-    saved.write_bytes(content)
-    before = _listing(tmp_path)
-
-    with pytest.raises(UnreadableData) as error:
-        SavedData(tmp_path).load()
-
-    assert error.value.location == tmp_path
-    assert saved.read_bytes() == content and _listing(tmp_path) == before
-    _unreadable_start(tmp_path, content, capsys, holder)
-
-
-def test_saved_comment_blank_text_is_unreadable(
-    tmp_path: Path, holder: socket.socket, capsys: pytest.CaptureFixture[str]
-) -> None:
-    """CP-264, CP-270: a comment with empty text refuses the whole load and the start."""
-    _unreadable_comment(tmp_path, holder, capsys, _comment(text=""))
-
-
-def test_saved_comment_whitespace_text_is_unreadable(
-    tmp_path: Path, holder: socket.socket, capsys: pytest.CaptureFixture[str]
-) -> None:
-    """CP-264, CP-270: whitespace-only text, line breaks, U+00A0 and U+3000 included, is blank."""
-    _unreadable_comment(tmp_path, holder, capsys, _comment(text=" \n\t\u00a0\u3000 \n"))
-
-
-def test_saved_comment_overlong_text_is_unreadable(
-    tmp_path: Path, holder: socket.socket, capsys: pytest.CaptureFixture[str]
-) -> None:
-    """CP-264, CP-270: 4,001 code points is one over the comment maximum."""
-    _unreadable_comment(tmp_path, holder, capsys, _comment(text="t" * 4001))
-
-
-def test_saved_comment_blank_author_is_unreadable(
-    tmp_path: Path, holder: socket.socket, capsys: pytest.CaptureFixture[str]
-) -> None:
-    """CP-264, CP-270: a comment with an empty author refuses the whole load and the start."""
-    _unreadable_comment(tmp_path, holder, capsys, _comment(author=""))
-
-
-def test_saved_comment_whitespace_author_is_unreadable(
-    tmp_path: Path, holder: socket.socket, capsys: pytest.CaptureFixture[str]
-) -> None:
-    """CP-264, CP-270: a whitespace-only author is blank by the same set the name rules use."""
-    _unreadable_comment(tmp_path, holder, capsys, _comment(author="  \u3000"))
-
-
-def test_saved_comment_overlong_author_is_unreadable(
-    tmp_path: Path, holder: socket.socket, capsys: pytest.CaptureFixture[str]
-) -> None:
-    """CP-264, CP-270: 201 code points is one over the name maximum."""
-    _unreadable_comment(tmp_path, holder, capsys, _comment(author="a" * 201))
+    """CP-710, CP-732, CP-264, CP-270: each saved value that breaks a data rule, and each file the
+    tracker cannot read, is refused whole by the load and served as the page on a free port, with
+    the bytes and listing as they were."""
+    _serves_the_page(starts, tmp_path, content)
 
 
 @pytest.mark.parametrize(
@@ -795,54 +893,172 @@ def _start_and_request(location: Path) -> int:
     return status
 
 
-def test_a_location_that_is_a_file_keeps_the_unreadable_start(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+def test_a_location_that_is_a_file_serves_without_touching_it(
+    starts: _Starts, tmp_path: Path
 ) -> None:
-    """CP-700: a location that is no directory is today's unreadable stop, bytes untouched."""
+    """CP-710, CP-725, CP-700: a location that is no directory serves the page, bytes untouched."""
     location = tmp_path / "saved"
     location.write_bytes(b"this is a file")
     before = _listing(tmp_path)
-    assert main.start(("127.0.0.1", 0), location) == 1
-    captured = capsys.readouterr()
-    assert captured.out == ""
-    assert captured.err == UNREADABLE_LINE.format(location=location.absolute()) + "\n"
-    assert ANOTHER_TRACKER_WORDS not in captured.err
+    served = starts.serve(location)
+    assert served.first_line == announcement(location, served.port)
+    assert served.request("GET", "/")[0] == 503
+    assert served.stop() == (0, "", "")
     assert location.read_bytes() == b"this is a file"
     assert _listing(tmp_path) == before
 
 
 @pytest.mark.skipif(os.geteuid() == 0, reason="root reads a directory whatever its mode")
-def test_a_directory_without_read_permission_keeps_the_unreadable_start(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+def test_a_directory_without_read_permission_serves_without_touching_it(
+    starts: _Starts, tmp_path: Path
 ) -> None:
-    """CP-700: a location the tracker may not read is today's unreadable stop, nothing changed."""
+    """CP-710, CP-725, CP-700: a location the tracker may not read serves the page, no refusal.
+
+    The bytes and listing are taken before the permission is removed and compared after the stop
+    and the restore, because they cannot be read while it is gone.
+    """
     location = tmp_path / "saved"
     location.mkdir()
     (location / "tracker.json").write_bytes(UNREADABLE)
+    before = _snapshot(location)
     location.chmod(0o000)
     try:
-        status = main.start(("127.0.0.1", 0), location)
+        served = starts.serve(location)
+        assert served.first_line == announcement(location, served.port)
+        assert served.request("GET", "/")[0] == 503
+        outcome = served.stop()
     finally:
         location.chmod(0o755)
-    captured = capsys.readouterr()
-    assert status == 1
-    assert captured.out == ""
-    assert captured.err == UNREADABLE_LINE.format(location=location.absolute()) + "\n"
-    assert (location / "tracker.json").read_bytes() == UNREADABLE
-    assert _listing(location) == ["tracker.json"]
+    assert outcome == (0, "", "")
+    assert _snapshot(location) == before
 
 
-def test_failed_start_on_unreadable_data_releases_its_location_for_retry(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+def test_an_unreadable_start_releases_its_location_for_retry(
+    starts: _Starts, tmp_path: Path
 ) -> None:
-    """CP-700: the claim ends with the failed start, so repaired data starts and serves."""
+    """CP-712, CP-700: the claim ends with the stop, so repaired data starts and serves 200."""
     (tmp_path / "tracker.json").write_bytes(UNREADABLE)
     before = _listing(tmp_path)
-    assert main.start(("127.0.0.1", 0), tmp_path) == 1
+    served = starts.serve(tmp_path)
+    assert served.stop() == (0, "", "")
     assert _listing(tmp_path) == before
-    capsys.readouterr()
     SavedData(tmp_path).save(empty_state())
     assert _start_and_request(tmp_path) == 200
+
+
+@pytest.mark.parametrize("change", ["repaired", "removed"])
+def test_external_repair_does_not_change_the_running_unreadable_page(
+    starts: _Starts, tmp_path: Path, change: str
+) -> None:
+    """CP-724, CP-725: the saved data is read once, at start; a repair or a removal while the page
+    is served changes no answer and no byte, and the next start reads the data afresh."""
+    saved = tmp_path / "tracker.json"
+    saved.write_bytes(UNREADABLE)
+    served = starts.serve(tmp_path)
+    first = served.request("GET", "/")
+    if change == "repaired":
+        SavedData(tmp_path).save(empty_state())
+    else:
+        saved.unlink()
+    outside = _snapshot(tmp_path)
+
+    again = served.request("GET", "/")
+    posted = served.request("POST", "/projects", FORM_HEADERS, b"name=Alpha&description=")
+
+    assert (again[0], again[2]) == (503, first[2])
+    assert posted[0] == 303 and posted[1]["location"] == "/"
+    assert _snapshot(tmp_path) == outside
+    assert served.stop() == (0, "", "")
+
+    restarted = starts.serve(tmp_path)
+    assert restarted.first_line == READY_LINE.format(
+        port=restarted.port, location=tmp_path.absolute()
+    )
+    status, _, body = restarted.request("GET", "/")
+    assert status == 200
+    if change == "removed":
+        assert b"There are no projects yet" in body
+        assert not saved.exists()
+    assert restarted.stop() == (0, "", "")
+
+
+def test_an_unreadable_lifetime_preserves_all_saved_paths_and_bytes(
+    starts: _Starts, tmp_path: Path
+) -> None:
+    """CP-725, CP-722: the paths and bytes are the same before the start, after reads, after every
+    method with checked and refused POSTs, and after the stop; the server opens no connection."""
+    location = tmp_path / "saved"
+    location.mkdir()
+    (location / "tracker.json").write_bytes(UNREADABLE)
+    (tmp_path / "audit").mkdir()
+    marker = tmp_path / "audit" / "connected"
+    before = _snapshot(location)
+    served = starts.serve(location, 0, AUDITED_PROGRAM, str(marker))
+    assert _snapshot(location) == before
+
+    for target in ("/", "/people", "/nothing"):
+        assert served.request("GET", target)[0] == 503
+        assert _snapshot(location) == before
+    for method in ("GET", "HEAD", "PUT", "DELETE", "PATCH", "OPTIONS"):
+        assert served.request(method, "/projects", FORM_HEADERS)[0] == 503
+        assert _snapshot(location) == before
+    assert served.request("POST", "/projects", FORM_HEADERS, b"name=Alpha")[0] == 303
+    assert served.request("POST", "/projects", None, b"name=Alpha")[0] == 403
+    cross = {**FORM_HEADERS, "Sec-Fetch-Site": "cross-site"}
+    assert served.request("POST", "/projects", cross, b"name=Alpha")[0] == 403
+    assert _snapshot(location) == before
+
+    assert served.stop() == (0, "", "")
+    assert _snapshot(location) == before
+    assert not marker.exists(), "the server process opened an outbound connection"
+
+
+def _readme_commands(section: str) -> str:
+    """The first fenced command block under the README heading with this name."""
+    lines = (PRODUCT_ROOT / "README.md").read_text(encoding="utf-8").splitlines()
+    start = next(i for i, line in enumerate(lines) if line.lstrip("#").strip() == section)
+    opening = next(i for i in range(start, len(lines)) if lines[i].startswith("```"))
+    closing = next(i for i in range(opening + 1, len(lines)) if lines[i].startswith("```"))
+    return "\n".join(lines[opening + 1 : closing])
+
+
+def test_set_aside_then_restart_preserves_the_earlier_work(starts: _Starts, tmp_path: Path) -> None:
+    """CP-726, CP-730: after the stop, the README's own set-aside commands, run in a copy with a
+    scratch home, leave the earlier bytes in the set-aside directory; the next start is empty."""
+    copy = tmp_path / "copy"
+    location = copy / "products" / "tracker17" / "data"
+    location.mkdir(parents=True)
+    (location / "tracker.json").write_bytes(UNREADABLE)
+    served = starts.serve(location)
+    assert served.request("GET", "/")[0] == 503
+    assert served.stop() == (0, "", "")
+
+    home = tmp_path / "home"
+    home.mkdir()
+    commands = _readme_commands(SET_ASIDE_SECTION)
+    assert "mv data" in commands
+    done = subprocess.run(
+        ["/bin/sh", "-c", commands],
+        cwd=copy,
+        env={**os.environ, "HOME": str(home)},
+        capture_output=True,
+        text=True,
+        timeout=60,
+        check=False,
+    )
+    assert done.returncode == 0, done.stderr
+    (moved,) = (home / "tracker17-set-aside").glob("*/tracker.json")
+    assert moved.read_bytes() == UNREADABLE
+    assert not location.exists()
+
+    restarted = starts.serve(location)
+    assert restarted.first_line == READY_LINE.format(
+        port=restarted.port, location=location.absolute()
+    )
+    status, _, body = restarted.request("GET", "/")
+    assert status == 200 and b"There are no projects yet" in body
+    assert restarted.stop() == (0, "", "")
+    assert moved.read_bytes() == UNREADABLE
 
 
 @pytest.mark.parametrize("existing", [True, False], ids=["existing", "absent-leaf"])

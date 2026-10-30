@@ -1,7 +1,10 @@
 """Integration tests of the quiet stop, with real SIGINT in child processes (layer 3).
 
-Checks SRS FR-1 (the tracker runs until it is stopped) and NFR-11 (the integration layer of the
-suite). Change spec rules CP-644 (every Ctrl-C from the ready line until the start returns stops
+Checks SRS FR-1 (the tracker runs until it is stopped), NFR-3 (a stopped tracker releases its saved
+data's location) and NFR-11 (the integration layer of the suite). Change spec rules CP-712 (a
+tracker serving the unreadable-data page stops the same way and frees the location and the port),
+CP-725 (nothing in the saved data changes), CP-714 and CP-732 (a held address wins on unreadable
+data, and the refusal test keeps the address line), CP-644 (every Ctrl-C from the ready line until the start returns stops
 the tracker with exit 0 and nothing on standard error, a further one included), CP-645 (nothing
 more is written and the saved data is untouched), CP-646 and CP-647 (the ready line and the two
 refusals are as they were), CP-649 (a proof that fails on the code before this change on every
@@ -52,7 +55,13 @@ READY_LINE = re.compile(
     rb"The tracker is running\. Open http://127\.0\.0\.1:(?P<port>[0-9]+) in your browser\. "
     rb"Saved data is kept at (?P<location>.+)\.\n"
 )
-UNREADABLE_START = "The tracker didn't start, because it couldn't read its saved data at "
+UNREADABLE_READY = re.compile(
+    rb"The tracker couldn't read its saved data at (?P<location>.+), and nothing in it was "
+    rb"changed\. Open http://127\.0\.0\.1:(?P<port>[0-9]+) in your browser to read this on a "
+    rb"page\. To start fresh on purpose, follow Setting saved data aside in the setup "
+    rb"instructions\.\n"
+)
+UNREADABLE_DATA = b'{"next_project_id": 3, "projects": [ truncated'
 OCCUPIED_START = "The tracker didn't start, because something else is already using the address "
 POPULATED_DATA = json.dumps(
     {
@@ -257,6 +266,14 @@ IDLE_PROGRAM = (
     PRELUDE
     + r"""
 sys.exit(main.start(("127.0.0.1", 0), Path(sys.argv[1])))
+"""
+)
+
+# The same, on the port the parent hands in as the third argument.
+FIXED_PORT_PROGRAM = (
+    PRELUDE
+    + r"""
+sys.exit(main.start(("127.0.0.1", int(sys.argv[3])), Path(sys.argv[1])))
 """
 )
 
@@ -531,8 +548,8 @@ def _holder() -> socket.socket:
 
 @pytest.mark.parametrize(
     ("unreadable", "occupied"),
-    [(True, False), (False, True), (True, True)],
-    ids=["unreadable-data", "occupied-address", "both"],
+    [(False, True), (True, True)],
+    ids=["occupied-address", "both"],
 )
 def test_refused_start_retains_its_message_and_saved_bytes(
     tmp_path: Path,
@@ -540,9 +557,10 @@ def test_refused_start_retains_its_message_and_saved_bytes(
     unreadable: bool,
     occupied: bool,
 ) -> None:
-    """CP-647: one message, status 1, no ready line, saved bytes untouched; unreadable data wins."""
+    """CP-647, CP-714, CP-732: one address line, status 1, no ready line, saved bytes untouched; a
+    held address is the only refusal left, whether or not the saved data can be read."""
     if unreadable:
-        (tmp_path / "tracker.json").write_bytes(b"this is not saved data")
+        (tmp_path / "tracker.json").write_bytes(UNREADABLE_DATA)
     before = snapshot(tmp_path)
     held = _holder()
     try:
@@ -556,7 +574,57 @@ def test_refused_start_retains_its_message_and_saved_bytes(
     assert status == 1
     assert captured.out == ""
     assert captured.err.count("\n") == 1 and captured.err.endswith("\n")
-    expected = UNREADABLE_START if unreadable else OCCUPIED_START
-    assert captured.err.startswith(expected)
-    assert "running" not in captured.err
+    assert captured.err.startswith(OCCUPIED_START)
+    assert "running" not in captured.err and "couldn't read" not in captured.err
     assert snapshot(tmp_path) == before
+
+
+UNREADABLE_PROGRAMS = {
+    "announcement": READY_WRITE_PROGRAM,
+    "idle": IDLE_PROGRAM,
+    "return": RETURN_PROGRAM,
+}
+
+
+def _unreadable_announcement(stdout: bytes, location: Path) -> int:
+    """The port of the one announcement line a start on unreadable data writes, in full."""
+    matched = UNREADABLE_READY.fullmatch(stdout)
+    assert matched is not None, stdout
+    assert matched.group("location") == str(location.absolute()).encode("utf-8")
+    return int(matched.group("port"))
+
+
+@pytest.mark.parametrize("boundary", UNREADABLE_PROGRAMS)
+def test_unreadable_start_stops_quietly_and_releases_its_location(
+    tmp_path: Path, boundary: str
+) -> None:
+    """CP-712, CP-725: a real SIGINT at the announcement, while idle, and as `start` returns
+    (repeated, the second delivered separately) ends the page-serving start with status 0 and
+    nothing more written; paths and bytes are unchanged and the location and port are free."""
+    location = tmp_path / "saved"
+    location.mkdir()
+    (location / "tracker.json").write_bytes(UNREADABLE_DATA)
+    before = snapshot(location)
+    child = Child(UNREADABLE_PROGRAMS[boundary], location)
+    if boundary == "idle":
+        assert child.process.stdout is not None
+        first = child.process.stdout.readline()
+        child.process.send_signal(signal.SIGINT)
+        status, rest, stderr, _reports = child.finish()
+        stdout = first + rest
+    else:
+        status, stdout, stderr, _reports = child.finish()
+
+    assert status == 0, stderr.decode("utf-8", errors="replace")
+    assert stderr == b""
+    port = _unreadable_announcement(stdout, location)
+    assert snapshot(location) == before
+
+    again = Child(FIXED_PORT_PROGRAM, location, str(port))
+    assert again.process.stdout is not None
+    line = again.process.stdout.readline()
+    assert _unreadable_announcement(line, location) == port
+    again.process.send_signal(signal.SIGINT)
+    status, rest, stderr, _reports = again.finish()
+    assert (status, rest, stderr) == (0, b"", b"")
+    assert snapshot(location) == before
