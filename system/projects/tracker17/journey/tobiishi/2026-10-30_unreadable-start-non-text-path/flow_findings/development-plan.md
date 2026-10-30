@@ -1,0 +1,9 @@
+# Flow Findings — development-plan  (audited 2026-10-30)
+
+Findings for this step's output only, produced by the `development-audit` skill.
+Change-local findings live here; skill-general findings are also raised as kaizen items.
+
+Audited `tl_instruction.md` against `change_design.md` and `change_spec.md`. Lenses 1–6 and 8 walked; lenses 7, 9 and 10 do not apply to this step. Category and Behaviour (`feature` / `changing`) match the spec and design verbatim. Product `docs/adr/`, `nfdr.md` and `fdr.md` cites spot-checked and found to match. The task cut, the grouping of sub-jobs A and B, and the absence of an atomic-landing edge are recorded in `## TL Review Notes` with their reasons.
+
+- **[non-blocking · change-local · coverage]** Design row T6 puts the route-policy checks on two surfaces: the directly built site and the real start (`/people`, `/nothing?x=1`, the stylesheet, same-origin `POST /projects`). The plan's only route-policy case, `test_unreadable_byte_path_keeps_route_policy`, runs on a directly constructed site. The real-start case asserts the first line, the root page, shutdown and file snapshots, and no route beyond the root. Where: `tl_instruction.md` Task 1 § Behaviours to verify. CP-758 and Example 6 ("during that start") then have no proof on the real start. Direction: extend the real-start behaviour, or record why the direct-site case is enough.
+- **[non-blocking · change-local · divergence-record]** The plan takes the expected text from "the published strings, including `change_text.md` when present". The design's `Publishes text: yes` means a content step follows this one, so the source of the strings is certain, not conditional. The hedge leaves open whether the Developer waits for that file or derives text from CP-757–CP-758. The TL Review Notes do not say which. Where: `tl_instruction.md` Task 1 § Behaviours to verify, first paragraph. Direction: name `change_text.md` as the source, or state that the CP rules alone are.
