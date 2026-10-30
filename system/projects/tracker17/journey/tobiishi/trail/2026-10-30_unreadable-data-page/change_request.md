@@ -15,3 +15,6 @@ What must not be weakened: saved data is never written, replaced or deleted by a
 **Classified because:** the station's reached-when has a start on unreadable saved data stop exiting 1 and serve a new page instead. That is a new observable behaviour and it changes what a start returns, so it is `changing` and a `feature`.
 
 ---
+
+**Sealed:** 2026-10-30 — accepted; merged to `main` via `--no-ff`.
+Environment: owners-mac — no CI
