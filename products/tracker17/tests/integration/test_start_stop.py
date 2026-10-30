@@ -4,12 +4,12 @@ Checks SRS FR-1 (the tracker runs until it is stopped), NFR-3 (a stopped tracker
 data's location) and NFR-11 (the integration layer of the suite). Change spec rules CP-712 (a
 tracker serving the unreadable-data page stops the same way and frees the location and the port),
 CP-725 (nothing in the saved data changes), CP-714 and CP-732 (a held address wins on unreadable
-data, and the refusal test keeps the address line), CP-644 (every Ctrl-C from the ready line until the start returns stops
-the tracker with exit 0 and nothing on standard error, a further one included), CP-645 (nothing
-more is written and the saved data is untouched), CP-646 and CP-647 (the ready line and the two
-refusals are as they were), CP-649 (a proof that fails on the code before this change on every
-run) and CP-650 (parts are handed their collaborators; no name inside a part is patched) are what
-each test names.
+data, and the refusal test keeps the address line), CP-644 (every Ctrl-C from the ready line until
+the start returns stops the tracker with exit 0 and nothing on standard error, a further one
+included), CP-645 (nothing more is written and the saved data is untouched), CP-646 and CP-647
+(the ready line and the two refusals are as they were), CP-649 (a proof that fails on the code
+before this change on every run) and CP-650 (parts are handed their collaborators; no name inside
+a part is patched) are what each test names.
 
 Each child process is its own interpreter, so the signal policy it installs never reaches this
 test run. A child reports where it has been over an extra pipe, never on its own standard streams.

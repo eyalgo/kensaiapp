@@ -11,11 +11,11 @@ served as one page, left as it was, and points to the setup instructions in READ
 the data is set aside the next start is empty), DR-4 (the assignee list), DR-2 (the task rules),
 DR-6 and FR-23 (a saved label breaking the label rules) and DR-5 (a saved operator name breaking
 the name rule, or not text) and DR-6 and FR-28 (a saved comment breaking a comment rule). Change
-spec rules CP-710 to CP-715, CP-724 to CP-726, CP-728, CP-729, CP-732 and CP-734 and the earlier CP-5,
-CP-39 to CP-46, CP-55, CP-137, CP-197, CP-205, CP-227, CP-228, CP-233, CP-264, CP-265 and CP-270 and
-NFDR QC-47 and QC-58 are the ones each test names. Every unreadable start runs as a child process
-read with a deadline, so a start that exits early or never answers fails the test instead of
-hanging it.
+spec rules CP-710 to CP-715, CP-724 to CP-726, CP-728, CP-729, CP-732 and CP-734 and the earlier
+CP-5, CP-39 to CP-46, CP-55, CP-137, CP-197, CP-205, CP-227, CP-228, CP-233, CP-264, CP-265 and
+CP-270 and NFDR QC-47 and QC-58 are the ones each test names. Every unreadable start runs as a
+child process read with a deadline, so a start that exits early or never answers fails the test
+instead of hanging it.
 """
 
 from __future__ import annotations
@@ -242,7 +242,8 @@ def test_an_unreadable_start_serves_one_page_and_announces_once(
     starts: _Starts, tmp_path: Path
 ) -> None:
     """CP-710, CP-711, CP-729: the start stays up, its first line is the one approved line, the
-    port is the one it bound, and the same page answers the root, a real route and an unknown one."""
+    port is the one it bound, and the same page answers the root, a real route and an unknown
+    one."""
     (tmp_path / "tracker.json").write_bytes(UNREADABLE)
     before = _listing(tmp_path)
 

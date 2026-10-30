@@ -2,15 +2,15 @@
 abstraction. Every other module receives its collaborators through its constructor; nothing
 outside this module builds one.
 
-`start` claims the saved-data location, loads the saved data once, and serves until Ctrl-C; the claim
-is released after the listener is closed. Readable data, or none, is served as the tracker over its
-current state. Data that cannot be read is served as one plain page at every address and is never
-written to (SRS FR-4 and AC-7; change spec rules CP-710 to CP-715). Either way the listener is bound
-before anything is announced, and the announcement is one line on standard output. From that line
-until `start` returns, every Ctrl-C only records that a stop was asked for (SRS FR-1; change spec
-rules CP-644, CP-645 and CP-712): serving ends at its next look, the listener is closed, and `start`
-returns 0 with nothing more written. `main` starts it on the fixed loopback address and the saved
-data's default location.
+`start` claims the saved-data location, loads the saved data once, and serves until Ctrl-C; the
+claim is released after the listener is closed. Readable data, or none, is served as the tracker
+over its current state. Data that cannot be read is served as one plain page at every address and
+is never written to (SRS FR-4 and AC-7; change spec rules CP-710 to CP-715). Either way the
+listener is bound before anything is announced, and the announcement is one line on standard
+output. From that line until `start` returns, every Ctrl-C only records that a stop was asked for
+(SRS FR-1; change spec rules CP-644, CP-645 and CP-712): serving ends at its next look, the
+listener is closed, and `start` returns 0 with nothing more written. `main` starts it on the fixed
+loopback address and the saved data's default location.
 """
 
 from __future__ import annotations
