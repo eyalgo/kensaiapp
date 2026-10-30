@@ -1,5 +1,9 @@
 """Integration tests of the start: unreadable saved data, a held address and the data directory.
 
+Checks SRS NFR-3 and AC-16 as well (a start whose location cannot be read, or whose address is
+held, releases the location it claimed; a location that is no directory keeps the unreadable
+start), by change spec rules CP-700, CP-701 and CP-702.
+
 Checks SRS FR-1 (the start prints where to open the tracker and where the data is), FR-3 (a start
 whose address something else holds says so in one line), FR-4 and AC-7 (unreadable saved data is
 refused whole, left as it was, and points to the setup instructions in README.md), DR-4 (the
@@ -12,7 +16,9 @@ QC-47 and QC-58 are the ones each test names.
 
 from __future__ import annotations
 
+import http.client
 import json
+import os
 import re
 import signal
 import socket
@@ -756,3 +762,119 @@ def test_every_supported_saved_form_keeps_all_existing_values(
     status, errors = _run_real_start(tmp_path)
     assert (status, errors) == (0, b"")
     assert saved.read_bytes() == content and _listing(tmp_path) == before
+
+
+ANOTHER_TRACKER_WORDS = "another tracker"
+
+
+def _start_and_request(location: Path) -> int:
+    """A real start on the location on a free port: its ready line, one request, then Ctrl-C."""
+    child = subprocess.Popen(
+        [sys.executable, "-c", RUN_START, str(location)],
+        cwd=PRODUCT_ROOT,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    try:
+        assert child.stdout is not None
+        ready = child.stdout.readline().decode("utf-8")
+        assert ready.startswith("The tracker is running. Open http://127.0.0.1:"), ready
+        port = int(ready.split("http://127.0.0.1:")[1].split(" ")[0])
+        connection = http.client.HTTPConnection("127.0.0.1", port, timeout=30)
+        try:
+            connection.request("GET", "/")
+            status = connection.getresponse().status
+        finally:
+            connection.close()
+        child.send_signal(signal.SIGINT)
+        child.communicate(timeout=30)
+    finally:
+        if child.poll() is None:
+            child.kill()
+            child.communicate()
+    return status
+
+
+def test_a_location_that_is_a_file_keeps_the_unreadable_start(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """CP-700: a location that is no directory is today's unreadable stop, bytes untouched."""
+    location = tmp_path / "saved"
+    location.write_bytes(b"this is a file")
+    before = _listing(tmp_path)
+    assert main.start(("127.0.0.1", 0), location) == 1
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert captured.err == UNREADABLE_LINE.format(location=location.absolute()) + "\n"
+    assert ANOTHER_TRACKER_WORDS not in captured.err
+    assert location.read_bytes() == b"this is a file"
+    assert _listing(tmp_path) == before
+
+
+@pytest.mark.skipif(os.geteuid() == 0, reason="root reads a directory whatever its mode")
+def test_a_directory_without_read_permission_keeps_the_unreadable_start(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """CP-700: a location the tracker may not read is today's unreadable stop, nothing changed."""
+    location = tmp_path / "saved"
+    location.mkdir()
+    (location / "tracker.json").write_bytes(UNREADABLE)
+    location.chmod(0o000)
+    try:
+        status = main.start(("127.0.0.1", 0), location)
+    finally:
+        location.chmod(0o755)
+    captured = capsys.readouterr()
+    assert status == 1
+    assert captured.out == ""
+    assert captured.err == UNREADABLE_LINE.format(location=location.absolute()) + "\n"
+    assert (location / "tracker.json").read_bytes() == UNREADABLE
+    assert _listing(location) == ["tracker.json"]
+
+
+def test_failed_start_on_unreadable_data_releases_its_location_for_retry(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """CP-700: the claim ends with the failed start, so repaired data starts and serves."""
+    (tmp_path / "tracker.json").write_bytes(UNREADABLE)
+    before = _listing(tmp_path)
+    assert main.start(("127.0.0.1", 0), tmp_path) == 1
+    assert _listing(tmp_path) == before
+    capsys.readouterr()
+    SavedData(tmp_path).save(empty_state())
+    assert _start_and_request(tmp_path) == 200
+
+
+@pytest.mark.parametrize("existing", [True, False], ids=["existing", "absent-leaf"])
+def test_failed_start_on_a_held_address_releases_its_location_for_retry(
+    tmp_path: Path, holder: socket.socket, existing: bool, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """CP-701: a held address leaves the listing as it was, then the released address serves."""
+    location = tmp_path / "saved"
+    if existing:
+        SavedData(location).save(empty_state())
+    before = _listing(location) if existing else None
+    assert main.start(holder.getsockname(), location) == 1
+    assert (_listing(location) if location.exists() else None) == before
+    assert ANOTHER_TRACKER_WORDS not in capsys.readouterr().err
+    holder.close()
+    assert _start_and_request(location) == 200
+
+
+@pytest.mark.parametrize("existing", [True, False], ids=["existing", "absent-leaf"])
+def test_failed_start_on_an_unrelated_bind_error_releases_its_location_for_retry(
+    tmp_path: Path, existing: bool, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """CP-701: another bind failure propagates unchanged, with neither refusal and no change."""
+    location = tmp_path / "saved"
+    if existing:
+        SavedData(location).save(empty_state())
+    before = _listing(location) if existing else None
+    with pytest.raises(OSError) as caught:
+        main.start(("192.0.2.1", 0), location)
+    assert not isinstance(caught.value, AddressTaken)
+    assert (_listing(location) if location.exists() else None) == before
+    err = capsys.readouterr().err
+    assert ANOTHER_TRACKER_WORDS not in err
+    assert "already using the address" not in err
+    assert _start_and_request(location) == 200
