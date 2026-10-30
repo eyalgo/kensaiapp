@@ -177,6 +177,14 @@ class _Tracker:
         finally:
             connection.close()
 
+    def page(self, target: str = "/") -> str:
+        connection = http.client.HTTPConnection("127.0.0.1", self.port, timeout=DEADLINE_SECONDS)
+        try:
+            connection.request("GET", target)
+            return connection.getresponse().read().decode("utf-8")
+        finally:
+            connection.close()
+
     def create_project(self, name: str) -> None:
         """A real save: the form the browser sends to create a project."""
         connection = http.client.HTTPConnection("127.0.0.1", self.port, timeout=DEADLINE_SECONDS)
@@ -221,6 +229,12 @@ class _Fleet:
 
     def spawn(self, program: str, *arguments: str, cwd: Path | None = None) -> _Process:
         process = _Process(["-c", program, *arguments], cwd or self.working_directory)
+        self._started.append(process)
+        return process
+
+    def run_script(self, script: str, cwd: Path) -> _Process:
+        """The real command: the interpreter given the script's file, with no argument."""
+        process = _Process([script], cwd)
         self._started.append(process)
         return process
 
@@ -303,6 +317,19 @@ def test_tracker_starts_after_the_owner_is_killed(
         assert not (location / "tracker.json").exists()
 
 
+def test_start_after_a_kill_serves_what_the_killed_tracker_saved(
+    tmp_path: Path, fleet: _Fleet
+) -> None:
+    """CP-699: the project the killed tracker saved is served, with no word about that tracker."""
+    location = tmp_path / "saved"
+    first = fleet.start(location)
+    first.create_project("Alpha")
+    first.kill()
+    again = fleet.start(location)
+    assert "Alpha" in again.page()
+    assert again.interrupt() == Outcome(0, "", "")
+
+
 @pytest.mark.parametrize("saves", [0, 1, 3])
 def test_refusal_keeps_the_claim_before_and_after_saves(
     tmp_path: Path, fleet: _Fleet, saves: int
@@ -346,12 +373,13 @@ def test_the_real_second_start_command_gets_the_refusal_and_not_the_address_line
             ".venv", "__pycache__", "data", "docs", "tests", ".*_cache", ".git"
         ),
     )
-    first = fleet.spawn("import main; raise SystemExit(main.main())", cwd=copy)
+    first = fleet.run_script("main.py", cwd=copy)
     kind, value = first.event()
     assert kind == "line", f"the first start could not hold 127.0.0.1:8017: {value}"
     assert str(value).startswith("The tracker is running. Open http://127.0.0.1:8017 ")
-    second = fleet.spawn("import main; raise SystemExit(main.main())", cwd=copy)
+    second = fleet.run_script("main.py", cwd=copy)
     assert second.finish() == Outcome(1, "", REFUSAL_LINE + "\n")
+    assert _Tracker(first, 8017).status() == 200
 
 
 @pytest.mark.parametrize("alias", ["absolute", "relative", "symlink"])
@@ -451,13 +479,15 @@ def test_absent_location_under_a_read_only_parent_still_serves(
 @pytest.mark.parametrize(
     ("stage", "code"), [("mkdir", "EACCES"), ("open", "EACCES"), ("flock", "ENOLCK")]
 )
-@pytest.mark.parametrize("scenario", ["serves", "unreadable", "address-held"])
+@pytest.mark.parametrize(
+    "scenario", ["serves", "unreadable", "address-held", "unreadable-and-address-held"]
+)
 def test_indeterminate_acquisition_keeps_existing_start_behavior(
     tmp_path: Path, fleet: _Fleet, stage: str, code: str, scenario: str
 ) -> None:
     """CP-696, CP-701, CP-702: a claim that cannot be made never prints the refusal line."""
     location = tmp_path / "saved"
-    if scenario == "unreadable":
+    if scenario.startswith("unreadable"):
         location.mkdir()
         (location / "tracker.json").write_bytes(DAMAGED)
     elif scenario == "serves":
@@ -465,7 +495,7 @@ def test_indeterminate_acquisition_keeps_existing_start_behavior(
     marker = tmp_path / "fired"
     held: socket.socket | None = None
     port = _free_port()
-    if scenario == "address-held":
+    if scenario.endswith("address-held"):
         held = socket.socket()
         held.bind(("127.0.0.1", port))
         held.listen()
@@ -481,7 +511,7 @@ def test_indeterminate_acquisition_keeps_existing_start_behavior(
             outcome = process.finish()
             expected = (
                 UNREADABLE_LINE.format(location=location.absolute())
-                if scenario == "unreadable"
+                if scenario.startswith("unreadable")
                 else ADDRESS_LINE.format(port=port)
             )
             assert outcome == Outcome(1, "", expected + "\n")

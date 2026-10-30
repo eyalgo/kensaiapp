@@ -171,6 +171,35 @@ except LocationInUse:
 """
 
 
+PAUSED_BEFORE_OPEN_PROGRAM = """
+import os
+import sys
+import time
+from pathlib import Path
+from persistence import LocationInUse, LocationUse
+
+location, ready, go = sys.argv[1:4]
+paused = []
+
+def audit(event, args):
+    if event == "open" and str(args[0]) == location and not paused:
+        paused.append(event)
+        Path(ready).write_text("ready")
+        end = time.monotonic() + 30
+        while not os.path.exists(go) and time.monotonic() < end:
+            time.sleep(0.01)
+
+sys.addaudithook(audit)
+try:
+    with LocationUse(Path(location)) as use:
+        use.mark_started()
+        print("entered", os.path.isdir(location), flush=True)
+        sys.stdin.readline()
+except LocationInUse:
+    print("in-use", flush=True)
+"""
+
+
 class _Child:
     """One interpreter running a program from this module, read with a deadline on every wait."""
 
@@ -480,6 +509,64 @@ def test_contender_holding_a_removed_directory_is_refused_by_the_path_that_repla
     finally:
         if contender is not None:
             contender.close()
+
+
+def test_contender_about_to_open_reacquires_the_live_directory_after_owner_rollback(
+    tmp_path: Path,
+) -> None:
+    """CP-698: a directory rolled back before the contender's open is no cause to enter unclaimed."""
+    location = tmp_path / "saved"
+    ready, go = tmp_path / "ready", tmp_path / "go"
+    contender: _Child | None = None
+    try:
+        with pytest.raises(_BodyFailed), LocationUse(location):
+            contender = _Child(PAUSED_BEFORE_OPEN_PROGRAM, str(location), str(ready), str(go))
+            _wait_for(ready)
+            raise _BodyFailed
+        assert not location.exists()
+        go.write_text("go")
+        assert contender is not None
+        assert contender.line() == "entered True"
+        assert _claim_outcome(location) == "in-use"
+    finally:
+        if contender is not None:
+            contender.close()
+
+
+def test_losing_contender_that_made_the_directory_leaves_it_to_the_owner(tmp_path: Path) -> None:
+    """CP-698, CP-706: the loser made the directory and the winner holds it, so it stays."""
+    location = tmp_path / "saved"
+    ready, go = tmp_path / "ready", tmp_path / "go"
+    contender = _Child(CONTENDER_PROGRAM, str(location), str(ready), str(go))
+    try:
+        _wait_for(ready)
+        made = location.stat().st_ino
+        with LocationUse(location) as use:
+            use.mark_started()
+            go.write_text("go")
+            assert contender.line() == "in-use"
+            assert location.stat().st_ino == made
+            assert _claim_outcome(location) == "in-use"
+    finally:
+        contender.close()
+
+
+@pytest.mark.parametrize("mode", ["after-open", "after-lock"])
+def test_interruption_during_entry_removes_the_leaf_it_made(tmp_path: Path, mode: str) -> None:
+    """CP-701, CP-706: an interrupted entry leaves an absent location absent."""
+    location = tmp_path / "saved"
+    report = _run_json(INTERRUPT_PROGRAM, str(location), mode)
+    assert report == {"fired": 1, "outcome": "interrupted:observer-interruption", "descriptors": 0}
+    assert not location.exists()
+
+
+def test_dangling_symbolic_link_enters_without_a_claim_and_stays_dangling(tmp_path: Path) -> None:
+    """CP-702: a path that can be neither opened nor created is no tracker, and nothing is made."""
+    location = tmp_path / "saved"
+    location.symlink_to(tmp_path / "nowhere", target_is_directory=True)
+    assert _claim_outcome(location) == "acquired"
+    assert location.is_symlink()
+    assert not (tmp_path / "nowhere").exists()
 
 
 def test_failed_start_leaves_a_directory_that_replaced_its_own(tmp_path: Path) -> None:
