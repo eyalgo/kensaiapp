@@ -14,8 +14,10 @@ Cut from `products/tracker17/docs/SDD.md` § 6 S-8 *Reached when / Behaviour*: "
 
 ## Stations — dynamic checklist
 
-- [ ] console-lines — the ready line and the unreadable line print a path with a non-text byte as `\xe9`, and the tracker starts
-- [ ] unreadable-page — the unreadable-data page names such a path in the same form instead of raising
+- [ ] ready-start — a start on readable saved data at such a path prints the ready line with the path as `\xe9` and serves; a test fails today and passes after
+- [ ] unreadable-start — a start on unreadable saved data at such a path prints the unreadable line and serves the unreadable-data page, each naming the path as `\xe9`; a test per surface fails today and passes after
+
+Re-cut from `console-lines` and `unreadable-page`: split by start mode, not by surface, because an unreadable start builds the page (`UnreadableSite.__init__` encodes it) before it prints the line, so `console-lines`' "unreadable line prints and the tracker starts" could not be met until `unreadable-page` landed. The ready start is independent and lands the one path form first; the unreadable start's line and page are one S-8 behaviour and stay in one merge.
 
 ## Relation to existing work
 
