@@ -162,7 +162,8 @@ def _bind(open_listener: Callable[[], Listener], address: tuple[str, int]) -> Li
 
 
 def _shown_location(location: Path) -> str:
-    """The location as the ready line writes it, whatever the console's encoding.
+    """The location as the ready line and the unreadable line write it, whatever the console's
+    encoding.
 
     Python decodes a file-name byte it cannot read as text into one marker from U+DC80 to U+DCFF.
     Each marker is written as a backslash, an x and the byte's two lowercase hex digits; every
@@ -186,7 +187,8 @@ def _ready_line(host: str, port: int, location: Path) -> str:
 
 def _unreadable_line(host: str, port: int, location: Path) -> str:
     return (
-        f"The tracker couldn't read its saved data at {location}, and nothing in it was changed. "
+        f"The tracker couldn't read its saved data at {_shown_location(location)}, "
+        "and nothing in it was changed. "
         f"Open http://{host}:{port} in your browser to read this on a page. "
         "To start fresh on purpose, follow Setting saved data aside in the setup instructions."
     )
