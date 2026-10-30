@@ -4,12 +4,12 @@
 
 ## What it is
 
-Today nothing but a taken address stops a second tracker from starting on the saved-data location a
-running tracker uses. This station adds the one lock (ADR-0009, SDD `SM-5`) so a second start on that
+Before this station nothing but a taken address stopped a second tracker from starting on the
+saved-data location a running tracker uses. This station adds the one lock (ADR-0009, SDD `SM-5`) so a second start on that
 location prints one plain message and exits while the first tracker carries on untouched, and a start
 after the first tracker was killed succeeds. Both halves of SRS AC-16 land as tests, and the README
 says what a start does in both cases. It is one station, apart from the unreadable-data page, because
-the lock is the unproven part (no lock in the code, no kill-recovery shown) and the page needs none of it.
+the lock was the unproven part (no lock in the code, no kill-recovery shown) and the page needs none of it.
 
 ## Reached when
 
