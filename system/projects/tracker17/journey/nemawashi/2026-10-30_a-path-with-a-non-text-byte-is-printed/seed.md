@@ -14,7 +14,7 @@ Cut from `products/tracker17/docs/SDD.md` § 6 S-8 *Reached when / Behaviour*: "
 
 ## Stations — dynamic checklist
 
-- [ ] ready-start — a start on readable saved data at such a path prints the ready line with the path as `\xe9` and serves; a test fails today and passes after
+- [x] ready-start — a start on readable saved data at such a path prints the ready line with the path as `\xe9` and serves; a test fails today and passes after
 - [ ] unreadable-start — a start on unreadable saved data at such a path prints the unreadable line and serves the unreadable-data page, each naming the path as `\xe9`; a test per surface fails today and passes after
 - [ ] failed-action-path — an action that fails at such a path prints its console message with the path as `\xe9`, not `\udce9`; a test fails today and passes after
 
