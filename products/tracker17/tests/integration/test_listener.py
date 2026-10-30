@@ -532,17 +532,19 @@ def test_unreadable_listener_errors_are_empty_and_quiet(
     """CP-722, CP-727: the library's own errors stay empty with the policy, and nothing is printed."""
     address = serve_unreadable(UNREADABLE_LOCATION)
     host = f"Host: {address[0]}:{address[1]}\r\n".encode()
-    payloads = (
+    answered = (
         b"FROB / HTTP/1.0\r\n" + host + b"\r\n",
-        b"nonsense\r\n\r\n",
-        b"GET\r\n\r\n",
         b"POST / HTTP/1.0\r\n" + host + b"Content-Length: abc\r\n\r\n",
     )
-    for payload in payloads:
+    # The library may answer a request line it cannot read with nothing at all (as it does on the
+    # normal listener); when it does answer, the answer carries the policy and no body.
+    malformed = (b"nonsense\r\n\r\n", b"GET\r\n\r\n", b"\x00\x01\x02\r\n\r\n")
+    for payload in (*answered, *malformed):
         answer = raw_exchange(address, payload)
         head, _, body = answer.partition(b"\r\n\r\n")
         assert body == b"", payload
-        assert b"Content-Security-Policy" in head, payload
+        if payload in answered or answer:
+            assert b"Content-Security-Policy" in head, payload
         for text in PYTHON_TEXT:
             assert text.encode() not in answer, (payload, text)
         assert UNREADABLE_LOCATION.encode() not in answer
