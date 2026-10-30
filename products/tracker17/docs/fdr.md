@@ -1,9 +1,9 @@
 # FDR — tracker17
 
-**Status:** Settled
+**Status:** Draft
 **Owner:** Principal PM
-**Version:** 4 — no behaviour changed from version 3: a task's priority is one of four, `critical` the highest, and for Linux the written instructions give the one-time step that installs the browser's system libraries and name the Linux systems the end-to-end tests run on
-**Inputs read:** PRD Settled (version 5) · SRS Settled (version 5) · SDD Settled (version 7) · Agari no Status line (`agari_template.md` carries none) · UXD Settled (version 4; no `products/tracker17/docs/UXD_open_issues.md` beside it; a sibling, read for collisions, not a source) · tracker17 doctrine no Status line (stamped, unfilled) · writing_bar Settled
+**Version:** 5 — the saved data's unreadable mode is stated: an outside change stays and is read at the next start, and every address shows the one page. The README's opening paragraph names both purposes, the prerequisites name the tool the test suite needs, a return to a confirmation shows what the saved data allows, and a filter or sort value no control can hold is refused
+**Inputs read:** PRD Settled (version 7) · SRS Settled (version 6) · SDD Settled (version 18) · Agari no Status line (`agari_template.md` carries none) · UXD Settled (version 11; no `products/tracker17/docs/UXD_open_issues.md` beside it; a sibling, read for collisions, not a source) · tracker17 doctrine no Status line (stamped, unfilled) · writing_bar Settled
 
 > The FDR is tracker17's behavioural contract: what the product does, and the product decisions every
 > change after it is built against. It is derived from `products/tracker17/docs/PRD.md`,
@@ -25,7 +25,8 @@ browser. It holds projects, the tasks in them, a list of names tasks can be assi
 dates and comments, and it filters, sorts and summarises a project's tasks. It exists as a worked
 example: a reader must be able to set it up from its written instructions, see that it works, read
 its code, and follow one feature from the product definition to its code and tests (PRD § Purpose,
-§ Key Use Cases). The rules below are the behaviour that serves that intent, scoped to the project's
+§ Key Use Cases). It is also kensaiapp's own testing ground: building it with kensaiapp is how issues
+in kensaiapp are found and fixed (PRD § Blurb, § Purpose; SRS § 1). The rules below are the behaviour that serves that intent, scoped to the project's
 上がり Agari, `system/projects/tracker17/agari.md`.
 
 ---
@@ -74,6 +75,19 @@ its code, and follow one feature from the product definition to its code and tes
 - **R-120:** The instructions name the Linux systems the end-to-end tests run on, which are the
   systems the pinned version of the browser-driving test dependency supports. *(traces to: SDD § 4
   RT-3, RT-4)*
+- **R-121:** The README, which a reader arrives at first, is the document that carries the written
+  setup instructions. *(traces to: SRS § 3.1 FR-41)*
+- **R-122:** The README's opening paragraph, under its title and before anything else, names both of
+  tracker17's purposes: the worked example and kensaiapp's own testing ground. *(traces to: SRS § 3.1
+  FR-41; PRD § Purpose)*
+- **R-123:** Of tracker17's earlier versions, the README's opening paragraph names only tracker16-X.
+  *(traces to: SRS § 3.1 FR-41)*
+- **R-124:** The prerequisites name the tool that makes the test suite's environment, and say the
+  test suite alone needs that tool. *(traces to: SDD § 4 RT-4; § 9 TO-9)*
+- **R-125:** The instructions on running the test suite say how to install the tool R-124 names.
+  *(traces to: SDD § 4 RT-4)*
+- **R-126:** The commands that take a fresh copy to the tracker open in the browser do not use the
+  tool R-124 names. *(traces to: SDD § 4 RT-4)*
 - **R-13:** From a fresh copy, on a machine with only the stated prerequisites, the instructions take
   the operator to the tracker open in the browser in at most three commands and within ten minutes.
   Commands joined with `&&` or `;` count as separate commands. *(traces to: SRS § 7 C-7)*
@@ -96,8 +110,9 @@ its code, and follow one feature from the product definition to its code and tes
   power cut, the saved data afterwards reads as the state either before or after that action, and
   never as a mix of the two. *(traces to: SRS § 4.2 NFR-2)*
 - **R-20:** The saved data is read once, at start. A change made to the saved data from outside the
-  tracker while it runs is not shown, and the tracker's next save replaces it. *(traces to: SDD § 4
-  SD-1; § 9 TO-4)*
+  tracker while it runs is not shown. While the tracker serves its saved data, its next save replaces
+  that change. While the saved data is unreadable it makes no save (R-27), so the change stays, and
+  the next start reads it. *(traces to: SDD § 4 SD-1, SD-4; § 9 TO-4)*
 - **R-21:** At start, saved data counts as unreadable when the tracker cannot read all of it, or when
   it breaks a data rule. The breaks include an unknown status or priority, a task whose project does
   not exist, two projects with one name, a reused task identity, and a value longer than the maximum
@@ -278,6 +293,9 @@ its code, and follow one feature from the product definition to its code and tes
   § 3.10 FR-34)*
 - **R-87:** A range whose from-date is later than its to-date is refused, with a reason saying the
   dates are the wrong way round, and no result is shown in its place. *(traces to: SRS § 3.10 FR-34)*
+- **R-128:** A value in a task list's filter or sort choices that its control cannot hold, such as an
+  unknown status or a date that is not a calendar date, is refused with the reason, and no result is
+  shown in its place. *(traces to: SDD § 4 RT-8)*
 - **R-88:** The overdue filter shows only tasks that are overdue under R-68. *(traces to: SRS § 3.10
   FR-35)*
 - **R-89:** The operator sorts a task list by one field at a time: due date, priority, created time or
@@ -323,10 +341,16 @@ its code, and follow one feature from the product definition to its code and tes
   changes nothing. *(traces to: SRS § 4.2 NFR-3)*
 - **R-104:** A plain field edit made from a stale page replaces whatever another tab saved for that
   field, and is not refused. *(traces to: SRS § 4.2 NFR-3)*
-- **R-105:** An address for a project or task that does not exist shows a not-found page. *(traces
-  to: SDD § 4 EX-13)*
+- **R-105:** While the tracker serves its saved data, an address for a project or task that does not
+  exist shows a not-found page. While the saved data is unreadable, that address shows R-25's page, as
+  every address does. Which of the two the tracker serves is fixed at start. *(traces to: SDD § 4
+  EX-13)*
 - **R-106:** Only a form submission changes the tracker's data. Following a link, reloading a page, or
   going back or forward never changes it and never repeats an action. *(traces to: SDD § 4 RT-8)*
+- **R-127:** A return through the browser's Back or Forward to the page that asks the operator to
+  confirm a move to `cancelled`, a task deletion or a project deletion shows what the saved data
+  allows at that moment. It never shows a confirmation of an action the saved data no longer allows.
+  *(traces to: SDD § 4 RT-11; § 9 TO-8)*
 - **R-107:** When an action fails for a reason that is not a refusal, the console shows a message
   naming the action and the error. The browser tells the operator in plain words that the action
   failed, and the saved data is unchanged. *(traces to: SRS § 4.5 NFR-8)*
@@ -469,6 +493,12 @@ its code, and follow one feature from the product definition to its code and tes
 | Tab 2 deletes task T, then tab 1 adds a comment to T | Refused with the reason. Nothing changes. | R-103 |
 | The operator reloads the page that answered a task creation | No second task is created. | R-106 |
 | The saved data holds a task whose project does not exist | The start shows the unreadable-data message naming the location, every page says the data could not be read, and the saved data's bytes are unchanged. | R-21, R-25, R-27 |
+| While the tracker serves its saved data, the saved data is changed from outside, then the operator adds a task | The outside change is not shown, and the save replaces it. | R-20 |
+| While the saved data is unreadable, the saved data is repaired from outside the tracker | No page changes and nothing is saved. The next start reads the repaired data. | R-20, R-27 |
+| While the saved data is unreadable, the operator opens an address for a project that does not exist | The unreadable-data page shows, and not the not-found page. | R-25, R-105 |
+| A task moved to `cancelled` after its confirmation, then the operator presses Back to the confirmation's address | No confirmation shows. The page says the task is `cancelled`. | R-127 |
+| A task deleted after its confirmation, then the operator presses Back to the confirmation's address | The not-found page shows. | R-105, R-127 |
+| A filter address asks for the status `nonsense` | Refused with the reason. No list shows. | R-128 |
 
 ---
 
@@ -562,20 +592,33 @@ its code, and follow one feature from the product definition to its code and tes
     behaviour each serves is the rule that cites its SRS source. RT-5's fixed address lands as R-4 and
     PD-10, which state that the address is fixed and leave its value to the SDD. SEC-2's refusals and
     SEC-3's policy, framing included, serve R-110. RT-7's form, which carries the values the page
-    showed, is a mechanism too, and the save it serves is R-115 and R-48.
-  - SDD § 4 RT-3 and RT-4's Linux statements land as R-119, R-120 and PD-8. SDD § 6 S-1's statement
+    showed, is a mechanism too, and the save it serves is R-115 and R-48. RT-8's definition of a
+    submission as a form sent with `method="post"` is a mechanism, and R-106 holds under it, because a
+    filter or sort form changes nothing. RT-11's status codes and cache headers are a mechanism, and
+    the behaviour they serve is R-127.
+  - SDD § 3's `application` row, on which actions report no change and what each compares, is a
+    mechanism. R-62, R-65 and R-116 stand as written.
+  - SDD § 4 RT-3 and RT-4's Linux statements land as R-119, R-120 and PD-8. RT-4's statements on the
+    tool that makes the test suite's environment land as R-124 to R-126, which leave its name to the
+    SDD as R-4 and PD-10 leave the address's value to it. RT-4's lock file, its commands and the
+    interpreter the suite runs on are mechanisms. SDD § 6 S-1's statement
     that the full suite needs the copy to be a Git repository is in a slice, under the bullet on SDD
     §§ 5 to 8 below, and no § 4 condition states it.
   - SDD § 9 TO-1, TO-3 and TO-5 have no consequence a user sees beyond the two-command start, which
     R-1 and R-13 bound. TO-2's consequence, a whole page answering every action, is the experience,
-    under the previous bullet. TO-4, TO-6 and TO-7 land as R-20, OOS-16, PD-10 and PD-11.
-  - SDD § 11's risks and SDD § Open Questions (whether Chromium applies `autofocus` to an element
-    that is not a form control) are technical and settle in the build. None moves a rule here. R-79
+    under the previous bullet. TO-4, TO-6 and TO-7 land as R-20, OOS-16, PD-10 and PD-11. TO-8 lands
+    as R-127, and TO-9 as R-124 to R-126.
+  - SDD § 11's risks and SDD § Open Questions (whether assistive technology reads the completion line
+    or the reason when a page opens on the element it describes) are technical and settle in the
+    build. None moves a rule here. R-79
     holds however a line break is counted.
   - SDD §§ 5 to 8 and § 10 are the cut and its record, and a definition document never names the route
     (`<CORE>/doctrine/setup/setting_up_a_project.md` § *The definition set never names the journey*).
   - PRD § Why This, § Assumptions and § Risks set intent and conditions, and require no behaviour. SRS
-    RN-18 walks the same items.
+    RN-18 walks the same items. PRD § Assumptions' sentence on becoming public with kensaiapp's public
+    release leaves OOS-1 standing, because the Agari's done still does not require publishing.
+  - PRD § Purpose's second purpose adds no behaviour to the tracker (SRS RN-18). The Description names
+    it, and R-122 and R-123 carry its last sentence through SRS FR-41.
   - The default sort field of a list with no sort chosen, the order of the projects list, and whether a
     page states a field's maximum length are experience calls. SRS FR-36 fixes only the default
     direction, and `products/tracker17/docs/UXD.md` § 5.5 UX-F5 and § 6 UX-S3 state the rest.
@@ -591,3 +634,17 @@ its code, and follow one feature from the product definition to its code and tes
   its need for administrator rights, and the bound on the Linux systems the end-to-end suite runs on.
   *(re: R-51, R-90, R-96, R-119, R-120, PD-5, PD-8; source: PRD § Core Features, Priorities; SRS § 3.4
   FR-15, § 3.10 FR-36, § 3.11 FR-38, § 7 C-5; SDD § 4 RT-3, RT-4)*
+- **RN-14:** *(changed)* R-20 and R-105 are scoped to a tracker serving its saved data, with the
+  unreadable case stated beside each — answered in `products/tracker17/docs/trail/fdr/cycle-3.md`
+  §§ 3.1 and 3.2, with the reasoning in `products/tracker17/docs/trail/fdr/self_answer-3.md` —
+  *because* each rule was false of the tracker on unreadable data, which makes no save and answers
+  every address with one page. SDD version 18 § 9 TO-4 and version 17 § 4 EX-13 carry the same
+  corrections. OOS-16 and R-27 stand as written, and neither rule states a status code. *(re: R-20,
+  R-105; source: SDD § 4 SD-1, SD-4, EX-13; § 9 TO-4)*
+- **RN-15:** *(added)* The Description's second purpose, and R-121 to R-128, follow upstream changes
+  made after FDR version 4 read PRD version 5, SRS version 5 and SDD version 7. They await the owner's
+  confirmation at `products/tracker17/docs/fdr_open_issues.md` § 2.1. PRD version 6 and SRS version 6
+  FR-41 are the source of R-121 to R-123. SDD versions 15 and 16 RT-4 and TO-9 are the source of R-124
+  to R-126. SDD versions 11 and 13 RT-11 and TO-8 are the source of R-127. SDD version 12 RT-8 is the
+  source of R-128. *(re: Description, R-121 to R-128; source: PRD § Purpose; SRS § 3.1 FR-41; SDD § 4
+  RT-4, RT-8, RT-11; § 9 TO-8, TO-9)*
