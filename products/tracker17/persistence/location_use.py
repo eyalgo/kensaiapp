@@ -12,11 +12,13 @@ Only the lock call's own contention result means another tracker (`LocationInUse
 create, open or lock the directory proves nothing about another tracker, so entry then holds no
 claim and says nothing: the start goes on exactly as it did before this lock existed.
 
-Startup rollback removes an empty directory this attempt created, and only while the claim is held
-and the directory is still the one the path names. A contender that opened the directory before
-that removal would otherwise hold a lock on a directory that no longer has a name, and a tracker
-served from there would not exclude a third start; it discards that claim and acquires against the
-live path. After `mark_started` the created directory is kept, empty or not.
+Startup rollback removes an empty directory this attempt created, and only while the directory is
+still the one the path names. A failed lock or a failed open holds no claim, so that one rollback
+runs without it. A contender that opened the directory before that removal would otherwise hold a
+lock on a directory that no longer has a name, and a tracker served from there would not exclude a
+third start; it discards that claim and acquires against the live path. A contender that had not
+yet opened it finds nothing to open and acquires against the live path too. After `mark_started`
+the created directory is kept, empty or not.
 """
 
 from __future__ import annotations
@@ -76,10 +78,10 @@ class LocationUse:
         for _ in range(ACQUISITION_ATTEMPT_LIMIT):
             try:
                 self._created = self._make_leaf()
-                self._descriptor = os.open(self._path, os.O_RDONLY | os.O_DIRECTORY)
-                self._lock()
-                if self._is_live_path():
-                    return
+                if self._open_leaf():
+                    self._lock()
+                    if self._is_live_path():
+                        return
             except LocationInUse:
                 # Never remove the directory of the start that holds it.
                 self._created = False
@@ -94,6 +96,14 @@ class LocationUse:
         try:
             os.mkdir(self._path)
         except FileExistsError:
+            return False
+        return True
+
+    def _open_leaf(self) -> bool:
+        """Open the directory. False when it is gone, which a retry settles or exhausts."""
+        try:
+            self._descriptor = os.open(self._path, os.O_RDONLY | os.O_DIRECTORY)
+        except FileNotFoundError:
             return False
         return True
 
