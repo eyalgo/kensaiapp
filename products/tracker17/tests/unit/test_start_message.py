@@ -85,3 +85,19 @@ def test_ready_line_keeps_ordinary_paths_verbatim(location: str) -> None:
     """CP-751: a path with no filename-decoding marker gives the whole line it gave before, the
     address ahead of the location, a real backslash and a valid character untouched."""
     assert ready_line(location) == expected_line(location)
+
+
+@pytest.mark.parametrize(
+    "character",
+    [
+        pytest.param("\udc7f", id="just-below-the-range"),
+        pytest.param("\udd00", id="just-above-the-range"),
+        pytest.param("\ud800", id="high-surrogate"),
+    ],
+)
+def test_ready_line_escapes_only_the_filename_byte_range(character: str) -> None:
+    """CP-749: a surrogate outside U+DC80 through U+DCFF is no file-name byte, so it is written
+    as it is and never as an escape."""
+    location = f"/tmp/a{character}b/data"
+
+    assert ready_line(location) == expected_line(location)
