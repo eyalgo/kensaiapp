@@ -66,6 +66,9 @@ NAME_IN_USE = ProjectNameRefusal.NAME_IN_USE.value
 TEXT_TOO_LONG = ProjectNameRefusal.TOO_LONG.value
 
 PRODUCT_NAME = "tracker17"
+SURROGATE_ESCAPE_BASE = 0xDC00
+FIRST_SURROGATE_ESCAPE = SURROGATE_ESCAPE_BASE + 0x80
+LAST_SURROGATE_ESCAPE = SURROGATE_ESCAPE_BASE + 0xFF
 STYLESHEET_ADDRESS = "/style.css"
 PROJECTS_ADDRESS = "/"
 ALL_TASKS_ADDRESS = "/tasks"
@@ -2644,16 +2647,34 @@ def task_not_found_page() -> str:
     return _document("Not found - tracker17", body)
 
 
+def _shown_location(location: str) -> str:
+    """The location as the page writes it, whatever bytes the file system gave it.
+
+    Python decodes a file-name byte it cannot read as text into one marker from U+DC80 to U+DCFF,
+    which no page can be encoded with. Each marker is written as a backslash, an x and the byte's
+    two lowercase hex digits; every other character, a valid one beyond ASCII and a real backslash
+    included, is written as it is.
+    """
+    return "".join(
+        f"\\x{ord(character) - SURROGATE_ESCAPE_BASE:02x}"
+        if FIRST_SURROGATE_ESCAPE <= ord(character) <= LAST_SURROGATE_ESCAPE
+        else character
+        for character in location
+    )
+
+
 def unreadable_data_page(location: str) -> str:
     """The one page a start on unreadable saved data answers with, at every address.
 
-    The location is the saved data's absolute path as text. The page carries the product name as
-    plain text and no navigation, link or control (CP-716, CP-717); the location enters through
-    `_escape` like every value (CP-723).
+    The location is the saved data's absolute path as the file system decoded it. The page carries
+    the product name as plain text and no navigation, link or control (CP-716, CP-717); the
+    location is shown without a byte that is not text (CP-760) and enters through `_escape` like
+    every value (CP-723).
     """
     body = (
         "<h1>The saved data can't be read</h1>\n"
-        f"<p>The tracker couldn't read its saved data, which is kept at {_escape(location)}. "
+        "<p>The tracker couldn't read its saved data, which is kept at "
+        f"{_escape(_shown_location(location))}. "
         "Nothing in it was changed or overwritten. "
         "To start fresh on purpose, "
         "follow Setting saved data aside in the setup instructions.</p>\n"
