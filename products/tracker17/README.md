@@ -47,9 +47,13 @@ When the tracker is ready, the terminal shows one line like this one.
 The tracker is running. Open http://127.0.0.1:8017 in your browser. Saved data is kept at /Users/sam/copy/products/tracker17/data.
 ```
 
-Your own copy's location appears in place of `/Users/sam/copy/products/tracker17/data`. Open http://127.0.0.1:8017 in your browser to see the Projects page. If the line starts with `The tracker didn't start` instead, it says why and what to do next.
+That line means the tracker is running. With that line, open http://127.0.0.1:8017 in your browser to see the Projects page. Your own copy's location appears in place of `/Users/sam/copy/products/tracker17/data`.
 
-The tracker keeps running in that terminal until you stop it. To stop it, press Ctrl-C in that terminal.
+When the tracker starts on saved data it can't read, the line starts with `The tracker couldn't read` instead. The tracker is still running when that line shows. To start fresh on purpose, follow Setting saved data aside in these setup instructions.
+
+After either `The tracker is running` or `The tracker couldn't read`, the tracker keeps running until you stop it. To stop it, press Ctrl-C in its terminal.
+
+A line that starts with `The tracker didn't start` means this start has stopped. The line says why and what to do next.
 
 ### Where the saved data is kept
 
