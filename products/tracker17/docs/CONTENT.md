@@ -9,7 +9,7 @@ omitted:
 
 **Status:** Settled
 **Owner:** Content Manager
-**Version:** 18 — folds the answer to item 3.1 (cycle 17): § Terminology gains the term "killed" for a tracker the reader ended by force (RN-31)
+**Version:** 19 — folds the answers to items 3.1 and 3.2 (cycle 18): § Error gains a pattern for a start that serves on unreadable saved data, and § Grammar and mechanics gains the form of a path the tracker prints (RN-32, RN-33). At 18: § Terminology gained the term "killed" (RN-31)
 **Inputs read:** PRD Settled · UXD Settled (version 11) · SRS Settled · DESIGN Settled · Agari no Status line (`agari_template.md` carries none) · tracker17 doctrine no Status line (stamped, unfilled)
 
 > The verbal language is the source of truth for everything this product says to a person. It is
@@ -132,6 +132,11 @@ level 2, and no level adds a feeling.
   string, so no string tells the reader how to type or pick a date, a refusal included. The tracker
   states no way of entering a date, so a refusal names the outcome instead of the means, such as "Give
   a calendar date, or leave the due date empty."
+- **A path the tracker prints.** It is written as the machine names it. A byte in it that is not text is
+  written as a backslash, an x and the byte's two hex digits, such as `\xe9`, and nothing else in the path
+  changes. It is one form in every place a path is written. No message leaves the path out for this
+  reason, and none replaces the byte with a mark that stands for a character, such as the Unicode
+  replacement character. Example: "/tmp/caf\xe9/data".
 - **Abbreviations.** None in a string, and no Latin abbreviation ("e.g.", "i.e.", "etc.", "vs."). The
   names of commands and tools in the setup instructions are written as their own owners write them.
 - **Verbs for pressing.** A button is "pressed", a link is "opened", an option is "picked" and text is
@@ -256,7 +261,7 @@ that says how to start fresh on purpose, named exactly. It offers no control tha
 - Heading: "The saved data can't be read". Body: "The tracker couldn't read its saved data, which is kept at /Users/sam/tracker17/data. Nothing in it was changed or overwritten. To start fresh on purpose, follow Setting saved data aside in the setup instructions."
 
 **Terminal messages** (UXD UX-S2). A start that fails is one paragraph that begins "The tracker didn't
-start", gives the reason, and gives one action. Where saved data is the reason, it names the location.
+start", gives the reason, and gives one action.
 When an action fails for a reason that is not a refusal, the terminal also prints the underlying
 error text, on its own line after the plain sentence and exactly as the system reported it (SRS NFR-8).
 That text is the one place the banned technical vocabulary may appear, because it is for the developer
@@ -264,7 +269,18 @@ reading the terminal and is not the tracker's own wording.
 **Examples:**
 - "The tracker didn't start, because something else is already using the address 127.0.0.1:8017. Stop that program, then start the tracker again."
 - "The tracker didn't start, because another tracker is already running on the same saved data. Stop that one first, then start this one."
-- "The tracker didn't start, because it couldn't read its saved data at /Users/sam/tracker17/data. Nothing in it was changed. See Setting saved data aside in the setup instructions."
+
+**A start on saved data that can't be read** (UXD UX-S2, UX-S9) is not a start that fails, because the
+tracker did start and serves the page for saved data that can't be read.
+**Formula:** three sentences, printed in the terminal in place of the ready line. The first has two
+parts: the tracker couldn't read its saved data and where it is, then that nothing in it was changed. It
+begins "The tracker couldn't read", never "The tracker didn't start", because the tracker did start. The
+second names the address to open to read this on a page. The third names the setup instructions' section on
+starting fresh, exactly as § Terminology fixes it. The address sentence stays beside the one action
+because the address is a fact the start must give (SRS NFR-8). The location is written as § Grammar and
+mechanics sets for a path.
+**Example:**
+- "The tracker couldn't read its saved data at /Users/sam/tracker17/data, and nothing in it was changed. Open http://127.0.0.1:8017 in your browser to read this on a page. To start fresh on purpose, follow Setting saved data aside in the setup instructions."
 
 ### Empty
 
@@ -291,6 +307,9 @@ and the ready line has these parts in order: the tracker is running, the address
 data is kept.
 **Example:**
 - "The tracker is running. Open http://127.0.0.1:8017 in your browser. Saved data is kept at /Users/sam/tracker17/data."
+
+When the saved data can't be read, the terminal prints the line under Error, "A start on saved data that
+can't be read", in place of the ready line.
 
 ### Partial
 
@@ -431,7 +450,7 @@ expensive to add after strings exist.
 | UXD state or requirement | Covered by | Notes |
 |---|---|---|
 | UX-S1 Setup instructions | Voice, Grammar and mechanics, Terminology | The written commands are per-change copy. The two section headings others point to are fixed in § Terminology. It has no empty, loading or error state of its own. |
-| UX-S2 Start command | Error (terminal messages), Loading (the ready line) | The terminal says nothing until ready. |
+| UX-S2 Start command | Error (terminal messages, and a start on saved data that can't be read), Loading (the ready line) | The terminal says nothing until ready. When the saved data can't be read, the line under Error is printed in place of the ready line. |
 | UX-S3 Projects, empty | Empty | First run. |
 | UX-S3 Projects, error | Error, refusal and failure | Create refused or failed. |
 | UX-S4 Project Tasks, empty | Empty | Two states, no tasks and no match. |
@@ -443,7 +462,7 @@ expensive to add after strings exist.
 | UX-S6 Task, success | Completed | A task in `done` or `cancelled` shows no move buttons and so no words for them. |
 | UX-S7 All tasks | Empty, Error, Completed | No tasks anywhere and no match. The off-list refusal and failure forms of UX-S4 apply here too. |
 | UX-S8 People | Empty, Error, Completed | The removal line carries its consequence. |
-| UX-S9 Saved data that can't be read | Error, saved data that can't be read | |
+| UX-S9 Saved data that can't be read | Error, saved data that can't be read, and a start on saved data that can't be read | The page and the terminal line are two strings for one state. |
 | UX-S10 Not found | Error, an address with nothing at it | |
 | UX-I1 Status workflow shown | Terminology, Accessibility | Move buttons are named by the target status, and the accessible name adds the move, the task and the row's position. |
 | UX-I2 Irreversible actions confirmed in place | Needs confirming | The UXD fixes the structure and focus. This document fixes the words. |
@@ -582,3 +601,5 @@ expensive to add after strings exist.
 - **RN-29:** A refusal or failure for a task the list's filter leaves off the list has its own forms, and the refusal formula's "beside the control that was used" no longer covers every refusal. *Because* UXD version 11 puts these lines in the page's one confirmation line and leaves their wording to this document (UXD UX-F4, UX-S4, UX-I3, UX-A3, RN-36, RN-37). The row that would have shown the task's status and moves is missing, so the line carries them itself. A final status leaves nothing to do even with the task shown, so that line names no action and no Clear. A failure isn't about the status, so its line doesn't state it, and a move that could fail was one the status allowed, so Clear is always left to do. The lines are held to the existing limits, two sentences and 20 words a sentence, so each example is two sentences. This is an upstream-change fold, not a re-voicing: no earlier rule moved. The product's own wording for these lines is a finding for a change that publishes text, not an edit here.
 - **RN-30:** The Needs confirming formula states what its count is of, and that what goes with the thing but is not counted is covered only by the second sentence. *Because* the owner answered item 3.1 (cycle 16): comments do not count, for a task or for a project's tasks, since they are part of the task, a flat list on its page that is never edited or deleted on its own (PRD § Core Features, Comments). The examples and the completion line already followed this reading, so no example moved. This is an owner-answer fold, not a re-voicing. A reader who does not know comments go with a task is not told by the sentence; if operators are surprised, the first change is the UXD's data list for the task page, not a rule here.
 - **RN-31:** § Terminology gains one row, "killed", for a tracker the reader ended by force rather than with Ctrl-C, and no other rule moves. *Because* the owner answered item 3.1 (cycle 17) and the setup instructions already use the word ("A tracker that was killed doesn't prevent the next start", `README.md:L79`) with nothing approving or rejecting it, beside "stopped", which the same document uses for Ctrl-C. One word for both would hide the end that sentence is about. The row covers the kill only: a crash and a power cut occur in no string, so they get no term until one does. The definition documents keep their own "killed process" (SRS NFR-2, NFR-3), as they keep "console". This is an owner-answer fold, not a re-voicing. Reasoning in `trail/content/self_answer-18.md`.
+- **RN-32:** A start on saved data that can't be read has its own pattern under Error, and the failed-start paragraph no longer says a failed start names the saved data's location. *Because* the owner confirmed item 3.1 (cycle 18) with three additions: the start now stays up and serves the unreadable-data page, so the old third example described nothing the tracker does and the line must not begin "The tracker didn't start", which the tracker can't claim. The parts are the unreadable data and its location, that nothing was changed, the address to open, and the setup instructions' section on starting fresh, in three sentences. The two imperatives stay because SRS NFR-8 requires the address and the section is the one action on the data. Loading says the line is printed in place of the ready line, and the Traceability rows for UX-S2 and UX-S9 name it. This is an owner-answer fold, not a re-voicing. Not covered: whether a string should say a repair made while the page shows is read only at the next start, which is a change that publishes text. Reasoning in `trail/content/self_answer-19.md`.
+- **RN-33:** A path the tracker prints is written as the machine names it, and a byte in it that is not text is written as `\xe9`, one form everywhere. *Because* the owner answered item 3.2 (cycle 18): a path on Linux may hold bytes that are not UTF-8, and printing such a path raised an encoding error in the ready line, the unreadable-data line and the page. Leaving the path out breaks SRS AC-7, NFR-8 and UXD UX-S9, and a replacement-character mark is not plain ASCII and states a character where there is none. The rule lands as one bullet in Grammar and mechanics, and Localization already keeps file paths out of translation. Not covered: a folder name that really holds a backslash, an x and two hex digits reads the same as the escaped byte, and a valid character the terminal's own encoding can't write is a different cause with the same traceback. This is an owner-answer fold, not a re-voicing. Reasoning in `trail/content/self_answer-19.md`.
