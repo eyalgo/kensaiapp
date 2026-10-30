@@ -226,6 +226,32 @@ def test_readable_start_prints_non_text_path_and_serves(
         assert (tmp_path / os.fsdecode(folder) / "tracker.json").read_bytes() == before
 
 
+def test_readable_start_keeps_the_original_path_for_the_file_system(
+    starts: _Starts, tmp_path: Path
+) -> None:
+    """CP-747, CP-748: the escape is what the line shows and nothing else. The start claims its
+    location by making the directory, so a location given the display form would leave a folder
+    really named with the four characters, on a file system that refuses the byte as well."""
+    serve_and_stop(starts, tmp_path, b"caf\xe9", rb"caf\xe9", STRICT_UTF8)
+
+    assert not (tmp_path / r"caf\xe9").exists()
+
+
+def test_readable_start_on_a_valid_file_at_an_ordinary_path(
+    starts: _Starts, tmp_path: Path
+) -> None:
+    """CP-747, CP-751: the valid file the byte-bearing case starts on is one the tracker reads and
+    leaves as it was, proved here on every file system, including those that refuse that case's
+    directory and report it as skipped."""
+    directory = tmp_path / "plain"
+    directory.mkdir()
+    (directory / "tracker.json").write_bytes(SAVED_PROJECT)
+
+    serve_and_stop(starts, tmp_path, b"plain", b"plain", STRICT_UTF8, NAMED_PROJECT)
+
+    assert (directory / "tracker.json").read_bytes() == SAVED_PROJECT
+
+
 @pytest.mark.parametrize(
     ("console", "folder", "shown"),
     [
@@ -251,7 +277,7 @@ def test_readable_start_path_is_independent_of_console_policy(
 
     assert b"\xe9" not in line and b"\xff" not in line
     assert "�".encode() not in line
-    assert b"udc" not in line
+    assert b"\\udc" not in line
 
 
 @pytest.mark.parametrize(
