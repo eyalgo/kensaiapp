@@ -4,6 +4,6 @@ Imports only `application` (and `errors`); every value it shows comes from the t
 """
 
 from web.listener import AddressTaken, Listener, listen
-from web.routes import Response, Site
+from web.routes import Response, Site, UnreadableSite
 
-__all__ = ["AddressTaken", "Listener", "Response", "Site", "listen"]
+__all__ = ["AddressTaken", "Listener", "Response", "Site", "UnreadableSite", "listen"]

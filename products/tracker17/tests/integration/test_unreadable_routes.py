@@ -1,11 +1,11 @@
 """Integration tests of web's unreadable-mode request path, run in one process with no socket.
 
-Checks the answers a tracker gives when it started on saved data it could not read (SDD § 6 S-8):
-change spec rules CP-718 (one page for every checked request, 503, `no-store`), CP-719 (the
-stylesheet stays), CP-720 (a checked POST is sent back to the page and acts on nothing), CP-721
-(the request check runs first and shows nothing), CP-722 (the page policy on every answer and no
-cookie) and CP-724 (the startup location is the only thing the handler holds), with NFDR QC-7,
-QC-8, QC-31 to QC-34 and QC-36.
+Checks the answers a tracker gives when it started on saved data it could not read (SRS FR-2,
+NFR-4 and DR-6; SDD § 6 S-8): change spec rules CP-718 (one page for every checked request, 503,
+`no-store`), CP-719 (the stylesheet stays), CP-720 (a checked POST is sent back to the page and
+acts on nothing), CP-721 (the request check runs first and shows nothing), CP-722 (the page policy
+on every answer and no cookie) and CP-724 (the startup location is the only thing the handler
+holds), with NFDR QC-7, QC-8, QC-31 to QC-34 and QC-36.
 """
 
 from __future__ import annotations
