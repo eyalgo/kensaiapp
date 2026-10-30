@@ -11,3 +11,6 @@ What must not be weakened: the lock is Unix only, with no Windows path, no opera
 **Category:** feature
 **Behaviour:** changing
 **Classified because:** the station's reached-when adds a new observable, a second start on a location in use that today serves or stops on the address and instead prints a refusal and exits, plus a start-after-kill guarantee (SRS AC-16); a change that adds behaviour to the contract is `changing`, and `feature` is the Category that adds behaviour (`change_classification.md`).
+
+**Sealed:** 2026-10-30 — accepted; merged to `main` via `--no-ff`.
+Environment: owners-mac — no CI
