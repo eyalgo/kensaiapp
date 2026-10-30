@@ -1,0 +1,205 @@
+"""Integration tests of web's unreadable-data page and site for a path holding a non-text byte,
+run in one process with no socket.
+
+Checks SRS FR-8 (the answer on saved data the tracker cannot read), NFR-4 (an unreadable start
+tells the person why), NFR-8 (a value enters a page as text) and AC-7 (the unreadable-data
+answer). Change spec rules CP-758 (every checked request is answered as on a path with no such
+byte), CP-759 (the site is built for the location as the file-name decoding gives it), CP-760
+(each non-text byte is written as a backslash, an x and two lowercase hex digits, and the page
+encodes as UTF-8), CP-761 (every such byte wherever it sits, every other character as it is,
+markup beside it as text), CP-763 (a path with no such byte gives the page it gave before),
+CP-764 (only how the location is shown changes) and CP-766 (the site for `/tmp/caf\\xe9/data`) are
+what each test names. NFDR QC-11 (a test module names the rules and obligations it checks) and
+QC-36 (a value enters a page through one escaping function). The expected text of every case is
+written out here, independently of the code under test.
+"""
+
+from __future__ import annotations
+
+import os
+
+import pytest
+from test_pages import parse
+
+from web import Response, UnreadableSite, pages
+from web.routes import CSS_TYPE, PAGE_POLICY
+
+HOST = "127.0.0.1:8017"
+SURROGATE_ESCAPE_BASE = 0xDC00
+FIRST_NON_TEXT_BYTE = 0x80
+LAST_NON_TEXT_BYTE = 0xFF
+HEX_DIGITS = "0123456789abcdef"
+DECODED_LOCATION = os.fsdecode(b"/tmp/caf\xe9/data")
+SHOWN_LOCATION = "/tmp/caf\\xe9/data"
+PAGE_BEFORE_LOCATION = "The tracker couldn't read its saved data, which is kept at "
+PAGE_AFTER_LOCATION = (
+    ". Nothing in it was changed or overwritten. To start fresh on purpose, "
+    "follow Setting saved data aside in the setup instructions."
+)
+
+
+def get(location: str, target: str = "/") -> Response:
+    headers = {"Host": HOST}
+    return UnreadableSite(location, HOST).handle("GET", target, headers, b"")
+
+
+def header(response: Response, name: str) -> str | None:
+    found = [value for key, value in response.headers if key.lower() == name.lower()]
+    return found[0] if found else None
+
+
+def paragraph(page: str) -> str:
+    (body,) = parse(page).find_all("p")
+    return body.text()
+
+
+def expected_paragraph(shown: str) -> str:
+    return f"{PAGE_BEFORE_LOCATION}{shown}{PAGE_AFTER_LOCATION}"
+
+
+def assert_free_of_marker_forms(text: str) -> None:
+    assert "�" not in text
+    assert not any(0xDC80 <= ord(character) <= 0xDCFF for character in text)
+    assert "\\udce9" not in text
+
+
+def test_unreadable_site_accepts_the_original_decoded_location() -> None:
+    """CP-759, CP-760, CP-766: a site built with the location as the file-name decoding gives it
+    does not raise; `GET /` answers 503 with strict UTF-8 page bytes holding the four-character
+    escape and no marker or replacement mark; the page builder gives the same field."""
+    response = get(DECODED_LOCATION)
+
+    assert response.status == 503
+    page = response.body.decode("utf-8")
+    assert paragraph(page) == expected_paragraph(SHOWN_LOCATION)
+    assert f"kept at {SHOWN_LOCATION}." in page
+    assert_free_of_marker_forms(page)
+    built = pages.unreadable_data_page(DECODED_LOCATION)
+    assert paragraph(built) == expected_paragraph(SHOWN_LOCATION)
+    assert_free_of_marker_forms(built)
+    built.encode("utf-8")
+
+
+@pytest.mark.parametrize(
+    "byte", range(FIRST_NON_TEXT_BYTE, LAST_NON_TEXT_BYTE + 1), ids=lambda byte: f"{byte:#04x}"
+)
+def test_unreadable_page_escapes_each_filename_byte_in_place(byte: int) -> None:
+    """CP-760, CP-761: every marker from U+DC80 through U+DCFF, both endpoints included, is
+    written as its own byte in a backslash, an x and two lowercase hex digits, on the page the
+    builder gives and on the page the site serves."""
+    marker = chr(SURROGATE_ESCAPE_BASE + byte)
+    escape = "\\x" + HEX_DIGITS[byte // 16] + HEX_DIGITS[byte % 16]
+    location = f"/tmp/a{marker}b/data"
+    expected = expected_paragraph(f"/tmp/a{escape}b/data")
+
+    assert paragraph(pages.unreadable_data_page(location)) == expected
+    assert paragraph(get(location).body.decode("utf-8")) == expected
+
+
+@pytest.mark.parametrize(
+    ("location", "shown"),
+    [
+        pytest.param("/tmp/a\udce9\udcff/data", "/tmp/a\\xe9\\xff/data", id="consecutive"),
+        pytest.param("/tmp/a\udce9b\udcffc/data", "/tmp/a\\xe9b\\xffc/data", id="separated"),
+        pytest.param("/tmp/\udce9/\udcff/data", "/tmp/\\xe9/\\xff/data", id="two-components"),
+        pytest.param("/tmp/\udce9\udce9/data", "/tmp/\\xe9\\xe9/data", id="the-same-byte-twice"),
+        pytest.param("/tmp/café\udce9/data", "/tmp/café\\xe9/data", id="after-valid-text"),
+        pytest.param("/tmp/a\\b\udce9\\x41/d", "/tmp/a\\b\\xe9\\x41/d", id="beside-backslashes"),
+        pytest.param(
+            os.fsdecode(b"/tmp/a\xe9\xff/data"), "/tmp/a\\xe9\\xff/data", id="two-byte-example"
+        ),
+    ],
+)
+def test_unreadable_page_preserves_positions_and_other_characters(
+    location: str, shown: str
+) -> None:
+    """CP-760, CP-761: each marker is replaced where it stands and every other character of the
+    path stays in its order, on the builder's page and the served page alike."""
+    expected = expected_paragraph(shown)
+
+    assert paragraph(pages.unreadable_data_page(location)) == expected
+    served = get(location).body.decode("utf-8")
+    assert paragraph(served) == expected
+    assert_free_of_marker_forms(served)
+
+
+def test_unreadable_page_shows_markup_beside_byte_markers_as_text() -> None:
+    """CP-761, QC-36: a `<`, a `&`, a `"`, valid non-ASCII text and a real backslash beside a
+    marker are shown as that text; no element is injected and the raw page keeps the existing
+    escape form."""
+    location = os.fsdecode(b'/tmp/a<b>&"c\\caf\xc3\xa9\xe9/data')
+    page = pages.unreadable_data_page(location)
+    root = parse(page)
+
+    assert paragraph(page) == expected_paragraph('/tmp/a<b>&"c\\café\\xe9/data')
+    assert root.find_all("b") == []
+    assert len(root.find_all("p")) == 1
+    assert "a&lt;b&gt;&amp;&quot;c\\café\\xe9/data" in page
+
+
+@pytest.mark.parametrize(
+    "location",
+    [
+        pytest.param("/Users/sam/tracker17/data", id="plain-text"),
+        pytest.param("/tmp/café/data", id="valid-non-ascii"),
+        pytest.param("/tmp/a\\xe9b/data", id="literal-backslash-folder-name"),
+    ],
+)
+def test_unreadable_page_keeps_ordinary_representations(location: str) -> None:
+    """CP-763: a path with no filename-decoding marker gives the whole page it gave before, in the
+    builder and in the served bytes; the expectation is the pre-change page written out here."""
+    expected = (
+        "<h1>The saved data can't be read</h1>\n"
+        f"<p>The tracker couldn't read its saved data, which is kept at {location}. "
+        "Nothing in it was changed or overwritten. To start fresh on purpose, "
+        "follow Setting saved data aside in the setup instructions.</p>\n"
+    )
+    page = pages.unreadable_data_page(location)
+
+    assert expected in page
+    assert get(location).body == page.encode("utf-8")
+    assert paragraph(page) == expected_paragraph(location)
+
+
+@pytest.mark.parametrize(
+    "character",
+    [
+        pytest.param("\udc7f", id="just-below-the-range"),
+        pytest.param("\udd00", id="just-above-the-range"),
+        pytest.param("\ud800", id="high-surrogate"),
+    ],
+)
+def test_unreadable_site_still_rejects_other_surrogates(character: str) -> None:
+    """The scope fence: a surrogate outside U+DC80 through U+DCFF is no file-name byte, so the
+    site's UTF-8 encoding still raises, and the page text keeps the character."""
+    location = f"/tmp/a{character}b/data"
+
+    with pytest.raises(UnicodeEncodeError):
+        UnreadableSite(location, HOST)
+    assert character in paragraph(pages.unreadable_data_page(location))
+
+
+def test_unreadable_byte_path_keeps_route_policy() -> None:
+    """CP-758, CP-764: on a site built for the decoded-byte location, reads at `/`, `/?x=1`,
+    `/people` and `/nothing?x=1` give one 503 body with `no-store` and the page policy,
+    `GET /style.css` is 200, a same-origin `POST /projects` is 303 to `/`, and the page offers no
+    navigation or data control."""
+    site = UnreadableSite(DECODED_LOCATION, HOST)
+    headers = {"Host": HOST}
+    targets = ("/", "/?x=1", "/people", "/nothing?x=1")
+    reads = [site.handle("GET", target, headers, b"") for target in targets]
+
+    assert {read.body for read in reads} == {reads[0].body}
+    for read in reads:
+        assert read.status == 503
+        assert header(read, "Cache-Control") == "no-store"
+        assert header(read, "Content-Security-Policy") == PAGE_POLICY
+    sheet = site.handle("GET", "/style.css", headers, b"")
+    assert sheet.status == 200
+    assert header(sheet, "Content-Type") == CSS_TYPE
+    post = site.handle("POST", "/projects", {**headers, "Sec-Fetch-Site": "same-origin"}, b"x=1")
+    assert post.status == 303
+    assert header(post, "Location") == "/"
+    root = parse(reads[0].body.decode("utf-8"))
+    for tag in ("a", "form", "button", "input", "select", "textarea", "nav"):
+        assert root.find_all(tag) == [], tag
