@@ -33,6 +33,9 @@ ANOTHER_TRACKER_LINE = (
     "The tracker didn't start, because another tracker is already running on the same saved data. "
     "Stop that one first, then start this one."
 )
+SURROGATE_ESCAPE_BASE = 0xDC00
+FIRST_SURROGATE_ESCAPE = SURROGATE_ESCAPE_BASE + 0x80
+LAST_SURROGATE_ESCAPE = SURROGATE_ESCAPE_BASE + 0xFF
 
 
 class StopRequests(Protocol):
@@ -158,10 +161,26 @@ def _bind(open_listener: Callable[[], Listener], address: tuple[str, int]) -> Li
         return None
 
 
+def _shown_location(location: Path) -> str:
+    """The location as the ready line writes it, whatever the console's encoding.
+
+    Python decodes a file-name byte it cannot read as text into one marker from U+DC80 to U+DCFF.
+    Each marker is written as a backslash, an x and the byte's two lowercase hex digits; every
+    other character, a valid one beyond ASCII and a real backslash included, is written as it is.
+    The location itself, which the claim, the load and the saves use, is not changed.
+    """
+    return "".join(
+        f"\\x{ord(character) - SURROGATE_ESCAPE_BASE:02x}"
+        if FIRST_SURROGATE_ESCAPE <= ord(character) <= LAST_SURROGATE_ESCAPE
+        else character
+        for character in str(location)
+    )
+
+
 def _ready_line(host: str, port: int, location: Path) -> str:
     return (
         f"The tracker is running. Open http://{host}:{port} in your browser. "
-        f"Saved data is kept at {location}."
+        f"Saved data is kept at {_shown_location(location)}."
     )
 
 
