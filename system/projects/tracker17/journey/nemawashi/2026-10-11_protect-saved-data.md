@@ -16,9 +16,13 @@ Cut from `products/tracker17/docs/SDD.md` § 6 S-8, slug `protect-saved-data` ("
 
 ## Stations — dynamic checklist
 
-- [ ] unreadable-data-page — every address shows the page, with the console message, the set-aside path through the README and a restart that starts empty
-- [ ] second-tracker-refusal — one plain message on a second start, the first tracker carrying on, and a start after a kill succeeding
-- [ ] break-tests — one test per DR-6 break asserting unchanged bytes (AC-7), AC-16's halves, and the README's two descriptions
+- [ ] second-tracker-refusal — a second start on a location a running tracker uses prints one plain message while the first carries on, a start after a kill succeeds (both halves of AC-16 as tests), and the README says so
+- [ ] unreadable-data-page — the tracker starts on unreadable data, every address shows the one page with no navigation or control, the console names the location, a restart after set-aside starts empty with the earlier work kept, one test per DR-6 break at that level asserts unchanged bytes (AC-7), both suites pass, and the README says what a start does
+
+Divergence from the proposal, three lines:
+- `break-tests` dropped as a station: the DR-6 breaks (unknown status and priority, missing project, shared name, reused identity, over-long values) already each have a bytes-unchanged test at load and at start (`tests/integration/test_saved_data.py`, `tests/integration/test_start.py`), so its bar passes today; the start-level ones assert the exit-1 stop this seed supersedes, so they are rewritten inside `unreadable-data-page`.
+- The README's two descriptions and AC-16's halves moved into the station that builds each behaviour, so no station's bar waits on a later one.
+- The two stations swapped: the lock is the unproven part (no lock in the code, a kill-recovery nobody has shown), so it goes first; the order is a preference, neither station needs the other, and the last carries the seed's whole bar.
 
 ## Relation to existing work
 
