@@ -4,8 +4,8 @@
 
 ## What it is
 
-Today a start that cannot read its saved data prints one message and exits 1 (`products/tracker17/main.py:L123-L130`). This
-station replaces that stop (SDD § 7, `supersedes`; SM-6, SD-5) with a tracker that starts, names the data's location on the
+Before this station a start that could not read its saved data printed one message and exited 1. This
+station replaced that stop (SDD § 7, `supersedes`; SM-6, SD-5) with a tracker that starts, names the data's location on the
 console, and answers every address with the one unreadable-data page (UXD UX-F11, UX-S9): where the data is, that nothing was
 changed, no navigation and no control that acts on the data, and a pointer to the README's section on setting saved data
 aside. After the operator sets the data aside as the README says, a restart starts empty and the set-aside file still holds
