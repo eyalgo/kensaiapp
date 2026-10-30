@@ -11,3 +11,6 @@ Sizing: one capability (the ready start on such a path), one merge; the acceptan
 **Classified because:** the station's reached-when 1 has a start that today raises print a line and serve, a new observable behaviour at the FDR-level contract (R-2, "shows ... the saved data's location"), not a restructuring that preserves what the suite pins.
 
 ---
+
+**Sealed:** 2026-10-30 — accepted; merged to `main` via `--no-ff`.
+Environment: owners-mac — no CI
