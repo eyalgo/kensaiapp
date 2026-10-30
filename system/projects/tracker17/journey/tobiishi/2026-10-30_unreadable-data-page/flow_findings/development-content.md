@@ -1,0 +1,8 @@
+# Flow Findings — development-content  (audited 2026-10-30)
+
+Findings for this step's output only, produced by the `development-audit` skill.
+Change-local findings live here; skill-general findings are also raised as kaizen items.
+
+Checked: `change_text.md` against `change_spec.md` (CP-711, CP-716, CP-724, CP-725, CP-734), the `Publishes text:` line of `change_design.md`, `products/tracker17/docs/CONTENT.md` (banned table, Terminology, Grammar and mechanics, page-title rule) and `system/doctrine/writing_bar.md`. Lens 10 held: no banned word or rejected term in any string, every sentence is at most 20 words, the console line has three sentences, the three named places each have a block and no block names another, no string joins fragments at run time, and every claim (unchanged data, page until stop) is established by CP-716, CP-724 and CP-725. Lens 3 held: Category `feature` and Behaviour `changing` match the spec header.
+
+- **[non-blocking · change-local · divergence-record]** The README paragraph under "What the start prints" ends "If the line starts with `The tracker didn't start` instead, it says why and what to do next." After this change a start can print a third line, which starts "The tracker couldn't read", and that section never mentions it. The text step saw this and wrote it only into its own `## Wording decisions` ("a later change should add one"). Where: `change_text.md §Wording decisions` against `products/tracker17/README.md` "What the start prints". The gap is recorded, but not in `deferred_decisions.md`, which is where `shukuba-refine` reads held-back items. Direction: hand it on there so the route places it.
