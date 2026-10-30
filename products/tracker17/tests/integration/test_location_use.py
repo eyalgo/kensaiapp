@@ -147,7 +147,7 @@ import os
 import sys
 import time
 from pathlib import Path
-from persistence import LocationUse
+from persistence import LocationInUse, LocationUse
 
 location, ready, go = sys.argv[1:4]
 blocked = []
@@ -161,10 +161,13 @@ def audit(event, args):
             time.sleep(0.01)
 
 sys.addaudithook(audit)
-with LocationUse(Path(location)) as use:
-    use.mark_started()
-    print("entered", os.path.isdir(location), flush=True)
-    sys.stdin.readline()
+try:
+    with LocationUse(Path(location)) as use:
+        use.mark_started()
+        print("entered", os.path.isdir(location), flush=True)
+        sys.stdin.readline()
+except LocationInUse:
+    print("in-use", flush=True)
 """
 
 
@@ -306,10 +309,8 @@ def test_entered_location_excludes_another_process_before_any_save(tmp_path: Pat
         assert not (location / "tracker.json").exists()
         assert _claim_outcome(location) == "in-use"
     assert time.monotonic() - started < DEADLINE_SECONDS
-    with _holding(location):
-        with pytest.raises(LocationInUse):
-            with LocationUse(location):
-                pytest.fail("the body of a refused claim ran")
+    with _holding(location), pytest.raises(LocationInUse), LocationUse(location):
+        pytest.fail("the body of a refused claim ran")
     assert not (location / "tracker.json").exists()
 
 
@@ -337,9 +338,8 @@ def test_context_exit_releases_the_claim(tmp_path: Path) -> None:
         assert _claim_outcome(location) == "in-use"
     assert _claim_outcome(location) == "acquired"
     sentinel = _BodyFailed("the body failed")
-    with pytest.raises(_BodyFailed) as caught:
-        with LocationUse(location):
-            raise sentinel
+    with pytest.raises(_BodyFailed) as caught, LocationUse(location):
+        raise sentinel
     assert caught.value is sentinel
     assert _claim_outcome(location) == "acquired"
     assert _snapshot(location) == before
@@ -399,11 +399,10 @@ def test_failed_start_restores_only_its_own_empty_leaf(tmp_path: Path, setup: st
     elif setup == "preexisting-empty":
         location.mkdir()
     before = _snapshot(location) if location.exists() else None
-    with pytest.raises(_BodyFailed):
-        with LocationUse(location):
-            if setup == "populated-after-entry":
-                (location / "tracker.json").write_bytes(SAVED_BYTES)
-            raise _BodyFailed
+    with pytest.raises(_BodyFailed), LocationUse(location):
+        if setup == "populated-after-entry":
+            (location / "tracker.json").write_bytes(SAVED_BYTES)
+        raise _BodyFailed
     if setup == "absent":
         assert not location.exists()
     elif setup == "populated-after-entry":
@@ -422,10 +421,9 @@ def test_successful_start_keeps_its_empty_location(tmp_path: Path, exit_kind: st
             use.mark_started()
             assert _snapshot(location) == {}
     else:
-        with pytest.raises(_BodyFailed):
-            with LocationUse(location) as use:
-                use.mark_started()
-                raise _BodyFailed
+        with pytest.raises(_BodyFailed), LocationUse(location) as use:
+            use.mark_started()
+            raise _BodyFailed
     assert location.is_dir()
     assert _snapshot(location) == {}
     assert _claim_outcome(location) == "acquired"
@@ -445,11 +443,10 @@ def test_contender_reacquires_the_live_directory_after_owner_rollback(tmp_path: 
     ready, go = tmp_path / "ready", tmp_path / "go"
     contender: _Child | None = None
     try:
-        with pytest.raises(_BodyFailed):
-            with LocationUse(location):
-                contender = _Child(CONTENDER_PROGRAM, str(location), str(ready), str(go))
-                _wait_for(ready)
-                raise _BodyFailed
+        with pytest.raises(_BodyFailed), LocationUse(location):
+            contender = _Child(CONTENDER_PROGRAM, str(location), str(ready), str(go))
+            _wait_for(ready)
+            raise _BodyFailed
         assert not location.exists()
         go.write_text("go")
         assert contender is not None
@@ -460,3 +457,37 @@ def test_contender_reacquires_the_live_directory_after_owner_rollback(tmp_path: 
     finally:
         if contender is not None:
             contender.close()
+
+
+def test_contender_holding_a_removed_directory_is_refused_by_the_path_that_replaced_it(
+    tmp_path: Path,
+) -> None:
+    """CP-697, CP-698: the removed directory's claim is not the claim on the new one at that path."""
+    location = tmp_path / "saved"
+    ready, go = tmp_path / "ready", tmp_path / "go"
+    contender: _Child | None = None
+    try:
+        with pytest.raises(_BodyFailed), LocationUse(location):
+            contender = _Child(CONTENDER_PROGRAM, str(location), str(ready), str(go))
+            _wait_for(ready)
+            raise _BodyFailed
+        assert not location.exists()
+        with _holding(location):
+            go.write_text("go")
+            assert contender is not None
+            assert contender.line() == "in-use"
+            assert location.is_dir()
+    finally:
+        if contender is not None:
+            contender.close()
+
+
+def test_failed_start_leaves_a_directory_that_replaced_its_own(tmp_path: Path) -> None:
+    """CP-706: rollback removes the directory it claimed, never another one now at that path."""
+    location = tmp_path / "saved"
+    with pytest.raises(_BodyFailed), LocationUse(location):
+        location.rename(tmp_path / "moved")
+        location.mkdir()
+        raise _BodyFailed
+    assert location.is_dir()
+    assert (tmp_path / "moved").is_dir()
