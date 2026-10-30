@@ -7,9 +7,9 @@ the assignee list holds the project counter and the projects alone, data written
 the assignees, and data written before the operator name holds both and the tasks. Each is read
 as having no assignees, no tasks and a task counter of 1, or no operator name; a read never
 rewrites it, and the first save writes the full form, which always carries `operator_name` as text
-or null. The only rules applied here are the file's shape and types and the decoding of an
-instant; every data rule, the operator name's included, comes from `domain.restore_state` and
-`domain.restore_task`, whose refusal is reported as unreadable.
+or null. The only rules applied here are the file's shape and types, that its text is text, and the
+decoding of an instant; every data rule, the operator name's included, comes from
+`domain.restore_state` and `domain.restore_task`, whose refusal is reported as unreadable.
 """
 
 from __future__ import annotations
@@ -74,7 +74,10 @@ def _decode_instant(value: object) -> datetime:
         raise ValueError("a saved instant is not text") from error
     if instant.tzinfo is None or instant.utcoffset() is None:
         raise ValueError("a saved instant names no time zone")
-    return instant.astimezone(UTC)
+    try:
+        return instant.astimezone(UTC)
+    except OverflowError as error:
+        raise ValueError("a saved instant falls outside the calendar") from error
 
 
 class SavedData:
@@ -93,6 +96,8 @@ class SavedData:
             raise UnreadableData(self.location) from error
         try:
             document = json.loads(raw.decode("utf-8"))
+            # JSON can spell a lone surrogate, which no page or save can encode: it is not text.
+            json.dumps(document, ensure_ascii=False).encode("utf-8")
             projects, next_project_id, assignees, tasks, next_task_id, operator_name = self._unpack(
                 document
             )
@@ -104,7 +109,7 @@ class SavedData:
                 next_task_id=next_task_id,
                 operator_name=operator_name,
             )
-        except (ValueError, Refusal) as error:
+        except (ValueError, RecursionError, Refusal) as error:
             raise UnreadableData(self.location) from error
 
     def save(self, state: TrackerState) -> None:

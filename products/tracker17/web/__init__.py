@@ -1,6 +1,7 @@
 """The browser-facing part: pages, the request path, and the listener on the loopback address.
 
-Imports only `application` (and `errors`); every value it shows comes from the tracker it is given.
+Imports only `application` (and `errors`); every value it shows comes from the tracker it is given,
+or, on saved data that cannot be read, from the location it is given.
 """
 
 from web.listener import AddressTaken, Listener, listen, listen_unreadable

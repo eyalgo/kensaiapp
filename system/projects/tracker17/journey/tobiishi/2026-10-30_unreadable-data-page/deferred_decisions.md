@@ -17,3 +17,10 @@ What this change held back, for `shukuba-refine` to place after the unit lands.
 **Why not this change:** CP-717 follows the design document, and both records agree on no navigation (Locked Answers, Gap 7). Aligning the SDD's wording is the CTO's, and the request does not ask for it.
 **Owner:** none — for shukuba-refine
 **Status:** open
+
+## A location whose path is not UTF-8 ends the start with a traceback — surfaced by development-code-integrity (2026-10-30)
+**Record:** no rule says how the tracker shows a path it cannot encode. NFDR § 9 lets the tracker run on Linux, where such a path can exist. macOS refuses to create one.
+**Product today:** `UnreadableSite` cannot encode such a location when it builds the page, so an unreadable start ends with a traceback after it binds. The console line, and the normal ready line, print the same path to a strict standard output and carry the same risk. That part was read from the code and not run.
+**Why not this change:** such a path has no faithful text, and CP-711 and CP-716 require the exact absolute path. Choosing a stand-in is a wording call for both starts, and CP-727 keeps the readable start as it is.
+**Owner:** none — for shukuba-refine
+**Status:** open

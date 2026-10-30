@@ -1,4 +1,5 @@
-"""The whole request path in one process, with no socket: `Site.handle` (SDD § 3 web; NFDR QC-7).
+"""The whole request path in one process, with no socket: `Site.handle`, and `UnreadableSite.handle`
+for saved data that cannot be read (SDD § 3 web; NFDR QC-7).
 
 A request is checked, routed, answered and turned into a `Response`. Page building is `pages.py`;
 every rule is `application`'s and `domain`'s. The site keeps no state between requests of its own:
