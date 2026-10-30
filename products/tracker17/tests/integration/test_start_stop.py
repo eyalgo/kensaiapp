@@ -269,6 +269,31 @@ sys.exit(main.start(("127.0.0.1", 0), Path(sys.argv[1])))
 """
 )
 
+# The public start, stopped at its ready write, and again by a second signal as the real listener
+# starts to close.
+CLOSE_PROGRAM = (
+    PRELUDE
+    + r"""
+prints = []
+closes = []
+def observer(frame, event, argument):
+    if event == "c_return" and argument is builtins.print and is_main_module_frame(frame):
+        prints.append(1)
+        if len(prints) == 1:
+            ack("ready-write-completed")
+            interrupt()
+    if event == "call" and frame.f_code.co_name == "server_close" and not closes:
+        closes.append(1)
+        interrupt()
+        ack("delivered-at-close")
+sys.setprofile(observer)
+result = main.start(("127.0.0.1", 0), Path(sys.argv[1]))
+sys.setprofile(None)
+ack("returned " + str(result))
+sys.exit(result)
+"""
+)
+
 # The same, on the port the parent hands in as the third argument.
 FIXED_PORT_PROGRAM = (
     PRELUDE
@@ -582,7 +607,14 @@ def test_refused_start_retains_its_message_and_saved_bytes(
 UNREADABLE_PROGRAMS = {
     "announcement": READY_WRITE_PROGRAM,
     "idle": IDLE_PROGRAM,
+    "close": CLOSE_PROGRAM,
     "return": RETURN_PROGRAM,
+}
+# What the child reports once its signal has really been sent at that boundary.
+UNREADABLE_DELIVERY = {
+    "announcement": "signal-injected",
+    "close": "delivered-at-close",
+    "return": "delivered-while-returning",
 }
 
 
@@ -598,9 +630,10 @@ def _unreadable_announcement(stdout: bytes, location: Path) -> int:
 def test_unreadable_start_stops_quietly_and_releases_its_location(
     tmp_path: Path, boundary: str
 ) -> None:
-    """CP-712, CP-725: a real SIGINT at the announcement, while idle, and as `start` returns
-    (repeated, the second delivered separately) ends the page-serving start with status 0 and
-    nothing more written; paths and bytes are unchanged and the location and port are free."""
+    """CP-712, CP-725: a real SIGINT at the announcement, while idle, and as the listener closes or
+    `start` returns (repeated, the second delivered separately) ends the page-serving start with
+    status 0 and nothing more written; paths and bytes are unchanged and the location and port are
+    free."""
     location = tmp_path / "saved"
     location.mkdir()
     (location / "tracker.json").write_bytes(UNREADABLE_DATA)
@@ -613,7 +646,8 @@ def test_unreadable_start_stops_quietly_and_releases_its_location(
         status, rest, stderr, _reports = child.finish()
         stdout = first + rest
     else:
-        status, stdout, stderr, _reports = child.finish()
+        status, stdout, stderr, reports = child.finish()
+        assert UNREADABLE_DELIVERY[boundary] in reports
 
     assert status == 0, stderr.decode("utf-8", errors="replace")
     assert stderr == b""

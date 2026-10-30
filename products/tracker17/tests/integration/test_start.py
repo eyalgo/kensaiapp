@@ -47,6 +47,7 @@ from web import AddressTaken
 PRODUCT_ROOT = Path(main.__file__).resolve().parent
 AGAIN_SECTION = "Starting the tracker again"
 UNREADABLE = b'{"next_project_id": 3, "projects": [ truncated'
+POPULATED = b'{"next_project_id": 2, "projects": [{"id": 1, "name": "Alpha", "description": ""}]}'
 SET_ASIDE_SECTION = "Setting saved data aside"
 CLOSING_SENTENCE = (
     f"To start fresh on purpose, follow {SET_ASIDE_SECTION} in the setup instructions."
@@ -261,6 +262,24 @@ def test_an_unreadable_start_serves_one_page_and_announces_once(
     assert _listing(tmp_path) == before
 
 
+def test_a_relative_location_is_shown_as_one_absolute_path(starts: _Starts, tmp_path: Path) -> None:
+    """CP-711, CP-716: a start handed a relative location names the same absolute path on the
+    console and on the page."""
+    location = tmp_path / "saved"
+    location.mkdir()
+    (location / "tracker.json").write_bytes(UNREADABLE)
+    relative = Path(os.path.relpath(location, PRODUCT_ROOT))
+    shown = PRODUCT_ROOT / relative
+    assert not relative.is_absolute()
+
+    served = starts.serve(relative)
+
+    assert served.first_line == announcement(shown, served.port)
+    page = html.unescape(served.request("GET", "/")[2].decode("utf-8"))
+    assert f"which is kept at {shown}. " in page
+    assert served.stop() == (0, "", "")
+
+
 def test_an_unreadable_start_changes_nothing_in_the_location(
     starts: _Starts, tmp_path: Path
 ) -> None:
@@ -280,6 +299,10 @@ INVALID_FILES = {
     "not-utf8": b"\xff\xfe\x00",
     "missing-key": b'{"next_project_id": 1}',
     "wrong-shape": b"[]",
+    "nested-too-deep": b"[" * 100_000,
+    "lone-surrogate-is-not-text": (
+        b'{"next_project_id": 2, "projects": [{"id": 1, "name": "\\ud800", "description": ""}]}'
+    ),
 }
 
 INVALID_ASSIGNEES: dict[str, object] = {
@@ -537,6 +560,7 @@ TASK_BREAKS: dict[str, dict[str, object]] = {
     "long-title": {"title": "t" * 201},
     "blank-assignee": {"assignee": " "},
     "identity-not-yet-issued": {"id": 2},
+    "instant-before-the-calendar": {"created_at": "0001-01-01T00:00:00+14:00"},
 }
 
 
@@ -586,6 +610,29 @@ def test_each_dr6_break_serves_without_changing_saved_data(
     """CP-728, CP-725: each kind of break SRS DR-6 names reaches a real 503 page and leaves the
     file's bytes and the location's listing as they were, through the stop."""
     _serves_the_page(starts, tmp_path, content)
+
+
+def test_each_dr6_document_loads_once_its_break_is_repaired(tmp_path: Path) -> None:
+    """CP-728: the seven cases above break one rule each, so each fails for the break it names."""
+    project = {"id": 1, "name": "Alpha", "description": ""}
+    repaired = {
+        "task-document": _task_break_document({}),
+        "two-project-names": json.dumps(
+            {"next_project_id": 3, "projects": [project, {**project, "id": 2, "name": "Beta"}]}
+        ).encode(),
+        "two-task-identities": json.dumps(
+            {
+                "next_project_id": 2,
+                "projects": [project],
+                "assignees": [],
+                "next_task_id": 3,
+                "tasks": [TASK_BASE, {**TASK_BASE, "id": 2, "title": "Other"}],
+            }
+        ).encode(),
+    }
+    for name, content in repaired.items():
+        (tmp_path / "tracker.json").write_bytes(content)
+        assert SavedData(tmp_path).load() is not None, name
 
 
 def _task_with_labels(identity: int, labels: list[str]) -> dict[str, object]:
@@ -752,6 +799,7 @@ INVALID_COMMENTS = {
     "blank-author": _comment(author=""),
     "whitespace-author": _comment(author="  　"),
     "overlong-author": _comment(author="a" * 201),
+    "instant-after-the-calendar": _comment(created_at="9999-12-31T23:59:59-14:00"),
 }
 OTHER_INVALID: dict[str, bytes] = {
     **{f"file-{name}": content for name, content in INVALID_FILES.items()},
@@ -907,6 +955,26 @@ def test_a_location_that_is_a_file_serves_without_touching_it(
     assert served.stop() == (0, "", "")
     assert location.read_bytes() == b"this is a file"
     assert _listing(tmp_path) == before
+
+
+@pytest.mark.skipif(os.geteuid() == 0, reason="root reads a directory whatever its mode")
+def test_a_saved_file_without_read_permission_serves_without_touching_it(
+    starts: _Starts, tmp_path: Path
+) -> None:
+    """CP-710, CP-725: a saved file the tracker may not read serves the page, no refusal."""
+    saved = tmp_path / "tracker.json"
+    saved.write_bytes(POPULATED)
+    before = _listing(tmp_path)
+    saved.chmod(0o000)
+    try:
+        served = starts.serve(tmp_path)
+        assert served.first_line == announcement(tmp_path, served.port)
+        assert served.request("GET", "/")[0] == 503
+        outcome = served.stop()
+    finally:
+        saved.chmod(0o644)
+    assert outcome == (0, "", "")
+    assert saved.read_bytes() == POPULATED and _listing(tmp_path) == before
 
 
 @pytest.mark.skipif(os.geteuid() == 0, reason="root reads a directory whatever its mode")
