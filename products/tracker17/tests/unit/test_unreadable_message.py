@@ -82,6 +82,8 @@ def test_unreadable_line_escapes_each_filename_byte(byte: int) -> None:
         pytest.param(
             os.fsdecode(b"/tmp/a\xe9\xff/data"), "/tmp/a\\xe9\\xff/data", id="two-byte-example"
         ),
+        pytest.param("\udce9", "\\xe9", id="only-the-byte"),
+        pytest.param("afile/caf\udce9", "afile/caf\\xe9", id="relative-stays-relative"),
     ],
 )
 def test_unreadable_line_preserves_positions_and_other_characters(

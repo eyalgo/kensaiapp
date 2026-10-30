@@ -57,6 +57,22 @@ def expected_paragraph(shown: str) -> str:
     return f"{PAGE_BEFORE_LOCATION}{shown}{PAGE_AFTER_LOCATION}"
 
 
+def whole_page(shown: str) -> str:
+    """The complete page, written out from the page served before this change, with `shown` as
+    its location."""
+    return (
+        '<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n'
+        "<title>The saved data can&#x27;t be read - tracker17</title>\n"
+        '<link rel="stylesheet" href="/style.css">\n</head>\n<body>\n'
+        '<header class="site-header"><span class="product-name">tracker17</span></header>\n'
+        "<main>\n<h1>The saved data can't be read</h1>\n"
+        f"<p>The tracker couldn't read its saved data, which is kept at {shown}. "
+        "Nothing in it was changed or overwritten. To start fresh on purpose, "
+        "follow Setting saved data aside in the setup instructions.</p>\n"
+        "</main>\n</body>\n</html>\n"
+    )
+
+
 def assert_free_of_marker_forms(text: str) -> None:
     assert "�" not in text
     assert not any(0xDC80 <= ord(character) <= 0xDCFF for character in text)
@@ -91,6 +107,10 @@ def byte_cases() -> list[object]:
             pytest.param(f"/tmp/a{marker}b/data", f"/tmp/a{escape}b/data", id=f"{byte:#04x}")
         )
     cases += [
+        pytest.param("\udce9", "\\xe9", id="only-the-byte"),
+        pytest.param("/tmp/\udc80x\udcff", "/tmp/\\x80x\\xff", id="at-both-ends"),
+        pytest.param("/tmp/\udce9café/data", "/tmp/\\xe9café/data", id="before-valid-text"),
+        pytest.param("afile/caf\udce9", "afile/caf\\xe9", id="relative-stays-relative"),
         pytest.param("/tmp/a\udce9\udcff/data", "/tmp/a\\xe9\\xff/data", id="consecutive"),
         pytest.param("/tmp/a\udce9b\udcffc/data", "/tmp/a\\xe9b\\xffc/data", id="separated"),
         pytest.param("/tmp/\udce9/\udcff/data", "/tmp/\\xe9/\\xff/data", id="two-components"),
@@ -143,17 +163,19 @@ def test_unreadable_page_shows_markup_beside_byte_markers_as_text() -> None:
 def test_unreadable_page_keeps_ordinary_representations(location: str) -> None:
     """CP-763: a path with no filename-decoding marker gives the whole page it gave before, in the
     builder and in the served bytes; the expectation is the pre-change page written out here."""
-    expected = (
-        "<h1>The saved data can't be read</h1>\n"
-        f"<p>The tracker couldn't read its saved data, which is kept at {location}. "
-        "Nothing in it was changed or overwritten. To start fresh on purpose, "
-        "follow Setting saved data aside in the setup instructions.</p>\n"
-    )
-    page = pages.unreadable_data_page(location)
+    expected = whole_page(location)
 
-    assert expected in page
-    assert get(location).body == page.encode("utf-8")
-    assert paragraph(page) == expected_paragraph(location)
+    assert pages.unreadable_data_page(location) == expected
+    assert get(location).body == expected.encode("utf-8")
+
+
+def test_unreadable_byte_page_differs_only_in_the_location() -> None:
+    """CP-758, CP-760, CP-763: the page for a path holding the byte is the same whole page, title,
+    heading and sentences, and only the location's form is new."""
+    expected = whole_page(SHOWN_LOCATION)
+
+    assert pages.unreadable_data_page(DECODED_LOCATION) == expected
+    assert get(DECODED_LOCATION).body == expected.encode("utf-8")
 
 
 @pytest.mark.parametrize(
@@ -198,3 +220,32 @@ def test_unreadable_byte_path_keeps_route_policy() -> None:
     root = parse(reads[0].body.decode("utf-8"))
     for tag in ("a", "form", "button", "input", "select", "textarea", "nav"):
         assert root.find_all(tag) == [], tag
+
+
+def test_unreadable_byte_path_answers_as_a_plain_path_does() -> None:
+    """CP-758, CP-764: every request, checked or refused, gets the status and headers it gets on a
+    path with no such byte, and only the page's location differs."""
+    byte_site = UnreadableSite(DECODED_LOCATION, HOST)
+    plain_site = UnreadableSite("/tmp/plain/data", HOST)
+    own = {"Host": HOST}
+    pages_read = [("GET", "/", own), ("GET", "/people?x=1", own), ("HEAD", "/", own)]
+    other_answers = [
+        ("GET", "/style.css", own),
+        ("POST", "/projects", {**own, "Sec-Fetch-Site": "same-origin"}),
+        ("POST", "/projects", {**own, "Sec-Fetch-Site": "cross-site"}),
+        ("POST", "/projects", own),
+        ("GET", "/", {"Host": "example.com"}),
+        ("PUT", "/", own),
+    ]
+
+    for method, target, headers in pages_read:
+        byte_answer = byte_site.handle(method, target, headers, b"")
+        plain_answer = plain_site.handle(method, target, headers, b"")
+        assert (byte_answer.status, byte_answer.headers) == (
+            plain_answer.status,
+            plain_answer.headers,
+        ), (method, target)
+    for method, target, headers in other_answers:
+        byte_answer = byte_site.handle(method, target, headers, b"")
+        plain_answer = plain_site.handle(method, target, headers, b"")
+        assert byte_answer == plain_answer, (method, target, headers)

@@ -48,18 +48,7 @@ START_PROGRAM = (
     "import os, sys; from pathlib import Path; import main; "
     "sys.exit(main.start(('127.0.0.1', 0), Path(os.fsdecode(bytes.fromhex(sys.argv[1])))))"
 )
-LINE_OPENING = rb"The tracker couldn't read its saved data at "
 PORT_IN_LINE = re.compile(rb"Open http://127\.0\.0\.1:(?P<port>[0-9]+) in your browser")
-EXPECTED_LINE = (
-    b"The tracker couldn't read its saved data at %b, and nothing in it was changed. "
-    b"Open http://127.0.0.1:%d in your browser to read this on a page. "
-    b"To start fresh on purpose, follow Setting saved data aside in the setup instructions.\n"
-)
-EXPECTED_PARAGRAPH = (
-    "The tracker couldn't read its saved data, which is kept at %s. "
-    "Nothing in it was changed or overwritten. To start fresh on purpose, "
-    "follow Setting saved data aside in the setup instructions."
-)
 UNREADABLE_BYTES = b"{ this is not saved data"
 REGULAR_FILE_BYTES = b"not a directory"
 # What the child's console is told, once everything it could have inherited is taken away.
@@ -77,6 +66,25 @@ C_LOCALE = {"LC_ALL": "C", "PYTHONCOERCECLOCALE": "0"}
 UTF8_MODE = {"PYTHONUTF8": "1", "LC_ALL": "C", "PYTHONCOERCECLOCALE": "0"}
 # The errors a file system gives for a name it will not hold.
 REFUSED_NAME_ERRNOS = (errno.EILSEQ, errno.EINVAL)
+
+
+def expected_line(shown: bytes, port: int) -> bytes:
+    """The whole line as bytes, with `shown` as the location the line must write."""
+    return (
+        b"The tracker couldn't read its saved data at " + shown + b", and nothing in it was "
+        b"changed. Open http://127.0.0.1:" + str(port).encode() + b" in your browser to read this "
+        b"on a page. To start fresh on purpose, follow Setting saved data aside in the setup "
+        b"instructions.\n"
+    )
+
+
+def expected_paragraph(shown: str) -> bytes:
+    """The page's sentences as served, with `shown` as the location the page must write."""
+    return (
+        f"The tracker couldn't read its saved data, which is kept at {shown}. "
+        "Nothing in it was changed or overwritten. To start fresh on purpose, "
+        "follow Setting saved data aside in the setup instructions."
+    ).encode()
 
 
 def child_environment(console: Mapping[str, str]) -> dict[str, str]:
@@ -191,26 +199,26 @@ def regular_file(directory: Path) -> Path:
     return file
 
 
-def check_unreadable_start(started: _Start, shown: bytes, page_location: str) -> tuple[int, bytes]:
+def check_unreadable_start(started: _Start, shown: bytes, page_location: str) -> bytes:
     """Hold the complete first line as bytes, serve the page it names, stop quietly.
 
     `shown` is the location as the line must write it, built here and never by the start's own
-    formatter; `page_location` is the same text for the page. Returns the port and the line.
+    formatter; `page_location` is the same text for the page. Returns the line.
     """
     line = started.first_line()
     found = PORT_IN_LINE.search(line)
     assert found is not None, line
     port = int(found.group("port"))
-    assert line == EXPECTED_LINE % (shown, port), line
+    assert line == expected_line(shown, port), line
     status, headers, body = started.request(port, "GET", "/")
     assert status == 503
     assert headers["Cache-Control"] == "no-store"
-    assert (EXPECTED_PARAGRAPH % page_location).encode() in body
+    assert expected_paragraph(page_location) in body
     page = body.decode("utf-8")
     assert "�" not in page
     assert not any(0xDC80 <= ord(character) <= 0xDCFF for character in page)
     assert started.stop() == (0, b"", b"")
-    return port, line
+    return line
 
 
 def test_unreadable_start_prints_then_serves_and_stops(starts: _Starts, tmp_path: Path) -> None:
@@ -229,11 +237,15 @@ def test_unreadable_start_prints_then_serves_and_stops(starts: _Starts, tmp_path
     assert found is not None, line
     port = int(found.group("port"))
     shown = os.fsencode(tmp_path) + rb"/afile/caf\xe9"
-    assert line == EXPECTED_LINE % (shown, port), line
+    assert line == expected_line(shown, port), line
     page_location = os.fsdecode(shown)
     page = started.request(port, "GET", "/")
     assert page[0] == 503
-    assert (EXPECTED_PARAGRAPH % page_location).encode() in page[2]
+    assert page[1]["Cache-Control"] == "no-store"
+    assert expected_paragraph(page_location) in page[2]
+    served = page[2].decode("utf-8")
+    assert "�" not in served
+    assert not any(0xDC80 <= ord(character) <= 0xDCFF for character in served)
     for target in ("/people", "/nothing?x=1", "/?x=1"):
         status, headers, body = started.request(port, "GET", target)
         assert (status, body) == (503, page[2]), target
@@ -247,7 +259,6 @@ def test_unreadable_start_prints_then_serves_and_stops(starts: _Starts, tmp_path
     assert started.stop() == (0, b"", b"")
 
     assert (file.read_bytes(), listing(tmp_path)) == before
-    assert listing(file.parent) == listing(tmp_path)
 
 
 @pytest.mark.parametrize(
@@ -275,7 +286,7 @@ def test_unreadable_start_is_independent_of_console_encoding(
     started = starts.begin(file / os.fsdecode(folder), console)
     expected = os.fsencode(tmp_path) + b"/afile/" + shown
 
-    _, line = check_unreadable_start(started, expected, os.fsdecode(expected))
+    line = check_unreadable_start(started, expected, os.fsdecode(expected))
 
     assert b"\xe9" not in line and b"\xff" not in line
     assert "�".encode() not in line
