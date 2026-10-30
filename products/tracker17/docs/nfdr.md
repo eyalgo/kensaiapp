@@ -2,8 +2,8 @@
 
 **Status:** Settled
 **Owner:** Principal Architect
-**Version:** 23 — the answer to companion § 3.1 folded in (`products/tracker17/docs/trail/architecture/cycle-21.md`): QC-40's tail says that an export answering 404 to the admin account, while the alerts endpoint refuses as disabled, is what a feed that is down looks like, so the review records the feed as down and the moment as still owed and raises no discrepancy (RN-61). QC-40's obligation, window and review moments do not move, and no row or record moves. Nothing is left open, so the companion is removed and this document is Settled.
-**Inputs read:** SRS Settled (version 6) · SDD Settled (version 16) · FDR Settled (version 4) · PRD Settled (version 7) · UXD Settled (version 11) · DESIGN Settled (version 4) · CONTENT Settled (version 18) · Agari no Status line · tracker17 doctrine no Status line (stamped, unfilled)
+**Version:** 24 — the answers to companion §§ 3.1 to 3.5 folded in (`products/tracker17/docs/trail/architecture/cycle-22.md`): QC-7 and QC-63 are scoped to a tracker serving its saved data, and QC-7 names the one answer of a tracker on unreadable data, 503 with one page (RN-63). ADR-0014, ADR-0015 and ADR-0016 supersede ADR-0011, ADR-0012 and ADR-0005, each carrying its predecessor whole with the mode qualified, and the entries those bound trace to them. QC-8 and § 10 do not move. Nothing is left open, so the companion is removed and this document is Settled.
+**Inputs read:** SRS Settled (version 6) · SDD Settled (version 18; `products/tracker17/docs/SDD_open_issues.md` beside it, § 2.1 answered and not folded) · FDR Settled (version 6) · PRD Settled (version 7) · UXD Settled (version 11) · DESIGN Settled (version 4) · CONTENT Settled (version 19) · Agari no Status line · tracker17 doctrine no Status line (stamped, unfilled)
 
 > The NFDR is the product's **standing obligations, consolidated and verifiable**: every quality
 > constraint a change is checked against, derived from the SRS, the SDD, the FDR and the ADR — never
@@ -45,7 +45,7 @@ module under `tests/architecture/`, which `pytest tests/` runs.
   `typing.Protocol` classes. The classes that satisfy them do so structurally and inherit from
   neither.
   — *verified by:* layer 6, a walk of every class definition outside `tests/` that fails on a base
-  class naming either contract *(traces to: ADR-0004; ADR-0005; SDD § 3 `SM-3`, `SM-7`;
+  class naming either contract *(traces to: ADR-0004; ADR-0016; SDD § 3 `SM-3`, `SM-7`;
   `<CORE>/doctrine/engineering/arch_defaults_python.md` § Repository typing)*
 - **QC-4:** `errors.py` holds the one base error, which derives from `Exception`. Every other
   exception class in the product derives from that base, and none derives directly from
@@ -73,23 +73,33 @@ module under `tests/architecture/`, which `pytest tests/` runs.
 - **QC-7:** Only a form submission changes the tracker state. A submission is a form sent with
   `method="post"`; a link, a reload and a form sent with `method="get"` are not. A request that is
   not a submission leaves the state unchanged, and every submission is answered by sending the
-  browser to a page address built by the one function in `web` that builds them. A form sent with
-  `method="get"` is answered with its page, 200, with no redirect.
+  browser to a page address built by the one function in `web` that builds them. While the tracker
+  serves its saved data, a form sent with `method="get"` is answered with its page, 200, with no
+  redirect. While the saved data is unreadable, a request QC-31 and QC-32 let through is answered at
+  every address, whatever its query, with the one unreadable-data page, 503, `Cache-Control:
+  no-store`, and a form sent with `method="get"` gets that answer. Two requests differ: `GET
+  /style.css` answers the stylesheet, 200, and a `post` marked `same-origin` is sent to a page
+  address, built by the same one function, with its body unread.
   — *verified by:* layer 3, a test that enumerates `web`'s routes from `web` itself, sends each
   non-submission request and asserts the state is unchanged, and sends each submission and asserts a
   redirect (`tests/integration/test_routes.py`,
   `test_every_route_leaves_state_and_headers_as_the_rules_say`); and
   `test_filter_apply_reload_and_clear_are_pages_that_save_and_set_nothing` in the same module, which
-  sends the filter form's Apply, its reload and Clear and asserts 200 and nothing saved
-  *(traces to: ADR-0011; SDD § 4 RT-8, RN-53; SRS NFR-4)*
+  sends the filter form's Apply, its reload and Clear and asserts 200 and nothing saved; and, for
+  unreadable data, `tests/integration/test_unreadable_routes.py`,
+  `test_checked_unreadable_reads_share_one_representation`,
+  `test_only_checked_get_serves_the_stylesheet` and
+  `test_checked_post_always_redirects_without_decoding_or_acting`
+  *(traces to: ADR-0014; SDD § 4 RT-8, EX-13, RN-53; SRS NFR-4. The 503 is the product's measured
+  answer, because no upstream document names a status for that page (SDD RN-69); see RN-63)*
 - **QC-8:** No response sets a cookie, and `web` keeps nothing between requests except what reaches
   it through `application`.
   — *verified by:* layer 3, the QC-7 route test also asserts no `Set-Cookie` header on any response;
   layer 6 fails on an import of `http.cookies`; the keeps-nothing half is a review at
   `development-design` for a change to `web`, because state held in a module-level value is not
-  reliably distinguishable from a constant by a scanner *(traces to: ADR-0011; SDD § 4 RT-7)*
-- **QC-63:** A page that shows a pending confirmation of any action SDD § 4 EX-6 confirms — a move
-  to `cancelled`, a task deletion, a project deletion — is answered with HTTP status 202, and every
+  reliably distinguishable from a constant by a scanner *(traces to: ADR-0014; SDD § 4 RT-7)*
+- **QC-63:** While the tracker serves its saved data: a page that shows a pending confirmation of
+  any action SDD § 4 EX-6 confirms — a move to `cancelled`, a task deletion, a project deletion — is answered with HTTP status 202, and every
   other page a confirmed action's interaction or outcome lands on — a move's outcome, a deletion's
   back-out, its failure, and the landing that names the deleted task or project — with 200. Each of
   them carries `Cache-Control: no-store`. The status is read off the page as built, never off the
@@ -97,7 +107,8 @@ module under `tests/architecture/`, which `pytest tests/` runs.
   task no task ever held, answers the not-found page, 404, with no cache header, never 202; the 202
   and `no-store` clauses do not reach it. No response of an action EX-6 confirms carries
   `Clear-Site-Data`: neither its submissions nor its confirmation, back-out, failure or outcome
-  pages.
+  pages. While the saved data is unreadable, no confirmation, outcome or not-found page exists, and
+  these addresses answer as QC-7 says.
   — *verified by:* clause by clause. **The move's clauses:** layer 3,
   `tests/integration/test_routes.py`, `test_pending_confirmation_response_matches_the_rendered_page`,
   `test_non_confirmation_move_views_keep_their_response_contract`,
@@ -121,11 +132,14 @@ module under `tests/architecture/`, which `pytest tests/` runs.
   `test_project_confirmation_is_loaded_afresh_after_confirming`, which fail when Back to a
   deletion's confirmation after confirming, or Forward then Back again, is restored from history
   instead of loaded. Layer 5 proves the build the pinned library installs, Chromium 153.0.8010.12
-  under `playwright==1.63.0`, and not the operator's current stable Chrome *(traces to: ADR-0012;
+  under `playwright==1.63.0`, and not the operator's current stable Chrome. **The unreadable-data
+  clause:** layer 3, `tests/integration/test_unreadable_routes.py`,
+  `test_checked_unreadable_reads_share_one_representation`, whose targets include `/tasks/1`,
+  `/tasks/1/delete` and `/projects/1` *(traces to: ADR-0015;
   SDD § 4 RT-11, EX-6, EX-13, § 6 `delete-and-rename`, § 9 TO-8, § 11 R-12, RN-56, RN-59; SRS NFR-3,
   NFR-13, DR-2; UXD § 4, UX-F4, UX-I2, UX-I3, UX-S10; owner, `trail/architecture/cycle-12.md` § 2.1,
   `trail/architecture/cycle-15.md` § 2.1, `trail/architecture/cycle-16.md` § 3.1; see RN-44, RN-50,
-  RN-52)*
+  RN-52, RN-63)*
 - **QC-9:** The two maximum text lengths are stated once, in `domain`, and every text field's
   `maxlength` is written from them, as is the maximum the description field and the comment field
   state beside them. `web` turns each submitted CR LF pair, and each remaining CR, into
@@ -461,7 +475,7 @@ authors — and the work they enter, on their machine only, until they delete th
 § Data & Privacy; SRS NFR-6). No obligation beyond the operator's own applies, and the PRD names no
 regulation. The tracker keeps no log file (QC-42 keeps every file write inside `persistence`). Typed
 text that travels in an address reaches the browser's history, which is the browser's store and a
-cost ADR-0011 records.
+cost ADR-0014 records.
 
 - **QC-46:** The saved data holds the fields SRS DR-1 to DR-5 describe, the two identity counters
   (ADR-0008), and nothing else — no other fact about any person, and no record of requests, addresses
@@ -508,16 +522,16 @@ cost ADR-0011 records.
   *(traces to: SRS FR-8; SDD § 4 SD-4)*
 - **QC-52:** At most one running tracker uses a saved-data location. A second start against it
   refuses and changes nothing; a start after a tracker was killed succeeds.
-  — *verified by:* SRS AC-16's two tests at layer 2 *(traces to: ADR-0005; ADR-0009; SRS NFR-3; SDD
+  — *verified by:* SRS AC-16's two tests at layer 2 *(traces to: ADR-0016; ADR-0009; SRS NFR-3; SDD
   § 3 `persistence` row)*
 - **QC-53:** One action is applied at a time: a single lock is held from the start of a request's
   check until its result is saved.
   — *verified by:* layer 3, a test that holds a first save open through a saver handed in and asserts
-  a second request does not reach the saver until the first is released *(traces to: ADR-0005; SRS
+  a second request does not reach the saver until the first is released *(traces to: ADR-0016; SRS
   NFR-3; SDD § 4 RT-6)*
 - **QC-54:** The saved data is read once, at start, and never again while the tracker runs.
   — *verified by:* layer 3, a test that runs every action against an `application` built with a
-  recording saver and asserts the saver received only saves *(traces to: ADR-0005; SDD § 4 SD-1)*
+  recording saver and asserts the saver received only saves *(traces to: ADR-0016; SDD § 4 SD-1)*
 
 ## 7. Observability & monitoring
 
@@ -1671,3 +1685,46 @@ QC-12, QC-25, QC-26, QC-27, QC-40, QC-41 and QC-60 are review gates and have no 
   the same way. `Inputs read:` now names CONTENT version 18. No record was written or changed.
   Nothing is left open, so the companion is removed and this document is Settled. *(re: Version 23;
   QC-40; RN-60)*
+- **RN-63:** QC-7 and QC-63 are scoped to a tracker serving its saved data, and ADR-0014, ADR-0015 and
+  ADR-0016 supersede ADR-0011, ADR-0012 and ADR-0005 — *because* the answers to companion §§ 3.1 to 3.5
+  settled it (`trail/architecture/cycle-22.md`, with the reasoning at
+  `trail/architecture/self_answer-26.md`). The PM raised the five items. A `companion-self-answer` run
+  answered them; the owner has not. The change was a mode the product gained after these records were
+  written, so it lands by supersession, as ADR-0011 took ADR-0006 (RN-48) and ADR-0012 took ADR-0010
+  (RN-50). Each old record's Status line is the one line changed in it, and each new record carries
+  its predecessor whole. One shared record for the mode lost: the log has no status for a partial
+  narrowing, and ADR-0011 would stay Accepted and read as universal. QC-7's clause is the answer's
+  words, and it holds the one statement of the mode; QC-63 points at it. QC-3, QC-8, QC-52, QC-53,
+  QC-54 and § 4's mention re-point to the new records with their meaning unchanged, and **QC-8 does
+  not move**: the location is fixed at start, as `Site`'s own host already is, and it is nothing a
+  request brings. Three things here go beyond a direct reading of the answers. ADR-0014 scopes the
+  `get` form's refusal with its 200, because on unreadable data the form's values are never read
+  (`test_checked_unreadable_reads_share_one_representation`; the CTO's answer at
+  `SDD_open_issues.md` § 2.1). ADR-0014 prices undoing the qualification, in the answer's reasoning
+  and with UXD § 4 added, and says the listener's address limit holds in either mode. ADR-0015 names
+  ADR-0014 where ADR-0012 named ADR-0011; ADR-0013 still names ADR-0011 for the address bound and is
+  not edited, because ADR-0014 carries that bound. ADR-0016 records the shared-record alternative, on
+  the answer's own reasoning. The 503 has no upstream sentence (SDD RN-69; FDR RN-14), and QC-7 records
+  it as the product's measured answer, not as a requirement. § 10's QC-7 and QC-63 rows do not move:
+  the new tests are layer 3, in the same suite. SDD § 4 RT-8 still states its 200 with no mode, and
+  § 12 has § 4 win where the two disagree. EX-13 is also § 4 and says the same as the scoped QC-7, and
+  the CTO's answer that scopes RT-8 is on `SDD_open_issues.md` § 2.1, committed at `b13b5e86b` and not
+  yet folded. RT-8 and RT-11 still name the old records and § 12 counts thirteen; they catch up as they
+  did for ADR-0013, so nothing is raised here. *(re: QC-3, QC-7, QC-8, QC-52, QC-53, QC-54, QC-63, § 4;
+  ADR-0005, ADR-0011, ADR-0012, ADR-0014, ADR-0015, ADR-0016; source: `trail/architecture/cycle-22.md`
+  §§ 3.1 to 3.5)*
+- **RN-64:** Version 24 was written on 2026-10-30. It read the answered companion as committed at
+  `c6946020b` and copied it whole to `trail/architecture/cycle-22.md` before the fold. The PM opened
+  its five items; no producing run wrote it. Since version 23 (`git diff --stat 4a646aaf0 HEAD` over
+  the product and the project's `agari.md`, `doctrine/` and `project.md`), the SDD moved to version 18,
+  the FDR to version 6 and `CONTENT.md` to version 19, and the product gained the unreadable-data mode
+  in `main.py`, `web/`, `persistence/saved_data.py`, its tests and the README. This run read those
+  changes to the three documents, and moves no entry for them beyond RN-63: SDD EX-12's header and
+  CONTENT's start line and path form are wording, and FDR R-121 to R-128 add no replaceability promise.
+  It read `web/routes.py`, `UnreadableSite`, `main.py`, `_serve_claimed`, and
+  `tests/integration/test_unreadable_routes.py`'s first four tests, and checked that every test §§ 1 to
+  9 name exists on disk, but for the one QC-39 names as gone. It ran no suite, because this round changes no code. It read §§ 1.1, 2 to 9
+  and the Review Notes' tail of this document; it searched the other sections and the rest of the
+  notes for the mode. The SRS, the PRD, the UXD, `DESIGN.md`, `what_left.md`, the Agari and the
+  project's doctrine are unchanged since version 23. Nothing is left open, so the companion is removed
+  and this document is Settled. *(re: Version 24)*

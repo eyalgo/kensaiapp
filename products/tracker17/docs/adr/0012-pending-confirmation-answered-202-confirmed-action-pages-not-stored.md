@@ -1,6 +1,6 @@
 # ADR-0012: Answer a page that shows a pending confirmation of any confirmed action with 202, and store no page of a confirmed action
 
-**Status:** Accepted
+**Status:** Superseded by ADR-0015
 **Date:** 2026-10-28
 
 ## Context

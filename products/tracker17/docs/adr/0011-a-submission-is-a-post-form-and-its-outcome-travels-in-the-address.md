@@ -1,6 +1,6 @@
 # ADR-0011: Keep no session, carry what a page says about the last action in its address, and count only a `post` form as a submission
 
-**Status:** Accepted
+**Status:** Superseded by ADR-0014
 **Date:** 2026-10-27
 
 ## Context

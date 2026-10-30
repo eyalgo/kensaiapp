@@ -1,6 +1,6 @@
 # ADR-0005: Hold the state in memory in one process, read the file only at start, and apply one action at a time
 
-**Status:** Accepted
+**Status:** Superseded by ADR-0016
 **Date:** 2026-10-06
 
 ## Context
