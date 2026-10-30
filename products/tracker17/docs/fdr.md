@@ -1,8 +1,8 @@
 # FDR — tracker17
 
-**Status:** Draft
+**Status:** Settled
 **Owner:** Principal PM
-**Version:** 5 — the saved data's unreadable mode is stated: an outside change stays and is read at the next start, and every address shows the one page. The README's opening paragraph names both purposes, the prerequisites name the tool the test suite needs, a return to a confirmation shows what the saved data allows, and a filter or sort value no control can hold is refused
+**Version:** 6 — no rule, product decision, exclusion or example changes from version 5. At 5: the saved data's unreadable mode is stated: an outside change stays and is read at the next start, and every address shows the one page. The README's opening paragraph names both purposes, the prerequisites name the tool the test suite needs, a return to a confirmation shows what the saved data allows, and a filter or sort value no control can hold is refused
 **Inputs read:** PRD Settled (version 7) · SRS Settled (version 6) · SDD Settled (version 18) · Agari no Status line (`agari_template.md` carries none) · UXD Settled (version 11; no `products/tracker17/docs/UXD_open_issues.md` beside it; a sibling, read for collisions, not a source) · tracker17 doctrine no Status line (stamped, unfilled) · writing_bar Settled
 
 > The FDR is tracker17's behavioural contract: what the product does, and the product decisions every
@@ -642,8 +642,10 @@ in kensaiapp are found and fixed (PRD § Blurb, § Purpose; SRS § 1). The rules
   corrections. OOS-16 and R-27 stand as written, and neither rule states a status code. *(re: R-20,
   R-105; source: SDD § 4 SD-1, SD-4, EX-13; § 9 TO-4)*
 - **RN-15:** *(added)* The Description's second purpose, and R-121 to R-128, follow upstream changes
-  made after FDR version 4 read PRD version 5, SRS version 5 and SDD version 7. They await the owner's
-  confirmation at `products/tracker17/docs/fdr_open_issues.md` § 2.1. PRD version 6 and SRS version 6
+  made after FDR version 4 read PRD version 5, SRS version 5 and SDD version 7. They are a confirmed
+  choice, confirmed on 2026-10-30 in `products/tracker17/docs/trail/fdr/cycle-4.md` § 2.1, with the
+  reasoning in `products/tracker17/docs/trail/fdr/self_answer-4.md`. That answer's one addition
+  corrects the item's rationale, and no entry here carries the attribution it corrects. PRD version 6 and SRS version 6
   FR-41 are the source of R-121 to R-123. SDD versions 15 and 16 RT-4 and TO-9 are the source of R-124
   to R-126. SDD versions 11 and 13 RT-11 and TO-8 are the source of R-127. SDD version 12 RT-8 is the
   source of R-128. *(re: Description, R-121 to R-128; source: PRD § Purpose; SRS § 3.1 FR-41; SDD § 4
