@@ -20,6 +20,8 @@ Cut from `products/tracker17/docs/SDD.md` § 6 S-8 *Reached when / Behaviour*: "
 
 Added `failed-action-path` (refine of `tracker17 · tobiishi · 2026-10-30_ready-start-non-text-path`, 2026-10-30): `CONTENT.md` § *A path the tracker prints* says "one form in every place a path is written", `products/tracker17/web/routes.py:1327-1332` writes `OSError: [Errno 92] Illegal byte sequence: '/tmp/caf\udce9'`, and the unit's deferred file left that work with no owner. Its own station because it is a different console site from either start.
 
+For `failed-action-path` (refine of `tracker17 · tobiishi · 2026-10-30_unreadable-start-non-text-path`, 2026-10-30): walked once `CONTENT.md`'s companion item settles which clause governs this line. § *A path the tracker prints* says "one form in every place a path is written" (`products/tracker17/docs/CONTENT.md:135-139`); § *Message patterns*, Terminal messages, says the error text prints "exactly as the system reported it" (`products/tracker17/docs/CONTENT.md:266-267`). If the second stands, this line's bar no longer holds and is re-cut.
+
 For `unreadable-start`: this development machine's file system refuses the byte (`mkdir` errno 92), so a real start on unreadable data at such a path cannot run here and skips, as the ready start's valid-file case does; each surface's own test is what fails today here.
 
 Re-cut from `console-lines` and `unreadable-page`: split by start mode, not by surface, because an unreadable start builds the page (`UnreadableSite.__init__` encodes it) before it prints the line, so `console-lines`' "unreadable line prints and the tracker starts" could not be met until `unreadable-page` landed. The ready start is independent and lands the one path form first; the unreadable start's line and page are one S-8 behaviour and stay in one merge.
@@ -30,4 +32,4 @@ Reopens ground walked by `tracker17 · nemawashi · 2026-10-11_protect-saved-dat
 
 ## Out (later / elsewhere)
 
-No change to any document: FDR R-2, R-24 and R-25 hold as written. Not changing where the saved data lives (FDR R-16) and not the text of any message beyond the path's form.
+No document is changed by this seed's walk, beyond what `CONTENT.md`'s companion item folds through its own seat: FDR R-2, R-24 and R-25 hold as written. Not changing where the saved data lives (FDR R-16) and not the text of any message beyond the path's form.
