@@ -228,7 +228,7 @@ def test_not_found_requests_write_nothing(
     tracker = trackers.start(location)
     for path in ("/projects/99", "/nowhere"):
         page.goto(tracker.address + path)
-    assert not tracker.location.exists()
+    assert not tracker.saved_file.exists()
     create(page, tracker.address, "Alpha")
     saved = tracker.saved_file.read_bytes()
     for path in ("/projects/99", "/nowhere"):

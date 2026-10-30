@@ -2,10 +2,11 @@
 abstraction. Every other module receives its collaborators through its constructor; nothing
 outside this module builds one.
 
-`start` builds the saved data, the tracker over its current state and the listener, and serves until
-Ctrl-C. From the ready line until `start` returns, every Ctrl-C only records that a stop was asked
-for (SRS FR-1; change spec rules CP-644 and CP-645): serving ends at its next look, the listener is
-closed, and `start` returns 0 with nothing more written. `main` starts it on the fixed loopback
+`start` claims the saved-data location, builds the saved data, the tracker over its current state and
+the listener, and serves until Ctrl-C; the claim is released after the listener is closed. From the
+ready line until `start` returns, every Ctrl-C only records that a stop was asked for (SRS FR-1;
+change spec rules CP-644 and CP-645): serving ends at its next look, the listener is closed, and
+`start` returns 0 with nothing more written. `main` starts it on the fixed loopback
 address and the saved data's default location.
 """
 
@@ -21,10 +22,14 @@ from typing import Protocol
 
 from application import Tracker
 from domain import empty_state
-from persistence import DEFAULT_LOCATION, SavedData, UnreadableData
+from persistence import DEFAULT_LOCATION, LocationInUse, LocationUse, SavedData, UnreadableData
 from web import AddressTaken, listen
 
 ADDRESS = ("127.0.0.1", 8017)
+ANOTHER_TRACKER_LINE = (
+    "The tracker didn't start, because another tracker is already running on the same saved data. "
+    "Stop that one first, then start this one."
+)
 
 
 class StopRequests(Protocol):
@@ -95,10 +100,22 @@ def serve_until_stopped(
 def start(address: tuple[str, int], location: Path) -> int:
     """Serve the tracker on the address, with its saved data at the location, until Ctrl-C.
 
-    Returns 1, having written one message and changed nothing, when the saved data cannot be read.
-    Returns 1 with one message when something else already holds the address; the saved data is read
-    first, so unreadable data is the message shown when both are true.
+    The location is claimed first and the claim is held until the listener is closed, whatever
+    ends the start. Returns 1, having written one message and changed nothing, when another tracker
+    holds the location. After that, returns 1 with one message when the saved data cannot be read,
+    and then when something else already holds the address; the saved data is read first, so
+    unreadable data is the message shown when both are true. A claim that could not be made for any
+    other reason changes nothing here: the start goes on without it.
     """
+    try:
+        with LocationUse(location) as claim:
+            return _serve_claimed(address, location, claim)
+    except LocationInUse:
+        print(ANOTHER_TRACKER_LINE, file=sys.stderr)
+        return 1
+
+
+def _serve_claimed(address: tuple[str, int], location: Path, claim: LocationUse) -> int:
     saved_data = SavedData(location)
     shown_location = location.absolute()
     try:
@@ -122,6 +139,7 @@ def start(address: tuple[str, int], location: Path) -> int:
             file=sys.stderr,
         )
         return 1
+    claim.mark_started()
     host, port = listener.server_address[:2]
 
     def announce() -> None:
