@@ -17,7 +17,7 @@ Cut from `products/tracker17/docs/SDD.md` § 6 S-8, slug `protect-saved-data` ("
 ## Stations — dynamic checklist
 
 - [x] second-tracker-refusal — a second start on a location a running tracker uses prints one plain message while the first carries on, a start after a kill succeeds (both halves of AC-16 as tests), and the README says so
-- [ ] unreadable-data-page — the tracker starts on unreadable data, every address shows the one page with no navigation or control, the console names the location, a restart after set-aside starts empty with the earlier work kept, one test per DR-6 break at that level asserts unchanged bytes (AC-7), both suites pass, and the README says what a start does, its two wording faults mended (`products/tracker17/README.md:L79`, "the same commands" with no commands before it; `:L95`, one conclusion stated twice)
+- [x] unreadable-data-page — the tracker starts on unreadable data, every address shows the one page with no navigation or control, the console names the location, a restart after set-aside starts empty with the earlier work kept, one test per DR-6 break at that level asserts unchanged bytes (AC-7), both suites pass, and the README says what a start does, its two wording faults mended (`products/tracker17/README.md:L79`, "the same commands" with no commands before it; `:L95`, one conclusion stated twice)
 - [ ] what-the-start-prints — the setup instructions' section "What the start prints" names the line that begins "The tracker couldn't read" beside the two it already describes, and says the tracker is still running when it shows it; both suites pass
 
 Divergence from the proposal, six lines:
