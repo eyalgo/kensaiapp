@@ -16,7 +16,7 @@ Cut from `products/tracker17/docs/SDD.md` § 4 RT-4 and Review Notes RN-62/RN-63
 
 - [x] lock-and-pins-test — `uv.lock` committed beside `pyproject.toml`; `uv lock --check` exits 0; `test_pins.py` fails on a missing `uv.lock` or an unpinned test dependency and reads no `tests/requirements.txt`; that file is gone and `pyproject.toml` comments no longer name it; `uv sync --locked` then `uv run pytest tests/unit tests/architecture` pass in a fresh clone
 - [x] readme-on-uv — the README's suite section gives `uv sync --locked` and `uv run` and holds no `venv` or `pip install` line; "How it's built" says uv makes the suite's environment; the tracker's own setup lines still name uv nowhere
-- [ ] project-card-commands — the project card's Setup and Test commands, run from a fresh change worktree's root, make the environment from `uv.lock` and run the suite through uv, both exiting 0
+- [x] project-card-commands — the project card's Setup and Test commands, run from a fresh change worktree's root, make the environment from `uv.lock` and run the suite through uv, both exiting 0
 
 ## Relation to existing work
 
