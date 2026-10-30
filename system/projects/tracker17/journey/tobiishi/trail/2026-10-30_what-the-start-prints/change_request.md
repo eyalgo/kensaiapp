@@ -10,3 +10,6 @@ What must not be weakened: the section still describes the ready line and the `T
 **Category:** feature
 **Behaviour:** changing
 **Classified because:** the station's reached-when 1 and 2 add a statement a reader acts on to the setup instructions (a third line the start can print, and that the tracker keeps running when it shows), which adds to the document's contract rather than rewording text already there.
+
+**Sealed:** 2026-10-30 — accepted; merged to `main` via `--no-ff`.
+Environment: owners-mac — no CI
