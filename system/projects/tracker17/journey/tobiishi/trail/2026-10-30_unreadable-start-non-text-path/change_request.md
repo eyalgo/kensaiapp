@@ -9,3 +9,6 @@ Sizing: one capability (the unreadable start on such a path, its line and its pa
 **Category:** feature
 **Behaviour:** changing
 **Classified because:** the station's reached-when 1 to 3 have a start on unreadable data that today raises print a line and serve a page, a new observable behaviour at the FDR-level contract (R-24 and R-25, "names its location"), not a restructuring that preserves what the suite pins.
+
+**Sealed:** 2026-10-30 — accepted; merged to `main` via `--no-ff`.
+Environment: owners-mac — no CI
