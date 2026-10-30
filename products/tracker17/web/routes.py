@@ -1332,7 +1332,7 @@ class Site:
 
 
 class UnreadableSite:
-    """The request path of a tracker that started on saved data it could not read (CP-718 to CP-722).
+    """The request path of a tracker that started on saved data it could not read (CP-718–CP-722).
 
     It holds the displayed location and its own host, both fixed at start, and nothing a request
     brings: no tracker, no reader and no saver, so no request can reach the saved data (CP-725).
