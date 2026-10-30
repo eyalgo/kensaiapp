@@ -1,0 +1,13 @@
+# Change request — 2026-10-30_second-tracker-refusal
+
+---
+
+**Request:** Make a second tracker started on the saved-data location a running tracker already uses refuse to start. It prints one plain message saying it is refused because another tracker is using that location, and exits without serving, while the first tracker carries on untouched and the saved data's bytes stay as they were. A tracker started after the first one was killed (a kill it cannot handle) on the same location starts and serves. The refusal is the one lock ADR-0009 names and SDD `SM-5` places between `main` and `persistence`, on the Unix path only. Two tests land under `products/tracker17/tests/`: one starts a tracker, starts a second on the same location and asserts the message, the exit without serving, that the first still answers a request, and that the data's bytes are unchanged; the other kills the first tracker and asserts a tracker started on that location serves (both halves of SRS AC-16). The README gains a passage saying a second start on a location in use is refused with a message while the first carries on, and that a start after a kill succeeds; it must contain the words "another tracker".
+
+Sizing: one capability, one merge. The acceptance boundary is SRS AC-16 / NFR-3 (one running tracker per location), taken from the station's five reached-when items. The lock, the message, the kill-recovery and the README sentence are one behaviour and its proof, so they stay together. The tests must fail on the tree as it was before this change and pass after.
+
+What must not be weakened: the lock is Unix only, with no Windows path, no operating-system check and no message for one (ADR-0009). A start on unreadable saved data keeps today's exit-1 stop; changing it is the next station's. Saved data is never written, replaced or deleted by the refusal (SDD SD-4). The address-taken behaviour, the screens and the data model do not change. The suite is not narrowed: both `uv run --locked --project products/tracker17 pytest products/tracker17/tests/` and the same on `products/tracker17/tests/e2e/` exit 0. Not here: the unreadable-data page, its console message, the set-aside restart, the one-test-per-DR-6-break work and the README's unreadable-data description (the seed's item 2, `unreadable-data-page`).
+
+**Category:** feature
+**Behaviour:** changing
+**Classified because:** the station's reached-when adds a new observable, a second start on a location in use that today serves or stops on the address and instead prints a refusal and exits, plus a start-after-kill guarantee (SRS AC-16); a change that adds behaviour to the contract is `changing`, and `feature` is the Category that adds behaviour (`change_classification.md`).
