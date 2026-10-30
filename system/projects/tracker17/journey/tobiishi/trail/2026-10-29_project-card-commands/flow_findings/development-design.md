@@ -1,0 +1,8 @@
+# Flow Findings — development-design  (audited 2026-10-30)
+
+Findings for this step's output only, produced by the `development-audit` skill.
+Change-local findings live here; skill-general findings are also raised as kaizen items.
+
+- **[non-blocking · change-local · divergence-record]** The design fixes the two suites as `&&`-joined, so a unit failure means the end-to-end suite never runs and its result is not reported; Architect Review Notes item 2 gives the reason for two processes, not for short-circuiting over running both and combining the exit codes. Where: `change_design.md §4 Code Strategy` ("failure in the first prevents the second starting"), `§5 T6`, `§Architect Review Notes` item 2. The spec (CP-689) requires only "exits 0 only when both exit 0", so this is a choice the spec left open that landed without its reason or its trade-off. Direction: log it as a kind (b) decision with its reason.
+
+Lenses 1 (coverage: CP-685–CP-692 and Examples 1–12 each map to T1–T8, rule-implied collection/empty-suite edges in T6), 2, 3 (Category `nfdr` / Behaviour `changing` copied verbatim), 5 (lock refusal and exit propagation realized by construction), 6 (single card delta, placement outside the parts table logged as kind (e), the false NFDR §10 record listed and already handed on in `deferred_decisions.md`, §3 correctly omitted for one module), 8 (spec's Gap 5 browser option answered in item 3; no downstream role named): clean. Lenses 7, 9 and 10 do not apply to this step. Spot-checked citations (`create_change_worktree.py:472-476`, `gate_suite.py:2144-2149`, `conftest.py:44-59`, `nfdr.md:633-634`, `SDD.md:212-218`, RN-33) match.

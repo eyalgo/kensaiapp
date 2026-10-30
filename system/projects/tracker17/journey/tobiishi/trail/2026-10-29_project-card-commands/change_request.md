@@ -11,3 +11,6 @@ Acceptance (the station's reached-when, checked in a fresh clone from its root):
 **Category:** nfdr
 **Behaviour:** changing
 **Classified because:** the station changes the card's Setup and Test commands, which are the tooling that says pass or fail for every later change; a check that decides its verdict on a different basis is a changed observable (`change_classification.md` § Category notes, `nfdr`).
+
+**Sealed:** 2026-10-30 — accepted; merged to `main` via `--no-ff`.
+Environment: owners-mac — no CI
