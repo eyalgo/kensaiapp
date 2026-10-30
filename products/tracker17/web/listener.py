@@ -111,7 +111,7 @@ def listen_unreadable(address: tuple[str, int], location: str) -> Listener:
 
 
 def _bind(address: tuple[str, int], answers_for: Callable[[str], Answers]) -> Listener:
-    """The one binding: a listener whose own handler class answers through `answers_for(host:port)`."""
+    """The one binding: a listener whose own handler class answers via `answers_for(host:port)`."""
 
     class Handler(_Handler):
         """This listener's own handler class, so its `site` is not shared with another listener."""

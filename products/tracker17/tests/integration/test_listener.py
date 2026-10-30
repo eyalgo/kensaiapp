@@ -529,7 +529,7 @@ def test_unreadable_head_omits_the_representation_body(
 def test_unreadable_listener_errors_are_empty_and_quiet(
     serve_unreadable: Callable[[str], tuple[str, int]], capfd: pytest.CaptureFixture[str]
 ) -> None:
-    """CP-722, CP-727: the library's own errors stay empty with the policy, and nothing is printed."""
+    """CP-722, CP-727: the library's own errors stay empty with the policy; nothing is printed."""
     address = serve_unreadable(UNREADABLE_LOCATION)
     host = f"Host: {address[0]}:{address[1]}\r\n".encode()
     answered = (
