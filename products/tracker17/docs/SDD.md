@@ -2,8 +2,8 @@
 
 **Status:** Settled
 **Owner:** CTO — writes every part; the CPO and the CDO decide the parts the lane table names, through `SDD_open_issues.md` items carrying their `Seat:`
-**Version:** 16 — the thirteenth answered round folded in (`products/tracker17/docs/trail/sdd/cycle-13.md`), one item the PM raised from the product's README against § 6 S-1 and § 4 RT-4 and answered in the CTO's seat: the two disagreed on whether the setup instructions' prerequisites section names uv, and S-1 holds. RT-4 now says that the prerequisites section names uv as the suite's alone, beside the one-time network connection RT-1 already places there, and that "the tracker's own setup", which names uv nowhere, is the tracker's prerequisites and RT-2's two commands. No slice, fence or edge moves, and SRS C-7's bound on the tracker's setup is untouched. The round's one item in § 2, raised by the run that answered § 5.1 with its slot left empty, is settled by the records on disk: RT-4 names ADR-0013, which supersedes ADR-0002, as the record of the suite's environment; § 12 counts thirteen records; and the header reads ADR-0013, NFDR version 19 and the architecture companion open again. RN-65 to RN-67 record the round. Nothing is left open. At 15: the twelfth answered round folded in (`products/tracker17/docs/trail/sdd/cycle-12.md`), one item the owner raised by hand against § 4 RT-4 and answered in their own words: the test suite's environment is made with uv, not with Python's `venv` and the bundled installer. RT-4 says it, and settles what the answer left to this seat: the lock file is `uv.lock`, committed beside `pyproject.toml`, in place of `tests/requirements.txt`; setup is `uv sync --locked`, which makes `.venv` and refuses a lock file out of step with the manifest; every suite command is typed through `uv run`; and the suite runs on the interpreter uv picks for the floor, which is not always the machine's `python3`. uv is a prerequisite of the suite and not of the tracker, so SRS C-7's bound on the tracker's setup is untouched. § 6's preamble and `first-project`'s artifact bar read uv; § 9 gains TO-9, the trade-off; § 11 R-8 names the run that would settle it, `uv run --python 3.11 pytest tests/`. Verified in a fresh clone at `e38121b11` with uv 0.11.14: `uv lock` resolved 17 packages at the four pins `pyproject.toml` declares, `uv sync --locked` installed them, 670 unit and architecture tests passed, 1,843 integration tests passed before a time cap with no failure, and `uv run pytest tests/e2e/` gave 120 passed and one timeout under machine load that passed twice when run alone. The header catches up with NFDR version 18 and the architecture companion's removal. RN-62 to RN-64 record the round. Nothing is left open. At 14: the eleventh answered round folded in (`products/tracker17/docs/trail/sdd/cycle-11.md`), one item the PM raised from the product's deletion tests against § 4 RT-11 and § 11 R-12, answered in the CTO's seat. RT-11's *Tests* and R-12's trigger name the four deletion tests on disk, landed at `ac09e56af` — the task deletion's response-policy test, which now asserts 202 on a shown confirmation; the project deletion's response-policy test; and the two history tests that go Back to a deletion's confirmation after confirming — in place of a test to come, and the divergence RN-56 recorded, a task deletion's confirmation answered 200, is closed in the product. The records caught up without an answer, as the round's § 2.1 anticipated: RT-11 names ADR-0012, which supersedes ADR-0010, as the record of its boundary and drops the line that a deletion's record was still to be written; § 12 counts twelve records; the header reads ADR-0012 and NFDR version 17. § 10's preamble counts RC-1 to RC-6, and the Review Notes' prologue gains the ninth and tenth rounds it omitted. RN-59 to RN-61 record the round. Nothing is left open. At 13: the tenth answered round folded in (`products/tracker17/docs/trail/sdd/cycle-10.md`), one item the PM raised from the product's task deletion against § 4 RT-11 and § 6 S-7, answered in the CTO's seat. RT-11 widens from a move to `cancelled` to every pending confirmation § 4 EX-6 names: a page that shows a pending confirmation of a move to `cancelled`, a task deletion or a project deletion is answered 202, read off the page as built; every other page a confirmed action's interaction or outcome lands on is 200; each carries `Cache-Control: no-store`; the address of a deleted task or project answers the not-found page, 404, with no cache header; and the case RT-11 handed to `delete-and-rename`, whether the HTTP cache may keep that 404, closes: it may, and a kept one stays true because an identity is never reused. S-7's command half gains the deletion history clause, § 11 R-12's trigger names the deletion history test once it exists, and § 7's hand-off edge names the 202. The UXD moved to version 11 after version 12 read it at 9, and § 10 RC-6 records it: a refusal or failure for a task the list's filter leaves off the list sits above the results, stated in § 4 EX-4 and in `narrow-and-sort`'s behaviour bar. RT-8 names ADR-0011, which now records it, and § 12 counts eleven records. RN-56 to RN-58 record the round. Nothing is left open. At 12: the ninth answered round folded in (`products/tracker17/docs/trail/sdd/cycle-9.md`), one item the PM raised from the product's filter form against § 4 RT-8, answered in the CTO's seat. RT-8 defines the word it binds on: a submission is a form sent with `method="post"`, a request for a change; a form sent with `method="get"` is a read, answered with the page at the address the browser built, 200, with no redirect, as the filter form is today, and § 11 R-10's bound reaches its values. RT-11 names ADR-0010, which now records it, and § 12 counts ten records. The UXD moved to version 9 after version 11 read it at 8, and § 10 RC-5 records it: § 6 `status-moves`'s overtaken-move refusal states the task's current status and claims no change, UX-F4's words. RN-53 to RN-55 record the round. Nothing is left open. At 11: the eighth answered round folded in (`products/tracker17/docs/trail/sdd/cycle-8.md`), two items the PM raised from the product's code and from the UXD and one a `companion-self-answer` run raised from § 11 read against the suite, all three answered in the CTO's seat. § 4 gains RT-11, the history-admission boundary: a page that shows a pending confirmation of a move to `cancelled` is answered 202 and every other move page 200, each with `Cache-Control: no-store`; § 9 TO-8 and § 11 R-12 surface the decision and its browser dependence, and RT-8's last sentence is scoped to a finished outcome. § 6 `status-moves`'s behaviour bar has the overtaken move name the moves the page now shows and offer no reload, and names the refusal reached by an address with no press; § 4 EX-4 says where that refusal sits; § 10 RC-4 records the UXD moving to version 8. § 11 R-2 counts the confirmation case verified, by four tests at `<a commit not in the public history>`, and § Open Questions keeps the assistive-technology case alone. RN-49 to RN-52 record the round. The header's *Inputs read* catches up with PRD version 7 and NFDR version 13, neither of which moves a line of this document (RN-52). Nothing is left open
-**Inputs read:** PRD Settled (version 7) · SRS Settled (version 6) · UXD Settled (version 11; no `products/tracker17/docs/UXD_open_issues.md` beside it) · Agari no Status line (`agari_template.md` carries none) · tracker17 doctrine no Status line (stamped, unfilled) · writing_bar Settled · ADR-0001 to ADR-0013, ADR-0002 Superseded by ADR-0013, ADR-0006 Superseded by ADR-0011, ADR-0010 Superseded by ADR-0012 and the rest Accepted, and NFDR Settled (version 19, its header; `products/tracker17/docs/architecture_open_issues.md` is live again, opened on 2026-10-29 by the PM at `f86543f50` with one item, § 3.1 on QC-40, unanswered and the Principal Architect's) (downstream; read for the decisions already recorded, as the authoring lens says, never as a source) · FDR Settled (version 4, its header; downstream, read to check what the answered round says does not move, not a source) · the product's code and tests the answered round cites (read to verify each citation on disk, not sources)
+**Version:** 17 — the fourteenth answered round folded in (`products/tracker17/docs/trail/sdd/cycle-14.md`), two items the PM raised from § 4 EX-12 and EX-13 read against the design language and the product's tests, both answered in the CTO's seat because the UXD settles each. EX-12: one header sits on every page, the unreadable-data page included; on that page it shows the product name and no area link, and the page carries no navigation and no control that acts on the data, as UXD § 4 and `products/tracker17/docs/DESIGN.md` § Components state and the page as built renders. The clause "carries no header", which cycle 1's § 2.4 addition (2) put in over-reading UX-S9, goes. EX-13: the not-found page is scoped to a tracker serving its saved data; while the saved data cannot be read, every address shows the unreadable-data page and no other, and the mode is fixed at start (SD-1, TO-4). No slice, fence or edge moves: § 6 S-8's bar, § 4 RT-11's 404 and § 6 S-7's not-found line stand as written. The round's one item in § 2, raised by the run that answered §§ 5.1 and 5.2 with its slot left empty, is settled by the records on disk: the header reads NFDR version 23 and the architecture companion live with five items, §§ 3.1 to 3.5, the Principal Architect's. RN-68 to RN-71 record the round. Nothing is left open. At 16: the thirteenth answered round folded in (`products/tracker17/docs/trail/sdd/cycle-13.md`), one item the PM raised from the product's README against § 6 S-1 and § 4 RT-4 and answered in the CTO's seat: the two disagreed on whether the setup instructions' prerequisites section names uv, and S-1 holds. RT-4 now says that the prerequisites section names uv as the suite's alone, beside the one-time network connection RT-1 already places there, and that "the tracker's own setup", which names uv nowhere, is the tracker's prerequisites and RT-2's two commands. No slice, fence or edge moves, and SRS C-7's bound on the tracker's setup is untouched. The round's one item in § 2, raised by the run that answered § 5.1 with its slot left empty, is settled by the records on disk: RT-4 names ADR-0013, which supersedes ADR-0002, as the record of the suite's environment; § 12 counts thirteen records; and the header reads ADR-0013, NFDR version 19 and the architecture companion open again. RN-65 to RN-67 record the round. Nothing is left open. At 15: the twelfth answered round folded in (`products/tracker17/docs/trail/sdd/cycle-12.md`), one item the owner raised by hand against § 4 RT-4 and answered in their own words: the test suite's environment is made with uv, not with Python's `venv` and the bundled installer. RT-4 says it, and settles what the answer left to this seat: the lock file is `uv.lock`, committed beside `pyproject.toml`, in place of `tests/requirements.txt`; setup is `uv sync --locked`, which makes `.venv` and refuses a lock file out of step with the manifest; every suite command is typed through `uv run`; and the suite runs on the interpreter uv picks for the floor, which is not always the machine's `python3`. uv is a prerequisite of the suite and not of the tracker, so SRS C-7's bound on the tracker's setup is untouched. § 6's preamble and `first-project`'s artifact bar read uv; § 9 gains TO-9, the trade-off; § 11 R-8 names the run that would settle it, `uv run --python 3.11 pytest tests/`. Verified in a fresh clone at `e38121b11` with uv 0.11.14: `uv lock` resolved 17 packages at the four pins `pyproject.toml` declares, `uv sync --locked` installed them, 670 unit and architecture tests passed, 1,843 integration tests passed before a time cap with no failure, and `uv run pytest tests/e2e/` gave 120 passed and one timeout under machine load that passed twice when run alone. The header catches up with NFDR version 18 and the architecture companion's removal. RN-62 to RN-64 record the round. Nothing is left open. At 14: the eleventh answered round folded in (`products/tracker17/docs/trail/sdd/cycle-11.md`), one item the PM raised from the product's deletion tests against § 4 RT-11 and § 11 R-12, answered in the CTO's seat. RT-11's *Tests* and R-12's trigger name the four deletion tests on disk, landed at `ac09e56af` — the task deletion's response-policy test, which now asserts 202 on a shown confirmation; the project deletion's response-policy test; and the two history tests that go Back to a deletion's confirmation after confirming — in place of a test to come, and the divergence RN-56 recorded, a task deletion's confirmation answered 200, is closed in the product. The records caught up without an answer, as the round's § 2.1 anticipated: RT-11 names ADR-0012, which supersedes ADR-0010, as the record of its boundary and drops the line that a deletion's record was still to be written; § 12 counts twelve records; the header reads ADR-0012 and NFDR version 17. § 10's preamble counts RC-1 to RC-6, and the Review Notes' prologue gains the ninth and tenth rounds it omitted. RN-59 to RN-61 record the round. Nothing is left open. At 13: the tenth answered round folded in (`products/tracker17/docs/trail/sdd/cycle-10.md`), one item the PM raised from the product's task deletion against § 4 RT-11 and § 6 S-7, answered in the CTO's seat. RT-11 widens from a move to `cancelled` to every pending confirmation § 4 EX-6 names: a page that shows a pending confirmation of a move to `cancelled`, a task deletion or a project deletion is answered 202, read off the page as built; every other page a confirmed action's interaction or outcome lands on is 200; each carries `Cache-Control: no-store`; the address of a deleted task or project answers the not-found page, 404, with no cache header; and the case RT-11 handed to `delete-and-rename`, whether the HTTP cache may keep that 404, closes: it may, and a kept one stays true because an identity is never reused. S-7's command half gains the deletion history clause, § 11 R-12's trigger names the deletion history test once it exists, and § 7's hand-off edge names the 202. The UXD moved to version 11 after version 12 read it at 9, and § 10 RC-6 records it: a refusal or failure for a task the list's filter leaves off the list sits above the results, stated in § 4 EX-4 and in `narrow-and-sort`'s behaviour bar. RT-8 names ADR-0011, which now records it, and § 12 counts eleven records. RN-56 to RN-58 record the round. Nothing is left open. At 12: the ninth answered round folded in (`products/tracker17/docs/trail/sdd/cycle-9.md`), one item the PM raised from the product's filter form against § 4 RT-8, answered in the CTO's seat. RT-8 defines the word it binds on: a submission is a form sent with `method="post"`, a request for a change; a form sent with `method="get"` is a read, answered with the page at the address the browser built, 200, with no redirect, as the filter form is today, and § 11 R-10's bound reaches its values. RT-11 names ADR-0010, which now records it, and § 12 counts ten records. The UXD moved to version 9 after version 11 read it at 8, and § 10 RC-5 records it: § 6 `status-moves`'s overtaken-move refusal states the task's current status and claims no change, UX-F4's words. RN-53 to RN-55 record the round. Nothing is left open. At 11: the eighth answered round folded in (`products/tracker17/docs/trail/sdd/cycle-8.md`), two items the PM raised from the product's code and from the UXD and one a `companion-self-answer` run raised from § 11 read against the suite, all three answered in the CTO's seat. § 4 gains RT-11, the history-admission boundary: a page that shows a pending confirmation of a move to `cancelled` is answered 202 and every other move page 200, each with `Cache-Control: no-store`; § 9 TO-8 and § 11 R-12 surface the decision and its browser dependence, and RT-8's last sentence is scoped to a finished outcome. § 6 `status-moves`'s behaviour bar has the overtaken move name the moves the page now shows and offer no reload, and names the refusal reached by an address with no press; § 4 EX-4 says where that refusal sits; § 10 RC-4 records the UXD moving to version 8. § 11 R-2 counts the confirmation case verified, by four tests at `<a commit not in the public history>`, and § Open Questions keeps the assistive-technology case alone. RN-49 to RN-52 record the round. The header's *Inputs read* catches up with PRD version 7 and NFDR version 13, neither of which moves a line of this document (RN-52). Nothing is left open
+**Inputs read:** PRD Settled (version 7) · SRS Settled (version 6) · UXD Settled (version 11; no `products/tracker17/docs/UXD_open_issues.md` beside it) · Agari no Status line (`agari_template.md` carries none) · tracker17 doctrine no Status line (stamped, unfilled) · writing_bar Settled · ADR-0001 to ADR-0013, ADR-0002 Superseded by ADR-0013, ADR-0006 Superseded by ADR-0011, ADR-0010 Superseded by ADR-0012 and the rest Accepted, and NFDR Settled (version 23, its header; `products/tracker17/docs/architecture_open_issues.md` is live, opened on 2026-10-30 by the PM at `12499fcbe` with five items, §§ 3.1 to 3.5 on QC-7, QC-63, ADR-0011, ADR-0012 and ADR-0005, unanswered and the Principal Architect's) (downstream; read for the decisions already recorded, as the authoring lens says, never as a source) · FDR Settled (version 4, its header; downstream, read to check what the answered round says does not move, not a source) · DESIGN Settled (version 4, its header; a sibling of this document, read for what the header shows on the unreadable-data page, not a source) · CONTENT Settled (version 19, its header; a sibling, read for the one line naming that page's header, not a source) · the product's code and tests the answered round cites (read to verify each citation on disk, not sources)
 
 > The SDD is the technical **how**, and it ends in a **cut**. It states the architecture the rest of
 > the system builds against — derived from the PRD (the *what and why*), the SRS (the system-level
@@ -39,19 +39,22 @@ item 5.1), `self_answer-7.md` (cycle 5, item 5.1), `self_answer-8.md` (cycle 6, 
 `self_answer-11.md` (cycle 8, item 2.1), `self_answer-12.md` (cycle 9, item 5.1),
 `self_answer-13.md` (cycle 10, item 5.1), `self_answer-14.md` (cycle 11, item 5.1),
 `self_answer-15.md` (cycle 12, item 5.1, which records that the run left the owner's own answer as
-written and decided nothing) and `self_answer-16.md` (cycle 13, item 5.1, and the raising of its
-item 2.1). The items of
-cycles 3 to 11 and of cycle 13 were raised by the PM, from the product's code, from a run of the setup instructions
+written and decided nothing), `self_answer-16.md` (cycle 13, item 5.1, and the raising of its
+item 2.1) and `self_answer-17.md` (cycle 14, items 5.1 and 5.2, and the raising of its item 2.1).
+The items of cycles 3 to 11 and of cycles 13 and 14 were raised by the PM, from the product's code, from a run of the setup instructions
 on Linux, from a passing end-to-end test, in cycles 6 and 7 from the product's code again, in cycle
 8 from the product's code and from the UXD, in cycles 9 and 10 from the product's code again, and in
 cycle 11 from the product's tests, and in cycle 13 from the product's README read against § 6 S-1
-and § 4 RT-4, not drafted by the CTO, and were answered in the CTO's seat.
+and § 4 RT-4, and in cycle 14 from § 4 EX-12 and EX-13 read against the design language and the
+product's tests, not drafted by the CTO, and were answered in the CTO's seat.
 Cycle 8's one item in § 2 was raised by the run that answered its § 5 items, in the CTO's seat, from
 reading § 11 against the suite. Cycle 11's one item in § 2 was raised the same way, from reading
 RT-11, § 12 and the header against the records; its answer slot was empty, and the records on disk
 settled it (RN-60). Cycle 13's one item in § 2 was raised the same way, from reading the header,
 RT-4 and § 12 against the records; its answer slot was empty too, and the records on disk settled it
-(RN-66). The Review Note named beside a marker says why this document reads as it does.
+(RN-66). Cycle 14's one item in § 2 was raised the same way, from reading the header against the
+records; its answer slot was empty too, and the records on disk settled it (RN-70). The Review Note
+named beside a marker says why this document reads as it does.
 
 No statement in this document awaits an answer. `products/tracker17/docs/SDD_open_issues.md` does not
 exist, and its absence is the done signal.
@@ -690,14 +693,21 @@ hold them, those conditions stand and § 11 R-2's fallback applies (`trail/sdd/c
   `products/tracker17/docs/DESIGN.md`'s. *(UXD § 9)*
 - **EX-11: Every word a page or the console shows is written to
   `products/tracker17/docs/CONTENT.md`.** *(UXD UX-I2, "the word itself is `CONTENT.md`'s")*
-- **EX-12: One header with the areas that exist so far sits on every page but one.** The page for
-  saved data that cannot be read carries no header and no navigation. Until the slice that delivers
-  a control or an area, no page shows it, links to it, or carries words that point to it. The same
-  holds for the setup instructions, which describe the tracker as it stands after each slice. No
-  page shows anything that reads as an account. *(UXD § 3; § 4; UX-S9; UX-I8)* *(confirmed with an
-  addition: `trail/sdd/cycle-1.md` § 2.4; why, RN-14)*
-- **EX-13: An address for a project or task that does not exist shows the not-found page.** *(UXD
-  UX-S10)*
+- **EX-12: One header sits on every page, showing the areas that exist so far.** On the page for
+  saved data that cannot be read, the header shows the product name and no area link, and the page
+  carries no navigation and no control that acts on the data (UXD § 4, "one header that sits on
+  every page"; UX-S9; `products/tracker17/docs/DESIGN.md` § Components, {components.header}). Until
+  the slice that delivers a control or an area, no page shows it, links to it, or carries words that
+  point to it. The same holds for the setup instructions, which describe the tracker as it stands
+  after each slice. No page shows anything that reads as an account. *(UXD § 3; § 4; UX-S9; UX-I8)*
+  *(confirmed with an addition: `trail/sdd/cycle-1.md` § 2.4; why, RN-14; the unreadable-data
+  page's header: `trail/sdd/cycle-14.md` § 5.1; why, RN-68)*
+- **EX-13: While the tracker serves its saved data, an address for a project or task that does not
+  exist shows the not-found page.** While the saved data cannot be read, every address shows the
+  unreadable-data page and no other, the not-found page included (EX-12; UXD § 4, "One page
+  replaces all of them"). Which of the two the tracker serves is fixed at start (SD-1; § 9 TO-4),
+  so which page an address shows does not change while the tracker runs. *(UXD UX-S10; UX-S9)*
+  *(the unreadable-data mode: `trail/sdd/cycle-14.md` § 5.2; why, RN-69)*
 - **EX-14: No completion line and no refusal takes keyboard focus.** The line is the accessible
   description of the element the page opens on, so assistive technology reads the line when the
   page opens. That is how UXD UX-A5's "announced to assistive technology without moving focus"
@@ -1698,7 +1708,10 @@ RT-4 and answered themselves, and the document caught up with NFDR version 18. R
 were written the same day, when the thirteenth answered round was folded in
 (`products/tracker17/docs/trail/sdd/cycle-13.md`): one item the PM raised from the product's README
 against § 6 S-1 and § 4 RT-4, answered in the CTO's seat, and the document caught up with ADR-0013
-and NFDR version 19. Where an answer settled what an earlier note called
+and NFDR version 19. RN-68 to RN-71 were written on 2026-10-30, when the fourteenth answered round
+was folded in (`products/tracker17/docs/trail/sdd/cycle-14.md`): two items the PM raised from § 4
+EX-12 and EX-13 read against the design language and the product's tests, answered in the CTO's
+seat, and the document caught up with NFDR version 23. Where an answer settled what an earlier note called
 a draft, that note now says so and names the note that carries the answer.
 
 - **RN-1:** *(CPO)* *(added)* § 1 is drafted and treated as settled by the inputs. Each sentence
@@ -3003,6 +3016,94 @@ a draft, that note now says so and names the note that carries the answer.
   stated and which record holds a condition, and no word a page shows or a value the stylesheet
   sets. It read the open station in the project's journey, as the overlay directs when one is open,
   as an input and not as a source: nothing in this document cites it.
+- **RN-68:** *(CDO)* *(changed)* § 4 EX-12 has one header sit on every page, the unreadable-data
+  page included, where it showed one on "every page but one" and had that page carry "no header
+  and no navigation"; on that page the header shows the product name and no area link, and the page
+  carries no navigation and no control that acts on the data — *because* the UXD is EX-12's source,
+  and § 4's preamble says that where the two differ the UXD is right. UXD § 4 opens its areas with
+  "one header that sits on every page" and excepts nothing; UX-S9 gives the page "no control that
+  acts on the data, and no navigation into the tracker" and says nothing of the header; and
+  `products/tracker17/docs/DESIGN.md` § Components says outright that "On UX-S9, the unreadable-data
+  page, the header shows the product name and no nav links", present since its version 1 at
+  `<a commit not in the public history>`. The page as built is the design language's: `web/pages.py`, `_framed`, renders
+  `<header class="site-header">` with the product name and the navigation it is given, and
+  `unreadable_data_page` gives it none. The clause "carries no header" entered as addition (2) of
+  `trail/sdd/cycle-1.md` § 2.4, citing UX-S9 and UXD § 4, and neither says it: that addition read
+  "no navigation" as "no header", and a confirmation that cites a source which does not carry the
+  claim is not that source's ruling. No item is raised for the CDO: the UXD and the design language
+  are both that seat's settled documents, the UXD at version 11 with no companion beside it, so the
+  call is settled by the inputs, as RN-31, RN-54 and RN-57 read a UXD change. Everything that
+  cited the old clause holds under the new one: § 6 `protect-saved-data`'s "no navigation and no
+  control that acts on the data", FDR R-26's "no action and no navigation into any other area", and
+  `products/tracker17/docs/CONTENT.md`'s line that the unreadable-data page's header shows the
+  product name. The rule that the header shows only the areas that exist so far stands. This is a
+  correction of one condition's words and not a re-cut under § 10: no slice, fence, place or § 7
+  edge moves, and no upstream document moved. The PM raised it at `55e6bb6cb` and a
+  `companion-self-answer` run answered it at `27e1b11fe`, in the CTO's seat; the reasoning is
+  `products/tracker17/docs/trail/sdd/self_answer-17.md`. *(re: § 4 EX-12; source: UXD § 4, UX-S9;
+  `products/tracker17/docs/DESIGN.md` § Components)*
+- **RN-69:** *(CDO)* *(changed)* § 4 EX-13 is scoped to a tracker serving its saved data, and says
+  that while the saved data cannot be read every address shows the unreadable-data page and no
+  other, the not-found page included, with the mode fixed at start — *because* EX-13 as written
+  was false of the product in one mode, and the UXD states the precedence in so many words: § 4,
+  "One page replaces all of them when the saved data cannot be read (UX-S9): every address shows
+  that page", and UX-S10's own definition speaks of a project or task "deleted" or an address
+  "wrong", which presuppose data being served. The product does it: `tests/integration/test_start.py`,
+  `test_an_unreadable_start_serves_one_page_and_announces_once`, asks `/`, `/people` and
+  `/nothing?x=1` on unreadable data and asserts one status and one body across the three. The mode
+  is fixed at start because § 4 SD-1 reads the file once and § 9 TO-4 holds the state in memory, so
+  a repair made while the page shows is read at the next start and no page changes under the
+  operator. No item is raised for the CDO: the UXD settles it and no experience changes. § 4
+  RT-11's 404 for a deleted task or project and § 6 `delete-and-rename`'s not-found line are reached
+  only while data is served and stand as written. FDR R-105 carries the same wording and the same
+  correction is on `products/tracker17/docs/fdr_open_issues.md` § 3.2, the Principal PM's. One thing
+  this round saw and did not state: the test asserts 503 for the unreadable-data page, and no
+  condition in § 4 names a status for it. That status is the product's and the records', the records'
+  side of the mode is on `products/tracker17/docs/architecture_open_issues.md` §§ 3.1 to 3.4, and
+  nothing in this round asked § 4 to bind it. The PM raised it at `55e6bb6cb` and a
+  `companion-self-answer` run answered it at `27e1b11fe`, in the CTO's seat; the reasoning is
+  `products/tracker17/docs/trail/sdd/self_answer-17.md`. *(re: § 4 EX-13; source: UXD § 4, UX-S9,
+  UX-S10)*
+- **RN-70:** *(CTO)* *(changed)* The header's *Inputs read* names NFDR version 23 and
+  `products/tracker17/docs/architecture_open_issues.md` live with five items, §§ 3.1 to 3.5 on QC-7,
+  QC-63, ADR-0011, ADR-0012 and ADR-0005, where it named version 19 and one item on QC-40; it also
+  names `products/tracker17/docs/DESIGN.md` and `products/tracker17/docs/CONTENT.md`, which this
+  round read — *because* the records moved after version 16 read them, and a settled document
+  refers to the records as they are (RN-29). `products/tracker17/docs/nfdr.md`'s header reads
+  version 23 at `4a646aaf0`, the fold that answered QC-40's item and removed that companion; the PM
+  opened it again at `12499fcbe` with five items, none on QC-40. `trail/sdd/cycle-14.md` § 2.1
+  raised the catch-up as a choice for the CTO's seat, from the `companion-self-answer` run that
+  answered §§ 5.1 and 5.2, and its answer slot is empty. This run made the change without one, as
+  RN-60 and RN-66 did, because the records on disk are the authority for what the records say and
+  the lines are facts about them, not a call of this seat's. The records still run to ADR-0013, so
+  § 12's count of thirteen and RT-4's record stand. What §§ 3.1 to 3.5 ask — how each record reads
+  on a start on unreadable data — is the Principal Architect's, carried on that companion, and § 12
+  says § 4 wins where the two disagree, so nothing is raised from here. *(re: the header; § 12)*
+- **RN-71:** *(CTO)* *(added)* The round that folded the fourteenth answered round read these
+  things beyond the inputs RN-16, RN-23, RN-27, RN-30, RN-33, RN-37, RN-40, RN-44, RN-46, RN-48,
+  RN-52, RN-55, RN-58, RN-61, RN-64 and RN-67 list. It read `products/tracker17/docs/SDD_open_issues.md`
+  as intake found it, committed at `27e1b11fe` with §§ 5.1 and 5.2's answer slots filled and
+  § 2.1's empty, and `products/tracker17/docs/trail/sdd/self_answer-17.md`, the reasoning behind
+  the two answers and behind the raising of § 2.1. It read `products/tracker17/docs/PRD.md`,
+  `products/tracker17/docs/SRS.md` and `products/tracker17/docs/UXD.md` at their headers, at
+  versions 7, 6 and 11 as version 16 read them, and UXD § 4 whole with the rows for UX-S4, UX-S6,
+  UX-S9 and UX-S10; `products/tracker17/docs/DESIGN.md` at its header, version 4, and its
+  § Components entry for {components.header}; `products/tracker17/docs/CONTENT.md` at its header,
+  version 19, and its one line naming the unreadable-data page's header;
+  `products/tracker17/docs/fdr.md` at its header, version 4, and R-26 and R-105;
+  `products/tracker17/docs/fdr_open_issues.md` and `products/tracker17/docs/architecture_open_issues.md`
+  at their item headings; `products/tracker17/docs/nfdr.md`'s header, at version 23;
+  `products/tracker17/docs/adr/README.md` whole; and `trail/sdd/cycle-1.md` § 2.4, where the "no
+  header" clause entered. It read, under the product root, `web/pages.py` at `_framed` and
+  `unreadable_data_page`, `web/routes.py` at `UnreadableSite`, and `tests/integration/test_start.py`
+  at `test_an_unreadable_start_serves_one_page_and_announces_once`, each to verify a citation the
+  answers make, and ran no suite: this round changed no code. It ran `git status --short` on the
+  repository, which printed nothing, so the companion it consumed is the committed one, and
+  `git log` on `SDD.md`, the companion and `trail/sdd/`, which places the companion's opening at
+  `55e6bb6cb` and its answers at `27e1b11fe`. It read `system/projects/tracker17/agari.md` and
+  `project.md` whole, and `system/projects/tracker17/doctrine/tracker17_doctrine.md` at its head,
+  stamped and unfilled. It did not read the project's journey: no station of this project's was
+  named to this run, and nothing in this document cites one.
 
 ---
 
