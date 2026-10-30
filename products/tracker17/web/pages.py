@@ -2655,7 +2655,8 @@ def unreadable_data_page(location: str) -> str:
         "<h1>The saved data can't be read</h1>\n"
         f"<p>The tracker couldn't read its saved data, which is kept at {_escape(location)}. "
         "Nothing in it was changed or overwritten. "
-        "To start fresh on purpose, follow Setting saved data aside in the setup instructions.</p>\n"
+        "To start fresh on purpose, "
+        "follow Setting saved data aside in the setup instructions.</p>\n"
     )
     return _framed("The saved data can't be read - tracker17", "", body)
 
