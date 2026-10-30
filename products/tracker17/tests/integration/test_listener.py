@@ -23,7 +23,8 @@ import pytest
 from application import Tracker, TrackerState
 from domain import empty_state
 from errors import AppError
-from web import AddressTaken, Listener, listen, pages
+from web import AddressTaken, Listener, listen, listen_unreadable, pages
+from web.routes import CSS_TYPE, HTML_TYPE, PAGE_POLICY, STYLESHEET_FILE
 
 PYTHON_TEXT = (
     "Error response",
@@ -411,3 +412,175 @@ def test_cooperative_listener_restores_timeout_and_propagates_failure() -> None:
         assert listener.socket.fileno() != -1
     finally:
         listener.server_close()
+
+
+UNREADABLE_LOCATION = "/Users/sam/copy/products/tracker17/data"
+OTHER_UNREADABLE_LOCATION = "/Users/sam/elsewhere/data"
+SUPPORTED_METHODS = ("GET", "HEAD", "POST", "PUT", "DELETE", "PATCH", "OPTIONS")
+
+
+@pytest.fixture
+def serve_unreadable() -> Iterator[Callable[[str], tuple[str, int]]]:
+    """Start unreadable-mode listeners on ephemeral ports; every one is stopped and closed."""
+    started: list[tuple[Listener, threading.Thread]] = []
+
+    def start(location: str) -> tuple[str, int]:
+        listener = listen_unreadable(("127.0.0.1", 0), location)
+        thread = threading.Thread(target=listener.serve_forever, daemon=True)
+        thread.start()
+        started.append((listener, thread))
+        host, port = listener.server_address[:2]
+        return str(host), int(port)
+
+    try:
+        yield start
+    finally:
+        for listener, thread in started:
+            listener.shutdown()
+            thread.join(timeout=10)
+            listener.server_close()
+
+
+def exchange(
+    address: tuple[str, int],
+    method: str,
+    target: str,
+    *,
+    headers: dict[str, str] | None = None,
+    body: bytes | None = None,
+) -> tuple[int, dict[str, str], bytes]:
+    connection = http.client.HTTPConnection(address[0], address[1], timeout=10)
+    try:
+        connection.request(method, target, body=body, headers=headers or {})
+        response = connection.getresponse()
+        return response.status, dict(response.getheaders()), response.read()
+    finally:
+        connection.close()
+
+
+def test_unreadable_listener_uses_its_actual_bound_host(
+    serve_unreadable: Callable[[str], tuple[str, int]],
+) -> None:
+    """CP-721: its own Host is answered; a wrong or missing one is refused and shows no location."""
+    address = serve_unreadable(UNREADABLE_LOCATION)
+    page = pages.unreadable_data_page(UNREADABLE_LOCATION).encode("utf-8")
+
+    status, _, body = exchange(address, "GET", "/")
+    assert (status, body) == (503, page)
+    status, _, body = exchange(address, "GET", "/", headers={"Host": "example.com"})
+    assert (status, body) == (403, b"")
+    status, _, body = exchange(address, "GET", "/", headers={"Host": "127.0.0.1:1"})
+    assert (status, body) == (403, b"")
+    answer = raw_exchange(address, b"GET / HTTP/1.0\r\n\r\n")
+    assert answer.startswith(b"HTTP/1.0 403")
+    assert answer.partition(b"\r\n\r\n")[2] == b""
+    assert UNREADABLE_LOCATION.encode() not in answer
+
+
+def test_unreadable_listener_transports_the_method_contract(
+    serve_unreadable: Callable[[str], tuple[str, int]],
+) -> None:
+    """CP-718 to CP-722: each supported method over real HTTP is answered as the handler says."""
+    address = serve_unreadable(UNREADABLE_LOCATION)
+    page = pages.unreadable_data_page(UNREADABLE_LOCATION).encode("utf-8")
+    same_origin = {"Sec-Fetch-Site": "same-origin"}
+
+    for method in ("GET", "PUT", "DELETE", "PATCH", "OPTIONS"):
+        status, headers, body = exchange(address, method, "/people?x=1", headers=same_origin)
+        assert (status, body) == (503, page), method
+        assert headers["Content-Type"] == HTML_TYPE
+        assert headers["Cache-Control"] == "no-store"
+        assert headers["Content-Security-Policy"] == PAGE_POLICY
+    status, headers, body = exchange(address, "GET", "/style.css")
+    assert (status, body) == (200, STYLESHEET_FILE.read_bytes())
+    assert headers["Content-Type"] == CSS_TYPE
+    status, headers, body = exchange(
+        address, "POST", "/projects", headers=same_origin, body=b"name=needle"
+    )
+    assert (status, body) == (303, b"")
+    assert headers["Location"] == "/"
+    assert headers["Content-Security-Policy"] == PAGE_POLICY
+    status, headers, body = exchange(address, "POST", "/projects", body=b"name=needle")
+    assert (status, body) == (403, b"")
+    assert headers["Content-Security-Policy"] == PAGE_POLICY
+    for method in SUPPORTED_METHODS:
+        _, headers, _ = exchange(address, method, "/", headers={"Sec-Fetch-Site": "cross-site"})
+        assert "Set-Cookie" not in headers
+
+
+def test_unreadable_head_omits_the_representation_body(
+    serve_unreadable: Callable[[str], tuple[str, int]],
+) -> None:
+    """CP-718, CP-719: HEAD carries the page's headers and length and no bytes, even at the CSS."""
+    address = serve_unreadable(UNREADABLE_LOCATION)
+    page = pages.unreadable_data_page(UNREADABLE_LOCATION).encode("utf-8")
+
+    for target in ("/", "/people", "/style.css"):
+        answer = raw_exchange(
+            address, f"HEAD {target} HTTP/1.0\r\nHost: {address[0]}:{address[1]}\r\n\r\n".encode()
+        )
+        head, _, body = answer.partition(b"\r\n\r\n")
+        assert head.startswith(b"HTTP/1.0 503"), target
+        assert body == b"", target
+        assert f"Content-Length: {len(page)}".encode() in head, target
+        assert HTML_TYPE.encode() in head, target
+
+
+def test_unreadable_listener_errors_are_empty_and_quiet(
+    serve_unreadable: Callable[[str], tuple[str, int]], capfd: pytest.CaptureFixture[str]
+) -> None:
+    """CP-722, CP-727: the library's own errors stay empty with the policy; nothing is printed."""
+    address = serve_unreadable(UNREADABLE_LOCATION)
+    host = f"Host: {address[0]}:{address[1]}\r\n".encode()
+    answered = (
+        b"FROB / HTTP/1.0\r\n" + host + b"\r\n",
+        b"POST / HTTP/1.0\r\n" + host + b"Content-Length: abc\r\n\r\n",
+    )
+    # The library may answer a request line it cannot read with nothing at all (as it does on the
+    # normal listener); when it does answer, the answer carries the policy and no body.
+    malformed = (b"nonsense\r\n\r\n", b"GET\r\n\r\n", b"\x00\x01\x02\r\n\r\n")
+    for payload in (*answered, *malformed):
+        answer = raw_exchange(address, payload)
+        head, _, body = answer.partition(b"\r\n\r\n")
+        assert body == b"", payload
+        if payload in answered or answer:
+            assert b"Content-Security-Policy" in head, payload
+        for text in PYTHON_TEXT:
+            assert text.encode() not in answer, (payload, text)
+        assert UNREADABLE_LOCATION.encode() not in answer
+    assert exchange(address, "GET", "/")[0] == 503
+    assert exchange(address, "GET", "/style.css")[0] == 200
+    captured = capfd.readouterr()
+    assert captured.out == "" and captured.err == ""
+
+
+def test_unreadable_listeners_do_not_share_configuration(
+    serve_unreadable: Callable[[str], tuple[str, int]],
+) -> None:
+    """CP-724: two live listeners answer with their own location and their own host."""
+    first = serve_unreadable(UNREADABLE_LOCATION)
+    second = serve_unreadable(OTHER_UNREADABLE_LOCATION)
+    assert first != second
+
+    _, _, first_body = exchange(first, "GET", "/")
+    _, _, second_body = exchange(second, "GET", "/")
+    assert first_body == pages.unreadable_data_page(UNREADABLE_LOCATION).encode("utf-8")
+    assert second_body == pages.unreadable_data_page(OTHER_UNREADABLE_LOCATION).encode("utf-8")
+    status, _, _ = exchange(second, "GET", "/", headers={"Host": f"{first[0]}:{first[1]}"})
+    assert status == 403
+
+
+@pytest.mark.parametrize("reuse", [False, True], ids=["plain-holder", "reuse-address-holder"])
+def test_unreadable_listener_retains_bind_failure_identity(reuse: bool) -> None:
+    """CP-714: a held address is AddressTaken; any other bind failure propagates unchanged."""
+    held = _holder("127.0.0.1", 0, reuse=reuse)
+    try:
+        address = held.getsockname()
+        with pytest.raises(AddressTaken):
+            listen_unreadable((address[0], address[1]), UNREADABLE_LOCATION)
+        assert _answer_one(held) == HELD_ANSWER
+    finally:
+        held.close()
+    with pytest.raises(OSError) as caught:
+        listen_unreadable(("192.0.2.1", 0), UNREADABLE_LOCATION)
+    assert not isinstance(caught.value, AddressTaken)

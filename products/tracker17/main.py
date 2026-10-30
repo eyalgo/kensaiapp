@@ -2,12 +2,15 @@
 abstraction. Every other module receives its collaborators through its constructor; nothing
 outside this module builds one.
 
-`start` claims the saved-data location, builds the saved data, the tracker over its current state and
-the listener, and serves until Ctrl-C; the claim is released after the listener is closed. From the
-ready line until `start` returns, every Ctrl-C only records that a stop was asked for (SRS FR-1;
-change spec rules CP-644 and CP-645): serving ends at its next look, the listener is closed, and
-`start` returns 0 with nothing more written. `main` starts it on the fixed loopback
-address and the saved data's default location.
+`start` claims the saved-data location, loads the saved data once, and serves until Ctrl-C; the
+claim is released after the listener is closed. Readable data, or none, is served as the tracker
+over its current state. Data that cannot be read is served as one plain page at every address and
+is never written to (SRS FR-4 and AC-7; change spec rules CP-710 to CP-715). Either way the
+listener is bound before anything is announced, and the announcement is one line on standard
+output. From that line until `start` returns, every Ctrl-C only records that a stop was asked for
+(SRS FR-1; change spec rules CP-644, CP-645 and CP-712): serving ends at its next look, the
+listener is closed, and `start` returns 0 with nothing more written. `main` starts it on the fixed
+loopback address and the saved data's default location.
 """
 
 from __future__ import annotations
@@ -23,7 +26,7 @@ from typing import Protocol
 from application import Tracker
 from domain import empty_state
 from persistence import DEFAULT_LOCATION, LocationInUse, LocationUse, SavedData, UnreadableData
-from web import AddressTaken, listen
+from web import AddressTaken, Listener, listen, listen_unreadable
 
 ADDRESS = ("127.0.0.1", 8017)
 ANOTHER_TRACKER_LINE = (
@@ -98,14 +101,14 @@ def serve_until_stopped(
 
 
 def start(address: tuple[str, int], location: Path) -> int:
-    """Serve the tracker on the address, with its saved data at the location, until Ctrl-C.
+    """Serve the saved data at the location on the address until Ctrl-C.
 
     The location is claimed first and the claim is held until the listener is closed, whatever
     ends the start. Returns 1, having written one message and changed nothing, when another tracker
-    holds the location. After that, returns 1 with one message when the saved data cannot be read,
-    and then when something else already holds the address; the saved data is read first, so
-    unreadable data is the message shown when both are true. A claim that could not be made for any
-    other reason changes nothing here: the start goes on without it.
+    holds the location. After that, returns 1 with one message when something else already holds
+    the address, whether or not the saved data can be read. Saved data that cannot be read does not
+    stop the start: the page is served instead of the tracker (`_serve_claimed`). A claim that could
+    not be made for any other reason changes nothing here: the start goes on without it.
     """
     try:
         with LocationUse(location) as claim:
@@ -121,16 +124,30 @@ def _serve_claimed(address: tuple[str, int], location: Path, claim: LocationUse)
     try:
         state = saved_data.load()
     except UnreadableData:
-        print(
-            f"The tracker didn't start, because it couldn't read its saved data at "
-            f"{shown_location}. Nothing in it was changed. "
-            "See Setting saved data aside in the setup instructions.",
-            file=sys.stderr,
-        )
+        opened = _bind(lambda: listen_unreadable(address, str(shown_location)), address)
+        announcement = _unreadable_line
+    else:
+        tracker = Tracker(empty_state() if state is None else state, saved_data, SystemClock())
+        opened = _bind(lambda: listen(address, tracker), address)
+        announcement = _ready_line
+    if opened is None:
         return 1
-    tracker = Tracker(empty_state() if state is None else state, saved_data, SystemClock())
+    claim.mark_started()
+    host, port = opened.server_address[:2]
+
+    def announce() -> None:
+        print(announcement(host, port, shown_location), flush=True)
+
+    return serve_until_stopped(listener=opened, announce=announce, stops=SigintStopRequests())
+
+
+def _bind(open_listener: Callable[[], Listener], address: tuple[str, int]) -> Listener | None:
+    """The bound listener, or None after the one address line when something else holds the address.
+
+    Any other bind failure propagates unchanged.
+    """
     try:
-        listener = listen(address, tracker)
+        return open_listener()
     except AddressTaken:
         host, port = address
         print(
@@ -138,18 +155,22 @@ def _serve_claimed(address: tuple[str, int], location: Path, claim: LocationUse)
             f"{host}:{port}. Stop that program, then start the tracker again.",
             file=sys.stderr,
         )
-        return 1
-    claim.mark_started()
-    host, port = listener.server_address[:2]
+        return None
 
-    def announce() -> None:
-        print(
-            f"The tracker is running. Open http://{host}:{port} in your browser. "
-            f"Saved data is kept at {shown_location}.",
-            flush=True,
-        )
 
-    return serve_until_stopped(listener=listener, announce=announce, stops=SigintStopRequests())
+def _ready_line(host: str, port: int, location: Path) -> str:
+    return (
+        f"The tracker is running. Open http://{host}:{port} in your browser. "
+        f"Saved data is kept at {location}."
+    )
+
+
+def _unreadable_line(host: str, port: int, location: Path) -> str:
+    return (
+        f"The tracker couldn't read its saved data at {location}, and nothing in it was changed. "
+        f"Open http://{host}:{port} in your browser to read this on a page. "
+        "To start fresh on purpose, follow Setting saved data aside in the setup instructions."
+    )
 
 
 def main(argv: list[str] | None = None) -> int:

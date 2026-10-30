@@ -1,4 +1,5 @@
-"""The whole request path in one process, with no socket: `Site.handle` (SDD § 3 web; NFDR QC-7).
+"""The whole request path in one process, with no socket: `Site.handle`, and `UnreadableSite.handle`
+for saved data that cannot be read (SDD § 3 web; NFDR QC-7).
 
 A request is checked, routed, answered and turned into a `Response`. Page building is `pages.py`;
 every rule is `application`'s and `domain`'s. The site keeps no state between requests of its own:
@@ -288,6 +289,12 @@ def _project_refusal(error: BlankName | NameInUse | TextTooLong) -> ProjectRefus
     return ProjectRefusal(pages.ProjectNameRefusal.BLANK_NAME)
 
 
+def _refused_before_routing(marks: Mapping[str, str], own_host: str) -> bool:
+    """The request check both handlers run first: a Host that is not the tracker's own address, or
+    a request marked as coming from another site (SEC-2). `marks` has lower-case names."""
+    return marks.get("host") != own_host or marks.get("sec-fetch-site") in REFUSED_FROM_ANOTHER_SITE
+
+
 class Site:
     """The request path in front of one tracker, for one host."""
 
@@ -302,11 +309,9 @@ class Site:
         """Answer one request. Holds the lock from the check until the response is built."""
         marks = {name.lower(): value for name, value in headers.items()}
         with self._lock:
-            if marks.get("host") != self._own_host:
+            if _refused_before_routing(marks, self._own_host):
                 return _respond(HTTPStatus.FORBIDDEN)
             fetch_site = marks.get("sec-fetch-site")
-            if fetch_site in REFUSED_FROM_ANOTHER_SITE:
-                return _respond(HTTPStatus.FORBIDDEN)
             path, _, query = target.partition("?")
             route = self._route(method, path)
             if route is None:
@@ -1325,3 +1330,33 @@ class Site:
         text = str(error)
         sys.stderr.write(f"{message}\n")
         sys.stderr.write(f"{kind}: {text}\n" if text else f"{kind}\n")
+
+
+class UnreadableSite:
+    """The request path of a tracker that started on saved data it could not read (CP-718–CP-722).
+
+    It holds the displayed location and its own host, both fixed at start, and nothing a request
+    brings: no tracker, no reader and no saver, so no request can reach the saved data (CP-725).
+    Every request that passes the check gets the same page; a POST marked same-origin is sent back
+    to it without its body being read; `GET /style.css` is the stylesheet.
+    """
+
+    def __init__(self, location: str, own_host: str) -> None:
+        self._own_host = own_host
+        self._page = pages.unreadable_data_page(location).encode("utf-8")
+
+    def handle(self, method: str, target: str, headers: Mapping[str, str], body: bytes) -> Response:
+        """Answer one request. The body is never read."""
+        marks = {name.lower(): value for name, value in headers.items()}
+        if _refused_before_routing(marks, self._own_host):
+            return _respond(HTTPStatus.FORBIDDEN)
+        if method == "POST":
+            if marks.get("sec-fetch-site") != SAME_ORIGIN:
+                return _respond(HTTPStatus.FORBIDDEN)
+            return _respond(HTTPStatus.SEE_OTHER, b"", ("Location", _address(PROJECTS_ADDRESS)))
+        path, _, _ = target.partition("?")
+        if method == "GET" and path == pages.STYLESHEET_ADDRESS:
+            return _respond(HTTPStatus.OK, STYLESHEET_FILE.read_bytes(), ("Content-Type", CSS_TYPE))
+        return _respond(
+            HTTPStatus.SERVICE_UNAVAILABLE, self._page, ("Content-Type", HTML_TYPE), NOT_STORED
+        )

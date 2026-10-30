@@ -66,7 +66,15 @@ cd products/tracker17
 python3 main.py
 ```
 
-The tracker reads its saved data as it starts, so every project you created before it stopped is still listed.
+The tracker reads its saved data as it starts. If it can read the data, every project you created before it stopped is still listed.
+
+If it can't read the data, the tracker starts anyway. It shows this one line in its terminal.
+
+```
+The tracker couldn't read its saved data at /Users/sam/copy/products/tracker17/data, and nothing in it was changed. Open http://127.0.0.1:8017 in your browser to read this on a page. To start fresh on purpose, follow Setting saved data aside in the setup instructions.
+```
+
+Your own copy's location appears in place of `/Users/sam/copy/products/tracker17/data`. In your browser, every address shows one page that says the same thing. The page has no links and no controls. The start and the page change nothing in the saved data. The tracker keeps showing the page until you stop it, even if you repair the saved data.
 
 If another tracker is already running on the same saved data, a second start is refused. It shows this one line in its terminal and exits.
 
@@ -76,11 +84,11 @@ The tracker didn't start, because another tracker is already running on the same
 
 The first tracker carries on, and the refused start changes nothing in the saved data. To stop the first tracker, press Ctrl-C in its terminal.
 
-A tracker that was killed doesn't prevent the next start. There's nothing to do first. Type the same commands, and the tracker reads its saved data as the killed tracker left it.
+A tracker that was killed doesn't prevent the next start. There's nothing to do first. In a terminal at the top of your copy, type the same commands, `cd products/tracker17` and `python3 main.py`. The tracker reads its saved data as the killed tracker left it.
 
 ### Setting saved data aside
 
-Setting saved data aside moves it out of the tracker's reach and deletes nothing, so the next start is empty. Do it to start fresh, or when the tracker didn't start because it couldn't read its saved data.
+Setting saved data aside moves it out of the tracker's reach and deletes nothing, so the next start is empty. Do it to start fresh, or when the tracker couldn't read its saved data.
 
 Stop the tracker first if it's running, by pressing Ctrl-C in its terminal. Then open a terminal at the top of your copy and type these commands.
 
@@ -92,7 +100,7 @@ mv data ~/tracker17-set-aside/$(date +%Y-%m-%d-%H%M%S)
 
 Your saved data is in a new directory inside `tracker17-set-aside`, in your home directory. The new directory is named for the date and time you set the data aside, such as `2026-10-08-143205`. To list everything you've set aside, type `ls ~/tracker17-set-aside`.
 
-If `mv` says there's no such file or directory instead, there was no saved data to set aside. If the new directory is empty, there was no saved data to set aside.
+If `mv` says there's no such file or directory, or the new directory is empty, there was no saved data.
 
 Start the tracker again with `python3 main.py`. It starts empty, with no projects.
 

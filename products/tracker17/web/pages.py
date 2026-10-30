@@ -470,6 +470,16 @@ def _written(instant: datetime) -> str:
 
 
 def _document(title: str, body: str) -> str:
+    navigation = (
+        f'<nav><a href="{PROJECTS_ADDRESS}">Projects</a>'
+        f'<a href="{ALL_TASKS_ADDRESS}">All tasks</a>'
+        f'<a href="{PEOPLE_ADDRESS}">People</a></nav>'
+    )
+    return _framed(title, navigation, body)
+
+
+def _framed(title: str, navigation: str, body: str) -> str:
+    """The one page frame: the stylesheet, the product name, the given navigation and the body."""
     return (
         "<!doctype html>\n"
         '<html lang="en">\n'
@@ -481,9 +491,7 @@ def _document(title: str, body: str) -> str:
         "<body>\n"
         '<header class="site-header">'
         f'<span class="product-name">{PRODUCT_NAME}</span>'
-        f'<nav><a href="{PROJECTS_ADDRESS}">Projects</a>'
-        f'<a href="{ALL_TASKS_ADDRESS}">All tasks</a>'
-        f'<a href="{PEOPLE_ADDRESS}">People</a></nav>'
+        f"{navigation}"
         "</header>\n"
         f"<main>\n{body}</main>\n"
         "</body>\n"
@@ -2634,6 +2642,23 @@ def task_not_found_page() -> str:
     """The page for an address shaped like a task's that names no task; it shows none of it."""
     body = f"<h1>There's no task at this address</h1>\n{_NOT_FOUND_NEXT}"
     return _document("Not found - tracker17", body)
+
+
+def unreadable_data_page(location: str) -> str:
+    """The one page a start on unreadable saved data answers with, at every address.
+
+    The location is the saved data's absolute path as text. The page carries the product name as
+    plain text and no navigation, link or control (CP-716, CP-717); the location enters through
+    `_escape` like every value (CP-723).
+    """
+    body = (
+        "<h1>The saved data can't be read</h1>\n"
+        f"<p>The tracker couldn't read its saved data, which is kept at {_escape(location)}. "
+        "Nothing in it was changed or overwritten. "
+        "To start fresh on purpose, "
+        "follow Setting saved data aside in the setup instructions.</p>\n"
+    )
+    return _framed("The saved data can't be read - tracker17", "", body)
 
 
 class _Outcome(Enum):

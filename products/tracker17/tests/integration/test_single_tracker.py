@@ -2,8 +2,9 @@
 
 Checks SRS NFR-3 and AC-16 (a second start against a location in use is refused and the first goes
 on; a start after a kill serves), FR-1 (the ready line), FR-3 (the address line) and FR-4 (the
-unreadable line). Change spec rules CP-693 to CP-699, CP-701, CP-702, CP-704 and CP-705 and NFDR
-QC-52 and QC-58 are the ones each test names. Every tracker is a separate interpreter running the
+unreadable-data page a start on unreadable saved data serves). Change spec rules CP-693 to CP-699,
+CP-701, CP-702, CP-704, CP-705, CP-713, CP-715 and CP-732 and NFDR QC-52 and QC-58 are the ones
+each test names. Every tracker is a separate interpreter running the
 product's own start; no test patches a name inside the product (SDD § 4 TS-2). Rare acquisition
 failures run in a child with an audit hook that raises at the operating-system call and leaves a
 marker file when it fired. Each wait has a deadline, so a second start that serves fails the test
@@ -42,10 +43,7 @@ ADDRESS_LINE = (
     "The tracker didn't start, because something else is already using the address "
     "127.0.0.1:{port}. Stop that program, then start the tracker again."
 )
-UNREADABLE_LINE = (
-    "The tracker didn't start, because it couldn't read its saved data at {location}. "
-    "Nothing in it was changed. See Setting saved data aside in the setup instructions."
-)
+UNREADABLE_PREFIX = "The tracker couldn't read its saved data at "
 DAMAGED = b'{"next_project_id": 3, "projects": [ truncated'
 START_PROGRAM = """
 import os
@@ -142,9 +140,18 @@ class _Process:
         text, _, self._pending = self._pending.partition(b"\n")
         return "line", text.decode()
 
-    def ready(self) -> None:
+    def ready(self, prefix: str = READY_PREFIX) -> None:
         kind, value = self.event()
-        assert kind == "line" and str(value).startswith(READY_PREFIX), value
+        assert kind == "line" and str(value).startswith(prefix), value
+
+    def unreadable_ready(self, location: Path) -> int:
+        """Wait for the unreadable-data announcement; return the port it names."""
+        kind, value = self.event()
+        assert kind == "line" and str(value).startswith(UNREADABLE_PREFIX), value
+        assert f"{UNREADABLE_PREFIX}{location.absolute()}, and nothing in it was changed." in str(
+            value
+        )
+        return int(str(value).split("http://127.0.0.1:")[1].split(" ")[0])
 
     def finish(self, deadline: int = REFUSAL_DEADLINE_SECONDS) -> Outcome:
         """Wait for the process to end on its own and return how it ended."""
@@ -242,6 +249,13 @@ class _Fleet:
         chosen = _free_port() if port is None else port
         process = self.spawn(START_PROGRAM, "127.0.0.1", str(chosen), str(location))
         process.ready()
+        return _Tracker(process, chosen)
+
+    def start_unreadable(self, location: Path, port: int | None = None) -> _Tracker:
+        """A start on data it cannot read: it serves the page, after its one announcement."""
+        chosen = _free_port() if port is None else port
+        process = self.spawn(START_PROGRAM, "127.0.0.1", str(chosen), str(location))
+        assert process.unreadable_ready(location) == chosen
         return _Tracker(process, chosen)
 
     def refused(
@@ -348,7 +362,8 @@ def test_refusal_keeps_the_claim_before_and_after_saves(
 
 
 def test_location_in_use_wins_over_other_start_refusals(tmp_path: Path, fleet: _Fleet) -> None:
-    """CP-696: another tracker, then unreadable data, then the address; one line each time."""
+    """CP-696, CP-713: another tracker, then the address; one line each time, whatever the saved
+    data holds (unreadable data is no longer a refusal)."""
     location = _saved(tmp_path / "saved")
     first = fleet.start(location)
     same_port, _ = fleet.refused(location, port=first.port)
@@ -359,6 +374,25 @@ def test_location_in_use_wins_over_other_start_refusals(tmp_path: Path, fleet: _
     assert damaged == Outcome(1, "", REFUSAL_LINE + "\n")
     assert _record(location) == before == {"tracker.json": DAMAGED}
     assert first.status() == 200
+
+
+def test_second_tracker_is_refused_while_unreadable_page_serves(
+    tmp_path: Path, fleet: _Fleet
+) -> None:
+    """CP-713: the first tracker serves the page; the second gets the CP-693 line and exit 1, the
+    first still answers 503, and the saved data is the same."""
+    location = tmp_path / "saved"
+    location.mkdir()
+    (location / "tracker.json").write_bytes(DAMAGED)
+    first = fleet.start_unreadable(location)
+    before = _record(location)
+    outcome, port = fleet.refused(location)
+    assert outcome == Outcome(1, "", REFUSAL_LINE + "\n")
+    assert _nothing_listens(port)
+    assert _record(location) == before == {"tracker.json": DAMAGED}
+    assert first.status() == 503
+    again, _ = fleet.refused(location, port=first.port)
+    assert again == Outcome(1, "", REFUSAL_LINE + "\n")
 
 
 def test_the_real_second_start_command_gets_the_refusal_and_not_the_address_line(
@@ -440,15 +474,27 @@ def test_tracker_restarts_after_ctrl_c(tmp_path: Path, fleet: _Fleet) -> None:
     assert (location / "tracker.json").read_bytes() == saved
 
 
-def test_location_claim_remains_held_during_listener_close(tmp_path: Path, fleet: _Fleet) -> None:
-    """CP-695, CP-706: the claim outlasts the listener's closure and ends with the start."""
-    location = _saved(tmp_path / "saved")
+@pytest.mark.parametrize("damaged", [False, True], ids=["readable", "unreadable"])
+def test_location_claim_remains_held_during_listener_close(
+    tmp_path: Path, fleet: _Fleet, damaged: bool
+) -> None:
+    """CP-695, CP-706, CP-713: the claim outlasts the listener's closure and ends with the start,
+    whether the start serves the tracker or the unreadable-data page."""
+    location = tmp_path / "saved"
+    if damaged:
+        location.mkdir()
+        (location / "tracker.json").write_bytes(DAMAGED)
+    else:
+        _saved(location)
     ready, go = tmp_path / "closing", tmp_path / "go"
     port = _free_port()
     owner = fleet.spawn(
         CLOSING_OBSERVER_PROGRAM, "127.0.0.1", str(port), str(location), str(ready), str(go)
     )
-    owner.ready()
+    if damaged:
+        assert owner.unreadable_ready(location) == port
+    else:
+        owner.ready()
     owner.send(signal.SIGINT)
     end = time.monotonic() + DEADLINE_SECONDS
     while not ready.exists():
@@ -458,7 +504,10 @@ def test_location_claim_remains_held_during_listener_close(tmp_path: Path, fleet
     assert outcome == Outcome(1, "", REFUSAL_LINE + "\n")
     go.write_text("go")
     assert owner.finish() == Outcome(0, "", "")
-    assert fleet.start(location).status() == 200
+    if damaged:
+        assert fleet.start_unreadable(location).status() == 503
+    else:
+        assert fleet.start(location).status() == 200
 
 
 @pytest.mark.skipif(os.geteuid() == 0, reason="a read-only directory does not stop root")
@@ -485,7 +534,11 @@ def test_absent_location_under_a_read_only_parent_still_serves(
 def test_indeterminate_acquisition_keeps_existing_start_behavior(
     tmp_path: Path, fleet: _Fleet, stage: str, code: str, scenario: str
 ) -> None:
-    """CP-696, CP-701, CP-702: a claim that cannot be made never prints the refusal line."""
+    """CP-696, CP-701, CP-702, CP-715: a claim that cannot be made never prints the refusal line.
+
+    The start goes on in the mode its data chooses: the tracker, or the unreadable-data page; a
+    held address gets only the address line whatever the data is.
+    """
     location = tmp_path / "saved"
     if scenario.startswith("unreadable"):
         location.mkdir()
@@ -507,14 +560,13 @@ def test_indeterminate_acquisition_keeps_existing_start_behavior(
         if scenario == "serves":
             process.ready()
             assert _Tracker(process, port).status() == 200
+        elif scenario == "unreadable":
+            assert process.unreadable_ready(location) == port
+            assert _Tracker(process, port).status() == 503
+            assert (_record(location) if location.exists() else None) == before
         else:
             outcome = process.finish()
-            expected = (
-                UNREADABLE_LINE.format(location=location.absolute())
-                if scenario.startswith("unreadable")
-                else ADDRESS_LINE.format(port=port)
-            )
-            assert outcome == Outcome(1, "", expected + "\n")
+            assert outcome == Outcome(1, "", ADDRESS_LINE.format(port=port) + "\n")
             assert (_record(location) if location.exists() else None) == before
     finally:
         if held is not None:

@@ -1,9 +1,10 @@
-"""The listener: binds the loopback address and hands each request to `Site.handle` (SDD § 3 web).
+"""The listener: binds the loopback address and hands each request to a handler's `handle` (SDD § 3
+web): `Site` in front of a tracker, or `UnreadableSite` when the saved data could not be read.
 
 Decides no rule and builds no page. It writes nothing to the console while it serves (OB-1), and
 every answer it writes itself, an error included, carries no text the standard library made up
-(CP-23). `listen` raises `AddressTaken` when something else already holds the address and lets
-every other bind failure propagate; it words nothing for the operator.
+(CP-23). `listen` and `listen_unreadable` raise `AddressTaken` when something else already holds
+the address and let every other bind failure propagate; they word nothing for the operator.
 
 `Listener.serve_until` serves until a predicate the caller hands in turns true (SRS FR-1 and FR-2,
 change spec rules CP-644, CP-650 and CP-651; checked at SRS NFR-11's integration layer). It knows
@@ -13,13 +14,14 @@ no signal, no saved data and no clock, and it leaves closing the listener to its
 from __future__ import annotations
 
 import errno
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from typing import Protocol
 
 from application import Tracker
 from errors import AppError
-from web.routes import PAGE_POLICY, Response, Site
+from web.routes import PAGE_POLICY, Response, Site, UnreadableSite
 
 
 class AddressTaken(AppError):
@@ -29,8 +31,16 @@ class AddressTaken(AppError):
 IDLE_WAIT_SECONDS = 0.5  # how long cooperative serving waits for a request before asking again
 
 
+class Answers(Protocol):
+    """What the transport needs from a request handler: one request in, one response out."""
+
+    def handle(
+        self, method: str, target: str, headers: Mapping[str, str], body: bytes
+    ) -> Response: ...
+
+
 class _Handler(BaseHTTPRequestHandler):
-    site: Site
+    site: Answers
 
     def log_message(self, format: str, *args: object) -> None:
         """Write nothing: a request leaves no line on the console (OB-1)."""
@@ -88,6 +98,20 @@ def listen(address: tuple[str, int], tracker: Tracker) -> Listener:
 
     Raises `AddressTaken` when the address is in use; any other bind failure propagates unchanged.
     """
+    return _bind(address, lambda own_host: Site(tracker, own_host))
+
+
+def listen_unreadable(address: tuple[str, int], location: str) -> Listener:
+    """Bind and listen on the address, answering every request through an `UnreadableSite`.
+
+    The location is the saved data's absolute path as text. Binds and fails exactly as `listen`
+    does, and no tracker is involved.
+    """
+    return _bind(address, lambda own_host: UnreadableSite(location, own_host))
+
+
+def _bind(address: tuple[str, int], answers_for: Callable[[str], Answers]) -> Listener:
+    """The one binding: a listener whose own handler class answers via `answers_for(host:port)`."""
 
     class Handler(_Handler):
         """This listener's own handler class, so its `site` is not shared with another listener."""
@@ -99,5 +123,5 @@ def listen(address: tuple[str, int], tracker: Tracker) -> Listener:
             raise AddressTaken from error
         raise
     host, port = listener.server_address[:2]
-    Handler.site = Site(tracker, f"{host}:{port}")
+    Handler.site = answers_for(f"{host}:{port}")
     return listener
