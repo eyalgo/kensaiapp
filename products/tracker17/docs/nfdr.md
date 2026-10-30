@@ -2,7 +2,7 @@
 
 **Status:** Settled
 **Owner:** Principal Architect
-**Version:** 21 — the answer to companion § 2.1 folded in (`products/tracker17/docs/trail/architecture/cycle-19.md`): the owner confirmed RN-57 as QC-39's provenance and added why the edit happened — `development-implementation`'s rule that a correction line naming a file tracked on the branch is mislabelled puts this document in a same-repository delivery change's reach, a contradiction filed against that skill and not settled here — so RN-57 is confirmed and says so, and QC-39's words, obligation, checks and trace do not move (RN-59); nothing is left open, so the companion is removed and this document is Settled.
+**Version:** 22 — the answer to companion § 3.1 folded in (`products/tracker17/docs/trail/architecture/cycle-20.md`): the owner ruled that § 10's preamble follows the project card, so it no longer quotes the card's `Test command:` as `pytest tests/`; it says the suite gate runs both suites through `uv run`, `pytest tests/` and `pytest tests/e2e/`, and that the layer-5 rows are gated at the suite like the rest (RN-60). No entry, row or record moves; nothing is left open, so the companion is removed and this document is Settled.
 **Inputs read:** SRS Settled (version 6) · SDD Settled (version 16) · FDR Settled (version 4) · PRD Settled (version 7) · UXD Settled (version 11) · DESIGN Settled (version 4) · CONTENT Settled (version 17) · Agari no Status line · tracker17 doctrine no Status line (stamped, unfilled)
 
 > The NFDR is the product's **standing obligations, consolidated and verifiable**: every quality
@@ -630,8 +630,11 @@ Ruff, mypy — is typed through `uv run`, after the `uv sync --locked` of SDD §
 `uv lock --check` is uv's own command and needs no environment.
 "Suite" in the last column means the green suite that `development-implementation`,
 `development-code-integrity` and the step that seals a change each end on, stages 5 to 7 of
-`<CORE>/doctrine/flow/development_flow.md` § The stages, run with the project card's `Test command:`; typed from the product root, as every row here is, that command is `pytest tests/`. SDD § 6 names
-`pytest tests/e2e/` beside it as the second suite, and the layer-5 rows need both.
+`<CORE>/doctrine/flow/development_flow.md` § The stages, run with the project card's `Test command:`.
+The card owns that command's words and types it from the change worktree's root. Read from the
+product root, as every row here is typed, it runs both suites through `uv run`: `pytest tests/` and
+`pytest tests/e2e/`, the second suite SDD § 6 names. So the layer-5 rows are gated at the suite like
+the rest (owner, `trail/architecture/cycle-20.md` § 3.1; RN-60).
 
 | QC | Check | Command / layer | Runs over | Gated at |
 |---|---|---|---|---|
@@ -1611,3 +1614,21 @@ QC-12, QC-25, QC-26, QC-27, QC-40, QC-41 and QC-60 are review gates and have no 
   every other input is unchanged, so `Inputs read:` stands. No record was written or changed. Nothing
   is left open, so the companion is removed and this document is Settled. *(re: Version 21; RN-57;
   QC-39)*
+- **RN-60:** Version 22 was written on 2026-10-30. It read the answered companion as committed at
+  `d0dae0269` and copied it whole to `trail/architecture/cycle-20.md` before the fold. The owner
+  opened its one item, § 3.1, by hand and answered it in the same act: § 10's preamble follows the
+  project card, the suite gate runs both suites through `uv run`, and the layer-5 rows are gated at
+  the suite like the rest. The preamble now says so and points at the card for the command's words
+  instead of quoting them, so a rewording of the card's command leaves this sentence true. Every
+  row already read `pytest tests/` as `uv run pytest tests/` and already gated QC-9, QC-36, QC-55 and
+  QC-63's layer-5 checks at the suite, so no row and no entry moves. QC-60's tail still holds: the
+  card's command runs through uv and names no interpreter. **The card on `main` does not yet say
+  this.** At `d0dae0269` its `Test command:` is `pytest products/tracker17/tests/`, with no `uv run`
+  and no second suite; the change that sets both suites through uv is committed at `d4fec9c85` and
+  has not reached `main`. The owner's ruling binds the preamble to the card that change lands, so
+  until it lands the preamble runs one change ahead of the card. Since version 21
+  (`git diff --stat 1f1ed6101 HEAD` over the product and the project's `agari.md`, `doctrine/` and
+  `project.md`), only the companion and `trail/architecture/self_answer-24.md` moved, so
+  `Inputs read:` stands. No record was written or changed. Nothing is left open, so the companion is
+  removed and this document is Settled. *(re: Version 22; § 10; QC-60; source: owner,
+  `trail/architecture/cycle-20.md` § 3.1)*
