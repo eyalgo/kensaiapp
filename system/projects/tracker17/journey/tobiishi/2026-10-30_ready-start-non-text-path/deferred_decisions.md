@@ -10,3 +10,20 @@ What this change held back, for `shukuba-refine` to place after the unit lands. 
 **Why not this change:** the request's words rule it out: "no other message text changed"
 **Owner:** none — for shukuba-refine
 **Status:** open
+
+## QC-40 package feed and graph-listing moment — reviewed by development-design (2026-10-30)
+
+**Record:** `products/tracker17/docs/nfdr.md` QC-40 (`L399-L418`).
+**Review:** The repository API reports `permissions.admin: true`; its Dependabot alerts endpoint
+returns HTTP 403, `Dependabot alerts are disabled for this repository.` The asynchronous SBOM
+exports read returns HTTP 404, `Not Found` (`gh api repos/kensaiapp/<the instance KensaiApp is developed in>`,
+`gh api repos/kensaiapp/<the instance KensaiApp is developed in>/dependabot/alerts`,
+`gh api repos/kensaiapp/<the instance KensaiApp is developed in>/dependency-graph/sbom/exports`).
+**Still owed:** A review that reads the dependency graph listing the packages fixed by the
+product's `uv.lock`, per QC-40. These results match the down-feed case the entry already names;
+they do not establish the graph-listing moment or a feed return.
+**Why not this change:** This ready-message change alters no repository security setting or
+dependency. The design's QC-40 note records the direct package-advisory review and the browser's
+existing dated exception separately.
+**Owner:** none — for shukuba-refine.
+**Status:** open
