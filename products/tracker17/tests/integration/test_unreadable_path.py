@@ -80,25 +80,17 @@ def test_unreadable_site_accepts_the_original_decoded_location() -> None:
     built.encode("utf-8")
 
 
-@pytest.mark.parametrize(
-    "byte", range(FIRST_NON_TEXT_BYTE, LAST_NON_TEXT_BYTE + 1), ids=lambda byte: f"{byte:#04x}"
-)
-def test_unreadable_page_escapes_each_filename_byte_in_place(byte: int) -> None:
-    """CP-760, CP-761: every marker from U+DC80 through U+DCFF, both endpoints included, is
-    written as its own byte in a backslash, an x and two lowercase hex digits, on the page the
-    builder gives and on the page the site serves."""
-    marker = chr(SURROGATE_ESCAPE_BASE + byte)
-    escape = "\\x" + HEX_DIGITS[byte // 16] + HEX_DIGITS[byte % 16]
-    location = f"/tmp/a{marker}b/data"
-    expected = expected_paragraph(f"/tmp/a{escape}b/data")
-
-    assert paragraph(pages.unreadable_data_page(location)) == expected
-    assert paragraph(get(location).body.decode("utf-8")) == expected
-
-
-@pytest.mark.parametrize(
-    ("location", "shown"),
-    [
+def byte_cases() -> list[object]:
+    """Every marker from U+DC80 through U+DCFF alone, then markers beside each other and beside
+    other text; the shown form of each is written out here, digit by digit."""
+    cases: list[object] = []
+    for byte in range(FIRST_NON_TEXT_BYTE, LAST_NON_TEXT_BYTE + 1):
+        marker = chr(SURROGATE_ESCAPE_BASE + byte)
+        escape = "\\x" + HEX_DIGITS[byte // 16] + HEX_DIGITS[byte % 16]
+        cases.append(
+            pytest.param(f"/tmp/a{marker}b/data", f"/tmp/a{escape}b/data", id=f"{byte:#04x}")
+        )
+    cases += [
         pytest.param("/tmp/a\udce9\udcff/data", "/tmp/a\\xe9\\xff/data", id="consecutive"),
         pytest.param("/tmp/a\udce9b\udcffc/data", "/tmp/a\\xe9b\\xffc/data", id="separated"),
         pytest.param("/tmp/\udce9/\udcff/data", "/tmp/\\xe9/\\xff/data", id="two-components"),
@@ -108,13 +100,16 @@ def test_unreadable_page_escapes_each_filename_byte_in_place(byte: int) -> None:
         pytest.param(
             os.fsdecode(b"/tmp/a\xe9\xff/data"), "/tmp/a\\xe9\\xff/data", id="two-byte-example"
         ),
-    ],
-)
-def test_unreadable_page_preserves_positions_and_other_characters(
-    location: str, shown: str
-) -> None:
-    """CP-760, CP-761: each marker is replaced where it stands and every other character of the
-    path stays in its order, on the builder's page and the served page alike."""
+    ]
+    return cases
+
+
+@pytest.mark.parametrize(("location", "shown"), byte_cases())
+def test_unreadable_page_escapes_each_filename_byte_in_place(location: str, shown: str) -> None:
+    """CP-760, CP-761: every marker, both endpoints included, is written as its own byte in a
+    backslash, an x and two lowercase hex digits, where it stands; consecutive, separated, repeated
+    and cross-component markers keep every other character in its order, on the page the builder
+    gives and on the page the site serves."""
     expected = expected_paragraph(shown)
 
     assert paragraph(pages.unreadable_data_page(location)) == expected
