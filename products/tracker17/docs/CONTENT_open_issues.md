@@ -42,6 +42,6 @@ None.
 - **What it blocks:** nothing is blocked. The published string stands with a word no rule approves or rejects.
 - **Where it shows:** `README.md:L79` says "A tracker that was killed doesn't prevent the next start." `CONTENT.md` § Terminology names "the running product" and nothing for how one ended, and `grep -n -i kill docs/CONTENT.md` prints nothing. The word comes from SRS AC-16, "a tracker was killed".
 - **If a document has to be written:** none — `CONTENT.md` itself, by `product-content`.
-- **Answer:**
+- **Answer:** Answered: add one row to § Terminology and no other rule. Concept: a tracker the reader ended by force rather than with Ctrl-C. Term: "killed". Rejected: "killed process" and "process", which name a mechanism as "server" does in the row for the running product; and "stopped", which is the setup instructions' word for Ctrl-C, so using it for both would hide the end the sentence is about. Notes: only the setup instructions say it, as the reader's own condition ("A tracker that was killed…"). No string the tracker prints says how an earlier tracker ended, because it can't establish that. The row claims nothing about what the tracker could finish before it ended. A crash and a power cut get no term until a string names one. Reasoning: `docs/trail/content/self_answer-18.md`.
 
 **How it closes.** `product-content` folds it on its next run exactly as it folds §§ 1–2.
