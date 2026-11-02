@@ -270,7 +270,7 @@ All design decisions below are the architect's, 2026-10-30.
   The older installed build remains covered through 2026-11-07 by
   `docs/nfdr.md:1085-1101`, RN-33; this design neither renews that exception nor moves the pin.
 - **QC-40, repository feed — down; graph observation still owed:** an authenticated
-  `gh api repos/kensaiapp/<the instance KensaiApp is developed in> --jq '{admin: .permissions.admin, dependency_graph: .security_and_analysis.dependency_graph.status}'`
+  `gh api repos/<owner>/<repository> --jq '{admin: .permissions.admin, dependency_graph: .security_and_analysis.dependency_graph.status}'`
   returned `{"admin":true,"dependency_graph":null}`. The alerts call returned HTTP 403,
   `Dependabot alerts are disabled for this repository.`
   The asynchronous `dependency-graph/sbom/generate-report` call returned HTTP 404, `Not Found`.

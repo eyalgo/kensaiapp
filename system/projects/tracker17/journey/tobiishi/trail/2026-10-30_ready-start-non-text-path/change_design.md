@@ -170,10 +170,10 @@ beside this file; it is an unmet obligation, not a sentence this delta makes fal
   covers this exact build through 2026-11-07, so it does not block this 2026-10-30 review
   (`docs/nfdr.md:L1103-L1116`).
 - **QC-40 feed review — down; graph moment still owed:**
-  `gh api repos/kensaiapp/<the instance KensaiApp is developed in> --jq '{permissions: .permissions, security_and_analysis: .security_and_analysis}'`
+  `gh api repos/<owner>/<repository> --jq '{permissions: .permissions, security_and_analysis: .security_and_analysis}'`
   returned `permissions.admin: true`. The repository's Dependabot alerts request returned HTTP 403,
   `Dependabot alerts are disabled for this repository.` The read of
-  `repos/kensaiapp/<the instance KensaiApp is developed in>/dependency-graph/sbom/exports` returned HTTP 404, `Not Found`.
+  `repos/<owner>/<repository>/dependency-graph/sbom/exports` returned HTTP 404, `Not Found`.
   This matches QC-40's documented down-feed case, with no new discrepancy; the graph-listing
   moment remains owed (`docs/nfdr.md:L399-L418`; `deferred_decisions.md` beside this file).
 
