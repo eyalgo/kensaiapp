@@ -8,10 +8,10 @@
 - **Date:** 2026-10-29
 - **Sources re-read:**
   - GitHub's REST API, read live on 2026-10-29 from the owner's account, which is admin on
-    `kensaiapp/<the instance KensaiApp is developed in>`, with a token whose scopes include `repo`.
-    `repos/kensaiapp/<the instance KensaiApp is developed in>` says `"private": true`.
-    `repos/kensaiapp/<the instance KensaiApp is developed in>/dependabot/alerts` is refused with HTTP 403, "Dependabot alerts
-    are disabled for this repository". `repos/kensaiapp/<the instance KensaiApp is developed in>/dependency-graph/sbom` returns
+    `<owner>/<repository>`, with a token whose scopes include `repo`.
+    `repos/<owner>/<repository>` says `"private": true`.
+    `repos/<owner>/<repository>/dependabot/alerts` is refused with HTTP 403, "Dependabot alerts
+    are disabled for this repository". `repos/<owner>/<repository>/dependency-graph/sbom` returns
     HTTP 404 "Not Found", the result the review recorded. `orgs/kensaiapp` says
     `"plan": "free"` and `"dependency_graph_enabled_for_new_repositories": false`.
   - https://docs.github.com/en/rest/dependency-graph/sboms says of the synchronous export: "This

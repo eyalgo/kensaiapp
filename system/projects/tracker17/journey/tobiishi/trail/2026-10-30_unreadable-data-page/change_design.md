@@ -315,10 +315,10 @@ All structural choices below are the architect's decisions of 2026-10-30.
   RN-33). Verdict: allowed under that exception on 2026-10-30, not a claim of a fixed browser.
 - **Delegated review — QC-40, package feed:** down; graph verification remains owed, as the entry
   permits for this exact outcome (`docs/nfdr.md:387-403`, QC-40). Command evidence:
-  `gh api repos/kensaiapp/<the instance KensaiApp is developed in> --jq '{admin:.permissions.admin,security_and_analysis:.security_and_analysis}'`
+  `gh api repos/<owner>/<repository> --jq '{admin:.permissions.admin,security_and_analysis:.security_and_analysis}'`
   returned `{"admin":true,"security_and_analysis":null}`;
-  `gh api repos/kensaiapp/<the instance KensaiApp is developed in>/dependabot/alerts` returned 403, “Dependabot alerts are
-  disabled for this repository”; `gh api -X POST repos/kensaiapp/<the instance KensaiApp is developed in>/dependency-graph/sbom/exports`
+  `gh api repos/<owner>/<repository>/dependabot/alerts` returned 403, “Dependabot alerts are
+  disabled for this repository”; `gh api -X POST repos/<owner>/<repository>/dependency-graph/sbom/exports`
   returned 404. This does not establish that the dependency graph lists the lock's packages.
 - **Cold-read result:** the mode decision, owning parts, additive seam, ordering and atomic edge,
   every Example and rule-implied edge, retired assertions, published-text places and false records

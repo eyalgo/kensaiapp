@@ -60,7 +60,7 @@ None.
 - **What it blocks:** QC-40's *verified by* (`nfdr.md:386-390`) says "The first review after
   `uv.lock` is on `main` also checks that the repository's dependency graph lists the packages
   `uv.lock` fixes; where it lists none, the package feed is down". That first review has happened,
-  and its check could not be made. It recorded that `gh api repos/kensaiapp/<the instance KensaiApp is developed in>/dependency-graph/sbom`
+  and its check could not be made. It recorded that `gh api repos/<owner>/<repository>/dependency-graph/sbom`
   returned `Not Found (HTTP 404)`, exit 1, which says neither that the graph lists the packages nor
   that it lists none. An OSV query on the 16 registry versions `uv.lock` fixes found no advisory
   (2026-10-29), which is not the GitHub feed QC-40 names. So whether the owner's Dependabot feed for
@@ -71,7 +71,7 @@ None.
   be read, with which access, and whether it stays owed until then.
 - **Answer:** The feed is down, not unreadable, and QC-40 should say so and say how the moment is
   met. Measured 2026-10-29 from the owner's account, which is admin on the repository, with a token
-  carrying `repo`: `gh api repos/kensaiapp/<the instance KensaiApp is developed in>/dependabot/alerts` is refused with HTTP 403,
+  carrying `repo`: `gh api repos/<owner>/<repository>/dependabot/alerts` is refused with HTTP 403,
   "Dependabot alerts are disabled for this repository". The repository is private, and its
   organization, on GitHub's free plan, turns the dependency graph on for no new repository. So the
   404 the review recorded is that state, the review's "where it lists none" branch has fired, and this

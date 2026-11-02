@@ -8,10 +8,10 @@
 - **Date:** 2026-10-30
 - **Sources re-read:**
   - GitHub's REST API, read live on 2026-10-30 from an account with `"admin": true` on
-    `kensaiapp/<the instance KensaiApp is developed in>`, with a token whose scopes include `repo`.
-    `repos/kensaiapp/<the instance KensaiApp is developed in>` says `"private": true`.
-    `repos/kensaiapp/<the instance KensaiApp is developed in>/dependabot/alerts` is refused with HTTP 403, "Dependabot alerts
-    are disabled for this repository". `repos/kensaiapp/<the instance KensaiApp is developed in>/vulnerability-alerts` answers
+    `<owner>/<repository>`, with a token whose scopes include `repo`.
+    `repos/<owner>/<repository>` says `"private": true`.
+    `repos/<owner>/<repository>/dependabot/alerts` is refused with HTTP 403, "Dependabot alerts
+    are disabled for this repository". `repos/<owner>/<repository>/vulnerability-alerts` answers
     HTTP 404, "Vulnerability alerts are disabled". `.../dependency-graph/sbom/generate-report` answers
     HTTP 404 "Not Found", and so does `.../dependency-graph/sbom`.
     `orgs/kensaiapp` says `"plan": "free"` and `"dependency_graph_enabled_for_new_repositories": false`.
