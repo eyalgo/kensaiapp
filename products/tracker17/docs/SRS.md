@@ -2,7 +2,7 @@
 
 **Status:** Settled
 **Owner:** CTO
-**Version:** 6 — PRD v6's second purpose, kensaiapp's own testing ground, folded in on the owner's answer (`products/tracker17/docs/trail/srs/cycle-5.md` § 3.1): § 1 names it, FR-41 has the README's opening paragraph name both purposes, AC-21 checks it, RN-18 narrows its § Purpose drop-line, and RN-25 records why
+**Version:** 7 — PRD v8's corrected assumption, tracker17 is public, carried in RN-18 as no requirement: publishing stays outside done by § 2's terminus. At 6: PRD v6's second purpose, kensaiapp's own testing ground, folded in on the owner's answer (`products/tracker17/docs/trail/srs/cycle-5.md` § 3.1): § 1 names it, FR-41 has the README's opening paragraph name both purposes, AC-21 checks it, RN-18 narrows its § Purpose drop-line, and RN-25 records why
 **Inputs read:** PRD Settled (v6) · Agari no Status line (`agari_template.md` carries none) · UXD Settled (no companion; searched for the README and the product's purposes, not a source) · tracker17 doctrine no Status line (stamped, unfilled) · SDD Settled, DESIGN Settled, CONTENT Settled, fdr Settled and nfdr Settled (downstream; searched for the README and the product's purposes, not sources — none has a companion)
 
 > The SRS is the technical source of truth: the system-level **what**, derived from the PRD and
@@ -638,8 +638,9 @@ C-5 is a sourcing constraint whose result is checked rule by rule in AC-12 to AC
   - PRD § Target Users, "Small team", is carried by NFR-7 and § 2: one operator, with team members
     present only as assignee names.
   - PRD § Assumptions are read as conditions on the reader and the publishing state. The first one
-    bounds what FR-4 may assume of the reader. "tracker17 is not public yet" is handled by § 2's
-    terminus.
+    bounds what FR-4 may assume of the reader. "tracker17 is public" (PRD v8) adds no requirement:
+    publishing stays outside done by § 2's terminus, and no requirement here serves the public
+    release or an outside reader's environment.
   - PRD § Risks are carried where they bear: the browser-simplicity risk by AC-4, the new-feature risk
     by RN-16, the "small team" misreading by NFR-7, and the single-judge risk by AC-4 and AC-5 staying
     the owner's calls.
