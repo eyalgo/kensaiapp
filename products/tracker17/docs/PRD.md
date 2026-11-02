@@ -2,7 +2,7 @@
 
 **Status:** Settled
 **Owner:** CPO
-**Version:** 7 — the not-public assumption says how tracker17 becomes public: with kensaiapp's public release, which ships it as an example. At 6: tracker17 has a second purpose, kensaiapp's own testing ground
+**Version:** 8 — the not-public assumption is corrected: tracker17 is public, shipped as an example in every kensaiapp release from v0.1.0. At 7: the not-public assumption says how tracker17 becomes public: with kensaiapp's public release, which ships it as an example. At 6: tracker17 has a second purpose, kensaiapp's own testing ground
 
 ---
 
@@ -227,14 +227,17 @@ exception is **Priorities**, which adds `critical`. *(confirmed: `trail/prd/cycl
   commands on their own machine.
 - Until there are outside readers, the owner's own reading and setup stand in for theirs. If an
   outside reader would judge "simple" differently, the bars above would need revisiting.
-- **tracker17 is not public yet.** No outside reader can reach it today, and it stays that way
-  until the owner decides to publish it. It becomes public with kensaiapp's public release, which
-  ships tracker17 as an example, when the owner publishes that release. Until then the owner is the
-  only reader. *(verified (external), 2026-10-13: the GitHub repository that holds tracker17 is
-  private, and so is `kensaiapp/kensaiapp`, the repository the release is published to)* *(the
-  release ships tracker17: the owner's decision of 2026-10-11, recorded in
+- **tracker17 is public.** It ships as an example in kensaiapp's public release, so anyone who
+  reads that release can reach it. No outside reader is known yet, so the owner's own reading still
+  stands in for theirs, as the assumption above says. *(verified (external), 2026-11-02: the
+  repository the release is published to is public, and it holds tracker17 at every release from
+  v0.1.0, published 2026-10-22, to v0.4.0, published 2026-10-25; the repository tracker17 is
+  developed in stays private)* *(the release ships tracker17: the owner's decision of 2026-10-11,
+  recorded in
   `docs/findings/2026-10-11_tracker17-ships-in-the-release-and-names-what-must-not-ship.md`)*
-  *(added — not in the input; confirmed: `trail/prd/cycle-3.md` § 2.1)*
+  *(added — not in the input; confirmed: `trail/prd/cycle-3.md` § 2.1)* *(corrected 2026-11-02 —
+  it read "not public yet", which stopped being true with the first release; the owner's
+  instruction, on the public-repo presence session's report)*
 - The predecessor's task rules are a sound base. The owner's list of features and exclusions mirrors
   them, so carrying them over changes no product decision the owner made.
 
