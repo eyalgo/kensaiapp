@@ -6,7 +6,7 @@ Serves the Way `production-grade`: tracker17 is the example app kensaiapp built 
 
 Once done, the ready line, the unreadable line, the unreadable-data page and the failed-action console message each print that path in the one form `products/tracker17/docs/CONTENT.md` § *A path the tracker prints* fixes (the byte as `\xe9`, nothing else changed, no replacement mark), and a test holds each.
 
-Why this Definition of Done: the Definition of Done's bars "Works" and "Simple to set up" need the tracker to start wherever the owner puts a copy (`system/projects/tracker17/dod.md`). Reasoning, not a lookup: the case is rare, and it is the only gap the four-document pass found.
+Why this finish line: the finish line's bars "Works" and "Simple to set up" need the tracker to start wherever the owner puts a copy (`system/projects/tracker17/finish_line.md`). Reasoning, not a lookup: the case is rare, and it is the only gap the four-document pass found.
 
 ## Source
 
