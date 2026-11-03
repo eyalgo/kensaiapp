@@ -7,7 +7,7 @@
 
 At most one running tracker may use a saved-data location, and a tracker stopped by a crash, a
 killed process or a power cut must not stop the next start (SRS NFR-3). Neither the PRD nor the SRS
-names an operating system. The owner's machine, where the Agari is checked, is macOS. The lock that
+names an operating system. The owner's machine, where the Definition of Done is checked, is macOS. The lock that
 NFR-3 needs is an operating-system facility, built one way on macOS and Linux and another way on
 Windows (`trail/sdd/cycle-1.md` § 2.2, the rationale).
 

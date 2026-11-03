@@ -3,7 +3,7 @@
 **Status:** Settled
 **Owner:** CTO — writes every part; the CPO and the CDO decide the parts the lane table names, through `SDD_open_issues.md` items carrying their `Seat:`
 **Version:** 19 — the sixteenth answered round folded in (`products/tracker17/docs/trail/sdd/cycle-16.md`), one item the Principal Architect raised from § 4 RT-8, read while answering the architecture companion, and answered in the CTO's seat because RT-8 is this seat's condition and the correction binds the document's consistency alone. RT-8's `get` passage reads in both startup modes: while the saved data cannot be read, such a form's address answers as every address does (EX-13), its values are not read, no refusal arises, and neither of the passage's two 200s reaches it; the rest of the condition holds in that mode as written, a submission being sent to a page address with its body unread, and nothing changing. § 4 still names no status for the unreadable-data page, and RT-8's rule for a tracker serving its saved data does not move. The records caught up without an item, as NFDR RN-63 anticipated: RT-8 names ADR-0014, which supersedes ADR-0011, RT-11 names ADR-0015, which supersedes ADR-0012, and § 12 counts sixteen records; the header reads ADR-0016, NFDR version 24 and FDR version 6, with the architecture companion and the FDR companion both removed. No slice, fence or § 7 edge moves, and no code changes. RN-74 and RN-75 record the round. Nothing is left open. At 18: the fifteenth answered round folded in (`products/tracker17/docs/trail/sdd/cycle-15.md`), one item the Principal PM raised from § 9 TO-4, read while answering the FDR's companion, and answered in the CTO's seat because the trade-off is this seat's and the correction binds the document's consistency alone. TO-4 reads in both startup modes: the file is read only at start, and a readable state is held in memory; while the tracker serves its saved data, a change made to the file by hand is overwritten by the next save; while the saved data cannot be read, the tracker holds no state and makes no save (SD-4), so a change made by hand stays, and the next start reads it. Its *buys* and *undoing it costs* stand. No slice, fence or § 7 edge moves, no code changes, and FDR R-20, which traces to TO-4, carries the same correction on `products/tracker17/docs/fdr_open_issues.md` § 3.1, the Principal PM's. RN-72 and RN-73 record the round. Nothing is left open. At 17: the fourteenth answered round folded in (`products/tracker17/docs/trail/sdd/cycle-14.md`), two items the PM raised from § 4 EX-12 and EX-13 read against the design language and the product's tests, both answered in the CTO's seat because the UXD settles each. EX-12: one header sits on every page, the unreadable-data page included; on that page it shows the product name and no area link, and the page carries no navigation and no control that acts on the data, as UXD § 4 and `products/tracker17/docs/DESIGN.md` § Components state and the page as built renders. The clause "carries no header", which cycle 1's § 2.4 addition (2) put in over-reading UX-S9, goes. EX-13: the not-found page is scoped to a tracker serving its saved data; while the saved data cannot be read, every address shows the unreadable-data page and no other, and the mode is fixed at start (SD-1, TO-4). No slice, fence or edge moves: § 6 S-8's bar, § 4 RT-11's 404 and § 6 S-7's not-found line stand as written. The round's one item in § 2, raised by the run that answered §§ 5.1 and 5.2 with its slot left empty, is settled by the records on disk: the header reads NFDR version 23 and the architecture companion live with five items, §§ 3.1 to 3.5, the Principal Architect's. RN-68 to RN-71 record the round. Nothing is left open. At 16: the thirteenth answered round folded in (`products/tracker17/docs/trail/sdd/cycle-13.md`), one item the PM raised from the product's README against § 6 S-1 and § 4 RT-4 and answered in the CTO's seat: the two disagreed on whether the setup instructions' prerequisites section names uv, and S-1 holds. RT-4 now says that the prerequisites section names uv as the suite's alone, beside the one-time network connection RT-1 already places there, and that "the tracker's own setup", which names uv nowhere, is the tracker's prerequisites and RT-2's two commands. No slice, fence or edge moves, and SRS C-7's bound on the tracker's setup is untouched. The round's one item in § 2, raised by the run that answered § 5.1 with its slot left empty, is settled by the records on disk: RT-4 names ADR-0013, which supersedes ADR-0002, as the record of the suite's environment; § 12 counts thirteen records; and the header reads ADR-0013, NFDR version 19 and the architecture companion open again. RN-65 to RN-67 record the round. Nothing is left open. At 15: the twelfth answered round folded in (`products/tracker17/docs/trail/sdd/cycle-12.md`), one item the owner raised by hand against § 4 RT-4 and answered in their own words: the test suite's environment is made with uv, not with Python's `venv` and the bundled installer. RT-4 says it, and settles what the answer left to this seat: the lock file is `uv.lock`, committed beside `pyproject.toml`, in place of `tests/requirements.txt`; setup is `uv sync --locked`, which makes `.venv` and refuses a lock file out of step with the manifest; every suite command is typed through `uv run`; and the suite runs on the interpreter uv picks for the floor, which is not always the machine's `python3`. uv is a prerequisite of the suite and not of the tracker, so SRS C-7's bound on the tracker's setup is untouched. § 6's preamble and `first-project`'s artifact bar read uv; § 9 gains TO-9, the trade-off; § 11 R-8 names the run that would settle it, `uv run --python 3.11 pytest tests/`. Verified in a fresh clone at `e38121b11` with uv 0.11.14: `uv lock` resolved 17 packages at the four pins `pyproject.toml` declares, `uv sync --locked` installed them, 670 unit and architecture tests passed, 1,843 integration tests passed before a time cap with no failure, and `uv run pytest tests/e2e/` gave 120 passed and one timeout under machine load that passed twice when run alone. The header catches up with NFDR version 18 and the architecture companion's removal. RN-62 to RN-64 record the round. Nothing is left open. At 14: the eleventh answered round folded in (`products/tracker17/docs/trail/sdd/cycle-11.md`), one item the PM raised from the product's deletion tests against § 4 RT-11 and § 11 R-12, answered in the CTO's seat. RT-11's *Tests* and R-12's trigger name the four deletion tests on disk, landed at `ac09e56af` — the task deletion's response-policy test, which now asserts 202 on a shown confirmation; the project deletion's response-policy test; and the two history tests that go Back to a deletion's confirmation after confirming — in place of a test to come, and the divergence RN-56 recorded, a task deletion's confirmation answered 200, is closed in the product. The records caught up without an answer, as the round's § 2.1 anticipated: RT-11 names ADR-0012, which supersedes ADR-0010, as the record of its boundary and drops the line that a deletion's record was still to be written; § 12 counts twelve records; the header reads ADR-0012 and NFDR version 17. § 10's preamble counts RC-1 to RC-6, and the Review Notes' prologue gains the ninth and tenth rounds it omitted. RN-59 to RN-61 record the round. Nothing is left open. At 13: the tenth answered round folded in (`products/tracker17/docs/trail/sdd/cycle-10.md`), one item the PM raised from the product's task deletion against § 4 RT-11 and § 6 S-7, answered in the CTO's seat. RT-11 widens from a move to `cancelled` to every pending confirmation § 4 EX-6 names: a page that shows a pending confirmation of a move to `cancelled`, a task deletion or a project deletion is answered 202, read off the page as built; every other page a confirmed action's interaction or outcome lands on is 200; each carries `Cache-Control: no-store`; the address of a deleted task or project answers the not-found page, 404, with no cache header; and the case RT-11 handed to `delete-and-rename`, whether the HTTP cache may keep that 404, closes: it may, and a kept one stays true because an identity is never reused. S-7's command half gains the deletion history clause, § 11 R-12's trigger names the deletion history test once it exists, and § 7's hand-off edge names the 202. The UXD moved to version 11 after version 12 read it at 9, and § 10 RC-6 records it: a refusal or failure for a task the list's filter leaves off the list sits above the results, stated in § 4 EX-4 and in `narrow-and-sort`'s behaviour bar. RT-8 names ADR-0011, which now records it, and § 12 counts eleven records. RN-56 to RN-58 record the round. Nothing is left open. At 12: the ninth answered round folded in (`products/tracker17/docs/trail/sdd/cycle-9.md`), one item the PM raised from the product's filter form against § 4 RT-8, answered in the CTO's seat. RT-8 defines the word it binds on: a submission is a form sent with `method="post"`, a request for a change; a form sent with `method="get"` is a read, answered with the page at the address the browser built, 200, with no redirect, as the filter form is today, and § 11 R-10's bound reaches its values. RT-11 names ADR-0010, which now records it, and § 12 counts ten records. The UXD moved to version 9 after version 11 read it at 8, and § 10 RC-5 records it: § 6 `status-moves`'s overtaken-move refusal states the task's current status and claims no change, UX-F4's words. RN-53 to RN-55 record the round. Nothing is left open. At 11: the eighth answered round folded in (`products/tracker17/docs/trail/sdd/cycle-8.md`), two items the PM raised from the product's code and from the UXD and one a `companion-self-answer` run raised from § 11 read against the suite, all three answered in the CTO's seat. § 4 gains RT-11, the history-admission boundary: a page that shows a pending confirmation of a move to `cancelled` is answered 202 and every other move page 200, each with `Cache-Control: no-store`; § 9 TO-8 and § 11 R-12 surface the decision and its browser dependence, and RT-8's last sentence is scoped to a finished outcome. § 6 `status-moves`'s behaviour bar has the overtaken move name the moves the page now shows and offer no reload, and names the refusal reached by an address with no press; § 4 EX-4 says where that refusal sits; § 10 RC-4 records the UXD moving to version 8. § 11 R-2 counts the confirmation case verified, by four tests at `<a commit not in the public history>`, and § Open Questions keeps the assistive-technology case alone. RN-49 to RN-52 record the round. The header's *Inputs read* catches up with PRD version 7 and NFDR version 13, neither of which moves a line of this document (RN-52). Nothing is left open
-**Inputs read:** PRD Settled (version 7) · SRS Settled (version 6) · UXD Settled (version 11; no `products/tracker17/docs/UXD_open_issues.md` beside it) · Agari no Status line (`agari_template.md` carries none) · tracker17 doctrine no Status line (stamped, unfilled) · writing_bar Settled · ADR-0001 to ADR-0016, ADR-0002 Superseded by ADR-0013, ADR-0005 Superseded by ADR-0016, ADR-0006 Superseded by ADR-0011, ADR-0010 Superseded by ADR-0012, ADR-0011 Superseded by ADR-0014, ADR-0012 Superseded by ADR-0015 and the rest Accepted, and NFDR Settled (version 24, its header; no `products/tracker17/docs/architecture_open_issues.md` beside it, removed at `04c348675`) (downstream; read for the decisions already recorded, as the authoring lens says, never as a source) · FDR Settled (version 6, its header; downstream, read to check that it names no status for a `get` form, not a source; no `products/tracker17/docs/fdr_open_issues.md` beside it, removed at `86f97f253`) · DESIGN Settled (version 4, its Status and Version lines; a sibling, read for its status alone, not a source) · CONTENT Settled (version 19, its Status and Version lines; a sibling, read for its status alone, not a source) · the product's code and tests the answered round cites (read to verify each citation on disk, not sources; this round, `web/routes.py` at `UnreadableSite.handle` and `tests/integration/test_unreadable_routes.py` at `test_checked_unreadable_reads_share_one_representation` and `test_checked_post_always_redirects_without_decoding_or_acting`)
+**Inputs read:** PRD Settled (version 7) · SRS Settled (version 6) · UXD Settled (version 11; no `products/tracker17/docs/UXD_open_issues.md` beside it) · Definition of Done no Status line (`dod_template.md` carries none) · tracker17 doctrine no Status line (stamped, unfilled) · writing_bar Settled · ADR-0001 to ADR-0016, ADR-0002 Superseded by ADR-0013, ADR-0005 Superseded by ADR-0016, ADR-0006 Superseded by ADR-0011, ADR-0010 Superseded by ADR-0012, ADR-0011 Superseded by ADR-0014, ADR-0012 Superseded by ADR-0015 and the rest Accepted, and NFDR Settled (version 24, its header; no `products/tracker17/docs/architecture_open_issues.md` beside it, removed at `04c348675`) (downstream; read for the decisions already recorded, as the authoring lens says, never as a source) · FDR Settled (version 6, its header; downstream, read to check that it names no status for a `get` form, not a source; no `products/tracker17/docs/fdr_open_issues.md` beside it, removed at `86f97f253`) · DESIGN Settled (version 4, its Status and Version lines; a sibling, read for its status alone, not a source) · CONTENT Settled (version 19, its Status and Version lines; a sibling, read for its status alone, not a source) · the product's code and tests the answered round cites (read to verify each citation on disk, not sources; this round, `web/routes.py` at `UnreadableSite.handle` and `tests/integration/test_unreadable_routes.py` at `test_checked_unreadable_reads_share_one_representation` and `test_checked_post_always_redirects_without_decoding_or_acting`)
 
 > The SDD is the technical **how**, and it ends in a **cut**. It states the architecture the rest of
 > the system builds against — derived from the PRD (the *what and why*), the SRS (the system-level
@@ -135,9 +135,9 @@ second purpose adds no behaviour to the tracker (SRS RN-18) and no part to this 
 the product as one requirement on the setup instructions' opening paragraph, SRS FR-41, which
 `first-project` carries (§ 6).
 
-The design is scoped against the project's 上がり Agari, `system/projects/tracker17/agari.md`. Done
+The design is scoped against the project's Definition of Done, `system/projects/tracker17/dod.md`. Done
 is the owner passing three bars on one run-through on their own machine: **Works**, **Simple to set
-up** and **Simple to read**. The Agari places publishing and a re-check on later releases outside
+up** and **Simple to read**. The Definition of Done places publishing and a re-check on later releases outside
 done, and this design builds for neither.
 
 Three things were fixed before any choice below was made, and each bounds the design:
@@ -171,7 +171,7 @@ replaced by a browser part.
    and title editing, and the PRD names them as where tracker17 is "most likely to drift from its
    predecessor's rules" (PRD § Risks). The interface is the other thing that moved: it was a
    command line in tracker16-X and is a browser here (SRS C-3). Change arrives in the list rules
-   and at the interface, and nowhere else inside the Agari's horizon.
+   and at the interface, and nowhere else inside the Definition of Done's horizon.
 2. **What the system talks to.** One browser interface, the machine's disk and the machine's clock.
    There is no API and no outside service (SRS § 5.2, § 5.3). All three edges are stable, and
    tracker17 owns every contract.
@@ -181,7 +181,7 @@ replaced by a browser part.
    saved data must satisfy to be readable (DR-6). Several are used on more than one page: SRS AC-13
    requires that the "list marking, the overdue filter and the summary count agree". The rest of
    the product moves form fields to the saved data and back.
-4. **What must be replaceable.** Two substitutions are exercised before the Agari. Tests replace the
+4. **What must be replaceable.** Two substitutions are exercised before the Definition of Done. Tests replace the
    clock, because SRS AC-13 is checked with "today's date set by the test". Tests replace or
    interrupt the saved-data part, because AC-9 interrupts a save. A third is possible: SRS AC-15's
    timed run at 1,000 tasks with 20 comments each is the one measurement that could force a
@@ -297,7 +297,7 @@ written so that a slice breaking it could be named.
   takes no argument. Together with moving into the copy, setup is two commands. *(serves SRS FR-1,
   C-7; UXD UX-S2, "the command takes no input")* *(confirmed: `trail/sdd/cycle-1.md` § 2.1)*
 - **RT-3: The tracker runs on macOS and Linux, and Windows is not supported.** Only macOS is
-  checked: the owner's machine is macOS, and nothing in the Agari's check runs the tracker or its
+  checked: the owner's machine is macOS, and nothing in the Definition of Done's check runs the tracker or its
   suite on Linux (§ 11 R-9). Linux stays named because the tracker needs no code of its own for it.
   The tracker runs on any Linux with Python 3.11 or later. The end-to-end suite runs on fewer Linux
   systems than the tracker, and RT-4 says which. Nothing is built or tested for Windows. An
@@ -740,7 +740,7 @@ tracker17's cut does not depart from it.
 ### Step 1 — List what becomes observably different
 
 Before any slicing, list the things that would be **observably different** about the running product
-between where it is now and its Agari. Write each as one sentence in the form *after this, <someone>
+between where it is now and its Definition of Done. Write each as one sentence in the form *after this, <someone>
 can <do something they could not>*.
 
 The list is made from behaviour, never from the architecture's boxes. "Set up the database", "build
@@ -803,7 +803,7 @@ says so plainly; a number is not a reason.
 
 - **A dependency stated as an ordering preference** — a fact and a habit are not the same thing.
 - **A slice whose only value is that a later slice needs it.**
-- **A slice no Agari claims.**
+- **A slice no Definition of Done claims.**
 - **A slice no project would own any of** — which project owns which seed is settled at the cut,
   not here, and a slice may well split across two.
 - **A milestone that only restates its last task's completion.**
@@ -893,7 +893,7 @@ pytest tests/e2e/` exits 0.
   SRS FR-1 to FR-7, FR-9, FR-10, FR-11, FR-37, FR-39, FR-40, FR-41, NFR-2, NFR-4, NFR-5, NFR-8,
   NFR-9, NFR-11, DR-1, C-2, C-6, C-7, C-8. UXD UX-F1, UX-F2, UX-S1, UX-S2, UX-S3, UX-S4, UX-S10,
   UX-I3, UX-I4, UX-I8.
-- **Moves toward:** the Agari's second bar, Simple to set up, in full. The first step of its first
+- **Moves toward:** the Definition of Done's second bar, Simple to set up, in full. The first step of its first
   bar, Works. The first step of its third bar, Simple to read, for the Projects feature and for the
   first code a reader can read cold.
 - **Not in this slice:** tasks, and the add-task form on the project's page — `tasks-in-a-project`.
@@ -951,7 +951,7 @@ pytest tests/e2e/` exits 0.
   § Success Metrics Simple to read. SRS FR-15, FR-16, FR-20 to FR-26, FR-31, FR-37, FR-39, FR-40,
   NFR-1, NFR-3, NFR-9, NFR-14, DR-2, DR-4. UXD UX-F3, UX-F5, UX-F8, UX-F9, UX-S4, UX-S6, UX-S8,
   UX-S10, UX-A4.
-- **Moves toward:** the Agari's first bar, Works, for the first half of Key Use Case 3. Its third
+- **Moves toward:** the Definition of Done's first bar, Works, for the first half of Key Use Case 3. Its third
   bar, Simple to read, for the Tasks, Priorities, Assignees, Labels and Due dates features, whose
   entry points this slice adds (§ 4 TS-3).
 - **Not in this slice:** moving a task's status — `status-moves`. Deleting a task —
@@ -992,7 +992,7 @@ pytest tests/e2e/` exits 0.
 - **Traces to:** PRD § Key Use Cases 2 and 5, § Core Features Comments, § UX Notes Refusals say why
   and Defaults, § Success Metrics Simple to read. SRS FR-27 to FR-30, FR-39, FR-40, NFR-1, NFR-9,
   NFR-14, DR-3, DR-5. UXD UX-F7, UX-F8, UX-S6, UX-S8.
-- **Moves toward:** the Agari's first bar, Works, for Key Use Case 5. Its third bar, Simple to
+- **Moves toward:** the Definition of Done's first bar, Works, for Key Use Case 5. Its third bar, Simple to
   read, for the Comments feature, whose entry point this slice adds (§ 4 TS-3).
 - **Not in this slice:** deleting a task together with its comments — `delete-and-rename`. Threaded
   replies to a comment, which the PRD places out of scope and no slice owns.
@@ -1042,7 +1042,7 @@ pytest tests/e2e/` exits 0.
   workflow is visible, What must feel effortless and Refusals say why, § Success Metrics Simple to
   read. SRS FR-18, FR-19, FR-25, FR-39, NFR-1, NFR-3, NFR-9, NFR-12. UXD UX-F4, UX-S4, UX-S6,
   UX-I1, UX-I2, UX-I3, UX-I4, UX-A6.
-- **Moves toward:** the Agari's first bar, Works, completing Key Use Case 3. Its third bar, Simple
+- **Moves toward:** the Definition of Done's first bar, Works, completing Key Use Case 3. Its third bar, Simple
   to read, for the Status workflow feature, whose entry point this slice adds (§ 4 TS-3).
 - **Not in this slice:** the confirmations on deleting a task and a project — `delete-and-rename`.
   A moved task leaving a list that is filtered by status — `narrow-and-sort`.
@@ -1086,7 +1086,7 @@ pytest tests/e2e/` exits 0.
 - **Traces to:** PRD § Key Use Cases 2 and 4, § Core Features Filtering and Sorting, § UX Notes What
   must feel effortless and Refusals say why, § Success Metrics Simple to read. SRS FR-31 to FR-37,
   FR-39, NFR-1, NFR-9. UXD UX-F4, UX-F5, UX-S4, UX-S7, UX-S10, UX-I3, UX-I4, UX-I7, UX-A3.
-- **Moves toward:** the Agari's first bar, Works, for the first half of Key Use Case 4. Its third
+- **Moves toward:** the Definition of Done's first bar, Works, for the first half of Key Use Case 4. Its third
   bar, Simple to read, for the Filtering and Sorting features, whose entry points this slice adds
   (§ 4 TS-3).
 - **Not in this slice:** the project summary and its links into a filtered list —
@@ -1115,7 +1115,7 @@ pytest tests/e2e/` exits 0.
 - **Rests on:** § 3; `narrow-and-sort`.
 - **Traces to:** PRD § Key Use Cases 2 and 4, § Core Features Project summary, § Success Metrics
   Simple to read. SRS FR-25, FR-38, NFR-1, NFR-9. UXD UX-F6, UX-S4, UX-S5.
-- **Moves toward:** the Agari's first bar, Works, completing Key Use Case 4. Its third bar, Simple
+- **Moves toward:** the Definition of Done's first bar, Works, completing Key Use Case 4. Its third bar, Simple
   to read, for the Project summary feature, whose entry point this slice adds (§ 4 TS-3).
 - **Not in this slice:** a summary across projects, which the PRD places out of scope and no slice
   owns.
@@ -1151,7 +1151,7 @@ pytest tests/e2e/` exits 0.
 - **Traces to:** PRD § Key Use Cases 2, § Core Features Projects and Tasks, § UX Notes Refusals say
   why, § Success Metrics Simple to read. SRS FR-12, FR-13, FR-15, FR-17, FR-39, FR-40, NFR-1,
   NFR-3, NFR-9. UXD UX-F9, UX-F10, UX-I2, UX-S4, UX-S6, UX-S10.
-- **Moves toward:** the Agari's first bar, Works, for the Projects and Tasks features in full. Its
+- **Moves toward:** the Definition of Done's first bar, Works, for the Projects and Tasks features in full. Its
   third bar, Simple to read, by completing the traces of those two features: their entry points
   name the tests this slice adds.
 - **Not in this slice:** moving a task to another project, which SRS FR-14 excludes and no slice
@@ -1184,7 +1184,7 @@ pytest tests/e2e/` exits 0.
     and with a second tracker, as this slice leaves them (§ 4 EX-12).
 - **Rests on:** § 3, `SM-5` and `SM-6`; § 4 SD-4, SD-5; `first-project`.
 - **Traces to:** PRD § UX Notes Failure states. SRS FR-8, NFR-3, DR-6. UXD UX-F11, UX-S2, UX-S9.
-- **Moves toward:** the Agari's first bar, Works, for the PRD's failure states.
+- **Moves toward:** the Definition of Done's first bar, Works, for the PRD's failure states.
 - **Not in this slice:** any control inside the tracker that sets data aside or repairs it. The
   setup instructions own that, and they are delivered by `first-project`.
 - **Why here in the order:** last, and it could sit anywhere after `first-project`. It is placed
@@ -1230,7 +1230,7 @@ delivery. **Stays here** — a fact about this slice's place among slices, which
 | **Slug** | recorded in `## Source` as the slice this seed came from | repeats |
 | **Delivers** | `## What it is` | divides — each share must be worth something on its own, or it is a fragment (§ 5 step 2) |
 | **Rests on**, the SDD sections it realizes | `## What it is` | repeats |
-| **Moves toward** | `## What it is` | repeats — a seed that advances no Agari is a finding |
+| **Moves toward** | `## What it is` | repeats — a seed that advances no Definition of Done is a finding |
 | **Traces to**, and this SDD's path | `## Source` | repeats, narrowed to what the seed's share touches |
 | **Rests on**, the slices it names by slug | `## Relation to existing work` | repeats — the order *among* these seeds is decided at the cut and is not in this SDD |
 | **Not in this slice** | `## Out (later / elsewhere)` | repeats, and grows — each seed also fences off its siblings' shares, naming the seed that owns each |
@@ -1614,7 +1614,7 @@ both.*
   pytest tests/` would settle it, and uv fetches that interpreter when the machine has none
   (RT-4's sources); no slice requires that run.
 - **R-9: Linux is named as supported, and the end-to-end suite has not passed there.** The owner's
-  machine is macOS (`uname -s` printed `Darwin` on 2026-10-06), and no run in the Agari's check uses
+  machine is macOS (`uname -s` printed `Darwin` on 2026-10-06), and no run in the Definition of Done's check uses
   Linux. One run outside that check has happened. On 2026-10-08, on Debian 12 (bookworm), aarch64,
   in a fresh copy and following the setup instructions' commands, `python3 main.py` started and
   served, `pytest tests/` gave 224 passed, and `pytest tests/e2e/` gave `1 failed, 1 passed, 10
@@ -1738,10 +1738,10 @@ document caught up with ADR-0014 to ADR-0016, NFDR version 24 and FDR version 6.
 a draft, that note now says so and names the note that carries the answer.
 
 - **RN-1:** *(CPO)* *(added)* § 1 is drafted and treated as settled by the inputs. Each sentence
-  restates the PRD, the Agari or the SRS and adds nothing to them, so no item was raised — *because*
+  restates the PRD, the Definition of Done or the SRS and adds nothing to them, so no item was raised — *because*
   the template asks § 1 to name the goals and requirements that bound the design, and those are
   already settled upstream. *(re: § 1; source: PRD § Purpose, § Goals, § Success Metrics;
-  `system/projects/tracker17/agari.md`; SRS C-1, C-2, C-5, C-7, NFR-9, NFR-10)*
+  `system/projects/tracker17/dod.md`; SRS C-1, C-2, C-5, C-7, NFR-9, NFR-10)*
 - **RN-2:** *(CTO)* *(added)* The shape of § 2 — *because* of the seven forces stated there. The
   upstream documents name no architecture. *(re: § 2; source: SRS C-5, AC-13, NFR-3, NFR-7)*
 - **RN-3:** *(CTO)* *(added)* Python 3.11 or later, standard library only at run time. The draft
@@ -1799,7 +1799,7 @@ a draft, that note now says so and names the note that carries the answer.
   fields of every slice were drafted by the CTO and confirmed in
   `products/tracker17/docs/trail/sdd/cycle-1.md` § 2.5, § 3.1 and § 3.2 — *because*
   the PRD lists features and use cases and does not cut them into deliverable steps. Nothing of
-  tracker17 is built today, so every entry is a difference between no product and the Agari:
+  tracker17 is built today, so every entry is a difference between no product and the DoD:
   `ls products/tracker17` returned `docs` and nothing else on 2026-10-06. § 5 step 1 gave ten
   entries, and step 2 struck two as fragments. *After this, the operator can keep the list of
   people tasks can be assigned to* was struck, because a list of names with no task to assign has
@@ -1807,19 +1807,19 @@ a draft, that note now says so and names the note that carries the answer.
   their own name* was struck, because the name is used only as a comment's author (SRS FR-28), and
   it is folded into `comment-on-a-task`. The eight entries that remain are the eight slices, and
   each *Delivers* is its entry. The answers kept both cut calls. `delete-and-rename` stays its own
-  slice (§ 3.1), because the Agari's Works bar runs Key Use Cases 3, 4 and 5 and none of them
+  slice (§ 3.1), because the Definition of Done's Works bar runs Key Use Cases 3, 4 and 5 and none of them
   deletes anything or renames a project, so folding it into `tasks-in-a-project` would put three
   more actions in front of every slice a Key Use Case needs. People arrives in two halves and
   there is no `people` slice (§ 3.2), because a screen of names that nothing yet uses lets the
   operator do nothing new, and § 5 step 2 strikes it. The answer to § 2.5 confirmed the eight
   slices, their slugs, their *Delivers* sentences and their fences, and added three things. Seven
-  slices' *Moves toward* now name the Agari's third bar, Simple to read, and their *Traces to* name
+  slices' *Moves toward* now name the Definition of Done's third bar, Simple to read, and their *Traces to* name
   PRD § Key Use Cases 2 and § Success Metrics Simple to read, because each slice that adds a
   feature entry point makes that feature traceable from the PRD to its code and tests.
   `protect-saved-data` adds no entry point and gains neither. *Traces to* names the PRD sections
   the slices deliver and no slice named. *Not in this slice* names the PRD's remaining exclusions
   on the slice a reader would expect each in. *(re: § 5 steps 1, 2 and 4, § 6; source: PRD § Key
-  Use Cases, § Core Features, § Out of Scope; `system/projects/tracker17/agari.md`)*
+  Use Cases, § Core Features, § Out of Scope; `system/projects/tracker17/dod.md`)*
 - **RN-14:** *(CDO)* *(added)* The behaviour lines of every *Reached when* and the UXD entries of
   every *Traces to* were drafted by the CTO and confirmed with five additions in
   `products/tracker17/docs/trail/sdd/cycle-1.md` § 2.4 — *because* the UXD describes finished flows
@@ -1841,7 +1841,7 @@ a draft, that note now says so and names the note that carries the answer.
   fields" as a move made between a settled foundation and the cut of seeds. The table is right and
   the card is the file that follows. *(re: § 3, The units)*
 - **RN-16:** *(CTO)* *(added)* This run read four things beyond the PRD, the SRS, the UXD, the
-  Agari and the project's doctrine. It read tracker16-X's code under
+  Definition of Done and the project's doctrine. It read tracker16-X's code under
   `task-tracker-X/tasktracker16x/`, to draw § 3's seams against the
   code SRS C-5 prefers. It read the engineering doctrine under `<CORE>/doctrine/engineering/`, for
   the Python frame and the test layers. It read `<CORE>/launchers/product-skeleton/launcher.sh`, to
@@ -2182,7 +2182,7 @@ a draft, that note now says so and names the note that carries the answer.
   tracker and not for the suite, and the answer took only its bound: withholding a one-line fix from
   every Debian and Ubuntu reader was judged worse than giving the suite a narrower list than the
   tracker. The reasoning is `products/tracker17/docs/trail/sdd/self_answer-6.md` § 5.1. RT-3's
-  "checked on macOS only" stays in the instructions, because the Agari's check reaches only macOS
+  "checked on macOS only" stays in the instructions, because the Definition of Done's check reaches only macOS
   and no end-to-end run has passed on Linux. Nothing settled upstream moves: SRS FR-4 has the
   prerequisites say setup needs a network connection once "to fetch the declared dependencies
   (§ 5.3)", and § 5.3 lets setup fetch from "public sources that need no account, key or sign-up",
@@ -2194,7 +2194,7 @@ a draft, that note now says so and names the note that carries the answer.
   and the slice's place, fence and § 7 edges do not move. One record downstream reads thinner now:
   `products/tracker17/docs/adr/0009-one-unix-lock-no-windows.md` § Consequences says "Linux is named
   as supported and nothing checks it (SDD § 11 R-9)". The tracker's prerequisites are still one set
-  and the Agari's check still does not reach Linux, so on this reading neither sentence is false.
+  and the Definition of Done's check still does not reach Linux, so on this reading neither sentence is false.
   The record is the Principal Architect's to re-read against R-9 as narrowed, and where the two
   disagree § 4 wins (§ 12). *(re: § 4 RT-3, RT-4; § 6 `first-project`; § 11 R-9; source: SRS FR-4,
   § 5.3, C-7, C-8, NFR-13, AC-3)*
@@ -3123,7 +3123,7 @@ a draft, that note now says so and names the note that carries the answer.
   answers make, and ran no suite: this round changed no code. It ran `git status --short` on the
   repository, which printed nothing, so the companion it consumed is the committed one, and
   `git log` on `SDD.md`, the companion and `trail/sdd/`, which places the companion's opening at
-  `55e6bb6cb` and its answers at `27e1b11fe`. It read `system/projects/tracker17/agari.md` and
+  `55e6bb6cb` and its answers at `27e1b11fe`. It read `system/projects/tracker17/dod.md` and
   `project.md` whole, and `system/projects/tracker17/doctrine/tracker17_doctrine.md` at its head,
   stamped and unfilled. It did not read the project's journey: no station of this project's was
   named to this run, and nothing in this document cites one.
@@ -3167,7 +3167,7 @@ a draft, that note now says so and names the note that carries the answer.
   changed no code. It ran `git status --porcelain` on the product's `docs/`, which printed nothing,
   so the companion it consumed is the committed one, and `git log` on `SDD.md` and the companion,
   which places the companion's opening at `2668d3212` and its answer at `f5b34af50`. It read
-  `system/projects/tracker17/agari.md`, `project.md` and the two doctrine files whole, the second
+  `system/projects/tracker17/dod.md`, `project.md` and the two doctrine files whole, the second
   two stamped and unfilled, and `system/doctrine/writing_bar.md` whole. It read one station of this
   project's journey, the open one, as an input for the commit's directional alone; nothing in this
   document cites it.
@@ -3234,10 +3234,10 @@ a draft, that note now says so and names the note that carries the answer.
   `docs/`, which printed nothing, so the companion it consumed is the committed one; `git log` on
   `SDD.md` and the companion, which places the companion's opening at `36e59763d` and its answer at
   `b13b5e86b`; and `git log` on `fdr.md` and `nfdr.md`, which places FDR version 6 at `86f97f253`
-  and NFDR version 24 at `04c348675`. It read `system/projects/tracker17/agari.md`, `project.md` and
+  and NFDR version 24 at `04c348675`. It read `system/projects/tracker17/dod.md`, `project.md` and
   the two doctrine files whole, the second two stamped and unfilled, and
   `system/doctrine/writing_bar.md` whole. It read this project's `journey/shukuba/` as an input for
-  the commit's directional alone: no station is open, so the commit resolves against the Agari.
+  the commit's directional alone: no station is open, so the commit resolves against the Definition of Done.
   Nothing in this document cites the journey.
 
 ---

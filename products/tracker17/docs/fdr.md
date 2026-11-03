@@ -3,7 +3,7 @@
 **Status:** Settled
 **Owner:** Principal PM
 **Version:** 6 — no rule, product decision, exclusion or example changes from version 5. At 5: the saved data's unreadable mode is stated: an outside change stays and is read at the next start, and every address shows the one page. The README's opening paragraph names both purposes, the prerequisites name the tool the test suite needs, a return to a confirmation shows what the saved data allows, and a filter or sort value no control can hold is refused
-**Inputs read:** PRD Settled (version 7) · SRS Settled (version 6) · SDD Settled (version 18) · Agari no Status line (`agari_template.md` carries none) · UXD Settled (version 11; no `products/tracker17/docs/UXD_open_issues.md` beside it; a sibling, read for collisions, not a source) · tracker17 doctrine no Status line (stamped, unfilled) · writing_bar Settled
+**Inputs read:** PRD Settled (version 7) · SRS Settled (version 6) · SDD Settled (version 18) · Definition of Done no Status line (`dod_template.md` carries none) · UXD Settled (version 11; no `products/tracker17/docs/UXD_open_issues.md` beside it; a sibling, read for collisions, not a source) · tracker17 doctrine no Status line (stamped, unfilled) · writing_bar Settled
 
 > The FDR is tracker17's behavioural contract: what the product does, and the product decisions every
 > change after it is built against. It is derived from `products/tracker17/docs/PRD.md`,
@@ -27,7 +27,7 @@ example: a reader must be able to set it up from its written instructions, see t
 its code, and follow one feature from the product definition to its code and tests (PRD § Purpose,
 § Key Use Cases). It is also kensaiapp's own testing ground: building it with kensaiapp is how issues
 in kensaiapp are found and fixed (PRD § Blurb, § Purpose; SRS § 1). The rules below are the behaviour that serves that intent, scoped to the project's
-上がり Agari, `system/projects/tracker17/agari.md`.
+Definition of Done, `system/projects/tracker17/dod.md`.
 
 ---
 
@@ -430,10 +430,10 @@ in kensaiapp are found and fixed (PRD § Blurb, § Purpose; SRS § 1). The rules
 
 ## Out of scope
 
-- **OOS-1:** Publishing tracker17, or a trial by an outside reader. The Agari's done does not require
-  it. *(traces to: `system/projects/tracker17/agari.md`, "What this Agari does not require")*
-- **OOS-2:** Re-checking the three bars on every later release. The Agari calls that upkeep after
-  done. *(traces to: `system/projects/tracker17/agari.md`, "What this Agari does not require")*
+- **OOS-1:** Publishing tracker17, or a trial by an outside reader. The Definition of Done's done does not require
+  it. *(traces to: `system/projects/tracker17/dod.md`, "What this Definition of Done does not require")*
+- **OOS-2:** Re-checking the three bars on every later release. The Definition of Done calls that upkeep after
+  done. *(traces to: `system/projects/tracker17/dod.md`, "What this Definition of Done does not require")*
 - **OOS-3:** Hosting, and use by more than one person over a network. *(traces to: PRD § Out of
   Scope)*
 - **OOS-4:** Login, accounts or access control. *(traces to: PRD § Out of Scope)*
@@ -616,7 +616,7 @@ in kensaiapp are found and fixed (PRD § Blurb, § Purpose; SRS § 1). The rules
     (`<CORE>/doctrine/setup/setting_up_a_project.md` § *The definition set never names the journey*).
   - PRD § Why This, § Assumptions and § Risks set intent and conditions, and require no behaviour. SRS
     RN-18 walks the same items. PRD § Assumptions' sentence on becoming public with kensaiapp's public
-    release leaves OOS-1 standing, because the Agari's done still does not require publishing.
+    release leaves OOS-1 standing, because the Definition of Done's done still does not require publishing.
   - PRD § Purpose's second purpose adds no behaviour to the tracker (SRS RN-18). The Description names
     it, and R-122 and R-123 carry its last sentence through SRS FR-41.
   - The default sort field of a list with no sort chosen, the order of the projects list, and whether a

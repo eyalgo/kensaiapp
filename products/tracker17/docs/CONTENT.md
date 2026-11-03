@@ -10,7 +10,7 @@ omitted:
 **Status:** Settled
 **Owner:** Content Manager
 **Version:** 21 — folds the answer to item 3.1 (cycle 20): the path form governs a path the tracker writes in its own words and not one inside the underlying error text (RN-35). At 20: § Terminology gained a term for a start that ended by itself after its refusal, and the "killed" row's reason was corrected (RN-34). At 19: § Error gained a pattern for a start that serves on unreadable saved data, and § Grammar and mechanics the form of a path the tracker prints (RN-32, RN-33)
-**Inputs read:** PRD Settled · UXD Settled (version 11) · SRS Settled · DESIGN Settled · Agari no Status line (`agari_template.md` carries none) · tracker17 doctrine no Status line (stamped, unfilled)
+**Inputs read:** PRD Settled · UXD Settled (version 11) · SRS Settled · DESIGN Settled · Definition of Done no Status line (`dod_template.md` carries none) · tracker17 doctrine no Status line (stamped, unfilled)
 
 > The verbal language is the source of truth for everything this product says to a person. It is
 > the peer of `DESIGN.md`, not a part of it: a rule about how something **looks** belongs there,

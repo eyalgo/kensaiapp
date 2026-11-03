@@ -3,7 +3,7 @@
 **Status:** Settled
 **Owner:** CTO
 **Version:** 7 — PRD v8's corrected assumption, tracker17 is public, carried in RN-18 as no requirement: publishing stays outside done by § 2's terminus. At 6: PRD v6's second purpose, kensaiapp's own testing ground, folded in on the owner's answer (`products/tracker17/docs/trail/srs/cycle-5.md` § 3.1): § 1 names it, FR-41 has the README's opening paragraph name both purposes, AC-21 checks it, RN-18 narrows its § Purpose drop-line, and RN-25 records why
-**Inputs read:** PRD Settled (v6) · Agari no Status line (`agari_template.md` carries none) · UXD Settled (no companion; searched for the README and the product's purposes, not a source) · tracker17 doctrine no Status line (stamped, unfilled) · SDD Settled, DESIGN Settled, CONTENT Settled, fdr Settled and nfdr Settled (downstream; searched for the README and the product's purposes, not sources — none has a companion)
+**Inputs read:** PRD Settled (v6) · Definition of Done no Status line (`dod_template.md` carries none) · UXD Settled (no companion; searched for the README and the product's purposes, not a source) · tracker17 doctrine no Status line (stamped, unfilled) · SDD Settled, DESIGN Settled, CONTENT Settled, fdr Settled and nfdr Settled (downstream; searched for the README and the product's purposes, not sources — none has a companion)
 
 > The SRS is the technical source of truth: the system-level **what**, derived from the PRD and
 > read cold by the Principal PM (Delivery Plan / FDR) and the Principal Architect (ADR / NFDR).
@@ -56,15 +56,15 @@ operator's machine, the failure states in PRD § UX Notes, and the three test la
   shorthand (`+3d`) and its data kept per working directory
 - a package, an installer or a hosted demo
 
-**The terminus this SRS is scoped against** is the project's 上がり Agari,
-`system/projects/tracker17/agari.md`. Done is reached when the owner passes the PRD's three bars,
+**The terminus this SRS is scoped against** is the project's Definition of Done,
+`system/projects/tracker17/dod.md`. Done is reached when the owner passes the PRD's three bars,
 **Works**, **Simple to set up** and **Simple to read**, on one run-through on their own machine. The
-Agari places two things outside done, and this SRS specifies neither:
+Definition of Done places two things outside done, and this SRS specifies neither:
 
-- **Publishing tracker17**, or a trial by an outside reader. The Agari says done "does not require
+- **Publishing tracker17**, or a trial by an outside reader. The Definition of Done says done "does not require
   tracker17 to be published or tried by an outside reader". No requirement here serves a public
   repository, a public download location or an outside reader's environment.
-- **Re-checking the three bars "again on every later release"** (PRD § Success Metrics). The Agari
+- **Re-checking the three bars "again on every later release"** (PRD § Success Metrics). The Definition of Done
   calls that upkeep after done. The acceptance criteria in § 8 are written so the same checks can be
   run again, and no requirement here schedules or automates the re-check.
 
@@ -644,7 +644,7 @@ C-5 is a sourcing constraint whose result is checked rule by rule in AC-12 to AC
   - PRD § Risks are carried where they bear: the browser-simplicity risk by AC-4, the new-feature risk
     by RN-16, the "small team" misreading by NFR-7, and the single-judge risk by AC-4 and AC-5 staying
     the owner's calls.
-  - PRD § Success Metrics, "again on every later release", is upkeep after done under the Agari, as
+  - PRD § Success Metrics, "again on every later release", is upkeep after done under the Definition of Done, as
     § 2 states.
 - **RN-19:** *(added)* FR-27's non-blank operator name and FR-28's non-blank comment text. *Because*
   PRD § Core Features, Comments says "a comment can't be added until a name is set", and a blank is no

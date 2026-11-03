@@ -226,7 +226,7 @@ components:
 **Status:** Settled
 **Owner:** CDO
 **Version:** 4 — the answered round folded in (`products/tracker17/docs/trail/design/cycle-2.md`): the confirmation strip's sentence and confirming button take the height token of the button the strip replaces, so a status move's strip on the task page is {spacing.row-control} tall, and the back-out control stays full size (§ Components, RN-25). UXD versions 5 and 6 read, with nothing visual to carry. No token value changed
-**Inputs read:** UXD Settled (version 6, no companion) · PRD Settled · SRS Settled · Agari no Status line (`agari_template.md` carries none) · visual_direction Settled · visual_restrictions Settled · tracker17 doctrine no Status line (stamped, unfilled)
+**Inputs read:** UXD Settled (version 6, no companion) · PRD Settled · SRS Settled · Definition of Done no Status line (`dod_template.md` carries none) · visual_direction Settled · visual_restrictions Settled · tracker17 doctrine no Status line (stamped, unfilled)
 
 > The design language is the visual source of truth: the tokens are normative, the prose says
 > how to apply them. It is authored off the UXD's § Design-System Direction — that section names

@@ -3,7 +3,7 @@
 **Status:** Settled
 **Owner:** CDO
 **Version:** 11 — the ninth answered round folded in (`products/tracker17/docs/trail/uxd/cycle-9.md`): when the list's filter leaves a task off the list, a pressed move's refusal or failure sits above the results in UX-I4's line; a refusal names the task, its status and its moves, and names Clear unless the status is final; a failure names the task and the failed move, and names Clear (UX-F4, UX-S4, UX-I3, UX-A3, RN-37). PRD version 7 read, unchanged. At 10: the eighth answered round folded in (`products/tracker17/docs/trail/uxd/cycle-8.md`): when the list's filter leaves a task off the list, a refusal reached by an address sits above the results in UX-I4's line, naming the task and its status, with no action, reload or Clear, on a project's Tasks view and on All tasks (UX-F4, UX-S4, UX-I3, UX-A3, RN-36). PRD version 7 read, unchanged since version 8. At 9: a refusal states what holds when its page is built and claims no event before it (`products/tracker17/docs/trail/uxd/cycle-7.md`).
-**Inputs read:** PRD Settled (version 7) · SRS Settled · Agari no Status line (`agari_template.md` carries none) · visual_restrictions Settled · voice_restrictions Settled · tracker17 doctrine no Status line (stamped, unfilled) · CONTENT Settled (version 15) (downstream; read to check what the answered round cites, not a source)
+**Inputs read:** PRD Settled (version 7) · SRS Settled · Definition of Done no Status line (`dod_template.md` carries none) · visual_restrictions Settled · voice_restrictions Settled · tracker17 doctrine no Status line (stamped, unfilled) · CONTENT Settled (version 15) (downstream; read to check what the answered round cites, not a source)
 
 > The UXD is the experience source of truth: the experience-level **what**, derived from the
 > settled PRD, authored concurrent with the SRS, and consumed cold by the SDD (so
@@ -543,14 +543,14 @@ from that.
 
 ## 10. Out of Scope
 
-This UXD is scoped against the project's 上がり Agari, `system/projects/tracker17/agari.md`: done is
+This UXD is scoped against the project's Definition of Done, `system/projects/tracker17/dod.md`: done is
 the owner passing the PRD's three bars, Works, Simple to set up and Simple to read, on one
-run-through on their own machine. The Agari places two things outside done, and this UXD designs
+run-through on their own machine. The Definition of Done places two things outside done, and this UXD designs
 neither:
 
 - **Publishing, and an outside reader.** No public landing page, no "about" page, and no link to a
-  public repository or download location (`system/projects/tracker17/agari.md`, "What this
-  Agari does not require").
+  public repository or download location (`system/projects/tracker17/dod.md`, "What this
+  Definition of Done does not require").
 - **Re-checking the bars on later releases.** No in-app release notes or version display serves it.
 
 What the PRD places out of scope, and therefore has no screen, control or state here:
