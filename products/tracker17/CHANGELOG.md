@@ -34,6 +34,10 @@ Each entry records a change to what a user of a fresh clone installs, runs, type
 - **tracker17** — `products/tracker17/docs/SDD.md`, at version 19, defines a submission as a `post` form and a `get` form as a read. It answers every page that shows a pending confirmation with 202, sets up the test suite with uv, and states how the tracker serves saved data it can't read. (`328b15aaf`, `cb9ef1445`, `0ac110bab`, `3266cb262`, `01d3d925a`, `6f2366ae6`, `78963ba46`, `b70900868`)
 - **tracker17** — `products/tracker17/docs/nfdr.md`, at version 24, follows ADR-0011 to ADR-0016. It names the tests behind deleting a task and a project, runs both test suites through uv, and states how a review meets the dependency checks. (`db16374d3`, `d459f69d9`, `66e29daa9`, `909fc536c`, `53ad18603`, `7ed698a82`, `f83e0f3f2`, `1f1ed6101`, `1d11b7047`, `4a646aaf0`, `04c348675`, `3553cf36d`)
 
+### Removed
+
+- **tools** — The `README.md` no longer has a Status section listing what the tracker does and the commit each thing came in with. In its place, it says each change is recorded in `CHANGELOG.md` and what is left to build is listed in `docs/what_left.md`. (`24df0bd54`)
+
 ### Fixed
 
 - **tracker17** — A start on readable saved data whose path holds a byte that isn't text prints its ready line and serves. The line writes that byte as `\x` and its two hex digits. (`97783ee64`, `8a4a74dbf`)
