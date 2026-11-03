@@ -3,7 +3,7 @@
 **Status:** Settled
 **Owner:** Principal Architect
 **Version:** 24 — the answers to companion §§ 3.1 to 3.5 folded in (`products/tracker17/docs/trail/architecture/cycle-22.md`): QC-7 and QC-63 are scoped to a tracker serving its saved data, and QC-7 names the one answer of a tracker on unreadable data, 503 with one page (RN-63). ADR-0014, ADR-0015 and ADR-0016 supersede ADR-0011, ADR-0012 and ADR-0005, each carrying its predecessor whole with the mode qualified, and the entries those bound trace to them. QC-8 and § 10 do not move. Nothing is left open, so the companion is removed and this document is Settled.
-**Inputs read:** SRS Settled (version 6) · SDD Settled (version 18; `products/tracker17/docs/SDD_open_issues.md` beside it, § 2.1 answered and not folded) · FDR Settled (version 6) · PRD Settled (version 7) · UXD Settled (version 11) · DESIGN Settled (version 4) · CONTENT Settled (version 19) · Definition of Done no Status line · tracker17 doctrine no Status line (stamped, unfilled)
+**Inputs read:** SRS Settled (version 6) · SDD Settled (version 18; `products/tracker17/docs/SDD_open_issues.md` beside it, § 2.1 answered and not folded) · FDR Settled (version 6) · PRD Settled (version 7) · UXD Settled (version 11) · DESIGN Settled (version 4) · CONTENT Settled (version 19) · finish line no Status line · tracker17 doctrine no Status line (stamped, unfilled)
 
 > The NFDR is the product's **standing obligations, consolidated and verifiable**: every quality
 > constraint a change is checked against, derived from the SRS, the SDD, the FDR and the ADR — never
@@ -174,7 +174,7 @@ module under `tests/architecture/`, which `pytest tests/` runs.
   product simple. No size metric stands in for that judgement.
   — *verified by:* review at `development-design`, asking whether a change adds a part that no
   requirement pays for (SDD § 1, "Every part this design adds is a part the reader has to read"), and
-  the owner's pass/fail call at the Definition of Done check (SRS AC-4). No command can check it, because NFR-10
+  the owner's pass/fail call at the finish line check (SRS AC-4). No command can check it, because NFR-10
   forbids a metric standing in *(traces to: SRS NFR-10, AC-4)*
 
 ### 1.2 Forbidden imports
@@ -723,7 +723,7 @@ QC-12, QC-25, QC-26, QC-27, QC-40, QC-41 and QC-60 are review gates and have no 
 ## NFDR Review Notes
 
 - **RN-1:** This run read the SRS, the SDD and the FDR in full, with the SDD's two answered rounds
-  (`products/tracker17/docs/trail/sdd/cycle-1.md` in full, `cycle-2.md` § 2.1), the Definition of Done and the
+  (`products/tracker17/docs/trail/sdd/cycle-1.md` in full, `cycle-2.md` § 2.1), the finish line and the
   project's doctrine in full, `UXD_open_issues.md` in full, and the PRD's § Data & Privacy. It read
   the UXD, `DESIGN.md` and `CONTENT.md` for their headers only and derived nothing from them: their
   bearing on this document reaches it through SDD § 4's experience conditions. It read three vendor
@@ -977,7 +977,7 @@ QC-12, QC-25, QC-26, QC-27, QC-40, QC-41 and QC-60 are review gates and have no 
   page showed moves no entry: QC-8 has `web` keep nothing between requests, and a value carried in the
   form is not kept by `web`. RT-10's stated maximums are already QC-9's (RN-19). RT-5's address moves
   none: QC-30 checks the host is loopback whatever the port. The SRS, the FDR, the UXD, `DESIGN.md`,
-  the Definition of Done and the project's doctrine are unchanged since version 3; `CONTENT.md` is at version 5
+  the finish line and the project's doctrine are unchanged since version 3; `CONTENT.md` is at version 5
   and was read for its header only, as RN-1 says. It ran QC-62's three commands on a copy of the
   product at `HEAD`, never on the main checkout, and found what the owner's answer measured: the
   format check clean, 8 Ruff findings, 3 mypy errors. § 8's and § 10's sentences that quoted the
@@ -1006,7 +1006,7 @@ QC-12, QC-25, QC-26, QC-27, QC-40, QC-41 and QC-60 are review gates and have no 
   and RN-21's last sentence. It changed no obligation and no § 10 row: QC-11's row already names
   `pytest tests/`. The tail now names the check by its test name rather than stating the code's state
   on a date, *because* the clause that went false was the dated one (owner's addition). The SRS, the
-  SDD, the FDR, the UXD, `DESIGN.md`, the Definition of Done and the project's doctrine are unchanged since
+  SDD, the FDR, the UXD, `DESIGN.md`, the finish line and the project's doctrine are unchanged since
   version 5. `CONTENT.md` moved from version 5 to version 7 (not-found wording, the terminal
   examples' address, accessible names of links). It was read for its header and that change only,
   as RN-1 says, and moves no entry. No record in `adr/` moved. Nothing is left open, so the companion
@@ -1042,7 +1042,7 @@ QC-12, QC-25, QC-26, QC-27, QC-40, QC-41 and QC-60 are review gates and have no 
   record supersedes it — *because* SDD RN-38 left its *Consequences* line "Linux is named as supported
   and nothing checks it (SDD § 11 R-9)" to this seat to re-read against R-9 as narrowed, and the
   decision has not moved: macOS and Linux, one locking path, no Windows, only macOS checked. The
-  Debian 12 run SDD R-9 now records was one run outside the Definition of Done's check, and no standing check
+  Debian 12 run SDD R-9 now records was one run outside the finish line's check, and no standing check
   reaches Linux, so "nothing checks it" still holds. The record's "Setup instructions have one set of
   prerequisites" reads thinner for the end-to-end suite on Linux, which now has its own install
   command and a narrower list (RN-27), and holds for the tracker's own setup, which is what the
@@ -1057,7 +1057,7 @@ QC-12, QC-25, QC-26, QC-27, QC-40, QC-41 and QC-60 are review gates and have no 
   6 (`git show 4156e81b2 -- products/tracker17/docs/SDD.md`): § 4 RT-3, RT-4, § 6 `first-project`
   *Artifact*, § 11 R-9 and RN-38 to RN-40, with `trail/sdd/cycle-4.md` behind them. RN-27 to RN-29
   are what it moves; it changed no obligation. The SRS, the FDR, the PRD, the UXD, `DESIGN.md`,
-  `CONTENT.md`, the Definition of Done and the project's doctrine are unchanged since version 6. It read the
+  `CONTENT.md`, the finish line and the project's doctrine are unchanged since version 6. It read the
   companion as it stands at `7d6c3feee` and `trail/architecture/self_answer-8.md`. The companion holds
   two items with no answer slot filled — § 2.1, the reading of QC-40's first sentence, and § 3.1, the
   owner's call on a dated exception for the browser build — so it was not consumed, no trail cycle was
@@ -1097,7 +1097,7 @@ QC-12, QC-25, QC-26, QC-27, QC-40, QC-41 and QC-60 are review gates and have no 
   items, § 2.1 was answered and is folded here (RN-31). § 3.1, the owner's call on a dated exception
   for the browser build `playwright==1.63.0` installs, has no answer, so it stays in the companion
   and this document stays Draft. The SRS, the SDD, the FDR, the PRD, the UXD, `DESIGN.md`,
-  `CONTENT.md`, the Definition of Done and the project's doctrine are unchanged since version 7
+  `CONTENT.md`, the finish line and the project's doctrine are unchanged since version 7
   (`git log 332311003..96dcb86b7` touches only the companion). The one obligation that moves is
   QC-40's. QC-40 is a review gate, so § 10 gains no row. No record in `adr/` moved. *(re: Version 8;
   QC-40)*
@@ -1118,7 +1118,7 @@ QC-12, QC-25, QC-26, QC-27, QC-40, QC-41 and QC-60 are review gates and have no 
   `1aa6a4a8e` and copied it whole to `trail/architecture/cycle-7.md` before the fold, with the
   reasoning behind the item at `trail/architecture/self_answer-10.md` and `self_answer-11.md`. Its one
   item, § 3.1, was answered and is folded here as RN-33. The SRS, the SDD, the FDR, the PRD, the UXD,
-  `DESIGN.md`, `CONTENT.md`, the Definition of Done and the project's doctrine are unchanged since version 8
+  `DESIGN.md`, `CONTENT.md`, the finish line and the project's doctrine are unchanged since version 8
   (`git diff --stat 1f536001f..HEAD` over the product's `docs/` and the project folder touches only
   the companion, those two reports, `what_left.md` and one journey report). This run read
   `what_left.md` in full: it lists features the code does not yet have, and moves no entry. No
@@ -1162,7 +1162,7 @@ QC-12, QC-25, QC-26, QC-27, QC-40, QC-41 and QC-60 are review gates and have no 
   one path in `products/tracker17/docs/adr/0004-whole-state-saved-atomically-on-every-change.md`
   § Context and changed no decision. That is an in-place edit to an Accepted record that no
   producing run made. This run leaves it as it stands, because undoing it would put a machine path
-  back. The UXD, the Definition of Done and the project's doctrine are unchanged since version 9. No obligation's
+  back. The UXD, the finish line and the project's doctrine are unchanged since version 9. No obligation's
   text, no trace tag and no § 10 row moves, and no record in `adr/` moves. Nothing is left open, so
   the companion is removed and this document is Settled. *(re: Version 10; RN-15)*
 - **RN-37:** QC-21 saves only an action whose `domain` outcome reports a change, where version 10 had
@@ -1191,12 +1191,12 @@ QC-12, QC-25, QC-26, QC-27, QC-40, QC-41 and QC-60 are review gates and have no 
   reasoning behind its one item at `trail/architecture/self_answer-13.md`. The PM opened that
   companion; no producing run wrote it. Its one item, § 3.1, was answered and is folded into QC-21
   (RN-37). The upstream documents moved since version 10 (`git diff --stat ceac03d4b HEAD` over the
-  product's `docs/` and the project's `dod.md`, `doctrine/` and `project.md`). This run read each
+  product's `docs/` and the project's `finish_line.md`, `doctrine/` and `project.md`). This run read each
   change: SDD version 9, whose one change is the § 3 `application` row and RN-45 and RN-46 behind it,
   and `CONTENT.md` version 9, whose one change is the date rule barring a refusal from naming how a
   date is entered. The SDD change is what QC-21 now says. The `CONTENT.md` change is wording, which
   is behaviour and experience (RN-12), and moves no entry. `what_left.md` lost the lines for features
-  since built and moves no entry. The SRS, the FDR, the PRD, the UXD, `DESIGN.md`, the Definition of Done and the
+  since built and moves no entry. The SRS, the FDR, the PRD, the UXD, `DESIGN.md`, the finish line and the
   project's doctrine are unchanged since version 10. This run checked the answer's locators at
   `HEAD` and ran no suite. One obligation's text moves, QC-21's, and its § 10 row with it. No record
   in `adr/` moves. Nothing is left open, so the companion is removed and this document is Settled.
@@ -1250,7 +1250,7 @@ QC-12, QC-25, QC-26, QC-27, QC-40, QC-41 and QC-60 are review gates and have no 
   say, which is behaviour and experience (RN-12), and move no entry: no obligation names UX-S1's
   sections, UX-I3's reload or the refusal formula, and ADR-0003's whole-page answer holds for a
   refusal with no action as for one with an action. `what_left.md` lost the line for labels, since
-  built, and moves no entry. The SRS, the FDR, the PRD, `DESIGN.md`, the Definition of Done and the project's
+  built, and moves no entry. The SRS, the FDR, the PRD, `DESIGN.md`, the finish line and the project's
   doctrine are unchanged since version 11. This run checked the answers' locators at `HEAD` and ran
   no suite. Two obligations' text moves, QC-21's and QC-47's, with QC-21's § 10 row and RN-28. No
   record in `adr/` moves. Nothing is left open, so the companion is removed and this document is
@@ -1280,11 +1280,11 @@ QC-12, QC-25, QC-26, QC-27, QC-40, QC-41 and QC-60 are review gates and have no 
   reasoning behind its one item at `trail/architecture/self_answer-15.md`. The PM opened that
   companion; no producing run wrote it. Its one item, § 3.1, was answered and is folded into RN-15
   (RN-42). Since version 12 (`git diff --stat 1e9f21d7e HEAD` over the product's `docs/` and the
-  project's `dod.md`, `doctrine/` and `project.md`), two upstream files moved. This run read each
+  project's `finish_line.md`, `doctrine/` and `project.md`), two upstream files moved. This run read each
   change. PRD version 7 says tracker17 becomes public with kensaiapp's public release, which ships
   it as an example; that is a planning assumption, no entry or record names publication, and
   `Inputs read:` now names PRD version 7. `what_left.md` lost the line for comments, since built, and
-  moves no entry. The SRS, the SDD, the FDR, the UXD, `DESIGN.md`, `CONTENT.md`, the Definition of Done and the
+  moves no entry. The SRS, the SDD, the FDR, the UXD, `DESIGN.md`, `CONTENT.md`, the finish line and the
   project's doctrine are unchanged since version 12. No obligation's text, no trace tag and no § 10
   row moves, and no record in `adr/` moves. Nothing is left open, so the companion is removed and
   this document is Settled. *(re: Version 13; RN-15)*
@@ -1324,7 +1324,7 @@ QC-12, QC-25, QC-26, QC-27, QC-40, QC-41 and QC-60 are review gates and have no 
   was answered and is folded into ADR-0010 and QC-63 (RN-44). § 2.2, which asks for RN-15 to count
   the EX-6 confirmation verified as SDD version 11's § 11 R-2 does, has no answer, so it stays in the
   companion, RN-15 stands as version 13 wrote it, and this document is Draft. Since version 13
-  (`git diff --stat <a commit not in the public history> HEAD` over the product's `docs/` and the project's `dod.md`,
+  (`git diff --stat <a commit not in the public history> HEAD` over the product's `docs/` and the project's `finish_line.md`,
   `doctrine/` and `project.md`), upstream moved. This run read each change. SDD version 11 adds
   RT-11, TO-8 and R-12, which RN-44 records, scopes RT-8's reload sentence to a page whose address
   names a finished outcome, which moves no entry because QC-7 binds only that a submission is
@@ -1333,7 +1333,7 @@ QC-12, QC-25, QC-26, QC-27, QC-40, QC-41 and QC-60 are review gates and have no 
   `CONTENT.md` versions 11 and 12 change what a refusal says and where it sits and the confirmation
   strip's height, which is behaviour and experience (RN-12), and move no entry. `what_left.md` lost
   the lines for the status workflow and the empty project, since built, and moves no entry. The SRS,
-  the FDR, the PRD, the Definition of Done and the project's doctrine are unchanged since version 13. *(re:
+  the FDR, the PRD, the finish line and the project's doctrine are unchanged since version 13. *(re:
   Version 14; ADR-0010, QC-63)*
 - **RN-46:** RN-15 counts the SDD § 4 EX-6 confirmation verified and one SDD Open Question left —
   *because* the owner confirmed companion § 2.2 with two additions (`trail/architecture/cycle-13.md`
@@ -1361,7 +1361,7 @@ QC-12, QC-25, QC-26, QC-27, QC-40, QC-41 and QC-60 are review gates and have no 
   reasoning behind its one item at `trail/architecture/self_answer-17.md`. A `companion-self-answer`
   run raised that item in this seat; no producing run wrote it. It was answered and is folded into
   RN-15 (RN-46). Since version 14 (`git diff --stat b4810919c HEAD` over the product and the project's
-  `dod.md`, `doctrine/` and `project.md`), only the companion and its reasoning file moved; no
+  `finish_line.md`, `doctrine/` and `project.md`), only the companion and its reasoning file moved; no
   upstream document changed, so `Inputs read:` stands. No obligation's text, no trace tag and no
   § 10 row moves, and no record in `adr/` moves. Nothing is left open, so the companion is removed
   and this document is Settled. *(re: Version 15; RN-15)*
@@ -1395,13 +1395,13 @@ QC-12, QC-25, QC-26, QC-27, QC-40, QC-41 and QC-60 are review gates and have no 
   reasoning behind its one item at `trail/architecture/self_answer-18.md`. The PM opened that
   companion; no producing run wrote it. Its one item, § 3.1, was answered and is folded (RN-48).
   Since version 15 (`git diff --stat <a commit not in the public history> HEAD` over the product's `docs/` and the project's
-  `dod.md`, `doctrine/` and `project.md`), upstream moved, and this run read each change. SDD
+  `finish_line.md`, `doctrine/` and `project.md`), upstream moved, and this run read each change. SDD
   version 12 defines a submission in § 4 RT-8 and states R-10's reach to a `get` form, which RN-48
   folds; it names ADR-0010 in RT-11 and counts ten records in § 12, which moves no entry; and its
   § 10 RC-5 and RN-54 have the overtaken move's refusal claim no change, which is behaviour. UXD
   version 9 has every refusal state what holds when its page is built (UX-I3, UX-F3, UX-F4, UX-F9,
   RN-35), and `CONTENT.md` versions 13 to 15 word those refusals; both are behaviour and experience
-  (RN-12) and move no entry. The SRS, the FDR, the PRD, `DESIGN.md`, `what_left.md`, the Definition of Done, the
+  (RN-12) and move no entry. The SRS, the FDR, the PRD, `DESIGN.md`, `what_left.md`, the finish line, the
   project's doctrine and the card are unchanged since version 15. `Inputs read:` now names SDD
   version 12, UXD version 9 and CONTENT version 15. Nothing is left open, so the companion is
   removed and this document is Settled. *(re: Version 16; ADR-0011, QC-7, QC-8)*
@@ -1444,7 +1444,7 @@ QC-12, QC-25, QC-26, QC-27, QC-40, QC-41 and QC-60 are review gates and have no 
   reasoning behind its one item at `trail/architecture/self_answer-19.md`. A `companion-self-answer`
   run opened that companion in the CTO's seat, at `5585e0b11`; no producing run wrote it. Its one
   item, § 2.1, was answered and is folded (RN-50). Since version 16 (`git diff --stat db16374d3 HEAD`
-  over the product's `docs/` and the project's `dod.md`, `doctrine/` and `project.md`), upstream
+  over the product's `docs/` and the project's `finish_line.md`, `doctrine/` and `project.md`), upstream
   moved, and this run read each change. SDD version 13 widens § 4 RT-11, which RN-50 folds; names
   ADR-0011 in RT-8 and counts eleven records in § 12, which moves no entry; and its § 10 RC-6 and
   RN-57 place a refusal or failure for a task the list's filter leaves off the list above the
@@ -1452,7 +1452,7 @@ QC-12, QC-25, QC-26, QC-27, QC-40, QC-41 and QC-60 are review gates and have no 
   16 and 17 word it and count what § Needs confirming counts; both are behaviour and experience
   (RN-12) and move no entry. `what_left.md` lost the lines for the tasks, the filtering, the
   no-match state, the sorting and the project summary, since built, and moves no entry. The SRS, the
-  FDR, the PRD, `DESIGN.md`, the Definition of Done, the project's doctrine and the card are unchanged since
+  FDR, the PRD, `DESIGN.md`, the finish line, the project's doctrine and the card are unchanged since
   version 16. `Inputs read:` now names SDD version 13, UXD version 11 and CONTENT version 17.
   Nothing is left open, so the companion is removed and this document is Settled. *(re: Version 17;
   ADR-0012, QC-63)*
@@ -1484,11 +1484,11 @@ QC-12, QC-25, QC-26, QC-27, QC-40, QC-41 and QC-60 are review gates and have no 
   reasoning behind its one item at `trail/architecture/self_answer-20.md`. The PM opened that
   companion; no producing run wrote it. Its one item, § 3.1, was answered and is folded (RN-52).
   Since version 17 (`git diff --stat d459f69d9 HEAD` over the product's `docs/` and the project's
-  `dod.md`, `doctrine/` and `project.md`), only the SDD moved among the inputs, and this run read
+  `finish_line.md`, `doctrine/` and `project.md`), only the SDD moved among the inputs, and this run read
   its change. SDD version 14 names the four deletion tests in § 4 RT-11's *Tests* and § 11 R-12's
   trigger (SDD RN-59), which RN-52 matches; names ADR-0012 in RT-11, counts twelve records in § 12
   and counts RC-1 to RC-6 in § 10's preamble (SDD RN-60), which moves no entry. The SRS, the FDR,
-  the PRD, the UXD, `DESIGN.md`, `CONTENT.md`, `what_left.md`, the Definition of Done, the project's doctrine and
+  the PRD, the UXD, `DESIGN.md`, `CONTENT.md`, `what_left.md`, the finish line, the project's doctrine and
   the card are unchanged since version 17. No record was written or changed. `Inputs read:` now
   names SDD version 14. Nothing is left open, so the companion is removed and this document is
   Settled. *(re: Version 18; QC-63)*
@@ -1544,12 +1544,12 @@ QC-12, QC-25, QC-26, QC-27, QC-40, QC-41 and QC-60 are review gates and have no 
   opened that companion by hand, carrying SDD RN-63 down; no producing run wrote it.
   `trail/architecture/self_answer-21.md` records that the self-answer run left its one item as the
   owner answered it. That item, § 3.1, is folded (RN-54). Since version 18 (`git diff --stat
-  66e29daa9 HEAD` over the product's `docs/` and the project's `dod.md`, `doctrine/` and
+  66e29daa9 HEAD` over the product's `docs/` and the project's `finish_line.md`, `doctrine/` and
   `project.md`), only the SDD moved among the inputs, and this run read its change. Version 15 moves
   § 4 RT-4 to uv, adds § 9 TO-9, rewrites § 11 R-8, reads uv in § 6's preamble and `first-project`'s
   artifact bar, and records the round in RN-62 to RN-64; RN-54 folds it. `what_left.md` lost its last
   line, the project rename and deletion, since built, and moves no entry. The SRS, the FDR, the PRD,
-  the UXD, `DESIGN.md`, `CONTENT.md`, the Definition of Done, the project's doctrine and the card are unchanged
+  the UXD, `DESIGN.md`, `CONTENT.md`, the finish line, the project's doctrine and the card are unchanged
   since version 18. The repository that holds tracker17 tracks no CI configuration, so by
   `<CORE>/doctrine/engineering/languages/README.md` § Gate environment defaults its gates run on the
   owner's Mac, and it owes no environment decision; § 8 records none. This run read
@@ -1610,13 +1610,13 @@ QC-12, QC-25, QC-26, QC-27, QC-40, QC-41 and QC-60 are review gates and have no 
   its § 3.1; `trail/architecture/self_answer-22.md` records the run that answered it and raised § 2.1.
   § 3.1 is folded (RN-56). § 2.1's slot was empty, so its draft is written into this document (RN-57)
   and the item stays for the owner to confirm. Since version 19 (`git diff --stat 53ad18603 HEAD`
-  over the product's `docs/` and the project's `dod.md`, `doctrine/` and `project.md`), the SDD and
+  over the product's `docs/` and the project's `finish_line.md`, `doctrine/` and `project.md`), the SDD and
   this document moved among the inputs, and this run read both changes. SDD version 16 has § 4 RT-4
   say that the setup instructions' prerequisites section names uv as the suite's alone, and that the
   tracker's own setup is its prerequisites and RT-2's two commands; RT-4 names ADR-0013, and § 12
   counts thirteen records (SDD RN-65 to RN-67). B-4 already holds uv as a prerequisite of the suite
   that no lock file reaches, so no entry moves. The SRS, the FDR, the PRD, the UXD, `DESIGN.md`,
-  `CONTENT.md`, `what_left.md`, the Definition of Done, the project's doctrine and the card are unchanged since
+  `CONTENT.md`, `what_left.md`, the finish line, the project's doctrine and the card are unchanged since
   version 19. No record was written or changed. The finish walk found one class-2 tail that did not
   argue its downgrade: QC-27's. It now carries the reason QC-25's and QC-26's carry for the same kind
   of swap, "No test can exercise a swap that has not happened"; its obligation and its review moment
@@ -1628,7 +1628,7 @@ QC-12, QC-25, QC-26, QC-27, QC-40, QC-41 and QC-60 are review gates and have no 
   owner's confirmation and the cause of the edit it covers. This run re-read the rule the addition
   names in `development-implementation`'s `SKILL.md` and found it as the answer quotes it. QC-39 is
   unchanged. Since version 20 (`git diff --stat 7ed698a82 HEAD` over the product and the project's
-  `dod.md`, `doctrine/` and `project.md`), only this document, the companion and the trail moved;
+  `finish_line.md`, `doctrine/` and `project.md`), only this document, the companion and the trail moved;
   every other input is unchanged, so `Inputs read:` stands. No record was written or changed. Nothing
   is left open, so the companion is removed and this document is Settled. *(re: Version 21; RN-57;
   QC-39)*
@@ -1645,7 +1645,7 @@ QC-12, QC-25, QC-26, QC-27, QC-40, QC-41 and QC-60 are review gates and have no 
   and no second suite; the change that sets both suites through uv is committed at `d4fec9c85` and
   has not reached `main`. The owner's ruling binds the preamble to the card that change lands, so
   until it lands the preamble runs one change ahead of the card. Since version 21
-  (`git diff --stat 1f1ed6101 HEAD` over the product and the project's `dod.md`, `doctrine/` and
+  (`git diff --stat 1f1ed6101 HEAD` over the product and the project's `finish_line.md`, `doctrine/` and
   `project.md`), only the companion and `trail/architecture/self_answer-24.md` moved, so
   `Inputs read:` stands. No record was written or changed. Nothing is left open, so the companion is
   removed and this document is Settled. *(re: Version 22; § 10; QC-60; source: owner,
@@ -1673,13 +1673,13 @@ QC-12, QC-25, QC-26, QC-27, QC-40, QC-41 and QC-60 are review gates and have no 
 - **RN-62:** Version 23 was written on 2026-10-30. It read the answered companion as committed at
   `69cf933f8` and copied it whole to `trail/architecture/cycle-21.md` before the fold. The PM opened
   its one item, § 3.1; no producing run wrote it. It is folded (RN-61). Since version 22
-  (`git diff --stat 1d11b7047 HEAD` over the product's `docs/` and the project's `dod.md`,
+  (`git diff --stat 1d11b7047 HEAD` over the product's `docs/` and the project's `finish_line.md`,
   `doctrine/` and `project.md`), two inputs moved, and this run read both changes. `CONTENT.md`
   version 18 adds the term "killed" for a tracker the reader ended by force, which is wording (RN-12)
   and moves no entry. The card now holds the two-suite `Test command:` through `uv run` and the
   `Setup command:`, committed at `d4fec9c85` and on `main`, so what RN-60 recorded closes: § 10's
   preamble and the card agree, and RN-60 stays as written. The SRS, the SDD, the FDR, the PRD, the
-  UXD, `DESIGN.md`, `what_left.md`, the Definition of Done and the project's doctrine are unchanged since version
+  UXD, `DESIGN.md`, `what_left.md`, the finish line and the project's doctrine are unchanged since version
   22. This run read their headers and searched them for the feed, and did not re-read them in full,
   because a fold re-derives nothing from text that has not moved; it searched the records in `adr/`
   the same way. `Inputs read:` now names CONTENT version 18. No record was written or changed.
@@ -1716,7 +1716,7 @@ QC-12, QC-25, QC-26, QC-27, QC-40, QC-41 and QC-60 are review gates and have no 
 - **RN-64:** Version 24 was written on 2026-10-30. It read the answered companion as committed at
   `c6946020b` and copied it whole to `trail/architecture/cycle-22.md` before the fold. The PM opened
   its five items; no producing run wrote it. Since version 23 (`git diff --stat 4a646aaf0 HEAD` over
-  the product and the project's `dod.md`, `doctrine/` and `project.md`), the SDD moved to version 18,
+  the product and the project's `finish_line.md`, `doctrine/` and `project.md`), the SDD moved to version 18,
   the FDR to version 6 and `CONTENT.md` to version 19, and the product gained the unreadable-data mode
   in `main.py`, `web/`, `persistence/saved_data.py`, its tests and the README. This run read those
   changes to the three documents, and moves no entry for them beyond RN-63: SDD EX-12's header and
@@ -1725,6 +1725,6 @@ QC-12, QC-25, QC-26, QC-27, QC-40, QC-41 and QC-60 are review gates and have no 
   `tests/integration/test_unreadable_routes.py`'s first four tests, and checked that every test §§ 1 to
   9 name exists on disk, but for the one QC-39 names as gone. It ran no suite, because this round changes no code. It read §§ 1.1, 2 to 9
   and the Review Notes' tail of this document; it searched the other sections and the rest of the
-  notes for the mode. The SRS, the PRD, the UXD, `DESIGN.md`, `what_left.md`, the Definition of Done and the
+  notes for the mode. The SRS, the PRD, the UXD, `DESIGN.md`, `what_left.md`, the finish line and the
   project's doctrine are unchanged since version 23. Nothing is left open, so the companion is removed
   and this document is Settled. *(re: Version 24)*

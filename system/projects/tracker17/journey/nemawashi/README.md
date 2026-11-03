@@ -1,7 +1,7 @@
 # 根回し Nemawashi — tracker17's seedbed
 
-*The **project**-level seedbed: the ideas that carry this product toward its Definition of Done
-(`system/projects/tracker17/dod.md`) — roots laid before the road. One is **active** at a time; the rest
+*The **project**-level seedbed: the ideas that carry this product toward its finish line
+(`system/projects/tracker17/finish_line.md`) — roots laid before the road. One is **active** at a time; the rest
 are **candidates**. Scoped to this product; mirrors the instance Nemawashi (`system/nemawashi/`).
 `project-stamp` stamps this into `system/projects/tracker17/journey/nemawashi/README.md`.*
 

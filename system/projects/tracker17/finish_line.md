@@ -1,21 +1,21 @@
-# Definition of Done — tracker17's "done"
+# Finish line — tracker17's "done"
 
-*The **project**-level declaration: this project's **Definition of Done** — the terminus that defines when the
+*The **project**-level declaration: this project's **finish line** — the terminus that defines when the
 product is done, set by the CPO. A **declaration**, not a queue. A project has **no Michi** (it serves
 the instance's Way — `system/michi.md`). `project-stamp` stamps this into
-`system/projects/tracker17/dod.md`. Upkeep that outlives done, such as a re-check on a cadence or a
+`system/projects/tracker17/finish_line.md`. Upkeep that outlives done, such as a re-check on a cadence or a
 correction when the world changes, does not keep the project open. It moves to the instance's upkeep
 register, `system/upkeep.md` (`<CORE>/doctrine/setup/kensaiapp_structure.md` § App-level).*
 
 ---
 
 tracker17 is done when **the owner can use it locally, easily, by themselves** — the owner's answer,
-2026-10-05 (`system/projects/tracker17/trail/dod/cycle-1.md` § 1.1, "I can use it locally easily by
+2026-10-05 (`system/projects/tracker17/trail/finish_line/cycle-1.md` § 1.1, "I can use it locally easily by
 myself"). The owner shows that by passing, on one run-through, the three bars that
 `products/tracker17/docs/PRD.md` § Success Metrics says are "checked before the product is called
 done". All three bars, the third included, were confirmed in
-`system/projects/tracker17/trail/dod/cycle-2.md` § 2.1, with the reasoning in
-`system/projects/tracker17/trail/dod/self_answer-1.md`.
+`system/projects/tracker17/trail/finish_line/cycle-2.md` § 2.1, with the reasoning in
+`system/projects/tracker17/trail/finish_line/self_answer-1.md`.
 
 **Reached when** all three bars pass:
 
@@ -38,9 +38,9 @@ done". All three bars, the third included, were confirmed in
    on their own machine, because the PRD makes them the only reader until they publish
    (`products/tracker17/docs/PRD.md` § Assumptions). That fits "by myself". The trace half came into the
    PRD through a later round (`products/tracker17/docs/trail/prd/cycle-4.md` § 2.1). It is part of the
-   settled PRD, so dropping it would mean revising the PRD, not this Definition of Done.
+   settled PRD, so dropping it would mean revising the PRD, not this finish line.
 
-**What this Definition of Done does not require.** It does not require tracker17 to be published or tried by an
+**What this finish line does not require.** It does not require tracker17 to be published or tried by an
 outside reader. On this reading the owner's answer says "by myself", and
 `products/tracker17/docs/PRD.md` § Assumptions says tracker17 "stays that way until the owner decides
 to publish it" and that "until then the owner is the only reader". Publishing is the owner's later
