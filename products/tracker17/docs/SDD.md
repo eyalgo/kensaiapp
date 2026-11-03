@@ -1799,7 +1799,7 @@ a draft, that note now says so and names the note that carries the answer.
   fields of every slice were drafted by the CTO and confirmed in
   `products/tracker17/docs/trail/sdd/cycle-1.md` § 2.5, § 3.1 and § 3.2 — *because*
   the PRD lists features and use cases and does not cut them into deliverable steps. Nothing of
-  tracker17 is built today, so every entry is a difference between no product and the DoD:
+  tracker17 is built today, so every entry is a difference between no product and the Definition of Done:
   `ls products/tracker17` returned `docs` and nothing else on 2026-10-06. § 5 step 1 gave ten
   entries, and step 2 struck two as fragments. *After this, the operator can keep the list of
   people tasks can be assigned to* was struck, because a list of names with no task to assign has
