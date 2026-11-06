@@ -4,7 +4,7 @@
 
 <p align="center">
 <img alt="Runs on Claude Code" src="https://img.shields.io/badge/runs%20on-Claude%20Code-d97757?style=flat-square">
-<img alt="Version 0.4.0" src="https://img.shields.io/badge/version-0.4.0-2da44e?style=flat-square">
+<img alt="Version 0.5.1" src="https://img.shields.io/badge/version-0.5.1-2da44e?style=flat-square">
 <img alt="Runs through uv" src="https://img.shields.io/badge/runs%20through-uv-de5fe9?style=flat-square">
 <img alt="Python 3.14, which uv installs" src="https://img.shields.io/badge/python-3.14%20via%20uv-3776ab?style=flat-square">
 <img alt="Licence: MIT" src="https://img.shields.io/badge/licence-MIT-0969da?style=flat-square">

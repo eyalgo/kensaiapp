@@ -11,6 +11,12 @@ clone of the release before must act, the release says so first, under *Upgradin
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-11-06
+
+### Fixed
+
+- **Front door.** The README's version badge names this release. In 0.5.0 it still read 0.4.0.
+
 ## [0.5.0] - 2026-11-06
 
 ### Upgrading from 0.4.0
