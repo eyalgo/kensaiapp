@@ -11,7 +11,7 @@ description: |
   Do not use for an earlier stage or an interactive hand-driven merge.
 license: MIT
 metadata:
-  version: "4.8.0"
+  version: "4.11.0"
   category: delivery
   risk: safe
 ---
@@ -51,7 +51,7 @@ After locating the instance change worktree in Step 1, capture this command's co
 stable directory outside every worktree scheduled for removal:
 
 ```bash
-python3 "<CORE>/tools/development_path.py" resolve --strict --format json \
+"<CORE>/tools/locked_python.sh" "<CORE>/tools/development_path.py" resolve --strict --format json \
   --worktree "$WORKTREE" --project "<project>" --key "<key>"
 ```
 
@@ -157,7 +157,7 @@ gate-tool call at the end of this step is made on both paths.
 **The advance.** Take `main`'s advance onto the branch through the builder:
 
 ```bash
-python3 "<CORE>/tools/commit_builder.py" --repo "$WORKTREE" advance --from main --actor pm \
+"<CORE>/tools/locked_python.sh" "<CORE>/tools/commit_builder.py" --repo "$WORKTREE" advance --from main --actor pm \
   --surface "<supplied surface>" --co-authored-by "<supplied model identity>" \
   --reasoning-effort "<resolved runtime effort>"
 ```
@@ -198,7 +198,7 @@ the advance and not before: the advance is what changes the tree the suite runs 
 call, with the evidence file that recipe's Step 3 builds, is:
 
 ```sh invocation
-python3 "<CORE>/tools/gate_suite.py" run \
+"<CORE>/tools/locked_python.sh" "<CORE>/tools/gate_suite.py" run \
   --worktree "<instance change worktree>" --project "<project>" --key "<key>" \
   --gate seal --inputs "<inputs file>" \
   > "<output file>" 2> "<error file>"
@@ -228,7 +228,7 @@ still made once, from the same place, as `invocation-no-inputs`. Nothing is prob
 prints `Environment: none — no suite ran` and exits `0`, and that line is the one kept.
 
 ```sh invocation-no-inputs
-python3 "<CORE>/tools/gate_suite.py" run \
+"<CORE>/tools/locked_python.sh" "<CORE>/tools/gate_suite.py" run \
   --worktree "<instance change worktree>" --project "<project>" --key "<key>" \
   --gate seal \
   > "<output file>" 2> "<error file>"
@@ -281,7 +281,7 @@ octopus merge, never a cherry-pick):
 ```bash
 git -C "$WORKTREE" log <key>..<branch> --oneline   # branch commits for the merge body
 
-python3 "<CORE>/tools/commit_builder.py" --repo "$WORKTREE" merge \
+"<CORE>/tools/locked_python.sh" "<CORE>/tools/commit_builder.py" --repo "$WORKTREE" merge \
   --branch "<branch>" --target-branch "<key>" \
   --description "development-audit findings — <step audited>" \
   --branch-commits "<commit line 1>" ... \
@@ -320,7 +320,7 @@ script, retaining its bytes. The configuration is a JSON object with these field
 
 Each independent merge record requires string `description`, `merge_context`, `surface`, and
 exactly one string `actor` or `authorizer`. The automated PM run supplies `actor: "pm"`.
-Optional strings are `co_authored_by`, `reasoning_effort` and `claude_session`. Optional arrays of
+Optional strings are `co_authored_by`, `reasoning_effort`, `claude_session` and `user_invisible`. Optional arrays of
 strings are `branch_commits` and `bump`. Retain supplied values and order, empty arrays and optional
 absence. Do not copy attribution from an example or fill omitted fields with defaults. These
 fields and the builder's `path=patch|minor|major` bump format are owned by
@@ -340,6 +340,28 @@ builder refuses a bump on them (`<CORE>/doctrine/governance/versioning.md` § Wh
 No supplied commit list predicts the seal SHA: the action records its actual SHA after committing,
 and the executable observes the new instance tip for landing.
 
+`user_invisible` is a one-line string saying why that role's merge is user-invisible, which means
+it changes nothing a user sees. The builder refuses a merge to `main` whose branch adds no entry
+under a `CHANGELOG.md`'s `## [Unreleased]`, unless the merge carries this declaration. An entry
+counts when a commit the role's branch carries since it left `main` adds it under
+`## [Unreleased]`, in a file named exactly `CHANGELOG.md`, and it is not blank and does not start
+with `#`. Read each role's branch for such an entry with
+`git -C "<that role's repo>" diff main...<key>`.
+
+Supply `user_invisible` only for a role whose branch adds no such entry, and only in one of two
+cases:
+
+- (i) The change folder's `changelog-report.md` § *Changelog* says the change earns no entry, or
+  that the product path keeps no changelog. The reason is that section's reason, on one line.
+- (ii) The role is `instance` in a two-repository delivery, and every path the instance branch
+  changes lies under the change's own `system/projects/<project>/journey/`. Both sides of a rename
+  count as changed paths. The reason is `the instance merge carries only the change's journey record`.
+
+In every other case supply no `user_invisible`. That includes a report saying an entry was
+written, over a branch that adds none. Never supply the field on a judgement of your own that no
+user sees the change. Without it, the builder's refusal halts the delivery
+`deliver-precondition-failed` with nothing merged. Quote the builder's standard error.
+
 Bookkeeping requires `date` (the run's seal date), `deferred` (the validated ordered line array),
 `environment_line` (the first line this run's Step 1a gate-tool call printed, copied whole — never the
 developer's or the integrity run's), `directional` (the full resolved directional line), `surface`, `co_authored_by` and
@@ -352,7 +374,7 @@ line the builder would refuse halts `deliver-precondition-failed` with nothing m
 Invoke the materialized block with the configuration path as one literal argument:
 
 ```bash
-python3 "/absolute/stable/caller-delivery.py" "/absolute/stable/configuration.json"
+"<CORE>/tools/locked_python.sh" "/absolute/stable/caller-delivery.py" "/absolute/stable/configuration.json"
 ```
 
 The script creates and retains one absolute temporary directory. It copies the complete contract
@@ -404,8 +426,9 @@ after product landing. Advance and audit-join failure policy remains confined to
 
 The executable has proved delivery worktree/ref absence. Remove only the exact audit branches
 successfully joined in Step 1b; keep that list through delivery, never rediscover it with a glob.
-Save the executable recipe below in the stable invocation directory and run it with `REPO_ROOT`,
-`<key>`, and that joined list as separate argv elements. It reads literal registered paths, including
+Save the executable recipe below in the stable invocation directory and start it with
+`"<CORE>/tools/locked_python.sh"`, giving the recipe's path and then `REPO_ROOT`, `<key>`, and that
+joined list as separate argv elements. It reads literal registered paths, including
 spaces and nested checkouts. It validates the entire set before removing anything, and rechecks each
 entry immediately before removal. No joined audits means an empty list and no cleanup effects.
 
@@ -497,6 +520,8 @@ Return the step-outcome message under `<CORE>/doctrine/flow/step_outcome_contrac
 actual report path for halt. Make no further commit on `main` after delivery.
 
 ## Where a halt writes its report
+
+**A record names no machine.** The terminal output and recovery evidence a halt report keeps are copied with the home folder and the login name of the machine the run is on, and the repository's own `<owner>/<name>` address, replaced by the placeholders `<CORE>/doctrine/governance/records_name_no_machine.md` gives, and with nothing else in them changed. The same holds for every other line this skill writes into a record. The pre-commit hook refuses a commit that adds a line naming any of them.
 
 Use existing destinations only: the retained instance worktree's active change folder before the
 move, or its trail folder after the move. If the delivery worktree is absent, use the primary

@@ -53,7 +53,7 @@ products/tracker17/
 
 Create the five new test modules and `domain/comments.py` in the existing directories. Add no package or `__init__.py`. The full code-part set remains `domain`, `application`, `persistence`, `web`, `main.py` and `errors.py` (`docs/nfdr.md:L32-L37,L129-L150` §§ 1.1–1.2). Keep the existing inward import edges: application and persistence reach domain; web reaches application; main wires all four; errors reaches no product part (same § 1.2).
 
-Keep `persistence/saved_data.py`, `main.py`, the clock/saver contracts and `tests/conftest.py` unchanged, as the design's adapter/start contracts require no production delta (`change_design.md:L31-L34,L70-L76`). Keep `tests/timed_run.py` and `tests/integration/test_timed_run.py` byte-identical to `3b5746f91d70763ea2115f896c1d694b7ab77e89`, the branch base returned by `git merge-base main HEAD` in this planning run.
+Keep `persistence/saved_data.py`, `main.py`, the clock/saver contracts and `tests/conftest.py` unchanged, as the design's adapter/start contracts require no production delta (`change_design.md:L31-L34,L70-L76`). Keep `tests/timed_run.py` and `tests/integration/test_timed_run.py` byte-identical to `<a commit not in the public history>`, the branch base returned by `git merge-base main HEAD` in this planning run.
 
 Use the test environment pinned by `pyproject.toml` and `tests/requirements.txt`, with Chromium available (`docs/SDD.md:L290-L310` RT-4; `docs/nfdr.md:L305-L309,L479-L501` QC-39, QC-62). Each gate names both suites explicitly. A missing dependency, browser, socket permission or collected test is a failed gate, not permission to skip coverage (`core/doctrine/engineering/languages/python/quality_gates.md` § The two gates).
 
@@ -282,7 +282,7 @@ Reuse the existing newline-normalization and guarded address-building paths. Use
 From `.worktrees/2026-10-12_comments-on-the-page`, run `pytest products/tracker17/tests/` and separately `pytest products/tracker17/tests/e2e/`.
 From Product root, run `python3 -m compileall -q domain application persistence web main.py errors.py`, `ruff format --check .`, `ruff check .` and `mypy main.py errors.py domain application persistence web`.
 From Product root, run `python3 tests/timed_run.py`; pass its unchanged existing measurements without claiming comment-add timing.
-Run `git -C .worktrees/2026-10-12_comments-on-the-page diff --exit-code 3b5746f91d70763ea2115f896c1d694b7ab77e89 -- products/tracker17/tests/timed_run.py products/tracker17/tests/integration/test_timed_run.py`; pass: exit 0 and no diff.
+Run `git -C .worktrees/2026-10-12_comments-on-the-page diff --exit-code <a commit not in the public history> -- products/tracker17/tests/timed_run.py products/tracker17/tests/integration/test_timed_run.py`; pass: exit 0 and no diff.
 For CP-275's commit-under-test check outside this worktree, use these commands with the pinned test environment. The clone must be checked out at the code commit being verified (`change_spec.md:L106-L108`; `core/roles/CROSS_ROLE.md:L14-L24` § Every seat).
 
 ```bash

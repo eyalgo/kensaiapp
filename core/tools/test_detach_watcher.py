@@ -130,7 +130,11 @@ def _record(path, text):
     with open(path + ".part", "w") as fh:
         fh.write(text)
     os.replace(path + ".part", path)
-_record(os.environ["WATCHER_PID_LOG"], str(os.getpid()))
+# The library starts the watcher through the runner (`locked_python.sh`), and `uv run` keeps its own
+# process as the watcher's parent for the watcher's whole life, so the pid the library records is that
+# parent's: it lives exactly as long as the watcher, and a signal to it reaches the watcher. The stub
+# records the pid it expects the library to have recorded.
+_record(os.environ["WATCHER_PID_LOG"], str(os.getppid()))
 print("watcher-stub: stdout line")
 print("watcher-stub: stderr line", file=sys.stderr)
 _record(os.environ["WATCHER_ARGV_LOG"], "\\n".join(sys.argv[1:]))
@@ -162,7 +166,7 @@ exec sleep 999999
 # holding and then releasing are two observable states rather than one.
 WATCHER_STUB_SLEEPY = """import os, sys, time
 with open(os.environ["WATCHER_PID_LOG"], "w") as fh:
-    fh.write(str(os.getpid()))
+    fh.write(str(os.getppid()))  # the runner's uv, which is the pid the library records
 with open(os.environ["WATCHER_ARGV_LOG"], "w") as fh:
     fh.write("\\n".join(sys.argv[1:]))
 time.sleep(0.5)
@@ -487,7 +491,7 @@ REQUIRED_FLAG_VALUES = {
     "--watcher": lambda c: str(c.watcher),
     "--notifier": lambda c: str(c.notifier),
     "--instance-root": lambda c: str(c.root),
-    "--prompt": lambda c: "invoke the project-agari skill for the example-product project.",
+    "--prompt": lambda c: "invoke the project-finish-line skill for the example-product project.",
     "--label": lambda c: "example-product",
     "--log-stem": lambda c: "example-product",
     "--reporter": lambda c: "generic",
@@ -540,7 +544,7 @@ def test_happy_path_spawns_the_watcher_with_every_value_it_was_given(call):
 
     assert result.returncode == 0
     argv = call.watcher_argv()
-    assert argv[argv.index("--name") + 1] == "invoke the project-agari skill for the example-product project."
+    assert argv[argv.index("--name") + 1] == "invoke the project-finish-line skill for the example-product project."
     assert argv[argv.index("--label") + 1] == "example-product"
     assert argv[argv.index("--cwd") + 1] == str(call.root)
     assert argv[argv.index("--reporter") + 1] == "generic"
@@ -662,7 +666,7 @@ def test_agent_id_does_not_displace_the_name(call):
 
     assert result.returncode == 0
     argv = call.watcher_argv()
-    assert argv[argv.index("--name") + 1] == "invoke the project-agari skill for the example-product project."
+    assert argv[argv.index("--name") + 1] == "invoke the project-finish-line skill for the example-product project."
 
 
 def test_agent_id_composes_with_artifact_path_and_head_repo(call):
@@ -777,7 +781,7 @@ def test_launch_output_with_no_backgrounded_line_appends_no_agent_id(call):
     assert result.returncode == 0
     argv = call.watcher_argv()
     assert "--agent-id" not in argv
-    assert argv[argv.index("--name") + 1] == "invoke the project-agari skill for the example-product project."
+    assert argv[argv.index("--name") + 1] == "invoke the project-finish-line skill for the example-product project."
 
 
 def test_launch_output_absent_appends_no_agent_id(call):
@@ -808,7 +812,7 @@ def test_a_call_passing_neither_new_flag_is_byte_identical_to_before(call):
     assert result.returncode == 0
     argv = call.watcher_argv()
     assert argv == [
-        "--name", "invoke the project-agari skill for the example-product project.",
+        "--name", "invoke the project-finish-line skill for the example-product project.",
         "--label", "example-product",
         "--cwd", str(call.root),
         "--reporter", "generic",
@@ -862,7 +866,7 @@ def test_multi_turn_and_done_when_exists_land_together_with_everything_else(call
     assert argv[argv.index("--artifact-path") + 1] == "/some/artifact"
     assert argv[argv.index("--head-repo") + 1] == "/some/repo"
     assert argv[argv.index("--agent-id") + 1] == "acc210c01c43a9e6b"
-    assert argv[argv.index("--name") + 1] == "invoke the project-agari skill for the example-product project."
+    assert argv[argv.index("--name") + 1] == "invoke the project-finish-line skill for the example-product project."
     assert argv[argv.index("--label") + 1] == "example-product"
     assert argv[argv.index("--reporter") + 1] == "generic"
 
@@ -968,7 +972,7 @@ def test_a_call_with_no_on_complete_env_var_is_byte_identical_to_before(call):
     assert result.returncode == 0
     argv = call.watcher_argv()
     assert argv == [
-        "--name", "invoke the project-agari skill for the example-product project.",
+        "--name", "invoke the project-finish-line skill for the example-product project.",
         "--label", "example-product",
         "--cwd", str(call.root),
         "--reporter", "generic",
@@ -997,7 +1001,7 @@ def test_the_hook_reaches_every_launcher_without_one_being_edited():
     keep-awake inheritance test below discovers its callers — a launcher that merely
     mentions this library is not a caller.
 
-    Scoped to `claude --bg` launchers, not every `launcher.sh` on disk: `chain-product` spawns no
+    Scoped to `claude --bg` launchers, not every `launcher.sh` on disk: `product-docs` spawns no
     model and holds no prompt — it hands its walk to `core/tools/chain.py --start`, a synchronous
     Python entrypoint —
     so it is not a caller of this library at all, the same way a launcher that never
@@ -1077,7 +1081,7 @@ def test_the_launcher_sweep_finds_every_launcher_that_sources_the_shared_home():
     through `core/launchers/skill/` from its skill's `launcher.md` — and was **23** later that day, when
     `core/launchers/nemawashi-unpick/` joined, and is **22** again once it was deleted, un-pick
     launching through `core/launchers/skill/` too — and is **14** once the eight product document
-    launchers (`launch-product-prd`, `project-agari`, `product-srs`, `product-uxd`,
+    launchers (`launch-product-prd`, `project-finish-line`, `product-srs`, `product-uxd`,
     `product-design`, `product-content`, `product-fdr`, `product-architecture`) were deleted the same
     day, each of those skills launching through `core/launchers/skill/` from its `launcher.md` — and is **13**
     once `ad-hoc-flow` was retired on 2026-09-18 with the `ad-hoc-implementation` skill it ran — and is **12**
@@ -1909,3 +1913,16 @@ def test_capture_never_returns_a_session_name(capture):
 
     assert not got.startswith("sdd-")
     assert got == "6aec7cb2"
+
+
+def test_the_watcher_starts_and_its_pid_is_recorded_with_python3_stubbed_to_fail(call):
+    stub = call.root / "bin" / "python3"
+    stub.write_text(f'#!/bin/sh\necho called >> "{call.root / "python3-marker"}"\nexit 1\n')
+    stub.chmod(0o755)
+
+    result = call(*_flags(call))
+
+    assert result.returncode == 0, result.stderr
+    assert call.watcher_argv(), result.stderr
+    assert _reported_pid(result)
+    assert not (call.root / "python3-marker").exists()

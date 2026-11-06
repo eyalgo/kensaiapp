@@ -4,7 +4,7 @@ description: Posture-neutral skill (CTO / principal-PM level, no role prefix) th
 license: MIT
 metadata:
   author: Eyal Golan
-  version: "1.3.3"
+  version: "1.5.0"
   created: "2026-07-04"
   category: setup
   tags: identity, michi, direction, instance-setup, declaration
@@ -53,11 +53,11 @@ partner on what the instance is:
 **Michi (道 — "the Way")** is the **instance**-level declaration: the endless
 guiding goal(s) the instance commits to and never finishes — the bearing it steers
 by. It is a **declaration, not a queue** — set once, never worked-and-retired.
-**1..N Ways** per instance. There is **no Agari** (no "done") at instance level; nothing
+**1..N Ways** per instance. There is **no finish line** (no "done") at instance level; nothing
 reaches the Michi.
 
 A **project** (`system/projects/<name>/`) has **no Michi** — it serves the
-instance's Way, and has its own Agari (上がり, the product's "done"). Keep the two
+instance's Way, and has its own finish line (the product's "done"). Keep the two
 straight: the Michi belongs to the whole instance, not to any one project inside it.
 
 Because a Michi is set-once, **adding a Way appends a new heading — it never
@@ -77,7 +77,7 @@ a Michi is not part of this skill.
 
 **Do not use for:**
 - A **project's** requirements or "done" — that is `product-fdr` (the behavioural contract)
-  and the project's `agari.md`. Michi is instance-level; a project has none.
+  and the project's `finish_line.md`. Michi is instance-level; a project has none.
 - Adding a *feature* to a product — that is the change pipeline (`development-specs`).
 
 ---
@@ -203,6 +203,6 @@ Three files, three separate commits:
 - **No posture.** This skill is posture-neutral. Do not adopt a pipeline role, read
   a loader, or touch an inbox. If invoked mid-role, drop the role for this work.
 - **Michi is instance-level.** Never write a Michi into a project. A project serves
-  the instance's Way and has its own Agari instead.
+  the instance's Way and has its own finish line instead.
 - **Don't clobber a real public README.** For a public-bound instance, adapt the
   inherited README's top; leave its clone-and-run body and final polish alone.

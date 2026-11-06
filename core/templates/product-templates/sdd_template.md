@@ -1,5 +1,5 @@
 ---
-version: "5.1.1"
+version: "5.1.3"
 ---
 <!-- The version above is template-file metadata; it is not copied into the instantiated document. -->
 
@@ -106,7 +106,7 @@ and the UXD holds the experience; neither is restated here. A section of Part A 
 ## 1. What this design must achieve
 
 <One short section. The product intent this architecture serves, the terminus it is scoped against —
-the project's 上がり Agari — and the constraints that were fixed before any choice below was made.
+the project's finish line — and the constraints that were fixed before any choice below was made.
 Name the PRD goals and the SRS requirements that bound the design; do not re-list them.>
 
 ## 2. The shape, and what it was chosen over
@@ -272,7 +272,7 @@ here, with the reason.>
 ### Step 1 — List what becomes observably different
 
 Before any slicing, list the things that would be **observably different** about the running product
-between where it is now and its Agari. Write each as one sentence in the form *after this, <someone>
+between where it is now and its finish line. Write each as one sentence in the form *after this, <someone>
 can <do something they could not>*.
 
 The list is made from behaviour, never from the architecture's boxes. "Set up the database", "build
@@ -341,7 +341,7 @@ the sixth is what a plan drifts into when it has a monitor in it.>
 
 - **A dependency stated as an ordering preference** — a fact and a habit are not the same thing.
 - **A slice whose only value is that a later slice needs it.**
-- **A slice no Agari claims.**
+- **A slice no finish line claims.**
 - **A slice no project would own any of** — which project owns which seed is settled at the cut,
   not here, and a slice may well split across two.
 - **A milestone that only restates its last task's completion.**
@@ -373,7 +373,7 @@ slice by its slug everywhere else in this document. Copy the block below once pe
 - **Rests on:** <the sections of this SDD this slice realizes, and the slices that must land first,
   by slug.>
 - **Traces to:** <PRD section; SRS `FR-n` / `NFR-n` / `DR-n` / `C-n`; UXD section.>
-- **Moves toward:** <the 上がり Agari this slice advances. A slice that advances none is a finding,
+- **Moves toward:** <the finish line this slice advances. A slice that advances none is a finding,
   not a rounding error.>
 - **Not in this slice:** <the adjacent work a reader will assume is included, and the slice slug
   that owns it instead.>
@@ -421,7 +421,7 @@ delivery. **Stays here** — a fact about this slice's place among slices, which
 | **Slug** | recorded in `## Source` as the slice this seed came from | repeats |
 | **Delivers** | `## What it is` | divides — each share must be worth something on its own, or it is a fragment (§ 5 step 2) |
 | **Rests on**, the SDD sections it realizes | `## What it is` | repeats |
-| **Moves toward** | `## What it is` | repeats — a seed that advances no Agari is a finding |
+| **Moves toward** | `## What it is` | repeats — a seed that advances no finish line is a finding |
 | **Traces to**, and this SDD's path | `## Source` | repeats, narrowed to what the seed's share touches |
 | **Rests on**, the slices it names by slug | `## Relation to existing work` | repeats — the order *among* these seeds is decided at the cut and is not in this SDD |
 | **Not in this slice** | `## Out (later / elsewhere)` | repeats, and grows — each seed also fences off its siblings' shares, naming the seed that owns each |

@@ -3,6 +3,7 @@
 # run_telemetry.sh — every instrumented launcher's telemetry tagging, over the telemetry package's
 # `turn-on`.
 #
+# Version: 1.2.0 — launchers run on the locked Python
 # Version: 1.1.1 — delete the seven old telemetry files and their seven tests, and move everything that pointed at them
 # Version: 1.1.0 — the other six launchers run on the package's turn-on
 # Version: 1.0.0 — the skill launcher takes its run's telemetry settings from the package's turn-on instead of instrument_run.sh
@@ -99,7 +100,7 @@
 _RUN_TELEMETRY_ACCEPTED_KEYS=" project document skill target_instance provider model effort source "
 
 # The bridge to the package. Bash 3.2 cannot hold a JSON document, argv-based subprocess control or
-# an ordered pair list, so this crosses to python3 (shell/toolchain.md), with every value as argv
+# an ordered pair list, so this crosses to the pinned Python through `locked_python.sh` (shell/toolchain.md), with every value as argv
 # and no apostrophe anywhere in the source below. It prints one tab-separated protocol line per
 # fact, and the shell reads those lines as data:
 #   SETTINGS<TAB><compact settings json>
@@ -257,6 +258,12 @@ EOF
   basename "$path"
 }
 
+# The runner that puts every Python this file starts on the pinned Python: `locked_python.sh`, found
+# from this file's own physical location like the resolver below. Prints its path.
+_run_telemetry_runner() {
+  printf '%s/locked_python.sh' "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+}
+
 # The command's name when the invoking environment holds none: what `telemetry_command.py`
 # answers for the core this file sits in. The resolver is found from this file's own physical
 # location, never from the caller's working directory, because a launcher cd's to its instance
@@ -269,7 +276,7 @@ _run_telemetry_discover() {
   [ -n "$tools_dir" ] || return 0
   resolver="$tools_dir/telemetry_command.py"
   [ -f "$resolver" ] || return 0
-  answer="$(python3 "$resolver" --core "$(dirname "$tools_dir")" 2>/dev/null)" || return 0
+  answer="$("$tools_dir/locked_python.sh" "$resolver" --core "$(dirname "$tools_dir")" 2>/dev/null)" || return 0
   case "$answer" in
     *$'\n'*) return 0 ;;
   esac
@@ -282,7 +289,7 @@ _run_telemetry_discover() {
 _run_telemetry_uninstrumented() {
   echo "          ($1 — run uninstrumented)"
   local cap_settings
-  cap_settings="$(python3 -c "$_RUN_TELEMETRY_BRIDGE" cap 2>/dev/null || true)"
+  cap_settings="$("$(_run_telemetry_runner)" -c "$_RUN_TELEMETRY_BRIDGE" cap 2>/dev/null || true)"
   cap_settings="${cap_settings#SETTINGS$'\t'}"
   [ -n "$cap_settings" ] || return 0
   INSTRUMENT_RUN_SETTINGS="$cap_settings"
@@ -420,7 +427,7 @@ _run_telemetry_main() {
   _run_telemetry_collect "$caller" "$@"
 
   local result
-  result="$(python3 -c "$_RUN_TELEMETRY_BRIDGE" run "$command_path" "$endpoint_file" \
+  result="$("$(_run_telemetry_runner)" -c "$_RUN_TELEMETRY_BRIDGE" run "$command_path" "$endpoint_file" \
     ${_run_telemetry_labels[@]+"${_run_telemetry_labels[@]}"} 2>/dev/null || true)"
 
   local kind first second settings="" status="" detail=""

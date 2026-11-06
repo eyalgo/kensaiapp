@@ -15,9 +15,9 @@ WHAT IT PROVIDES
                         holds a launch with no telemetry to the cap alone, or nothing.
     `assert_run_telemetry_call_carries_provenance`
                         the same-line four-key check every launcher's suite makes of its own call.
-    `require_real_package`
-                        a scratch HOME linked to the installed package, or the skip that names what
-                        is missing (CP-689).
+    `recorded_package`
+                        a scratch HOME holding the package as recorded
+                        (`telemetry_recording_test_support.py`) — never the owner's installed one.
     `scratch_core` `make_pin` `bind_satellite` `write_host_setting`
                         the trees a launcher is run in: a core of its own (the real tools, minus
                         their tests), a pin of it, and a satellite that binds it.
@@ -25,9 +25,6 @@ WHAT IT PROVIDES
                         the four ordinary launches of CP-692 and what each must print and hand over.
     `failure_scenario` `assert_failure_scenario`
                         the failure matrix of CP-687, CP-693 and CP-694, one controlled cause each.
-    `assert_selection_skips_unreachable_and_fails_reached`
-                        a launcher suite's own observation run in nested pytests, to show that an
-                        unreachable package skips it and a reached command that fails fails it.
 
 HOW A LAUNCHER IS OBSERVED
     A launcher exports its telemetry to its own shell and hands its settings to the provider on the
@@ -44,21 +41,18 @@ from __future__ import annotations
 
 import base64
 import json
-import os
 import re
 import shlex
 import shutil
 import subprocess
-import sys
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 
-import pytest
+import telemetry_recording_test_support
+import test_support_instance_root
 
-import telemetry_command
-
-__version__ = "1.1.0"
+__version__ = "2.0.0"
 
 COMMAND_VARIABLE = "KENSAIAPP_TELEMETRY_COMMAND"
 SETTINGS_NAME = "INSTRUMENT_RUN_SETTINGS"
@@ -77,9 +71,6 @@ LOOPBACK_ENDPOINT = "http://127.0.0.1:4318"
 
 _TOOLS = Path(__file__).resolve().parent
 _CORE_DIR = _TOOLS.parent
-
-# The home the real package is installed under. Read once, before any case isolates HOME.
-REAL_HOME = Path.home()
 
 # --- the observer ---------------------------------------------------------------------------------
 
@@ -357,65 +348,25 @@ def assert_instrumented_observation(
 
 # --- the real package -----------------------------------------------------------------------------
 
-SKIP_UNSET = (
-    "equivalence comparison not run: KENSAIAPP_TELEMETRY_COMMAND is unset or empty, so the "
-    "telemetry package's command cannot be found — set it to the command's name in "
-    "~/.kensaiapp/venv/bin"
-)
-SKIP_NOT_PLAIN = (
-    "equivalence comparison not run: KENSAIAPP_TELEMETRY_COMMAND is not a plain command name "
-    "(name only, no path or arguments)"
-)
-
-
-def skip_reason_unreachable(path: Path) -> str:
-    return (
-        f"equivalence comparison not run: no runnable telemetry command at {path} — install the "
-        "package in ~/.kensaiapp/venv, or correct KENSAIAPP_TELEMETRY_COMMAND"
-    )
-
-
-def real_package_skip_reason(environ: Mapping[str, str], home: Path) -> str | None:
-    """Why the real-package comparison cannot run here, or None when it can."""
-    name = environ.get(COMMAND_VARIABLE, "")
-    if not name:
-        return SKIP_UNSET
-    if not re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9._-]*", name):
-        return SKIP_NOT_PLAIN
-    path = home / ".kensaiapp" / "venv" / "bin" / name
-    if not (path.is_file() and os.access(path, os.X_OK)):
-        return skip_reason_unreachable(path)
-    return None
+# The command's name in a scratch home. Any plain name serves; this one names no package.
+RECORDED_COMMAND = "telemetry-package"
 
 
 @dataclass(frozen=True)
-class RealPackage:
-    """A scratch HOME whose `.kensaiapp/venv` is the installed one, and the command's name."""
+class RecordedPackage:
+    """A scratch HOME holding the package as recorded, and the command's name."""
 
     home: Path
     command: str
 
 
-def require_real_package(
-    tmp_path: Path, *, environ: Mapping[str, str] | None = None, real_home: Path | None = None
-) -> RealPackage:
-    """The real package, reached through a scratch HOME under `tmp_path`, or the pytest skip that
-    names what is missing. The command's name is discovered exactly as a launch discovers it —
-    from the environment, else from the source host's setting — before any HOME is isolated, so
-    nothing here names it. A command that is reached and then breaks the contract is not a skip:
-    the comparison that runs it fails."""
-    inherited = os.environ if environ is None else environ
-    discovered = telemetry_command.resolve(_CORE_DIR, dict(inherited))
-    reason = real_package_skip_reason(
-        {COMMAND_VARIABLE: discovered}, REAL_HOME if real_home is None else real_home
-    )
-    if reason:
-        pytest.skip(reason)
+def recorded_package(tmp_path: Path) -> RecordedPackage:
+    """The telemetry package as recorded, in a scratch HOME under `tmp_path`: every call answers
+    what the real package answered it, and a call never recorded fails. A test reads nothing of the
+    machine it runs on — the owner's installed package included."""
     home = tmp_path / "home"
-    (home / ".kensaiapp").mkdir(parents=True)
-    source_home = REAL_HOME if real_home is None else real_home
-    (home / ".kensaiapp" / "venv").symlink_to(source_home / ".kensaiapp" / "venv")
-    return RealPackage(home=home, command=discovered)
+    telemetry_recording_test_support.install(home, RECORDED_COMMAND)
+    return RecordedPackage(home=home, command=RECORDED_COMMAND)
 
 
 # --- the provenance assertion ---------------------------------------------------------------------
@@ -474,6 +425,7 @@ def scratch_core(root: Path, script: Path, *, siblings: Iterable[str] = ()) -> P
     script = Path(script)
     core = Path(root) / "core"
     core.mkdir(parents=True)
+    test_support_instance_root.give_python(root)
     shutil.copytree(_TOOLS, core / "tools", ignore=_TOOLS_IGNORE)
     for entry in sorted(_CORE_DIR.iterdir()):
         if entry.name not in _BORROWED and not entry.name.startswith("."):
@@ -742,53 +694,3 @@ def assert_failure_scenario(
     assert "sentinel" not in json.dumps(observation.exports)
 
 
-# --- a suite's own comparison, selected in a nested pytest ----------------------------------------
-
-
-def assert_selection_skips_unreachable_and_fails_reached(tmp_path: Path, test_node: str) -> None:
-    """Run the suite test `test_node` (`<file>::<name>`) in four nested pytest runs against fixture
-    homes and fail unless each ends as CP-689 requires. With no command named, and with one no home
-    holds, it is skipped with the reason that names what is missing, and neither passes nor fails.
-    With a command that is reached and then exits non-zero, or prints no settings document, it
-    fails — a command that is there and broken is never an unavailable dependency. The runs share
-    nothing with this process but the checkout and the interpreter."""
-    inherited = {
-        name: value
-        for name, value in os.environ.items()
-        if name not in (COMMAND_VARIABLE, "KENSAIAPP_PIN")
-    }
-
-    def nested(label: str, command: str, body: str | None) -> subprocess.CompletedProcess:
-        home = tmp_path / f"home-{label}"
-        home.mkdir(parents=True)
-        if body is not None:
-            bin_dir = home / ".kensaiapp" / "venv" / "bin"
-            bin_dir.mkdir(parents=True)
-            (bin_dir / command).write_text(body)
-            (bin_dir / command).chmod(0o755)
-        env = dict(inherited, HOME=str(home), PYTHONDONTWRITEBYTECODE="1")
-        env[COMMAND_VARIABLE] = command
-        return subprocess.run(
-            [sys.executable, "-m", "pytest", test_node, "-q", "-rs", "-n", "0",
-             "-p", "no:cacheprovider"],
-            cwd=str(_CORE_DIR.parent), capture_output=True, text=True, env=env, timeout=600,
-        )
-
-    unset = nested("unset", "", None)
-    assert unset.returncode == 0, unset.stdout + unset.stderr
-    assert SKIP_UNSET in unset.stdout, unset.stdout
-    assert "passed" not in unset.stdout and "failed" not in unset.stdout, unset.stdout
-
-    absent = nested("absent", "no-such-command", None)
-    path = tmp_path / "home-absent" / ".kensaiapp" / "venv" / "bin" / "no-such-command"
-    assert absent.returncode == 0, absent.stdout + absent.stderr
-    assert skip_reason_unreachable(path) in absent.stdout, absent.stdout
-    assert "passed" not in absent.stdout and "failed" not in absent.stdout, absent.stdout
-
-    for label, body in (
-        ("exit-3", "#!/bin/sh\nexit 3\n"),
-        ("garbage", "#!/bin/sh\necho this is not a settings document\n"),
-    ):
-        reached = nested(label, "reached", body)
-        assert reached.returncode != 0, reached.stdout + reached.stderr
-        assert "failed" in reached.stdout and "skipped" not in reached.stdout, reached.stdout

@@ -1,5 +1,5 @@
 ---
-version: "1.4.0"
+version: "1.5.0"
 ---
 <!-- The version above is template-file metadata; it is not copied into the instantiated document. -->
 
@@ -14,7 +14,7 @@ version: "1.4.0"
 
 <one of: wrong-posture | no-active-change | ambiguous-active-change | missing-project-context |
 invalid-behaviour-classification | multiple-changes | fdr-conflict | too-vague |
-undecidable-direction | behaviour-delta-detected | worktree-not-created>
+undecidable-direction | behaviour-delta-detected | worktree-not-created | records-owed>
 
 ---
 
@@ -85,4 +85,12 @@ Proceed: Reclassify the request as Behaviour: changing and re-run.
 <!-- worktree-not-created:
 Finding: create_change_worktree.py exited non-zero in Step 4. Quote its JSON fields as printed: error (the code), message, changed (whether any repository was changed before it stopped) and repos (each repository's branch_exists and worktree_exists, or null when no topology was resolved).
 Proceed: Act on the message — it names the repository, the branch or path at fault, and the action that clears it — then re-run. The command never removes or reuses a branch or worktree, so whatever repos lists as existing stays until someone removes it.
+-->
+
+<!-- records-owed:
+Finding: The product's records hold N records defects, and one item was raised for each on its owning document's companion, under Raised from downstream. A records defect is records that contradict each other, or a check a record requires of this change that can only pass with a behaviour this change hands on. Write one line per raised item, in this shape:
+Raised item: <companion file, as its path under the product's docs directory> § <item number> — <item title, as the companion heads the item>
+For example: Raised item: SDD_open_issues.md § 5.2 — the export slice's checks need the import page this change excludes
+Each raised item gets exactly one such line, written in ## Finding. No other line in this report begins with `Raised item:`. The line is written from this block alone.
+Proceed: Fold each raised item on its own document, through that document's own run, never through development-specs. Re-run development-specs once every item is folded.
 -->

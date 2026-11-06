@@ -1,5 +1,5 @@
 ---
-version: "1.12.1"
+version: "1.14.0"
 ---
 
 # product-uxd — the CDO's UXD authoring lens
@@ -29,7 +29,7 @@ names a bucket, the open-issues file, or the loop, it points at the skill, it do
   features, scope, and its **`## UX Notes`** — the product-level experience intent the CPO wrote
   for you, and the one section of the PRD addressed to this document. Every entry you write traces
   back to something in here. You take product intent as given.
-- **The project's Agari** (`system/projects/<name>/agari.md`) — the declared terminus: the
+- **The project's finish line** (`system/projects/<name>/finish_line.md`) — the declared terminus: the
   condition under which this product is done or shipped. It is the **scope boundary**, never a
   source of experience requirements; see § *The terminus bounds the UXD* below for what it binds.
 - **The PRD's trail**, the owner-answer trail beside the PRD — their answered rounds on it. These
@@ -55,7 +55,7 @@ names a bucket, the open-issues file, or the loop, it points at the skill, it do
   recorded as an item for the owner naming what you could not read, never a guess at its content.
 
 **The order above is an authority order, and it matters more as the input widens.** The PRD is the
-source every entry traces to. Everything else bounds it (the Agari), authorizes a value inside it
+source every entry traces to. Everything else bounds it (the finish line), authorizes a value inside it
 (the trails), evidences it (the product request), or constrains how the product is built (the
 doctrine). The SRS sits beside the order, not in it. More input is only an improvement while each
 piece keeps its place; the failure it risks is an experience decision derived confidently from
@@ -191,26 +191,26 @@ implementing agent's defaults at code time. Do not smuggle those defaults in her
 
 ## The terminus bounds the UXD
 
-The Agari says when the **product** is done; you say what the experience must be to get there.
+The finish line says when the **product** is done; you say what the experience must be to get there.
 Written in that order, done is a boundary you scope against — and a UXD written without it designs
 past the finish line, because the PRD alone gives no reason to stop.
 
 So walk the draft against the terminus:
 
-- **Every flow and screen is asked what it serves.** One that serves only work the Agari places
+- **Every flow and screen is asked what it serves.** One that serves only work the finish line places
   *outside* done is **recorded, not designed** — named in *Out of Scope*, with the terminus as the
   reason. Not cut silently: a later reader must see that it was considered and bounded, not
   forgotten.
 - ***Out of Scope* names the terminus it is scoped against**, per the template. A boundary that
   exists only in your reasoning cannot be checked by anyone reading the document afterward.
 - **A terminus is not a requirement source.** It bounds; it does not supply. An entry whose only
-  trace is the Agari has no PRD source and is scope creep by the forward walk's own test.
-- **Watch the phased product.** Where the PRD describes a later phase the Agari excludes from done,
+  trace is the finish line has no PRD source and is scope creep by the forward walk's own test.
+- **Watch the phased product.** Where the PRD describes a later phase the finish line excludes from done,
   that phase's flows and screens are out — but a v1 navigation model or information architecture
   that would *foreclose* it is worth a Review Note. Bounding the UXD is not the same as designing a
   dead end.
 
-**When there is no terminus to walk against** — no `agari.md`, or one still carrying the
+**When there is no terminus to walk against** — no `finish_line.md`, or one still carrying the
 placeholder — record it as an **open issue** naming exactly what you found, and derive best-effort
 from the PRD as if the boundary were the PRD's own scope. Never halt: a project may legitimately
 arrive here first. Say so in *Out of Scope* rather than implying a boundary you did not have.
@@ -327,7 +327,7 @@ whether a departure needs the owner is the sorting test's call, and no relation 
   file as a choice to confirm — "the PRD includes X; I suggest cutting it because <reason>". Saying
   so is the whole of your part in it.
 
-**The set of things an entry may cite is closed.** The PRD, the project's Agari, this instance's
+**The set of things an entry may cite is closed.** The PRD, the project's finish line, this instance's
 doctrine and experience fence, and this document's settled siblings — every one of which settles and
 stays put. **Never a file under `journey/`.** The 宿場 Shukuba station that opened this run is a
 legitimate *input* — its guardrail binds you — but it is not a source an entry may trace to: it moves

@@ -52,7 +52,7 @@ A host is an instance that keeps the shared core. A satellite is an instance wit
 own: it reads its host's, so a change to the core reaches every satellite as soon as it lands. That
 lets you keep different work in different repositories, all run by the same mechanism. KensaiApp itself is
 built that way, from one host with satellites beside it. You don't need satellites: a single instance works on its
-own. [More than one instance](operations.md#more-than-one-instance) shows how to set one up.
+own. [How to create an instance](how-to.md#how-to-create-an-instance) shows how to set one up.
 
 ## The Japanese names
 
@@ -63,8 +63,7 @@ nearest industry term first.
 | Industry term | KensaiApp's word | What it is |
 |---|---|---|
 | Long-term direction | Michi 道 | A direction the whole instance steers by and never finishes |
-| Definition of done | Agari 上がり | When one project's product is done |
-| Backlog of candidate work | Nemawashi 根回し | The seedbed: ideas, each a candidate route toward done |
+| Backlog of candidate work | Nemawashi 根回し | The seedbed: ideas, each a candidate route toward the finish line |
 | Milestone | Shukuba 宿場 | A station: the one stretch of work being walked now |
 | Merged pull request | Tobiishi 飛び石 | A stepping stone: one change carried from ask to sealed on `main` |
 
@@ -74,20 +73,20 @@ section [The journey in industry, ticketing and Jira terms](glossary.md#the-jour
 ## From requirements to a product
 
 Once a project is set up, its journey can start. The journey is how a project gets from its
-documents to its definition of done, and after the first launch it walks itself:
+documents to its finish line, and after the first launch it walks itself:
 
 1. The Principal PM cuts the product's documents into seeds (`seeds-from-product-docs`). A seed is a
-   candidate route toward done, with a checklist of stations.
-2. The PM picks one seed (`nemawashi-pick`) and cuts its checklist into the stations to walk
+   candidate route toward the finish line, with a checklist of stations.
+2. The PM picks one seed (`seed-pick`) and cuts its checklist into the stations to walk
    (`stations-from-seed`).
-3. `chain-change` opens a station (`shukuba-open`), opens a change in it (`tobiishi-open`), and carries
-   the change through [the pipeline](../README.md#how-a-change-moves) to the seal (`tobiishi-seal`). A station that is not reached can be
+3. `walk` opens a station (`shukuba-open`), opens a change in it (`tobiishi-open`), and carries
+   the change through [the pipeline](under-the-hood.md#the-change) to the seal (`tobiishi-seal`). A station that is not reached can be
    parked (`shukuba-park`) and opened again later.
 4. After every sealed change, the PM refines the station (`shukuba-refine`) and writes the next moves:
    another change, or closing the station. The route is decided again each time, from what the
    change found: the stations ahead can be re-cut, reordered, parked or dropped, but what was asked
    for and the product's documents do not move
-   ([The route is re-decided after every change](how-it-works.md#the-route-is-re-decided-after-every-change)).
+   ([The route is re-decided after every change](what-is-in-it.md#the-route-is-re-decided-after-every-change)).
 5. The Scrum Master closes a station once it is reached (`shukuba-retire`). When a seed's checklist is
    walked, the Scrum Master retires the seed (`nemawashi-retire`), and the Principal PM refines the
    seedbed (`nemawashi-refine`): a new cut from the documents, or the next pick.
@@ -95,8 +94,8 @@ documents to its definition of done, and after the first launch it walks itself:
 ```
 CUT             PICK            STATIONS        CHANGE
 ┌───────────┐   ┌───────────┐   ┌───────────┐   ┌───────────┐
-│ Principal │──▶│ PM        │──▶│ PM        │──▶│ chain-    │◀─┐
-│ PM        │   │           │   │           │   │ change    │  │ next change
+│ Principal │──▶│ PM        │──▶│ PM        │──▶│ walk      │◀─┐
+│ PM        │   │           │   │           │   │           │  │ next change
 └───────────┘   └───────────┘   └───────────┘   └───────────┘  │
       ▲               ▲                               │        │
       │ new cut       │ next pick                     ▼        │
@@ -109,17 +108,17 @@ REFINE SEEDS    RETIRE SEED     CLOSE STATION   REFINE
 
 Once it starts, it runs without you. It stops when it needs you, for an act only you can do or a
 question only you can answer, when a step fails, or when you stop it. It ends when no seed is left and
-nothing is owed. The last refine says so, and whether the product has reached its done is your call.
+nothing is owed. The last refine says so, and whether the product has reached its finish line is your call.
 
 ### Product documents chains
 
 A project's documents are written by a chain of their own, the one its card's `Definition:` line
-names. `chain-product` walks them in a fixed order, and each is written by the role that owns it:
+names. `product-docs` walks them in a fixed order, and each is written by the role that owns it:
 
 | Document | What it is | Written by |
 |---|---|---|
 | PRD | The product's requirements | CPO |
-| Agari | The definition of done | CPO |
+| Finish line | When the product is done | CPO |
 | SRS | The software requirements specification | CTO |
 | UXD | The user experience (experimental) | CDO |
 | DESIGN | The design language | CDO |
@@ -129,8 +128,8 @@ names. `chain-product` walks them in a fixed order, and each is written by the r
 | ADR | Architecture decision records, one per significant decision | Principal Architect |
 | NFDR | Non-functional design requirements: the rules a later change must not break | Principal Architect |
 
-`chain-agari` walks the PRD and the Agari only. A document that is settled, with no open questions, is
-walked past without a run. `chain-change` runs the project's documents chain before each change, so a
+`prd-and-finish-line` walks the PRD and the finish line only. A document that is settled, with no open questions, is
+walked past without a run. `walk` runs the project's documents chain before each change, so a
 document with open questions is dealt with before the next change starts.
 
 When the documents have settled, you run one launcher yourself. A model run writes the card's fields
@@ -150,20 +149,22 @@ questions in a companion file beside the document. The chain then starts an answ
 allowed to decide. An item only you may settle stays open, with the answer it would have given. It
 then lists the runs now owed, and the document's writer runs again and folds the answers in. To
 answer the items left for you, use `/companion-answer` in a session
-([Interactive sessions](operations.md#interactive-sessions)).
+([Interactive session](../README.md#interactive-session)).
 
-### The chain launchers
+### The journey launchers
 
 Each part of the journey above has a launcher:
 
 | Launcher | What it walks |
 |---|---|
-| `chain-product` | The product documents, PRD to NFDR |
-| `chain-agari` | The PRD and the definition of done |
-| `chain-change` | One change: open a station if none is open, open the change, the pipeline, the seal and the refine. At its end it starts `build-idea` |
-| `build-idea` | The next moves a refine wrote, run as a queue: close a station, retire a seed, pick, cut, or the next change, which starts `chain-change` again |
-| `chain-development` | The pipeline from the spec on, for a change whose request already exists |
+| `product-docs` | The product documents, PRD to NFDR |
+| `prd-and-finish-line` | The PRD and the finish line |
+| `walk` | One change: open a station if none is open, open the change, the pipeline, the seal and the refine. At its end it starts `build-idea` |
+| `build-idea` | The next moves a refine wrote, run as a queue: close a station, retire a seed, pick, cut, or the next change, which starts `walk` again |
+| `change` | The pipeline from the spec on, for a change whose request already exists |
 | `product-card` | The card's fields, the product README and the code skeleton |
+
+`walk` and `change` are both launcher names. `walk` takes a change from its station to its seal. `change` runs only the pipeline, from the spec on. Written plain, "change" is the ordinary word.
 
 A documents chain walks a spine: the ordered list of documents its launcher hands to the chain engine.
 The change chains have a fixed table of steps instead. All of them share the rest:
@@ -171,17 +172,17 @@ The change chains have a fixed table of steps instead. All of them share the res
 - A launcher starts the first run in the background and returns. Each run, when it ends, starts the next.
   `product-card` is the exception: it runs in the foreground and waits.
 - The walk's state is one file under `system/logs/`, beside each run's log.
-- `chain-product`, `chain-agari`, `chain-change`, `build-idea` and `chain-development` take `--stop`,
+- `product-docs`, `prd-and-finish-line`, `walk`, `build-idea` and `change` take `--stop`,
   which stops the runs in flight and keeps the state.
 - Run the same command again and it carries on from what is on disk, rather than starting over.
 - Each launch runs on a pinned copy of the shared core, so an edit made after the launch cannot reach
   a run in flight. `build-idea` takes a new pin when the host has changed, so the queue a walk runs at
   its end can run on newer files.
 
-Most of the time you run one command, and the loop between `chain-change` and `build-idea` does the rest:
+Most of the time you run one command, and the loop between `walk` and `build-idea` does the rest:
 
 ```bash
-core/launchers/chain-change/launcher.sh my-app
+core/launchers/walk/launcher.sh my-app
 ```
 
 ## Rules the system enforces
@@ -202,6 +203,8 @@ launchers.
 | Product checkout | A run that leaves new uncommitted changes in the product's checkout halts the walk, with nothing relaunched over them |
 | Pins | A launched run reads a frozen copy of the shared core, so an edit made after the launch cannot reach it. `build-idea` takes a new pin when the host has changed |
 | Worktrees | Each change gets its own branch and working folder |
+
+A commit missing its required lines never enters the history: the `commit-msg` check refuses it.
 
 Where an AI decision and a mechanical rule conflict, the rule wins, and the AI says so rather than
 working around it.

@@ -3,7 +3,7 @@ name: skill-evals
 description: Run benchmark evaluations for any skill. Reads evals/evals.json from the target skill, spawns parallel with-skill and without-skill agent runs, grades outputs against assertions, aggregates benchmark statistics, and launches the eval viewer. Use when you want to measure or compare skill performance without entering the full skill-creator create/improve flow. Trigger on phrases like "run evals", "run the evals", "benchmark this skill", "run the eval loop", "test this skill against baseline", or when a skill has an evals.json and the user wants to see how it performs.
 license: MIT
 metadata:
-  version: "1.1.6"
+  version: "1.2.0"
 ---
 
 <!-- Changed from Anthropic's skill-creator (Apache-2.0, https://github.com/anthropics/claude-plugins-official/tree/main/plugins/skill-creator); this file is not the original. -->
@@ -95,7 +95,7 @@ so a producer skill that owns its own file locations resolves *into the tracked 
 harness prevents that write. Snapshot before the run so any movement is provably this run's:
 
 ```bash
-python3 "<CORE>/../skills/experimental/.claude/skills/skill-evals/scripts/fixture_guard.py" \
+"<CORE>/tools/locked_python.sh" "<CORE>/../skills/experimental/.claude/skills/skill-evals/scripts/fixture_guard.py" \
   snapshot --skill-dir <skill-dir>
 ```
 
@@ -138,7 +138,7 @@ grading may be *invalid*, not merely the tracked tree dirty. Find that out befor
 benchmark from it.
 
 ```bash
-python3 "<CORE>/../skills/experimental/.claude/skills/skill-evals/scripts/fixture_guard.py" \
+"<CORE>/tools/locked_python.sh" "<CORE>/../skills/experimental/.claude/skills/skill-evals/scripts/fixture_guard.py" \
   verify --workspace <workflow.workspace>
 ```
 
@@ -146,7 +146,7 @@ python3 "<CORE>/../skills/experimental/.claude/skills/skill-evals/scripts/fixtur
 - **exit 3** — damage. Show `<workspace>/fixture_guard_report.md`, then restore and re-verify:
 
   ```bash
-  python3 "<CORE>/../skills/experimental/.claude/skills/skill-evals/scripts/fixture_guard.py" \
+  "<CORE>/tools/locked_python.sh" "<CORE>/../skills/experimental/.claude/skills/skill-evals/scripts/fixture_guard.py" \
     repair --apply --workspace <workflow.workspace>
   ```
 
@@ -167,7 +167,7 @@ The workflow cannot time itself — the Workflow runtime has no filesystem acces
 reported when you launched it**:
 
 ```bash
-python3 "<CORE>/../skills/experimental/.claude/skills/skill-evals/scripts/collect_timing.py" \
+"<CORE>/tools/locked_python.sh" "<CORE>/../skills/experimental/.claude/skills/skill-evals/scripts/collect_timing.py" \
   --transcript-dir <the "Transcript dir" from the Workflow launch result> \
   --workspace <workflow.workspace>
 ```

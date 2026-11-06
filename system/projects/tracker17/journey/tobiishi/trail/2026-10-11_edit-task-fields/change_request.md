@@ -16,6 +16,6 @@ Tests ship with it: unit tests for the edit rules; integration tests through the
 
 **Category:** feature
 **Behaviour:** changing
-**Classified because:** the station's reached-when 1 to 6 say the task page gains an edit form, a saved-change redirect, an out-of-date refusal and the project shown as text, none of which the page has today (`products/tracker17/web/pages.py` shows the task read-only, with no project, per the seed's `shukuba-refine` of `654ecd089`), so new behaviour is added to the contract.
+**Classified because:** the station's reached-when 1 to 6 say the task page gains an edit form, a saved-change redirect, an out-of-date refusal and the project shown as text, none of which the page has today (`products/tracker17/web/pages.py` shows the task read-only, with no project, per the seed's `shukuba-refine` of `<a commit not in the public history>`), so new behaviour is added to the contract.
 
 **Sealed:** 2026-10-12 — accepted; merged to `main` via `--no-ff`.

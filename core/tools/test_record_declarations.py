@@ -201,7 +201,7 @@ def test_prefixes_are_unique_and_by_prefix_is_complete_and_read_only():
 
 
 def test_every_prefix_the_chain_names_is_a_row():
-    steps = chain_development.DEVELOPMENT_STEPS + chain_development.CHANGE_STEPS
+    steps = chain_development.CHANGE_STEPS + chain_development.WALK_STEPS
     named = {step.declared_prefix for step in steps if step.declared_prefix}
     named |= {step.runs_when.prefix for step in steps if step.runs_when is not None}
     assert named, "the chain names no prefix, so this test would pass over nothing"

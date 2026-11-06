@@ -316,7 +316,7 @@ development-specs in `deferred_decisions.md`.
     development-design's to decide" is moot.
 - **R-2 — CP-318's list of the tests that change is extended from three to seven (a).**
   - *What was found.* A prototype of this design was run against the existing suite in a disposable
-    clone at `c01872b`, and eight tests failed. They were the three CP-318 names (the two pointer
+    clone at `<a commit not in the public history>`, and eight tests failed. They were the three CP-318 names (the two pointer
     tests count as one change, E1) and four more: E2, E5, E6 and E7.
   - *Why each fails.* Each of the four pins exactly what the request asks to change. E2 asserts
     `domain/workflow.py` does not exist (CP-293 and the request create it). E5 asserts the task page
@@ -439,7 +439,7 @@ development-specs in `deferred_decisions.md`.
 **What the prototype measured.** The blast radius of § 5's existing tests (R-2, and the atomic-landing
 edges in § 3) was measured, not inferred. The steps:
 
-- A fresh clone of the instance at `c01872b`, in `mktemp -d`, with a venv from
+- A fresh clone of the instance at `<a commit not in the public history>`, in `mktemp -d`, with a venv from
   `tests/requirements.txt` (pytest 9.1.1).
 - Baseline: `pytest products/tracker17/tests/ --ignore=products/tracker17/tests/e2e` gave 1091
   passed.

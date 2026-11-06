@@ -173,3 +173,76 @@ def test_two_watches_of_one_stem_in_one_second_keep_two_logs(tmp_path):
     logs = sorted((tmp_path / "system" / "logs").glob("watch-development-audit-*.log"))
     assert len(logs) == 2
     assert all(chain_usage.watch_log_name(log.name, "development-audit") for log in logs)
+
+
+def test_the_process_watcher_starts_with_python3_stubbed_to_fail(tmp_path):
+    stub_dir = tmp_path / "stub-bin"
+    stub_dir.mkdir()
+    stub = stub_dir / "python3"
+    stub.write_text(f'#!/bin/sh\necho called >> "{tmp_path / "python3-marker"}"\nexit 1\n')
+    stub.chmod(0o755)
+    watcher = tmp_path / "watcher.py"
+    argv_log = tmp_path / "argv"
+    watcher.write_text(
+        "import os,sys\nopen(os.environ['ARGV_LOG'],'w').write('\\n'.join(sys.argv[1:]))\n"
+    )
+    wrapper = tmp_path / "call.sh"
+    wrapper.write_text(
+        f'#!/usr/bin/env bash\nset -euo pipefail\nsource "{LIB}"\n'
+        'detach_process_watcher "$@"\necho "PID=$DETACH_PROCESS_WATCHER_PID"\n'
+    )
+    wrapper.chmod(0o755)
+    result = subprocess.run(
+        [str(wrapper), "--watcher", str(watcher), "--provider", "claude",
+         "--notifier", "/usr/bin/true", "--instance-root", str(tmp_path), "--label", "demo",
+         "--log-stem", "demo", "--reporter", "generic", "--pid", "77", "--run-log", "/run.jsonl",
+         "--poll-seconds", "0"],
+        text=True, capture_output=True,
+        env={**os.environ, "ARGV_LOG": str(argv_log), "PATH": f"{stub_dir}:{os.environ['PATH']}"},
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert any(line.startswith("PID=") and line[4:].isdigit() for line in result.stdout.splitlines())
+    deadline = time.monotonic() + 30
+    while not (argv_log.exists() and argv_log.read_text()) and time.monotonic() < deadline:
+        time.sleep(0.05)
+    assert argv_log.read_text().splitlines()[argv_log.read_text().splitlines().index("--pid") + 1] == "77"
+    assert not (tmp_path / "python3-marker").exists()
+
+
+def test_a_signal_to_the_recorded_pid_ends_the_watchers_python(tmp_path):
+    watcher = tmp_path / "watcher.py"
+    own_pid = tmp_path / "own-pid"
+    watcher.write_text(
+        "import os, time\nopen(os.environ['OWN_PID'], 'w').write(str(os.getpid()))\ntime.sleep(60)\n"
+    )
+    wrapper = tmp_path / "call.sh"
+    wrapper.write_text(
+        f'#!/usr/bin/env bash\nset -euo pipefail\nsource "{LIB}"\n'
+        'detach_process_watcher "$@"\necho "PID=$DETACH_PROCESS_WATCHER_PID"\n'
+    )
+    wrapper.chmod(0o755)
+    result = subprocess.run(
+        [str(wrapper), "--watcher", str(watcher), "--provider", "claude",
+         "--notifier", "/usr/bin/true", "--instance-root", str(tmp_path), "--label", "demo",
+         "--log-stem", "demo", "--reporter", "generic", "--pid", "77", "--run-log", "/run.jsonl"],
+        text=True, capture_output=True, env={**os.environ, "OWN_PID": str(own_pid)},
+    )
+    assert result.returncode == 0, result.stderr
+    recorded = int(next(line[4:] for line in result.stdout.splitlines() if line.startswith("PID=")))
+    deadline = time.monotonic() + WAIT_SECONDS
+    while not (own_pid.exists() and own_pid.read_text()) and time.monotonic() < deadline:
+        time.sleep(0.05)
+    python_pid = int(own_pid.read_text())
+
+    os.kill(recorded, signal.SIGTERM)
+
+    deadline = time.monotonic() + WAIT_SECONDS
+    while time.monotonic() < deadline:
+        try:
+            os.kill(python_pid, 0)
+        except ProcessLookupError:
+            return
+        time.sleep(0.05)
+    os.kill(python_pid, signal.SIGKILL)
+    raise AssertionError("the watcher's Python outlived a SIGTERM to the recorded pid")

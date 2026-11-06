@@ -46,7 +46,7 @@ None.
   published against a pin already chosen is the second sentence's, and its window runs from the day
   the advisory is published. Under this reading the browser is covered by both sentences. The setup
   instructions are not blocked today: `playwright==1.63.0` was chosen on 2026-10-07 (commit
-  `83563a643`), when no Playwright release without these advisories was on PyPI. Its browser is held
+  `<a commit not in the public history>`), when no Playwright release without these advisories was on PyPI. Its browser is held
   by the window, and the window closes at the end of 2026-10-08.
 - **Rationale:** read literally, the first sentence bars any test dependency with a known critical
   vulnerability from the setup instructions, from the day the advisory is published. Every pinned

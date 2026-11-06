@@ -115,15 +115,19 @@ THE SEVEN ENDS
 from __future__ import annotations
 
 import argparse
+import fcntl
+import itertools
 import json
 import os
 import re
 import shlex
 import subprocess
 import sys
+import threading
 import traceback
 import uuid
 from collections.abc import Iterable
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from dataclasses import dataclass, field
 from enum import Enum
@@ -138,7 +142,7 @@ import walk_stop
 from providers import ProviderFiles, ProvidersRefused
 from run_intelligence import PROVIDERS
 
-__version__ = "5.9.4"
+__version__ = "5.14.0"
 
 # The state file's own shape. `StateStore.load` refuses anything else by name rather than
 # raising out of the completion hook, because the hook's traceback is what killed a live
@@ -230,8 +234,8 @@ class DocumentSpec:
     # Extra path segments that name this document in a report's bullet.
     aliases: tuple[str, ...] = ()
     # A file carrying this text is the stamped placeholder, not the document, and reads as
-    # absent. `project-stamp` writes `agari.md` before any Agari exists, from a template that
-    # carries `PLACEHOLDER` (`agari_template.md:12`) — the same signal `reporters.py` keys on.
+    # absent. `project-stamp` writes `finish_line.md` before any finish line exists, from a template that
+    # carries `PLACEHOLDER` (`finish_line_template.md:12`) — the same signal `reporters.py` keys on.
     placeholder_marker: str | None = None
 
     @property
@@ -252,8 +256,8 @@ def _spec(name, skill, stem, *, self_answer_arg=None, **kwargs) -> DocumentSpec:
 DOCUMENT_REGISTRY: dict[str, DocumentSpec] = {
     spec.name: spec for spec in (
         _spec("PRD", "product-prd", "prd"),
-        _spec("Agari", "project-agari", "agari", home=Home.INSTANCE_PROJECT,
-              companion_stem="agari_open_issues", placeholder_marker="PLACEHOLDER"),
+        _spec("FINISH_LINE", "project-finish-line", "finish_line", home=Home.INSTANCE_PROJECT,
+              companion_stem="finish_line_open_issues", placeholder_marker="PLACEHOLDER"),
         _spec("SRS", "product-srs", "srs"),
         _spec("UXD", "product-uxd", "uxd"),
         _spec("DESIGN", "product-design", "design"),
@@ -274,7 +278,7 @@ DOCUMENT_REGISTRY: dict[str, DocumentSpec] = {
 # was given. Members of one tier share a rank, because nothing orders UXD against DESIGN
 # against CONTENT, or ADR against NFDR.
 DEPENDENCY_ORDER: tuple[tuple[str, ...], ...] = (
-    ("PRD",), ("Agari",), ("SRS",), ("UXD", "DESIGN", "CONTENT"), ("SDD",), ("FDR",),
+    ("PRD",), ("FINISH_LINE",), ("SRS",), ("UXD", "DESIGN", "CONTENT"), ("SDD",), ("FDR",),
     ("ADR", "NFDR"),
 )
 
@@ -355,6 +359,9 @@ def parse_spine(text: str) -> tuple[DocumentSpec, ...]:
 # bottom of this file, beside `main()`, which is the only place any of them is constructed.
 
 
+_STAGING_COUNT = itertools.count()
+
+
 class Files:
     """Every filesystem touch this engine makes."""
 
@@ -394,6 +401,18 @@ class Files:
 
     def real_path(self, path: str) -> str:
         return os.path.realpath(path)
+
+    def staging_path(self, destination: str) -> str:
+        """A sibling of `destination` no other write uses — the process and a count within it —
+        so the replace stays on one filesystem and two writers never share a staging file."""
+        return f"{destination}.tmp.{os.getpid()}.{next(_STAGING_COUNT)}"
+
+    def remove(self, path: str) -> None:
+        """Delete `path`; one already gone is the state asked for."""
+        try:
+            os.remove(path)
+        except FileNotFoundError:
+            pass
 
 
 class Processes:
@@ -622,15 +641,15 @@ def validate_owed_command(command: str | None, *, core_dir: str, instance_root: 
     """Prove `command` — a bullet's text, never a value to hand a shell — names a real
     launcher under `<core_dir>/launchers/` with the right number of positional arguments, or
     refuse it with `CommandRefused` naming what failed. `<CORE>` is resolved before anything is
-    stat-ed, because it appears literally in a report's command. A path naming a different copy
+    stat-ed, because it appears literally in a report's command, and after the bullet is split
+    into words, so a core path holding a space stays one word. A path naming a different copy
     of the same host launcher — the live host's own, another pin of it, or a relative
     `core/launchers/...` form — is accepted too, through `pin.same_launcher`; what the returned
     `argv` runs is always `core_dir`'s own copy, never the path the bullet happened to name."""
     if not command:
         raise CommandRefused("no command to validate")
-    resolved = command.replace("<CORE>", core_dir)
     try:
-        argv = shlex.split(resolved)
+        argv = [word.replace("<CORE>", core_dir) for word in shlex.split(command)]
     except ValueError as exc:
         raise CommandRefused(f"could not tokenize {command!r}: {exc}") from exc
     if not argv:
@@ -735,6 +754,18 @@ DEFAULT_CYCLE_CAP = 3
 
 # The launcher folder whose launch is the card: it runs once per drain, after every other owed item.
 CARD_LAUNCHER_FOLDER = "product-card"
+# The folder under <CORE>/launchers/ whose command walks each chain name. A walk's state file and
+# its telemetry keep the chain's name; the launcher carries the name the owner gave the command.
+LAUNCHERS: dict[str, str] = {
+    "product": "product-docs",
+    "finish-line": "prd-and-finish-line",
+}
+
+
+def _launcher(chain_name: str) -> str:
+    """The launcher folder that walks `chain_name`; a name it does not know is its own folder."""
+    return LAUNCHERS.get(chain_name, chain_name)
+
 
 # Ends that are RECORDED — a cycle that did not settle, whether or not the walk goes on. Read by
 # `_reach_end` to decide what lands in `state.deferred_ends`, so the owner is told at the conclusion.
@@ -1255,10 +1286,10 @@ _STATE_FIELDS = tuple(ChainState.__dataclass_fields__)
 
 
 class StateStore:
-    """The state file, behind a seam. Writes are atomic — a `.tmp` sibling written in full,
-    then replaced over the real path — so a reader never observes a half-written file, and the
-    write always happens BEFORE the launch it describes: a crash between them still leaves a
-    file the next call can act on."""
+    """The state file, behind a seam. Writes are atomic — a staging sibling of the save's own,
+    written in full, then replaced over the real path — so a reader never observes a
+    half-written file, and the write always happens BEFORE the launch it describes: a crash
+    between them still leaves a file the next call can act on."""
 
     def __init__(self, files: Files, path: str):
         self.files = files
@@ -1291,11 +1322,51 @@ class StateStore:
             return {}
 
     def save(self, state: ChainState) -> None:
+        """Stage the write to a file of its own, then replace it over the state path. A save
+        that fails before the replace removes what it staged."""
         self.files.make_dirs(os.path.dirname(self.path))
-        temporary = f"{self.path}.tmp"
-        self.files.write_text(temporary,
-                              json.dumps(state.to_json(), indent=2, sort_keys=True) + "\n")
-        self.files.replace(temporary, self.path)
+        staging = self.files.staging_path(self.path)
+        try:
+            self.files.write_text(staging,
+                                  json.dumps(state.to_json(), indent=2, sort_keys=True) + "\n")
+            self.files.replace(staging, self.path)
+        except BaseException:
+            self.files.remove(staging)
+            raise
+
+
+class HeldFileLock:
+    """The lock as its holder has it: able to let go for one blocking stretch and take it again.
+    The change chain holds without ever letting go."""
+
+    def __init__(self, handle: int):
+        self._handle = handle
+
+    @contextmanager
+    def let_go(self):
+        """The lock is not held inside the block and is held again, as it was, after it."""
+        fcntl.flock(self._handle, fcntl.LOCK_UN)
+        try:
+            yield
+        finally:
+            fcntl.flock(self._handle, fcntl.LOCK_EX)
+
+
+class FileLock:
+    """An exclusive `flock` on `<state>.lock`. Four or five audit runs can end within a second
+    of each other, each waking its own engine process; without this, two of them load, change
+    and save the same state and the second silently erases the first's record."""
+
+    @contextmanager
+    def hold(self, state_path: str):
+        os.makedirs(os.path.dirname(os.path.abspath(state_path)), exist_ok=True)
+        handle = os.open(f"{state_path}.lock", os.O_CREAT | os.O_RDWR, 0o644)
+        try:
+            fcntl.flock(handle, fcntl.LOCK_EX)
+            yield HeldFileLock(handle)
+        finally:
+            fcntl.flock(handle, fcntl.LOCK_UN)
+            os.close(handle)
 
 
 @dataclass(frozen=True)
@@ -1317,14 +1388,25 @@ class Chain:
     self-answer reader, `notifier` the owner's channel, `id_source` what mints a walk's own id,
     `environ` the environment a launch inherits, `providers` the port that hands an unforced
     launch the provider file of the instance it is for, `checkout` the port that reads the
-    product checkout, and `engine_path` what this chain's shim will run — pinned at start, so an
-    edit to the engine cannot change what a walk already in flight runs."""
+    product checkout, `lock` the state lock the entry points hold, and `engine_path` what this
+    chain's shim will run — pinned at start, so an edit to the engine cannot change what a walk
+    already in flight runs.
+
+    `start`, `advance` and `stop` are each one transaction: load, check, change and save under
+    `lock.hold(store.path)`. The command a walk was started with to run at its end is recorded
+    inside the transaction and run by the entry point once the lock is released, because it may
+    start the next walk on this project, which takes the same lock."""
 
     def __init__(self, *, store: StateStore, files: Files, processes: Processes,
                  reports: Reports, notifier: Notifier, id_source: IdSource, environ: dict,
                  providers: ProviderFiles, engine_path: str, process_table: walk_stop.ProcessTable,
-                 checkout: product_checkout.Checkout, cycle_cap: int = DEFAULT_CYCLE_CAP):
+                 checkout: product_checkout.Checkout, lock: FileLock,
+                 cycle_cap: int = DEFAULT_CYCLE_CAP):
         self.store = store
+        self.lock = lock
+        # What this thread's entry point holds while it runs: the end command it recorded and the
+        # lock it holds. Per thread, so two calls on one engine never read each other's.
+        self._call = threading.local()
         self.process_table = process_table
         self.files = files
         self.processes = processes
@@ -1344,6 +1426,20 @@ class Chain:
               keep_awake: bool = False, chain_name: str = "",
               started_at: str = "", on_end: str = "",
               forced_provider: str = "") -> AdvanceResult:
+        with self._transaction():
+            result = self._start(
+                instance_root=instance_root, product_path=product_path, project=project,
+                core_dir=core_dir, shim_path=shim_path, spine=spine,
+                notifier_command=notifier_command, keep_awake=keep_awake,
+                chain_name=chain_name, started_at=started_at, on_end=on_end,
+                forced_provider=forced_provider)
+        self._run_due_end_hook()
+        return result
+
+    def _start(self, *, instance_root: str, product_path: str, project: str, core_dir: str,
+               shim_path: str, spine: tuple[DocumentSpec, ...], notifier_command: str,
+               keep_awake: bool, chain_name: str, started_at: str, on_end: str,
+               forced_provider: str) -> AdvanceResult:
         """Bootstrap a chain's state file and make its first move. `chain_name` is optional —
         never in `_START_REQUIRED_FLAGS`, so an unnamed hand-run or a future third chain still
         starts; task 6 is what makes the omission impossible for the two real launchers.
@@ -1378,6 +1474,17 @@ class Chain:
         self.store.save(state)
         return AdvanceResult(acted=True, ended=state.ended)
 
+    @contextmanager
+    def _transaction(self):
+        """The state lock, held for one entry point's whole load → check → change → save. The
+        held lock is kept where `_launch` can let go of it around a foreground run."""
+        with self.lock.hold(self.store.path) as held:
+            self._call.held = held
+            try:
+                yield
+            finally:
+                self._call.held = None
+
     def _refuse_to_overwrite_a_live_walk(self) -> None:
         """One chain per project at a time — the state file IS that project's chain."""
         existing = self.store.raw()
@@ -1388,7 +1495,7 @@ class Chain:
         spine = ", ".join(existing.get("spine") or []) or "an unrecorded spine"
         state = walk_stop.launch_state(self.files, self.process_table, pending.get("identity", ""))
         command = walk_stop.stop_command(
-            existing.get("core_dir", ""), f"chain-{existing.get('chain_name') or 'product'}",
+            existing.get("core_dir", ""), _launcher(existing.get("chain_name") or "product"),
             existing.get("project", ""))
         raise ChainAlreadyWalking(
             f"{self.store.path} is still walking — spine {spine}, waiting on {walking}. "
@@ -1398,7 +1505,14 @@ class Chain:
         """End the walk now: stop the launch it waits on and that run's watcher, write `stopped`,
         keep the state file, tell the owner once and run the on-end command with `stopped`.
         Returns the message sent. A walk that already ended, or none, is left as it is and the
-        message says so. Takes no lock, as `advance` takes none."""
+        message says so. Holds the state lock, as `start` and `advance` do; the on-end command
+        runs once it is released."""
+        with self._transaction():
+            message = self._stop(stopped_at)
+        self._run_due_end_hook()
+        return message
+
+    def _stop(self, stopped_at: str) -> str:
         if not self.store.raw():
             return self._tell(f"chain: no walk to stop at {self.store.path}")
         state = self.store.load()
@@ -1435,6 +1549,12 @@ class Chain:
         Otherwise the pending marker is cleared and persisted BEFORE anything else runs, so a
         second delivery of the same outcome finds nothing pending and is itself a no-op: fed
         the same event twice, it advances once."""
+        with self._transaction():
+            result = self._advance_on(outcome, launch)
+        self._run_due_end_hook()
+        return result
+
+    def _advance_on(self, outcome: str, launch: str | None) -> AdvanceResult:
         state = self.store.load()
         if state.ended is not None:
             state.reentries += 1
@@ -1721,7 +1841,7 @@ class Chain:
         if entry is CycleEntry.PRODUCER:
             command = self._producer_command(state, spec)
         elif entry is CycleEntry.ANSWER:
-            command = (f"{state.core_dir}/launchers/companion-self-answer/launcher.sh "
+            command = ("<CORE>/launchers/companion-self-answer/launcher.sh "
                        f"{state.project} {spec.self_answer_arg}")
         else:
             self._advance(state)
@@ -1738,7 +1858,7 @@ class Chain:
     def _launch_answer(self, state: ChainState, spec: DocumentSpec) -> None:
         """Send `spec` through its answer step — the one entry this takes, with no path back to
         the producer."""
-        command = (f"{state.core_dir}/launchers/companion-self-answer/launcher.sh "
+        command = ("<CORE>/launchers/companion-self-answer/launcher.sh "
                    f"{state.project} {spec.self_answer_arg}")
         try:
             validated = validate_owed_command(command, core_dir=state.core_dir,
@@ -1749,8 +1869,10 @@ class Chain:
         self._launch(state, spec, CycleEntry.ANSWER, validated)
 
     def _producer_command(self, state: ChainState, spec: DocumentSpec) -> str:
-        """The command that produces `spec` — the module header's § How a document is launched."""
-        return f"{state.core_dir}/launchers/skill/launcher.sh {spec.skill} {state.project}"
+        """The command that produces `spec` — the module header's § How a document is launched.
+        Written with `<CORE>`, as a report's bullet is, so `validate_owed_command` puts the core's
+        path in after splitting and a path holding a space stays one word."""
+        return f"<CORE>/launchers/skill/launcher.sh {spec.skill} {state.project}"
 
     def _run_owed_item(self, state: ChainState, item: OwedItem) -> None:
         """Run one item off the owed set — validated exactly as any other command, and refused
@@ -1837,7 +1959,15 @@ class Chain:
                 env[key] = value
             else:
                 env.pop(key, None)
-        exit_code = self.processes.run(argv, cwd=state.instance_root, env=env)
+        if _is_card(validated):
+            # The card runs in the foreground, for as long as it takes, and a stop must not wait
+            # for it (CP-945): the lock is let go for the run and taken again after it.
+            with self._call.held.let_go():
+                exit_code = self.processes.run(argv, cwd=state.instance_root, env=env)
+            if not self._still_waiting_on(state, launch):
+                return
+        else:
+            exit_code = self.processes.run(argv, cwd=state.instance_root, env=env)
         if exit_code != 0:
             state.pending = None
             self._reach_end(state, CycleEnd.MACHINERY, spec,
@@ -1849,6 +1979,17 @@ class Chain:
             # launched). Finished on this `state`, never through `advance`, which would load a
             # copy the caller then overwrites with this one.
             self._finish(state, "completed")
+
+    def _still_waiting_on(self, state: ChainState, launch: str) -> bool:
+        """After the lock was let go: make `state` say what the disk says now, and answer
+        whether the walk is still waiting on `launch`. A stop that came in meanwhile has ended
+        the walk and cleared `pending`, so the run's end steps nothing, and the state every outer
+        frame goes on to save is the disk's and not the older one it held."""
+        on_disk = self.store.load()
+        for name in _STATE_FIELDS:
+            setattr(state, name, getattr(on_disk, name))
+        return (state.ended is None and state.pending is not None
+                and state.pending.get("launch") == launch)
 
     def _reach_end(self, state: ChainState, end: CycleEnd, spec: DocumentSpec | None, *,
                    reason: str = "") -> None:
@@ -1888,11 +2029,24 @@ class Chain:
         self._run_end_hook(state, end.value)
 
     def _run_end_hook(self, state: ChainState, end: str) -> None:
-        """Run the command this chain was started with, once, with the end appended — after the
-        ended state is saved and the owner told (`run_end_hook` owns what a failure costs)."""
-        run_end_hook(state.on_end, end, cwd=state.instance_root, processes=self.processes,
-                     notifier=self.notifier, headline=self._hook_headline(state),
-                     env=with_provider(self.environ, state.forced_provider))
+        """Record the command this chain was started with, to run once with the end appended.
+        Called after the ended state is saved and the owner told; the entry point runs it
+        (`_run_due_end_hook`) once it has released the lock."""
+        self._call.hook = (state.on_end, end, state.instance_root, self._hook_headline(state),
+                          state.forced_provider)
+
+    def _run_due_end_hook(self) -> None:
+        """Run the recorded end command, if the entry point's transaction ended a walk. Outside
+        the lock on purpose: the command may start the next walk on this project, which takes the
+        lock, and held under it the two would wait on each other for ever (the change and walk
+        engine's `_run_due_end_hook` records the same, build-idea's first loop, 2026-09-18).
+        `run_end_hook` owns what a failure costs."""
+        due, self._call.hook = getattr(self._call, "hook", None), None
+        if due is None:
+            return
+        hook, end, cwd, headline, forced_provider = due
+        run_end_hook(hook, end, cwd=cwd, processes=self.processes, notifier=self.notifier,
+                     headline=headline, env=with_provider(self.environ, forced_provider))
 
     @staticmethod
     def _hook_headline(state: ChainState) -> str:
@@ -2070,6 +2224,7 @@ def build_chain(state_path: str, *, notifier_command: str, engine_path: str) -> 
     files = Files()
     processes = Processes()
     return Chain(
+        lock=FileLock(),
         store=StateStore(files, state_path),
         files=files,
         processes=processes,

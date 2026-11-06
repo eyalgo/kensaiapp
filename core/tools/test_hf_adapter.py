@@ -908,7 +908,9 @@ def test_the_hf_adapter_names_the_token_it_withholds(adapter):
 
 
 _DUMP_ENVIRONMENT = (
-    "import json, os, sys; open(sys.argv[1], 'w').write(json.dumps(dict(os.environ)))"
+    "import json, os, sys; record = sys.argv[1];"
+    " open(record + '.part', 'w').write(json.dumps(dict(os.environ)));"
+    " os.replace(record + '.part', record)"
 )
 _PORT_METHODS = ("run", "run_to_log", "start_detached")
 

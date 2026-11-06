@@ -128,6 +128,32 @@ class TestChanged:
         assert pin_host_changed.compare(made) is Verdict.CHANGED
 
 
+class TestRootLockFiles:
+    def test_a_changed_lock_reads_changed(self, host, pins_home):
+        (host / "uv.lock").write_text("version = 1\n")
+        _git("add", "uv.lock", cwd=host)
+        _git("commit", "-q", "-m", "lock", cwd=host)
+        pinned = pin.make(host, pins_home)
+        assert pin_host_changed.compare(pinned) is Verdict.UNCHANGED
+
+        (host / "uv.lock").write_text("version = 2\n")
+
+        assert pin_host_changed.compare(pinned) is Verdict.CHANGED
+
+    def test_a_pin_from_before_the_lock_reads_changed(self, host, made):
+        for name in (".python-version", "pyproject.toml", "uv.lock"):
+            (host / name).write_text(f"{name} added after the pin\n")
+
+        assert pin_host_changed.compare(made) is Verdict.CHANGED
+
+    def test_a_lock_file_deleted_from_the_host_reads_changed(self, host, pins_home):
+        (host / ".python-version").write_text("3.14\n")
+        pinned = pin.make(host, pins_home)
+        (host / ".python-version").unlink()
+
+        assert pin_host_changed.compare(pinned) is Verdict.CHANGED
+
+
 class TestUnchanged:
     def test_a_file_the_host_ignores_that_only_the_pin_holds_is_not_a_change(self, made):
         cache = made.root / "core" / "tools" / "__pycache__"
@@ -237,7 +263,19 @@ class TestCli:
 
 class TestHeader:
     @pytest.mark.parametrize(
-        "phrase", ["core/", ".claude/", "skills/", "uncommitted", "ignored", "journey", "product"]
+        "phrase",
+        [
+            "core/",
+            ".claude/",
+            "skills/",
+            ".python-version",
+            "pyproject.toml",
+            "uv.lock",
+            "uncommitted",
+            "ignored",
+            "journey",
+            "product",
+        ],
     )
     def test_the_header_states_what_changed_means(self, phrase):
         assert phrase in (pin_host_changed.__doc__ or "")

@@ -8,8 +8,9 @@ that `exec`s itself from the hook puts the whole advance — which may launch fo
 bound, and an engine still writing to the captured pipe holds `subprocess.run` open until it closes.
 
 So the contract, stated here once and held by every engine through this module: a completion hook
-hands off and returns at once. The shim starts the engine detached, with every descriptor
-redirected, and the engine's output goes to the engine's log, never the watcher's pipe.
+hands off and returns at once. The shim starts the engine detached, through the runner
+(`locked_python.sh`) that sits beside the engine, with every descriptor redirected, and the engine's
+output goes to the engine's log, never the watcher's pipe.
 
 This module renders the shim and writes it through the `files` port it is given. It constructs no
 collaborator and imports no engine, so `chain.py`, `chain_development.py` and `build_idea.py` can
@@ -22,11 +23,12 @@ import json
 import os
 import shlex
 
-__version__ = "1.1.0"
+__version__ = "1.1.1"
 
+_RUNNER_NAME = "locked_python.sh"
 _SHIM_TEMPLATE = """#!/usr/bin/env bash
 set -euo pipefail
-nohup python3 {words} "$1" </dev/null >>{log} 2>&1 &
+nohup {runner} {words} "$1" </dev/null >>{log} 2>&1 &
 """
 
 
@@ -45,10 +47,12 @@ class ShimFiles:
 
 
 def shim_text(engine_path: str, advance_args: tuple[str, ...], log_path: str) -> str:
-    """The shim's text: the engine started detached with `advance_args`, then the hook's outcome
-    (`"$1"`) as its last argument, its output appended to `log_path`. Every word is quoted."""
+    """The shim's text: the engine started detached, through the runner beside it, with
+    `advance_args`, then the hook's outcome (`"$1"`) as its last argument, its output appended to
+    `log_path`. Every word is quoted."""
     words = " ".join(shlex.quote(word) for word in (engine_path, *advance_args))
-    return _SHIM_TEMPLATE.format(words=words, log=shlex.quote(log_path))
+    runner = shlex.quote(os.path.join(os.path.dirname(engine_path), _RUNNER_NAME))
+    return _SHIM_TEMPLATE.format(runner=runner, words=words, log=shlex.quote(log_path))
 
 
 def write_shim(files: ShimFiles, shim_path: str, *, engine_path: str,

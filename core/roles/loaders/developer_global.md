@@ -1,5 +1,5 @@
 ---
-version: "1.2.0"
+version: "1.2.1"
 ---
 
 # Developer role loader
@@ -60,7 +60,7 @@ Apply these six dimensions at the checkpoints indicated. Rules tell you *what to
 
 4. **Failure modes.** What happens on None / missing-config / file-not-found / rate-limit / partial data? Each optional field needs a guard at the boundary. Each external call needs a retry / skip / fail-safe policy — but no catch-all that swallows real errors.
 
-5. **Symmetry invariants.** Does the change respect layer boundaries? Any `datetime.now()` where an injected Clock should be used? Any I/O leaking into the domain layer? Match the idiom the code already uses for the same problem.
+5. **Symmetry invariants.** Does the change respect layer boundaries? Any `datetime.now()` where an injected Clock should be used? Any I/O leaking into the domain layer? Where the code around you solves the same problem differently from the language guide, follow the guide: "A packet also outranks the surrounding code's own habits" (`<CORE>/doctrine/engineering/languages/README.md` § *Precedence*).
 
 **At handoff:**
 

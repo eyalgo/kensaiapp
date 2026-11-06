@@ -55,7 +55,7 @@
     critical vulnerability "blocks release", and it "has a stated remediation window". The two can
     both be true only if the first binds the choice and the second binds what comes after.
   - The pin's history. `playwright==1.63.0` is at `tests/requirements.txt:12` and
-    `pyproject.toml:14`. Both came in with commit `83563a643` on 2026-10-07, after the 2026-09-08
+    `pyproject.toml:14`. Both came in with commit `<a commit not in the public history>` on 2026-10-07, after the 2026-09-08
     advisory, when no Playwright release on PyPI installed a fixed Chromium. So the choice was proper
     under this reading, and the window holds the browser.
   - NFDR version 7 (RN-27) puts the system libraries the Linux setup installs outside QC-40. This

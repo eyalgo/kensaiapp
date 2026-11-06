@@ -100,5 +100,5 @@ visual source of truth, written off the UXD's direction call.
 
 Not for: the experience definition (`product-uxd`, upstream), per-change specs
 (`development-specs`), the PRD (`product-prd`), the SRS (`product-srs`), the project's "done"
-declaration (`project-agari`), or any downstream document — the SDD, Delivery Plan, FDR, ADR,
+declaration (`project-finish-line`), or any downstream document — the SDD, Delivery Plan, FDR, ADR,
 or NFDR.

@@ -10,6 +10,6 @@ names and what each accepts are stated in its own header.
 **Prompt:** invoke the development-audit skill for the {project} project, change key {key}, auditing {step}.
 
 `kensaiapp-auditor` is the seat the chain runs every audit in (`<CORE>/tools/chain_development.py`
-`DEVELOPMENT_STEPS`). The model and effort it runs on are `intelligence/<provider>.md`'s, beside this file. `<step>` is one of
+`CHANGE_STEPS`). The model and effort it runs on are `intelligence/<provider>.md`'s, beside this file. `<step>` is one of
 `development-specs`, `development-design`, `development-plan`, `development-content` (only when the change
 ran it) or `development-implementation` (`SKILL.md` § *Input*).

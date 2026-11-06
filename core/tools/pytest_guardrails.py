@@ -2,8 +2,9 @@
 Each root's `conftest.py` imports the fixture and the hooks below; `-p pytest_guardrails` loads them
 into any other run.
 
-Six guards, all nets rather than mechanisms. The mechanism is a test handing its subprocess an
-environment it built; these exist for the test that forgets, as `conftest.py`'s notifier net does.
+Eight guards, all nets rather than mechanisms. The mechanism is a test building what its code
+reads: the environment each subprocess it starts is handed, and a fake for each host it would
+reach. These exist for the test that forgets, as `conftest.py`'s notifier net does.
 
 1. **No inherited telemetry.** A machine that turns telemetry on for every session exports
    `CLAUDE_CODE_ENABLE_TELEMETRY` and `OTEL_*` into each shell, and a test asserting what a tool
@@ -48,19 +49,65 @@ environment it built; these exist for the test that forgets, as `conftest.py`'s 
    alone, a suite would pass or fail on whether that server happens to be running, and a test could
    spend the owner's local model. Every test is given an `http://127.0.0.1:<port>` address where
    nothing listens; a test that needs a server sets its own over it.
+7. **No real home.** A test may read only what is committed beside it or what it makes itself
+   (`<CORE>/doctrine/engineering/testing_doctrine.md` § *A test reads nothing of the machine it
+   runs on*). `HOME` (and `USERPROFILE`) point at an empty folder made for each test, and the
+   `XDG_*` folders that default under the home are cleared, so `Path.home()`, `expanduser("~")`
+   and every process a test starts find nothing of the owner's. A test that passed only because
+   the owner's files were there fails here, on the owner's Mac, rather than on the next machine.
+   What is carried across is where each toolchain keeps its tools — a launcher under test runs
+   Python through `locked_python.sh`, and an empty home would make `uv` download every Python
+   again. That is the tool, not anything a test reads. Which variables, and why, is
+   `empty_home.py`'s, which `gate_suite.py` shares for a product's suite on the owner's Mac.
+8. **No real network.** A test that reaches another host passes where that host answers and fails
+   where it does not (`<CORE>/doctrine/engineering/testing_doctrine.md` § *A test reads nothing of
+   the machine it runs on*). Inside every test, a `connect` or `connect_ex` on an `AF_INET` or
+   `AF_INET6` socket, and every `socket.getaddrinfo` call, is refused before anything is sent
+   unless its host is `localhost` or an address written out as loopback or unspecified.
+   `localhost` passes in any letter case, with or without one trailing dot. The loopback addresses
+   are `127.0.0.0/8`, `::1` and `::ffff:127.x.x.x`, and the unspecified ones are `0.0.0.0` and
+   `::`. A `getaddrinfo` on `None` or `""`, which a server asks for when it binds, passes too.
+   Every other socket family passes, a Unix socket included. `bind`, `listen` and `accept` are
+   never refused, so a server the test starts on `127.0.0.1` is reached. A library that connects
+   or looks a host up through these calls is refused the same way, `socket.create_connection`,
+   `http.client` and `urllib` among them.
+
+   Only the host as written decides. The guard never asks which interfaces the machine has, so
+   this machine's own LAN address is refused. So are its host name, a name under `.localhost`,
+   and a loopback address spelled short, such as `127.1`. A name passed straight to `connect` is
+   judged as a name, because it is resolved without passing through `socket.getaddrinfo`. The
+   refusal is not an `OSError`. Code that handles a missing network would catch one, and
+   `socket.create_connection` would move on to the next address, so the guard's message would be
+   lost. No list of allowed hosts exists. No setting, option or marker turns the guard off or
+   widens what passes.
+
+   **Not covered:** a process the test starts, because the guard lives in the test's own Python
+   process. Nor are the `socket` calls `sendto`, `gethostbyname`, `gethostbyname_ex`,
+   `gethostbyaddr` and `getnameinfo`, which are not what the libraries named in this entry go
+   through. The guard holds from its own setup to its own teardown around each test, so
+   collection, module import, and session- or module-scoped fixtures run without it.
 """
 
 from __future__ import annotations
 
+import ipaddress
 import os
 import re
 import socket
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from pathlib import Path
 
 import pytest
 
-__version__ = "1.5.0"
+import empty_home
+
+__version__ = "1.7.0"
+
+
+class RealNetworkConnectionError(Exception):
+    """What guard 8 raises when it refuses a connection or a lookup — see guard 8 in the module
+    docstring for why it is not an `OSError`."""
+
 
 _SECRET_NAME = re.compile(r"KEY|SECRET|TOKEN|PASSWORD|PASSWD|CREDENTIAL|PRIVATE", re.IGNORECASE)
 # A value this short is a flag or a count, not a credential, and redacting it would scramble output.
@@ -178,6 +225,98 @@ def _no_ambient_ollama(monkeypatch):
         probe.bind(("127.0.0.1", 0))
         port = probe.getsockname()[1]
     monkeypatch.setenv("KENSAIAPP_OLLAMA_URL", f"http://127.0.0.1:{port}")
+
+
+# The real home and environment, read at import, before any fixture has replaced the home.
+_REAL_HOME = Path.home()
+_REAL_ENVIRON = dict(os.environ)
+
+
+@pytest.fixture(autouse=True)
+def _no_real_home(monkeypatch, tmp_path_factory):
+    """No test sees the owner's home — see guard 7 in the module docstring."""
+    to_set, to_unset = empty_home.changes(_REAL_ENVIRON, _REAL_HOME, tmp_path_factory.mktemp("home"))
+    for name in to_unset:
+        monkeypatch.delenv(name, raising=False)
+    for name, value in to_set.items():
+        monkeypatch.setenv(name, value)
+
+
+_INTERNET_FAMILIES = frozenset({socket.AF_INET, socket.AF_INET6})
+_LOCALHOST = "localhost"
+_CONNECTION_REFUSED = (
+    "This test tried to open a network connection to {host}. Guard 8 of the test guardrails "
+    "refused it before anything was sent. A test may not open a real network connection. The guard "
+    "cannot tell from {host} alone that this one would stay on this machine. Give the code under "
+    "test a fake, or a server the test starts itself on 127.0.0.1 or on a Unix socket. No setting, "
+    "option or marker turns guard 8 off."
+)
+_LOOKUP_REFUSED = (
+    "This test tried to look up {host}. Guard 8 of the test guardrails refused the lookup before "
+    "it was made. A test may not open a real network connection. The guard cannot tell from {host} "
+    "alone that a connection to it would stay on this machine. Give the code under test a fake, "
+    "or a server the test starts itself on 127.0.0.1 or on a Unix socket. No setting, option or "
+    "marker turns guard 8 off."
+)
+
+
+def _as_text(host: str | bytes) -> str:
+    return host.decode("utf-8", errors="replace") if isinstance(host, bytes) else host
+
+
+def _stays_on_this_machine(host: str | bytes | None) -> bool:
+    """Whether `host`, read as written, is one a test may reach: no host, `localhost`, or an IP
+    literal that is loopback or unspecified. A spelling `ipaddress` cannot parse is not."""
+    if host is None:
+        return True
+    text = _as_text(host)
+    if text == "" or text.removesuffix(".").casefold() == _LOCALHOST:
+        return True
+    try:
+        address = ipaddress.ip_address(text)
+    except ValueError:
+        return False
+    if isinstance(address, ipaddress.IPv6Address) and address.ipv4_mapped is not None:
+        address = address.ipv4_mapped
+    return address.is_loopback or address.is_unspecified
+
+
+def _refuse_unless_local(host: object, message: str) -> None:
+    """Raise `RealNetworkConnectionError` with `message` for a host that is not on this machine. A
+    value that is no host at all is left to the call, which raises its own `TypeError`."""
+    if isinstance(host, (str, bytes)) and not _stays_on_this_machine(host):
+        raise RealNetworkConnectionError(message.format(host=_as_text(host)))
+
+
+def _refusing_connect(connect: Callable) -> Callable:
+    """`connect`, or `connect_ex`, refusing an internet socket's address unless its host stays on
+    this machine. A socket of another family, and an address that is not a tuple, go straight to
+    the original."""
+
+    def guarded(self: socket.socket, address: object) -> object:
+        if self.family in _INTERNET_FAMILIES and isinstance(address, tuple) and address:
+            _refuse_unless_local(address[0], _CONNECTION_REFUSED)
+        return connect(self, address)
+
+    return guarded
+
+
+def _refusing_getaddrinfo(getaddrinfo: Callable) -> Callable:
+    """`socket.getaddrinfo`, refusing a host that does not stay on this machine."""
+
+    def guarded(host: object, *arguments: object, **keywords: object) -> object:
+        _refuse_unless_local(host, _LOOKUP_REFUSED)
+        return getaddrinfo(host, *arguments, **keywords)
+
+    return guarded
+
+
+@pytest.fixture(autouse=True)
+def _no_real_network(monkeypatch):
+    """No test opens a real network connection — see guard 8 in the module docstring."""
+    monkeypatch.setattr(socket.socket, "connect", _refusing_connect(socket.socket.connect))
+    monkeypatch.setattr(socket.socket, "connect_ex", _refusing_connect(socket.socket.connect_ex))
+    monkeypatch.setattr(socket, "getaddrinfo", _refusing_getaddrinfo(socket.getaddrinfo))
 
 
 @pytest.hookimpl(tryfirst=True)

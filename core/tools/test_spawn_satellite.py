@@ -41,20 +41,23 @@ REAL_PROJECT_STAMP = (
 )
 
 
-def _stamper_token_files() -> list[tuple[str, str]]:
-    """`stamp_project.py`'s own `TOKEN_FILES`, read from the module rather than copied.
+def _stamper_templates() -> list[str]:
+    """The templates `stamp_project.py` declares it opens — its `TOKEN_FILES` and the seed
+    templates its `SEED_FOR_DEFINITION` names — read from the module rather than copied.
 
     The fixture below needs to know which templates the stamper opens. That set is the stamper's to
     declare, and a second list here would be a copy free to drift — `single_source.md`'s rule, and
     the drift it names is exactly what happened: a template added to `TOKEN_FILES` on 2026-09-02
-    left this fixture short by one file and took seven tests with it.
+    left this fixture short by one file and took seven tests with it, and the setup seed moving out
+    of `TOKEN_FILES` into `SEED_FOR_DEFINITION` on 2026-11-02 did the same again.
     """
     spec = importlib.util.spec_from_file_location(
         "_stamp_project_for_fixture", REAL_PROJECT_STAMP / "stamp_project.py"
     )
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
-    return list(module.TOKEN_FILES)
+    seeds = [rel for rel in module.SEED_FOR_DEFINITION.values() if rel is not None]
+    return [rel for rel, _dest in module.TOKEN_FILES] + seeds
 
 
 def _make_host(root: Path) -> Path:
@@ -110,14 +113,14 @@ def _make_host(root: Path) -> Path:
     (project_stamp / "stamp_project.py").write_text(
         (REAL_PROJECT_STAMP / "stamp_project.py").read_text(encoding="utf-8"), encoding="utf-8"
     )
-    # stamp_project.py reads templates too, and WHICH ones is DERIVED from its own TOKEN_FILES
-    # rather than hand-listed here. A hand list is a copy of that declaration: add a template to the
+    # stamp_project.py reads templates too, and WHICH ones is DERIVED from its own TOKEN_FILES and
+    # SEED_FOR_DEFINITION rather than hand-listed here. A hand list is a copy of that declaration: add a template to the
     # stamper and this fixture silently lacks it, so every test that stamps a project dies on a
     # FileNotFoundError naming a path nobody wrote. That is not hypothetical — it is what a template
     # added on 2026-09-02 did to seven tests in this file. Reading the declaration means the fixture
     # cannot fall behind it.
-    stamper_templates = [rel for rel, _dest in _stamper_token_files()]
-    # `project_template.md` is the one template the stamper reads OUTSIDE `TOKEN_FILES`: that list
+    stamper_templates = _stamper_templates()
+    # `project_template.md` is the one template the stamper reads OUTSIDE those two: `TOKEN_FILES`
     # is the plain-token-replace set, and `project.md` is built by field substitution instead, to
     # keep the template's inline comments (`stamp_project.py`, the comment above `TOKEN_FILES`). So
     # it is named here rather than derived — the only hand-named entry, and it carries its reason.
@@ -131,8 +134,8 @@ def _make_host(root: Path) -> Path:
             (REAL_TEMPLATES / template_rel).read_text(encoding="utf-8"), encoding="utf-8"
         )
     (templates / "project-templates").mkdir(exist_ok=True)
-    (templates / "project-templates" / "agari_template.md").write_text(
-        (REAL_TEMPLATES / "project-templates" / "agari_template.md").read_text(encoding="utf-8"),
+    (templates / "project-templates" / "finish_line_template.md").write_text(
+        (REAL_TEMPLATES / "project-templates" / "finish_line_template.md").read_text(encoding="utf-8"),
         encoding="utf-8",
     )
 
@@ -952,7 +955,8 @@ def test_check_writes_nothing_for_task_5(host: Path):
 def test_delegates_linking_to_link_satellite(host: Path):
     (host / ".claude" / "settings.json").write_text(
         json.dumps({"hooks": {"Stop": [{"hooks": [{"type": "command", "command": (
-            'python3 "${CLAUDE_PROJECT_DIR}/.claude/hooks/resolve_core.py"'
+            '"${CLAUDE_PROJECT_DIR}/core/tools/locked_python.sh" '
+            '"${CLAUDE_PROJECT_DIR}/.claude/hooks/resolve_core.py"'
         )}]}]}})
     )
     plan = _plan(host, skills_mode="consumer")
@@ -962,7 +966,10 @@ def test_delegates_linking_to_link_satellite(host: Path):
     written = claude / "settings.json"
     assert written.is_file() and not written.is_symlink()
     command = json.loads(written.read_text())["hooks"]["Stop"][0]["hooks"][0]["command"]
-    assert command == f'python3 "{host / ".claude" / "hooks"}/resolve_core.py"'
+    assert command == (
+        f'"{host / "core"}/tools/locked_python.sh" '
+        f'"{host / ".claude" / "hooks"}/resolve_core.py"'
+    )
     assert not os.path.lexists(claude / "hooks")
 
 

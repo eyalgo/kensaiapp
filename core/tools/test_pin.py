@@ -56,6 +56,29 @@ def _init_git_host(root: Path) -> Path:
     return root
 
 
+_ROOT_LOCK_FILES = (".python-version", "pyproject.toml", "uv.lock")
+
+
+def _write_root_lock_files(root: Path, *, skip: tuple[str, ...] = ()) -> None:
+    """The host's three root files, each with content of its own so a byte-for-byte copy is
+    distinguishable from a regenerated one."""
+    for name in _ROOT_LOCK_FILES:
+        if name not in skip:
+            (root / name).write_text(f"{name} of the host\n")
+
+
+def _git_host_with_lock_files(root: Path) -> Path:
+    host = _init_git_host(root)
+    _write_root_lock_files(host)  # untracked and not ignored, so `git ls-files -o` lists them
+    return host
+
+
+def _non_git_host_with_lock_files(root: Path) -> Path:
+    host = _non_git_host(root)
+    _write_root_lock_files(host)
+    return host
+
+
 @pytest.fixture
 def pins_home(tmp_path):
     home = tmp_path / "pins"
@@ -172,8 +195,62 @@ def _non_git_host(root: Path) -> Path:
     return root
 
 
+class TestRootLockFiles:
+    def test_make_copies_the_root_lock_files(self, tmp_path, pins_home):
+        host = _git_host_with_lock_files(tmp_path / "host")
+
+        made = pin.make(host, pins_home)
+
+        for name in _ROOT_LOCK_FILES:
+            assert (made.root / name).read_bytes() == (host / name).read_bytes(), name
+
+    def test_a_host_without_a_lock_file_still_pins(self, tmp_path, pins_home):
+        host = _git_host_with_lock_files(tmp_path / "host")
+        (host / "uv.lock").unlink()
+
+        made = pin.make(host, pins_home)
+
+        assert (made.root / ".python-version").is_file()
+        assert (made.root / "pyproject.toml").is_file()
+        assert not (made.root / "uv.lock").exists()
+
+    def test_a_host_with_none_of_the_lock_files_still_pins(self, tmp_path, pins_home):
+        host = _init_git_host(tmp_path / "host")
+
+        made = pin.make(host, pins_home)
+
+        assert [name for name in _ROOT_LOCK_FILES if (made.root / name).exists()] == []
+        assert (made.root / "core" / "tools" / "tool.py").is_file()
+
+    def test_a_root_lock_file_the_host_ignores_is_not_copied(self, tmp_path, pins_home):
+        host = _git_host_with_lock_files(tmp_path / "host")
+        (host / ".gitignore").write_text("core/ignored.log\nuv.lock\n")
+
+        made = pin.make(host, pins_home)
+
+        assert not (made.root / "uv.lock").exists()
+        assert (made.root / "pyproject.toml").is_file()
+
+    def test_tree_files_lists_the_root_lock_files_of_a_pin(self, tmp_path, pins_home):
+        host = _git_host_with_lock_files(tmp_path / "host")
+        made = pin.make(host, pins_home)
+        (made.root / ".venv" / "lib").mkdir(parents=True)
+        (made.root / ".venv" / "lib" / "site.py").write_text("x\n")
+        (made.root / "stray.txt").write_text("not a pin file\n")
+
+        listed = set(pin.tree_files(made.root))
+
+        at_the_root = {relpath for relpath in listed if "/" not in relpath}
+        assert at_the_root == set(_ROOT_LOCK_FILES)
+        assert not any(relpath.startswith(".venv/") for relpath in listed)
+
+
 class TestHostFiles:
-    @pytest.mark.parametrize("make_host", [_init_git_host, _non_git_host], ids=["git", "non-git"])
+    @pytest.mark.parametrize(
+        "make_host",
+        [_init_git_host, _non_git_host, _git_host_with_lock_files, _non_git_host_with_lock_files],
+        ids=["git", "non-git", "git-with-lock", "non-git-with-lock"],
+    )
     def test_host_files_lists_exactly_what_make_copies(self, tmp_path, pins_home, make_host):
         host = make_host(tmp_path / "host")
 

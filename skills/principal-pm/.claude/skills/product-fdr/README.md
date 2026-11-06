@@ -70,4 +70,4 @@ companion is waiting to be folded back in.
 
 Not for: a single scoped change to an existing product (`development-specs`), the upstream documents
 it derives from (`product-prd`, `product-srs`, `product-sdd`), the project's terminus
-(`project-agari`), or the architecture records beside it (`product-architecture`).
+(`project-finish-line`), or the architecture records beside it (`product-architecture`).

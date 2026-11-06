@@ -22,6 +22,7 @@ import shlex
 import subprocess
 import sys
 import time
+import tomllib
 from pathlib import Path
 
 import pytest
@@ -118,16 +119,14 @@ CUT_SEED = "cut a seed"
 ACROSS = "route across projects"
 PICK = "pick a seed"
 CUT_ROUTE = "cut the route"
-README_STATUS = "readme-status"
 CHANGE = "walk the next change"
 OWNER = "the owner's act"
 FULL = bi.Definition.FULL
-PRD_AGARI = bi.Definition.PRD_AGARI
+PRD_AND_FINISH_LINE = bi.Definition.PRD_AND_FINISH_LINE
 
 DISPOSITIONS = {
     SWEEP: bi.Disposition.RUN_CHAIN,
     CLOSE: bi.Disposition.RUN_SKILL,
-    README_STATUS: bi.Disposition.RUN_SKILL,
     PICK: bi.Disposition.RUN_SKILL,
     CUT_ROUTE: bi.Disposition.RUN_SKILL,
     CHANGE: bi.Disposition.HAND_OFF,
@@ -242,7 +241,7 @@ def test_a_runnable_kinds_argv_is_the_command_the_prompt_writes():
                 assert written == {
                     tuple(bi.expected_argv(SWEEP, core_dir=CORE, project=PROJECT,
                                            definition=definition))
-                    for definition in (FULL, PRD_AGARI)}, prompt.name
+                    for definition in (FULL, PRD_AND_FINISH_LINE)}, prompt.name
                 sweeps_checked += 1
                 continue
             station = STEM if "<station>" in command else ""
@@ -353,6 +352,20 @@ def test_an_unknown_kind_is_refused_naming_the_row():
     assert "row 2" in str(refused.value) and "reticulate the splines" in str(refused.value)
 
 
+def test_an_unknown_kind_refusal_lists_exactly_the_thirteen_kinds():
+    text = next_moves(row(1, SWEEP), "2 | reticulate the splines | owner | none | — | x")
+
+    with pytest.raises(bi.QueueRefused) as refused:
+        validated(text)
+
+    assert str(refused.value).endswith(
+        "row 2: 'reticulate the splines' is not a kind this queue runs — the kinds are "
+        "sweep the product's companions, close the reached station, pick a seed, "
+        "cut the route, walk the next change, the owner's act, retire a seed, "
+        "refine a seed, cut from the product's documents, re-run a halted cut, "
+        "drop a seed, cut a seed, route across projects")
+
+
 @pytest.mark.parametrize("after", ["after 1", "1 lands", "one", "1,,2", "-", "1 2", ""])
 def test_a_malformed_after_is_refused(after):
     text = next_moves(row(1, SWEEP), row(2, CLOSE, after=after))
@@ -393,10 +406,10 @@ def test_a_duplicate_or_non_integer_row_number_is_refused():
 
 
 @pytest.mark.parametrize("drifted", [
-    "`/core/launchers/chain-change/launcher.sh proj`",
-    "`/core/launchers/chain-product/launcher.sh another`",
-    "`/core/launchers/chain-product/launcher.sh proj --dry-run`",
-    "`/core/launchers/chain-product/launcher.sh`",
+    "`/core/launchers/walk/launcher.sh proj`",
+    "`/core/launchers/product-docs/launcher.sh another`",
+    "`/core/launchers/product-docs/launcher.sh proj --dry-run`",
+    "`/core/launchers/product-docs/launcher.sh`",
 ], ids=["wrong-launcher", "wrong-project", "extra-argument", "missing-argument"])
 def test_a_runnable_rows_command_drift_is_refused_on_its_row(drifted):
     refused = refusals(next_moves(row(1, SWEEP, command=drifted)))
@@ -424,7 +437,7 @@ def test_a_command_through_a_symlink_to_core_matches(tmp_path):
     real_core.mkdir()
     link = tmp_path / "link"
     link.symlink_to(real_core)
-    text = next_moves(row(1, SWEEP, command=f"`{link}/launchers/chain-product/launcher.sh proj`"))
+    text = next_moves(row(1, SWEEP, command=f"`{link}/launchers/product-docs/launcher.sh proj`"))
 
     validated(text, core=str(real_core), instance_root=str(tmp_path))
 
@@ -456,7 +469,7 @@ def test_a_row_naming_a_relative_core_launchers_path_validates_under_a_pinned_co
     host = tmp_path / "host"
     pin_core = _pin_of(tmp_path, host)
     relative_command = "`" + shlex.join(
-        ["core/launchers/chain-product/launcher.sh", PROJECT]) + "`"
+        ["core/launchers/product-docs/launcher.sh", PROJECT]) + "`"
     text = next_moves(row(1, SWEEP, command=relative_command))
 
     validated(text, core=str(pin_core), instance_root=str(host))
@@ -472,7 +485,7 @@ def test_a_validated_row_runs_the_pins_launcher(tmp_path):
 
     plan = queue.describe(core_dir=str(pin_core))
 
-    assert plan.rows[0].argv[0] == str(pin_core / "launchers" / "chain-product" / "launcher.sh")
+    assert plan.rows[0].argv[0] == str(pin_core / "launchers" / "product-docs" / "launcher.sh")
 
 
 def test_a_row_naming_another_launcher_is_still_refused(tmp_path):
@@ -495,7 +508,7 @@ def test_the_command_cell_may_be_a_code_span():
 
 
 def test_a_command_that_cannot_be_split_is_refused_never_executed():
-    text = next_moves(row(1, SWEEP, command="`/core/launchers/chain-product/launcher.sh 'proj`"))
+    text = next_moves(row(1, SWEEP, command="`/core/launchers/product-docs/launcher.sh 'proj`"))
 
     refused = refusals(text)
 
@@ -621,6 +634,20 @@ class FakeJourney:
     def __init__(self):
         self.seeds: list[str] = []
         self.checklists: dict[str, int] = {}
+        # Paths moved on disk whose move no commit carries; everything else on the fake disk is
+        # taken as committed.
+        self.uncommitted: set[str] = set()
+        # Paths committed once and edited since, uncommitted.
+        self.edited: set[str] = set()
+
+    def committed(self, repo: str, path: str) -> bool:
+        if path in self.uncommitted:
+            return False
+        return path in self.seeds or path in self.files.files or any(
+            name.startswith(path.rstrip("/") + "/") for name in self.files.files)
+
+    def clean(self, repo: str, path: str) -> bool:
+        return self.committed(repo, path) and path not in self.edited
 
     def report_revision(self, path):
         return self.files.read_text(path)
@@ -774,7 +801,7 @@ def test_describe_derives_core_from_the_engine_when_it_is_not_given():
     `<core>/tools/build_idea.py`, so `<core>` is the directory above its own."""
     queue = Queue(row(1, SWEEP))
 
-    assert queue.describe().rows[0].argv[0] == f"{CORE}/launchers/chain-product/launcher.sh"
+    assert queue.describe().rows[0].argv[0] == f"{CORE}/launchers/product-docs/launcher.sh"
 
 
 def test_describe_uses_a_given_key():
@@ -809,7 +836,7 @@ def test_describe_refuses_a_report_the_table_layer_refuses():
 
 
 def test_describe_names_a_row_whose_command_is_not_its_kinds():
-    queue = Queue(row(1, CLOSE, command="`/core/launchers/chain-change/launcher.sh proj`"))
+    queue = Queue(row(1, CLOSE, command="`/core/launchers/walk/launcher.sh proj`"))
 
     assert "is not what 'close the reached station' runs" in queue.describe().rows[0].refused
 
@@ -841,7 +868,7 @@ def test_rows_free_at_the_start_run_one_at_a_time():
 
     queue.start()
 
-    assert [argv[0].rsplit("/", 2)[-2] for argv in queue.processes.launched] == ["chain-product"]
+    assert [argv[0].rsplit("/", 2)[-2] for argv in queue.processes.launched] == ["product-docs"]
     assert queue.statuses() == {1: "launched", 2: "waiting"}
     assert sorted(queue.state["pending"]) == ["1"]
 
@@ -853,7 +880,7 @@ def test_rows_free_at_the_start_run_one_at_a_time():
 
 def test_two_rows_behind_one_close_never_run_together():
     """The shape that halted a queue on 2026-10-12: both rows are ready once the close lands."""
-    queue = Queue(row(1, CLOSE), row(2, README_STATUS, after="1"), row(3, RETIRE, after="1"))
+    queue = Queue(row(1, CLOSE), row(2, PICK, after="1"), row(3, RETIRE, after="1"))
     queue.start()
 
     queue.close_station()
@@ -1021,6 +1048,132 @@ def test_a_retire_row_waits_for_the_close_then_waits_for_retirement():
     assert queue.state["pending"] == {"2": {"move": RETIRE, "identity": identity_file(2)}}
 
 
+def test_a_retire_moved_on_disk_but_not_committed_has_not_landed():
+    """A retire whose commit was refused leaves the seed moved and staged. Counting the move would
+    send the queue on to a refine that can only stop; the retire lands once its commit does."""
+    queue = Queue(row(1, RETIRE), row(2, PICK, after="1"))
+    queue.start()
+    trail = f"{NEMAWASHI}/trail/{SEED}.md"
+    queue.files.files[trail] = queue.files.files.pop(ROOT_SEED)
+    queue.journey.seeds = []
+    queue.journey.uncommitted = {trail}
+
+    queue.advance(1)
+
+    assert queue.statuses()[1] != "landed"
+    assert not any(argv[1:2] == ["seed-pick"] for argv in queue.processes.launched)
+
+    assert queue.state["ended"] == "halted"
+
+
+def test_a_retire_committed_after_its_move_has_landed():
+    queue = Queue(row(1, RETIRE), row(2, PICK, after="1"))
+    queue.start()
+    trail = f"{NEMAWASHI}/trail/{SEED}.md"
+    queue.files.files[trail] = queue.files.files.pop(ROOT_SEED)
+    queue.journey.seeds = []
+
+    queue.advance(1)
+
+    assert queue.statuses()[1] == "landed"
+
+
+def test_the_journey_adapter_answers_whether_a_move_is_committed(tmp_path):
+    """On a real repo: a committed seed is in the last commit; once moved to trail/ and only
+    staged, the trail copy is not, and the seedbed copy still is."""
+    def git(*args):
+        subprocess.run(["git", "-C", str(tmp_path), "-c", "user.name=t", "-c", "user.email=t@t",
+                        "-c", "core.hooksPath=/dev/null", *args],
+                       check=True, capture_output=True)
+    seedbed = tmp_path / "nemawashi"
+    (seedbed / "trail").mkdir(parents=True)
+    (seedbed / "a-seed").mkdir()
+    (seedbed / "a-seed" / "seed.md").write_text("# a\n", encoding="utf-8")
+    git("init", "-q")
+    git("add", "-A")
+    git("commit", "-q", "-m", "seed")
+    journey = bi.Journey()
+    root, seed, trail = str(tmp_path), str(seedbed / "a-seed"), str(seedbed / "trail" / "a-seed")
+
+    assert journey.committed(root, seed) and not journey.committed(root, trail)
+
+    git("mv", "nemawashi/a-seed", "nemawashi/trail/a-seed")
+
+    assert journey.committed(root, seed) and not journey.committed(root, trail)
+
+    git("commit", "-q", "-m", "retire")
+
+    assert not journey.committed(root, seed) and journey.committed(root, trail)
+
+
+def test_the_journey_adapter_reads_a_path_from_a_nested_instance_root(tmp_path):
+    """An instance root below its repository's top level: the path is read from that root."""
+    def git(*args):
+        subprocess.run(["git", "-C", str(tmp_path), "-c", "user.name=t", "-c", "user.email=t@t",
+                        "-c", "core.hooksPath=/dev/null", *args],
+                       check=True, capture_output=True)
+    instance = tmp_path / "nested" / "instance"
+    (instance / "seed").mkdir(parents=True)
+    (instance / "seed" / "seed.md").write_text("# a\n", encoding="utf-8")
+    git("init", "-q")
+    git("add", "-A")
+    git("commit", "-q", "-m", "seed")
+
+    assert bi.Journey().committed(str(instance), str(instance / "seed"))
+
+
+def test_the_journey_adapter_answers_clean_only_for_a_committed_unedited_path(tmp_path):
+    def git(*args):
+        subprocess.run(["git", "-C", str(tmp_path), "-c", "user.name=t", "-c", "user.email=t@t",
+                        "-c", "core.hooksPath=/dev/null", *args],
+                       check=True, capture_output=True)
+    seed = tmp_path / "seed.md"
+    seed.write_text("# a\n", encoding="utf-8")
+    git("init", "-q")
+    journey = bi.Journey()
+    assert not journey.clean(str(tmp_path), str(seed))  # not committed yet
+    git("add", "-A")
+    git("commit", "-q", "-m", "seed")
+    assert journey.clean(str(tmp_path), str(seed))
+    seed.write_text("# a\n- [ ] a station\n", encoding="utf-8")
+    assert not journey.clean(str(tmp_path), str(seed))  # edited, not committed
+    git("add", "-A")
+    assert not journey.clean(str(tmp_path), str(seed))  # staged, not committed
+
+
+def test_the_journey_adapter_takes_the_disk_where_there_is_no_work_tree(tmp_path):
+    """A folder with no repository keeps no commits; the disk is its record, as before."""
+    seed = tmp_path / "seed.md"
+    seed.write_text("# a\n", encoding="utf-8")
+    journey = bi.Journey()
+
+    assert journey.committed(str(tmp_path), str(seed)) and journey.clean(str(tmp_path), str(seed))
+    assert not journey.committed(str(tmp_path), str(tmp_path / "absent.md"))
+
+
+def test_a_close_moved_on_disk_but_not_committed_has_not_landed():
+    queue = Queue(row(1, CLOSE), row(2, PICK, after="1"))
+    queue.start()
+    queue.close_station()
+    queue.journey.uncommitted = {f"{JOURNEY}/shukuba/trail/{STATION}"}
+
+    queue.advance(1)
+
+    assert queue.statuses()[1] != "landed"
+    assert queue.state["ended"] == "halted"
+
+
+def test_a_pick_left_uncommitted_has_not_landed():
+    queue = Queue(row(1, PICK))
+    queue.start()
+    queue.pick_seed()
+    queue.journey.edited = {ROOT_SEED}
+
+    queue.advance(1)
+
+    assert queue.statuses()[1] != "landed"
+
+
 def test_a_retire_names_no_manual_refine_command_while_it_is_still_running():
     queue = Queue(row(1, RETIRE))
     queue.start()
@@ -1069,7 +1222,7 @@ RESUME = f"{CORE}/launchers/build-idea/launcher.sh {PROJECT}"
 
 
 def chain_change_launched(queue: Queue) -> bool:
-    return any(argv[0].endswith("/launchers/chain-change/launcher.sh")
+    return any(argv[0].endswith("/launchers/walk/launcher.sh")
                for argv in queue.processes.launched)
 
 
@@ -1465,7 +1618,7 @@ def test_the_queue_shim_preserves_its_pre_extraction_bytes():
     assert queue.files.files[shim_path(1)] == (
         "#!/usr/bin/env bash\n"
         "set -euo pipefail\n"
-        f'nohup python3 {ENGINE} --advance {STATE} 1 "$1" </dev/null '
+        f'nohup {CORE}/tools/locked_python.sh {ENGINE} --advance {STATE} 1 "$1" </dev/null '
         f">>{LOGS}/build-idea-{PROJECT}.log 2>&1 &\n"
     )
 
@@ -1669,7 +1822,7 @@ def test_describe_prints_one_line_per_row_and_sends_nothing(tmp_path, capsys, no
     assert capsys.readouterr().out.splitlines() == [
         "1. close the reached station — after — — /core/launchers/skill/launcher.sh "
         "shukuba-retire proj 2026-09-18_a-station",
-        "2. sweep the product's companions — after 1 — /core/launchers/chain-product/launcher.sh "
+        "2. sweep the product's companions — after 1 — /core/launchers/product-docs/launcher.sh "
         "proj",
         "3. retire a seed — after — — /core/launchers/skill/launcher.sh nemawashi-retire proj",
         "4. drop a seed — after — — skip"]
@@ -1776,10 +1929,10 @@ def test_the_journey_adapter_answers_empty_for_a_missing_seedbed_and_a_seed_with
 #
 # A stop is a field on the queue's one state file, so the lock that serialises the advances also
 # serialises it. It lets the runs in flight finish and starts nothing new — including the restart
-# `chain-change`'s end would otherwise make — until a plain start clears it and picks up from the
+# `walk`'s end would otherwise make — until a plain start clears it and picks up from the
 # disk, skipping what already landed.
 
-CHAIN_CHANGE_STATE = f"{LOGS}/chain-change-{PROJECT}-state.json"
+WALK_STATE = f"{LOGS}/chain-walk-{PROJECT}-state.json"
 RESUME = f"{CORE}/launchers/build-idea/launcher.sh {PROJECT}"
 
 
@@ -1915,7 +2068,7 @@ def test_a_stop_stops_a_chain_row_through_its_own_launchers_stop():
     said = queue.stop()
 
     assert queue.processes.launched[-1] == [
-        f"{CORE}/launchers/chain-product/launcher.sh", PROJECT, "--stop"]
+        f"{CORE}/launchers/product-docs/launcher.sh", PROJECT, "--stop"]
     assert walk_stop.IDENTITY_VARIABLE not in queue.processes.calls[-1]["env"]
     assert queue.statuses() == {1: "failed", 2: "waiting"}
     assert "exited 3" in queue.state["rows"][0]["reason"]
@@ -2035,7 +2188,7 @@ def test_a_stop_is_seen_by_the_hook_start():
     assert len(queue.processes.launched) == launched
     assert len(queue.notifier.messages) == sent + 1
     said = queue.notifier.messages[-1]
-    assert f"{PROJECT}: build-idea is stopped — chain-change's end did not restart it" in said
+    assert f"{PROJECT}: build-idea is stopped — walk's end did not restart it" in said
     assert f"run {RESUME} to resume" in said
 
 
@@ -2189,9 +2342,9 @@ def test_a_resume_announces_the_rows_it_carried_over_as_already_landed():
 def test_a_start_is_refused_while_a_chain_change_walk_is_live():
     queue = Queue(row(1, CLOSE))
     live = {"ended": None, "pending": {"specs": {"step": "specs", "audited": None}}}
-    queue.files.files[CHAIN_CHANGE_STATE] = json.dumps(live)
+    queue.files.files[WALK_STATE] = json.dumps(live)
 
-    with pytest.raises(bi.QueueRefused, match="chain-change"):
+    with pytest.raises(bi.QueueRefused, match="walk"):
         queue.start()
 
     assert queue.processes.launched == []
@@ -2200,7 +2353,7 @@ def test_a_start_is_refused_while_a_chain_change_walk_is_live():
 def test_a_start_is_allowed_once_the_chain_change_walk_records_an_end():
     queue = Queue(row(1, CLOSE))
     ended = {"ended": "sealed", "pending": {}}
-    queue.files.files[CHAIN_CHANGE_STATE] = json.dumps(ended)
+    queue.files.files[WALK_STATE] = json.dumps(ended)
 
     queue.start()
 
@@ -2209,7 +2362,7 @@ def test_a_start_is_allowed_once_the_chain_change_walk_records_an_end():
 
 def test_a_chain_change_walk_with_nothing_pending_is_not_live():
     queue = Queue(row(1, CLOSE))
-    queue.files.files[CHAIN_CHANGE_STATE] = json.dumps({"ended": None, "pending": {}})
+    queue.files.files[WALK_STATE] = json.dumps({"ended": None, "pending": {}})
 
     queue.start()
 
@@ -2223,9 +2376,9 @@ def test_a_plain_start_refused_by_a_live_chain_change_walk_still_clears_the_stop
     queue.close_station()
     queue.advance(1)
     live = {"ended": None, "pending": {"specs": {"step": "specs", "audited": None}}}
-    queue.files.files[CHAIN_CHANGE_STATE] = json.dumps(live)
+    queue.files.files[WALK_STATE] = json.dumps(live)
 
-    with pytest.raises(bi.QueueRefused, match="chain-change"):
+    with pytest.raises(bi.QueueRefused, match="walk"):
         queue.start()
 
     assert queue.state["stop_requested"] is False
@@ -2302,12 +2455,12 @@ def test_main_start_passes_by_hook(tmp_path, notifier_log):
 
 def test_the_dry_run_refuses_while_a_chain_change_walk_is_live():
     """CP-77: a queue that would be refused makes the dry run fail with the same reason — and a
-    start is refused while a chain-change walk is live (CP-76)."""
+    start is refused while a walk is live (CP-76)."""
     queue = Queue(row(1, CLOSE))
     live = {"ended": None, "pending": {"specs": {"step": "specs", "audited": None}}}
-    queue.files.files[CHAIN_CHANGE_STATE] = json.dumps(live)
+    queue.files.files[WALK_STATE] = json.dumps(live)
 
-    with pytest.raises(bi.QueueRefused, match="chain-change walk is live"):
+    with pytest.raises(bi.QueueRefused, match="walk the walk launcher started is live"):
         queue.describe(core_dir=CORE)
 
 
@@ -2357,6 +2510,7 @@ PROVIDER = "KENSAIAPP_AGENT_PROVIDER"
 INHERITED = {"PATH": "/usr/bin", PROVIDER: "codex"}
 
 # The queue's own members: every kind whose row runs a skill, by its kind's name.
+EXAMPLE_PROVIDER_FILE = Path(__file__).resolve().parents[2] / ".providers.toml.example"
 SKILL_ROWS = [move for move, kind in bi.KINDS.items()
               if kind.disposition is bi.Disposition.RUN_SKILL]
 
@@ -2387,10 +2541,28 @@ def _launch_of(queue: Queue, move: str) -> dict:
     return call
 
 
-def test_the_skill_rows_are_the_seven_the_provider_file_names():
-    assert SKILL_ROWS == ["close the reached station", "readme-status", "pick a seed",
+def test_the_skill_rows_are_the_six_the_provider_file_names():
+    assert SKILL_ROWS == ["close the reached station", "pick a seed",
                           "cut the route", "retire a seed", "refine a seed",
                           "cut from the product's documents"]
+
+
+def test_the_example_provider_file_build_idea_keys_equal_the_skill_rows_in_order():
+    table = tomllib.loads(EXAMPLE_PROVIDER_FILE.read_text(encoding="utf-8"))
+
+    assert list(table["build-idea"]) == [
+        "close the reached station", "pick a seed", "cut the route", "retire a seed",
+        "refine a seed", "cut from the product's documents"]
+    assert list(table["build-idea"]) == SKILL_ROWS
+
+
+def test_a_stale_build_idea_entry_for_a_kind_the_queue_lacks_is_ignored():
+    stale = edited_text({"build-idea.a kind the queue no longer has": "claude"})
+    queue = Queue(row(1, CLOSE), provider_port=ProviderText(stale))
+
+    queue.start()
+
+    assert queue.statuses() == {1: "launched"}
 
 
 @pytest.mark.parametrize("move", SKILL_ROWS)
@@ -2612,7 +2784,7 @@ def _a_live_queue() -> Queue:
 
 def _a_live_chain_change_walk() -> Queue:
     queue = Queue(row(1, CLOSE))
-    queue.files.files[CHAIN_CHANGE_STATE] = json.dumps(
+    queue.files.files[WALK_STATE] = json.dumps(
         {"ended": None, "pending": {"specs": {"step": "specs", "audited": None}}})
     return queue
 
@@ -2627,7 +2799,7 @@ def _a_row_whose_kind_is_unknown() -> Queue:
 
 @pytest.mark.parametrize("make, reason", [
     (_a_live_queue, "is still running"),
-    (_a_live_chain_change_walk, "chain-change walk is live"),
+    (_a_live_chain_change_walk, "walk the walk launcher started is live"),
     (_no_sealed_unit, "no sealed unit"),
     (_a_row_whose_kind_is_unknown, "row 1"),
 ])
@@ -2782,7 +2954,7 @@ def test_a_copy_moves_one_row_and_no_other():
     queue.advance(2)
 
     assert [(call["argv"][1], call["env"][PROVIDER]) for call in queue.processes.calls] == [
-        ("shukuba-retire", "claude"), ("nemawashi-pick", "codex"),
+        ("shukuba-retire", "claude"), ("seed-pick", "codex"),
         ("stations-from-seed", "claude")]
 
 
@@ -2862,14 +3034,14 @@ def test_the_next_start_clears_the_refusal_record():
 
     queue.start()
 
-    assert queue.processes.calls[-1]["argv"][1] == "nemawashi-pick"
+    assert queue.processes.calls[-1]["argv"][1] == "seed-pick"
     assert queue.statuses() == {1: "landed", 2: "launched", 3: "waiting"}
     assert queue.state["ended"] is None
 
     queue.pick_seed()
     queue.advance(2)
 
-    assert queue.processes.calls[-1]["argv"][0].endswith("/chain-product/launcher.sh")
+    assert queue.processes.calls[-1]["argv"][0].endswith("/product-docs/launcher.sh")
     assert queue.state["ended"] is None
 
 
@@ -2929,7 +3101,7 @@ def test_a_chain_row_of_a_forced_queue_carries_the_force(move):
 
 
 def test_every_start_states_the_force_so_a_resume_can_lift_it():
-    """The start `chain-change`'s end makes carries the force in its environment, so it restates
+    """The start `walk`'s end makes carries the force in its environment, so it restates
     the same one; an owner's plain resume states none."""
     queue = Queue(row(1, CLOSE), row(2, PICK, after="1"))
     queue.start(forced_provider="codex")
@@ -2971,7 +3143,7 @@ def test_main_refuses_a_provider_it_does_not_know(tmp_path, capsys):
     assert "--provider" in capsys.readouterr().err
 
 
-# --- the developer's context cap: kept on the queue, put on every chain-change row --------------
+# --- the developer's context cap: kept on the queue, put on every walk row --------------
 
 
 def test_a_chain_row_carries_the_context_cap():
@@ -3001,7 +3173,7 @@ def test_the_cap_comes_before_keep_awake():
 
 @pytest.mark.parametrize("move", [CLOSE, PICK, CUT_ROUTE, SWEEP])
 def test_a_row_that_is_not_a_chain_change_carries_no_context_cap(move):
-    """A skill row's argv is unchanged, and so is the sweep's: it runs `chain-product`, which
+    """A skill row's argv is unchanged, and so is the sweep's: it runs `product-docs`, which
     refuses a flag it does not know."""
     queue = Queue(row(1, move))
 
@@ -3129,19 +3301,19 @@ def test_nemawashi_report_runs_sweep_cut_pick_route_and_next_change_in_order():
         row(1, SWEEP),
         row(2, DOCS_CUT, command=f"`{CORE}/launchers/skill/launcher.sh seeds-from-product-docs {PROJECT}`", after="1"),
         row(3, PICK, after="2"), row(4, CUT_ROUTE, after="3"), row(5, CHANGE, after="4"))
-    assert queue.processes.launched[-1][0].endswith("/chain-product/launcher.sh")
+    assert queue.processes.launched[-1][0].endswith("/product-docs/launcher.sh")
     queue.advance(3, "settled")
     assert queue.processes.launched[-1][1:] == ["seeds-from-product-docs", PROJECT]
     queue.files.files[f"{NEMAWASHI}/unpicked/new.md"] = "# new seed\nCut from docs/SDD.md"
     queue.advance(4)
-    assert queue.processes.launched[-1][1:] == ["nemawashi-pick", PROJECT]
+    assert queue.processes.launched[-1][1:] == ["seed-pick", PROJECT]
     queue.pick_seed()
     queue.advance(5)
     assert queue.processes.launched[-1][1:] == ["stations-from-seed", PROJECT]
     queue.cut_route()
     queue.advance(6)
     assert queue.processes.launched[-1] == [
-        f"{CORE}/launchers/chain-change/launcher.sh", PROJECT, "--context-cap", "123456"]
+        f"{CORE}/launchers/walk/launcher.sh", PROJECT, "--context-cap", "123456"]
     assert queue.state["ended"] == "handed-off"
 
 
@@ -3191,7 +3363,7 @@ def test_stop_during_refinement_resumes_its_report_without_repeating_the_refine(
     assert queue.state["ended"] == "stopped"
     queue.start()
     assert [call["argv"][1] for call in queue.processes.calls] == [
-        "nemawashi-retire", "nemawashi-refine", "nemawashi-pick"]
+        "nemawashi-retire", "nemawashi-refine", "seed-pick"]
 
 
 def test_refinement_owner_row_blocks_the_next_change_until_owner_resume():
@@ -3216,7 +3388,7 @@ def test_docs_cut_without_new_or_changed_candidates_still_releases_the_pick():
         row(1, DOCS_CUT, command=f"`{CORE}/launchers/skill/launcher.sh seeds-from-product-docs {PROJECT}`"),
         row(2, PICK, after="1"))
     queue.advance(3)
-    assert queue.processes.launched[-1][1:] == ["nemawashi-pick", PROJECT]
+    assert queue.processes.launched[-1][1:] == ["seed-pick", PROJECT]
 
 
 def test_docs_cut_leaving_no_candidate_at_all_halts_before_the_pick():
@@ -3278,7 +3450,7 @@ def test_refinement_report_survives_the_seed_folder_move_and_plain_resume():
     queue.stop()
     land_refinement(queue, row(1, PICK), row(2, CUT_ROUTE, after="1"))
     queue.start()
-    assert queue.processes.launched[-1][1:3] == ["nemawashi-pick", PROJECT]
+    assert queue.processes.launched[-1][1:3] == ["seed-pick", PROJECT]
     assert queue.files.files[f"{NEMAWASHI}/trail/{SEED}/{KEY}_report.md"] == (
         next_moves(row(1, RETIRE)))
 
@@ -3313,7 +3485,7 @@ def test_a_halted_cut_needs_the_owner_before_a_dependent_pick():
     assert queue.state["ended"] == "owner-owed"
     assert len(queue.processes.calls) == 2
     queue.start()
-    assert queue.processes.launched[-1][1:] == ["nemawashi-pick", PROJECT]
+    assert queue.processes.launched[-1][1:] == ["seed-pick", PROJECT]
 
 
 def test_describe_refuses_retirement_without_exactly_one_active_seed():
@@ -3385,7 +3557,7 @@ def test_a_report_rewritten_in_place_starts_a_new_queue_on_its_new_rows():
     queue.start()
 
     assert [entry["move"] for entry in queue.state["rows"]] == [PICK]
-    assert queue.processes.launched[-1][1:] == ["nemawashi-pick", PROJECT]
+    assert queue.processes.launched[-1][1:] == ["seed-pick", PROJECT]
 
 
 def test_a_report_written_again_unchanged_still_resumes():
@@ -3408,7 +3580,7 @@ def test_a_state_recorded_without_a_digest_resumes_as_before():
     queue.start()
 
     assert queue.state["queue_id"] == first
-    assert queue.processes.launched[-1][1:] == ["nemawashi-pick", PROJECT]
+    assert queue.processes.launched[-1][1:] == ["seed-pick", PROJECT]
 
 
 RETIRED_REPORT = f"{NEMAWASHI}/trail/{SEED}/{KEY}_report.md"
@@ -3464,7 +3636,7 @@ def test_a_retired_seeds_refine_report_runs_over_the_old_units_record():
     queue.start()
 
     assert queue.state["report"] == NEMA_REPORT
-    assert queue.processes.launched[-1][1:] == ["nemawashi-pick", PROJECT]
+    assert queue.processes.launched[-1][1:] == ["seed-pick", PROJECT]
 
 
 def test_a_consumed_refine_report_is_refused_and_its_rewrite_runs():
@@ -3559,14 +3731,14 @@ def test_a_live_companion_runs_the_product_chain_before_the_pick():
     queue = retiring_queue()
     queue.files.files[COMPANION] = "- [ ] an item the cut raised"
     cut_then_pick(queue)
-    assert queue.processes.launched[-1][:2] == [f"{CORE}/launchers/chain-product/launcher.sh",
+    assert queue.processes.launched[-1][:2] == [f"{CORE}/launchers/product-docs/launcher.sh",
                                                  PROJECT]
     sweep = max(entry["number"] for entry in queue.state["rows"])
     queue.files.files.pop(COMPANION)
 
     queue.advance(sweep, "settled")
 
-    assert queue.processes.launched[-1][1:] == ["nemawashi-pick", PROJECT]
+    assert queue.processes.launched[-1][1:] == ["seed-pick", PROJECT]
 
 
 def test_a_product_chain_that_halts_holds_the_pick():
@@ -3578,13 +3750,13 @@ def test_a_product_chain_that_halts_holds_the_pick():
     queue.advance(sweep, "halted")
 
     assert queue.state["ended"] == "halted"
-    assert not any(argv[1:2] == ["nemawashi-pick"] for argv in queue.processes.launched)
+    assert not any(argv[1:2] == ["seed-pick"] for argv in queue.processes.launched)
 
 
 def test_no_live_companion_picks_at_once():
     queue = retiring_queue()
     cut_then_pick(queue)
-    assert queue.processes.launched[-1][1:] == ["nemawashi-pick", PROJECT]
+    assert queue.processes.launched[-1][1:] == ["seed-pick", PROJECT]
 
 
 def test_the_product_chain_runs_once_for_a_pick():
@@ -3595,9 +3767,9 @@ def test_the_product_chain_runs_once_for_a_pick():
 
     queue.advance(sweep, "settled")
 
-    chains = [argv for argv in queue.processes.launched if argv[0].endswith("chain-product/launcher.sh")]
+    chains = [argv for argv in queue.processes.launched if argv[0].endswith("product-docs/launcher.sh")]
     assert len(chains) == 1
-    assert queue.processes.launched[-1][1:] == ["nemawashi-pick", PROJECT]
+    assert queue.processes.launched[-1][1:] == ["seed-pick", PROJECT]
 
 
 def test_a_resume_after_a_failed_docs_cut_picks_from_the_pool_it_has():
@@ -3608,7 +3780,7 @@ def test_a_resume_after_a_failed_docs_cut_picks_from_the_pool_it_has():
 
     queue.start()
 
-    assert queue.processes.launched[-1][1:] == ["nemawashi-pick", PROJECT]
+    assert queue.processes.launched[-1][1:] == ["seed-pick", PROJECT]
 
 
 def test_a_sweep_left_for_the_owner_still_releases_the_pick():
@@ -3619,7 +3791,7 @@ def test_a_sweep_left_for_the_owner_still_releases_the_pick():
 
     queue.advance(sweep, "left_for_the_owner")
 
-    assert queue.processes.launched[-1][1:] == ["nemawashi-pick", PROJECT]
+    assert queue.processes.launched[-1][1:] == ["seed-pick", PROJECT]
 
 
 def test_a_link_loop_under_the_products_docs_is_walked_once(tmp_path):
@@ -3643,7 +3815,7 @@ def test_a_start_with_no_product_path_clears_the_recorded_one():
     queue.start()
 
     assert queue.state["product_path"] == ""
-    assert queue.processes.launched[-1][1:] == ["nemawashi-pick", PROJECT]
+    assert queue.processes.launched[-1][1:] == ["seed-pick", PROJECT]
 
 
 # --- the product checkout: a run that leaves it dirtier fails its row and holds the queue -------
@@ -3794,10 +3966,10 @@ def test_a_dirty_row_fails_with_the_dirt_whatever_its_outcome():
 
 # --- the card's `Definition:` decides the sweep (CP-516 to CP-518) --------------------------------
 
-AGARI_SWEEP = f"{CORE}/launchers/chain-agari/launcher.sh"
-PRODUCT_SWEEP = f"{CORE}/launchers/chain-product/launcher.sh"
+FINISH_LINE_SWEEP = f"{CORE}/launchers/prd-and-finish-line/launcher.sh"
+PRODUCT_SWEEP = f"{CORE}/launchers/product-docs/launcher.sh"
 NO_LINE = (f"no 'Definition:' line in {CARD}, and the sweep is decided by that line — "
-           f"add **Definition:** full, prd-agari or none")
+           f"add **Definition:** full, prd-and-finish-line or none")
 
 
 def sweep_text(definition: bi.Definition = FULL) -> str:
@@ -3805,20 +3977,33 @@ def sweep_text(definition: bi.Definition = FULL) -> str:
 
 
 def test_the_definition_is_read_up_to_its_comment():
-    card = "# card\n\n**Definition:** prd-agari   <!-- full | prd-agari | none -->\n"
+    card = "# card\n\n**Definition:** prd-and-finish-line   <!-- full | prd-and-finish-line | none -->\n"
 
-    assert bi.read_definition(card, card=CARD) is PRD_AGARI
+    assert bi.read_definition(card, card=CARD) is PRD_AND_FINISH_LINE
+
+
+@pytest.mark.parametrize("retired", ["prd-agari", "prd-and-dod"])
+def test_a_retired_name_for_the_prd_and_finish_line_value_is_refused(retired):
+    """`prd-agari` is the value's name before 2026-11-02 and `prd-and-dod` its name until
+    2026-11-03. Each is refused like any value outside the three."""
+    card = f"# card\n\n**Definition:** {retired}   <!-- full | prd-and-finish-line | none -->\n"
+
+    with pytest.raises(bi.QueueRefused) as refused:
+        bi.read_definition(card, card=CARD)
+
+    assert str(refused.value) == (f"'Definition:' in {CARD} reads '{retired}', and the sweep is "
+                                  f"decided by that line — it must be full, prd-and-finish-line or none")
 
 
 def test_only_a_line_beginning_with_the_label_is_the_definition():
-    """CP-518: the one line beginning *exactly* `**Definition:**`, as `chain-change`'s
+    """CP-518: the one line beginning *exactly* `**Definition:**`, as `walk`'s
     `^\\*\\*Definition:\\*\\*` reads it. An indented line, or prose naming the label mid-line, is
     not the card's line: it is not counted as a second one and does not give the value."""
     card = ("# card\n\nThe **Definition:** line below decides the sweep.\n"
             "  **Definition:** none\n"
-            "**Definition:** prd-agari\n")
+            "**Definition:** prd-and-finish-line\n")
 
-    assert bi.read_definition(card, card=CARD) is PRD_AGARI
+    assert bi.read_definition(card, card=CARD) is PRD_AND_FINISH_LINE
 
 
 @pytest.mark.parametrize("card", ["# card\n\nDefinition: full\n", None], ids=["no-line", "no-card"])
@@ -3846,7 +4031,7 @@ def test_a_definition_outside_the_three_refuses_a_sweep_row(value):
         validated(sweep_text(), card=card_defining(value))
 
     assert str(refused.value) == (f"'Definition:' in {CARD} reads '{value}', and the sweep is "
-                                  f"decided by that line — it must be full, prd-agari or none")
+                                  f"decided by that line — it must be full, prd-and-finish-line or none")
 
 
 def test_a_queue_with_no_sweep_row_starts_on_a_card_with_no_definition_line():
@@ -3864,27 +4049,27 @@ def test_a_full_card_accepts_the_chain_product_sweep():
     assert [r.move for r in rows] == [SWEEP]
 
 
-def test_a_prd_agari_card_accepts_the_chain_agari_sweep():
-    rows = validated(sweep_text(PRD_AGARI), card=card_defining("prd-agari"))
+def test_a_prd_finish_line_card_accepts_the_chain_finish_line_sweep():
+    rows = validated(sweep_text(PRD_AND_FINISH_LINE), card=card_defining("prd-and-finish-line"))
 
     assert [r.move for r in rows] == [SWEEP]
 
 
-def test_a_full_card_refuses_the_chain_agari_sweep():
-    refused = refusals(sweep_text(PRD_AGARI), card=card_defining("full"))
+def test_a_full_card_refuses_the_chain_finish_line_sweep():
+    refused = refusals(sweep_text(PRD_AND_FINISH_LINE), card=card_defining("full"))
 
     assert list(refused) == [1] and refused[1].startswith("its Command")
     assert f"{PRODUCT_SWEEP} {PROJECT}" in refused[1]
 
 
-def test_a_prd_agari_card_refuses_the_chain_product_sweep():
-    refused = refusals(sweep_text(FULL), card=card_defining("prd-agari"))
+def test_a_prd_finish_line_card_refuses_the_chain_product_sweep():
+    refused = refusals(sweep_text(FULL), card=card_defining("prd-and-finish-line"))
 
     assert list(refused) == [1] and refused[1].startswith("its Command")
-    assert f"{AGARI_SWEEP} {PROJECT}" in refused[1]
+    assert f"{FINISH_LINE_SWEEP} {PROJECT}" in refused[1]
 
 
-@pytest.mark.parametrize("command_definition", [FULL, PRD_AGARI])
+@pytest.mark.parametrize("command_definition", [FULL, PRD_AND_FINISH_LINE])
 def test_a_none_card_refuses_any_sweep_row(command_definition):
     with pytest.raises(bi.QueueRefused) as refused:
         validated(sweep_text(command_definition), card=card_defining("none"))
@@ -3894,13 +4079,13 @@ def test_a_none_card_refuses_any_sweep_row(command_definition):
         f"\"sweep the product's companions\" row runs for it")
 
 
-def test_a_prd_agari_sweep_row_launches_chain_agari():
-    queue = Queue(row(1, SWEEP, command=command_for(SWEEP, definition=PRD_AGARI)))
-    queue.files.files[CARD] = card_defining("prd-agari")
+def test_a_prd_finish_line_sweep_row_launches_chain_finish_line():
+    queue = Queue(row(1, SWEEP, command=command_for(SWEEP, definition=PRD_AND_FINISH_LINE)))
+    queue.files.files[CARD] = card_defining("prd-and-finish-line")
 
     queue.start()
 
-    assert queue.processes.launched == [[AGARI_SWEEP, PROJECT, "--on-end", shim_path(1)]]
+    assert queue.processes.launched == [[FINISH_LINE_SWEEP, PROJECT, "--on-end", shim_path(1)]]
 
 
 @pytest.mark.parametrize("card", [card_defining("none"), None], ids=["none", "no-card"])
@@ -3927,21 +4112,21 @@ def test_the_sweeps_argv_needs_a_definition(definition):
 
 
 def test_a_kind_other_than_the_sweep_ignores_the_definition():
-    assert (bi.expected_argv(CLOSE, core_dir=CORE, project=PROJECT, definition=PRD_AGARI)
+    assert (bi.expected_argv(CLOSE, core_dir=CORE, project=PROJECT, definition=PRD_AND_FINISH_LINE)
             == bi.expected_argv(CLOSE, core_dir=CORE, project=PROJECT))
 
 
 def test_a_refinement_reports_sweep_row_is_checked_against_the_card():
     """The continuation validates the Principal PM's report with the same card as a start."""
     queue = retiring_queue()
-    queue.files.files[CARD] = card_defining("prd-agari")
+    queue.files.files[CARD] = card_defining("prd-and-finish-line")
     queue.start()
     land_retirement(queue)
 
     land_refinement(queue, row(1, SWEEP, command=command_for(SWEEP, definition=FULL)))
 
     assert queue.statuses() == {1: "landed", 2: "landed", 3: "failed"}
-    assert f"{AGARI_SWEEP} {PROJECT}" in queue.state["rows"][2]["reason"]
+    assert f"{FINISH_LINE_SWEEP} {PROJECT}" in queue.state["rows"][2]["reason"]
 
 
 def test_a_resumed_start_reads_the_card_again():
@@ -3970,21 +4155,21 @@ def settle_a_pick_behind_a_live_companion(definition_card: str | None, *, compan
     return queue
 
 
-def test_a_live_companion_on_a_prd_agari_card_runs_chain_agari_before_the_pick():
-    queue = settle_a_pick_behind_a_live_companion(card_defining("prd-agari"))
-    assert queue.processes.launched[-1][:2] == [AGARI_SWEEP, PROJECT]
+def test_a_live_companion_on_a_prd_finish_line_card_runs_chain_finish_line_before_the_pick():
+    queue = settle_a_pick_behind_a_live_companion(card_defining("prd-and-finish-line"))
+    assert queue.processes.launched[-1][:2] == [FINISH_LINE_SWEEP, PROJECT]
     sweep = max(entry["number"] for entry in queue.state["rows"])
     queue.files.files.pop(COMPANION)
 
     queue.advance(sweep, "settled")
 
-    assert queue.processes.launched[-1][1:] == ["nemawashi-pick", PROJECT]
+    assert queue.processes.launched[-1][1:] == ["seed-pick", PROJECT]
 
 
 def test_a_live_companion_on_a_none_card_does_not_hold_the_pick():
     queue = settle_a_pick_behind_a_live_companion(card_defining("none"))
 
-    assert queue.processes.launched[-1][1:] == ["nemawashi-pick", PROJECT]
+    assert queue.processes.launched[-1][1:] == ["seed-pick", PROJECT]
     assert not any(entry["move"] == SWEEP for entry in queue.state["rows"])
 
 
@@ -3995,7 +4180,7 @@ def test_a_live_companion_on_a_none_card_does_not_hold_the_pick():
      f"it must carry one"),
     (card_defining("partial"),
      f"'Definition:' in {CARD} reads 'partial', and the sweep is decided by that line — "
-     f"it must be full, prd-agari or none"),
+     f"it must be full, prd-and-finish-line or none"),
     (None, NO_LINE),
 ], ids=["no-line", "two-lines", "out-of-vocabulary", "no-card"])
 def test_a_live_companion_on_an_unreadable_card_fails_the_pick(card, reason):
@@ -4004,14 +4189,14 @@ def test_a_live_companion_on_an_unreadable_card_fails_the_pick(card, reason):
     pick = next(entry for entry in queue.state["rows"] if entry["move"] == PICK)
     assert (pick["status"], pick["reason"]) == ("failed", reason)
     assert queue.state["ended"] == "halted"
-    assert not any(argv[1:2] == ["nemawashi-pick"] for argv in queue.processes.launched)
+    assert not any(argv[1:2] == ["seed-pick"] for argv in queue.processes.launched)
     assert not any(entry["move"] == SWEEP for entry in queue.state["rows"])
 
 
 def test_no_live_companion_never_reads_the_card():
     queue = settle_a_pick_behind_a_live_companion("# no such line\n", companion=False)
 
-    assert queue.processes.launched[-1][1:] == ["nemawashi-pick", PROJECT]
+    assert queue.processes.launched[-1][1:] == ["seed-pick", PROJECT]
 
 
 def test_a_pick_failed_over_the_card_halts_the_queue_only_once_nothing_is_in_flight():
@@ -4037,16 +4222,16 @@ def test_a_pick_failed_over_the_card_halts_the_queue_only_once_nothing_is_in_fli
     assert queue.state["ended"] == "halted"
 
 
-# --- the Agari's companion is a live companion (CP-520) -------------------------------------------
+# --- the finish line's companion is a live companion (CP-520) -------------------------------------------
 
-AGARI_COMPANION = f"{INSTANCE}/system/projects/{PROJECT}/agari_open_issues.md"
+FINISH_LINE_COMPANION = f"{INSTANCE}/system/projects/{PROJECT}/finish_line_open_issues.md"
 
 
-def pick_behind_the_agari_companion(*, product_path: str, companion: bool):
+def pick_behind_the_finish_line_companion(*, product_path: str, companion: bool):
     """The unit retires and its refinement owes a pick, the queue started with `product_path`."""
     queue = retiring_queue()
     if companion:
-        queue.files.files[AGARI_COMPANION] = "- [ ] an item the Agari raised"
+        queue.files.files[FINISH_LINE_COMPANION] = "- [ ] an item the finish line raised"
     queue.files.files[f"{NEMAWASHI}/unpicked/existing.md"] = "# existing candidate"
     queue.start(product_path=product_path)
     land_retirement(queue)
@@ -4054,29 +4239,29 @@ def pick_behind_the_agari_companion(*, product_path: str, companion: bool):
     return queue
 
 
-def test_a_live_agari_companion_alone_runs_the_sweep_before_the_pick():
-    queue = pick_behind_the_agari_companion(product_path=PRODUCT, companion=True)
+def test_a_live_finish_line_companion_alone_runs_the_sweep_before_the_pick():
+    queue = pick_behind_the_finish_line_companion(product_path=PRODUCT, companion=True)
 
     assert queue.processes.launched[-1][:2] == [PRODUCT_SWEEP, PROJECT]
     sweep = max(entry["number"] for entry in queue.state["rows"])
-    queue.files.files.pop(AGARI_COMPANION)
+    queue.files.files.pop(FINISH_LINE_COMPANION)
 
     queue.advance(sweep, "settled")
 
-    assert queue.processes.launched[-1][1:] == ["nemawashi-pick", PROJECT]
+    assert queue.processes.launched[-1][1:] == ["seed-pick", PROJECT]
 
 
-def test_the_agari_companion_is_found_with_no_product_path():
-    queue = pick_behind_the_agari_companion(product_path="", companion=True)
+def test_the_finish_line_companion_is_found_with_no_product_path():
+    queue = pick_behind_the_finish_line_companion(product_path="", companion=True)
 
     assert queue.processes.launched[-1][:2] == [PRODUCT_SWEEP, PROJECT]
     assert any(entry["move"] == SWEEP for entry in queue.state["rows"])
 
 
-def test_no_agari_companion_and_no_product_path_picks_at_once():
-    queue = pick_behind_the_agari_companion(product_path="", companion=False)
+def test_no_finish_line_companion_and_no_product_path_picks_at_once():
+    queue = pick_behind_the_finish_line_companion(product_path="", companion=False)
 
-    assert queue.processes.launched[-1][1:] == ["nemawashi-pick", PROJECT]
+    assert queue.processes.launched[-1][1:] == ["seed-pick", PROJECT]
     assert not any(entry["move"] == SWEEP for entry in queue.state["rows"])
 
 
@@ -4114,7 +4299,7 @@ def test_the_pick_waits_on_the_queued_sweep_then_picks_when_it_lands():
 
     queue.advance(1, "settled")
 
-    assert queue.processes.launched[-1][1:] == ["nemawashi-pick", PROJECT]
+    assert queue.processes.launched[-1][1:] == ["seed-pick", PROJECT]
     assert len(chain_launches(queue)) == 1
 
 
@@ -4125,7 +4310,7 @@ def test_the_pick_is_blocked_when_the_queued_sweep_fails():
 
     assert queue.statuses()[2] == "blocked"
     assert queue.state["ended"] == "halted"
-    assert not any(argv[1:2] == ["nemawashi-pick"] for argv in queue.processes.launched)
+    assert not any(argv[1:2] == ["seed-pick"] for argv in queue.processes.launched)
 
 
 def test_a_pick_waits_on_a_sweep_row_still_waiting():
@@ -4158,7 +4343,7 @@ def test_a_pick_ready_while_a_row_runs_gets_its_sweep_row_which_waits_its_turn()
     queue.advance(3, "settled")
 
     assert queue.statuses() == {1: "landed", 2: "launched", 3: "landed"}
-    assert queue.processes.launched[-1][1] == "nemawashi-pick"
+    assert queue.processes.launched[-1][1] == "seed-pick"
 
 
 def test_a_sweep_row_the_queue_adds_takes_its_turn_after_the_rows_it_already_held():
@@ -4220,7 +4405,7 @@ CONTINUING = (f"instance · {PROJECT} · build-idea — continuing — {WALK} is
               f"the queue carries on from the rows that waited for it")
 WALK_STOPPED = (f"instance · {PROJECT} · build-idea — still waiting on a walk — {WALK} was "
                 f"stopped, so the queue does not continue by itself. Resume with: {RESUME}")
-WATCH_ARGV = ["python3", ENGINE, "--wait-on-walk", STATE, "queue-1"]
+WATCH_ARGV = [f"{CORE}/tools/locked_python.sh", ENGINE, "--wait-on-walk", STATE, "queue-1"]
 WATCH_LOG = f"{LOGS}/build-idea-{PROJECT}.log"
 REFUSED_AS_WALKING = (f"its launcher exited 4: {WALK} is still walking, so its chain did not "
                       f"start — the row waits, and is launched again when the queue continues "
@@ -4308,7 +4493,7 @@ def test_a_sweep_exiting_another_code_still_fails():
 
 def change_launches(queue: Queue) -> list[list[str]]:
     return [argv for argv in queue.processes.launched
-            if argv[0].endswith("/launchers/chain-change/launcher.sh")]
+            if argv[0].endswith("/launchers/walk/launcher.sh")]
 
 
 def test_a_hand_off_refused_as_already_walking_waits_and_holds_the_queue():
@@ -4375,7 +4560,7 @@ def test_a_start_resumes_a_waiting_queue_and_relaunches_the_sweep():
     assert queue.state["waiting_on_walk"] == "" and queue.state["ended"] is None
     assert len(chain_launches(queue)) == 2 and queue.statuses()[1] == "launched"
     queue.advance(1, "settled")
-    assert queue.processes.launched[-1][1:] == ["nemawashi-pick", PROJECT]
+    assert queue.processes.launched[-1][1:] == ["seed-pick", PROJECT]
 
 
 def test_a_start_lets_a_held_pick_check_the_companions_again():
@@ -4388,7 +4573,7 @@ def test_a_start_lets_a_held_pick_check_the_companions_again():
 
     queue.start(product_path=PRODUCT)
 
-    assert queue.processes.launched[-1][1:] == ["nemawashi-pick", PROJECT]
+    assert queue.processes.launched[-1][1:] == ["seed-pick", PROJECT]
     assert [entry["move"] for entry in queue.state["rows"]] == [PICK]
 
 
@@ -4596,7 +4781,7 @@ def test_wake_lets_a_held_pick_check_the_companions_again():
 
     queue.wake()
 
-    assert queue.processes.launched[-1][1:] == ["nemawashi-pick", PROJECT]
+    assert queue.processes.launched[-1][1:] == ["seed-pick", PROJECT]
 
 
 def test_wake_sends_the_continuing_message():
@@ -4908,86 +5093,14 @@ def test_wait_on_walk_reports_errors_through_the_saved_notifier(tmp_path, capsys
     assert "Traceback" not in error
 
 
-# --- the `readme-status` row ------------------------------------------------------------------
-#
-# The row follows each `close the reached station` row and settles on what the Content Editor's
-# run reported, which reaches the queue through a receipt the watcher publishes, or on the
-# product's tree when it never had a what-left file. The disk below is scripted: a receipt is
-# written to the destination the row's launch named, the way the watcher would.
+# --- the rows behind a close -------------------------------------------------------------------
 
-import tomllib  # noqa: E402
-
-README_PROJECT_RULE = "readme-status"
-WHAT_LEFT = f"{PRODUCT}/docs/what_left.md"
-COMMIT_SENTENCE = "readme-status made commit `1a2b3c4d5` in `/x/product`."
-NOTHING_SENTENCE = "readme-status found nothing to change and made no commit."
-NOT_REPORTED = ("the run finished but readme-status neither made its commit nor found nothing "
-                "to change")
 RESULT_FILE = completion_shim.RESULT_FILE_VARIABLE
-EXAMPLE_PROVIDER_FILE = Path(__file__).resolve().parents[2] / ".providers.toml.example"
-
-
-def status_queue(*extra_rows: str, what_left: str | None = "# what left\n- a want\n",
-                 start: bool = True, product_path: str = PRODUCT, **kwargs) -> Queue:
-    """A close (row 1) and its `readme-status` row (row 2, After 1), started over a product that
-    holds a what-left file unless `what_left` is `None`."""
-    files = sealed_world(row(1, CLOSE), row(2, README_STATUS, after="1"), *extra_rows)
-    if what_left is not None:
-        files[WHAT_LEFT] = what_left
-    queue = Queue(files=files, **kwargs)
-    if start:
-        queue.start(product_path=product_path)
-    return queue
-
-
-def entry_of(queue: Queue, number: int = 2) -> dict:
-    return next(entry for entry in queue.state["rows"] if entry["number"] == number)
 
 
 def land_the_close(queue: Queue) -> None:
     queue.close_station()
     queue.advance(1)
-
-
-def receipt_message(queue: Queue, message: str | None, *, number: int = 2,
-                    raw: str | None = None) -> None:
-    """What the watcher would have published at the destination the row's launch named."""
-    destination = entry_of(queue, number)["receipt"]
-    queue.files.files[destination] = (
-        raw if raw is not None else json.dumps({"last_message": message}))
-
-
-def a_status_row_that_finished_with(message: str | None, outcome: str = "completed",
-                                    **kwargs) -> Queue:
-    queue = status_queue(**kwargs)
-    land_the_close(queue)
-    if message is not None:
-        receipt_message(queue, message)
-    queue.advance(2, outcome)
-    return queue
-
-
-# Kind, listing and order -------------------------------------------------------------------
-
-
-def test_a_readme_status_row_with_the_canonical_command_is_accepted():
-    rows = validated(next_moves(row(1, CLOSE), row(2, README_STATUS, after="1")))
-
-    assert [(r.number, r.move, r.after) for r in rows] == [
-        (1, CLOSE, ()), (2, README_STATUS, (1,))]
-
-
-def test_a_readme_status_row_with_a_wrong_command_is_refused_on_its_row():
-    wrong = f"`{CORE}/launchers/skill/launcher.sh shukuba-retire {PROJECT}`"
-    queue = Queue(row(1, CLOSE), row(2, README_STATUS, command=wrong, after="1"))
-
-    queue.start()
-
-    reason = queue.state["rows"][1]["reason"]
-    assert queue.statuses() == {1: "launched", 2: "failed"}
-    assert reason.startswith("its Command") and "is not what 'readme-status' runs" in reason
-    assert f"{CORE}/launchers/skill/launcher.sh readme-status {PROJECT}" in reason
-    assert [argv[1] for argv in queue.processes.launched] == ["shukuba-retire"]
 
 
 def test_an_unknown_kind_is_still_refused():
@@ -4997,82 +5110,8 @@ def test_an_unknown_kind_is_still_refused():
         validated(text)
 
 
-def test_the_readme_status_kind_sits_immediately_after_the_close_kind_in_the_table():
-    kinds = list(bi.KINDS)
-
-    assert kinds.index(README_STATUS) == kinds.index(CLOSE) + 1
-
-
-def test_the_readme_status_kind_is_a_content_editor_skill_row_with_its_own_landing_fact():
-    kind = bi.KINDS[README_STATUS]
-
-    assert (kind.disposition, kind.launcher, kind.arguments, kind.role) == (
-        bi.Disposition.RUN_SKILL, "skill", (README_STATUS, "<project>"), "content-editor")
-    assert kind.landed not in (bi.Landed.NONE, bi.KINDS[CLOSE].landed)
-    assert README_STATUS not in bi._NEMAWASHI_KINDS
-
-
-def test_dispositions_and_the_prompt_union_hold_the_new_kind():
-    assert README_STATUS in DISPOSITIONS
-    assert README_STATUS in [cells[0] for cells in _prompt_kind_table()]
-    assert README_STATUS not in {cells[0] for cells in _prompt_kind_table(_NEMAWASHI_PROMPT)}
-    assert bi.expected_argv(README_STATUS, core_dir=CORE, project=PROJECT) == [
-        f"{CORE}/launchers/skill/launcher.sh", README_STATUS, PROJECT]
-
-
-def test_the_start_message_lists_the_row():
-    queue = status_queue()
-
-    message = queue.notifier.messages[0]
-
-    assert "1. close the reached station — after — — runs" in message
-    assert "2. readme-status — after 1 — runs" in message
-
-
-def test_describe_lists_the_row_with_its_launcher():
-    queue = status_queue(start=False)
-
-    plan = queue.describe()
-
-    assert (f"2. readme-status — after 1 — {CORE}/launchers/skill/launcher.sh readme-status "
-            f"{PROJECT}") in [bi._describe_line(planned) for planned in plan.rows]
-
-
-# Ordering and seat ---------------------------------------------------------------------------
-
-
-def test_the_row_is_not_launched_while_its_close_is_in_flight():
-    queue = status_queue()
-
-    assert queue.statuses() == {1: "launched", 2: "waiting"}
-    assert len(queue.processes.launched) == 1
-
-
-def test_the_row_launches_after_its_close_lands_on_the_content_editor_seat():
-    queue = status_queue()
-
-    land_the_close(queue)
-
-    assert queue.statuses() == {1: "landed", 2: "launched"}
-    assert queue.processes.launched[-1] == bi.expected_argv(
-        README_STATUS, core_dir=CORE, project=PROJECT)
-    assert queue.processes.calls[-1]["env"]["INSTRUMENT_RUN_ROLE"] == "content-editor"
-
-
-def test_a_failed_close_blocks_the_row_and_the_queue_ends_halted_on_the_close():
-    queue = status_queue()
-
-    queue.advance(1)
-
-    assert queue.statuses() == {1: "failed", 2: "blocked"}
-    assert len(queue.processes.launched) == 1
-    assert queue.state["ended"] == "halted"
-    assert "1. close the reached station failed" in queue.state["ended_reason"]
-    assert queue.notifier.messages[-1].splitlines()[-1] == "blocked: 2. readme-status — waits on 1"
-
-
 def test_a_blocked_close_blocks_the_row():
-    queue = Queue(row(1, DROP), row(2, CLOSE, after="1"), row(3, README_STATUS, after="2"))
+    queue = Queue(row(1, DROP), row(2, CLOSE, after="1"), row(3, PICK, after="2"))
 
     queue.start()
 
@@ -5081,7 +5120,7 @@ def test_a_blocked_close_blocks_the_row():
 
 
 def test_every_named_after_row_must_land_before_the_row_starts():
-    queue = Queue(row(1, CLOSE), row(2, SWEEP), row(3, README_STATUS, after="1, 2"))
+    queue = Queue(row(1, CLOSE), row(2, SWEEP), row(3, PICK, after="1, 2"))
     queue.start()
 
     land_the_close(queue)
@@ -5092,7 +5131,8 @@ def test_every_named_after_row_must_land_before_the_row_starts():
 
 
 def test_a_repeated_completion_callback_neither_relaunches_nor_reorders_rows():
-    queue = status_queue()
+    queue = Queue(row(1, CLOSE), row(2, PICK, after="1"))
+    queue.start()
     land_the_close(queue)
     launched = list(queue.processes.launched)
 
@@ -5102,224 +5142,22 @@ def test_a_repeated_completion_callback_neither_relaunches_nor_reorders_rows():
     assert queue.statuses() == {1: "landed", 2: "launched"}
 
 
-# Landing -------------------------------------------------------------------------------------
-
-
-@pytest.mark.parametrize("outcome", ["completed", "produced_nothing"])
-def test_the_commit_sentence_lands_the_row_for_both_finished_endings(outcome):
-    queue = a_status_row_that_finished_with(COMMIT_SENTENCE + " It rewrote the status.", outcome)
-
-    assert queue.statuses() == {1: "landed", 2: "landed"}
-    assert queue.state["ended"] == "done"
-
-
-@pytest.mark.parametrize("outcome", ["completed", "produced_nothing"])
-def test_the_nothing_to_change_sentence_lands_the_row_for_both_finished_endings(outcome):
-    queue = a_status_row_that_finished_with(NOTHING_SENTENCE + "\nThe README is current.", outcome)
-
-    assert queue.statuses() == {1: "landed", 2: "landed"}
-
-
-@pytest.mark.parametrize("receipt", [
-    None,
-    {"raw": ""},
-    {"raw": "not json {"},
-    {"raw": json.dumps({"last_message": None})},
-    {"raw": json.dumps({"last_message": 7})},
-    {"raw": json.dumps(["readme-status found nothing to change and made no commit."])},
-])
-def test_a_missing_empty_or_malformed_receipt_does_not_land_a_row_whose_file_exists(receipt):
-    queue = status_queue()
-    land_the_close(queue)
-    if receipt is not None:
-        receipt_message(queue, None, raw=receipt["raw"])
-
-    queue.advance(2)
-
-    assert queue.statuses() == {1: "landed", 2: "failed"}
-    assert entry_of(queue)["reason"] == NOT_REPORTED
-
-
-@pytest.mark.parametrize("message", [
-    "Done. " + COMMIT_SENTENCE,
-    "\n" + COMMIT_SENTENCE,
-])
-def test_a_commit_sentence_that_is_not_the_opening_does_not_land_the_row(message):
-    queue = a_status_row_that_finished_with(message)
-
-    assert queue.statuses() == {1: "landed", 2: "failed"}
-
-
-@pytest.mark.parametrize("message", [
-    "I checked both entries against `main`.\n\n" + NOTHING_SENTENCE,
-    "I checked both entries.\n\n**" + NOTHING_SENTENCE + "**",
-    "*" + NOTHING_SENTENCE + "*",
-    "> " + NOTHING_SENTENCE,
-    " " + NOTHING_SENTENCE,
-    NOTHING_SENTENCE + " No entry in `/x/product/docs/what_left.md` is wholly built at `main`.",
-])
-def test_the_nothing_to_change_sentence_lands_the_row_as_the_opening_or_a_whole_line_anywhere(message):
-    queue = a_status_row_that_finished_with(message)
-
-    assert queue.statuses() == {1: "landed", 2: "landed"}
-
-
-@pytest.mark.parametrize("message", [
-    "I ran it. " + NOTHING_SENTENCE,
-    "It said " + NOTHING_SENTENCE + " and stopped.",
-    "**" + NOTHING_SENTENCE.replace("no commit.", "no commit**."),
-    "I ran it.\n" + NOTHING_SENTENCE.capitalize(),
-])
-def test_the_nothing_to_change_sentence_inside_a_line_or_misquoted_does_not_land_the_row(message):
-    queue = a_status_row_that_finished_with(message)
-
-    assert queue.statuses() == {1: "landed", 2: "failed"}
-
-
-@pytest.mark.parametrize("message", [
-    "readme-status made commit `` in `/x/product`.",
-    "readme-status made commit `1a2b3c4d5` in ``.",
-    "readme-status made commit `1a2b3c4d5` in `/x/product`",
-    "readme-status made commit 1a2b3c4d5 in /x/product.",
-    "readme-status made commit `1a2b3c4d5`.",
-])
-def test_an_incomplete_commit_sentence_does_not_land_the_row(message):
-    queue = a_status_row_that_finished_with(message)
-
-    assert queue.statuses() == {1: "landed", 2: "failed"}
-    assert entry_of(queue)["reason"] == NOT_REPORTED
-
-
-@pytest.mark.parametrize("message", [
-    COMMIT_SENTENCE.capitalize(), NOTHING_SENTENCE.upper(),
-    NOTHING_SENTENCE.replace("nothing to change", "nothing  to change"),
-    "readme-status found nothing to change and made no commit",
-])
-def test_the_receipt_message_is_compared_verbatim(message):
-    queue = a_status_row_that_finished_with(message)
-
-    assert queue.statuses() == {1: "landed", 2: "failed"}
-
-
-@pytest.mark.parametrize("outcome", ["completed", "produced_nothing"])
-def test_a_product_without_a_what_left_file_lands_the_row_for_both_finished_endings(outcome):
-    queue = a_status_row_that_finished_with(None, outcome, what_left=None)
-
-    assert queue.statuses() == {1: "landed", 2: "landed"}
-    assert queue.files.files.get(entry_of(queue)["receipt"]) is None
-
-
-def test_a_close_and_a_readme_status_row_end_done_when_both_land_including_a_product_with_no_what_left_file():
-    queue = a_status_row_that_finished_with(None, what_left=None)
-
-    assert queue.state["ended"] == "done"
-    assert queue.state["ended_reason"] == "done — every row ran or was named"
-    assert queue.notifier.messages[-1] == (
-        "instance · proj · build-idea — done — every row ran or was named")
-
-
-@pytest.mark.parametrize("what_left", ["", "{ not what-left", "# what left\n"])
-def test_an_empty_or_malformed_what_left_file_does_not_count_as_absent(what_left):
-    queue = a_status_row_that_finished_with(None, what_left=what_left)
-
-    assert queue.statuses() == {1: "landed", 2: "failed"}
-
-
-@pytest.mark.parametrize("recorded", ["products/tools", "/abs/product", "products/a/b/c"])
-def test_absence_is_resolved_for_relative_absolute_and_nested_product_paths(recorded):
-    directory = os.path.normpath(os.path.join(INSTANCE, recorded))
-    absent = status_queue(what_left=None, product_path=recorded)
-    land_the_close(absent)
-    absent.advance(2)
-    present = status_queue(what_left=None, product_path=recorded)
-    present.files.files[f"{directory}/docs/what_left.md"] = "# what left\n"
-    land_the_close(present)
-    present.advance(2)
-
-    assert absent.statuses() == {1: "landed", 2: "landed"}
-    assert present.statuses() == {1: "landed", 2: "failed"}
-
-
-def _a_legacy_state_with_the_card(card_line: str | None, *, what_left_at: str | None = None):
-    """A queue whose state holds no product path, as one written before it did, over a card
-    carrying `card_line`; the what-left file sits at `what_left_at` when that is given."""
-    card = FULL_CARD + (f"{card_line}\n" if card_line is not None else "")
-    queue = status_queue(what_left=None, product_path="")
-    queue.files.files[CARD] = card
-    if what_left_at:
-        queue.files.files[what_left_at] = "# what left\n"
-    land_the_close(queue)
-    queue.advance(2)
-    return queue
-
-
-@pytest.mark.parametrize("line, product", [
-    ("**Product path:** products/tools   <!-- a comment -->", f"{INSTANCE}/products/tools"),
-    ("**Product path:** /abs/product", "/abs/product"),
-])
-def test_an_empty_legacy_state_product_path_is_resolved_from_a_valid_project_card(line, product):
-    gone = _a_legacy_state_with_the_card(line)
-    kept = _a_legacy_state_with_the_card(line, what_left_at=f"{product}/docs/what_left.md")
-
-    assert gone.statuses() == {1: "landed", 2: "landed"}
-    assert kept.statuses() == {1: "landed", 2: "failed"}
-
-
-@pytest.mark.parametrize("line", [None, "**Product path:**", "**Product path:** ../outside"])
-def test_an_unresolved_product_card_never_claims_the_file_is_absent(line):
-    queue = _a_legacy_state_with_the_card(line)
-
-    assert queue.statuses() == {1: "landed", 2: "failed"}
-    assert entry_of(queue)["reason"] == NOT_REPORTED
-
-
-def test_a_missing_card_never_claims_the_file_is_absent():
-    queue = status_queue(what_left=None, product_path="")
-    queue.files.files.pop(CARD)
-    land_the_close(queue)
-
-    queue.advance(2)
-
-    assert queue.statuses() == {1: "landed", 2: "failed"}
-
-
-def test_an_existing_file_with_a_readme_that_has_no_status_line_fails_with_the_exact_reason_and_end_line():
-    queue = a_status_row_that_finished_with(
-        "readme-status refused: the README has no `## Status` line.")
-
-    assert queue.state["ended"] == "halted"
-    assert queue.state["ended_reason"] == f"halted — 2. readme-status failed: {NOT_REPORTED}"
-    assert queue.notifier.messages[-1].splitlines()[0] == (
-        f"instance · proj · build-idea — halted — 2. readme-status failed: {NOT_REPORTED}")
-
-
-def test_a_commit_builder_refusal_fails_the_row_with_the_exact_reason():
-    queue = a_status_row_that_finished_with(
-        "commit_builder refused: the staged set was not declared.")
-
-    assert entry_of(queue)["status"] == "failed"
-    assert entry_of(queue)["reason"] == NOT_REPORTED
-
-
-def test_an_unrecognised_final_message_fails_the_row_with_the_exact_reason():
-    queue = a_status_row_that_finished_with("All done, the README looks good now.")
-
-    assert entry_of(queue)["reason"] == NOT_REPORTED
-
-
 def test_an_independent_next_change_row_after_the_close_still_hands_off_when_the_row_fails():
-    queue = status_queue(row(3, CHANGE, after="1"))
+    queue = Queue(row(1, CLOSE), row(2, PICK, after="1"), row(3, CHANGE, after="1"))
+    queue.start()
     land_the_close(queue)
 
     queue.advance(2)
 
     assert queue.statuses() == {1: "landed", 2: "failed", 3: "handed-off"}
     assert queue.state["ended"] == "halted"
-    assert queue.state["ended_reason"].startswith("halted — 2. readme-status failed:")
+    assert queue.state["ended_reason"].startswith("halted — 2. pick a seed failed:")
 
 
-def test_a_row_depending_on_a_failed_readme_status_row_is_blocked_and_the_queue_waits_for_independent_work_before_its_halted_summary():
-    queue = status_queue(row(3, PICK, after="2"), row(4, SWEEP, after="1"))
+def test_a_row_depending_on_a_failed_row_is_blocked_and_independent_work_runs_before_the_summary():
+    queue = Queue(row(1, CLOSE), row(2, PICK, after="1"), row(3, CUT_ROUTE, after="2"),
+                  row(4, SWEEP, after="1"))
+    queue.start()
     land_the_close(queue)
 
     queue.advance(2)
@@ -5329,111 +5167,11 @@ def test_a_row_depending_on_a_failed_readme_status_row_is_blocked_and_the_queue_
     queue.advance(4, "settled")
     assert queue.state["ended"] == "halted"
     assert queue.notifier.messages[-1].splitlines()[0] == (
-        f"instance · proj · build-idea — halted — 2. readme-status failed: {NOT_REPORTED}")
+        "instance · proj · build-idea — halted — 2. pick a seed failed: "
+        "the run finished but no seed sits at the seedbed root, committed as it is on disk")
 
 
-@pytest.mark.parametrize("end", ["timeout", "failed", "stopped", "vanished"])
-@pytest.mark.parametrize("scenario", ["file absent", "success receipt"])
-def test_every_non_finished_ending_fails_with_the_run_ended_reason(end, scenario):
-    queue = status_queue(what_left=None if scenario == "file absent" else "# what left\n")
-    land_the_close(queue)
-    if scenario == "success receipt":
-        receipt_message(queue, COMMIT_SENTENCE)
-
-    queue.advance(2, end)
-
-    assert queue.statuses() == {1: "landed", 2: "failed"}
-    assert entry_of(queue)["reason"] == f"the run ended {end}"
-
-
-def test_a_resume_does_not_land_a_row_that_never_launched_or_never_finished_because_a_file_is_absent():
-    never_launched = status_queue(what_left=None)
-    never_launched.stop()
-    never_launched.start(product_path=PRODUCT)
-    never_finished = status_queue(what_left=None)
-    land_the_close(never_finished)
-    never_finished.stop()
-    never_finished.start(product_path=PRODUCT)
-
-    assert entry_of(never_launched)["status"] == "waiting"
-    assert entry_of(never_finished)["status"] == "launched"
-    assert [argv[1] for argv in never_finished.processes.launched].count(README_STATUS) == 2
-
-
-def test_a_relaunch_clears_the_old_ending_and_receipt_evidence():
-    queue = a_status_row_that_finished_with("All done, the README looks good now.")
-    first = entry_of(queue)
-    assert first["ending"] == "completed" and first["status"] == "failed"
-
-    queue.start(product_path=PRODUCT)
-
-    second = entry_of(queue)
-    assert second["status"] == "launched"
-    assert "ending" not in second
-    assert second["receipt"] != first["receipt"]
-    assert second["receipt"] not in queue.files.files
-
-
-# Receipts per attempt --------------------------------------------------------------------------
-
-
-def test_each_attempt_and_each_row_gets_a_distinct_receipt_destination():
-    queue = status_queue(row(3, README_STATUS, after="1"))
-    land_the_close(queue)
-    queue.advance(2)
-    queue.advance(3)
-    queue.start(product_path=PRODUCT)
-    queue.advance(2)
-
-    launches = [call["env"][RESULT_FILE] for call in queue.processes.calls
-                if call["argv"][1] == README_STATUS]
-    assert len(launches) == 4 and len(set(launches)) == 4
-    assert all(os.path.isabs(path) for path in launches)
-    assert entry_of(queue, 2)["receipt"] == launches[2]
-
-
-def test_the_receipt_destination_is_saved_in_the_row_before_the_launcher_runs():
-    seen = []
-
-    def on_run(argv):
-        if argv[1:2] == [README_STATUS]:
-            seen.append(json.loads(queue.files.files[STATE])["rows"][1].get("receipt"))
-
-    queue = status_queue(on_run=on_run)
-    land_the_close(queue)
-
-    assert seen == [queue.processes.calls[-1]["env"][RESULT_FILE]]
-
-
-def test_a_late_first_attempt_receipt_cannot_satisfy_a_retry():
-    queue = a_status_row_that_finished_with("All done, the README looks good now.")
-    first = entry_of(queue)["receipt"]
-    queue.start(product_path=PRODUCT)
-    queue.files.files[first] = json.dumps({"last_message": COMMIT_SENTENCE})
-
-    queue.advance(2)
-
-    assert queue.statuses() == {1: "landed", 2: "failed"}
-    assert entry_of(queue)["reason"] == NOT_REPORTED
-
-
-def test_a_restart_retains_valid_finished_evidence():
-    queue = status_queue(row(3, SWEEP, after="2"))
-    land_the_close(queue)
-    receipt_message(queue, COMMIT_SENTENCE)
-
-    def delivered_but_not_recorded(state):
-        state["pending"].pop("2")
-        state["rows"][1]["ending"] = "completed"
-
-    queue.edit_state(delivered_but_not_recorded)
-    queue.start(product_path=PRODUCT)
-
-    assert queue.statuses() == {1: "landed", 2: "landed", 3: "launched"}
-    assert [argv[1] for argv in queue.processes.launched].count(README_STATUS) == 1
-
-
-def test_inherited_receipt_destinations_are_cleared_for_every_other_row():
+def test_inherited_receipt_destinations_are_cleared_for_every_row():
     inherited = {"PATH": "/usr/bin", RESULT_FILE: "/old/receipt.json"}
     queue = Queue(row(1, CLOSE), row(2, SWEEP), row(3, PICK, after="1"),
                   row(4, CHANGE, after="1"), environ=inherited)
@@ -5448,55 +5186,38 @@ def test_inherited_receipt_destinations_are_cleared_for_every_other_row():
     assert all(RESULT_FILE not in call["env"] for call in queue.processes.calls)
 
 
-def test_a_readme_status_launch_replaces_an_inherited_destination_with_its_own():
-    queue = status_queue(environ={"PATH": "/usr/bin", RESULT_FILE: "/old/receipt.json"})
-    land_the_close(queue)
-
-    assert queue.processes.calls[-1]["env"][RESULT_FILE] == entry_of(queue)["receipt"]
-    assert entry_of(queue)["receipt"] != "/old/receipt.json"
-
-
-def test_the_checkout_dirty_failure_still_overrides_success_evidence():
-    queue = status_queue(checkout=FakeCheckout([], [], [], ["?? junk.md"]))
-    land_the_close(queue)
-    receipt_message(queue, COMMIT_SENTENCE)
-
-    queue.advance(2)
-
-    assert queue.statuses() == {1: "landed", 2: "failed"}
-    assert queue.state["checkout_dirty"] is True
-
-
 # Provider (CP-553, CP-554) ---------------------------------------------------------------------
 
-def lacking_status() -> str:
-    """The delivered provider file without the row's entry — built when a test asks, since the
-    delivered file is what carries the entry."""
-    return edited_text({f"build-idea.{README_STATUS}": None})
+def lacking_pick() -> str:
+    """The delivered provider file without the pick row's entry — built when a test asks, since
+    the delivered file is what carries the entry."""
+    return edited_text({f"build-idea.{PICK}": None})
 
 
 def test_an_unforced_start_with_a_provider_file_lacking_the_entry_is_refused_naming_it():
-    queue = status_queue(start=False, provider_port=ProviderText(lacking_status()))
+    queue = Queue(row(1, CLOSE), row(2, PICK, after="1"),
+                  provider_port=ProviderText(lacking_pick()))
 
     with pytest.raises(bi.QueueRefused) as refused:
         queue.start()
 
-    assert "build-idea.readme-status is missing" in str(refused.value)
+    assert 'build-idea."pick a seed" is missing' in str(refused.value)
     assert queue.processes.calls == [] and STATE not in queue.files.files
 
 
 def test_an_unforced_describe_with_a_provider_file_lacking_the_entry_is_refused_the_same_way():
-    queue = status_queue(start=False, provider_port=ProviderText(lacking_status()))
+    queue = Queue(row(1, CLOSE), row(2, PICK, after="1"),
+                  provider_port=ProviderText(lacking_pick()))
 
     with pytest.raises(bi.QueueRefused) as refused:
         queue.describe()
 
-    assert "build-idea.readme-status is missing" in str(refused.value)
+    assert 'build-idea."pick a seed" is missing' in str(refused.value)
 
 
 def test_a_forced_start_reads_no_file_for_the_row_and_runs_on_the_forced_provider():
     port = ProviderText(None)
-    queue = status_queue(start=False, provider_port=port)
+    queue = Queue(row(1, CLOSE), row(2, PICK, after="1"), provider_port=port)
     queue.start(forced_provider="gemini", product_path=PRODUCT)
 
     land_the_close(queue)
@@ -5506,8 +5227,9 @@ def test_a_forced_start_reads_no_file_for_the_row_and_runs_on_the_forced_provide
 
 
 def test_a_codex_entry_routes_the_row_to_codex():
-    port = ProviderText(edited_text({f"build-idea.{README_STATUS}": "codex"}))
-    queue = status_queue(provider_port=port)
+    port = ProviderText(edited_text({f"build-idea.{PICK}": "codex"}))
+    queue = Queue(row(1, CLOSE), row(2, PICK, after="1"), provider_port=port)
+    queue.start()
 
     land_the_close(queue)
 
@@ -5515,30 +5237,21 @@ def test_a_codex_entry_routes_the_row_to_codex():
     assert queue.processes.calls[0]["env"][PROVIDER] == "claude"
 
 
-def test_every_skill_row_is_preflighted_even_on_a_report_without_a_status_row():
-    queue = Queue(row(1, CLOSE), provider_port=ProviderText(lacking_status()))
+def test_every_skill_row_is_preflighted_even_on_a_report_without_that_row():
+    queue = Queue(row(1, CLOSE), provider_port=ProviderText(lacking_pick()))
 
-    with pytest.raises(bi.QueueRefused, match="build-idea.readme-status is missing"):
+    with pytest.raises(bi.QueueRefused, match='build-idea."pick a seed" is missing'):
         queue.start()
-
-
-def test_the_example_provider_file_carries_the_readme_status_entry():
-    table = tomllib.loads(EXAMPLE_PROVIDER_FILE.read_text(encoding="utf-8"))
-    queue = status_queue(start=False, provider_port=ProviderText(DELIVERED_TEXT))
-
-    queue.start(product_path=PRODUCT)
-
-    assert table["build-idea"][README_STATUS] == "claude"
-    assert queue.state["rows"][1]["move"] == README_STATUS
 
 
 # Nemawashi (CP-557) ----------------------------------------------------------------------------
 
 
-def test_a_nemawashi_refine_report_row_readme_status_is_refused_as_not_a_nemawashi_next_move():
-    queue = retired_queue(row(1, README_STATUS))
+def test_a_nemawashi_refine_report_row_close_is_refused_as_not_a_nemawashi_next_move():
+    queue = retired_queue(row(1, CLOSE))
 
-    with pytest.raises(bi.QueueRefused, match="row 1: 'readme-status' is not a nemawashi next move"):
+    with pytest.raises(bi.QueueRefused,
+                       match="row 1: 'close the reached station' is not a nemawashi next move"):
         queue.describe()
 
 
@@ -5667,7 +5380,7 @@ def test_a_close_naming_a_station_that_was_never_open_does_not_land():
     queue.advance(1)
 
     assert queue.statuses() == {1: "failed"}
-    assert "has not moved from the shukuba root to trail/" in queue.state["rows"][0]["reason"]
+    assert "move from the shukuba root to trail/ is not in the last commit" in queue.state["rows"][0]["reason"]
 
 
 def test_a_station_gone_from_the_root_but_not_to_trail_has_not_been_closed():
@@ -5700,7 +5413,7 @@ def test_describe_shows_the_close_naming_its_station():
 
 # A Command cell that is not its kind's command fails its own row (2026-10-13) ----------------
 
-PROSE = (f"`{CORE}/launchers/chain-change/launcher.sh {PROJECT}`. If the pick is a seed of the "
+PROSE = (f"`{CORE}/launchers/walk/launcher.sh {PROJECT}`. If the pick is a seed of the "
          f"owner's own acts, this row does not apply")
 
 
@@ -5724,14 +5437,14 @@ def test_the_rows_before_a_refused_row_run_and_the_queue_halts_at_it():
     queue.pick_seed()
     queue.advance(2)
 
-    assert [argv[1] for argv in queue.processes.launched] == ["shukuba-retire", "nemawashi-pick"]
+    assert [argv[1] for argv in queue.processes.launched] == ["shukuba-retire", "seed-pick"]
     assert queue.state["ended"] == "halted"
     assert "3. walk the next change failed: its Command" in queue.state["ended_reason"]
     assert "cannot be read as a command" in queue.state["ended_reason"]
 
 
 def test_a_wrong_command_fails_its_row_and_blocks_the_rows_that_wait_on_it():
-    wrong = f"`{CORE}/launchers/chain-change/launcher.sh another`"
+    wrong = f"`{CORE}/launchers/walk/launcher.sh another`"
     queue = Queue(row(1, CLOSE), row(2, CHANGE, command=wrong, after="1"), row(3, OWNER, after="2"))
 
     queue.start()
@@ -5785,7 +5498,7 @@ def test_a_row_refused_at_the_first_start_runs_on_a_resume_that_accepts_it():
     assert queue.statuses() == {1: "landed", 2: "launched"}
     assert "refused" not in queue.state["rows"][1]
     assert [argv[1] for argv in queue.processes.launched] == [
-        "shukuba-retire", "shukuba-retire", "nemawashi-pick"]
+        "shukuba-retire", "shukuba-retire", "seed-pick"]
 
 
 def test_a_resume_with_only_a_refused_row_left_says_so():
@@ -5821,7 +5534,7 @@ def test_a_refine_report_row_with_a_prose_command_fails_alone_and_the_refine_lan
 
     assert queue.statuses() == {1: "landed", 2: "landed", 3: "launched", 4: "waiting",
                                 5: "failed"}
-    assert queue.processes.launched[-1][1:] == ["nemawashi-pick", PROJECT]
+    assert queue.processes.launched[-1][1:] == ["seed-pick", PROJECT]
 
 
 # --- a sealed hook start on a unit that serves no station and has no report (CP-592–CP-600) ----
@@ -5985,7 +5698,7 @@ def _a_queue_in_flight() -> Queue:
 
 def _a_live_walk_without_a_report() -> Queue:
     queue = Queue(files=no_report_world())
-    queue.files.files[CHAIN_CHANGE_STATE] = json.dumps(
+    queue.files.files[WALK_STATE] = json.dumps(
         {"ended": None, "pending": {"specs": {"step": "specs", "audited": None}}})
     return queue
 
@@ -5997,7 +5710,7 @@ def _no_sealed_key_and_no_report() -> Queue:
 @pytest.mark.parametrize("make, answer", [
     (_a_standing_stop, None),
     (_a_queue_in_flight, "is still running"),
-    (_a_live_walk_without_a_report, "chain-change walk is live"),
+    (_a_live_walk_without_a_report, "walk the walk launcher started is live"),
     (_no_sealed_key_and_no_report, "no sealed unit"),
 ])
 def test_earlier_start_answers_win_over_a_missing_no_station_report(make, answer):
@@ -6010,7 +5723,7 @@ def test_earlier_start_answers_win_over_a_missing_no_station_report(make, answer
         result = queue.start(by_hook=True)
         assert result.acted is False and not hasattr(result, "key")
         assert len(queue.notifier.messages) == sent + 1
-        assert "build-idea is stopped — chain-change's end did not restart it" in (
+        assert "build-idea is stopped — walk's end did not restart it" in (
             queue.notifier.messages[-1])
     else:
         with pytest.raises(bi.QueueRefused, match=answer):
@@ -6121,7 +5834,7 @@ def test_a_report_present_hook_start_with_a_malformed_report_is_refused_as_befor
     assert STATE not in queue.files.files and not queue.processes.calls
 
 
-# --- the owner's Mac ask: kept on the queue, put on every chain-change row ----------------------
+# --- the owner's Mac ask: kept on the queue, put on every walk row ----------------------
 
 
 def test_a_chain_change_row_carries_the_owners_mac_ask():
@@ -6142,7 +5855,7 @@ def test_a_queue_without_the_ask_puts_none_on_its_chain_change_row():
 
 @pytest.mark.parametrize("move", [CLOSE, PICK, CUT_ROUTE, SWEEP])
 def test_a_row_that_is_not_a_chain_change_carries_no_ask(move):
-    """A skill row has no gate, and the sweep runs `chain-product`, which refuses the flag."""
+    """A skill row has no gate, and the sweep runs `product-docs`, which refuses the flag."""
     queue = Queue(row(1, move))
 
     queue.start(gate_owners_mac=True)
@@ -6163,7 +5876,7 @@ def test_the_ask_travels_as_a_flag_never_in_the_environment():
 
 def test_every_start_states_the_ask_so_a_resume_can_lift_it():
     """The start a walk's end makes passes the flag when that walk had the ask; an owner's plain
-    resume passes none, and the queue's next chain-change walk has none."""
+    resume passes none, and the queue's next walk has none."""
     queue = Queue(row(1, CLOSE), row(2, CHANGE, after="1"))
     queue.start(gate_owners_mac=True)
     queue.stop()

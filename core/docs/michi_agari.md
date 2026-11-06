@@ -1,13 +1,13 @@
 ---
-version: "2.23.1"
+version: "2.25.1"
 ---
 
-# The Michi / Agari system — how kensaiapp expresses direction
+# The Michi / finish line system — how kensaiapp expresses direction
 
 This explains how a kensaiapp instance says *where it is going* and *when it is done* — and why
 those are two different things at two different altitudes — and the loop we walk to get from a
 project's ideas to its done. It is an explanatory doc for the foundation (`core/`), and it is **the
-reference for the journey model** — cite this file for how Michi, Agari, Nemawashi, Shukuba and
+reference for the journey model** — cite this file for how Michi, finish line, Nemawashi, Shukuba and
 Tobiishi relate and who owns each step.
 
 ---
@@ -19,14 +19,14 @@ they are not the same kind of thing:
 
 - **Global (the instance)** steers by a **道 Michi** — a *Way*. A bearing you hold forever and
   never finish.
-- **A project** aims at an **上がり Agari** — a *done*. A terminus you reach, and then the project
+- **A project** aims at a **finish line** — a *done*. A terminus you reach, and then the project
   settles.
 
 A bearing has no finish line; a terminus is nothing but a finish line. That asymmetry is the whole
 model. Everything below follows from it.
 
 The picture kensaiapp uses is a **solar system**: the Michi is the star an instance turns around
-and never reaches; each planet (a project) settles at its own Agari when done.
+and never reaches; each planet (a project) settles at its own finish line when done.
 
 ---
 
@@ -38,7 +38,7 @@ commits to and never finishes. It is the bearing the instance steers by.
 - **A declaration, not a queue.** You declare it once. You do not "work it" and "retire" it — a Way
   is not a task that completes.
 - **1..N Ways.** An instance may hold several Ways at once, each with a short slug.
-- **No Agari at instance level.** Nothing reaches the Michi. There is no "the instance is done."
+- **No finish line at instance level.** Nothing reaches the Michi. There is no "the instance is done."
 - **Lives at** `system/michi.md`, stamped from `core/templates/michi_template.md`. Mandatory —
   every instance has one.
 - The `Michi:` commit trailer references a Way's slug, so commits can say which bearing they served.
@@ -47,18 +47,20 @@ commits to and never finishes. It is the bearing the instance steers by.
 pipeline before it flows downstream), `nothing-unproven` (nothing leaves dev unless the pipeline
 itself ratified it), `production-grade` (what we deliver is finished, even when minimal).
 
-## 上がり Agari — the project terminus
+## Finish line — the project terminus
 
 **What it is.** The project-level declaration of when *that product* is done — the terminus. It is
 set by the **CPO** — the project's executive product role, distinct from the delivery-tier **Product
 Owner** who later writes each change's spec.
 
+- **A terminus, not a quality bar.** It is not a checklist every change meets. It is one product's
+  end: when it is reached, the project settles.
 - **A declaration, not a queue.** Like Michi, it is a statement, not a checklist you burn down. It
-  names the finish line; the work that reaches it lives in the journey (below).
+  names the end; the work that reaches it lives in the journey (below).
 - **Exactly one per project.** A project has a single "done."
 - **No Michi at project level.** A project does not carry its own bearing — it *serves the
-  instance's Way*. The project's job is to reach its Agari in a way that advances the Michi.
-- **Lives at** `system/projects/<name>/agari.md`, stamped from `core/templates/project-templates/agari_template.md`.
+  instance's Way*. The project's job is to reach its finish line in a way that advances the Michi.
+- **Lives at** `system/projects/<name>/finish_line.md`, stamped from `core/templates/project-templates/finish_line_template.md`.
   Mandatory — every managed project has one.
 - It **mirrors the instance's Michi one level down**: same "declaration of direction" shape, but a
   terminus instead of a bearing.
@@ -69,59 +71,59 @@ Owner** who later writes each change's spec.
 
 | | **Global — the instance** | **Project** |
 |---|---|---|
-| Direction word | 道 **Michi** — a *Way* | 上がり **Agari** — a *done* |
+| Direction word | 道 **Michi** — a *Way* | **Finish line** — a *done* |
 | Nature | **bearing** — endless, held forever | **terminus** — reached, then settles |
-| Count | **1..N** Ways | exactly **1** Agari |
+| Count | **1..N** Ways | exactly **1** finish line |
 | Set by | the instance owner | the **CPO** (project's executive product role) |
-| Settles / finishes? | **never** | **yes**, when the Agari is reached |
-| Carries the other? | **no Agari** | **no Michi** (serves the instance's Way) |
-| File | `system/michi.md` | `system/projects/<name>/agari.md` |
+| Settles / finishes? | **never** | **yes**, when the finish line is reached |
+| Carries the other? | **no finish line** | **no Michi** (serves the instance's Way) |
+| File | `system/michi.md` | `system/projects/<name>/finish_line.md` |
 | Kind | a declaration, not a queue | a declaration, not a queue |
 
-**How they connect.** Each project's Agari is chosen so that reaching it advances the instance's
-Michi. Planets settle; the solar system keeps turning. When one project is done, its Agari is
+**How they connect.** Each project's finish line is chosen so that reaching it advances the instance's
+Michi. Planets settle; the solar system keeps turning. When one project is done, its finish line is
 reached and the project settles — but the instance's Michi is unchanged, and the next project
-takes up the same bearing. The Michi is why the projects exist; each Agari is one project's
+takes up the same bearing. The Michi is why the projects exist; each finish line is one project's
 contribution to it.
 
 ---
 
 ## Where the *work* lives — the journey (context)
 
-Michi and Agari only *name* direction. The work that moves toward them is the **journey**
+Michi and finish line only *name* direction. The work that moves toward them is the **journey**
 (根回し Nemawashi → 宿場 Shukuba → 飛び石 Tobiishi). The two altitudes carry different amounts of it:
 
 - **Global (instance).** Carries a **bearing** (`michi.md`), a **seedbed** (`system/nemawashi/` —
   ideas that could become projects or cross-project changes) and a **router 宿場 Shukuba**
   (`system/shukuba/` — the coordination point for when several projects are pushing on one thing).
-  There is **no Tobiishi and no Agari** at instance level — nothing reaches the Michi, so it has no
+  There is **no Tobiishi and no finish line** at instance level — nothing reaches the Michi, so it has no
   terminus and no change-pipeline of its own. Shukuba therefore exists at both levels **as two
   different kinds**: a project's is *walked*, and the instance's *coordinates* — it names the shared
   thing, its cross-project reached-when and which project is currently active, and is never crossed
   by Tobiishi, because the contributing projects do the crossing in their own journeys.
-- **Project.** Carries an **Agari** plus the **full journey** under `journey/`:
-  - **根回し Nemawashi** — the seedbed of ideas that will carry this product toward its Agari.
+- **Project.** Carries a **finish line** plus the **full journey** under `journey/`:
+  - **根回し Nemawashi** — the seedbed of ideas that will carry this product toward its finish line.
   - **宿場 Shukuba** — the one current station: the concrete stretch being worked now.
   - **飛び石 Tobiishi** — the change units (stepping stones) that the change pipeline carries
     from first ask to sealed-on-main.
 
 So: **global = bearing + seedbed + router; project = terminus + full journey.** Same reason as Michi
-vs Agari — the instance never finishes, a project does.
+vs finish line — the instance never finishes, a project does.
 
 ---
 
 ## How we work — walking a project's journey
 
-This is the operating loop we run, session after session, to move a project toward its Agari. It is
+This is the operating loop we run, session after session, to move a project toward its finish line. It is
 entirely **project-level** — the global instance takes no part in it beyond providing the bearing
-(the Michi that the project's Agari serves). It assumes the project already has **at least one seed**
+(the Michi that the project's finish line serves). It assumes the project already has **at least one seed**
 in its 根回し Nemawashi; putting seeds there is a separate, ongoing act, not part of this loop.
 
 One turn of the loop:
 
 1. **Pick one seed — the PM's call.** The project's Nemawashi (`journey/nemawashi/`) holds a
    candidate pool in `nemawashi/unpicked/` — one or more **idea seeds**, candidate directions toward
-   the Agari. The **PM** chooses the single idea to work now and lifts it out of `unpicked/` to the
+   the finish line. The **PM** chooses the single idea to work now and lifts it out of `unpicked/` to the
    seedbed root; no other candidate moves. The elected idea becomes the one active seed and carries a
    checklist of the stations it will take. That checklist arrives as the cutter's **proposal**, and
    re-cutting it — where the station boundaries fall, and in what order they are walked — is the PM's
@@ -141,8 +143,8 @@ One turn of the loop:
 
 3. **Development — walk the station through the pipeline.** The building inside a station runs as one
    or more 飛び石 Tobiishi (change units). Each is opened (`tobiishi-open`, PM) and carried
-   end-to-end by the chain (`core/launchers/chain-development/launcher.sh` → `core/tools/chain_development.py`)
-   (specs → design → plan → content → implementation → code-integrity → security → audit → seal),
+   end-to-end by the chain (`core/launchers/change/launcher.sh` → `core/tools/chain_development.py`)
+   (specs → design → plan → content → implementation → changelog → code-integrity → security → audit → seal),
    landing sealed-on-main (each change unit is **sealed** by `tobiishi-seal`). A station may take
    several Tobiishi before its reached-when is met.
 
@@ -153,7 +155,7 @@ One turn of the loop:
    change unit lands, the **PM** runs `shukuba-refine`: it re-reads the route against what the unit
    left and what moved upstream, and leaves a report and recommendations with the seed
    (`<CORE>/../skills/pm/.claude/skills/shukuba-refine/prompts/rich.md` owns the method). The report's `## Next moves` is then run
-   by `<CORE>/launchers/build-idea/launcher.sh`, and a `chain-change` walk's end starts it.
+   by `<CORE>/launchers/build-idea/launcher.sh`, and a `walk`'s end starts it.
    The queue's continuation and stopping contract is `core/tools/build_idea.py`'s.
    When the station's
    reached-when is met,
@@ -166,8 +168,8 @@ One turn of the loop:
    `nemawashi-refine`: every recommendation `shukuba-refine` left in the retired seed's folder is
    processed, the candidate pool is re-read — the drops made there — and a report lands at
    `system/projects/<project>/docs/nemawashi-refine/<seed>_report.md`. The moves its `## Next moves`
-   names run: the companion sweep (`chain-product` when the project card's `**Definition:**` line in
-   `system/projects/<project>/project.md` reads `full`, `chain-agari` when it reads `prd-agari`, and
+   names run: the companion sweep (`product-docs` when the project card's `**Definition:**` line in
+   `system/projects/<project>/project.md` reads `full`, `prd-and-finish-line` when it reads `prd-and-finish-line`, and
    no sweep when it reads `none`) and the docs cut (`seeds-from-product-docs`) where
    owed — a docs cut is owed whenever the documents hold work no candidate carries, candidates left or
    not — and the PM picks the next seed after them and cuts its route (back to step 1). **The retire is a step of this loop the
@@ -193,7 +195,7 @@ One turn of the loop:
    the root empty the same way, and the Quick reference below keeps all five verbs apart — seal,
    close, retire and drop in one bullet, park and un-pick in the next.
 
-The loop repeats until the project reaches its **Agari**, at which point the project settles. **Settling is a
+The loop repeats until the project reaches its **finish line**, at which point the project settles. **Settling is a
 folder move, not only a metaphor** — where a stopped project goes, and the one other way a project
 stops, are `<CORE>/doctrine/setup/kensaiapp_structure.md` § When a project stops. Two
 things stay the PM's throughout: **which** seed is active, and **when** a station is done. Everything
@@ -229,7 +231,7 @@ and grounds the FDR; it does not dictate what is seeded.
 | Step | Role | Output → where it lands |
 |---|---|---|
 | Author the product source of truth | **CPO** | PRD → `<product>/docs/PRD.md` (head of the upstream chain; defines what the product is) |
-| Set the finish line | **CPO** (CTO supports on technical constraints) | 上がり Agari → `agari.md` (set once, off the back of the PRD) |
+| Set the finish line | **CPO** (CTO supports on technical constraints) | Finish line → `finish_line.md` (set once, off the back of the PRD) |
 | Define what the system must do | **CTO** | SRS → `<product>/docs/SRS.md` (off the settled PRD, alongside the UXD) |
 | Define the experience | **CDO** | UXD → `<product>/docs/UXD.md` (off the settled PRD, alongside the SRS, feeding the SDD), then the design language → `<product>/docs/DESIGN.md` (off the **UXD**; nothing in this chain reads it, so it may settle after the SDD) |
 | Define the product's words | **Content Manager** | verbal language → `<product>/docs/CONTENT.md` (off the **UXD**, the design language's peer; nothing in this chain reads it, so it may settle after the SDD) |
@@ -237,7 +239,7 @@ and grounds the FDR; it does not dictate what is seeded.
 | Lock the product's behaviour | **Principal PM** | FDR → `<product>/docs/fdr.md` (via `product-fdr`, gated to that seat; part of the **foundation step** — its own seed, one per product, seeded after the SDD settles) |
 | Lock the structure and the quality constraints | **Principal Architect** | the decision log → `<product>/docs/adr/` (one append-only record per decision, plus an index), NFDR → `<product>/docs/nfdr.md` (via `product-architecture`, gated to that seat; the same foundation step; shape at `<CORE>/doctrine/setup/setting_up_a_project.md` § *The foundation step*) |
 | Cut an idea, or a product's settled documents, into seeds | **Principal PM** (`seeds-from-idea` / `seeds-from-product-docs`) | 根回し Nemawashi seeds → `journey/nemawashi/unpicked/<seed>.md`, each with its **proposed** station checklist and an owning project — the candidate pool, never a seedbed root, because lifting one to the root is the PM's pick |
-| Pick the active idea | **PM** (`nemawashi-pick`) | the elected seed → `journey/nemawashi/<seed>.md`, lifted from `unpicked/` to the seedbed root; the pick appended to `## Picked seeds` in `system/contexts/CONTEXT_PPM.md` when the instance has one |
+| Pick the active idea | **PM** (`seed-pick`) | the elected seed → `journey/nemawashi/<seed>.md`, lifted from `unpicked/` to the seedbed root; the pick appended to `## Picked seeds` in `system/contexts/CONTEXT_PPM.md` when the instance has one |
 | Re-cut its checklist into the stations that will be walked | **PM** (`stations-from-seed`) | the active seed's `## Stations — dynamic checklist`, re-cut from the proposal it arrived with |
 | Open the station | **PM** (`shukuba-open`) | 宿場 Shukuba → `journey/shukuba/<station>.md` |
 | Open a change unit | **PM** (`tobiishi-open`) | 飛び石 Tobiishi `change_request` → `journey/tobiishi/<key>/change_request.md` |
@@ -249,7 +251,7 @@ and grounds the FDR; it does not dictate what is seeded.
 | Answer the retired seed and re-read the pool | **Principal PM** (`nemawashi-refine`, gated to that seat) | every recommendation processed, candidates kept, modified or dropped, companion items on product documents → `system/projects/<project>/docs/nemawashi-refine/<seed>_report.md`. Project level only |
 
 This table is the **planning tier's**, and its hand-off is complete at the spec. From `change_spec`
-onward the change runs through the rest of the change pipeline (design → plan → content → implementation → code-integrity → security → audit → seal) and
+onward the change runs through the rest of the change pipeline (design → plan → content → implementation → changelog → code-integrity → security → audit → seal) and
 the station is closed by the seat the table's close row names — see the loop above. The last five rows sit after that stretch,
 or leave it: the route is re-read once a unit has landed, the station is closed once its
 reached-when is met, a unit that will not be finished is dropped instead of sealed, and the seed is
@@ -262,7 +264,7 @@ the active idea, opens each station, opens each Tobiishi) — the **Scrum Master
 The cutting is one seat's and the
 walking is the other's; the seat that stocked the pool answers what came out of it, and the Scrum
 Master files it.
-The **CPO** who sets the Agari is the executive product role — distinct from the
+The **CPO** who sets the finish line is the executive product role — distinct from the
 delivery-tier **Product Owner** who writes each change's spec. And the **CDO** defines the whole
 product's experience once, before any change unit exists — distinct from the delivery-tier
 **Architect**, who designs one change at a time against the system that already exists. The word
@@ -273,9 +275,9 @@ product's experience once, before any change unit exists — distinct from the d
 ## Quick reference
 
 - **"Where is this instance going, forever?"** → its **Michi** (`system/michi.md`).
-- **"When is this product done?"** → that project's **Agari**
-  (`system/projects/<name>/agari.md`).
-- **Instance has no Agari; project has no Michi.** If you find yourself wanting an instance-level
+- **"When is this product done?"** → that project's **finish line**
+  (`system/projects/<name>/finish_line.md`).
+- **Instance has no finish line; project has no Michi.** If you find yourself wanting an instance-level
   "done" or a project-level "Way," you are at the wrong altitude.
 - **Both are declarations, not queues** — set them, don't burn them down. The burning-down happens
   in the journey.

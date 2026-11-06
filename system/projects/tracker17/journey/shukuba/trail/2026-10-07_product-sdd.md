@@ -4,7 +4,7 @@
 
 ## What it is
 
-The CTO's SDD for tracker17, authored in rounds by `product-sdd` from the settled PRD, SRS and UXD. On disk at open it already reads Settled (v5, 759ab7f5e), written after the UXD v4 closed its companion, so this station closes with no change unit.
+The CTO's SDD for tracker17, authored in rounds by `product-sdd` from the settled PRD, SRS and UXD. On disk at open it already reads Settled (v5, <a commit not in the public history>), written after the UXD v4 closed its companion, so this station closes with no change unit.
 
 ## Reached when
 

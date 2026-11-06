@@ -23,10 +23,10 @@ is not a call. A launcher whose usage line names none of `project` / `document` 
 names, using the variable it already parsed (`_owed_keys`, below, derives which). That obligation
 holds for every launcher the call discovers, including one the spawn sweep cannot see.
 
-A launcher that spawns nothing (`chain-development`, `chain-product`, `chain-agari`,
+A launcher that spawns nothing (`change`, `product-docs`, `prd-and-finish-line`,
 `product-skeleton`) is correctly outside this guard's reach: it never invokes `claude`, so there is
-no run for an instrumenting function to tag. `chain-development`, `chain-product` and
-`chain-agari` are the three whose engines start runs through `<CORE>/launchers/skill/launcher.sh`,
+no run for an instrumenting function to tag. `change`, `product-docs` and
+`prd-and-finish-line` are the three whose engines start runs through `<CORE>/launchers/skill/launcher.sh`,
 which is swept here and tags its own through `run_telemetry`.
 """
 
@@ -134,7 +134,7 @@ def test_a_non_spawning_launcher_is_correctly_outside_the_sweep():
     swept in and must not carry the call either — both are asserted, so a future edit that adds
     a stray instrumenting call to one of these is caught as loudly as a missing one would be."""
     found = _launcher_files()
-    for name in ("chain-development", "chain-product", "chain-agari", "product-skeleton"):
+    for name in ("change", "product-docs", "prd-and-finish-line", "product-skeleton"):
         path = Path(f"core/launchers/{name}/launcher.sh")
         assert path not in found, f"{name} invokes no claude run and should not be in the sweep"
         lines = _non_comment_lines(_REPO / path)

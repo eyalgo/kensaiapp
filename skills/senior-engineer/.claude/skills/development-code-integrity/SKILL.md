@@ -1,12 +1,12 @@
 ---
 name: development-code-integrity
 description: |
-  Integrity check on freshly-written code — proves the code does what its intent says by making the tests match that intent. It adds the tests that are missing and fixes any test that is wrong (always derived from the spec or the owner's expectations, never read off the implementation), runs them, and — when a test goes red — fixes the code (or the test, where a recorded call finds the test wrong) and makes it green. Before any of that, it moves new logic the change wrote outside the part that owns it in the product's parts table (docs/SDD.md § 3), in a commit of its own. It always writes a committed `code-integrity-report`, so even a clean pass leaves proof a review happened — for a product in its own repo the code commits land in the product's repo and the report in the change's own. Runs two ways with the same behaviour: as a step in the change pipeline on the code just implemented, and interactively when you point it at a file or a folder. Where the intent leaves a call open, the reviewer makes it — the reading most faithful to the intent — and records it in the report for its owner to confirm; it STOPs only when it cannot go on (no intent to read, interactively no way to tell how to run the tests, a fix or a placement move that would redesign the change, or a `Deferred:` line on the closing marker that is not real), and it never invents scope. In the pipeline it also accepts the developer's declared deferrals — one `Deferred:` line per blocked task — after checking each is real (not right), leaves everything inside a deferred task alone, and reports each line with its four check results.
+  Senior Engineer-posture skill; halts outside a senior-engineer session or the senior-engineer subagent. Integrity check on freshly-written code — proves the code does what its intent says by making the tests match that intent. It adds the tests that are missing and fixes any test that is wrong (always derived from the spec or the owner's expectations, never read off the implementation), runs them, and — when a test goes red — fixes the code (or the test, where a recorded call finds the test wrong) and makes it green. It holds the code to the product's language guide, the architecture defaults and the testing doctrine. It does not pass code that builds its own collaborators or a unit test that touches a real resource, and it repairs both. Before any of that, it moves new logic the change wrote outside the part that owns it in the product's parts table (docs/SDD.md § 3), in a commit of its own. It always writes a committed `code-integrity-report`, so even a clean pass leaves proof a review happened — for a product in its own repo the code commits land in the product's repo and the report in the change's own. Runs two ways with the same behaviour: as a step in the change pipeline on the code just implemented, and interactively when you point it at a file or a folder. Where the intent leaves a call open, the reviewer makes it — the reading most faithful to the intent — and records it in the report for its owner to confirm; it STOPs only when it cannot go on (no intent to read, interactively no way to tell how to run the tests, a fix or a placement move that would redesign the change, or a `Deferred:` line on the closing marker that is not real), and it never invents scope. In the pipeline it also accepts the developer's declared deferrals — one `Deferred:` line per blocked task — after checking each is real (not right), leaves everything inside a deferred task alone, and reports each line with its four check results.
   Use when: verifying that just-implemented code is correct against its intent, checking a file or a folder for integrity, "does this code actually do what it's meant to", or running the code-integrity step of the change pipeline.
   Do not use for: product-correctness sign-off (that is acceptance / QA), redesigning code, or authoring a change spec.
 license: MIT
 metadata:
-  version: "2.9.0"
+  version: "2.12.0"
   category: execution
   risk: safe
 ---
@@ -31,6 +31,8 @@ or the code is wrong, how far a fix should go — the reviewer decides, from the
 the code happens to do, and writes the decision into the report so its owner can confirm or reverse it
 later. It **STOPs** only when it cannot go on (§ *When to STOP*).
 
+**The code is held to the doctrine, not to the surrounding file.** The bar is the resolved language guide's concern files, `<CORE>/doctrine/engineering/arch_defaults.md` and `<CORE>/doctrine/engineering/testing_doctrine.md` (Step 2, *Language packets*). Code that breaks them does not pass.
+
 In workflow mode the developer may have **deferred** a task it could not land, and said so on the closing marker with a `Deferred:` line. This skill **accepts** a declared deferral after checking that it is *real* — never whether it is *right*, which is the owner's call — and it changes nothing inside a deferred task (§ *Deferrals*).
 
 **Announce at start:** "I'm using the development-code-integrity skill to check this code against its intent."
@@ -41,6 +43,15 @@ In workflow mode the developer may have **deferred** a task it could not land, a
 - **Interactively**, when the owner points the skill at a file or a folder.
 
 Both modes run the same behaviour below. Only the source of the intent and the commit target differ.
+
+## Posture
+
+**Senior Engineer only.** Run in a `senior-engineer:` session or as the `senior-engineer` subagent. Invoked from anywhere else,
+halt at once, say the posture is wrong, and name the way in — open a session with the `senior-engineer:`
+prefix, or run the `senior-engineer` subagent. The seat's contract is `<CORE>/roles/loaders/senior_engineer_global.md`.
+
+The gate is here because the run fixes code and tests and commits its report with nobody answering, in the pipeline and interactively alike (`<CORE>/doctrine/setup/authoring_layers.md` § *A skill that acts
+unattended gates to its seat*).
 
 ## Input
 
@@ -174,18 +185,16 @@ and message shape are in **Commit** below.)
 **Language packets — resolved every run, no exceptions.** Resolve per
 `<CORE>/doctrine/engineering/languages/README.md`: workflow mode starts at `project.md` `Languages:`;
 interactive mode takes the declaration from an ad-hoc plan the owner supplies when there is one
-(§ Where the intent comes from, above), and falls through the same chain when there is not. Read the
-Conventions, Quality gates and Testing entries — they are **the bar the code is reviewed against**, and
-a packet's answer **binds over the surrounding file's own style**: where they disagree the packet wins,
-the code changes, and the divergence from the file is recorded. No packet for the resolved language
-means proceed on the floor. **Either way the resolution is recorded in the `code-integrity-report`** —
+(§ Where the intent comes from, above), and falls through the same chain when there is not. Read every concern file the packet routes, `<CORE>/doctrine/engineering/arch_defaults.md` and `<CORE>/doctrine/engineering/testing_doctrine.md`. Together they are **the bar the code is reviewed against**, and a packet's answer **binds over the surrounding file's own style**: where they disagree the packet wins, the code changes, and the divergence from the file is recorded. No packet for the resolved language means proceed on the floor, with `arch_defaults.md` and `testing_doctrine.md` still the bar. **Either way the resolution is recorded in the `code-integrity-report`** —
 a missing packet is **never a STOP**, and a run that never resolved is a defective run. Until 2026-08-21 this read `as review context`
 and required a note only when a packet was absent, so a review that never resolved owed nothing.
+
+**Code that builds its own collaborators, and a unit test that touches a real resource, do not pass.** The first breaks `arch_defaults.md` § *Dependency Graph Rules*: "Only the composition root imports concrete implementations". The second breaks `testing_doctrine.md` § *A unit test hands its unit fakes and touches nothing real*. Both are repaired in this run, never handed on and never a STOP (`<CORE>/doctrine/engineering/languages/README.md` § *A fix that hands a collaborator in is not a topology decision*). The test is a wrong test under Step 1, and it is rewritten to hand in fakes. The code is repaired as Step 3's code fix: the unit takes the collaborator as a parameter, every caller passes it, and the repair is committed as the green commit. The repair reaches the code this change wrote and every module it edited (`<CORE>/doctrine/governance/found_while_walking.md` § *A module the change edits is brought up to the standard in the same change*).
 
 **The full-card run goes through the gate tool (workflow mode).** Every full run of the card's `Test command:` in workflow mode — Step 2's run, a run after a code fix, a run after a placement move — is issued by `<CORE>/tools/gate_suite.py` in the environment the product's CI calls for, never directly. Read `<CORE>/prompts/gate_suite.md`: it owns how the evidence is read, where the owner's ask comes from, and the three calls. This skill's own call, with the evidence file that recipe's Step 3 builds, is:
 
 ```sh invocation
-python3 "<CORE>/tools/gate_suite.py" run \
+"<CORE>/tools/locked_python.sh" "<CORE>/tools/gate_suite.py" run \
   --worktree "<instance change worktree>" --project "<project>" --key "<key>" \
   --gate code-integrity --inputs "<inputs file>" \
   > "<output file>" 2> "<error file>"
@@ -194,7 +203,7 @@ python3 "<CORE>/tools/gate_suite.py" run \
 On a card reading `Test command: none` no evidence is read, and the call carries none:
 
 ```sh invocation-no-inputs
-python3 "<CORE>/tools/gate_suite.py" run \
+"<CORE>/tools/locked_python.sh" "<CORE>/tools/gate_suite.py" run \
   --worktree "<instance change worktree>" --project "<project>" --key "<key>" \
   --gate code-integrity \
   > "<output file>" 2> "<error file>"
@@ -216,7 +225,7 @@ Where the owner's ask applies, the recipe's second call replaces the first, with
   green. **If the fix is not clear-cut** — the intent can be read more than one way, or it is not plain
   whether the *test* or the *code* is wrong — **make the call** (§ *Making a call*, below) and carry on:
   correct the test if the call says the test was wrong, fix the code if it says the code was. Only a fix
-  that would redesign the change is a STOP (§ *When to STOP*). (The red commit stays either way; it is
+  that would redesign the change is a STOP (§ *When to STOP*), and a language-packet conflict is not one. A collaborator the code builds itself, or a unit test that touches a real resource, is repaired here (Step 2, *Code that builds its own collaborators*). Any other packet conflict whose only fix is a changed interface is handed on, as § *When to STOP* says. (The red commit stays either way; it is
   the record of what the test first asserted.)
 
 ### Making a call
@@ -278,7 +287,8 @@ Whatever the outcome, write a committed file named `code-integrity-report.md`. I
   and (interactively) **not run** are the entry's other answers. It is written on every run, so "nothing misplaced" reads
   differently from "never looked".
 - **The language resolution** — the language, which step of the chain answered, and the packet read (with
-  its concern files) or the floor fallen to. Recorded on every run, including one that found no packet:
+  its concern files) or the floor fallen to, with `arch_defaults.md` and `testing_doctrine.md` read beside
+  it. Recorded on every run, including one that found no packet:
   a review that resolved and found nothing has something to say, one that never looked has nothing to
   say, and the two must not look the same on disk.
 
@@ -299,7 +309,13 @@ call (§ *Making a call*):
 - there is **no intent to read** — no spec, and (interactively) no owner expectations;
 - (interactively) you **cannot determine how to run the tests**;
 - the only fix that satisfies the intent, or the only placement move (Step 0), would **redesign the change** — new modules, a changed
-  interface, a different approach — which is outside this skill (it does not redesign code);
+  interface, a different approach — which is outside this skill (it does not redesign code). **A
+  language-packet conflict is not this case.** Code that builds its own collaborator, or a unit test that
+  touches a real resource, is repaired (Step 2, *Code that builds its own collaborators*), and the review
+  does not stop. Any other packet conflict whose only fix is a changed interface does not stop the review
+  either. The review hands it on as a *packet departure* entry in the change folder's
+  `deferred_decisions.md` — or finds one an earlier stage already wrote — commits that file with the
+  report, names it in the report, and goes on with the rest of the review;
 - a `Deferred:` line on the closing marker is **not real** — it fails one of the four checks in
   § *Deferrals*. The report declares `Integrity: stopped` and names the deferral and the failed check.
   No new `Integrity:` value exists for it.
@@ -318,7 +334,7 @@ the `code-integrity-report`*, above, which owns how that line is written).
 
 ## Commit
 
-Commit the report through the shared builder — read `<CORE>/doctrine/governance/commit_via_builder.md` and supply its variables: `<repo>` = per commit, the worktree it lands in (§ below: `code_worktree` for code and tests, `pipeline_worktree` = `$WORKTREE` for the report) in workflow mode / the current repo in interactive mode, `<staged file(s)>` = the files each commit carries (the table below), plus subject / body / **`--actor senior-engineer`** (the agent `launcher.md` launches this skill as — name it, never derive it) / `--skill development-code-integrity` (this skill's own name, so `Skill-Version:` records what ran) / directional. Never hand-write `git commit` or a trailer.
+Commit the report through the shared builder — read `<CORE>/doctrine/governance/commit_via_builder.md` and supply its variables: `<repo>` = per commit, the worktree it lands in (§ below: `code_worktree` for code and tests, `pipeline_worktree` = `$WORKTREE` for the report) in workflow mode / the current repo in interactive mode, `<staged file(s)>` = the files each commit carries (the table below; `deferred_decisions.md` rides with the report whenever this run wrote to it, § *When to STOP*), plus subject / body / **`--actor senior-engineer`** (the agent `launcher.md` launches this skill as — name it, never derive it) / `--skill development-code-integrity` (this skill's own name, so `Skill-Version:` records what ran) / directional. Never hand-write `git commit` or a trailer.
 
 - **Workflow mode** — commit on the change's branch (the change ran in an isolated worktree; commit with
   `git -C "$WORKTREE"`, never from the main checkout), so the terminal merge carries the report and fixes

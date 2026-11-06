@@ -1,12 +1,12 @@
 ---
-version: "2.10.1"
+version: "2.14.0"
 ---
 
 # Step outcome contract
 
 How a flow-* step reports its result. The chain
-(`core/launchers/chain-development/launcher.sh` → `core/tools/chain_development.py`, run via
-`chain-development` / `chain-change`) is this pipeline's orchestrator, and it **never receives** the
+(`core/launchers/change/launcher.sh` → `core/tools/chain_development.py`, run via
+`change` / `walk`) is this pipeline's orchestrator, and it **never receives** the
 message below — it reads a step's outcome off disk instead, per § *The chain's on-disk transport*,
 below.
 
@@ -25,7 +25,7 @@ Every flow-* subagent ends its run by returning this object as its final output:
 
 ```
 {
-  step:        "development-specs" | "development-design" | "development-plan" | "development-content" | "development-implementation" | "development-code-integrity" | "tobiishi-seal",
+  step:        "development-specs" | "development-design" | "development-plan" | "development-content" | "development-implementation" | "changelog-line" | "development-code-integrity" | "tobiishi-seal",
   status:      "ok" | "halt",
   key:         "<YYYY-MM-DD>_<slug>",   // development-specs discovers it (the active folder name); every later step echoes it
   artifact:    "<filename>" | null,     // the file written on success; null when output is code/merge
@@ -63,7 +63,7 @@ Every flow-* subagent ends its run by returning this object as its final output:
 ## The chain's on-disk transport
 
 The chain (`core/tools/chain_development.py`) never receives the message above. It reads the same
-outcome off **declared lines** that the steps already write into their artifacts. The closing marker
+outcome off **declared lines** that the steps already write into their artifacts. The one outcome it reads off a `halt_report.md` instead is `records-owed`, as that halt's row in § *The halts* states. The closing marker
 carries `Suite:`, `Language resolution:` and `Environment:`, with its `Deferred:` and `Failing:`
 lines beside them. The code-integrity report carries `Integrity:` and its own `Environment:` lines.
 Each of the two carries one `Environment:` line for each environment its gate run printed: one for a
@@ -92,7 +92,11 @@ the place the list below names:
   marker body's re-lane note lines, `- Task <N> no red (lane d) — <reason>` or
   `- Task <N> red at baseline (lane f) — <reason>`, each with a non-blank reason, name the tasks the
   developer re-laned (`DiskReader.relaned_tasks`). A task named by a
-  `Deferred:` line or a re-lane note is not judged.
+  `Deferred:` line or a re-lane note is not judged. A saved-red note,
+  `- Task <N> red saved as <commit> — <reason>`, names the commit of 7 to 40 hex characters that
+  holds that task's red under another suffix (`DiskReader.saved_red_commits`). It counts as the red
+  only when it is a non-landing commit of that task, older than its first landing, with a pause
+  commit of the change between the two (`DiskReader.paused_between`).
 - **`Integrity:`** is read from the first line of `code-integrity-report.md`, on the change branch,
   that starts with it.
 - **`Environment:`** is read from two places, and in each of them only the first block of `Environment:` lines is read (§ *The scan*). A line after that block that counts for `Environment:`, such as a wrapped sentence that begins with a quoted `` `Environment:` ``, is not one of the record's `Environment:` lines. The
@@ -110,6 +114,16 @@ the place the list below names:
   cannot be read, an `Environment: none` line halts `missing-environment`. Which lines a record must
   carry is the commit builder's to compare with the gate run, not the chain's: the chain reads what is
   on disk and validates each kind, and re-resolves nothing.
+- **The changelog step's completion** is read from the change branch's tree, with no declared line.
+  The step `changelog-line` succeeds with `artifact: "changelog-report.md"`, and the chain counts it done
+  when that file is **committed** on the instance change branch at the change folder's path
+  (`chain_development.py`'s `Evidence.COMMITTED_CHANGE_FILE`, read through `Git.branch_has_path`). A
+  report that is only in the working tree or only staged does not count. The same committed report
+  completes the step when it wrote an entry, when it only reduced the what-left file and when it changed
+  no product file, because the report is the evidence the run finished and not a verdict on its
+  edits. A run that ends without that committed report takes the existing missing-artifact halt path:
+  the walk halts at this step and launches nothing after it. The report carries no declared prefix and
+  no verdict vocabulary, so nothing in `record_declarations.py` reads it.
 - **`Publishes text:`** is read from the first line of `change_design.md`, on the change branch, that
   starts with it, when the walk reaches the `content` step. Its value is read by first word, which must be
   exactly `yes` (run the step) or `no` (pass it with no launch). `Yes`, `maybe`, an empty value, a missing
@@ -155,7 +169,7 @@ commit-shape read, and a `Deferred:` line whose task cannot be read defers nothi
 | `red-suite` | `Suite: red` not wholly owned by deferred tasks, on a product whose `docs/nfdr.md` is absent from `main`, or after the walk's one `dependency-repair` has run. On a product with an NFDR the chain launches `dependency-repair` first, once, and reads its new report's `Repair:` line: `merged` takes `main`'s advance onto the branch and re-closes the change; no new report halts as plain `red-suite`; any other word halts as `red-suite — dependency-repair <word>: <report>`; a refused advance halts as `red-suite — main's advance refused after dependency-repair merged (<why>)` |
 | `missing-suite` | `Suite: none` beside a card on `main` that names a command or cannot be read; any other `Suite:` value; or no `Suite:` line |
 | `missing-language` | no `Language resolution:` line, labelled or plain |
-| `missing-red-commit — task <N>[, …]` | a TDD-lane task, neither deferred nor re-laned, landed with no red commit older than its first landing — every such task named once, ascending |
+| `missing-red-commit — task <N>[, …]` | a TDD-lane task, neither deferred nor re-laned, landed with no red commit older than its first landing — a `— red` subject, or a commit a saved-red note names — every such task named once, ascending |
 | `unreadable-plan` | `tl_instruction.md` on the branch unreadable when the check runs |
 | `integrity-stopped` | `Integrity: stopped` |
 | `missing-integrity` | any other `Integrity:` value, or no `Integrity:` line |
@@ -163,6 +177,7 @@ commit-shape read, and a `Deferred:` line whose task cannot be read defers nothi
 | `missing-security` | any other `Security:` value than `clean`, `fixed`, `reported` or `stopped`, or no `Security:` line |
 | `missing-environment` | on the closing marker or on `code-integrity-report.md`: no `Environment:` line, or any one line with an empty value or a first word other than `macos-guest`, `container`, `owners-mac`, `none` or `not-ready`, `unresolved` included; or any `Environment: none` line beside a card on `main` that names a command or cannot be read |
 | `missing-text-verdict` | `change_design.md` with no `Publishes text:` line, a first word that is neither `yes` nor `no`, or no such file, when the walk reaches `content`; the engine writes a `halt_report.md` and launches nothing |
+| `records-owed` | a run of `specs`, `design` or `plan` that ended without its artifact and left a `halt_report.md` whose first non-blank line under `## Halt Reason` is exactly `records-owed`, read with HTML comments removed and with its surrounding whitespace, backticks and `**` stripped. The report's `Raised item:` lines name the items the step raised, each read as `<companion path> § <item number> — <item title>` and quoted byte for byte wherever a reason names it. On a project card on `main` whose `**Definition:**` is not exactly `full`, the walk halts as it does on any other halt report. On a `full` card, before it launches `product-docs`, the chain copies each named item that the main checkout's companion does not hold open from the change worktree's companion onto the main checkout's, at the end of its *Raised from downstream* section, and commits it there in one commit whose `Role:` is the halting step's seat. An item the main checkout already holds open is not copied. Nor is an item the main checkout has no companion or no *Raised from downstream* section for, because the chain creates neither. The chain then launches `product-docs` once per walk, after recording which named items the product's main checkout holds open under *Raised from downstream*. An item has folded when it was held open at that launch and is held open no longer. When the sweep ends `sealed` with every item folded, the chain removes the change's worktree and branch in each repository that has them, leaves the change folder on `main` as it is, and launches `development-specs` again. Otherwise it halts at the halting step as `records-owed — the halt report names no raised item: halt_report.md at <path>`, `records-owed — unreadable raised item: <value>`, `records-owed — product-docs already ran in this walk: halt_report.md at <path>`, `records-owed — cannot carry onto main: <repository> is on <branch>` (`detached` when no branch is out), `records-owed — cannot carry onto main: <companion path> has uncommitted changes`, `records-owed — cannot carry onto main: git could not read the status of <companion path>`, `records-owed — cannot carry onto main: no surface for provider <provider>`, `records-owed — carrying onto main failed: commit_builder exited <code>[ (restoring <companion path> exited <code>[; …])]`, `records-owed — product-docs launcher exited <code>`, `records-owed — not folded: <value>[; <value>…]`, `records-owed — product-docs ended <end>` or `records-owed — the old change branch could not be deleted (<why>)` |
 
 No value the code does not read produces a halt this table does not list.
 
@@ -172,7 +187,7 @@ takes its existing missing-marker path, one recovery and then the implementation
 not a halt reason of the chain's, and the comparison is not the chain's policy.
 
 `core/tools/chain_development.py` is the reader. Its `DevelopmentChain._bad_verdict` method owns
-every reason in the table except `missing-text-verdict`, and it owns their order.
+every reason in the table except `missing-text-verdict` and `records-owed`, and it owns their order. `records-owed` is read in `DevelopmentChain._settle`, when a run has ended without its artifact, so before `_bad_verdict` has one to judge.
 `missing-text-verdict` is the gate in `DevelopmentChain._launch_step`, which runs before a step
 launches and so before `_bad_verdict` has an artifact to judge. On the closing marker, `_bad_verdict` checks `environment-not-ready` first, then `red-suite`, `missing-suite` and `missing-language`. Only a marker that passes those four has its commit shape read, through `_commit_shape_verdict`, which returns `unreadable-plan` or `missing-red-commit`. `missing-environment` is checked last. On the marker it
 is reached only after the commit shape passes. On `code-integrity-report.md`, `environment-not-ready` is checked first, before `integrity-stopped`, and `missing-environment` is reached only once the report reads `Integrity: pass`, after `integrity-stopped` and `missing-integrity`. The security report's two reasons, `security-stopped` and `missing-security`, come after the integrity report's, and no
@@ -183,9 +198,7 @@ over a step that declared a bad verdict. `describe` takes the product path the s
 run judges the commit shape on the same repo.
 
 Every declared line except `Publishes text:` is read only once a step's artifact is on disk, and
-`Publishes text:` is read before the step it gates (above). A run that ended without its artifact
-halts before any declared line is read, whether or not it left a `halt_report.md`. The chain looks
-for that file only to name it in the halt (`DevelopmentChain._settle`; `DiskReader.halt_report`).
+`Publishes text:` is read before the step it gates (above). A run that ended without its artifact has none of its declared lines read, whether or not it left a `halt_report.md`. Where the report it left is a `records-owed` report from `specs`, `design` or `plan`, the chain answers it as that halt's row in § *The halts* states. Where it is any other report, the chain names it in the halt (`DevelopmentChain._settle`; `DiskReader.halt_report`).
 
 ---
 
@@ -193,7 +206,7 @@ for that file only to name it in the halt (`DevelopmentChain._settle`; `DiskRead
 
 - **Message for the machine, file for the person.** `halt_report.md` is human-facing — the message
   merely points at it, content rather than a value in the message itself. The chain decides from the
-  declared lines instead (§ *The chain's on-disk transport*).
+  declared lines instead (§ *The chain's on-disk transport*). The one exception is a `records-owed` report, whose halt reason and `Raised item:` lines the chain reads, as that halt's row in § *The halts* states.
 - **The skill stays orchestration-blind.** Returning a typed outcome is a pure function stating its
   result; it does not imply the skill knows an orchestrator called it (`system_anatomy.md`: a hand
   names no muscle).

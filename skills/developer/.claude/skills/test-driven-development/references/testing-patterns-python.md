@@ -165,7 +165,7 @@ def test_completed_at_matches_clock():
 
 ## Mocking Patterns
 
-Use `unittest.mock` (stdlib) or `pytest-mock` (`mocker` fixture). Prefer fakes; reach for mocks only at system boundaries.
+Use `unittest.mock` (stdlib) or `pytest-mock` (`mocker` fixture). Prefer fakes; reach for mocks only at system boundaries. A mock is handed in through the same seam as a fake. Never `patch` the module under test or a module it imports: that edits the subject rather than mocking it (`<CORE>/doctrine/engineering/testing_doctrine.md`, *Reach a collaborator through a seam; never patch the subject*, and its Python form in `<CORE>/doctrine/engineering/testing_python.md`).
 
 ### When mocks are appropriate
 
@@ -181,7 +181,7 @@ Mock these:                        Don't mock these:
 ### `unittest.mock`
 
 ```python
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 # Mock a collaborator directly
 def test_notifies_assignee_on_task_complete():
@@ -196,24 +196,26 @@ def test_notifies_assignee_on_task_complete():
         message=f"Task '{task.title}' completed"
     )
 
-# Patch a module-level dependency
+# Hand the logger in too, rather than patching the module that holds it
 def test_logs_completion():
-    with patch("tracker2.application.logger") as mock_logger:
-        service = TaskService(repo=InMemoryTaskRepository())
-        service.complete_task("some-id")
-        mock_logger.info.assert_called()
+    logger = MagicMock()
+    service = TaskService(repo=InMemoryTaskRepository(), logger=logger)
+
+    service.complete_task("some-id")
+
+    logger.info.assert_called()
 ```
 
 ### `pytest-mock`
 
 ```python
 def test_sends_email_on_assignment(mocker):
-    mock_send = mocker.patch("tracker2.notifications.send_email")
-    service = TaskService(repo=InMemoryTaskRepository())
+    send_email = mocker.Mock()
+    service = TaskService(repo=InMemoryTaskRepository(), send_email=send_email)
 
     service.assign_task("task-id", assignee="alice@example.com")
 
-    mock_send.assert_called_once_with(
+    send_email.assert_called_once_with(
         to="alice@example.com",
         subject=mocker.ANY,
     )

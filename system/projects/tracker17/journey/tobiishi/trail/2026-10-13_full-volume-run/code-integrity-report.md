@@ -9,8 +9,8 @@ would fail if the code were wrong, and this pass adds seven test cases that clos
 
 ## Deferrals
 
-None. The closing marker `eef4f062c` (`developer: 2026-10-13_full-volume-run — implementation complete`)
-carries no `Deferred:` line and no `Failing:` line (`git log -1 eef4f062c --format=%B | grep -E '^(Deferred|Failing):'`
+None. The closing marker `<a commit not in the public history>` (`developer: 2026-10-13_full-volume-run — implementation complete`)
+carries no `Deferred:` line and no `Failing:` line (`git log -1 <a commit not in the public history> --format=%B | grep -E '^(Deferred|Failing):'`
 printed nothing).
 
 ## What was reviewed
@@ -19,11 +19,11 @@ printed nothing).
   three saved-state and landing predicates, the three fixture reports, `_volume_line`,
   `FixtureShapeError`, and `_run_new_actions` as `main` calls it.
 - `products/tracker17/tests/integration/test_timed_run.py`. The developer added 37 cases: the file collects
-  74 after this pass, 30 at merge base `e5e1cbbae`, and 7 are this pass's (`pytest --collect-only`).
+  74 after this pass, 30 at merge base `<a commit not in the public history>`, and 7 are this pass's (`pytest --collect-only`).
   The three CP-289 timer streams were also reviewed.
 
-The branch's whole diff against merge base `e5e1cbbae` touches only these two files
-(`git diff --stat e5e1cbbae HEAD -- products/` → `2 files changed, 1534 insertions(+), 20 deletions(-)`).
+The branch's whole diff against merge base `<a commit not in the public history>` touches only these two files
+(`git diff --stat <a commit not in the public history> HEAD -- products/` → `2 files changed, 1534 insertions(+), 20 deletions(-)`).
 
 ## The intent it was checked against
 
@@ -71,7 +71,7 @@ No bug was found and no logic was misplaced. The harness meets CP-276 to CP-287 
   `183 files already formatted`, `All checks passed!`.
 - CP-289 holds. The only removed lines in the test file are the module docstring, two imports widened,
   and the three timer streams. Each of those streams gained `*NEW_ACTIONS_QUICK` and nothing else
-  (`git diff e5e1cbbae HEAD -- products/tracker17/tests/integration/test_timed_run.py | grep -E '^-[^-]'`).
+  (`git diff <a commit not in the public history> HEAD -- products/tracker17/tests/integration/test_timed_run.py | grep -E '^-[^-]'`).
 
 Observed, not acted on: `FixtureShapeError` refuses a fixture whose tasks hold unequal comment counts.
 The developer added it beyond the plan and recorded it in the marker's Developer Review Notes. It never

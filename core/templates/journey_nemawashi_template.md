@@ -1,7 +1,7 @@
 # 根回し Nemawashi — <project>'s seedbed
 
-*The **project**-level seedbed: the ideas that carry this product toward its 上がり Agari
-(`system/projects/<name>/agari.md`) — roots laid before the road. One is **active** at a time; the rest
+*The **project**-level seedbed: the ideas that carry this product toward its finish line
+(`system/projects/<name>/finish_line.md`) — roots laid before the road. One is **active** at a time; the rest
 are **candidates**. Scoped to this product; mirrors the instance Nemawashi (`system/nemawashi/`).
 `project-stamp` stamps this into `system/projects/<name>/journey/nemawashi/README.md`.*
 

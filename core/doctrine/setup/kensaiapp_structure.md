@@ -1,5 +1,5 @@
 ---
-version: "2.193.2"
+version: "3.9.1"
 ---
 
 # kensaiapp-instance structure manifest
@@ -26,7 +26,7 @@ Consumed by whatever stamps a kensaiapp:
 > **Three scopes.**
 > 1. **Instance-level** — shared, cross-project structure: doctrine, role definitions, app-level queues.
 > 2. **Per-project** — one folder per project under `system/projects/<name>/`, owning that project's
->    Agari (`agari.md`) + journey (its change-work in motion) + doctrine, and pointing at its product.
+>    Finish line (`finish_line.md`) + journey (its change-work in motion) + doctrine, and pointing at its product.
 > 3. **Product** — what a project builds (`docs/fdr.md`, `docs/adr/`, `docs/nfdr.md` + code); lives **inside or outside**
 >    the instance, bound by `Product path:` in `project.md`.
 >
@@ -279,12 +279,17 @@ project's *own* `.claude/`, never the user's global config.
   still unread. A call with no agent, or whose agent has no agent file, is never refused. Fail-open:
   on any error the hook prints nothing and leaves the call alone.
 
-> **Hooks are stdlib-only — no venv.** Vendored hook commands invoke `python3` with a project-relative
-> `${CLAUDE_PROJECT_DIR}` path — `python3 "${CLAUDE_PROJECT_DIR}/.claude/hooks/<name>.py"` — never a
-> hardcoded interpreter path. A satellite's `.claude/settings.json` is the one exception to that form.
-> `core/tools/link_satellite.py` writes each of its commands with the host's absolute `.claude/hooks/`
-> path in place of `${CLAUDE_PROJECT_DIR}/.claude/hooks/`, because a satellite holds no hook scripts
-> of its own.
+> **Hooks are stdlib-only, and they run on the pinned Python through uv.** Each vendored hook command
+> runs its script through the runner `core/tools/locked_python.sh`, with project-relative
+> `${CLAUDE_PROJECT_DIR}` paths —
+> `"${CLAUDE_PROJECT_DIR}/core/tools/locked_python.sh" "${CLAUDE_PROJECT_DIR}/.claude/hooks/<name>.py"`
+> — never through `python3` and never through a hardcoded interpreter path. So no hook runs on the
+> machine's `python3`: each runs on the Python that `.python-version` at the instance root names. A
+> satellite's `.claude/settings.json` is the one exception to that form.
+> `core/tools/link_satellite.py` writes each of its commands with the host's absolute `core/` and
+> `.claude/hooks/` paths in place of `${CLAUDE_PROJECT_DIR}/core/` and
+> `${CLAUDE_PROJECT_DIR}/.claude/hooks/`, because a satellite holds no hook scripts and no `core/` of
+> its own. A satellite's hooks therefore run on the host's pinned Python.
 >
 > **Init vs Audit for this layer.** **Audit** enumerates these paths and gap-reports a missing/dangling
 > layer today. **Init auto-creation** of the `.claude/` layer (stamping `settings.json`, vendoring the
@@ -326,7 +331,7 @@ Nineteen agents — each in the group of its own name except `delegate`, all for
 - `skills/principal-architect/.claude/agents/principal-architect.md`
 - `skills/scrum-master/.claude/agents/scrum-master.md`
 - `skills/qa/.claude/agents/qa.md` — global-only (no `system/loaders/qa.md` overlay; its load-chain step 2 self-skips)
-- `skills/kensaiapp-auditor/.claude/agents/kensaiapp-auditor.md` — pipeline auditor, no loader chain (task-driven; launched by the chain's audit step — `core/launchers/chain-development/launcher.sh` → `core/tools/chain_development.py`)
+- `skills/kensaiapp-auditor/.claude/agents/kensaiapp-auditor.md` — pipeline auditor, no loader chain (task-driven; launched by the chain's audit step — `core/launchers/change/launcher.sh` → `core/tools/chain_development.py`)
 - `skills/kaizen-fix-author/.claude/agents/kaizen-fix-author.md` — kaizen fix author, no loader chain (task-driven; spawned by `launch-fix-author.sh`)
 - `skills/kaizen-fixer/.claude/agents/kaizen-fixer.md` — kaizen fixer, no loader chain (task-driven; spawned at step 5 to apply an approved fix packet)
 - `skills/interactive/.claude/agents/delegate.md` — the owner's one-off delegated work, no loader chain and no pinned model (the spawner resolves the tier per run). Its load-chain has a single step, `<CORE>/roles/delegate_contract.md` — the one agent whose body is not a loader stack, because it holds no posture to load (`authoring_layers.md` § The carriers)
@@ -387,7 +392,7 @@ Shared by every cutter, in `<CORE>` beside the two cut prompts (Read on demand):
 
 The seed's picker (1) — where the producers above stock the pool, this one elects from it. The **PM**'s,
 gated to that seat:
-- `skills/pm/.claude/skills/nemawashi-pick/` — one seed lifted from `unpicked/` into an empty seedbed root. The
+- `skills/pm/.claude/skills/seed-pick/` — one seed lifted from `unpicked/` into an empty seedbed root. The
   judgment is `prompts/thin.md`, inside the skill folder, and chooses only; `scripts/pick.py` (tested in
   `tests/`) owns validity — it refuses an active seed, an open station or change unit, an empty pool, a
   dirty tree, a record naming other than one seed, a seed outside `unpicked/` or fully walked, and a
@@ -437,9 +442,9 @@ the PM's after a unit lands, the Principal PM's after a seed is retired. Each is
   kept, modified or dropped. It drops through `nemawashi-drop`, cuts work no product document should
   state through `seeds-from-idea`, and writes companion items rather than editing documents. It never
   runs `product-fdr` or `seeds-from-product-docs`, picks, retires, or writes under `trail/` or `drop/`;
-  its `## Next moves` names the companion sweep (`chain-product` or `chain-agari`, as the project
+  its `## Next moves` names the companion sweep (`product-docs` or `prd-and-finish-line`, as the project
   card's `**Definition:**` line names), `seeds-from-product-docs` — even with candidates left in
-  `unpicked/` — `nemawashi-pick` and `stations-from-seed`. Thin over its own `prompts/rich.md`, its report's shape
+  `unpicked/` — `seed-pick` and `stations-from-seed`. Thin over its own `prompts/rich.md`, its report's shape
   `templates/report.md`, both inside the skill folder. Always leaves
   `system/projects/<project>/docs/nemawashi-refine/<seed>_report.md`, opening with `## Next moves`. The
   owner's call, 2026-09-25. Project-level only. Grouped, so a session reaches it only after
@@ -484,7 +489,7 @@ runs with the owner answering), so there is no seat whose group either would sit
   basename "$d"; done`, which scans both roots — a member's own directory sits under either.
   The five this line used to name were the definition family alone, and the enumeration had not
   moved since.
-- `skills/cpo/.claude/skills/project-agari/` — the project's 上がり Agari declaration (CPO). **Gated to
+- `skills/cpo/.claude/skills/project-finish-line/` — the project's finish line declaration (CPO). **Gated to
   CPO posture**, so it is grouped beside `product-prd`: a session reaches it only after `--add-dir` /
   `/add-dir` on `skills/cpo/`; a run started by `<CORE>/launchers/skill/launcher.sh` is granted that
   group by the launcher
@@ -493,8 +498,8 @@ runs with the owner answering), so there is no seat whose group either would sit
   only after `--add-dir` / `/add-dir` on that group; `core/tools/spawn_satellite.py` resolves it
   through `core/tools/skill_path.py` and runs its script by path, which needs no grant
 - `skills/interactive-product/.claude/skills/project-setup/` — the front door: one plain-language interview with the
-  owner, then `project-stamp`'s script, the PRD's and the Agari's companions written as round 0 by
-  `scripts/write_companion.py` and committed, and `core/launchers/chain-agari/` started. Interactive
+  owner, then `project-stamp`'s script, the PRD's and the finish line's companions written as round 0 by
+  `scripts/write_companion.py` and committed, and `core/launchers/prd-and-finish-line/` started. Interactive
   and posture-free; carries a README, its script and its tests. Grouped beside `project-stamp`, which
   it calls, so a session reaches it only after `--add-dir` / `/add-dir` on that group
 
@@ -644,6 +649,17 @@ to move it out of this layer.
   argument rather than deriving one from its own location, so the checker reads whichever repo git
   is committing in when a satellite routes `core.hooksPath` here. Two consumers: the `pre-commit`
   hook (below) and the `.claude/hooks/` `PreToolUse` guard (above).
+- `core/tools/check_test_isolation.py` — `[create]` — the stdlib-only test-isolation checker
+  (home-of-record here): reads the test files a commit carries, in any language, and refuses the
+  commit when one names the machine it runs on. Takes the repo it scans by argument, as
+  `written_forward.py` does, so it reads whichever repo git is committing in. The rule it holds is
+  `<CORE>/doctrine/engineering/testing_doctrine.md` § *A test reads nothing of the machine it runs
+  on*. Its consumer is the `pre-commit` hook (below).
+- `core/tools/check_record_privacy.py` — `[create]` — the record-privacy checker (home-of-record here): reads the lines a commit adds to records, and refuses the commit when one names the home folder or the login name of the machine committing, or the repository's own `<owner>/<name>` address. Takes the repo it scans by argument, as `written_forward.py` does, so it reads whichever repo git is committing in. The rule it holds is `<CORE>/doctrine/governance/records_name_no_machine.md`. Its consumer is the `pre-commit` hook (below).
+- `core/tools/empty_home.py` — `[create]` — the stdlib-only environment a test runs in when it may
+  see nothing of the owner's home: the empty home, the `XDG_*` folders dropped, each toolchain's
+  folders kept. Two consumers, so they cannot drift apart: `pytest_guardrails.py` guard 7 and
+  `gate_suite.py`'s run on the owner's Mac.
 - `<CORE>/tools/core_indirection.py` — `[create]` — the forward-only `<CORE>` indirection checker:
   reads newly added staged lines when explicitly invoked, reports hardcoded shared-core paths, and leaves
   historical debt visible without making every unrelated commit repair it. Doctrine/rule files,
@@ -794,7 +810,7 @@ to move it out of this layer.
   `--start ... --spine`; the state file it keeps carries a `schema_version` and a mismatch is a message
   naming the restart, never a raise out of the completion hook. One chain per project at a time — the
   state file is that project's chain — and a state this engine could not resume never blocks a fresh
-  start. `core/launchers/chain-product/` and `core/launchers/chain-agari/` are its entry commands,
+  start. `core/launchers/product-docs/` and `core/launchers/prd-and-finish-line/` are its entry commands,
   each a folder plus one spine literal. Every producer runs as
   `core/launchers/skill/launcher.sh <skill> <project>` from that skill's own
   `launcher.md`, the SDD keeping its own launcher and the answer step staying
@@ -803,9 +819,9 @@ to move it out of this layer.
   per tier, were retired into it on 2026-09-17. Started with the optional `--on-end <command>`, it
   runs that command once when the chain ends, with the end appended and after the ended state is
   saved; a hook that fails is one message to the owner and never a change to the end, and
-  `chain-product` passes the flag through.
-- `core/tools/providers.py` — `[create]` — the one reader of the provider file, and the rule a launch follows. The provider file is `.providers.toml` at the root of the instance a launch is for (§ Root, `.providers.toml.example`), and it names the provider every chain launch, instance skill launcher and kaizen tool script (`launch-apply-packet.sh`, `launch-audit.sh`, `launch-fix-author.sh`) goes to. It names one for each member of the three engines — `[documents]` (`chain.py`'s registry), `[steps]` (the development and change walks' steps, one entry per step for both), `[build-idea]` (the queue's skill rows) and `[owed-items]` (`no-document`, the product chain's launch for an owed item that names no document) — and for the launchers: `[launchers]` (one entry per instance skill launcher, keyed by its folder name, and one per kaizen tool script, keyed by its name without `.sh`). The module owns the file's name, its format, the member names and the rule: the provider a walk was forced onto (`--provider`), else the file's entry for the launch's member, else a refusal naming the entry or the file — never a default. A missing file is refused naming its path and `cp .providers.toml.example .providers.toml`, and the example is never read in its place. The instance root is the one an engine was started or described with (`--instance-root`), or the one a launcher resolved and hands to `providers.py launcher --instance-root`. No file under `<CORE>` is read for a provider, so a satellite's launch reads the satellite's own file, and a walk running from a pin reads the live instance file. An unforced start checks every member the engine can launch, and each launch reads the file again as it stands then, so an edit reaches a walk that is already running. An entry no engine asks for is ignored.
-- `core/tools/chain_development.py` — `[create]` — the development chain engine: walks the
+  `product-docs` passes the flag through.
+- `core/tools/providers.py` — `[create]` — the one reader of the provider file, and the rule a launch follows. The provider file is `.providers.toml` at the root of the instance a launch is for (§ Root, `.providers.toml.example`), and it names the provider every chain launch, instance skill launcher and kaizen tool script (`launch-apply-packet.sh`, `launch-audit.sh`, `launch-fix-author.sh`) goes to. It names one for each member of the three engines — `[documents]` (`chain.py`'s registry), `[steps]` (the change and walk launchers' steps, one entry per step for both), `[build-idea]` (the queue's skill rows) and `[owed-items]` (`no-document`, the product chain's launch for an owed item that names no document) — and for the launchers: `[launchers]` (one entry per instance skill launcher, keyed by its folder name, and one per kaizen tool script, keyed by its name without `.sh`). The module owns the file's name, its format, the member names and the rule: the provider a walk was forced onto (`--provider`), else the file's entry for the launch's member, else a refusal naming the entry or the file — never a default. A missing file is refused naming its path and `cp .providers.toml.example .providers.toml`, and the example is never read in its place. The instance root is the one an engine was started or described with (`--instance-root`), or the one a launcher resolved and hands to `providers.py launcher --instance-root`. No file under `<CORE>` is read for a provider, so a satellite's launch reads the satellite's own file, and a walk running from a pin reads the live instance file. An unforced start checks every member the engine can launch, and each launch reads the file again as it stands then, so an edit reaches a walk that is already running. An entry no engine asks for is ignored.
+- `core/tools/chain_development.py` — `[create]` — the change chain engine: walks the
   change pipeline's nine steps (specs, design, plan, content, implementation, code-integrity,
   security, the
   `development-audit` fan-out — four runs, or five when the change publishes text — seal) as one detached `claude --print` run per step, each started through
@@ -814,8 +830,7 @@ to move it out of this layer.
   because a detached run returns none: the artifact on the change branch, the developer's closing marker
   read the way `tobiishi-seal` reads it, each audit's findings file on its own audit branch, and the
   change folder under `trail/` on `main`. A run that ends without its artifact halts the walk, pointing
-  at a `halt_report.md` where one was left — except the developer's run past its context cap, which
-  ends on a **pause commit** (`developer: <key> — implementation paused after task <N>`) rather than
+  at a `halt_report.md` where one was left. Two cases are answered differently. A `records-owed` report from specs, design or plan is answered as the `records-owed` row of `core/doctrine/flow/step_outcome_contract.md` § *The halts* states, and on a card whose `**Definition:**` reads `full` that answer can launch `product-docs` and start the change again at specs. The developer's run past its context cap ends on a **pause commit** (`developer: <key> — implementation paused after task <N>`) rather than
   the closing marker: the engine reads `<N>` off it and relaunches the implementation step with `<N>`
   after the key, so the launch prompt starts a fresh developer at the next task, and a pause that is not
   after a later task than the last one halts. `--context-cap <tokens>` (default 250000) is that cap,
@@ -824,27 +839,27 @@ to move it out of this layer.
   it imports that engine's `Files`, `Processes`, `Notifier` and `IdSource` ports and changes nothing
   there — and adds a `Git` port and an exclusive `flock` on its state file, because four or five audit runs can
   end within a second of each other. Its state file is its own,
-  `system/logs/chain-development-<project>-state.json`, so a development walk can run beside a document
+  `system/logs/chain-change-<project>-state.json`, so a change walk can run beside a document
   chain on the same project. Each run's completion shim is `completion_shim.py`'s. Its suite,
   `core/tools/test_chain_development.py`, drives a whole walk through injected fakes and exercises the
-  real `Git` port and lock against a scratch repository. `core/launchers/chain-development/` is its
+  real `Git` port and lock against a scratch repository. `core/launchers/change/` is its
   entry command. Beside `--start` and `--advance` it has a third entry, `--describe`, which answers
   which change a start would carry and the step it would enter at — or why it would refuse — from
   the **same checks** `start` makes, and writes, launches, locks and sends nothing; the launcher's
   `--dry-run` is its one caller. It holds **two step tables**, and `--steps` says which walk a
-  start is: `development`, the nine above, and `change`, the same nine behind `shukuba-open` and
-  `tobiishi-open` and ahead of `shukuba-refine` — the walk `core/launchers/chain-change/` enters.
-  The flag names a literal the engine holds; a caller composes neither. A `change` walk starts with
+  start is: `change`, the nine above, and `walk`, the same nine behind `shukuba-open` and
+  `tobiishi-open` and ahead of `shukuba-refine` — the walk `core/launchers/walk/` enters.
+  The flag names a literal the engine holds; a caller composes neither. A `walk` walk starts with
   **no key** — `tobiishi-open` is what makes one — so the key is read off the disk the moment that
   step lands, and the walk's own name, carried on its state, is what its shim, its log, its
-  `INSTRUMENT_RUN_CHAIN` tag and every message the owner reads are named after. A `change` walk
+  `INSTRUMENT_RUN_CHAIN` tag and every message the owner reads are named after. A `walk` walk
   does not end at the seal: its `refine` step runs `shukuba-refine` on the sealed unit, and is done
   when `<key>_report.md` sits in a seed folder under `journey/nemawashi/`. Started with no change
-  open, a `change` walk first takes the unit `contexts/CONTEXT_PM.md` names as `Sealed` — the
+  open, a `walk` walk first takes the unit `contexts/CONTEXT_PM.md` names as `Sealed` — the
   default `shukuba-refine` itself takes — and, if that unit has no report yet and its station is
   still open at the shukuba root, carries its key and enters at `refine`; a sealed change's earlier steps are taken as landed on the seal's word.
   It takes the same optional `--on-end <command>`, carried on the walk's state and run once from the
-  walk's one ending with `sealed` or `halted` appended; `core/launchers/chain-change/` always passes
+  walk's one ending with `sealed` or `halted` appended; `core/launchers/walk/` always passes
   it, naming `build-idea`.
 - `core/tools/build_idea.py` — `[create]` — the engine behind `core/launchers/build-idea/`.
   Runs refine reports' next moves and connects retirement to seedbed refinement; its kinds,
@@ -866,9 +881,37 @@ to move it out of this layer.
   not a handle, and a caller completing it with its own `ps` afterwards would be inside the reissue
   window the pairing closes. `cold-read` is the one caller that passes no `--keep-awake`, because
   the hold it wants spans the set rather than any one member of it.
-- `core/tools/hook_wiring.py` — `[create]` — the one rewrite of `${CLAUDE_PROJECT_DIR}/.claude/hooks/`
-  to a given absolute hooks directory, at any depth of a settings document; stdlib only. Shared by
-  `link_satellite.py` (a satellite's `settings.json`) and `agent_run.py` (a pinned run's hook wiring).
+- `core/tools/hook_wiring.py` — `[create]` — the one rewrite of a settings document's hook commands
+  to a given hooks directory and a given core directory, at any depth of the document; stdlib only. It
+  replaces `${CLAUDE_PROJECT_DIR}/.claude/hooks/` with the absolute hooks directory and
+  `${CLAUDE_PROJECT_DIR}/core/` with the absolute core directory, so each command runs that core's
+  runner on those hooks and no `${CLAUDE_PROJECT_DIR}` path is left in a hook command. Shared by
+  `link_satellite.py` (a satellite's `settings.json`, given the host's hooks and `core/`) and
+  `agent_run.py` (a pinned run's hook wiring, given the pin's).
+- `core/tools/locked_python.sh` — `[create]` — the runner every hook and every launch goes through.
+  It runs a Python script, with its arguments, on the Python that `.python-version` names at the
+  root of the instance holding the runner: the directory two above its own, found from its own
+  location and never from the working directory. It runs the script through
+  `uv run --quiet --no-sync --project <that root>`, so stdin, stdout, stderr and the exit status are
+  the script's. It takes `-` and `-c` as `python3` takes them, so a quoted heredoc and inline code
+  run through it too. The script gets the environment its caller had: the runner hands it the
+  caller's `PATH` and `VIRTUAL_ENV`, set or unset, and none of the variables uv sets for the process
+  it runs, so a process the script starts, a launched agent included, does not run on the root's
+  `.venv`. `--no-sync` means a first run may create the root's `.venv` but installs nothing into it,
+  which a hook and a launch can afford because what they run through the runner uses only the
+  standard library. A pytest suite that `core/tools/suite_map.py` names runs through
+  `uv run --locked pytest` instead, which installs the locked test tools. Where `uv` is not on
+  `PATH`, the runner runs no Python, prints that uv was not found and how to install it, and exits
+  `1`. It never falls back to `python3`. Its check-only form, `locked_python.sh --check <launcher>`,
+  runs no script: where uv is found it prints nothing and exits `0`, and otherwise it prints the
+  launch's own message naming that launcher and exits `1`. `pin_enter` in `core/tools/pin_run.sh`
+  makes that check before anything else, so a launch without uv stops before it makes a pin or
+  starts any Python. The settings hooks, both git hook shims, every launcher under
+  `core/launchers/`, every `core/tools/launch-*.sh` and the shell helpers they source name the
+  runner. A kensaiapp Python that a launch runs starts another kensaiapp script through the runner in
+  the `tools/` directory of its own core. In a satellite's settings the commands name the host's
+  copy, and in a pinned run's settings the pin's copy, so each reaches the lock at that copy's own
+  root.
 - `core/tools/link_satellite.py` — `[create]` — writes a shared-core satellite's `.claude/settings.json`
   from its host's hook wiring, with each command pointed at the host's `.claude/hooks/` by absolute
   path, and for a producer links the host's root `skills/` by absolute symlink; re-runnable, with
@@ -931,7 +974,7 @@ to move it out of this layer.
   `build_idea.py` imports it, and so do `shukuba-open`'s and `shukuba-retire`'s `scripts/`, which
   reach it through their own path, so the three cannot disagree on a station's name.
 - `core/tools/chain_board.py` — `[create]` — reads one instance's `system/logs/` walk state, for every
-  chain kind (`build-idea`, `chain-change`, `chain-development`, `chain-agari`, `chain-product`), into
+  chain kind (`build-idea`, `walk`, `change`, `prd-and-finish-line`, `product-docs`), into
   WAITING ON YOU and RUNNING NOW, adds each listed project's route — its active seed's checklist, with
   the walks opened for each station — and prints them as JSON. Read-only: it opens no file for
   writing. Whether a walk still runs comes from `walk_stop.py`'s `launch_state`, never from a copy of its
@@ -954,7 +997,7 @@ to move it out of this layer.
 > `test_skeleton_trees.py`,
 > `test_written_forward.py`, `conftest.py`) —
 > vendored so the tools are provable on a fresh clone, but Audit checks the executables, not the fixtures
-> (per the tools Agari: test artifacts are out of scope).
+> (per the tools finish line: test artifacts are out of scope).
 >
 > **Two of those suites have no tool of their own here, and that is the pattern rather than an
 > exception.** `test_templates_are_instance_neutral.py` and `test_skeleton_trees.py` hold
@@ -980,9 +1023,7 @@ two are separate homes under `core/`. Audit enumerates these paths; Init auto-cr
 later-increment posture as the `.claude/` layer.
 
 Each folder is `core/launchers/<identity>/` holding `launcher.sh` (the script itself is named for its
-role, the folder carries the identity) plus its contract-test suite flat beside it. A change-pipeline
-step's launcher is permitted to nest one level deeper instead, at
-`core/launchers/development/<step>/` — both are the destination this section names.
+role, the folder carries the identity) plus its contract-test suite flat beside it.
 
 **The folder name is the bare identity — no `launch-` prefix** (owner decision, 2026-07-28). The parent
 folder already says these are launchers, so the prefix only restates it: `core/launchers/cold-read/`, not
@@ -999,11 +1040,10 @@ so the test file is named for its identity — `test_ratify.py` — while the la
 The generic name is now unused, and it stays unused: whichever folder took it would silently forbid it
 to every other, so each suite is named for its identity instead.
 
-Because the folder sits one level deeper than the flat launchers, a launcher here reaches shared machinery
-through `CORE_DIR` — resolved from the launcher's own location (a prefix strip at the `/launchers/`
-boundary, not a fixed number of parent steps), so the same expression reaches
-`<CORE>/tools/watch_agent.py` correctly whether the launcher sits at `core/launchers/<identity>/` or
-nested at `core/launchers/development/<step>/`. A migration into either home changes no path at all —
+A launcher reaches shared machinery through `CORE_DIR` — resolved from the launcher's own location (a
+prefix strip at the `/launchers/` boundary, not a fixed number of parent steps), so the same expression
+reaches `<CORE>/tools/watch_agent.py` correctly from `core/launchers/<identity>/` and from any depth
+below `core/launchers/`. A move between depths changes no path at all —
 the failure mode this used to name (a wrong default leaving the watcher unspawned while the launch still
 succeeds, so only the absent completion notification shows it) is what the depth-independent resolution
 exists to close. `core/launchers/test_core_resolution.py` pins it as a cross-launcher contract; each
@@ -1016,12 +1056,11 @@ two entries. Every launcher but `build-idea` calls `pin_enter`. It either finds 
 a pin, inherits one from `KENSAIAPP_PIN` (when that pin's own source is this host), or makes a fresh
 one of the host as it stands (`core/tools/pin.py`) — then, if the running script is not already the
 pin's own copy, re-execs into it. `build-idea` alone calls `pin_enter_renewing`, which follows the
-same rules except at the two points where `pin_enter` would inherit a pin. There it first asks
-`core/tools/pin_host_changed.py` whether the pin's source host has changed, and when that host's
-`core/`, `.claude/` or `skills/` differ from the pin's copies — "differ" as that file defines it — it
-takes a new pin of the host instead. A run started either way keeps the version it started on: a live
-edit to `core/`, `.claude/` or `skills/` made after the launch has already copied them cannot reach
-it. A launcher the run itself starts through `pin_enter` inherits the run's pin rather than making its
+same rules except at the two points where `pin_enter` would inherit a pin. There it first asks `core/tools/pin_host_changed.py` whether the pin's source host has changed, and
+when that host's `core/`, `.claude/` or `skills/` trees, or the `.python-version`, `pyproject.toml`
+or `uv.lock` at its root, differ from the pin's copies — "differ" as that file defines it — it takes a
+new pin of the host instead. A run started either way keeps the version it started on: a live edit to
+those trees or those three files made after the launch has already copied them cannot reach it. A launcher the run itself starts through `pin_enter` inherits the run's pin rather than making its
 own; a `build-idea` it starts takes a new pin when the host has changed. The Claude adapter
 (`core/tools/agent_run.py`) then carries that pin into the `claude` process it builds — a plugin
 linking the flat skills, the instance's own skills and every workflow, plus only the skill groups
@@ -1040,7 +1079,7 @@ watcher path is the one a migration can get wrong without noticing; both still h
   asserts a property of the *set* — every `launcher.sh` on disk, and the `CORE_DIR` resolution
   mechanism itself over a synthetic tree — never the behaviour of one launcher. Pins: no file under
   `core/launchers` reaches `core/tools/` by counting folders; every `launcher.sh` derives `CORE_DIR`
-  by the one sanctioned expression; a launcher nested at `core/launchers/development/<step>/`
+  by the one sanctioned expression; a launcher nested a level below its siblings
   resolves the same `<CORE>` a flat one does and spawns the real watcher with its override unset; a
   launcher with no `launchers/` ancestor at all refuses loudly rather than guessing. Its basename is
   globally unique, per the naming rule below.
@@ -1076,7 +1115,7 @@ watcher path is the one a migration can get wrong without noticing; both still h
   `product-*` sibling does, and deriving the pair from `<document>` with **no list of documents
   anywhere in the file**: `<document>` is matched case-insensitively against a **directory entry**
   in one of the project's two document homes — the product's `docs/` and
-  `system/projects/<project>/`, where the Agari lives — and used at the case that **file** carries —
+  `system/projects/<project>/`, where the finish line lives — and used at the case that **file** carries —
   `document` = the matched `<home>/*.md`, `companion` = `<that stem>_open_issues.md` beside it. The
   home is whichever holds the document or its companion; a name found in both is refused rather than
   guessed. The case is read and never
@@ -1125,8 +1164,8 @@ watcher path is the one a migration can get wrong without noticing; both still h
   path, the watcher's CORE_DIR-resolved default-path with the override deliberately
   unset, and all four seat-resolution outcomes — plus a seat grep that does not misread an
   `--agent` mentioned only in a comment — on a fixture tree.
-- `core/launchers/chain-product/launcher.sh` — `[create]` — the entry command for a product's whole
-  document chain: the spine literal `"PRD,Agari,SRS,UXD,DESIGN,CONTENT,SDD,FDR,ADR,NFDR"` — both
+- `core/launchers/product-docs/launcher.sh` — `[create]` — the entry command for a product's whole
+  document chain: the spine literal `"PRD,FINISH_LINE,SRS,UXD,DESIGN,CONTENT,SDD,FDR,ADR,NFDR"` — both
   tiers, so a companion opened on either is swept by one walk — and the name literal `"product"`;
   every producer runs through `core/launchers/skill/launcher.sh` (the owner's ruling,
   2026-09-17), which is the engine's rule, not a flag this launcher passes. It resolves `<project>` and
@@ -1142,30 +1181,30 @@ watcher path is the one a migration can get wrong without noticing; both still h
   takes the next argument as its value and is carried to the engine, which runs it when the walk
   ends; `build-idea` uses it to be told when a sweep it started is over. Same bare-identity folder
   name, invoked
-  `<CORE>/launchers/chain-product/launcher.sh <project> [--provider claude|codex|gemini|hf|ollama] [--on-end <command>] [--dry-run] [--keep-awake]`
-  or `<CORE>/launchers/chain-product/launcher.sh <project> --stop` from the instance root.
-- `core/launchers/chain-product/test_chain_product.py` — `[create]` — its contract-test suite, flat
+  `<CORE>/launchers/product-docs/launcher.sh <project> [--provider claude|codex|gemini|hf|ollama] [--on-end <command>] [--dry-run] [--keep-awake]`
+  or `<CORE>/launchers/product-docs/launcher.sh <project> --stop` from the instance root.
+- `core/launchers/product-docs/test_product_docs.py` — `[create]` — its contract-test suite, flat
   beside the launcher. Pins the guards, the four `Product path:` forms, the `--start` invocation's
   required arguments, the notifier layering, `--dry-run` and `--keep-awake`; the spine literal
   reaching the engine as argv, committed in the script, and holding every document in `chain.py`'s
   registry, upstream first; that every skill the walk starts resolves to a
   `launcher.md` taking `<project>`; and explicit and environment-selected provider propagation.
-- `core/launchers/chain-agari/launcher.sh` — `[create]` — the entry command for a walk over a
-  project's PRD and then its Agari, so a freshly stamped project can be taken to its Agari without
-  the walk running on into the SRS. It carries the spine literal `"PRD,Agari"` and the chain-name
-  literal `"agari"`. The folder name is `chain-` plus that chain name, because the engine builds
-  the stop command it prints from the name a live walk recorded (`core/tools/walk_stop.py`
-  § `stop_command`). It hands the engine the state `system/logs/chain-<project>-state.json`, the
-  same file `chain-product` hands it, so the two share one walk per project. Neither starts over
+- `core/launchers/prd-and-finish-line/launcher.sh` — `[create]` — the entry command for a walk over a
+  project's PRD and then its finish line, so a freshly stamped project can be taken to its finish line without
+  the walk running on into the SRS. It carries the spine literal `"PRD,FINISH_LINE"` and the chain-name
+  literal `"finish-line"`. The engine builds the stop command it prints from the name a live walk
+  recorded, through its table of launcher folders (`core/tools/chain.py` `LAUNCHERS`), so the
+  folder and the chain name are tied there rather than by spelling. It hands the engine the state `system/logs/chain-<project>-state.json`, the
+  same file `product-docs` hands it, so the two share one walk per project. Neither starts over
   the other's live walk, and either one's `--stop` ends whichever walk is live. A
   `## Launchers owed` bullet naming a document outside the spine is still walked, by the engine's
-  rule. In everything else it is `chain-product/launcher.sh` with its own spine and chain name: the
+  rule. In everything else it is `product-docs/launcher.sh` with its own spine and chain name: the
   same guards, the same `Product path:` resolution, `KENSAIAPP_NOTIFIER` passed to the engine as a
   parameter, and the same `--provider`, `--on-end`, `--dry-run` and `--keep-awake`. Same
   bare-identity folder name, invoked
-  `<CORE>/launchers/chain-agari/launcher.sh <project> [--provider claude|codex|gemini|hf|ollama] [--on-end <command>] [--dry-run] [--keep-awake]`
-  or `<CORE>/launchers/chain-agari/launcher.sh <project> --stop` from the instance root.
-- `core/launchers/chain-agari/test_chain_agari.py` — `[create]` — its contract-test suite, flat
+  `<CORE>/launchers/prd-and-finish-line/launcher.sh <project> [--provider claude|codex|gemini|hf|ollama] [--on-end <command>] [--dry-run] [--keep-awake]`
+  or `<CORE>/launchers/prd-and-finish-line/launcher.sh <project> --stop` from the instance root.
+- `core/launchers/prd-and-finish-line/test_prd_and_finish_line.py` — `[create]` — its contract-test suite, flat
   beside the launcher. It drives the real `launcher.sh` against a stub engine that records its argv,
   and never starts the real engine. It pins the spine literal and the chain-name literal three ways
   each: reaching the engine as argv, committed in the script, and unchanged by an exported
@@ -1175,13 +1214,13 @@ watcher path is the one a migration can get wrong without noticing; both still h
   path, the four start lines, every refusal, the flags in any order, `--stop` standing alone, this
   bullet pair's place in this section, and the `core/tools/chain.py` bullet naming both entry
   commands.
-- `core/launchers/chain-development/launcher.sh` — `[create]` — the entry command for the
+- `core/launchers/change/launcher.sh` — `[create]` — the entry command for the
   change pipeline, walked as a chain of step launchers. It replaced the Workflow
   (`.claude/workflows/development.js`, deleted 2026-09-18): it resolves `<project>` and its
   `Product path:` the way its chain siblings do and hands the walk to
   `core/tools/chain_development.py --start`. **It passes no spine and no chain name** — the
   pipeline is one fixed sequence with an audit fan-out inside it, so the step table is the engine's
-  own literal — and keeps its own state file, `system/logs/chain-development-<project>-state.json`,
+  own literal — and keeps its own state file, `system/logs/chain-change-<project>-state.json`,
   apart from the `chain-<project>-state.json` its siblings share. It spawns no model itself: every
   step's run is started by `core/launchers/skill/launcher.sh`, which detaches that run's watcher,
   holds its `--keep-awake` and tags it, so this script carries no `caffeinate` and no
@@ -1190,53 +1229,52 @@ watcher path is the one a migration can get wrong without noticing; both still h
   the command it would run, or fails with the reason a start would be refused, so a dry run never
   reports a walk the real start turns away. Same
   bare-identity folder name, invoked
-  `<CORE>/launchers/chain-development/launcher.sh <project> [--provider claude|codex|gemini|hf|ollama] [--dry-run] [--keep-awake]`
-  or `<CORE>/launchers/chain-development/launcher.sh <project> --stop` from the instance root.
-  `--provider` is the same force `chain-change` takes, below; its
+  `<CORE>/launchers/change/launcher.sh <project> [--provider claude|codex|gemini|hf|ollama] [--dry-run] [--keep-awake]`
+  or `<CORE>/launchers/change/launcher.sh <project> --stop` from the instance root.
+  `--provider` is the same force `walk` takes, below; its
   `--dry-run` names the provider each step would run on.
-- `core/launchers/chain-development/test_chain_development_launcher.py` — `[create]` — its
-  contract-test suite, flat beside the launcher. **Named `test_chain_development_launcher.py`, not
-  for its identity**, because `core/tools/test_chain_development.py` — the engine's suite — already
-  holds `test_chain_development.py`, and the uniqueness rule above forbids the same basename twice.
+- `core/launchers/change/test_change.py` — `[create]` — its
+  contract-test suite, flat beside the launcher, named for the identity per the uniqueness rule
+  above. The engine's own suite is `core/tools/test_chain_development.py`, a different basename.
   Pins the guards, the four `Product path:` forms, every `--start` flag the engine requires with its
   resolved value, the state file being its own, no `--spine` and no `--chain-name`, the notifier
   layering with no real notifier invoked, `--dry-run` calling `--describe` and never `--start`,
   naming the change and the entry step, failing on a refused describe, and printing the exact argv,
   `--keep-awake`, and the absence of any `claude` spawn, `caffeinate` or `run_telemetry` call. The
   engine is stubbed throughout; its decisions are `core/tools/test_chain_development.py`'s.
-- `core/launchers/chain-change/launcher.sh` — `[create]` — the entry command for a change unit's
+- `core/launchers/walk/launcher.sh` — `[create]` — the entry command for a change unit's
   whole life, from the station that names it to the seal that lands it on `main` and the
-  `shukuba-refine` run that re-reads the route after it: the same walk `chain-development` makes,
+  `shukuba-refine` run that re-reads the route after it: the same walk `change` makes,
   entered two steps earlier at `shukuba-open` and `tobiishi-open`, which that command requires a
   caller to have run by hand. Started on a project whose last unit is sealed and not yet refined, it
   enters at the refine. It resolves `<project>` and its `Product
   path:` the way its chain siblings do and hands the walk to the **same engine**,
-  `core/tools/chain_development.py --start`, naming the table with `--steps change` — a literal
-  here, like `chain-product`'s spine, so a caller reaches into no step table. A second engine would
+  `core/tools/chain_development.py --start`, naming the table with `--steps walk` — a literal
+  here, like `product-docs`'s spine, so a caller reaches into no step table. A second engine would
   be a third copy of the state store, the live-walk refusal, the launch environment and the shim
-  write. It keeps its own state file, `system/logs/chain-change-<project>-state.json`, apart from
+  write. It keeps its own state file, `system/logs/chain-walk-<project>-state.json`, apart from
   both siblings', because one state file **is** one walk and this one has to run beside them. It
   spawns no model itself, and `KENSAIAPP_NOTIFIER` is resolved here and passed as `--notifier`,
   both as its sibling does. **Every start reads the card's `**Definition:**` line and runs the
-  definition walk it names before the change walk, never in its place.** `full` runs the project's
-  `chain-product` walk and `prd-agari` its `chain-agari` walk, each through that sibling's own
+  definition walk it names before the walk, never in its place.** `full` runs the project's
+  `product-docs` walk and `prd-and-finish-line` its `prd-and-finish-line` walk, each through that sibling's own
   launcher, so each spine stays written in one place. `none` runs no definition walk, and the start
-  is the change walk alone, as it was before the line existed. The value is the text after the
+  is the walk alone, as it was before the line existed. The value is the text after the
   bold label on the card's one line beginning exactly `**Definition:**`, up to any `<!--` comment.
   No flag and no environment variable sets it, and `Type:` is never read for it. A card with no such
-  line, a value other than exactly `full`, `prd-agari` or `none`, and a card carrying the line
+  line, a value other than exactly `full`, `prd-and-finish-line` or `none`, and a card carrying the line
   twice are each refused before anything starts, with one line on stderr naming the card and an
   exit code of 1. No value is ever assumed, by the owner's ruling of 2026-10-05. A start prints
-  `definition=<value>` after its `product path=` line. Under `full` and `prd-agari` the sibling
+  `definition=<value>` after its `product path=` line. Under `full` and `prd-and-finish-line` the sibling
   launcher is handed an `--on-end` naming this launcher's end-hook form,
-  `<CORE>/launchers/chain-change/launcher.sh <project> --after-definition <token> --definition-ended <end>`,
-  and the change walk is started from there only when the definition walk ended `settled` or
+  `<CORE>/launchers/walk/launcher.sh <project> --after-definition <token> --definition-ended <end>`,
+  and the walk is started from there only when the definition walk ended `settled` or
   `left_for_the_owner`, the two ends of a walk that walked its whole spine. Every other end, and a
-  refused definition start, starts no change walk, and a refused start exits non-zero with the
+  refused definition start, starts no walk, and a refused start exits non-zero with the
   sibling's refusal on its stderr. Before the sibling launcher runs, the start writes a
-  **pending-launch record**, `system/logs/chain-change-<project>-pending.<token>`, one per launch.
+  **pending-launch record**, `system/logs/chain-walk-<project>-pending.<token>`, one per launch.
   It holds the product path, the provider force, `--keep-awake`, `--context-cap` and the notifier,
-  and the end hook rebuilds from it the change walk the same launch would have started under
+  and the end hook rebuilds from it the walk the same launch would have started under
   `none`. Three things remove a record, and nothing else does: the launch when its definition start
   is refused, the end hook, which claims it once, and `--stop`, which removes every record of the
   project. `--provider` and `--keep-awake` reach the definition walk, and `--context-cap` does
@@ -1255,13 +1293,11 @@ watcher path is the one a migration can get wrong without noticing; both still h
   `core/tools/providers.py`. Its `--dry-run` names the provider each step would run on. A
   `--stop` is never refused over the `Definition:` line, and it does not stop a definition walk.
   Same bare-identity folder name, invoked
-  `<CORE>/launchers/chain-change/launcher.sh <project> [--provider claude|codex|gemini|hf|ollama] [--dry-run] [--keep-awake] [--context-cap <tokens>]`
-  or `<CORE>/launchers/chain-change/launcher.sh <project> --stop` from the instance root.
-- `core/launchers/chain-change/test_chain_change_launcher.py` — `[create]` — its contract-test
-  suite, flat beside the launcher. **Named `test_chain_change_launcher.py`, not for its identity**,
-  on the same rule its sibling's name states: this launcher shares an engine, and so nearly a name,
-  with `chain-development`. Pins the guards, the `Product path:` forms, every `--start` flag with
-  its resolved value, the state file being neither sibling's, `--steps change` with still no
+  `<CORE>/launchers/walk/launcher.sh <project> [--provider claude|codex|gemini|hf|ollama] [--dry-run] [--keep-awake] [--context-cap <tokens>]`
+  or `<CORE>/launchers/walk/launcher.sh <project> --stop` from the instance root.
+- `core/launchers/walk/test_walk.py` — `[create]` — its contract-test
+  suite, flat beside the launcher, named for the identity per the uniqueness rule above. Pins the guards, the `Product path:` forms, every `--start` flag with
+  its resolved value, the state file being neither sibling's, `--steps walk` with still no
   `--spine`, the notifier layering with no real notifier invoked, and the dry run — asking
   `--describe` and never `--start`, naming the change and the entry step, printing `(none yet)`
   where there is no key yet, refusing an exit 0 that names no entry step, and failing on a refused
@@ -1270,14 +1306,14 @@ watcher path is the one a migration can get wrong without noticing; both still h
   line**: only the bold label at line start is read, and its `<!--` comment is stripped. The three
   refusals each give their exact line on a start and on a dry run, with no engine asked anything,
   and no flag or environment variable stands in for a missing line. The `definition=` line follows
-  `product path=`. `none` starts the change walk exactly as before. `full` and `prd-agari` start
-  their sibling's walk with its spine and an `--on-end` naming the end-hook form, and the change
-  walk does not start at launch. `--provider` and `--keep-awake` reach the definition walk, and
-  `--context-cap` does not. The end hook starts the change walk, with the same argv a `none` start
+  `product path=`. `none` starts the walk exactly as before. `full` and `prd-and-finish-line` start
+  their sibling's walk with its spine and an `--on-end` naming the end-hook form, and the walk's
+  own walk does not start at launch. `--provider` and `--keep-awake` reach the definition walk, and
+  `--context-cap` does not. The end hook starts the walk, with the same argv a `none` start
   gives it, only on `settled` and `left_for_the_owner`. Every other end, including one not known
   here, starts nothing and exits 0. A refused definition start exits non-zero with the refusal on
   stderr. The suite also pins the pending-launch record's three removers, one launch's refusal
-  leaving another launch's record in place, a stop during a definition walk keeping the change walk
+  leaving another launch's record in place, a stop during a definition walk keeping the walk
   from starting, a token holding `/` or `..` refused before any file is read, and a card built from
   `core/templates/project_template.md` being accepted. The definition launchers run for real
   against a stubbed definition engine. The change engine is stubbed throughout, except in the one
@@ -1298,7 +1334,7 @@ watcher path is the one a migration can get wrong without noticing; both still h
   never defaulted) and a nested chain runs each of its steps on its own — the rule is
   `core/tools/providers.py`. Every start states the force, a resume included. Its
   `--dry-run` asks the engine's `--describe` and prints each row with its After and its command.
-  `--chain-ended <end>` is what a `chain-change` walk's end passes — `sealed` starts the queue as the
+  `--chain-ended <end>` is what a `walk`'s end passes — `sealed` starts the queue as the
   hook's own start, anything else prints that nothing was started and exits 0. Its `--stop` contract
   is stated in `core/launchers/build-idea/launcher.sh` § USAGE.
   Same bare-identity folder name, invoked
@@ -1313,7 +1349,7 @@ watcher path is the one a migration can get wrong without noticing; both still h
   `--chain-ended` starting the queue only on `sealed`, `--stop` and its refusals, and the absence of
   any `claude` spawn, `caffeinate` or `run_telemetry` call. The engine is stubbed for those. The
   end-to-end tests run the real launcher and the real engine over a synthetic core whose `skill`,
-  `chain-product` and `chain-change` launchers are stubs that record their argv: the station's six —
+  `product-docs` and `walk` launchers are stubs that record their argv: the station's six —
   After order, a retire row ending the loop, a halt ending it, a failed row ending it, a row with no
   launcher named and skipped, and the report byte-identical after a run — and the stop's two, a stop
   then a chain end starting nothing and a plain start after a stop resuming what is still owed.
@@ -1419,8 +1455,8 @@ watcher path is the one a migration can get wrong without noticing; both still h
 - `core/launchers/skill/test_skill.py` — `[create]` — its contract-test suite, flat beside the
   launcher, named for the identity per the uniqueness rule above. Every fixture writes its own
   `launcher.md` into a `tmp_path` instance; tests read the shipped
-  `skills/pm/.claude/skills/tobiishi-open/launcher.md`, `nemawashi-pick`'s, `nemawashi-unpick`'s,
-  `tobiishi-drop`'s, `shukuba-refine`'s, `shukuba-retire`'s, `project-agari`'s, `nemawashi-drop`'s and
+  `skills/pm/.claude/skills/tobiishi-open/launcher.md`, `seed-pick`'s, `nemawashi-unpick`'s,
+  `tobiishi-drop`'s, `shukuba-refine`'s, `shukuba-retire`'s, `project-finish-line`'s, `nemawashi-drop`'s and
   `seeds-from-product-docs`'s, and
   one holds every shipped `**Reporter:**` to the `--reporter` and path of the dedicated launcher its
   skill still has. Pins the group grant — a grouped skill's
@@ -1446,26 +1482,32 @@ watcher path is the one a migration can get wrong without noticing; both still h
 `[create]` — git-native hooks that run on every commit-creating operation, whichever surface (a human,
 Codex, or Claude) runs `git commit`: a `commit-msg` hook that presence-checks the required commit
 trailers, and a `pre-commit` hook that blocks a commit whose staged content carries a written-forward
-violation. Distinct from the `.claude/hooks/` layer above: those are Claude Code harness hooks; these
+violation, a test that reads the machine it runs on, or a line added to a record that names the machine committing. Distinct from the `.claude/hooks/` layer above: those are Claude Code harness hooks; these
 are git's own. Audit enumerates these paths; Init auto-creation follows the same later-increment
 posture as the `.claude/` layer.
 
-- `core/githooks/commit-msg` — `[create]` — git-native hook shim (bash, stdlib): self-locates core from
-  its own directory and execs the checker with git's message-file path.
-- `core/tools/verify_commit_msg.py` — the trailer checker the shim execs; enumerated in the shared-tools
-  layer above (its home-of-record).
-- `core/githooks/pre-commit` — `[create]` — git-native hook shim (bash, stdlib), beside `commit-msg`:
-  self-locates core the same way, resolves the committing repo separately via `--show-toplevel` (the
-  two roots differ whenever a satellite commits), and execs `written_forward.py` in `--staged` mode. Does not
-  fire on a `--no-ff` merge — git invokes `pre-merge-commit` for that, and none is registered.
-- `core/tools/written_forward.py` — the written-forward checker the shim execs; enumerated in the
-  shared-tools layer above (its home-of-record).
+- `core/githooks/commit-msg` — `[create]` — git-native hook shim (bash): self-locates core from its
+  own directory and execs `core/tools/locked_python.sh` with the checker and git's message-file path.
+  So the checker runs on the Python that `.python-version` names at the root of the instance holding
+  that `core/`, whichever repository is committing.
+- `core/tools/verify_commit_msg.py` — the trailer checker the shim runs through the runner; enumerated
+  in the shared-tools layer above (its home-of-record).
+- `core/githooks/pre-commit` — `[create]` — git-native hook shim (bash), beside `commit-msg`: self-locates core the same way, resolves the committing repo separately via `--show-toplevel` (the two roots differ whenever a satellite commits), and runs `core/tools/locked_python.sh` with `written_forward.py`, then `check_test_isolation.py`, then `check_record_privacy.py`, each in `--staged` mode; all three run, and any one refusing refuses the commit. Does not fire on a `--no-ff` merge — git invokes `pre-merge-commit` for that, and none is registered.
+- `core/tools/written_forward.py` — the written-forward checker the shim runs through the runner;
+  enumerated in the shared-tools layer above (its home-of-record).
+- `core/tools/check_test_isolation.py` — the test-isolation checker the shim runs through the
+  runner; enumerated in the shared-tools layer above (its home-of-record).
+- `core/tools/check_record_privacy.py` — the record-privacy checker the shim runs through the runner; enumerated in the shared-tools layer above (its home-of-record).
 
 > **Wired by `resolve_core.py`, because the clone cannot carry it.** `core.hooksPath` is **local,
 > untracked** git config, so no clone brings it and until it is set the hook is inert — a commit with no
 > trailers is accepted in silence, with nothing to notice. The `resolve_core.py` SessionStart hook sets it
 > to `<resolved-core>/githooks` when it is unset; resolution owns the verb because the target *is* the
 > resolved core, which also means a `set_core` that repoints core is picked up on the next session.
+>
+> The same wiring, under the same guards, reaches every product repository a project card names
+> outside the instance (`**Product path:**` an absolute path), so a commit made there by hand meets
+> the hooks a pinned run's commit already meets through its environment.
 >
 > It declines to act on four guards, each preventing a *silent* breakage: the githooks dir must exist; the
 > main working tree only (linked worktrees **share one `.git/config`**, and a worktree resolves core to its
@@ -1494,7 +1536,7 @@ context read by construction — the directed project's per-project
 `system/projects/<name>/contexts/CONTEXT_PM.md` (§2), written by the change lifecycle. **An instance may
 give another overlay a context read of its own**, at `system/contexts/CONTEXT_<ROLE>.md`: that file is
 the instance's, hand-maintained, stamped by nothing, and its overlay says so. The one section skills
-write is the Principal PM's `## Picked seeds`: `nemawashi-pick` appends a line, and `nemawashi-unpick`,
+write is the Principal PM's `## Picked seeds`: `seed-pick` appends a line, and `nemawashi-unpick`,
 and `nemawashi-drop` remove it. Every other overlay
 carries no context read — posture from the global, live state from the project's `journey/`.
 **Fourteen roles** — qa excluded (fork-invoked, no prefix, so no app-level loader; qa is global-only —
@@ -1552,7 +1594,7 @@ its own § *What does not live here* sanctions. Which shapes exist and how the s
 
 `[create]` — the **fat authoring prompts** the thin definition skills read on demand. **A prompt lives
 beside the skill that reads it**, as that skill's `prompts/rich.md` (a thin judgment prompt beside it is
-`prompts/thin.md`, as `nemawashi-pick`'s is). **`core/prompts/` holds only what no single skill owns** —
+`prompts/thin.md`, as `seed-pick`'s is). **`core/prompts/` holds only what no single skill owns** —
 a prompt more than one skill reads, or one a seat's session or a launcher reads with no skill above it.
 The move into the skills was the owner's call, 2026-10-04. Each definition
 skill is a thin orchestrator that **points at** its prompt, and the prompt **owns the authoring
@@ -1566,7 +1608,7 @@ the same later-increment posture as the `.claude/` layer.
 
 **A second path check, same reason, other direction.** These files are vendored: every satellite binds
 this folder and reads the same bytes, so a prompt naming a **per-instance** path must name it in a form
-that resolves wherever it is read. A placeholder (`system/projects/<name>/agari.md`) or a glob
+that resolves wherever it is read. A placeholder (`system/projects/<name>/finish_line.md`) or a glob
 (`system/projects/*/doctrine/`) resolves against the reading instance and is the working form. **A
 literal project name — `system/projects/product-planning/…` — is a host-only reference**, and a
 satellite reading it finds nothing: a consumer satellite may hold a single project of its own, and
@@ -1611,7 +1653,7 @@ and returns nothing today. Stated
   occurrence outside a record is the sentence above, naming the rename. Everything else that still spells
   `pm_next_change.md` is a record of what was true when it was written, and records are not repaired:
   journey `trail/` entries, a project's `docs/`, the live journey files of the change that made the
-  rename, and one retired `agari.md`. The homes are listed because a reader applying the path-repair
+  rename, and one retired `finish_line.md`. The homes are listed because a reader applying the path-repair
   standing rule needs to know which hits to leave; the list is what disk held at the rename and is not a
   guarantee no record elsewhere names it.
 - `skills/pm/.claude/skills/stations-from-seed/prompts/rich.md` — PM seed-splitting lens, read by `stations-from-seed`: what a station
@@ -1634,7 +1676,7 @@ and returns nothing today. Stated
 - `core/prompts/principal_pm_cut_seeds.md` — Principal PM idea-cutting lens, read by
 `seeds-from-idea`, and by `seeds-from-product-docs` and `ad-hoc-plan` for its grounding pass, which is why
 it stays in core: what an idea is and is not, the grounding pass and its three outcomes, the seedbed
-sweep, how one idea becomes 1 to N seeds, the owning project the Agari decides, where the seed lands,
+sweep, how one idea becomes 1 to N seeds, the owning project the finish line decides, where the seed lands,
 when a routing seed is earned, the trace back to the idea, and the four cases a cut stops on. **The one
 prompt in `core/prompts/` whose verb slot is not `create`** — the `<role_file>_<verb>_<artifact>` form takes
 the real verb, and this seat cuts rather than creating a document. It restates neither the four defects and three
@@ -1643,7 +1685,7 @@ seed tests of `core/roles/loaders/principal_pm_global.md` nor the seed shape of
 - `skills/principal-pm/.claude/skills/seeds-from-product-docs/prompts/rich.md` — Principal PM **document**-cutting lens, the
   sibling of the one above and the second of that seat's two cutting paths: the four documents a cut
   draws from (SDD, FDR, ADR, NFDR) against the five it only reads for faithfulness (PRD, SRS, UXD,
-  `DESIGN.md`, `CONTENT.md`) and the double-cut the split prevents, the 上がり Agari as the cut's
+  `DESIGN.md`, `CONTENT.md`) and the double-cut the split prevents, the finish line as the cut's
   **filter and routing key** rather than an input, the four kinds of seed a document set yields
   (downstream, documentation, upstream through the owning document's companion, scaffold), the
   priority-and-incremental-slicing judgment the documents do not make, what the SDD's § 7 order and
@@ -1817,8 +1859,9 @@ per layer of a stack — the orchestrator, the thinking, the section shape:
 Per-project stamping:
 - `core/templates/project_template.md` · `project_doctrine_template.md` · `context_template.md` ·
   `change_request_template.md` · `journey_nemawashi_template.md` · `journey_shukuba_template.md` ·
-  `project-templates/agari_template.md` · `project-templates/agari_open_issues_template.md` ·
-  `project-templates/setup_seed_template.md` · `ai_responsibility_template.md`
+  `project-templates/finish_line_template.md` · `project-templates/finish_line_open_issues_template.md` ·
+  `project-templates/setup_seed_template.md` · `project-templates/setup_seed_prd_and_finish_line_template.md` ·
+  `ai_responsibility_template.md`
 
   The last is the **dual-scope** template — stamped here *and* in the instance group above, which
   is why it sits flat rather than in a scope folder.
@@ -1884,6 +1927,12 @@ stamped):
   for the file, including who adds an entry and who removes one, are § 3 Product's *The what-left
   file — the one place a product states what is still to build*.
 
+Product changelog (`core/templates/product-templates/`, model-read — authored from, never stamped):
+- `product-templates/changelog_template.md` — the shape of `<Product path>/CHANGELOG.md`. Where the
+  file sits, what earns an entry, which project an entry names and what happens to the entries at a
+  release cut are § 3 Product's *The changelog — one file per product path records what changed for
+  a user of a fresh clone*.
+
 Product skeleton trees (`core/templates/skeleton-templates/`) — **script-facing**, copied wholesale
 (never read by a model) by `core/launchers/product-skeleton/launcher.sh`, matching
 `core/templates/README.md`'s consumer split: `__PROJECT__` is the one substitution token, and each
@@ -1937,7 +1986,7 @@ the drift it would catch, and Audit diffs a subfolder as readily as a file.
   instances.
 - `core/doctrine/kaizen/` — the hardening loop: its skills, its lens set, the fix packet, ratification.
 
-`core/docs/michi_agari.md` — the journey model (道 Michi, 上がり Agari, and the three journey parts)
+`core/docs/michi_agari.md` — the journey model (道 Michi, finish line, and the three journey parts)
 — ships beside this layer and is audited with it. `core/docs/journey_move.md`, the mechanic every
 skill that moves a journey item reads, sits beside it; those two are the only files under `core/docs/`.
 
@@ -1990,7 +2039,7 @@ other file owns: it does not restate a stamped file, the writing bar or a core r
 (`<CORE>/doctrine/governance/single_source.md`). The instance's `doctrine_structure.md` lists each one
 by name, because that file owns the names and this section owns which kinds may exist.
 
-### App-level — the solar system that drives the agari(s)
+### App-level — the solar system that drives the projects' finish lines
 
 The instance carries three things of its own at app level — a **bearing** (`michi.md`), a
 **seedbed** (`nemawashi/`) and a **router station** (`shukuba/`). All three sit **directly under
@@ -2001,7 +2050,7 @@ folder** in the canonical instance:
 
 - `system/michi.md` — 道 Michi, the instance's **Way(s)** (MANDATORY) — `[create]`, stamped from
   `templates/michi_template.md`. A *declaration*, not a queue (a Way is declared once, never retired).
-  Mirrors one level down as the per-project `agari.md` (§2).
+  Mirrors one level down as the per-project `finish_line.md` (§2).
 - `system/nemawashi/` — 根回し Nemawashi, the instance's **seedbed** — a **folder** (one file per seed, so
   a closed seed is moved whole; never struck through in a shared queue):
   - `system/nemawashi/README.md` — the seedbed's doctrine + lifecycle — `[create]`, stamped from
@@ -2036,11 +2085,11 @@ folder** in the canonical instance:
 - `system/upkeep.md` — the instance's **upkeep register** — `[user]`, written the first time a project
   hands over upkeep, the owner asks for a standing task, or a run records an exception that lapses on
   a date (the security skill's advisory exceptions). It holds the recurring work that outlives a
-  project's Agari: re-checks on a cadence, and corrections due when the world changes. Each task gets one
+  project's finish line: re-checks on a cadence, and corrections due when the world changes. Each task gets one
   row naming the rule it serves, its cadence, when it was last done, when it is next due, and what
   reminds the owner. None of the three above can hold this work. The Michi is a declaration, a seed is
   walked once, and a router station coordinates projects. A project that kept the work in its own
-  journey would never reach its Agari. The rule a task serves stays in its own file, and the register
+  journey would never reach its finish line. The rule a task serves stays in its own file, and the register
   says only what to do and when. A task that ends is removed, and the commit says why.
 
 - `system/tests/` — the instance's **own checks over its own tree** — `[user]`. A test belongs here,
@@ -2053,7 +2102,7 @@ folder** in the canonical instance:
   module by its bare name, so one sharing a name with a tool's suite breaks collection of both. Run
   as the suite map's `system-readers` suite.
 
-**Not at app level:** 飛び石 Tobiishi · 上がり Agari — both project-level (§2). Nothing reaches the Michi,
+**Not at app level:** 飛び石 Tobiishi · finish line — both project-level (§2). Nothing reaches the Michi,
 so the instance has no terminus and no change-pipeline of its own.
 
 ---
@@ -2061,7 +2110,7 @@ so the instance has no terminus and no change-pipeline of its own.
 ## 2. Per-project — `system/projects/<name>/`
 
 One folder per **managed engagement**. `project-stamp` scaffolds the skeleton (`project.md` +
-the `agari.md` and `journey/` placeholders — the pipeline front door is the `journey/tobiishi/`
+the `finish_line.md` and `journey/` placeholders — the pipeline front door is the `journey/tobiishi/`
 folder, holding the active Tobiishi `journey/tobiishi/<key>/`); the change-work content is authored
 by the pipeline, never by setup. The one exception is the **setup seed** in the seedbed below —
 the definition chain a project starts with, stamped rather than hand-written.
@@ -2096,34 +2145,35 @@ the definition chain a project starts with, stamped rather than hand-written.
   loader layers as a project-scoped read; kept fresh by the change lifecycle (`tobiishi-open` overwrites,
   `tobiishi-seal` marks it done), never hand-edited. The **only** per-role context setup stamps (§1 *Role layer*) — the
   other thirteen roles are stamped with none.
-- `system/projects/<name>/agari.md` — the project's **上がり Agari declaration** (MANDATORY — the
-  product's "done", set by CPO) — `[create]`, stamped from `templates/project-templates/agari_template.md`. A *declaration*,
+- `system/projects/<name>/finish_line.md` — the project's **finish line declaration** (MANDATORY — the
+  product's "done", set by CPO) — `[create]`, stamped from `templates/project-templates/finish_line_template.md`. A *declaration*,
   not a queue — it mirrors the instance's `system/michi.md` one level down (§1). **No Michi** at project
-  level (a project serves the instance's Way). Setup stamps the placeholder; `project-agari` fills it at
+  level (a project serves the instance's Way). Setup stamps the placeholder; `project-finish-line` fills it at
   station 2 of the setup seed, off the back of the settled PRD.
-- `system/projects/<name>/agari_open_issues.md` — the Agari's **companion**, holding what the
-  `project-agari` round could not settle for the owner to answer inline — `[user]` (written by the skill,
-  never by setup), from `templates/project-templates/agari_open_issues_template.md`. **Transient**: the
-  closing round removes it, and its **absence is the done signal** for the Agari.
-- `system/projects/<name>/trail/agari/cycle-<N>.md` — each answered companion, retired whole before its
-  answers are folded in — `[user]`, written by `project-agari`. Permanent: it is where the owner's
+- `system/projects/<name>/finish_line_open_issues.md` — the finish line's **companion**, holding what the
+  `project-finish-line` round could not settle for the owner to answer inline — `[user]` (written by the skill,
+  never by setup), from `templates/project-templates/finish_line_open_issues_template.md`. **Transient**: the
+  closing round removes it, and its **absence is the done signal** for the finish line.
+- `system/projects/<name>/trail/finish_line/cycle-<N>.md` — each answered companion, retired whole before its
+  answers are folded in — `[user]`, written by `project-finish-line`. Permanent: it is where the owner's
   decisions and their reasoning stay citable once the companion is rewritten or removed.
-- `system/projects/<name>/journey/` — the project's **journey**: the work in motion toward the Agari.
+- `system/projects/<name>/journey/` — the project's **journey**: the work in motion toward the finish line.
   It runs **根回し Nemawashi (seedbed) → 宿場 Shukuba (current station) → 飛び石 Tobiishi (change units)**
   — each a **folder** with one active item and a `trail/` of finished ones (same lifecycle throughout;
   park-don't-strike). The active idea's **dynamic checklist** names its stations — there is no separate
   plan folder.
   - `journey/nemawashi/` — the **根回し Nemawashi** seedbed (a folder; the ideas that carry the product
-    toward its Agari — one **active** idea carrying a dynamic checklist of its stations, plus
+    toward its finish line — one **active** idea carrying a dynamic checklist of its stations, plus
     **candidates**, held in `unpicked/` at any time whether or not one is active. A pick lifts one
     candidate out of `unpicked/` to the root, alone; no other candidate moves):
     - `journey/nemawashi/README.md` — the seedbed's doctrine + lifecycle — `[create]`, stamped from
       `templates/journey_nemawashi_template.md`.
     - `journey/nemawashi/<date>_define-the-product.md` — the **setup seed**: the recommended definition
       sequence as a station checklist, projected from `setting_up_a_project.md` § The flow at a
-      glance and not restated here — `[create]`, stamped by `project-stamp` from
-      `templates/project-templates/setup_seed_template.md`. The one idea setup authors, so a new
-      project's seedbed is never empty. A **recommendation** — the owner may edit or delete it, so
+      glance and not restated here — `[create]`, stamped by `project-stamp` from the template the
+      card's `Definition:` names: `templates/project-templates/setup_seed_template.md` for `full`,
+      `templates/project-templates/setup_seed_prd_and_finish_line_template.md` for `prd-and-finish-line`, and none
+      for `none`, whose seedbed starts empty. The one idea setup authors. A **recommendation** — the owner may edit or delete it, so
       its absence in an existing project is not a gap.
     - `journey/nemawashi/<idea>.md` — any other idea (`<idea>` = `<YYYY-MM-DD>_<slug>`) — `[user]`
       (authored as ideas arise, never by setup).
@@ -2152,7 +2202,8 @@ the definition chain a project starts with, stamped rather than hand-written.
     - `journey/tobiishi/<key>/` — the active Tobiishi (`<key>` = `<YYYY-MM-DD>_<slug>`) — `[user]`
       (pipeline-authored, never created by setup). Holds the change arc, in order:
       `change_request.md` → `change_spec.md` → `change_design.md` → `tl_instruction.md` →
-      `change_text.md` → `flow_findings/` → code → `code-integrity-report.md` → `security-report.md`.
+      `change_text.md` → `flow_findings/` → code → `changelog-report.md` → `code-integrity-report.md` →
+      `security-report.md`.
       A change planned by `ad-hoc-plan` from a brief also holds `ad_hoc_plan_brief.md`, its input,
       beside `change_request.md`, and an `ad-hoc-plan` run leaves `ad_hoc_plan_report.md` there,
       save the three stops its `SKILL.md` § *The run's report* names.
@@ -2161,7 +2212,7 @@ the definition chain a project starts with, stamped rather than hand-written.
     - `journey/tobiishi/drop/` — Tobiishi dropped **unsealed** by `tobiishi-drop`, whole and unedited.
       The folder is created on the first drop and is not stamped by setup. Its branches are kept
       unmerged, so a dropped unit's work is never lost and never reaches `main`.
-  **Agari is *not* here** — it lives in `agari.md` above (a declaration, not a moving part).
+  **Finish line is *not* here** — it lives in `finish_line.md` above (a declaration, not a moving part).
 
 **The binding field in `project.md`:**
 
@@ -2183,7 +2234,7 @@ instance's own repo is **not** external: the tool reads it as one repo, like a r
 ### When a project stops — it moves to the galaxy archive
 
 § 2 above describes a project's whole life except its end. A project stops in one of two ways, and
-only one of them was ever named: it **settles**, having reached its Agari, or it is **taken out of
+only one of them was ever named: it **settles**, having reached its finish line, or it is **taken out of
 service** — finished, superseded, or simply stopped. Every real case in this galaxy has been the
 second.
 
@@ -2197,7 +2248,7 @@ stopped project is that same forgetting one level up. **No instance keeps an arc
 exists in two instances today, and it is not the first name to have.
 
 **The move is by hand, in one commit each side, and nothing inside the folder is edited.** The card,
-Agari, doctrine and journey read exactly as they did on the day it was set down, because a project's
+finish line, doctrine and journey read exactly as they did on the day it was set down, because a project's
 reasoning stops being evidence once it has been tidied. Park-don't-strike, applied to a whole project.
 
 **Every entry carries an `ORIGIN.md`, and that is not decoration.** A move between instances is not a
@@ -2225,7 +2276,7 @@ external product is clean. **Mapped 1:1 to a project.**
   They **stay with the product**; **never created by the stamper.**
 - `<product>/docs/trail/<doc>/` — the **answer-trail** of the document `<doc>` names — `[user]`, written
   by the producing skill, never by the stamper. Permanent. The rule that puts it there is below.
-- `<product>/docs/what_left.md` — the **what-left file**, listing what the product's Agari and PRD
+- `<product>/docs/what_left.md` — the **what-left file**, listing what the product's finish line and PRD
   want that its code does not do — `[user]`, never created by the stamper. Its shape and the rules
   for changing it are below.
 - `<product>/…` — the product's own code + tests — `[user]`.
@@ -2238,7 +2289,7 @@ The stamper does **not** create product folders or decision records (user- / pip
 
 **A document's answer-trail lives at `<the document's own directory>/trail/<document-slug>/`.** It is
 never a `<doc>_trail/` sibling of the document. This holds at every layer, so §1's instance documents
-and §2's `agari.md` name their own paths against this rule and do not restate it.
+and §2's `finish_line.md` name their own paths against this rule and do not restate it.
 
 | the document | its trail |
 |---|---|
@@ -2246,7 +2297,7 @@ and §2's `agari.md` name their own paths against this rule and do not restate i
 | `system/doctrine/writing_bar.md` | `system/doctrine/trail/writing_bar/` |
 | `system/experience/visual_direction.md` + `visual_restrictions.md` | `system/experience/trail/visual/` |
 | `system/experience/voice_direction.md` + `voice_restrictions.md` | `system/experience/trail/voice/` |
-| `system/projects/<name>/agari.md` | `system/projects/<name>/trail/agari/` |
+| `system/projects/<name>/finish_line.md` | `system/projects/<name>/trail/finish_line/` |
 
 **The slug is lower-case and names the document, not its file's case.** Six of the seven product
 documents are upper-case on disk and the FDR alone is lower
@@ -2315,9 +2366,9 @@ documents in §1 have no `docs/` to sit beside, so that shape would need a secon
 
 ### The what-left file — the one place a product states what is still to build
 
-**A product's what-left file lists what the product's Agari and PRD want that its code does not
+**A product's what-left file lists what the product's finish line and PRD want that its code does not
 do.** It lives at `<product>/docs/what_left.md`, and a reader tests for it with
-`test -f <product>/docs/what_left.md`. The Agari is the one at `system/projects/<name>/agari.md`, for
+`test -f <product>/docs/what_left.md`. The finish line is the one at `system/projects/<name>/finish_line.md`, for
 the project mapped to the product, and the PRD is `<product>/docs/PRD.md`. The what-left file is the
 one place a product's "what is left to build" is stated. Any other file that needs a product's build
 state points at it rather than restating it. `core/doctrine/governance/written_forward.md` § 2, *A
@@ -2334,40 +2385,41 @@ begins `- **Wanted:** `, and the other two fields follow it on two indented line
   reader. It is written as a want, never as a step, a task or an order of work. "Add a `Task`
   dataclass to `domain/`" is a step and is not an entry. "The operator adds tasks to a project" is a
   want.
-- `**Source:**` — the document that wants it and the section that says so: `Agari` or `PRD`, then
+- `**Source:**` — the document that wants it and the section that says so: `Finish line` or `PRD`, then
   ` § ` and the section heading, adding the bolded item name where the section has named items, as
   in `PRD § Core Features, **Projects**`.
 - `**Missing at:**` — one short commit SHA in an inline code span. It names a commit that `main`
   carries, at which the product's code does not do the wanted thing. It is set when the entry is
   added and is never rewritten.
 
-**An entry holds only a want that the code can be shown to miss.** The product's Agari or PRD wants
+**An entry holds only a want that the code can be shown to miss.** The product's finish line or PRD wants
 the thing, and at the entry's `Missing at` commit, `git grep` over the product or running its code
 shows that the code does not do it. A want that only the owner's judgement can pass or fail is not
 such a thing, and it gets no entry. An entry names no station, seed, change unit or `journey/` path.
 The file is not a plan and not a task list, and it carries no step and no order of work.
 
-**An entry is added only by whoever changes the product's Agari or PRD.** This rule governs adding
+**An entry is added only by whoever changes the product's finish line or PRD.** This rule governs adding
 to a what-left file that exists. It does not govern writing a product's first one.
 
 **The CPO writes a product's first what-left file, with `skills/cpo/.claude/skills/first-what-left/`,
-once the project's Agari is settled** (`agari.md` present, no `agari_open_issues.md`). The run writes
+once the project's finish line is settled** (`finish_line.md` present, no `finish_line_open_issues.md`). The run writes
 only where no file exists, and that skill's `SKILL.md` owns the rest.
 
-**A Content Editor run removes an entry, and only once the entry's wanted thing has merged.** The
-commit that removes the entry names the commit that merged its thing, in a body line of its message,
-one line per removed entry:
-`Merged in <commit>: <the entry's Wanted text, verbatim>`. A later reader finds that commit for any
-removed entry with `git log -p -- <product>/docs/what_left.md`.
-The Content Editor run that removes an entry is `readme-status`. After each station close, a
-product's what-left file shrinks at the `build-idea` queue's `readme-status` row. `shukuba-refine`
-writes one `readme-status` row after each `close the reached station` row in its report's
-`## Next moves` table, for a product that has both a what-left file and a README with one `## Status`
-line; for one lacking either it writes none, since the run would refuse it. The queue starts that row only once the close it follows has landed.
+**A Content Editor run removes an entry, and only once the entry's whole want is built.** One run does,
+and it names its evidence in the removing commit's message, in a body line, one line per removed entry:
+`Merged in <commit>: <the entry's Wanted text, verbatim>`.
 
-**Reducing the file belongs to that run alone, and reducing is all that run does to the file.** It
-never adds an entry and never rewords one. No one else removes an entry, whether or not its thing
-has merged.
+- **`changelog-line` removes on the change's branch.** It is the chain's step after implementation, and
+  it removes an entry the change wholly completes, so the removal reaches `main` in the merge that
+  carries the wanted thing. Its `<commit>` is a commit on the change's branch at which the product's
+  code does the wanted thing. It exists on `main` once the change merges, and no merge commit exists
+  when the run reads.
+
+A later reader finds the commit for any removed entry with `git log -p -- <product>/docs/what_left.md`.
+
+**Reducing the file belongs to `changelog-line` alone, and reducing is all it does to the file.**
+It never adds an entry, rewords one or reorders them, and the heading and lead sentence stay as they
+are. No one else removes an entry, whether or not its thing has merged.
 
 **A reader reads the product's state from what sits at `<product>/docs/what_left.md`.** The empty
 marker is the line `Nothing is left to build.`, exactly, alone on its line.
@@ -2376,7 +2428,7 @@ marker is the line `Nothing is left to build.`, exactly, alone on its line.
 |---|---|
 | no file | **never given**. The product was never given a what-left file, and that says nothing about what the product lacks. |
 | the file, holding one or more entries and no empty marker | **still to build**. The entries are what is left. |
-| the file, holding the empty marker and no entry | **done**. Nothing the Agari or PRD wants is left to build. |
+| the file, holding the empty marker and no entry | **done**. Nothing the finish line or PRD wants is left to build. |
 | the file, holding neither an entry nor the empty marker | **malformed**. It reads as neither done nor never given. |
 | the file, holding the empty marker and one or more entries | **malformed**. It reads as neither done nor never given. |
 
@@ -2386,6 +2438,46 @@ reading that never claims a product is finished.
 **The run that removes a product's last entry leaves the file in place, holding the empty marker.**
 It never deletes the file. A deleted file reads as never given, which would turn a finished product
 into one that was never given the file.
+
+### The changelog — one file per product path records what changed for a user of a fresh clone
+
+**A product path's changelog records each change to what a user of a fresh clone installs, runs,
+types or reads there.** It lives at `<Product path>/CHANGELOG.md`, one file at the root of each
+product path, where `Product path:` is the field on `system/projects/<name>/project.md`. Projects
+whose cards give the same product path share that one file. None of them keeps a changelog of its
+own.
+
+**A product's state is read from two files.** The product path's `CHANGELOG.md` records what changed,
+and its `docs/what_left.md` states what is left to build, read as § *The what-left file* sets out. A
+product keeps no release-notes file.
+
+**Its shape is `core/templates/product-templates/changelog_template.md`.** The template fixes the
+file's headings, its groups and the form of one entry, and this section does not restate them.
+
+**A change earns an entry when it alters what a user of a fresh clone installs, runs, types or
+reads.** A launcher whose name changes earns one, because a user types that name. A change only dev's
+own readers see earns none. A commit that only adds or changes tests is such a change, and so is a
+red-phase commit whose green commit is the one a user sees.
+
+**Every entry names one project.** Where the change's commit records the project it was made under,
+the entry names that project. A commit records one by naming it in its subject, or through a trailer
+naming a change unit or station that one project's journey holds. Where the commit records none, the
+entry names one of the projects whose `Product path:` is the file's path. A change made under one
+project to files under another project's path therefore names the project it was made under.
+
+**Changes to the root files a fresh clone gets are logged in `core/tools/CHANGELOG.md`.** Those files
+sit at the root of the instance: `pyproject.toml`, `uv.lock`, `.python-version`, `AGENTS.md`,
+`CLAUDE.md`, `Containerfile`, `.gitignore`, `.env.example`, `.providers.toml.example` and
+`.telemetry.env`.
+
+**A change a clone must act on to keep working goes under `### Upgrading`.** After such a change, the
+clone has to install something, re-run something or type something differently. The entry says what
+to do.
+
+**At a release cut, the entries under `## [Unreleased]` move under the release.** They move with
+their groups to a new `## [<version>] - <YYYY-MM-DD>` heading that names the release. An empty
+`## [Unreleased]` heading stays at the top of the file, so the changes made after the cut collect
+under it until the next one.
 
 ---
 
@@ -2435,10 +2527,11 @@ instance on it.
   already owns: it spools its own `1p_failed_events.*.json` there (five on this machine, dated from
   2026-08-18), and it sweeps `~/.claude` on its own retention schedule. A directory the vendor writes
   and rotates is a poor home for the only copy of a measurement.
-- `~/.kensaiapp/pins/<id>/` — a pin: a copy of the host's `core/`, `.claude/` and `skills/` trees as
-  they stood at the moment a launch made it, through `core/tools/pin.py`. Which pin a launch runs in
-  is decided by the rules in `core/tools/pin_run.sh`. A run keeps the version it started on: a live
-  edit to those trees made after the launch cannot reach it. A `build-idea` start that a run makes
+- `~/.kensaiapp/pins/<id>/` — a pin: a copy of the host's `core/`, `.claude/` and `skills/` trees, and of whichever of
+  `.python-version`, `pyproject.toml` and `uv.lock` the host's root holds, as they stood at the moment a
+  launch made it, through `core/tools/pin.py`. Which pin a launch runs in
+  is decided by the rules in `core/tools/pin_run.sh`. A run keeps the version it started on: a live edit to those trees or files made after the launch
+  cannot reach it. A `build-idea` start that a run makes
   takes a new pin when the host has changed since the run's pin was made. Nothing deletes a pin; they
   accumulate until an owner clears them by hand. `KENSAIAPP_PINS_HOME` overrides the pins home for
   tests, so a suite never writes under the real path.
@@ -2474,7 +2567,15 @@ When the audit finds a file **missing at its canonical path but present at an ol
 | `system/doctrine/writing_bar_trail/` | `system/doctrine/trail/writing_bar/` |
 | `system/experience/visual_trail/` | `system/experience/trail/visual/` |
 | `system/experience/voice_trail/` | `system/experience/trail/voice/` |
-| `system/projects/<name>/agari_trail/` | `system/projects/<name>/trail/agari/` |
+| `system/projects/<name>/agari_trail/` | `system/projects/<name>/trail/finish_line/` |
+| `system/projects/<name>/trail/agari/` | `system/projects/<name>/trail/finish_line/` |
+| `system/projects/<name>/agari.md` | `system/projects/<name>/finish_line.md` |
+| `system/projects/<name>/agari_open_issues.md` | `system/projects/<name>/finish_line_open_issues.md` |
+| `skills/cpo/.claude/skills/project-agari/` | `skills/cpo/.claude/skills/project-finish-line/` |
+| `system/projects/<name>/trail/dod/` | `system/projects/<name>/trail/finish_line/` |
+| `system/projects/<name>/dod.md` | `system/projects/<name>/finish_line.md` |
+| `system/projects/<name>/dod_open_issues.md` | `system/projects/<name>/finish_line_open_issues.md` |
+| `skills/cpo/.claude/skills/project-dod/` | `skills/cpo/.claude/skills/project-finish-line/` |
 
 *(The instance-wide `CONTEXT_<ROLE>.md` relocation rows are **removed** — setup no longer stamps a
 context there. Legacy contexts are handled report-only, below.)*
@@ -2588,6 +2689,10 @@ These are **paths that are referenced from inside template-owned files but never
 | Old referenced path | New canonical path |
 |---|---|
 | `~/.claude/loaders/<role>_global.md` | `<CORE>/roles/loaders/<role>_global.md` |
+| `<CORE>/templates/project-templates/agari_template.md` | `<CORE>/templates/project-templates/finish_line_template.md` |
+| `<CORE>/templates/project-templates/agari_open_issues_template.md` | `<CORE>/templates/project-templates/finish_line_open_issues_template.md` |
+| `<CORE>/templates/project-templates/dod_template.md` | `<CORE>/templates/project-templates/finish_line_template.md` |
+| `<CORE>/templates/project-templates/dod_open_issues_template.md` | `<CORE>/templates/project-templates/finish_line_open_issues_template.md` |
 | `~/.claude/contracts/CROSS_ROLE.md` | `<CORE>/roles/CROSS_ROLE.md` |
 | `~/.claude/rules/<name>.md` | `~/.claude/rules_parked/<name>.md` |
 | `.claude/skills/_shared/commit-via-builder.md` | `<CORE>/doctrine/governance/commit_via_builder.md` |
@@ -2612,3 +2717,9 @@ These are **paths that are referenced from inside template-owned files but never
 | `<CORE>/launchers/product-setup/launcher.sh` | `<CORE>/launchers/product-card/launcher.sh` |
 | `<CORE>/../skills/interactive-product/.claude/skills/product-setup/` | `<CORE>/../skills/interactive-product/.claude/skills/product-card/` |
 | `<CORE>/../skills/interactive/.claude/skills/ad-hoc-plan/` | `<CORE>/../skills/tech-lead/.claude/skills/ad-hoc-plan/` |
+| `<CORE>/launchers/chain-development/launcher.sh` | `<CORE>/launchers/change/launcher.sh` |
+| `<CORE>/launchers/development/launcher.sh` | `<CORE>/launchers/change/launcher.sh` |
+| `<CORE>/launchers/chain-change/launcher.sh` | `<CORE>/launchers/walk/launcher.sh` |
+| `<CORE>/launchers/chain-product/launcher.sh` | `<CORE>/launchers/product-docs/launcher.sh` |
+| `<CORE>/launchers/chain-agari/launcher.sh` | `<CORE>/launchers/prd-and-finish-line/launcher.sh` |
+| `<CORE>/launchers/prd-and-dod/launcher.sh` | `<CORE>/launchers/prd-and-finish-line/launcher.sh` |

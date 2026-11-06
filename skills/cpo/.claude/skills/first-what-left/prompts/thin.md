@@ -1,17 +1,17 @@
 ---
-version: "1.0.0"
+version: "1.2.0"
 ---
 
 # first-what-left — the judgment
 
-You are the CPO. `SKILL.md` has run the checks, recorded the tip of `main` and read the Agari and the
+You are the CPO. `SKILL.md` has run the checks, recorded the tip of `main` and read the finish line and the
 PRD. What is left for you is the thinking, and the thinking is two things: which of the wants those
 two documents state go on the list, and how each entry is worded. The messages the owner reads are
 below, and you use their sentences as written.
 
 ## What you receive
 
-- the **Agari** and the **PRD**, whole;
+- the **finish line** and the **PRD**, whole;
 - the **tip** of `main`, nine hexadecimal digits, and the product's repository to search at it;
 - the **template** `<CORE>/templates/product-templates/what_left_template.md`, which owns the file's
   shape, and `<CORE>/doctrine/setup/kensaiapp_structure.md` § 3, *The what-left file*, which owns what
@@ -19,7 +19,7 @@ below, and you use their sentences as written.
 
 ## Which wants go on the list
 
-An entry is one want, stated in the Agari or the PRD, that the product's code can be shown not to do
+An entry is one want, stated in the finish line or the PRD, that the product's code can be shown not to do
 at the recorded tip. You show it by `git grep` at that commit, or by running the code in the
 disposable copy `SKILL.md` allows. A want that only the owner's judgement can pass or fail gets no
 entry, whichever document states it, and neither does a want the product's code already does.
@@ -39,7 +39,7 @@ When no want is missing, the file holds the heading, the lead sentence and the l
 
 - `**Wanted:**` is the want, written as a want and never as a step, a task or an order of work, in the
   words of the document that states it where those words already say it as a want.
-- `**Source:**` is `Agari § <section heading>` or `PRD § <section heading>`, adding
+- `**Source:**` is `Finish line § <section heading>` or `PRD § <section heading>`, adding
   `, **<item name>**` where the section has named items. The heading is one the document holds.
 - `**Missing at:**` is the recorded tip in an inline code span. Every entry gives the same one.
 - No entry names a station, a seed, a change unit or a `journey/` path.
@@ -106,27 +106,27 @@ Every path variable is written inside an inline code span, as shown.
 
 > first-what-left writes only a product's first list, so it left that file as it was.
 
-**Refused — condition 4, the project has no Agari**
+**Refused — condition 4, the project has no finish line**
 
-> The project {project} has no Agari at `system/projects/{project}/agari.md`.
+> The project {project} has no finish line at `system/projects/{project}/finish_line.md`.
 
-> The run writes the first list only once the project's Agari is settled.
+> The run writes the first list only once the project's finish line is settled.
 
-> Run first-what-left again once the project has a settled Agari.
+> Run first-what-left again once the project has a settled finish line.
 
-**Refused — condition 5, the Agari is not settled**
+**Refused — condition 5, the finish line is not settled**
 
-> The Agari of {project} is not settled, because `system/projects/{project}/agari_open_issues.md` exists.
+> The finish line of {project} is not settled, because `system/projects/{project}/finish_line_open_issues.md` exists.
 
-> The run writes the first list only once the project's Agari is settled.
+> The run writes the first list only once the project's finish line is settled.
 
-> Run first-what-left again once `system/projects/{project}/agari_open_issues.md` no longer exists.
+> Run first-what-left again once `system/projects/{project}/finish_line_open_issues.md` no longer exists.
 
 **Refused — condition 6, the product has no PRD**
 
 > No PRD is at `{prd}`.
 
-> The run reads both the Agari and the PRD before it writes the list.
+> The run reads both the finish line and the PRD before it writes the list.
 
 > Run first-what-left again once `{prd}` exists.
 
@@ -224,7 +224,7 @@ This sentence takes the place of the entry count and of the `Missing at` sentenc
 
 > The list leaves out the want "{want}" from {source}, because only the owner's judgement can tell whether the product does it.
 
-`{want}` is the want as the Agari or the PRD states it, in straight double quotes. `{source}` is written the way an entry's `**Source:**` line would name it: `Agari § {section heading}` or `PRD § {section heading}`, followed by `, **{item name}**` where that section has named items. The sentence is given once per want left out, after the sentences above.
+`{want}` is the want as the finish line or the PRD states it, in straight double quotes. `{source}` is written the way an entry's `**Source:**` line would name it: `Finish line § {section heading}` or `PRD § {section heading}`, followed by `, **{item name}**` where that section has named items. The sentence is given once per want left out, after the sentences above.
 
 **Reported after a write — a want left out because the run could not show the code lacks it**
 

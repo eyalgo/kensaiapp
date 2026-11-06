@@ -161,7 +161,7 @@ def test_in_scope_false_for_the_journey_of_the_project_named_doctrine():
     (station: the-checker-reads-a-live-seed) — but a `"/doctrine/" in path` test would still be
     wrong, because it would scope in that project's `trail/`, which stays a record.
     """
-    assert wf.in_scope("system/projects/doctrine/doctrine/doctrine_doctrine.md")
+    assert wf.in_scope("system/projects/demo/doctrine/demo_doctrine.md")
     assert wf.in_scope("system/projects/doctrine/journey/nemawashi/seed.md")
     assert not wf.in_scope("system/projects/doctrine/journey/shukuba/trail/station.md")
 
@@ -175,11 +175,11 @@ def test_in_scope_false_outside_scoped_roots():
 
 def test_in_scope_true_for_a_project_seedbed_root_seed():
     """A seed at a project seedbed root is live and in scope."""
-    assert wf.in_scope("system/projects/tools/journey/nemawashi/seed.md")
+    assert wf.in_scope("system/projects/demo/journey/nemawashi/seed.md")
 
 
 def test_in_scope_false_for_the_same_seed_retired_or_parked():
-    assert not wf.in_scope("system/projects/tools/journey/nemawashi/trail/seed.md")
+    assert not wf.in_scope("system/projects/demo/journey/nemawashi/trail/seed.md")
     assert not wf.in_scope("system/projects/tools/journey/shukuba/parked/station.md")
 
 
@@ -196,7 +196,7 @@ def test_in_scope_true_for_an_open_station_at_the_project_layer():
 
 def test_in_scope_true_for_the_unpicked_candidate_pool_at_both_layers():
     assert wf.in_scope("system/nemawashi/unpicked/idea.md")
-    assert wf.in_scope("system/projects/tools/journey/nemawashi/unpicked/idea.md")
+    assert wf.in_scope("system/projects/demo/journey/nemawashi/unpicked/idea.md")
 
 
 def test_in_scope_false_for_a_folder_readme_in_the_live_journey():
@@ -204,7 +204,7 @@ def test_in_scope_false_for_a_folder_readme_in_the_live_journey():
     assert not wf.in_scope("system/nemawashi/README.md")
     assert not wf.in_scope("system/shukuba/README.md")
     assert not wf.in_scope("system/nemawashi/unpicked/README.md")
-    assert not wf.in_scope("system/projects/tools/journey/nemawashi/README.md")
+    assert not wf.in_scope("system/projects/demo/journey/nemawashi/README.md")
 
 
 def test_scoped_roots_predating_the_live_journey_change_are_unaffected():
@@ -224,7 +224,7 @@ def test_scoped_roots_predating_the_live_journey_change_are_unaffected():
         ("system/doctrine/ai_responsibility.md", True),
         ("system/experience/visual_restrictions.md", True),
         ("system/projects/dev-skills/doctrine/skills_doctrine.md", True),
-        ("system/projects/doctrine/doctrine/doctrine_doctrine.md", True),
+        ("system/projects/demo/doctrine/demo_doctrine.md", True),
         ("system/projects/doctrine/journey/shukuba/trail/station.md", False),
         ("docs/proposals/p/ad_hoc_plan.md", False),
         ("core/tools/written_forward.py", False),
@@ -250,18 +250,18 @@ def test_in_scope_false_for_non_markdown():
 
 
 def test_in_scope_true_for_a_folder_seeds_seed_md_at_a_project_root_and_under_unpicked():
-    assert wf.in_scope("system/projects/tools/journey/nemawashi/2026-09-01_a-seed/seed.md")
+    assert wf.in_scope("system/projects/demo/journey/nemawashi/2026-09-01_a-seed/seed.md")
     assert wf.in_scope(
-        "system/projects/tools/journey/nemawashi/unpicked/2026-09-01_a-seed/seed.md"
+        "system/projects/demo/journey/nemawashi/unpicked/2026-09-01_a-seed/seed.md"
     )
 
 
 def test_in_scope_false_for_a_folder_seeds_seed_md_under_trail_or_drop():
     assert not wf.in_scope(
-        "system/projects/tools/journey/nemawashi/trail/2026-09-01_a-seed/seed.md"
+        "system/projects/demo/journey/nemawashi/trail/2026-09-01_a-seed/seed.md"
     )
     assert not wf.in_scope(
-        "system/projects/tools/journey/nemawashi/drop/2026-09-01_a-seed/seed.md"
+        "system/projects/demo/journey/nemawashi/drop/2026-09-01_a-seed/seed.md"
     )
 
 
@@ -694,7 +694,7 @@ def test_both_staged_and_report_is_a_usage_error(tmp_path):
 
 def test_in_scope_false_for_a_project_folder_seeds_report_and_recommendations_at_every_root():
     for root in ("", "unpicked/", "trail/", "drop/"):
-        base = f"system/projects/tools/journey/nemawashi/{root}2026-09-01_a-seed"
+        base = f"system/projects/demo/journey/nemawashi/{root}2026-09-01_a-seed"
         for leaf in ("2026-09-05_a-key_report.md", "2026-09-05_a-key_recommendations.md"):
             assert not wf.in_scope(f"{base}/{leaf}"), f"{base}/{leaf}"
 
@@ -709,4 +709,4 @@ def test_in_scope_false_for_a_file_literally_named_seed_md_at_a_trail_or_drop_ro
     """`trail/seed.md` is a flat trail entry, not a folder-seed whose slug is `trail`."""
     for bin_ in ("trail", "drop"):
         assert not wf.in_scope(f"system/nemawashi/{bin_}/seed.md")
-        assert not wf.in_scope(f"system/projects/tools/journey/nemawashi/{bin_}/seed.md")
+        assert not wf.in_scope(f"system/projects/demo/journey/nemawashi/{bin_}/seed.md")

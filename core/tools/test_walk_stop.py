@@ -372,13 +372,13 @@ def test_stop_reason_names_when_and_each_launch():
 
 
 def test_stop_command_names_the_launcher_the_project_and_stop():
-    assert (walk_stop.stop_command("/x/core", "chain-product", "tools")
-            == "/x/core/launchers/chain-product/launcher.sh tools --stop")
-    quoted = walk_stop.stop_command("/x/my core", "chain-product", "my project")
-    assert quoted == "'/x/my core/launchers/chain-product/launcher.sh' 'my project' --stop"
+    assert (walk_stop.stop_command("/x/core", "product-docs", "tools")
+            == "/x/core/launchers/product-docs/launcher.sh tools --stop")
+    quoted = walk_stop.stop_command("/x/my core", "product-docs", "my project")
+    assert quoted == "'/x/my core/launchers/product-docs/launcher.sh' 'my project' --stop"
 
 
-COMMAND = "/x/core/launchers/chain-product/launcher.sh tools --stop"
+COMMAND = "/x/core/launchers/product-docs/launcher.sh tools --stop"
 
 
 def test_refusal_remedy_says_nothing_will_finish_only_when_every_launch_is_gone():

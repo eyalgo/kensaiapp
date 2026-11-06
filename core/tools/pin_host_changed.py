@@ -3,15 +3,17 @@
 
 WHAT "CHANGED" MEANS
 
-A pin's source host has changed when its `core/`, `.claude/` or `skills/` tree differs from the
-pin's own copy of that tree. An edit still uncommitted counts, because a pin is a copy of the
+A pin's source host has changed when its `core/`, `.claude/` or `skills/` tree, or the
+`.python-version`, `pyproject.toml` or `uv.lock` at its root, differs from the pin's own copy. A
+pin made before those root files were carried reads as changed against a host that has them. An
+edit still uncommitted counts, because a pin is a copy of the
 working tree as it stood and not of a commit. A file the host's git ignore rules match is never
 considered, on either side: pinned runs write `__pycache__/` into a pin, and an ignored file was
 never copied.
-The host's journey, its product files and everything else outside the three trees are not
-considered at all, so a commit that touches only those does not make the pin stale. Where the
-host is not a git work tree there are no ignore rules to apply, so every file under the three
-trees is considered on both sides.
+The host's journey, its product files and everything else outside the three trees and the three
+root files are not considered at all, so a commit that touches only those does not make the pin
+stale. Where the host is not a git work tree there are no ignore rules to apply, so every file
+under the three trees and each root file is considered on both sides.
 
 "Differ" means one of three things: a file on one side only, a content difference, or a difference
 in the executable bits. `pin.host_files` is the host side, the very listing `pin.make` copies from,
@@ -46,7 +48,7 @@ from pathlib import Path
 
 import pin
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 
 _EXECUTE_BITS = 0o111
 

@@ -1,7 +1,7 @@
 # 根回し Nemawashi refine — `2026-10-05_define-the-product`
 
 *The Principal PM's answer to the seed retired to `journey/nemawashi/trail/2026-10-05_define-the-product`
-at `084b7f614`, and the pool re-read behind it, 2026-10-07. The slug came from the caller: "answering
+at `<a commit not in the public history>`, and the pool re-read behind it, 2026-10-07. The slug came from the caller: "answering
 the retired seed 2026-10-05_define-the-product". The run was a `principal-pm:` session.*
 
 ## Next moves
@@ -37,7 +37,7 @@ chain already authored the FDR, the ADRs and the NFDR on its spine (`system/logs
 
 | Defect | Where | What was done | Source |
 |---|---|---|---|
-| `product-card` has not run after the foundation step, and the refine's next-move list has no row that names it | `system/projects/tracker17/project.md:L12` (`**Languages:** <blank>`); no `products/tracker17/README.md` | filed in `docs/findings/` at `31e270c58`. The Principal PM's `core/launchers/product-card/launcher.sh tracker17` (which runs `product-skeleton` after it) belongs before row 4. | `core/doctrine/setup/kensaiapp_structure.md:L522-L529` |
+| `product-card` has not run after the foundation step, and the refine's next-move list has no row that names it | `system/projects/tracker17/project.md:L12` (`**Languages:** <blank>`); no `products/tracker17/README.md` | filed in `docs/findings/` at `<a commit not in the public history>`. The Principal PM's `core/launchers/product-card/launcher.sh tracker17` (which runs `product-skeleton` after it) belongs before row 4. | `core/doctrine/setup/kensaiapp_structure.md:L522-L529` |
 | A malformed triple in a finding | `docs/findings/2026-10-03_a-satellite-triple-is-reported-malformed.md` | none. It is that finding's own example, and it is not a dead pointer. | `check_journey_links.py`: "every pointer … resolves", "1 malformed triple(s)" |
 
 ## Held and refused

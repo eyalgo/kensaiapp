@@ -19,7 +19,7 @@ Every `PRD`, `SRS` and `SDD` reference is to `products/tracker17/docs/PRD.md`,
 `products/tracker17/docs/SRS.md` and `products/tracker17/docs/SDD.md`.
 
 Both items below report an upstream document that changed after FDR version 2 settled on 2026-10-06
-(commit `42a4a0ebb`). Each says what the change moved in the FDR. The FDR now follows each change, and
+(commit `<a commit not in the public history>`). Each says what the change moved in the FDR. The FDR now follows each change, and
 each item asks you to confirm that it does.
 
 ---
@@ -74,7 +74,7 @@ None.
 - **Rationale:** each change traces to SDD § 4, which is one of the four SDD sections the FDR reads.
   SDD § 4 RT-3 now says the end-to-end suite runs on fewer Linux systems than the tracker. RT-4 has
   the instructions give the Linux install step, say it asks for administrator rights, and carry the
-  pinned library's list of Linux systems (SDD version 7, commit `4156e81b2`; why, SDD RN-38). R-9 to
+  pinned library's list of Linux systems (SDD version 7, commit `<a commit not in the public history>`; why, SDD RN-38). R-9 to
   R-11 and PD-8 already take the instructions' prerequisites from RT-1, RT-3 and RT-4, so leaving the
   new content out would leave RT-3 and RT-4 only half carried. RT-7 gained the edit-form save in SDD
   version 5 (why, SDD RN-32), and R-115 and R-48 already state it. Four SDD changes land as no rule:

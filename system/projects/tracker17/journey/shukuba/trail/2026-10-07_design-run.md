@@ -4,7 +4,7 @@
 
 ## What it is
 
-The owner-run step of handing the experience documents to Claude Design and bringing a design system back. No skill and no launcher. The owner declined it on 2026-10-07 ("I'm skipping it."), recorded in the seed at cc30429b0, so this station closes with no change unit and no design run.
+The owner-run step of handing the experience documents to Claude Design and bringing a design system back. No skill and no launcher. The owner declined it on 2026-10-07 ("I'm skipping it."), recorded in the seed at <a commit not in the public history>, so this station closes with no change unit and no design run.
 
 ## Reached when
 

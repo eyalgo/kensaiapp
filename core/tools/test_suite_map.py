@@ -165,6 +165,12 @@ def test_every_tracked_path_matches_an_entry():
     assert missing == [], report
 
 
+def test_the_releases_github_folder_is_matched():
+    # A release adds `.github/` (its issue forms), which this instance does not track; the release's
+    # own run of `test_every_tracked_path_matches_an_entry` meets it there first.
+    assert suite_map.unmatched([".github/ISSUE_TEMPLATE/bug-report.yml"]) == []
+
+
 def test_a_new_top_level_folder_is_unmatched():
     assert suite_map.unmatched(["a-folder-no-entry-names/x.py"]) == ["a-folder-no-entry-names/x.py"]
 
@@ -196,16 +202,20 @@ def test_each_entry_answers_its_suites():
         "README.md": ["tools", "launchers", "hooks", "system-readers"],
         "docs/x.md": [],
         "about/x.md": [],
+        ".github/x.yml": [],
     }
     for path, names in expected.items():
         assert _names(suite_map.suites_for([path])) == names, path
+    # An unmatched path also answers no suites, so the empty rows prove nothing without this.
+    assert suite_map.unmatched(list(expected)) == []
 
 
 def test_each_entry_is_what_cp_539_names():
     # CP-539: "The map reads as follows" — the pattern table, row for row and in its order. Since
     # 2026-10-18 `core/**`, `.claude/**` and `skills/**` also run `system-readers`: the checks of
     # this instance's tree left `core/tools/` for `system/tests/`, and an edit under those roots
-    # can still break them.
+    # can still break them. Since 2026-11-06 `.github/**` guards no suite: a release ships it, and
+    # its own suite found it unmatched.
     expected = [
         ("core/**", ("tools", "launchers", "hooks", "claude-tests", "system-readers")),
         (
@@ -218,6 +228,7 @@ def test_each_entry_is_what_cp_539_names():
         ("*", ("tools", "launchers", "hooks", "system-readers")),
         ("docs/**", ()),
         ("about/**", ()),
+        (".github/**", ()),
     ]
     assert [(entry.pattern, entry.suites) for entry in suite_map.SUITE_MAP.entries] == expected
 
@@ -236,15 +247,15 @@ def test_each_suite_runs_what_cp_539_names():
         "core/tools/test_journey_status.py",
     )
     expected = {
-        "tools": ("python3", "-m", "pytest", "-q", "core/tools/"),
-        "launchers": ("python3", "-m", "pytest", "-q", "core/launchers/"),
-        "hooks": ("python3", "-m", "pytest", "-q", ".claude/hooks/"),
-        "claude-tests": ("python3", "-m", "pytest", "-q", ".claude/tests/"),
+        "tools": ("uv", "run", "--locked", "pytest", "-q", "core/tools/"),
+        "launchers": ("uv", "run", "--locked", "pytest", "-q", "core/launchers/"),
+        "hooks": ("uv", "run", "--locked", "pytest", "-q", ".claude/hooks/"),
+        "claude-tests": ("uv", "run", "--locked", "pytest", "-q", ".claude/tests/"),
         "workflows": ("node", "--test", ".claude/workflows/tests/"),
-        "skill-local": ("python3", "-m", "pytest", "-q", *_skill_local_directories()),
-        "products": ("python3", "-m", "pytest", "-q", "products/"),
-        "system-readers": ("python3", "-m", "pytest", "-q", *system_readers),
-        "journey-links": ("python3", "core/tools/check_journey_links.py", "--repo", "."),
+        "skill-local": ("uv", "run", "--locked", "pytest", "-q", *_skill_local_directories()),
+        "products": ("uv", "run", "--locked", "pytest", "-q", "products/"),
+        "system-readers": ("uv", "run", "--locked", "pytest", "-q", *system_readers),
+        "journey-links": ("core/tools/locked_python.sh", "core/tools/check_journey_links.py", "--repo", "."),
     }
     declared = {suite.name: suite.command for suite in suite_map.SUITE_MAP.suites}
     assert declared == expected

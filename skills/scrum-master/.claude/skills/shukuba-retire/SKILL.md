@@ -21,7 +21,7 @@ description: |
   Trigger phrases: "close this shukuba", "retire this station", "the station is reached", "shukuba-retire".
 license: MIT
 metadata:
-  version: "2.13.0"
+  version: "2.16.0"
   category: journey
   risk: safe
   created: "2026-07-30"
@@ -96,7 +96,7 @@ Run everything from the instance root.
 `RETIRE=<CORE>/../skills/scrum-master/.claude/skills/shukuba-retire/scripts/retire.py`.
 
 ```bash
-python3 "$RETIRE" --root . --project <project> resolve [--station <YYYY-MM-DD>_<slug>]
+"<CORE>/tools/locked_python.sh" "$RETIRE" --root . --project <project> resolve [--station <YYYY-MM-DD>_<slug>]
 ```
 
 Pass `--station` when the invocation names one — for a path, its file name. The script prints the
@@ -196,7 +196,7 @@ The two declarations differ:
 rename alone, and the subject drops the tick clause. Step 4 sends you here directly.
 
 ```bash
-python3 "<CORE>/tools/commit_builder.py" --repo . commit \
+"<CORE>/tools/locked_python.sh" "<CORE>/tools/commit_builder.py" --repo . commit \
   --staged "<shukuba>/<YYYY-MM-DD>_<slug>.md" "<shukuba>/trail/<YYYY-MM-DD>_<slug>.md" \
   --add "<nemawashi>/<seed>.md" \
   --subject "close shukuba: <YYYY-MM-DD>_<slug> → trail/, item <n> ticked" \
@@ -215,7 +215,7 @@ The identity flag and the no-`--skill` rule are the shared file's. What is speci
 
 - **`--directional` is always a `Shukuba:` line, and always `progress:`.** A close is project-scoped and
   it advances the station it names, so it resolves against the station just closed. The shared file's
-  `Agari:` fallback does not apply — a station is open by definition here — and `aside:` belongs to
+  `Finish-line:` fallback does not apply — a station is open by definition here — and `aside:` belongs to
   `shukuba-park`, not to a close. See `<CORE>/doctrine/governance/commit_format.md` § Directional
   trailer.
 
@@ -290,7 +290,7 @@ that is the state they are in; what to do about it is theirs.
   decided fact, and an interactive gate in a skill that must run from a delegate or a launcher with
   nobody in the room. Report where the journey stands; stop there.
 - **`Shukuba: … progress:` always.** A close advances the station it names, so the directional never
-  degrades to `Agari:` and never reads `aside:`.
+  degrades to `Finish-line:` and never reads `aside:`.
 - **The shared mechanic is shared.** Everything about *how* the move and its commit are made lives in
   `<CORE>/docs/journey_move.md`. Read it there; a second copy is a copy free to drift.
 - **The seed's retire is `nemawashi-retire`'s.** This run never

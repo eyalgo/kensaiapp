@@ -1,5 +1,5 @@
 ---
-version: "1.17.1"
+version: "1.20.0"
 ---
 
 # Stamping scope — dispositions and drift criteria
@@ -112,8 +112,9 @@ Committed project config: the hooks wiring, and nothing else. Permissions and th
 - A top-level key other than `hooks` — a `permissions` or `worktree` key is the machine owner's, and belongs in `.claude/settings.local.json`.
 - **Orphan hook** — a script in `.claude/hooks/` not wired under `hooks`; or **dangling wire** — a
   `hooks` entry referencing a script **absent** from `.claude/hooks/`.
-- A hook `command` uses a **hardcoded interpreter path** (e.g. `/Users/…/venv/bin/python`) instead of
-  `python3 "${CLAUDE_PROJECT_DIR}/.claude/hooks/<name>.py"`.
+- A hook `command` uses a **hardcoded interpreter path** (e.g. `/Users/…/venv/bin/python`) or a bare
+  `python3`, instead of
+  `"${CLAUDE_PROJECT_DIR}/core/tools/locked_python.sh" "${CLAUDE_PROJECT_DIR}/.claude/hooks/<name>.py"`.
 
 ### `.claude/hooks/<name>.py` — vendored hook scripts (`[create]`)
 Stdlib-only, portable, no host paths. `[create]` — created on Init if missing; never auto-modified.
@@ -136,10 +137,11 @@ Some sections **project** a list that is canonically owned by a global doctrine 
 | `AGENTS.md` § loader map | the **prefix-invoked** role set — standard roles minus fork-invoked roles (exclude `qa`: it is forked by a producing role, never opened by a `qa:` prefix) | one `<role>:` entry per prefix-invoked role |
 | `AGENTS.md` § direction and journey | `<CORE>/doctrine/setup/kensaiapp_structure.md` §1 (instance app-level — `system/michi.md` declaration + `system/nemawashi/` seedbed + `system/shukuba/` router station) | one entry per app-level journey path — the three named; the upkeep register is not a journey item and takes no entry |
 | `<CORE>/templates/project-templates/setup_seed_template.md` § Stations | `<CORE>/doctrine/setup/setting_up_a_project.md` § The flow at a glance | one station per row of the station table, in the same order, naming the same skill |
+| `<CORE>/templates/project-templates/setup_seed_prd_and_finish_line_template.md` § Stations | `<CORE>/doctrine/setup/setting_up_a_project.md` § The flow at a glance, the `prd-and-finish-line` row of the table under it | one station per row that row names — rows 1 and 2 — in the same order, naming the same skill, and none after them |
 
-The third row checks the **template**, not the seeds stamped from it. A stamped
+The third and fourth rows check the **templates**, not the seeds stamped from them. A stamped
 `journey/nemawashi/<date>_define-the-product.md` is a recommendation the owner may edit or delete
 (`kensaiapp_structure.md` §2), so a per-project copy that diverges is the owner's call, not drift.
-The template is where setup's copy of the sequence lives, and it is the one that must stay current.
+The templates are where setup's copies of the sequence live, and they are the ones that must stay current.
 
 **Add a row only when a new *kind* of projection is introduced.**

@@ -1,5 +1,5 @@
 ---
-version: "1.4.1"
+version: "1.8.0"
 ---
 
 # stations-from-seed — the PM's seed-splitting lens
@@ -28,18 +28,20 @@ Read them in this order, and where two disagree the earlier one wins:
 1. **The picked seed** — the one file at `journey/nemawashi/`'s root. Its `## What it is` says what
    the work is; its `## Stations — dynamic checklist`, where it has one, is the proposal you are
    re-cutting; its `## Out (later / elsewhere)` fences what is not yours to route.
-2. **`system/projects/<name>/agari.md`** — the terminus. Every station you write moves toward it, and
-   a station that advances no Agari is not a station you have found, it is one you have invented.
+2. **`system/projects/<name>/finish_line.md`** — the terminus. Every station you write moves toward it, and
+   a station that advances no finish line is not a station you have found, it is one you have invented.
 3. **`system/projects/<name>/project.md`** — the card, and `Product path:`, which resolves where the
    product's own documents live.
-4. **`<product>/docs/fdr.md`, `<product>/docs/adr/`, `<product>/docs/nfdr.md`** — the locked behaviour
-   and the constraints each station's changes are built against. **Read them when they exist and
-   proceed when they do not.** A missing FDR is the normal starting case, not a mode and not an error.
+4. **`<product>/docs/fdr.md`, `<product>/docs/adr/`, `<product>/docs/nfdr.md`, `<product>/docs/SDD.md`** — the locked behaviour
+   and the constraints each station's changes are built against. The SDD's § 6 *The slices* sets out the slices the product is to
+   be built in, each with what it *Delivers* and the *Reached when* checks that someone who did not build it can check. What
+   the slices bind is stated in § *How one seed becomes 1 to N stations*. **Read them when they exist and proceed when they do
+   not.** A missing FDR is the normal starting case, not a mode and not an error.
 5. **The product's current state** — what already exists, and what the last sealed change delivered.
    A station whose reached-when is already true is not work.
 
-**The seed is the subject and the Agari is the judge.** Where the seed proposes a station the Agari
-does not want, the station goes; where the Agari wants something the seed does not carry, that is a
+**The seed is the subject and the finish line is the judge.** Where the seed proposes a station the finish line
+does not want, the station goes; where the finish line wants something the seed does not carry, that is a
 seed the Principal PM has not cut yet, and it is not yours to add here.
 
 ## What a station is, and what it is not
@@ -100,6 +102,23 @@ not blocked by the first, and saying so in the seed is how the next reader knows
 it. Where dependency and risk disagree, the section above decides — dependency wins on the hard edge,
 risk wins everywhere it is free.
 
+**On a product with an SDD, a station takes a whole slice.** It delivers all of a § 6 slice's *Delivers* and meets every one
+of that slice's *Reached when* checks. A station that falls short on either one delivers only part of the slice, even where
+the other is met in full. Which slice or slices a station delivers into is your reading of § 6, not a mechanical match. How
+many stations the seed becomes, where their boundaries fall and the order they are walked in are still decided by the rest of
+this lens.
+
+**A station that delivers only part of a slice is cut only together with a split item.** The split item is a *Raised from
+downstream* item on the SDD's companion, in the section `<CORE>/templates/product-templates/sdd_open_issues_template.md` § 5
+shapes. It asks for that slice and its *Reached when* checks to be split. How the item is raised is stated in
+`<CORE>/../skills/product-owner/.claude/skills/development-specs/SKILL.md` § *A record the spec cannot fold is raised*. Read it
+there for how an item is raised. The triggers it names and the halt it ends in are `development-specs`'s own, and this cut
+takes neither. Without the split item, the partial station is not cut. The other way to keep its work is to widen the station
+to the whole slice.
+
+**A product with no `docs/SDD.md` changes nothing here.** It has no slices to take whole, so neither the whole-slice rule nor
+the split item reaches its cut. A missing SDD is not a reason to raise an item.
+
 **The last station carries the seed's own bar.** When it is reached, the seed is finished and
 is retired. If walking every station you wrote still leaves the seed's
 `## What it is` unmet, the route is short by a station and you have not finished cutting.
@@ -117,6 +136,15 @@ that renders a named state, a test that names the behaviour.
 The tell of a bad one: it describes what somebody will *do*. The tell of a good one: it describes what
 will be *true*, and names how you would know.
 
+**A bar already true today checks nothing.** `<CORE>/templates/journey-templates/shukuba_template.md`
+says it — *"If the bar would pass before the work, it is not a bar"* — and a `shukuba-open` run that
+reads one stops there. Input 5 asks this of the whole station. Ask it also of each test the line
+requires to fail today and pass after. Where the line asks for one such test per outcome, case or
+input, read the product's code for that behaviour (part of input 5's current state) and confirm, by
+reading, that the defect reaches each of those cases. A case it cannot reach is not a failing test:
+the bar names it as a guard, which passes before and after. Guards and a passing suite may stand
+beside the tests that fail today; they cannot be all of the bar.
+
 Checkable is half the test. The other half — that the claim can be met where the station stands in
 the order — takes reading rather than phrasing, and is defect 6.
 
@@ -125,7 +153,8 @@ the order — takes reading rather than phrasing, and is defect 6.
 `<CORE>/roles/loaders/pm_global.md` names these in its opening, and this is where they are applied:
 
 1. **A station with no reached-when that can be checked against the world.** The most common, and the
-   only one that makes the station unclosable rather than merely wrong.
+   only one that makes the station unclosable rather than merely wrong. A required failing
+   test that cannot fail today is the same defect: it has nothing to check.
 2. **A station that bundles separate outcomes.** Apply the sizing test above to identify the boundaries.
 3. **A station whose only value is that a later one needs it.** Merge it into the station that gives it
    value, or move it behind the thing that makes it real. Infrastructure ahead of its subject is the
@@ -165,13 +194,14 @@ section, never a table, and never an annotation appended to a checklist line.
 - **No station file.** Opening a station is the next move and authors
   `journey/shukuba/<YYYY-MM-DD>_<slug>.md` from its own template. This lens ends before it.
 - **No `change_request.md`.** `tobiishi-open` opens each change unit in turn, one at a time, because
-  the chain (`core/launchers/chain-development/launcher.sh <project>` → `core/tools/chain_development.py`)
+  the chain (`core/launchers/change/launcher.sh <project>` → `core/tools/chain_development.py`)
   finds the single active `journey/tobiishi/<key>/`. A run that wrote several would leave the pipeline
   with no way to know which one it is carrying.
 - **No seed of your own.** Stocking `journey/nemawashi/unpicked/` is the Principal PM's. Where the
   re-cut surfaces work this seed does not carry, name it and hand it to that seat.
-- **Nothing outside the picked seed's checklist section.** The seed's other sections are the cutter's
-  record and stay as written, except for the divergence lines this lens requires.
+- **Nothing outside the picked seed's checklist section, except a split item.** The seed's other sections are the cutter's
+  record and stay as written, except for the divergence lines this lens requires. The split item is the one
+  § *How one seed becomes 1 to N stations* requires for a station that delivers only part of an SDD slice.
 
 ## When you stop
 
@@ -184,7 +214,7 @@ A stop reports what it found and halts. It does not guess, and it does not write
 3. **The seed cannot be sized** — its `## What it is` does not say what would be true when the work is
    done, so no reached-when can be written for any station. This is a defect in the cut, not in the
    seed's subject. Name it and hand it back to the Principal PM.
-4. **Every station you can find is one the Agari does not claim** — the seed is pointed somewhere the
+4. **Every station you can find is one the finish line does not claim** — the seed is pointed somewhere the
    project is not going. That is a routing question, and the route is the Principal PM's.
 
 ## What this lens decides, and what it does not
@@ -195,7 +225,7 @@ claims, the order they are walked in, and whether the seed can be split at all.
 **Not yours, and the boundary is the loader's** — § *Non-responsibilities (boundaries)* in
 `<CORE>/roles/loaders/pm_global.md` states it in full. The one consequence worth carrying while
 splitting: **you re-cut the route, you do not re-cut the seed.** What the work *is* was settled by the
-cut and by the Agari behind it; a split that quietly changes the subject has taken a decision that
+cut and by the finish line behind it; a split that quietly changes the subject has taken a decision that
 belongs to another seat.
 
 ## Tone

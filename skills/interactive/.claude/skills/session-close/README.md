@@ -29,7 +29,7 @@ retire ticks it). So each sweep's output is a named move and the skill that owns
   answer that no move is owed, because an open station whose file describes the work *is* the
   continuation record.
 - **Sweep 3 — loose findings.** Sweeps what the session surfaced but was right not to do into 根回し
-  Nemawashi seeds, in the project whose Agari the finding serves — searching the board first so a seed
+  Nemawashi seeds, in the project whose finish line the finding serves — searching the board first so a seed
   already filed does not get a duplicate. This is the sweep with no other home.
 - **Sweep 4 — session-craft.** Decides which of the two stores a durable lesson belongs in per
   `corrections_store.md`, and writes to neither: the store's mechanism is the harness's, and graduation
@@ -47,8 +47,8 @@ session-close/
 
 No `evals/`. The skill's output is a routing decision over whatever live state the instance happens to
 be in, so a fixture would have to freeze an instance's journey, working tree and store to assert
-against — and the dev-skills Agari adds evals only where a skill earns them rather than as a blanket
-gate (`system/projects/dev-skills/agari.md:33-38`). If the routing tables prove unreliable in use, that
+against — and the dev-skills finish line adds evals only where a skill earns them rather than as a blanket
+gate (`system/projects/dev-skills/finish_line.md:33-38`). If the routing tables prove unreliable in use, that
 is when they earn a fixture.
 
 ## Depends On

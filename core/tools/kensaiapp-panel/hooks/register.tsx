@@ -25,7 +25,7 @@ const DEPTH_INDENT = 2
 const WALK_INDENT = 4
 
 // Every string a person reads that is not a row's own text. Each is `change_text.md`'s, verbatim,
-// but the seed, station, walk and skill labels, the scroll markers, the route's marks, the fix
+// but the seed, station and skill labels, the scroll markers, the route's marks, the fix
 // line, the ages and the task, which came after it: a running walk reads `running total 33m` and
 // its step `implementation for 2m (Task 3 of 7)`, a waiting walk `started 3h ago`, where
 // `change_text.md` had one `{n}m ago` at the line's end.
@@ -46,7 +46,7 @@ const TEXT = {
   onTask: (step: string, task: number, tasks: number) => `${step} (Task ${task} of ${tasks})`,
   seed: (title: string) => `seed: ${title}`,
   station: (title: string) => `station: ${title}`,
-  walk: (title: string) => `walk: ${title}`,
+  walk: (title: string) => title,
   skill: (name: string) => `skill: ${name}`,
   fixing: (name: string) => `↳ fixing: ${name}`,
   moreAbove: (count: number) => `↑ ${count} more above`,
@@ -55,7 +55,7 @@ const TEXT = {
   parked: 'parked',
   walkMark: { sealed: '✓', dropped: '✗', open: '●' },
   walkState: { sealed: 'sealed', dropped: 'dropped', open: '' },
-  nextWalk: '○ next walk — not opened yet',
+  nextWalk: '○ next change — not opened yet',
   nextStation: '○ next station — not opened yet',
 } as const
 
@@ -136,7 +136,7 @@ function boardLines(board: Board, now: number): Line[] {
   // a walk a row is still on, as after its station has closed. A walk a row is on, open or already
   // sealed or dropped, reads on one line with what that row is doing, the launcher named when it
   // is halted; a second row on it follows beneath. Without an open walk the current station
-  // shows that the next walk is owed, and with no station open the route shows, before its first
+  // shows that the next change is owed, and with no station open the route shows, before its first
   // unreached item, that the next station is.
   const routeLines = (route: Route, rows: readonly BoardRow[]): Line[] => {
     const walkLines = (walk: RouteWalk, indent: number): Line[] => {

@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+import sys
 import time
 from pathlib import Path
 
@@ -81,6 +82,11 @@ class Engine:
         self.directory.mkdir(parents=True)
         self.script = self.directory / "engine.py"
         self.script.write_text(_ENGINE)
+        # The shim starts the engine through the runner beside it. A stand-in runs the interpreter
+        # this suite runs on, since the real runner needs the lock files of the instance holding it.
+        self.runner = self.directory / "locked_python.sh"
+        self.runner.write_text(f'#!/bin/sh\nexec "{sys.executable}" "$@"\n')
+        self.runner.chmod(0o755)
         self.log = root / log_name
         # The shim appends to a log and never makes the log's directory; its caller does.
         self.log.parent.mkdir(parents=True)
@@ -333,3 +339,11 @@ def test_a_port_that_answers_none_for_an_unreadable_file_reads_as_no_message():
             return self.contents.get(path)
 
     assert completion_shim.read_result(NoneForMissing(), "/run/receipt.json") is None
+
+
+def test_the_shim_starts_the_engine_through_the_runner_beside_it(tmp_path):
+    text = completion_shim.shim_text("/pinned core/tools/engine.py", ("--advance", "s.json"), "/l.log")
+
+    assert "nohup '/pinned core/tools/locked_python.sh' '/pinned core/tools/engine.py' " in text
+    assert "python3" not in text
+    assert text.endswith("--advance s.json \"$1\" </dev/null >>/l.log 2>&1 &\n")

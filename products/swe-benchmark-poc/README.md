@@ -17,6 +17,8 @@ Each folder here holds the sealed change as `patch.diff`, against the commit nam
 `LICENSE.upstream`, the licence of the repository the patch changes. The patch is offered under that
 licence.
 
+Each change to what a user of a fresh clone installs, runs, types or reads in this folder is recorded in its `CHANGELOG.md`.
+
 | Issue | The issue | Base commit | Change unit |
 |---|---|---|---|
 | `astropy__astropy-12907` | https://github.com/astropy/astropy/issues/12906 | `d16bfe05a744909de4b27f5875fe0d4ed41ce607` | `2026-10-11_astropy-12907` |

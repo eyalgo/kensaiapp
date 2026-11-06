@@ -1,10 +1,12 @@
 ---
-version: "1.31.1"
+version: "1.33.2"
 ---
 
 # Project doctrine directory
 
 Standing rules the running system operates under. Distinct from the project's ADR directory (point-in-time decisions, binding from ratification) and historical findings directory (non-binding).
+
+Each change to what a user of a fresh clone installs, runs, types or reads in `core/doctrine/` is recorded in `CHANGELOG.md`, beside this index. It records changes and states no rule.
 
 ## Contents — by subfolder
 
@@ -25,6 +27,7 @@ resolvable via this index — they are not all relative paths.)
 - `unsettled_inputs.md` — a run derived from an unsettled input never halts, records every input and the status it carried, in one fixed header line; why a companion escalation is not a record
 - `where_taste_appears.md` — the aesthetic call is made in the run that owns it and never upstream; what a document that does not own the call may say instead
 - `found_while_walking.md` — what happens to a defect found on a branch while walking something else: fixed in place, or cut as a seed and walked before the merge. Informally, the boy-scout rule
+- `records_name_no_machine.md` — a record names no machine: no line written into one carries the home folder or the login name of the machine that wrote it, or the repository's own `<owner>/<name>` address, the placeholders written instead, and the pre-commit check that refuses a line that does
 - `talking_to_the_owner.md` — how a reply to the owner reads: the answer first, in plain words, then a few short lines of why, then what happens next, and the evidence last
 - `system_anatomy.md` — the mental model the rest of the system instantiates (5 layers; dependency direction). *(Agreed to promote to a top-level `core/` doc later — deferred 2026-06-29.)*
 
@@ -60,7 +63,7 @@ resolvable via this index — they are not all relative paths.)
 - `authoring_layers.md` — which machinery files are thin carriers and which are the bodies they point at, and what may be written in each
 - `adding_a_role.md` — the ordered closure of adding a role: the posture pair, the overlay, the agent and its four registration surfaces, and the enumerations of the role set that are invisible from the loader directory
 - `setting_up_an_instance.md` — the sequence an instance is set up by: stamp, then identity + Michi, then the experience layer; what fixes the order, and the three standing rules of instance setup
-- `setting_up_a_project.md` — the sequence a product is defined by: scaffold, then the stations (PRD → Agari → SRS ∥ EXPERIENCE → SDD), who authors each, which are runnable today, and what a definition document may not say
+- `setting_up_a_project.md` — the sequence a product is defined by: scaffold, then the stations (PRD → finish line → SRS ∥ EXPERIENCE → SDD), who authors each, which are runnable today, and what a definition document may not say
 - `setup_scope.md` — what a stamper may create/modify, and the drift criteria
 - `shared_core_instance.md` — how an instance can read another's core instead of carrying its own (the shared-core sibling; a producer satellite's shape)
 

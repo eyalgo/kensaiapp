@@ -12,8 +12,8 @@ description: >-
   repaired. It never cuts from the product's documents, never picks, never retires, and never writes
   into `trail/`, nor into `drop/` except through nemawashi-drop. It always writes
   one report, `system/projects/<project>/docs/nemawashi-refine/<seed>_report.md`, opening with the next
-  moves — the companion sweep (chain-product or chain-agari, by the project card's Definition line),
-  seeds-from-product-docs, nemawashi-pick and stations-from-seed, plus a halted cut's re-run or a
+  moves — the companion sweep (product-docs or prd-and-finish-line, by the project card's Definition line),
+  seeds-from-product-docs, seed-pick and stations-from-seed, plus a halted cut's re-run or a
   route across projects where owed — each with its seat and the command that starts it.
 when_to_use: >-
   Run by the Principal PM once nemawashi-retire has filed a project's walked seed in `trail/`. Trigger
@@ -21,11 +21,11 @@ when_to_use: >-
   seedbed after the retire", "refine the seedbed". Do not use for retiring the seed itself
   (nemawashi-retire, the Scrum Master's), killing one seed on its own (nemawashi-drop), re-reading the
   route after a change unit lands (shukuba-refine, the PM's), cutting seeds from a product's documents
-  (seeds-from-product-docs), or picking the next seed (nemawashi-pick).
+  (seeds-from-product-docs), or picking the next seed (seed-pick).
 license: MIT
 metadata:
   author: Eyal Golan
-  version: "1.3.0"
+  version: "1.6.0"
   created: "2026-09-25"
   category: journey
   tags: nemawashi, seedbed, recommendations, principal-pm, journey
@@ -111,11 +111,11 @@ From here `<nema>` is `system/projects/<project>/journey/nemawashi/`.
   `seed.md` is the seed.
 - **The seedbed root.** Normally empty after the retire. A seed there has been picked already: it is
   the PM's, read for context and never touched.
-- **The bearings.** `system/projects/<project>/agari.md` and `system/michi.md`.
+- **The bearings.** `system/projects/<project>/finish_line.md` and `system/michi.md`.
 - **Upstream.** Resolve `Product path:` from `system/projects/<project>/project.md`. Where it holds a
   `docs/`, read its documents and list every live `*_open_issues.md`. Where it holds none, there is no
   upstream; say so and go on.
-- **What is already broken.** Run `python3 "<CORE>/tools/check_journey_links.py" --repo "<instance
+- **What is already broken.** Run `"<CORE>/tools/locked_python.sh" "<CORE>/tools/check_journey_links.py" --repo "<instance
   root>"` before acting. A move runs the check after, not before (`<CORE>/docs/journey_move.md` § *After
   the move, say which pointers it broke*), because it looks for what the move breaks; this run looks
   for what is already dead. Every pointer it names is a found defect the prompt's § *What you find
@@ -163,7 +163,7 @@ Make the moves in this order, so no move finds the ground changed by a later one
 
 Never edit the retired seed, never write under `trail/`, never write under `drop/` except through
 `nemawashi-drop`, never touch a seed at the root beyond repairing a dead pointer in it,
-and never run `product-fdr`, `seeds-from-product-docs`, `nemawashi-pick`, `stations-from-seed` or
+and never run `product-fdr`, `seeds-from-product-docs`, `seed-pick`, `stations-from-seed` or
 `nemawashi-retire` — each is named as a next move, or is not this run's.
 
 ### Step 5 — Land the report
@@ -175,7 +175,7 @@ Step 4 produced, and carries every recommendation and every candidate as a row.
 Commit through `<CORE>/doctrine/governance/commit_via_builder.md`: `--add` the report,
 `--actor principal-pm --skill nemawashi-refine --prompt nemawashi-refine/rich`, subject
 `nemawashi-refine: <seed> — <n> recommendations, <m> candidates`. The directional follows
-`<CORE>/doctrine/governance/commit_format.md` § *Directional trailer*: `Agari: <project>`, with
+`<CORE>/doctrine/governance/commit_format.md` § *Directional trailer*: `Finish-line: <project>`, with
 `progress:` when the seedbed moved and `aside:` when nothing did.
 
 ### Step 6 — Report
@@ -213,7 +213,7 @@ and make none of them.
 - **Never cut from the product's documents.** A docs cut is named as a next move, never run — and
   named whenever the documents hold work no candidate carries, whether or not `unpicked/` is empty.
   New work a document should state goes onto that document as a companion item first.
-- **Never pick, never retire.** The pick is the PM's (`nemawashi-pick`), the retire the Scrum
+- **Never pick, never retire.** The pick is the PM's (`seed-pick`), the retire the Scrum
   Master's (`nemawashi-retire`); the report names the pick and the route cut after it
   (`stations-from-seed`).
 - **No write to `trail/`, none to `drop/` except `nemawashi-drop`'s move, and no edit to a product

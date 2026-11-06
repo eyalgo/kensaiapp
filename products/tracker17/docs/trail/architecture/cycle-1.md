@@ -60,7 +60,7 @@ here; every item lands in `nfdr.md`.
   marked `same-origin`, so one with no `Sec-Fetch-Site` header, or marked `none`, is refused as well.
   The layer-3 tests, and `tests/timed_run.py`, which drives actions through `web`, send `same-origin`
   on every submission. SEC-2's restatement is carried at `products/tracker17/docs/SDD_open_issues.md`
-  § 2.1 (commit `86c8acfb0`). Reasoning: `products/tracker17/docs/trail/architecture/self_answer-1.md`
+  § 2.1 (commit `<a commit not in the public history>`). Reasoning: `products/tracker17/docs/trail/architecture/self_answer-1.md`
   § 2.1.
 
 ### 2.2 No page can be shown inside a frame
@@ -83,7 +83,7 @@ here; every item lands in `nfdr.md`.
   sent as a response header, because the directive "is not supported in the `<meta>` element"
   (https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Security-Policy/frame-ancestors).
   QC-33's layer-3 test reads it from the header. SEC-3's addition is carried at
-  `products/tracker17/docs/SDD_open_issues.md` § 2.2 (commit `86c8acfb0`). Reasoning:
+  `products/tracker17/docs/SDD_open_issues.md` § 2.2 (commit `<a commit not in the public history>`). Reasoning:
   `products/tracker17/docs/trail/architecture/self_answer-1.md` § 2.2.
 
 ### 2.3 `web` imports neither `domain` nor `persistence`, and the refusal types it maps live in `errors.py`

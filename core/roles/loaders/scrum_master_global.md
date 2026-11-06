@@ -1,5 +1,5 @@
 ---
-version: "3.5.0"
+version: "3.5.1"
 ---
 
 # Scrum Master role loader
@@ -62,4 +62,4 @@ started by `<CORE>/launchers/skill/launcher.sh` is granted that group by the lau
   (`shukuba-open`).
 - **None remain** → the retire is owed — `nemawashi-retire`, this seat's — named, not performed by the
   close. After the retire the seedbed root is empty: the retired seed is owed to the **Principal PM**
-  (`nemawashi-refine`), and the pick after it is the **PM**'s (`nemawashi-pick`).
+  (`nemawashi-refine`), and the pick after it is the **PM**'s (`seed-pick`).

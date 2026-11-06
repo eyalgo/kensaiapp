@@ -1,11 +1,11 @@
 ---
 name: agent-invoke
 description: Run an owner's ad-hoc request for delegated work as a properly configured background subagent — picks the model from doctrine by where the judgment lives, writes a brief that makes the agent commit its own output, holds the Mac awake for the run, reads the run's own report in full and verifies what came back against the repo rather than relaying it, and leaves the completion message to the SubagentStop hook that fires whether or not anyone remembers. Use this whenever the owner asks for work to be handed to an agent or done in the background, including phrasings that never say "agent" — "invoke an agent to…", "I want to research…", "look into X and report back", "have something draft a plan", "go do X while I'm away", "spin something up for this". Prefer it even for a single one-off delegation, since the model choice and the commit requirement are exactly what a hand-assembled launch forgets.
-when_to_use: Fires on any owner request to delegate work rather than do it inline, and on any request for research or investigation whose result the owner expects to come back to. Also fires when the owner asks for a plan or design to be produced for a later run to consume. Do not use it for work already owned by a launcher or a pipeline stage that spawns its own agents — the kaizen cold-read launcher, the development chain, skill-evals — those carry their own launch, model, and notification rules. Do not use it for work small enough to simply do inline.
+when_to_use: Fires on any owner request to delegate work rather than do it inline, and on any request for research or investigation whose result the owner expects to come back to. Also fires when the owner asks for a plan or design to be produced for a later run to consume. Do not use it for work already owned by a launcher or a pipeline stage that spawns its own agents — the kaizen cold-read launcher, the change chain, skill-evals — those carry their own launch, model, and notification rules. Do not use it for work small enough to simply do inline.
 license: MIT
 metadata:
   author: Eyal Golan
-  version: "1.16.3"
+  version: "1.17.3"
   created: "2026-07-26"
   category: orchestration
   tags: subagent, delegation, background-work, notification, research
@@ -99,7 +99,7 @@ the journey (`system/projects/product-experience/docs/how_will_the_plan_be_prese
 | Research, an investigation, a design — **that no managed project owns** | `docs/proposals/<slug>/`, as `research.md` or `rationale.md` |
 | A plan for a later implementation run — **that no managed project owns** | `docs/proposals/<slug>/ad_hoc_plan.md`, beside its rationale |
 | A record of a managed project's own work | `system/projects/<name>/docs/` |
-| **A route** — seeds, and the stations they carry | `system/projects/<name>/journey/nemawashi/unpicked/`. A seed goes in **`unpicked/`**, never the seedbed root — lifting one to the root is a *pick*, and picking is the PM's call, not an agent's. **Do not author station files**: exactly one station is active per project and opening one is also the PM's move, so the stations live as checklist items on the seed. A route crossing several projects writes a seed in each, and the owning project is decided by that project's Agari |
+| **A route** — seeds, and the stations they carry | `system/projects/<name>/journey/nemawashi/unpicked/`. A seed goes in **`unpicked/`**, never the seedbed root — lifting one to the root is a *pick*, and picking is the PM's call, not an agent's. **Do not author station files**: exactly one station is active per project and opening one is also the PM's move, so the stations live as checklist items on the seed. A route crossing several projects writes a seed in each, and the owning project is decided by that project's finish line |
 | A plan a managed project owns, for a later implementation run | that project's journey — `<CORE>/doctrine/setup/kensaiapp_structure.md` § Root, `docs/proposals/`, owns where in it |
 | **The run report** — `delegate-report.md`, which **every** run writes | keyed to what the run belongs to: the managed project, the proposal, the skill, whatever it was. **Decide it and name it.** |
 
@@ -208,7 +208,7 @@ Every brief carries:
 
 **Before you write it, read what previous briefs left out:**
 
-    python3 <CORE>/tools/brief_gaps.py --repo .
+    "<CORE>/tools/locked_python.sh" <CORE>/tools/brief_gaps.py --repo .
 
 That is every gap a delegated run recorded about its own brief, read off the run reports themselves —
 stale line numbers, a tool that was named and not granted, a read list nobody could finish, a premise
@@ -297,7 +297,7 @@ If verification contradicts the agent's summary, the repo wins — say so plainl
 
 ## What this skill is not for
 
-- **Work a launcher already owns.** The kaizen cold-read launcher and the development chain spawn
+- **Work a launcher already owns.** The kaizen cold-read launcher and the change chain spawn
   their own agents with their own model rules and
   completion handling. Running this on top of them duplicates the launch and confuses attribution.
 - **Work small enough to do inline.** A launch costs a brief, a verification pass, and a

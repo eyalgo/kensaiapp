@@ -47,7 +47,7 @@ what is true of this instance, which then points at the posture body in
 Declarations set the bearing; the journey is the work moving along it. Neither is a queue.
 
 - App-level: `system/michi.md` (道 Michi — the Way, a declaration) + `system/nemawashi/` (根回し — the seedbed) + `system/shukuba/` (宿場 — the router station that coordinates projects pushing on one thing).
-- Per-project (`system/projects/<name>/`): `agari.md` (上がり — the product's "done", a declaration) + `journey/` (nemawashi · shukuba · tobiishi).
+- Per-project (`system/projects/<name>/`): `finish_line.md` (the product's "done", a declaration) + `journey/` (nemawashi · shukuba · tobiishi).
 
 No instance inbox/backlog, and no `system/queues/` — both retired. The model: `<CORE>/docs/michi_agari.md`.
 

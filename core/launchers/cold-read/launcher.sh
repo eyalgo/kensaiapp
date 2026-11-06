@@ -4,6 +4,7 @@
 # and stops. It is the whole of move 1 in <CORE>/doctrine/kaizen/skills.md § Running the cold-read;
 # moves 2 and 3 - commit the reports, then work the fixes - are the owner's, by hand.
 #
+# Version: 1.16.1 — launchers run on the locked Python
 # Version: 1.16.0 — the other six launchers run on the package's turn-on
 # Version: 1.15.1 — launchers and launch scripts take a portable mktemp template, so they run on Linux
 # Version: 1.15.0 — the providers file lives in the instance — each instance reads its own .providers.toml, and a tracked .providers.toml.example is the template
@@ -211,14 +212,14 @@ esac
 [ -f "$PROVIDERS_TOOL" ] || die "no provider reader at $PROVIDERS_TOOL"
 [ -f "$RUN_INTELLIGENCE" ] || die "no intelligence resolver at $RUN_INTELLIGENCE"
 provider_err="$(mktemp "${TMPDIR:-/tmp}/kensaiapp-cold-read-provider.XXXXXX")"
-provider="$(python3 "$PROVIDERS_TOOL" launcher cold-read --instance-root "$INSTANCE_ROOT" --accept claude 2>"$provider_err")" && rc=0 || rc=$?
+provider="$("$CORE_DIR/tools/locked_python.sh" "$PROVIDERS_TOOL" launcher cold-read --instance-root "$INSTANCE_ROOT" --accept claude 2>"$provider_err")" && rc=0 || rc=$?
 provider_msg="$(cat "$provider_err")"
 rm -f "$provider_err"
 [ "$rc" -eq 0 ] || die "${provider_msg:-could not read the provider for the cold-read launcher}"
 
 # --- the skill + its manifest ---------------------------------------------------------
 resolved_err="$(mktemp "${TMPDIR:-/tmp}/kensaiapp-resolve-err.XXXXXX")"
-resolved="$(python3 "$RESOLVER" "$skill" --root "$SKILLS_ROOT" 2>"$resolved_err")" && rc=0 || rc=$?
+resolved="$("$CORE_DIR/tools/locked_python.sh" "$RESOLVER" "$skill" --root "$SKILLS_ROOT" 2>"$resolved_err")" && rc=0 || rc=$?
 case $rc in
   0) skill_dir="$resolved" ;;
   3) die "no skill at $SKILLS_ROOT (is '$skill' a real skill?)" ;;
@@ -240,7 +241,7 @@ manifest_path="$skill_dir/stack.json"
 # (safe: the two branches never write to the same stream, so the combined capture is unambiguous).
 # Values cross as argv, never interpolated into the Python source: the skills root is the pin's or
 # the host's path, not one this script chose, and a quote in it must stay data.
-if substance_raw="$(python3 -c '
+if substance_raw="$("$CORE_DIR/tools/locked_python.sh" -c '
 import sys
 lib_dir, skill_dir, skills_root = sys.argv[1:4]
 sys.path.insert(0, lib_dir)
@@ -376,7 +377,7 @@ _commit_and_retry_block() {
   local report_path="$1" topic="$2"
   cat <<COMMIT_EOF
 Then commit that ONE file, and nothing else, through the builder:
-    python3 "$CORE_DIR/tools/commit_builder.py" --repo "$INSTANCE_ROOT" commit --add "$report_path" --actor kensaiapp-auditor --directional "Shukuba: $station_slug — progress: <one line of your own, about what you found>" --subject "<a short subject line you write, about $topic>" --body "<a short body you write>" --surface "Claude Code" --co-authored-by "Claude <noreply@anthropic.com>"
+    "$CORE_DIR/tools/locked_python.sh" "$CORE_DIR/tools/commit_builder.py" --repo "$INSTANCE_ROOT" commit --add "$report_path" --actor kensaiapp-auditor --directional "Shukuba: $station_slug — progress: <one line of your own, about what you found>" --subject "<a short subject line you write, about $topic>" --body "<a short body you write>" --surface "Claude Code" --co-authored-by "Claude <noreply@anthropic.com>"
 Compose the --subject, the --body, and the text after "progress:" yourself, in your own words, about your own read. Everything else in that command is fixed exactly as shown.
 
 Other readers may be committing to this same repo at this same moment. If that command is refused, and the refusal names a path that is not $report_path, that means another reader staged in between — this is expected, not an error. Re-run the IDENTICAL command again, unchanged. A refusal makes no commit and leaves your own staging exactly where it was, so retrying is safe. Wait a different number of seconds before each retry — never the same interval twice, and never immediately — and retry at most 5 times total. Never add any extra flag to that command, especially not one that would skip the check keeping your commit scoped to your own report: the builder calls that check the staged-set guard, and its --take-index flag is exactly the waiver for it — do not pass it, ever. If all 5 attempts are refused, report the last refusal's text verbatim and stop.
@@ -487,7 +488,7 @@ fi
 #   audit at the audited skill's intelligence. So the resolver is asked with no skill and no tier,
 #   and answers `default` with an empty pair — asked rather than assumed, so the stamp below is the
 #   one answer every instrumented launcher's stamp comes from.
-resolution="$(python3 "$RUN_INTELLIGENCE" --provider "$provider")" \
+resolution="$("$CORE_DIR/tools/locked_python.sh" "$RUN_INTELLIGENCE" --provider "$provider")" \
   || die "could not resolve the run's intelligence through $RUN_INTELLIGENCE"
 run_model="$(printf '%s\n' "$resolution" | sed -n 's/^model=//p')"
 run_effort="$(printf '%s\n' "$resolution" | sed -n 's/^effort=//p')"
@@ -516,7 +517,7 @@ fi
 # embedded newlines and NULs cannot survive.
 _reader_argv() {
   local prompt="$1"
-  local cmd=(python3 "$CORE_DIR/tools/agent_run.py" --provider "$provider" --shape background --pin auto
+  local cmd=("$CORE_DIR/tools/locked_python.sh" "$CORE_DIR/tools/agent_run.py" --provider "$provider" --shape background --pin auto
     --instance-root "$INSTANCE_ROOT" --prompt "$prompt" --agent kensaiapp-auditor)
   [ -n "${INSTRUMENT_RUN_SETTINGS:-}" ] && cmd+=(--settings "$INSTRUMENT_RUN_SETTINGS")
   cmd+=(--print-argv)
@@ -572,7 +573,7 @@ mkdir -p "$output_dir"
 #   Snapshotted BEFORE the first launch — captured after, the newest run would sit inside its own
 #   exclusion set and a watcher could match a stale one instead. One list-ids call for the whole fan-out; every watcher below is handed
 #   the same exclusion set.
-ids_before="$(python3 "$WATCHER" --list-ids --cwd "$INSTANCE_ROOT" 2>/dev/null || true)"
+ids_before="$("$CORE_DIR/tools/locked_python.sh" "$WATCHER" --list-ids --cwd "$INSTANCE_ROOT" 2>/dev/null || true)"
 
 # `claude --bg` returns at launch, not at completion, so firing
 # these sequentially in the foreground does not make the launcher wait on any of them — each call

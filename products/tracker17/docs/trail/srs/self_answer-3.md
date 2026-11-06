@@ -74,7 +74,7 @@ None this run.
 ## Companions opened
 
 - **products/tracker17/docs/SDD_open_issues.md** — **appended** — companion to `SDD.md`, item 2.2,
-  landed in commit `72125aec4`
+  landed in commit `<a commit not in the public history>`
 
 *What the SDD is owed, and why it is worth a cycle.* The grounds are "A fact in it is now false" and
 "Something upstream moved and it has not seen it" (`prompts/rich.md` § *The items are not the whole
@@ -86,7 +86,7 @@ item, and this run's answer closes that one. `grep -c "FR-40\|AC-20" SDD.md` pri
 delivers the new requirement or its test.
 
 `trail/srs/self_answer-2.md` deferred this change on purpose: "The identifier does not exist until
-the fold assigns it". The fold has since assigned FR-40 (commit `4c64b4279`), so the deferral is
+the fold assigns it". The fold has since assigned FR-40 (commit `<a commit not in the public history>`), so the deferral is
 over. The item's slot is left at its placeholder. It does not revise SDD item 2.1, because 2.1's
 slot is filled.
 

@@ -142,7 +142,7 @@ against anything.**
 
 ### The instance's own framing — `system/`
 
-`system/michi.md` is the Way this instance steers by, `system/projects/<name>/agari.md` is what "done"
+`system/michi.md` is the Way this instance steers by, `system/projects/<name>/finish_line.md` is what "done"
 means for the product you were named, and `system/doctrine/` holds the standing domain law. Read what
 is there.
 

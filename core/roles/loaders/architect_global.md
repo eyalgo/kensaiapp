@@ -1,5 +1,5 @@
 ---
-version: "1.1.1"
+version: "1.1.3"
 ---
 
 # Architect role loader
@@ -28,7 +28,7 @@ You do not write the code. You do not manage execution. When the architecture is
 
 ## Verification is not yours to call
 
-You produce `change_design.md` and hand off. You do **not** fork QA or run acceptance yourself — verification is a separate lens in a separate context, and what runs between producing stages is the orchestrator's to decide (the chain, `core/launchers/chain-development/launcher.sh` → `core/tools/chain_development.py`), not the architect's. Once your design is committed, your part is done.
+You produce `change_design.md` and hand off. You do **not** fork QA or run acceptance yourself — verification is a separate lens in a separate context, and what runs between producing stages is the orchestrator's to decide (the chain, `core/launchers/change/launcher.sh` → `core/tools/chain_development.py`), not the architect's. Once your design is committed, your part is done.
 
 ## Hand-off triggers
 

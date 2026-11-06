@@ -163,12 +163,13 @@ from enum import Enum, auto
 from pathlib import Path
 from typing import Literal
 
+import check_vendor_neutrality
 import gate_suite
 import pin
 import record_declarations
 import skill_path
 
-__version__ = "1.27.1"
+__version__ = "1.32.1"
 
 Op = Literal["commit", "merge", "advance"]
 
@@ -288,10 +289,10 @@ _SEMVER = re.compile(r"\d+\.\d+\.\d+")
 # one line): a form name anchored at the line's start (leading whitespace
 # tolerated), a colon, and the first whitespace-delimited token after it —
 # `commit_format.md` § Directional trailer names the three legal forms.
-_DIRECTIONAL_FORM_RE = re.compile(r"^\s*(Shukuba|Agari|Michi):\s*(\S*)")
+_DIRECTIONAL_FORM_RE = re.compile(r"^\s*(Shukuba|Finish-line|Michi):\s*(\S*)")
 
 # Tokens that are readings, not referents — `commit_format.md`'s `progress:`
-# (Shukuba/Agari) and `serves:`/`aside:` (Michi/Shukuba/Agari) — compared
+# (Shukuba/Finish-line) and `serves:`/`aside:` (Michi/Shukuba/Finish-line) — compared
 # lowercased so `Progress`/`PROGRESS` are caught the same way. Named at
 # module level so a test can pin the set directly.
 _DIRECTIONAL_SKIP_TOKENS = frozenset({"progress", "aside", "serves"})
@@ -327,12 +328,12 @@ def _directional_referent(directional: str) -> tuple[str, str] | None:
     git; the resolvers that actually check existence are their own
     functions, called only when this returns a referent.
 
-    `None` on: a line that does not open with `Shukuba:`/`Agari:`/`Michi:`
+    `None` on: a line that does not open with `Shukuba:`/`Finish-line:`/`Michi:`
     at its start (leading whitespace tolerated); no token after the colon;
     a token of `none` (the project/instance hasn't reached this referent
     yet — `commit_format.md` §Directional trailer); a token ending `:`
     (a bare `progress:`/`aside:`/`serves:` with no slug — on `Shukuba:` and
-    `Agari:` a malformed line `_unnamed_referent_refusal` refuses); or a token lowercasing to one
+    `Finish-line:` a malformed line `_unnamed_referent_refusal` refuses); or a token lowercasing to one
     of `_DIRECTIONAL_SKIP_TOKENS` (a reading word with no colon, e.g.
     `Shukuba: progress — x`). Otherwise `(form, token)`, the token returned
     verbatim as the first whitespace-delimited word after the colon — a
@@ -365,13 +366,13 @@ class DirectionalResolution(Enum):
     UNCHECKABLE = auto()
 
 
-def _resolve_agari(repo: str, token: str) -> DirectionalResolution:
-    """Does `Agari: <token>` name a real project? `RESOLVES` when
-    `<repo>/system/projects/<token>/agari.md` is a file; `UNCHECKABLE` when
+def _resolve_finish_line(repo: str, token: str) -> DirectionalResolution:
+    """Does `Finish-line: <token>` name a real project? `RESOLVES` when
+    `<repo>/system/projects/<token>/finish_line.md` is a file; `UNCHECKABLE` when
     `<repo>/system/projects/` itself does not exist (an external product
     repo, or a tree with no kensaiapp structure — the referent cannot be
     checked, not "wrong"); `MISSING` otherwise — including the recorded
-    incident this check exists for (`Agari: versioning` against a tree whose
+    incident this check exists for (`Agari: versioning`, as the trailer was then spelled, against a tree whose
     only project is `doctrine`).
 
     `token` is untrusted input (it rides in from a commit's own
@@ -383,7 +384,7 @@ def _resolve_agari(repo: str, token: str) -> DirectionalResolution:
     if not projects_root.is_dir():
         return DirectionalResolution.UNCHECKABLE
     projects_root = projects_root.resolve()
-    candidate = (projects_root / token / "agari.md").resolve()
+    candidate = (projects_root / token / "finish_line.md").resolve()
     if projects_root not in candidate.parents:
         return DirectionalResolution.MISSING
     return (
@@ -483,7 +484,7 @@ def _resolve_shukuba(repo: str, token: str) -> DirectionalResolution:
 
 
 def _unnamed_referent_refusal(directional: str) -> str | None:
-    """The refusal for a `Shukuba:`/`Agari:` line that puts a reading where
+    """The refusal for a `Shukuba:`/`Finish-line:` line that puts a reading where
     its station or project belongs, or `None`. Pure — the shape alone
     decides it."""
     match = _DIRECTIONAL_FORM_RE.match(directional)
@@ -500,7 +501,7 @@ def _unnamed_referent_refusal(directional: str) -> str | None:
     ]
     if form == "Shukuba":
         lines.append(
-            "With no station open, write Agari: <project> — progress: <how>, "
+            "With no station open, write Finish-line: <project> — progress: <how>, "
             "or — aside: <why>, instead."
         )
     return "\n".join(lines)
@@ -521,9 +522,9 @@ def _directional_refusal(repo: str, directional: str) -> str | None:
     verify.
 
     One shape is refused before any referent is read: a `Shukuba:` or
-    `Agari:` line whose first word is a reading (`progress:`, `aside:`)
+    `Finish-line:` line whose first word is a reading (`progress:`, `aside:`)
     where the station or project belongs. `commit_format.md` gives those
-    two forms no state without a referent — only `Agari: none` — so the
+    two forms no state without a referent — only `Finish-line: none` — so the
     line is malformed, whatever the tree holds. `Michi: aside:` is the one
     reading that legally stands first, and it is left alone."""
     unnamed = _unnamed_referent_refusal(directional)
@@ -534,9 +535,9 @@ def _directional_refusal(repo: str, directional: str) -> str | None:
         return None
     form, token = parsed
 
-    if form == "Agari":
-        resolution = _resolve_agari(repo, token)
-        searched = f"system/projects/{token}/agari.md"
+    if form == "Finish-line":
+        resolution = _resolve_finish_line(repo, token)
+        searched = f"system/projects/{token}/finish_line.md"
         ways_out = (
             "Ways out: check the project name is spelled correctly, or use "
             "one of the names under system/projects/."
@@ -990,6 +991,7 @@ def build_message(
     skill_version: str | None = None,
     prompt_version: str | None = None,
     workflow_version: str | None = None,
+    user_invisible: str | None = None,
 ) -> str:
     """Assemble a canonical commit, merge, or advance message.
 
@@ -1035,6 +1037,11 @@ def build_message(
     differ from `from_ref`'s current tip — the caller resolves which sha that
     is; this function only places it in the `Merge-Authorized:` context).
     Both are ignored on `commit` and `merge`.
+
+    `user_invisible` is `merge`-only: the reason a merge declares that it changes nothing a
+    user sees, placed as the body's last line, `User-invisible: <reason>`, after every `-> `
+    commit line and exactly as given. It is not validated here; `merge` refuses an unusable
+    reason before any effect (`_user_invisible_refusal`). Absent, the body is unchanged.
     """
     if op == "commit":
         # Two ways in: a workflow caller passes `actor` (mapped through
@@ -1081,7 +1088,10 @@ def build_message(
                     "empty. Pass no entries for an empty body, or check the caller: "
                     'in zsh, `"${ARR[@]}"` on an unset array yields one empty string.'
                 )
-        merge_body = "\n".join(f"-> {line}" for line in (branch_commits or []))
+        body_lines = [f"-> {line}" for line in (branch_commits or [])]
+        if user_invisible is not None:
+            body_lines.append(f"{USER_INVISIBLE_LABEL}{user_invisible}")
+        merge_body = "\n".join(body_lines)
         trailers = [
             f"Merge-Authorized: {resolved} — {merge_context}",
             f"Surface: {surface}",
@@ -1131,10 +1141,14 @@ def _run_git_add(repo: str, paths: list[str]) -> int:
     return subprocess.run(["git", "-C", repo, "add", *paths]).returncode
 
 
-def _run_git_commit(repo: str, message: str, allow_empty: bool = False) -> int:
+def _run_git_commit(
+    repo: str, message: str, allow_empty: bool = False, verbatim: bool = False
+) -> int:
     cmd = ["git", "-C", repo, "commit", "-m", message]
     if allow_empty:
         cmd.append("--allow-empty")
+    if verbatim:
+        cmd.append(_VERBATIM_CLEANUP)
     return subprocess.run(cmd).returncode
 
 
@@ -1340,7 +1354,20 @@ def _locate_plugin_marker(text: str) -> tuple[str, int, str] | None:
     return "plugin", text.count("\n", 0, start), text[start:end]
 
 
-def _locate_marker(path: Path) -> tuple[str, int, str] | None:
+def _read_marker_text(path: Path) -> str:
+    """The whole text of the file at `path`, decoded as UTF-8. Raises `OSError`
+    for a file that is absent or cannot be read, and `UnicodeDecodeError` for
+    bytes that are not UTF-8.
+
+    The default newline handling is kept on purpose: it turns `\\r\\n` into
+    `\\n`, so a CRLF frontmatter block still closes on a bare `---`. Not
+    `_read_body_file`, which opens with `newline=""` and would keep the `\\r`."""
+    return path.read_text(encoding="utf-8")
+
+
+def _locate_marker(
+    path: Path, *, read_marker_text: Callable[[Path], str] = _read_marker_text,
+) -> tuple[str, int, str] | None:
     """`(form, line index, semver)` of a file's live version marker, or None
     when it carries none — an absent file, an unreadable one, and one with no
     marker are all "unresolvable", exactly as `_read_frontmatter_semver`
@@ -1367,7 +1394,7 @@ def _locate_marker(path: Path) -> tuple[str, int, str] | None:
     **A file named `plugin.json` is a plugin manifest, read for its top-level
     `"version"` alone** (`_locate_plugin_marker`)."""
     try:
-        lines = path.read_text(encoding="utf-8").split("\n")
+        lines = read_marker_text(path).split("\n")
     except (OSError, UnicodeDecodeError):
         return None
     if path.name == _PLUGIN_MANIFEST_NAME:
@@ -1401,7 +1428,7 @@ def _read_marker_semver(path: Path) -> tuple[str, str] | None:
     return None if located is None else (located[0], located[2])
 
 
-def _markers_report(paths: list[str]) -> str:
+def _markers_report(paths: list[str], *, read_marker_text: Callable[[Path], str]) -> str:
     """One line per `path`, in the order given — straight out of
     `_locate_marker`, never re-derived. An absent, unreadable, or
     marker-less path is answered `<path>: no marker`, the same shape
@@ -1409,7 +1436,7 @@ def _markers_report(paths: list[str]) -> str:
     a question about a file's marker gets an answer, not a traceback."""
     lines = []
     for path in paths:
-        located = _locate_marker(Path(path))
+        located = _locate_marker(Path(path), read_marker_text=read_marker_text)
         if located is None:
             lines.append(f"{path}: no marker")
         else:
@@ -1547,8 +1574,10 @@ def _rewritten_marker(
     relabel, so they move in place — the plugin's by its span, because one
     line of a manifest can hold more than its version.
 
-    The description is the merge's own `--description`, whitespace-collapsed:
-    a comment is one line, and the flag is specified as one line. It is not
+    The note is the merge's own `--description`, whitespace-collapsed, less
+    what the vendor-neutrality check would report in this file
+    (`_version_note`, which `_apply_bumps` passes in): a comment is one line,
+    and the flag is specified as one line. It is not
     wrapped — how long a change description runs is the merge author's call
     and not this module's (`where_taste_appears.md`)."""
     if form == "plugin":
@@ -1562,6 +1591,53 @@ def _rewritten_marker(
     else:
         lines[index] = lines[index].replace(current, new, 1)
     return "\n".join(lines)
+
+
+def _neutrality_hits(repo: str, path: str, text: str) -> bool:
+    """Whether the vendor-neutrality check would report `text` written into
+    `path`: a journey artifact's dated stem, or a path into one of this
+    instance's projects — the two kinds it decides from `repo` alone. A file
+    outside the roots it scans is never reported. `path` is normalised and
+    the projects are the work tree's top's, as `_is_kensaiapp_path` judges
+    them, so `./core/x` and a subdirectory `--repo` are read the same."""
+    path = os.path.normpath(path)
+    if not path.startswith(check_vendor_neutrality.ROOTS):
+        return False
+    real_names = check_vendor_neutrality._real_project_names(_work_tree_root(repo))
+    return bool(check_vendor_neutrality.scan_text(path, text, real_names))
+
+
+def _version_note(
+    repo: str,
+    path: str,
+    description: str,
+    reported: Callable[[str, str, str], bool] = _neutrality_hits,
+) -> str:
+    """The note a shell bump writes after `# Version: x.y.z —`: the merge's
+    description, whitespace-collapsed, less every ` — `-separated segment the
+    vendor-neutrality check would report in `path` (relative to `repo`, as a
+    `--bump` spec names it). Where no segment survives, the reported names
+    alone are removed instead, and the note is empty only if what is left is
+    still reported.
+
+    **The note is the file's, not the merge's.** The merge subject is read in
+    the instance's history, where a change's key is its name, and it keeps
+    the whole description. The note lands in a vendored file every satellite
+    reads, where a key is a pointer into this instance's journey. One text
+    served both until the 2026-10-26 hooks merge stamped its key into
+    `core/githooks/` and the neutrality check went red on `main`; the note is
+    derived here so no description can put one there."""
+    note = " ".join(description.split())
+    top_path = _repo_prefix(repo) + path
+    kept = [part for part in note.split(" — ") if not reported(repo, top_path, part)]
+    if kept or not note:
+        return " — ".join(kept)
+    # No segment survived — the name was not set off by ` — `. Drop only the
+    # names, so the stack keeps a note rather than a bare line.
+    for pattern in (check_vendor_neutrality.HOST_PATH, check_vendor_neutrality.JOURNEY_STEM):
+        note = pattern.sub("", note)
+    note = " ".join(note.split())
+    return "" if reported(repo, top_path, note) else note
 
 
 BUMP_LEVELS = ("major", "minor", "patch")
@@ -1656,7 +1732,8 @@ def _apply_bumps(repo: str, specs: list[str], description: str = "") -> int:
         target.write_text(
             _rewritten_marker(
                 target.read_text(encoding="utf-8"),
-                form, index, current, _bumped(current, level), description,
+                form, index, current, _bumped(current, level),
+                _version_note(repo, path, description),
             ),
             encoding="utf-8",
         )
@@ -1695,6 +1772,28 @@ def _merge_base(repo: str, base: str) -> str | None:
     return result.stdout.strip() if result.returncode == 0 and result.stdout.strip() else None
 
 
+def _parse_name_status(output: str) -> list[tuple[str, str, str | None]] | None:
+    """The ``(status, old_path, new_path)`` records of a ``--name-status -z`` listing, rename
+    identity preserved, or ``None`` when the listing ends inside a record."""
+    fields = output.split("\0")
+    changes: list[tuple[str, str, str | None]] = []
+    index = 0
+    while index < len(fields) and fields[index]:
+        status = fields[index]
+        index += 1
+        if status.startswith(("R", "C")):
+            if index + 1 >= len(fields):
+                return None
+            changes.append((status, fields[index], fields[index + 1]))
+            index += 2
+        else:
+            if index >= len(fields):
+                return None
+            changes.append((status, fields[index], None))
+            index += 1
+    return changes
+
+
 def _branch_changes(repo: str, ref: str) -> list[tuple[str, str, str | None]]:
     """Return ``(status, old_path, new_path)`` changes with rename identity preserved."""
     result = subprocess.run(
@@ -1706,26 +1805,171 @@ def _branch_changes(repo: str, ref: str) -> list[tuple[str, str, str | None]]:
     )
     if result.returncode != 0:
         return []
-    fields = result.stdout.split("\0")
-    changes: list[tuple[str, str, str | None]] = []
-    index = 0
-    while index < len(fields) and fields[index]:
-        status = fields[index]
-        index += 1
-        if status.startswith(("R", "C")):
-            if index + 1 >= len(fields):
-                return []
-            changes.append((status, fields[index], fields[index + 1]))
-            index += 2
-        else:
-            if index >= len(fields):
-                return []
-            changes.append((status, fields[index], None))
-            index += 1
-    return changes
+    return _parse_name_status(result.stdout) or []
 
 
 LANDING_BASE = "main"
+
+# ── the changelog entry a merge to `main` declares ─────────────────────────
+# A merge into `main` lands only when the branch adds an entry under `## [Unreleased]` of a
+# `CHANGELOG.md`, or declares with `--user-invisible <reason>` that it changes nothing a user
+# sees. The verdict is read from committed Git objects only, and writes nothing.
+
+CHANGELOG_NAME = "CHANGELOG.md"
+UNRELEASED_HEADING = "## [Unreleased]"
+USER_INVISIBLE_LABEL = "User-invisible: "
+_VERBATIM_CLEANUP = "--cleanup=verbatim"
+_HUNK_HEADER = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@")
+
+
+class GitBranchObserver:
+    """What the changelog check learns from the repository, over the real Git executable and
+    committed objects only. A plain class, the port the check is given: a test passes a subclass
+    that forwards to it. Each answer is ``None`` when Git could not give one."""
+
+    @staticmethod
+    def _git(repo: str, *args: str) -> bytes | None:
+        result = subprocess.run(["git", "--literal-pathspecs", "-C", repo, *args],
+                                capture_output=True)
+        return result.stdout if result.returncode == 0 else None
+
+    def changes(
+        self, repo: str, base: str, branch: str
+    ) -> list[tuple[str, str, str | None]] | None:
+        listing = self._git(repo, "diff", "--name-status", "--find-renames", "-z",
+                            f"{base}...{branch}", "--")
+        if listing is None:
+            return None
+        return _parse_name_status(listing.decode("utf-8", errors="surrogateescape"))
+
+    def added_line_numbers(
+        self, repo: str, base: str, branch: str, old_path: str, new_path: str | None
+    ) -> list[int] | None:
+        paths = [old_path] if new_path is None else [old_path, new_path]
+        diff = self._git(repo, "diff", "--find-renames", "-U0", "--no-color", "--no-ext-diff",
+                         f"{base}...{branch}", "--", *paths)
+        if diff is None:
+            return None
+        return _added_line_numbers(diff.decode("utf-8", errors="replace"))
+
+    def branch_file_lines(self, repo: str, branch: str, path: str) -> list[str] | None:
+        blob = self._git(repo, "cat-file", "blob", f"{branch}:{path}")
+        if blob is None:
+            return None
+        return blob.decode("utf-8", errors="replace").split("\n")
+
+
+def _added_line_numbers(diff: str) -> list[int]:
+    """The branch-side numbers of the lines a unified diff marks added (`+`). A hunk's range is
+    not read as all added: a repository's `diff.interHunkContext` fuses nearby edits into one
+    hunk whose range covers unchanged lines, even under `-U0`. A context line is ` `-prefixed, or
+    empty under `diff.suppressBlankEmpty`. Lines outside a hunk (a file's header, `+++` included)
+    count nothing."""
+    numbers: list[int] = []
+    branch_line: int | None = None
+    for line in diff.split("\n"):
+        header = _HUNK_HEADER.match(line)
+        if header:
+            branch_line = int(header.group(1))
+        elif line.startswith("diff "):
+            branch_line = None
+        elif branch_line is None:
+            continue
+        elif line.startswith("+"):
+            numbers.append(branch_line)
+            branch_line += 1
+        elif line.startswith(" ") or line == "":
+            branch_line += 1
+    return numbers
+
+
+def _unreleased_line_numbers(lines: list[str]) -> set[int]:
+    """The 1-based numbers of the lines below a line reading exactly `## [Unreleased]` (trailing
+    whitespace ignored) and above the next line that begins `# ` or `## `, or the end."""
+    inside = False
+    numbers: set[int] = set()
+    for number, line in enumerate(lines, start=1):
+        if line.rstrip() == UNRELEASED_HEADING:
+            inside = True
+        elif line.startswith(("# ", "## ")):
+            inside = False
+        elif inside:
+            numbers.add(number)
+    return numbers
+
+
+def _branch_adds_changelog_entry(
+    repo: str, branch: str, observer: GitBranchObserver, base: str = LANDING_BASE
+) -> bool | None:
+    """Whether `branch` adds, since it left `base`, a line that is not blank, does not begin with
+    `#`, and sits under `## [Unreleased]` in a file named exactly `CHANGELOG.md`; ``None`` when
+    the repository cannot say. Rename identity is found before destination names are matched, so
+    a pure move adds nothing; a file other than a `CHANGELOG.md` is never read."""
+    changes = observer.changes(repo, base, branch)
+    if changes is None:
+        return None
+    for status, old_path, new_path in changes:
+        destination = old_path if new_path is None else new_path
+        if destination.rsplit("/", 1)[-1] != CHANGELOG_NAME:
+            continue
+        added = observer.added_line_numbers(repo, base, branch, old_path, new_path)
+        lines = observer.branch_file_lines(repo, branch, destination) if added else None
+        if not added or lines is None:
+            continue
+        section = _unreleased_line_numbers(lines)
+        for number in added:
+            text = lines[number - 1] if 0 < number <= len(lines) else ""
+            if number in section and text.strip() and not text.startswith("#"):
+                return True
+    return False
+
+
+def _missing_changelog_entry_refusal(branch: str) -> str:
+    return "\n".join([
+        f"commit_builder: refusing to merge {branch} into {LANDING_BASE} — the branch adds no "
+        f"entry under {UNRELEASED_HEADING} in any {CHANGELOG_NAME}.",
+        "  An entry counts when a commit the branch carries since it left main adds it under "
+        f"{UNRELEASED_HEADING}, in a file named exactly {CHANGELOG_NAME}, and it is not blank "
+        "and does not start with #.",
+        f"  To merge, add the change's entry under {UNRELEASED_HEADING} in a {CHANGELOG_NAME} "
+        f"and commit it on {branch}.",
+        "  If the merge changes nothing a user sees, pass --user-invisible \"<reason>\" "
+        "instead, with a one-line reason the merge commit records.",
+    ])
+
+
+def _user_invisible_refusal(branch: str, target: str, reason: str | None) -> str | None:
+    """The refusal for an unusable `--user-invisible` reason, whatever the target; ``None`` for
+    no reason or a usable one. The reason is judged as given and never trimmed."""
+    if reason is None:
+        return None
+    if not reason.strip():
+        return "\n".join([
+            f"commit_builder: refusing to merge {branch} into {target} — --user-invisible was "
+            "given a blank reason.",
+            "  Give a one-line reason that says why the merge changes nothing a user sees.",
+        ])
+    if "\n" in reason or "\r" in reason:
+        return "\n".join([
+            f"commit_builder: refusing to merge {branch} into {target} — the --user-invisible "
+            "reason contains a line break.",
+            "  Give the reason on one line.",
+        ])
+    return None
+
+
+def _changelog_refusal(
+    repo: str, branch: str, target: str, reason: str | None, observer: GitBranchObserver
+) -> str | None:
+    """The refusal of a merge into `main` that adds no entry and declares nothing. A declared
+    merge, or one into any other target, is not asked, so the diff is not observed at all. A
+    repository that cannot answer is not refused: the merge itself then fails on its own."""
+    if reason is not None or target != LANDING_BASE:
+        return None
+    if _branch_adds_changelog_entry(repo, branch, observer) is False:
+        return _missing_changelog_entry_refusal(branch)
+    return None
+
 
 _COPY_HINT_LINES = (
     "An added file may keep a version other than 1.0.0 only if it is a verbatim copy of a "
@@ -2073,7 +2317,8 @@ def _foreign_merge_refusal(repo: str, branch: str, merge_head: str) -> str:
 # ends two levels up silently — the wrong number this mechanism exists to
 # prevent.
 def _bump_and_commit(
-    repo: str, message: str, bumps: list[str], description: str = ""
+    repo: str, message: str, bumps: list[str], description: str = "",
+    verbatim: bool = False,
 ) -> int:
     """Apply the bumps and land the merge commit as one unit: a bump exists
     on disk only inside a commit that landed. If the commit is refused — a
@@ -2085,7 +2330,7 @@ def _bump_and_commit(
     }
     rc = _apply_bumps(repo, bumps, description)
     if rc == 0:
-        rc = _run_git_commit(repo, message)
+        rc = _run_git_commit(repo, message, verbatim=verbatim)
     if rc != 0:
         for path, text in before.items():
             (Path(repo) / path).write_text(text, encoding="utf-8")
@@ -2110,7 +2355,7 @@ _CONFLICT_RESUME_HINT = (
 
 def _run_git_merge(
     repo: str, branch: str, message: str, bumps: list[str] | None = None,
-    description: str = "",
+    description: str = "", verbatim: bool = False,
 ) -> int:
     """`git merge --no-ff`. With `bumps`, the merge is taken in two phases —
     `--no-commit`, apply the version bumps, then commit — so the bump lands
@@ -2140,18 +2385,24 @@ def _run_git_merge(
     misname it. And the bump is applied and committed as one unit
     (`_bump_and_commit`), so a resume that does not land leaves the version
     marker exactly where it found it and the next re-run bumps once, not
-    twice."""
+    twice.
+
+    `verbatim` keeps the message exactly as assembled through Git's cleanup, on the one-shot
+    merge and on the commit that completes a bump or a resume. Git's default cleanup strips
+    trailing whitespace, which would alter a declared reason; a call that declares none keeps
+    today's cleanup."""
     if not bumps:
-        return subprocess.run(
-            ["git", "-C", repo, "merge", "--no-ff", branch, "-m", message]
-        ).returncode
+        cmd = ["git", "-C", repo, "merge", "--no-ff", branch, "-m", message]
+        if verbatim:
+            cmd.append(_VERBATIM_CLEANUP)
+        return subprocess.run(cmd).returncode
 
     merge_head = _rev(repo, "MERGE_HEAD")
     if merge_head is not None:
         if _rev(repo, branch) != merge_head:
             print(_foreign_merge_refusal(repo, branch, merge_head), file=sys.stderr)
             return 1
-        return _bump_and_commit(repo, message, bumps, description)
+        return _bump_and_commit(repo, message, bumps, description, verbatim)
 
     rc = subprocess.run(
         ["git", "-C", repo, "merge", "--no-ff", "--no-commit", branch]
@@ -2160,7 +2411,7 @@ def _run_git_merge(
         if _merge_in_progress(repo):
             print(_CONFLICT_RESUME_HINT, file=sys.stderr)
         return rc
-    return _bump_and_commit(repo, message, bumps, description)
+    return _bump_and_commit(repo, message, bumps, description, verbatim)
 
 
 # ── the `advance` op — a branch takes a named ref's advance ────────────────
@@ -2506,11 +2757,11 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         "--directional",
         required=True,
         help=(
-            "the full Shukuba:/Agari:/Michi: line, already resolved by the "
+            "the full Shukuba:/Finish-line:/Michi: line, already resolved by the "
             "caller. A referent that IS present (a project name, a Way slug, "
             "a station slug) is resolved against --repo's own journey and "
             "refused if it does not exist; none and Michi's aside: carry no "
-            "referent and are never checked, and a Shukuba:/Agari: line with "
+            "referent and are never checked, and a Shukuba:/Finish-line: line with "
             "progress: or aside: where the name belongs is refused"
         ),
     )
@@ -2547,7 +2798,7 @@ def _build_arg_parser() -> argparse.ArgumentParser:
             "--skill, for output a prompt produced with no skill around it. "
             "Takes the bare NAME (pm_right_size), resolved to "
             "core/prompts/<name>.md in the instance repo, or <skill>/<prompt> "
-            "(nemawashi-pick/thin), resolved to that skill's "
+            "(seed-pick/thin), resolved to that skill's "
             "prompts/<prompt>.md — never a path and "
             "never --repo. Independent of --skill: pass either, both, or "
             "neither. Explicit-only, and omitting it correctly carries no line."
@@ -2653,7 +2904,10 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     merge_parser = subparsers.add_parser("merge", help="assemble + run a git merge --no-ff")
     merge_parser.add_argument(
         "--check-only", action="store_true",
-        help="validate merge metadata and bumps without any repository effects",
+        help=(
+            "validate merge metadata, bumps, the --user-invisible reason and, for a merge into "
+            "main, the changelog entry, without any repository effects"
+        ),
     )
     merge_parser.add_argument("--branch", required=True, help="the branch being merged")
     merge_parser.add_argument("--target-branch", required=True)
@@ -2714,6 +2968,16 @@ def _build_arg_parser() -> argparse.ArgumentParser:
             "the number, and for branch work that commit is this merge. "
             "Repeats accumulate. An unusable spec refuses before the merge "
             "runs."
+        ),
+    )
+    merge_parser.add_argument(
+        "--user-invisible",
+        metavar="REASON",
+        help=(
+            "declare that this merge changes nothing a user sees, with a one-line REASON. The "
+            "merge commit's body ends with 'User-invisible: REASON'. Without it, a merge into "
+            "main is refused unless the branch adds an entry under '## [Unreleased]' in a "
+            "CHANGELOG.md."
         ),
     )
     merge_parser.add_argument("--surface", required=True)
@@ -2787,7 +3051,7 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     check_parser.add_argument(
         "--directional",
         required=True,
-        help="the full Shukuba:/Agari:/Michi: line a later commit will carry. Exits 0 when "
+        help="the full Shukuba:/Finish-line:/Michi: line a later commit will carry. Exits 0 when "
              "commit would take it, else prints commit's refusal and exits 1 — for a caller "
              "that commits only after an effect it cannot undo, such as the seal's product merge",
     )
@@ -2814,11 +3078,13 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main(
-    argv: list[str] | None = None,
+def _main(
+    argv: list[str] | None,
     *,
-    read_body_file: Callable[[str], str] = _read_body_file,
-    gate_run_records=None,
+    read_body_file: Callable[[str], str],
+    read_marker_text: Callable[[Path], str],
+    gate_run_records: gate_suite.FileRunRecords | None,
+    branch_observer: GitBranchObserver,
 ) -> int:
     args = _build_arg_parser().parse_args(argv)
 
@@ -2953,7 +3219,7 @@ def main(
                 file=sys.stderr,
             )
             return 1
-        print(_markers_report(args.paths))
+        print(_markers_report(args.paths, read_marker_text=read_marker_text))
         return 0
 
     if args.op == "advance":
@@ -3041,18 +3307,39 @@ def main(
             co_authored_by=args.co_authored_by,
             reasoning_effort=args.reasoning_effort,
             claude_session=args.claude_session,
+            user_invisible=args.user_invisible,
         )
     except ValueError as exc:
         print(f"commit_builder: {exc}", file=sys.stderr)
         return 1
     refusal = _bump_refusal(args.repo, args.bump_specs, args.branch)
+    if refusal is None:
+        refusal = _user_invisible_refusal(args.branch, args.target_branch, args.user_invisible)
+    if refusal is None:
+        refusal = _changelog_refusal(
+            args.repo, args.branch, args.target_branch, args.user_invisible, branch_observer
+        )
     if refusal is not None:
         print(refusal, file=sys.stderr)
         return 1
     if args.check_only:
         return 0
     return _run_git_merge(
-        args.repo, args.branch, message, args.bump_specs, args.description
+        args.repo, args.branch, message, args.bump_specs, args.description,
+        verbatim=args.user_invisible is not None,
+    )
+
+
+def main(
+    argv: list[str] | None = None,
+    *,
+    read_body_file: Callable[[str], str] = _read_body_file,
+    gate_run_records: gate_suite.FileRunRecords | None = None,
+) -> int:
+    """Wire the branch observer at the entry boundary; execution requires the supplied port."""
+    return _main(
+        argv, read_body_file=read_body_file, read_marker_text=_read_marker_text,
+        gate_run_records=gate_run_records, branch_observer=GitBranchObserver(),
     )
 
 

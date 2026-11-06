@@ -74,7 +74,7 @@ Headings and fenced shell commands are not prose sentences; their text is protec
 
 ## Verified Claims
 
-Baseline tree: `5dfc3343efecbc67362aea8d91b516c18a8a9809`, read and checked inside this change's isolated worktree.
+Baseline tree: `<a commit not in the public history>`, read and checked inside this change's isolated worktree.
 Checks below ran on 2026-10-10 without editing the README, code, tests or definition documents.
 
 | Claim | Verified by | What came back |

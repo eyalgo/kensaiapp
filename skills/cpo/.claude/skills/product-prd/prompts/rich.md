@@ -1,5 +1,5 @@
 ---
-version: "2.8.0"
+version: "2.8.2"
 ---
 
 # product-prd — the CPO's PRD authoring lens
@@ -588,7 +588,7 @@ principle 4's test, and no relation tag exempts one from it:
 
 ## The PRD author's revision instructions
 
-Before qualifying a what-left addition, read `<CORE>/doctrine/setup/kensaiapp_structure.md` § *The what-left file*, **An entry holds only a want that the code can be shown to miss** and **An entry is added only by whoever changes the product's Agari or PRD**. Before preparing an entry, read `<CORE>/templates/product-templates/what_left_template.md`, **The single source of the what-left file's shape**. Apply those sources to this revision.
+Before qualifying a what-left addition, read `<CORE>/doctrine/setup/kensaiapp_structure.md` § *The what-left file*, **An entry holds only a want that the code can be shown to miss** and **An entry is added only by whoever changes the product's finish line or PRD**. Before preparing an entry, read `<CORE>/templates/product-templates/what_left_template.md`, **The single source of the what-left file's shape**. Apply those sources to this revision.
 
 Consider new wanted meanings across every changed PRD section. Include a want authorized by an owner answer folded in this revision, even when the prior draft already contains its provisional wording. Rewording, moving or repeating an existing want must not count as introducing a new want. Apply the existing confirmation and authorization principles to each candidate. Qualification must not supply missing owner authorization. Never invent a product want to exercise the list update.
 

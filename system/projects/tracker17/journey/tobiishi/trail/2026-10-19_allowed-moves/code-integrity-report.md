@@ -5,7 +5,7 @@ Environment: owners-mac — no CI
 
 **Change:** `tracker17 · tobiishi · 2026-10-19_allowed-moves`, on the station `tracker17 · shukuba · 2026-10-19_allowed-moves`.
 **Date:** 2026-10-19
-**Reviewed at:** the developer's closing marker `0f395031a894326f11bfd24549e7f930a033baea` (`developer: 2026-10-19_allowed-moves — implementation complete`).
+**Reviewed at:** the developer's closing marker `<a commit not in the public history>` (`developer: 2026-10-19_allowed-moves — implementation complete`).
 
 ## Summary
 
@@ -21,11 +21,11 @@ tests still could not run on this machine, because Chromium does not start here 
 
 **None.** The closing marker carries no `Deferred:` line, so there are no deferrals to check and none to leave alone.
 The marker was read with `git -C <worktree> log -1 main..2026-10-19_allowed-moves --grep='2026-10-19_allowed-moves — implementation complete' --format=%B`.
-The pause marker before it, `1439002bec57367c2203a1f43665abaca0222923`, carries none either.
+The pause marker before it, `<a commit not in the public history>`, carries none either.
 
 ## What was reviewed
 
-Everything the change's code commits wrote under `products/tracker17/`, at `0f39503` against `main`. That is 17 files, 1444 lines added and 21 removed:
+Everything the change's code commits wrote under `products/tracker17/`, at `<a commit not in the public history>` against `main`. That is 17 files, 1444 lines added and 21 removed:
 
 - `domain/workflow.py` (new) and `domain/__init__.py`;
 - `application/tracker.py` and `application/__init__.py`;

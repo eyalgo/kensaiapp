@@ -34,7 +34,7 @@ import sys
 from collections.abc import Mapping
 from typing import Protocol, Sequence, TextIO, TypedDict
 
-__version__ = "1.1.0"
+__version__ = "1.1.2"
 
 PRODUCT_PATH_FIELD = "**Product path:**"
 WORKTREES_DIR = ".worktrees"
@@ -106,7 +106,7 @@ _HOME_PREFIX = "~/"
 
 def _expand_home(value: str, home: str | None) -> str:
     """`value` with a leading `~/` replaced by `home` — the one form the chain launcher expands
-    (`<CORE>/launchers/chain-development/launcher.sh`, `"~"/*`). With no `home` given, or any
+    (`<CORE>/launchers/change/launcher.sh`, `"~"/*`). With no `home` given, or any
     other `~` form, the value is returned as written and refused by the check that follows."""
     if home and value.startswith(_HOME_PREFIX):
         return os.path.join(home, value[len(_HOME_PREFIX):])

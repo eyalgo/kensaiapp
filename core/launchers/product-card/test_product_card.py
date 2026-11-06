@@ -20,6 +20,9 @@ from pathlib import Path
 
 import pytest
 
+import test_support_instance_root
+from test_support_python3_stub import python3_calls_outside_uv, python3_that_only_fails
+
 import launcher_telemetry_test_support as support
 from kensaiapp_launchers_conftest import _plugin_skills
 from path_test_support import path_without_caffeinate
@@ -352,6 +355,7 @@ def test_a_satellite_is_granted_the_hosts_product_card_group(run, tmp_path_facto
     what the card half is granted."""
     run.project("example-product")
     host = tmp_path_factory.mktemp("host")
+    test_support_instance_root.give_python(host)
     skill_dir = host / "skills" / "principal-pm" / ".claude" / "skills" / "product-card"
     skill_dir.mkdir(parents=True)
     (skill_dir / "SKILL.md").write_text("---\nname: product-card\n---\n")
@@ -699,7 +703,7 @@ def test_product_card_helper_observation_matches_case_inputs(run, tmp_path, endp
     inputs call for: the arm it runs under, the project it was given, the product that project's
     card names, and the provider, model, effort and source its own skill's intelligence names
     (claude-opus-5-5 at high)."""
-    package = support.require_real_package(tmp_path / "package")
+    package = support.recorded_package(tmp_path / "package")
     place_own_skill(tmp_path, "product-card", _OWN_INTELLIGENCE)
     project_dir = run.project("example-product")
     endpoint_file = tmp_path / "published-endpoint"
@@ -742,7 +746,7 @@ def test_product_card_unresolved_skill_observation_matches_case_inputs(run, tmp_
     """CP-685, CP-759: a skills root that holds no product-card is not a refusal — the provider
     default is stamped with no model and no effort, and every other observable is what the case's
     inputs call for."""
-    package = support.require_real_package(tmp_path / "package")
+    package = support.recorded_package(tmp_path / "package")
     project_dir = run.project("example-product")
     endpoint_file = tmp_path / "published-endpoint"
     support.publish_endpoint(endpoint_file)
@@ -776,7 +780,7 @@ def test_product_card_ordinary_launch_discovers_source_host_setting(run, tmp_pat
     """CP-692: a launch whose environment names no command is instrumented from its source host's
     setting, whether the launcher runs from a core or a pin of it, for the host or for an
     instance that binds that core."""
-    package = support.require_real_package(tmp_path / "package")
+    package = support.recorded_package(tmp_path / "package")
     place_own_skill(tmp_path, "product-card", _OWN_INTELLIGENCE)
     run.project("example-product")
     endpoint_file = tmp_path / "published-endpoint"
@@ -845,9 +849,15 @@ def test_product_card_telemetry_failures_preserve_launch(run, tmp_path, kind, ca
     support.assert_failure_scenario(observation, scenario, cap=cap)
 
 
-def test_product_card_observation_skips_an_unreachable_package_and_fails_a_reached_one(tmp_path):
-    """CP-689: the observation above is skipped, with the reason named, where the package's
-    command cannot be reached, and fails where it is reached and breaks the contract."""
-    support.assert_selection_skips_unreachable_and_fails_reached(
-        tmp_path, f"{__file__}::test_product_card_helper_observation_matches_case_inputs"
-    )
+
+
+def test_product_card_runs_no_python3(run, tmp_path):
+    run.project("example-product")
+    path, marker = python3_that_only_fails(tmp_path, run.env["PATH"])
+    run.env["PATH"] = path
+
+    result = run("example-product")
+
+    assert result.returncode == 0, result.stderr
+    assert run.claude_argv(), "the card half must actually run"
+    assert python3_calls_outside_uv(marker) == []

@@ -78,7 +78,7 @@ leaving an audit trail that cannot be edited after the fact (DR-3).
 ## 7. The order, and why
 
 S-1 first because every later slice writes through its store seam. S-4 last because it is the only
-slice that can destroy what the others produce, and it is the one the Agari's third condition names.
+slice that can destroy what the others produce, and it is the one the finish line's third condition names.
 
 ---
 

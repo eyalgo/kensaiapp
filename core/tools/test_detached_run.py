@@ -3,6 +3,7 @@
 import json
 import os
 import subprocess
+import sys
 from pathlib import Path
 
 import walk_stop
@@ -159,3 +160,32 @@ def test_the_launcher_and_watcher_environment_retains_the_receipt_destination(tm
                      DETACHED_RUN_RESULT_FILE="/queue/receipt.json")
 
     assert "RECEIPT=/queue/receipt.json" in result.stdout
+
+
+def _a_python3_that_only_fails(tmp_path):
+    """A directory to put first on PATH whose `python3` writes a marker and exits 1."""
+    stub_dir = tmp_path / "stub-bin"
+    stub_dir.mkdir()
+    stub = stub_dir / "python3"
+    stub.write_text(f'#!/bin/sh\necho called >> "{tmp_path / "python3-marker"}"\nexit 1\n')
+    stub.chmod(0o755)
+    return stub_dir
+
+
+def test_start_records_the_run_with_python3_stubbed_to_fail(tmp_path):
+    runner = _a_runner_that_reports_the_receipt_key(tmp_path)
+    stub_dir = _a_python3_that_only_fails(tmp_path)
+    identity = tmp_path / "launch.identity.json"
+
+    result = _helper(tmp_path, f'SEEN={tmp_path / "seen.json"} start_detached_run sh -c '
+                               f'"{sys.executable} {runner}"\n'
+                               'echo "PID=$DETACHED_RUN_PID SESSION=$DETACHED_RUN_SESSION_ID"\n'
+                               'DETACH_PROCESS_WATCHER_PID=$$\n'
+                               'record_detached_run_identity',
+                     PATH=f"{stub_dir}:{os.environ['PATH']}",
+                     DETACHED_RUN_IDENTITY_FILE=str(identity))
+
+    assert result.returncode == 0, result.stderr
+    assert "PID=4242 SESSION=s-1" in result.stdout
+    assert identity.exists(), result.stderr
+    assert not (tmp_path / "python3-marker").exists()

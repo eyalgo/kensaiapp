@@ -1,0 +1,8 @@
+[project]
+name = "kensaiapp-test-tools"
+version = "0.0.0"
+requires-python = ">=3.13"
+dependencies = [
+    "pytest==9.0.3",
+    "pytest-xdist==3.8.0",
+]

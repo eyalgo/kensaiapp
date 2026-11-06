@@ -42,7 +42,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 
-__version__ = "2.4.1"
+__version__ = "2.4.2"
 
 _CHECKLIST_DONE = re.compile(r"^[ \t]*- \[x\]", re.MULTILINE)
 _CHECKLIST_PENDING = re.compile(r"^[ \t]*- \[ \]", re.MULTILINE)
@@ -216,7 +216,7 @@ def _checklist_counts(text: str) -> tuple[int, int]:
     """`(done, total)` counted from `- [x]` versus `- [ ]` lines, at any indent.
 
     Leading whitespace is part of the match because a nested item is still an item: every
-    define-the-product seed carries four indented under one parent (`core/templates/project-templates/
+    `full` define-the-product seed carries four indented under one parent (`core/templates/project-templates/
     setup_seed_template.md`), and a line-start anchor rendered those seeds finished with their
     nested work untouched.
     """

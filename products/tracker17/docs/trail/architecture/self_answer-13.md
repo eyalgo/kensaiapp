@@ -13,8 +13,8 @@
   `trail/sdd/self_answer-8.md` whole; `trail/architecture/self_answer-12.md`, the previous round;
   `fdr.md` R-116 and R-117; and in the product, `application/tracker.py` whole,
   `domain/tasks.py:94-112, 189-230`, `web/routes.py:168-173, 438`, and
-  `tests/integration/test_task_tracker.py:311-322`. The code was read at `main` `33ad1a2a7`.
-  `git diff --stat 8315df674 HEAD -- products/tracker17 ':!products/tracker17/docs'` lists only
+  `tests/integration/test_task_tracker.py:311-322`. The code was read at `main` `<a commit not in the public history>`.
+  `git diff --stat <a commit not in the public history> HEAD -- products/tracker17 ':!products/tracker17/docs'` lists only
   `products/tracker17/README.md`, so the code the SDD round verified has not moved. No suite was run.
   The item is about what the records say, and this round changes no code.
 

@@ -1,5 +1,5 @@
 ---
-version: "1.1.0"
+version: "1.2.0"
 ---
 
 # Swift — testing
@@ -119,6 +119,13 @@ how a Swift product meets `testing_doctrine.md`'s "Layer 5 runs separately": end
   in a type conforming to it that records what it received. The doctrine's own words for what this
   protects are "A test hands the unit a fake through the same door production wires the real one
   through" (`testing_doctrine.md` § Layers 1–5 — Code-Time (TDD)).
+- **A fake is verified by a contract suite, by `testing_doctrine.md` § A fake is verified against its port's contract.** In Swift the fakes
+  are `public` types in the layer-1 target, `<Target>UnitTests`, and the layer-2 target,
+  `<Target>IntegrationTests`, lists that target among its dependencies to reach them. The suite is
+  one parameterized test, `@Test(arguments:)`, in the layer-2 target, whose arguments are the two
+  ways to make the port — the real adapter, writing only inside a temporary directory, and the fake
+  — so each case runs on both. **Swift has no unit-tier sandbox:** nothing refuses a real resource
+  in a unit test while it runs, so the seam and review hold the rule.
 - **A test unwraps with `#require`, and a thrown error is matched by pattern.** An `Optional` value
   the test needs is unwrapped with `try #require(…)`, the form the framework's own examples use
   (Swift Testing README, above), and a call that throws is called with plain `try` in a `throws`

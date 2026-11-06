@@ -1,13 +1,14 @@
 ---
-version: "4.12.1"
+version: "4.16.0"
 ---
 
 # Setting up a project
 
 *How a new product goes from "we want to build it" to a project this instance can
 steer. It is **one setup step, then the journey**: a scaffold that creates the project folder
-**and** the 根回し Nemawashi seed carrying the definition chain — and that is the whole of
-setup. The PRD, the Agari, and the technical requirements (SRS, then SDD) are **stations** the
+**and** the 根回し Nemawashi seed carrying the definition the card's `Definition:` names — none
+under `none` (§ *The flow at a glance*, the table under it) — and that is the whole of
+setup. The PRD, the finish line, and the technical requirements (SRS, then SDD) are **stations** the
 journey walks, not setup steps. The rest of the chain (Delivery Plan, and the derived FDR /
 ADR / NFDR) is the wider `product-definition` tier; the full direction + ownership model lives
 in `core/docs/michi_agari.md`.*
@@ -18,18 +19,20 @@ that fix that shape, and which of those skills exist yet. Every other file point
 restate it; a restatement that disagrees is a bug in the copy, deleted rather than reconciled
 (`governance/single_source.md`).
 
-The one deliberate copy is `templates/project-templates/setup_seed_template.md`, which cannot be a
-pointer because it *is* the seed content stamped onto disk. When the sequence below changes, that
-template changes in the same commit.
+The deliberate copies are the two setup seed templates, `templates/project-templates/setup_seed_template.md`
+(`full`) and `templates/project-templates/setup_seed_prd_and_finish_line_template.md` (`prd-and-finish-line`), which
+cannot be pointers because each *is* the seed content stamped onto disk. When the sequence below
+changes, the templates whose part of it changed change in the same commit.
 
 **What it does not own:** where an instance's files sit (`kensaiapp_structure.md`), what a stamper
 may create or modify (`setup_scope.md`), or the direction + ownership model the system steers by
 (`core/docs/michi_agari.md`).
 
 **Where setup stops.** At the stamp commit: `system/projects/<name>/` exists, its
-`project.md` points at a real product repo, and the seedbed holds the setup seed. The test is
+`project.md` points at a real product repo, and the seedbed holds the setup seed its
+`Definition:` names, or nothing under `none`. The test is
 that **setup produces only artifacts that are identical for every product** — a path, a
-placeholder, doctrine stubs, a stamped seed. None of them says anything about *this* product.
+placeholder, doctrine stubs, a stamped seed or none. None of them says anything about *this* product.
 The first artifact that could only belong to this product is the PRD, and that is station 1 of
 the journey. So: the folder is set up; the product is not yet defined.
 
@@ -37,13 +40,14 @@ the journey. So: the folder is set up; the product is not yet defined.
 
 ## The flow at a glance
 
-Setup is one step — `project-stamp`, which creates `system/projects/<name>/` and the setup
-seed in its seedbed. Everything after it is the journey: walk the seed's stations, one at a time.
+Setup is one step — `project-stamp`, which creates `system/projects/<name>/` and, unless the card
+reads `none`, the setup seed in its seedbed. Everything after it is the journey: walk the seed's
+stations, one at a time.
 
 | # | Station | Skill | Role | Produces | Main input |
 |---|---|---|---|---|---|
 | 1 | PRD | `product-prd` | CPO | `<product>/docs/PRD.md` | the product idea |
-| 2 | Agari | `project-agari` | CPO | `system/projects/<name>/agari.md` | `PRD.md` |
+| 2 | Finish line | `project-finish-line` | CPO | `system/projects/<name>/finish_line.md` | `PRD.md` |
 | 3 | SRS | `product-srs` | CTO | `<product>/docs/SRS.md` | `PRD.md` |
 | 4 | **EXPERIENCE** | | | | |
 | 4 ↳ | UXD | `product-uxd` | CDO | `<product>/docs/UXD.md` | `PRD.md` |
@@ -53,6 +57,19 @@ seed in its seedbed. Everything after it is the journey: walk the seed's station
 | 5 | SDD | `product-sdd` | CTO | `<product>/docs/SDD.md` | `SRS.md` + `UXD.md` |
 
 **Main input** names what a station is written *from* — not everything its skill opens.
+
+**How much of the sequence a project walks is its card's `Definition:`**, and the setup seed is
+stamped to match:
+
+| `Definition:` | What is walked | Setup seed | Which `Type:` takes it |
+|---|---|---|---|
+| `full` | every station above | `setup_seed_template.md` — stations 1 to 5 | software only |
+| `prd-and-finish-line` | stations 1 and 2, the PRD and the finish line, and nothing after | `setup_seed_prd_and_finish_line_template.md` — stations 1 and 2 | software or no-code |
+| `none` | no station — the product is not defined in documents | none: the seedbed starts empty | software or no-code |
+
+A no-code product is never `full`: stations 3 to 5 describe code it does not have (the owner,
+2026-11-02). Its default is `prd-and-finish-line`; a software product's is `full`. A card that still reads
+`prd-agari`, the value's name before 2026-11-02, is refused like any other value outside the three.
 
 Station 5 carries **one Role**, the CTO, and that is the difference from station 4. EXPERIENCE is
 three separate runs each with its own seat; the SDD is **one** run by one seat, the CTO, who drafts
@@ -70,7 +87,7 @@ claims nothing about how each behaves.
 
 **Which of these exist today.** Every station is built and runnable, stations 1 through 4 with all
 four of EXPERIENCE's `4 ↳` runs, and **station 5 since 2026-08-26**. **Seven skills** are on disk
-under `.claude/skills/`: `product-prd`, `project-agari`, `product-srs`, `product-uxd`,
+under `.claude/skills/`: `product-prd`, `project-finish-line`, `product-srs`, `product-uxd`,
 `product-design`, `product-content` and `product-sdd`. The design run is the one `4 ↳` with no skill of
 its own — it is the owner's handoff out to Claude Design and back, which is why its `Skill` cell is
 `—` rather than a gap waiting to be filled. The **CDO role is wired** (`system/loaders/cdo.md`,
@@ -120,15 +137,15 @@ Three things follow from that last column, and they are why the chain has the sh
   and still holds nothing up.
 
 One scaffold session, and setup is done. Nothing has to be remembered across that line: the
-seed carrying the definition chain is stamped by `project-stamp`, so the seedbed of a new
-project is never empty and the chain is never re-typed from memory.
+seed carrying the definition the card names is stamped by `project-stamp`, so the chain is never
+re-typed from memory.
 
 ---
 
 ## Setup — `project-stamp`
 
 Creates the management folder `system/projects/<name>/` — the `project.md` binding
-(the load-bearing `Product path:`), an `agari.md` placeholder, the project doctrine
+(the load-bearing `Product path:`), a `finish_line.md` placeholder, the project doctrine
 stubs, the `journey/` folders, and the **setup seed** at
 `journey/nemawashi/<date>_define-the-product.md`. It does **not** create the product's docs or
 code; it only points at the product.
@@ -137,8 +154,8 @@ code; it only points at the product.
 - You'll be asked whether the product is **internal** (lives in this instance) or
   **external** (its own repo, absolute path). External also wires the Claude Code
   directory grant automatically.
-- The setup seed is a **recommendation**, stamped from
-  `<CORE>/templates/project-templates/setup_seed_template.md`. It is the ordinary way a
+- The setup seed is a **recommendation**, stamped from the template the card's `Definition:`
+  names — § *The flow at a glance*, the table under it. It is the ordinary way a
   product gets defined, not a rule — edit it, reorder it, or delete it if this product
   starts somewhere else.
 - Full details: the `project-stamp` skill.
@@ -147,9 +164,11 @@ Nothing about the product's *content* is decided here — that's what the seed's
 
 **The front door — `project-setup`.** For an owner who would rather answer questions than run
 skills, `project-setup` wraps this step and the first two stations into one conversation: it
-interviews the owner in plain words, runs `project-stamp`'s script, writes the answers as round 0 of
-the PRD's and the Agari's companions, and starts `core/launchers/chain-agari/`, which writes the documents of stations 1 and 2 — the PRD,
-then the Agari. The documents are the same; only who types the commands changes.
+interviews the owner in plain words — including how much is written down first, which becomes the
+card's `Definition:` — runs `project-stamp`'s script, writes the answers as round 0 of
+the PRD's and the finish line's companions, and starts `core/launchers/prd-and-finish-line/`, which writes the documents of stations 1 and 2 — the PRD,
+then the finish line. Under `none` it writes no companion and starts nothing. The documents are the same;
+only who types the commands changes.
 
 ## Then the journey — walk the setup seed's stations
 
@@ -161,11 +180,11 @@ reached-when is met the Shukuba file moves to `shukuba/trail/` and the item is c
   it's for, the problem it removes, what success looks like, what's out of scope. Lands at
   `<product>/docs/PRD.md` (CPO posture — `product-prd` **requires** it and halts without it).
   Commits as `Role: CPO`. Launcher: `core/launchers/skill/launcher.sh product-prd <project>`.
-- **project-agari** — declare the project's Agari, its finish line ("the product is done
-  when …"). Fills `agari.md` (CPO posture — required, and it halts without it). Non-interactive
+- **project-finish-line** — declare the project's finish line ("the product is done
+  when …"). Fills `finish_line.md` (CPO posture — required, and it halts without it). Non-interactive
   and round-based like the others, but its files are **management** artifacts in the instance
-  repo (`system/projects/<name>/agari.md`, its companion, and `trail/agari/`), not product docs.
-  Launcher: `core/launchers/skill/launcher.sh project-agari <project>`.
+  repo (`system/projects/<name>/finish_line.md`, its companion, and `trail/finish_line/`), not product docs.
+  Launcher: `core/launchers/skill/launcher.sh project-finish-line <project>`.
 - **product-srs** — author the SRS from the settled PRD: the technical answer to the PRD's
   *what* — system requirements, interfaces, data, constraints. Lands at
   `<product>/docs/SRS.md` (CTO posture). Launcher: `core/launchers/skill/launcher.sh product-srs <project>`.
@@ -195,12 +214,12 @@ reached-when is met the Shukuba file moves to `shukuba/trail/` and the item is c
   `product-srs` resume folds an answered companion. Its launch is the skill launcher:
   `core/launchers/skill/launcher.sh product-sdd <project> [--dry-run] [--keep-awake]`.
 
-**Ordering — declare the Agari first.** Walk `project-agari` before `product-srs`. Strictly,
+**Ordering — declare the finish line first.** Walk `project-finish-line` before `product-srs`. Strictly,
 neither *gates* the other — both need only the settled PRD — but they are not interchangeable
-in practice, so treat Agari-first as the recommendation rather than a free choice. The Agari
+in practice, so treat finish-line-first as the recommendation rather than a free choice. The finish line
 says when the product is finished; the SRS says what the system must do to get there. Written
 in that order, "done" is a boundary the SRS can be scoped against. Written the other way, the
-SRS has no terminus to stop at and tends to spec past it, and the Agari that arrives later is
+SRS has no terminus to stop at and tends to spec past it, and the finish line that arrives later is
 read against requirements already written rather than the other way round. It is also the
 cheaper document by a wide margin — one short declaration off the settled PRD — so there is
 little to gain by deferring it.
@@ -234,7 +253,7 @@ through the skill launcher**, from the instance root:
 
 ```
 core/launchers/skill/launcher.sh product-prd      <project> [--dry-run] [--keep-awake]
-core/launchers/skill/launcher.sh project-agari    <project> [--dry-run] [--keep-awake]
+core/launchers/skill/launcher.sh project-finish-line    <project> [--dry-run] [--keep-awake]
 core/launchers/skill/launcher.sh product-srs      <project> [--dry-run] [--keep-awake]
 core/launchers/skill/launcher.sh product-uxd      <project> [--dry-run] [--keep-awake]
 core/launchers/skill/launcher.sh product-design   <project> [--dry-run] [--keep-awake]
@@ -243,7 +262,7 @@ core/launchers/skill/launcher.sh product-content  <project> [--dry-run] [--keep-
 
 Each reads that skill's own `launcher.md` — the station's `--agent` posture, the fixed prompt and the
 reporter its completion message is written by — starts a detached `claude --print` run with
-`--permission-mode auto --permission-prompts none`, and detaches a completion watcher. `core/launchers/chain-product/launcher.sh
+`--permission-mode auto --permission-prompts none`, and detaches a completion watcher. `core/launchers/product-docs/launcher.sh
 <project>` walks every product document in order instead, answering each companion it finds. Two reasons the launcher is the
 way rather than a convenience:
 
@@ -275,7 +294,7 @@ and you're finished when the open-issues file is gone.
 
 ## The definition set never names the journey
 
-The documents this chain produces — the PRD, the Agari, the SRS, the UXD, the design language, the
+The documents this chain produces — the PRD, the finish line, the SRS, the UXD, the design language, the
 verbal language, the SDD — are authored before any change unit exists. They state what the product
 is, what it must do, and what it must feel like. They never state **when** a thing gets built, or by
 which change unit.
@@ -292,7 +311,7 @@ whole set.
 **And it does not cite a file under `journey/`.** A 宿場 Shukuba station is a legitimate *input* to a
 definition run: the station that opens the run carries its guardrail, and a run that ignores it is
 the defect. It is not a legitimate *citation*. A product document's sources are the PRD, the
-project's Agari, its doctrine, and its sibling documents — all of which settle. A journey file moves
+project's finish line, its doctrine, and its sibling documents — all of which settle. A journey file moves
 to `trail/` the week after, so a settled product document that cites one cites a path that no longer
 exists.
 
@@ -311,9 +330,10 @@ rather than restating it (`<CORE>/doctrine/governance/single_source.md`).
 
 ## After setup
 
-The setup seed ends at the SDD. When its stations are all checked the seed is **finished**:
+The `full` setup seed ends at the SDD, the `prd-and-finish-line` one at the finish line. When its stations are
+all checked the seed is **finished**:
 move it to `journey/nemawashi/trail/` (skill: `nemawashi-retire`). From there the chain
-continues by fresh seeds — the Principal PM's Delivery Plan feeds them into the Nemawashi,
+continues by fresh seeds — for a `full` product, the Principal PM's Delivery Plan feeds them into the Nemawashi,
 and the derived FDR / ADR / NFDR follow. See `core/docs/michi_agari.md` § "Who owns each
 step".
 

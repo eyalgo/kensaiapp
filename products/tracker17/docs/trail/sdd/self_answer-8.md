@@ -16,7 +16,7 @@
   `system/projects/tracker17/journey/shukuba/trail/2026-10-11_edit-task-fields.md` and the unit's
   review `journey/nemawashi/2026-10-07_tasks-in-a-project/2026-10-11_edit-task-fields_report.md`;
   `trail/sdd/self_answer-7.md` and `trail/sdd/cycle-5.md`, the previous round. No suite was run: the
-  item is about what the code says, which was read on disk at `main` `8315df674`, and the round
+  item is about what the code says, which was read on disk at `main` `<a commit not in the public history>`, and the round
   changes no code.
 
 The companion held one open item, § 5.1, `Seat: cto`, and the invocation listed none, so this run
@@ -41,7 +41,7 @@ statement found false to be corrected, not for the document to state a case it d
   The answer binds this document's consistency with the product and nothing outside it — no person,
   no party, no risk the owner carries — and I can name no ground I cannot see. Mine, in the owner's
   seat. The same sentence in NFDR QC-21 and ADR-0001 is the Principal Architect's and already
-  carries its own item, `architecture_open_issues.md` § 3.1 (commit `cc3956f5a`), still at its
+  carries its own item, `architecture_open_issues.md` § 3.1 (commit `<a commit not in the public history>`), still at its
   placeholder; my finding is the same qualification, so I neither appended a near-duplicate nor
   revised it.
 

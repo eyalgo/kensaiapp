@@ -86,11 +86,11 @@ Pass: each exits 0; use the locked versions without changing their pins
 Compare source inventories from `change_root`, before editing and after both tasks:
 
 ```sh
-git -C "$change_root" grep -nE '^def test_' 530d0c214 -- products/tracker17/tests/e2e/
+git -C "$change_root" grep -nE '^def test_' <a commit not in the public history> -- products/tracker17/tests/e2e/
 git -C "$change_root" grep -nE '^def test_' -- products/tracker17/tests/e2e/
 pytest --collect-only -q products/tracker17/tests/e2e/
-git -C "$change_root" diff 530d0c214 -- products/tracker17
-git -C "$change_root" diff --unified=0 530d0c214 -- products/tracker17 | awk '/^\+\+\+/{next} /^\+/{print}' | grep -inE 'rerun|flaky|retry|retries'
+git -C "$change_root" diff <a commit not in the public history> -- products/tracker17
+git -C "$change_root" diff --unified=0 <a commit not in the public history> -- products/tracker17 | awk '/^\+\+\+/{next} /^\+/{print}' | grep -inE 'rerun|flaky|retry|retries'
 ```
 
 Pass: the same 27 function names in the same five modules are collected, with no new test function,
@@ -349,14 +349,14 @@ actual logs and causal account. No individual module run substitutes for that pr
 
 **What to build:** Replace each of the 13 string-predicate focus waits with `to_be_focused` on the
 same element, per design § 4: ten in `test_labels.py` (L34, L60, L70, L86, L94, L102, L108, L134,
-L142, L159) and three in `test_tasks.py` (L67, L153, L163), as they stand at `7ba95e221`.
+L142, L159) and three in `test_tasks.py` (L67, L153, L163), as they stand at `<a commit not in the public history>`.
 
 #### Invariant gate
 
 - Full existing in-process suite green: `pytest products/tracker17/tests/`, from `change_root` (I-1).
 - Red at baseline: `test_labels.py::test_keyboard_label_add_focuses_label_with_accessible_description`
   (`Page.wait_for_function: EvalError`), whole-folder run 15 of `code-integrity-report.md` at
-  `486d5dbae`. It is intermittent; after the repair it must pass on every proof run.
+  `<a commit not in the public history>`. It is intermittent; after the repair it must pass on every proof run.
 - Every target stays the same: `H1` reads as `main h1`, the page's only heading, and an id reads as
   `#<id>`. The `other` page in the stale-remove test keeps its own observation.
 - No wait, focus or key action is added. The default 5,000-millisecond bound is kept.

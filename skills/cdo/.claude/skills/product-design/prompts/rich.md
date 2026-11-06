@@ -1,5 +1,5 @@
 ---
-version: "1.6.2"
+version: "1.8.0"
 ---
 
 # product-design — the CDO's design-language authoring lens
@@ -52,7 +52,7 @@ new format version, which would change what passes the gate below without anyone
 - **The SRS**, when it exists — a **sibling, never a source**. No value derives from it. Read it
   only to notice a collision — a value the technical constraints will not hold — and surface the
   collision as an open issue rather than silently retreating the design.
-- **The project's Agari** (`system/projects/<name>/agari.md`) — a **scope boundary, never a
+- **The project's finish line** (`system/projects/<name>/finish_line.md`) — a **scope boundary, never a
   source of values**: a token or contract serving only work outside the declared done is out of
   scope, said so rather than designed.
 - **The project's doctrine** (`system/projects/<name>/doctrine/`) — binding where it speaks.

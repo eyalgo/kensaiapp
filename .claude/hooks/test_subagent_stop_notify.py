@@ -251,7 +251,8 @@ def test_the_hook_is_wired_in_settings_under_subagent_stop_with_the_narrow_match
 
 
 def test_the_hook_is_stdlib_only():
-    """Vendored hooks run on bare `python3` with no venv (`kensaiapp_structure.md` § Native
+    """Vendored hooks are stdlib-only and run on the pinned Python through
+    `core/tools/locked_python.sh`, which syncs no dependency (`kensaiapp_structure.md` § Native
     `.claude/` layer). A third-party import here would fail at hook time, which is a silent
     non-fire rather than a visible error."""
     body = _HOOK.read_text()

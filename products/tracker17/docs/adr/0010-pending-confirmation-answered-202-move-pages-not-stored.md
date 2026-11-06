@@ -86,7 +86,7 @@ moves, and on the operator's browser before then.
 - `products/tracker17/docs/SRS.md` NFR-3, NFR-13; `products/tracker17/docs/UXD.md` § 4, UX-F4,
   UX-I3.
 - `products/tracker17/web/routes.py`, `Site._pending_status`, `Site._stored_as_asked` and
-  `Site._move_view`, at `9b05680c7`.
+  `Site._move_view`, at `<a commit not in the public history>`.
 
 ## Binds
 

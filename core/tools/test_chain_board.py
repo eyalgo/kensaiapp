@@ -92,7 +92,7 @@ def build_idea_walk(project: str = "widgets", **fields) -> dict:
             "ended_reason": "", "pending": {}, "started_at": STARTED, **fields}
 
 
-def development_walk(project: str = "widgets", chain_name: str = "change", **fields) -> dict:
+def development_walk(project: str = "widgets", chain_name: str = "walk", **fields) -> dict:
     return {"audits": {}, "chain_name": chain_name, "project": project, "key": "", "ended": None,
             "ended_reason": "", "pending": {}, "started_at": STARTED, **fields}
 
@@ -107,7 +107,7 @@ def one_launch(identity: str) -> dict:
 
 
 def developer_launch(identity: str = "/logs/a.identity.json") -> dict:
-    """A development walk's launch on its implementation step, as the chain records it."""
+    """A change walk's launch on its implementation step, as the chain records it."""
     return {"step": "implementation", "audited": None, "identity": identity}
 
 
@@ -132,10 +132,10 @@ def test_reading_one_instance_returns_no_row_of_another(tmp_path):
     beta = make_instance(tmp_path, "beta")
     write_state(alpha, "build-idea-alpha-proj-state.json",
                 build_idea_walk("alpha-proj", ended="halted", ended_reason="stuck"))
-    write_state(alpha, "chain-change-alpha-proj-state.json", development_walk("alpha-proj"))
+    write_state(alpha, "chain-walk-alpha-proj-state.json", development_walk("alpha-proj"))
     write_state(beta, "build-idea-beta-proj-state.json",
                 build_idea_walk("beta-proj", ended="halted", ended_reason="stuck"))
-    write_state(beta, "chain-change-beta-proj-state.json", development_walk("beta-proj"))
+    write_state(beta, "chain-walk-beta-proj-state.json", development_walk("beta-proj"))
 
     first = chain_board.read_board(alpha, FakeLaunches(), FakeOpenings(), FakeStarts(), FakeTasks())
     second = chain_board.read_board(beta, FakeLaunches(), FakeOpenings(), FakeStarts(), FakeTasks())
@@ -268,7 +268,7 @@ def test_all_kinds_share_one_list_newest_first(tmp_path):
     rows = waiting_rows(root)
 
     assert [(row.project, row.launcher) for row in rows] == [
-        ("two", "chain-change"), ("three", "chain-product"), ("one", "build-idea")]
+        ("two", "walk"), ("three", "product-docs"), ("one", "build-idea")]
 
 
 def test_a_walk_with_no_start_time_comes_last(tmp_path):
@@ -290,11 +290,11 @@ def test_a_walk_with_no_start_time_comes_last(tmp_path):
 
 @pytest.mark.parametrize("builder, fields, expected", [
     (build_idea_walk, {}, "build-idea"),
-    (development_walk, {"chain_name": "change"}, "chain-change"),
-    (development_walk, {"chain_name": "development"}, "chain-development"),
-    (product_walk, {"chain_name": "agari"}, "chain-agari"),
-    (product_walk, {"chain_name": "product"}, "chain-product"),
-    (product_walk, {"chain_name": ""}, "chain-product"),
+    (development_walk, {"chain_name": "walk"}, "walk"),
+    (development_walk, {"chain_name": "change"}, "change"),
+    (product_walk, {"chain_name": "finish-line"}, "prd-and-finish-line"),
+    (product_walk, {"chain_name": "product"}, "product-docs"),
+    (product_walk, {"chain_name": ""}, "product-docs"),
 ])
 def test_each_kind_is_named_by_its_launcher(tmp_path, builder, fields, expected):
     root = make_instance(tmp_path, "inst")
@@ -307,12 +307,12 @@ def test_each_kind_is_named_by_its_launcher(tmp_path, builder, fields, expected)
 
 def test_a_kind_is_known_by_content_not_by_file_name(tmp_path):
     root = make_instance(tmp_path, "inst")
-    write_state(root, "chain-change-widgets-state.json",
+    write_state(root, "chain-walk-widgets-state.json",
                 product_walk("change-widgets", chain_name="", ended="halted", ended_reason="x"))
 
     rows = waiting_rows(root)
 
-    assert [(row.launcher, row.project) for row in rows] == [("chain-product", "change-widgets")]
+    assert [(row.launcher, row.project) for row in rows] == [("product-docs", "change-widgets")]
 
 
 def write_seed(root: Path, project: str, folder: str, seed: str, heading: str,
@@ -540,7 +540,7 @@ def test_an_owner_owed_build_idea_a_later_chain_hands_back_to_is_in_neither_list
     board = chain_board.read_board(root, FakeLaunches(), FakeOpenings(), FakeStarts(), FakeTasks())
 
     assert board.waiting == []
-    assert [row.launcher for row in board.running] == ["chain-change"]
+    assert [row.launcher for row in board.running] == ["walk"]
 
 
 def test_an_owner_owed_build_idea_stays_when_the_chain_started_before_it(tmp_path):
@@ -586,26 +586,75 @@ def report_in(root: Path, folder: str, write: bool = True) -> str:
     return str(where / REPORT)
 
 
-def test_an_owner_owed_build_idea_whose_seed_was_dropped_is_in_neither_list(tmp_path):
+def refine_written(root: Path) -> None:
+    """SEED's refine report, which nemawashi-refine writes after the retire."""
+    refine = root / "system" / "projects" / "widgets" / "docs" / "nemawashi-refine"
+    refine.mkdir(parents=True, exist_ok=True)
+    (refine / f"{SEED}_report.md").write_text("# a refine report\n")
+
+
+RETIRED_HERE = {"move": "retire a seed", "status": "landed", "number": 1, "after": []}
+
+
+@pytest.mark.parametrize("folder", ["trail", "drop"])
+def test_an_owner_owed_build_idea_whose_seed_was_set_down_is_in_neither_list(tmp_path, folder):
     root = make_instance(tmp_path, "inst")
     recorded = report_in(root, "", write=False)
-    report_in(root, "drop")
+    report_in(root, folder)
+    refine_written(root)
     write_state(root, "a-state.json", build_idea_walk(report=recorded, **OWNER_OWED))
 
     assert waiting_rows(root) == []
 
 
-def test_an_owner_owed_build_idea_stays_when_a_dropped_seed_only_shares_its_folder_name(tmp_path):
+def test_an_owner_owed_build_idea_in_a_retired_seed_stays_until_its_refine_is_written(tmp_path):
     root = make_instance(tmp_path, "inst")
-    recorded = report_in(root, "")
-    report_in(root, "drop", write=False)
+    recorded = report_in(root, "", write=False)
+    report_in(root, "trail")
     write_state(root, "a-state.json", build_idea_walk(report=recorded, **OWNER_OWED))
 
     assert [row.launcher for row in waiting_rows(root)] == ["build-idea"]
 
 
-@pytest.mark.parametrize("folder", ["", "unpicked", "trail"])
-def test_an_owner_owed_build_idea_stays_while_its_seed_is_not_dropped(tmp_path, folder):
+@pytest.mark.parametrize("ended", [None, "halted", "owner-owed", "waiting-on-a-walk"])
+def test_a_build_idea_that_retired_its_own_seed_is_judged_as_any_walk(tmp_path, ended):
+    root = make_instance(tmp_path, "inst")
+    recorded = report_in(root, "", write=False)
+    report_in(root, "trail")
+    refine_written(root)
+    write_state(root, "a-state.json", build_idea_walk(report=recorded, rows=[RETIRED_HERE],
+                                                      ended=ended, ended_reason="a reason"))
+
+    board = chain_board.read_board(root, FakeLaunches(), FakeOpenings(), FakeStarts(), FakeTasks())
+
+    assert [row.launcher for row in board.waiting + board.running] == ["build-idea"]
+
+
+def test_a_running_build_idea_in_a_retired_seed_stays_running(tmp_path):
+    root = make_instance(tmp_path, "inst")
+    recorded = report_in(root, "", write=False)
+    report_in(root, "trail")
+    refine_written(root)
+    write_state(root, "a-state.json", build_idea_walk(report=recorded))
+
+    board = chain_board.read_board(root, FakeLaunches(), FakeOpenings(), FakeStarts(), FakeTasks())
+
+    assert [row.launcher for row in board.running] == ["build-idea"]
+
+
+@pytest.mark.parametrize("folder", ["trail", "drop"])
+def test_an_owner_owed_build_idea_stays_when_a_set_down_seed_only_shares_its_folder_name(tmp_path,
+                                                                                          folder):
+    root = make_instance(tmp_path, "inst")
+    recorded = report_in(root, "")
+    report_in(root, folder, write=False)
+    write_state(root, "a-state.json", build_idea_walk(report=recorded, **OWNER_OWED))
+
+    assert [row.launcher for row in waiting_rows(root)] == ["build-idea"]
+
+
+@pytest.mark.parametrize("folder", ["", "unpicked"])
+def test_an_owner_owed_build_idea_stays_while_its_seed_is_not_set_down(tmp_path, folder):
     root = make_instance(tmp_path, "inst")
     write_state(root, "a-state.json", build_idea_walk(report=report_in(root, folder),
                                                       **OWNER_OWED))
@@ -628,12 +677,12 @@ LATER = "2026-03-01T12:00:00+00:00"
 CHANGE = "2026-03-01_a-widget-change"
 
 
-def test_a_halted_change_walk_a_later_development_walk_took_up_is_in_neither_list(tmp_path):
+def test_a_halted_walk_a_later_development_walk_took_up_is_in_neither_list(tmp_path):
     root = make_instance(tmp_path, "inst")
-    write_state(root, "chain-change-widgets-state.json",
+    write_state(root, "chain-walk-widgets-state.json",
                 development_walk(key=CHANGE, ended="halted", ended_reason="stopped at seal"))
-    write_state(root, "chain-development-widgets-state.json", development_walk(
-        chain_name="development", key=CHANGE, ended="sealed", started_at=LATER))
+    write_state(root, "chain-change-widgets-state.json", development_walk(
+        chain_name="change", key=CHANGE, ended="sealed", started_at=LATER))
 
     board = chain_board.read_board(root, FakeLaunches(), FakeOpenings(), FakeStarts(), FakeTasks())
 
@@ -642,15 +691,15 @@ def test_a_halted_change_walk_a_later_development_walk_took_up_is_in_neither_lis
 
 def test_the_later_walk_is_the_row_while_it_runs(tmp_path):
     root = make_instance(tmp_path, "inst")
-    write_state(root, "chain-change-widgets-state.json",
+    write_state(root, "chain-walk-widgets-state.json",
                 development_walk(key=CHANGE, ended="halted", ended_reason="stopped at seal"))
-    write_state(root, "chain-development-widgets-state.json",
-                development_walk(chain_name="development", key=CHANGE, started_at=LATER))
+    write_state(root, "chain-change-widgets-state.json",
+                development_walk(chain_name="change", key=CHANGE, started_at=LATER))
 
     board = chain_board.read_board(root, FakeLaunches(), FakeOpenings(), FakeStarts(), FakeTasks())
 
     assert board.waiting == []
-    assert [row.launcher for row in board.running] == ["chain-development"]
+    assert [row.launcher for row in board.running] == ["change"]
 
 
 def close_change(root: Path, project: str, folder: str, key: str) -> None:
@@ -659,13 +708,13 @@ def close_change(root: Path, project: str, folder: str, key: str) -> None:
 
 
 @pytest.mark.parametrize("folder", ["trail", "drop"])
-def test_a_halted_change_walk_over_a_sealed_or_dropped_unit_is_in_neither_list(tmp_path, folder):
+def test_a_halted_walk_over_a_sealed_or_dropped_unit_is_in_neither_list(tmp_path, folder):
     """The later walk's state file is overwritten by the next change; the unit's folder is not."""
     root = make_instance(tmp_path, "inst")
-    write_state(root, "chain-change-widgets-state.json",
+    write_state(root, "chain-walk-widgets-state.json",
                 development_walk(key=CHANGE, ended="halted", ended_reason="stopped at seal"))
-    write_state(root, "chain-development-widgets-state.json", development_walk(
-        chain_name="development", key="2026-03-02_the-next-change", ended="sealed",
+    write_state(root, "chain-change-widgets-state.json", development_walk(
+        chain_name="change", key="2026-03-02_the-next-change", ended="sealed",
         started_at=LATER))
     close_change(root, "widgets", folder, CHANGE)
 
@@ -674,9 +723,9 @@ def test_a_halted_change_walk_over_a_sealed_or_dropped_unit_is_in_neither_list(t
     assert (board.waiting, board.running) == ([], [])
 
 
-def test_a_halted_change_walk_stays_when_another_projects_unit_of_that_key_is_sealed(tmp_path):
+def test_a_halted_walk_stays_when_another_projects_unit_of_that_key_is_sealed(tmp_path):
     root = make_instance(tmp_path, "inst")
-    write_state(root, "chain-change-widgets-state.json",
+    write_state(root, "chain-walk-widgets-state.json",
                 development_walk(key=CHANGE, ended="halted", ended_reason="stopped at seal"))
     close_change(root, "gadgets", "trail", CHANGE)
 
@@ -685,37 +734,37 @@ def test_a_halted_change_walk_stays_when_another_projects_unit_of_that_key_is_se
     assert row.project == "widgets"
 
 
-def test_a_halted_change_walk_stays_when_the_later_walk_is_over_another_change(tmp_path):
+def test_a_halted_walk_stays_when_the_later_walk_is_over_another_change(tmp_path):
     root = make_instance(tmp_path, "inst")
-    write_state(root, "chain-change-widgets-state.json",
+    write_state(root, "chain-walk-widgets-state.json",
                 development_walk(key=CHANGE, ended="halted", ended_reason="stopped at seal"))
-    write_state(root, "chain-development-widgets-state.json", development_walk(
-        chain_name="development", key="2026-03-01_another-change", ended="sealed",
+    write_state(root, "chain-change-widgets-state.json", development_walk(
+        chain_name="change", key="2026-03-01_another-change", ended="sealed",
         started_at=LATER))
 
     (row,) = waiting_rows(root)
 
-    assert (row.launcher, row.status) == ("chain-change", "halted")
+    assert (row.launcher, row.status) == ("walk", "halted")
 
 
-def test_a_halted_change_walk_stays_when_the_other_walk_started_before_it(tmp_path):
+def test_a_halted_walk_stays_when_the_other_walk_started_before_it(tmp_path):
     root = make_instance(tmp_path, "inst")
-    write_state(root, "chain-change-widgets-state.json", development_walk(
+    write_state(root, "chain-walk-widgets-state.json", development_walk(
         key=CHANGE, ended="halted", ended_reason="stopped at seal", started_at=LATER))
-    write_state(root, "chain-development-widgets-state.json",
-                development_walk(chain_name="development", key=CHANGE, ended="sealed"))
+    write_state(root, "chain-change-widgets-state.json",
+                development_walk(chain_name="change", key=CHANGE, ended="sealed"))
 
     (row,) = waiting_rows(root)
 
-    assert row.launcher == "chain-change"
+    assert row.launcher == "walk"
 
 
-def test_a_halted_change_walk_stays_when_the_later_walk_is_another_projects(tmp_path):
+def test_a_halted_walk_stays_when_the_later_walk_is_another_projects(tmp_path):
     root = make_instance(tmp_path, "inst")
-    write_state(root, "chain-change-widgets-state.json",
+    write_state(root, "chain-walk-widgets-state.json",
                 development_walk(key=CHANGE, ended="halted", ended_reason="stopped at seal"))
-    write_state(root, "chain-development-gadgets-state.json", development_walk(
-        "gadgets", chain_name="development", key=CHANGE, ended="sealed", started_at=LATER))
+    write_state(root, "chain-change-gadgets-state.json", development_walk(
+        "gadgets", chain_name="change", key=CHANGE, ended="sealed", started_at=LATER))
 
     (row,) = waiting_rows(root)
 
@@ -724,15 +773,15 @@ def test_a_halted_change_walk_stays_when_the_later_walk_is_another_projects(tmp_
 
 def test_a_later_walk_that_halts_too_is_the_one_row_waiting(tmp_path):
     root = make_instance(tmp_path, "inst")
-    write_state(root, "chain-change-widgets-state.json",
+    write_state(root, "chain-walk-widgets-state.json",
                 development_walk(key=CHANGE, ended="halted", ended_reason="first"))
-    write_state(root, "chain-development-widgets-state.json", development_walk(
-        chain_name="development", key=CHANGE, ended="halted", ended_reason="second",
+    write_state(root, "chain-change-widgets-state.json", development_walk(
+        chain_name="change", key=CHANGE, ended="halted", ended_reason="second",
         started_at=LATER))
 
     (row,) = waiting_rows(root)
 
-    assert (row.launcher, row.reason) == ("chain-development", "second")
+    assert (row.launcher, row.reason) == ("change", "second")
 
 
 KEYLESS_HALT = "stopped at change: no change_request was written"
@@ -742,7 +791,7 @@ KEYLESS_HALT = "stopped at change: no change_request was written"
 def test_a_development_walk_halted_before_its_change_existed_is_moved_past_by_a_later_walk(
         tmp_path, later):
     root = make_instance(tmp_path, "inst")
-    write_state(root, "chain-change-widgets-state.json",
+    write_state(root, "chain-walk-widgets-state.json",
                 development_walk(ended="halted", ended_reason=KEYLESS_HALT))
     write_state(root, "later-state.json", later(started_at=LATER))
 
@@ -755,19 +804,19 @@ def test_a_development_walk_halted_before_its_change_existed_is_moved_past_by_a_
 def test_a_development_walk_halted_before_its_change_existed_stays_when_the_other_started_first(
         tmp_path):
     root = make_instance(tmp_path, "inst")
-    write_state(root, "chain-change-widgets-state.json",
+    write_state(root, "chain-walk-widgets-state.json",
                 development_walk(ended="halted", ended_reason=KEYLESS_HALT, started_at=LATER))
     write_state(root, "chain-widgets-state.json", product_walk())
 
     (row,) = waiting_rows(root)
 
-    assert row.launcher == "chain-change"
+    assert row.launcher == "walk"
 
 
 def test_a_development_walk_halted_before_its_change_existed_stays_for_another_projects_walk(
         tmp_path):
     root = make_instance(tmp_path, "inst")
-    write_state(root, "chain-change-widgets-state.json",
+    write_state(root, "chain-walk-widgets-state.json",
                 development_walk(ended="halted", ended_reason=KEYLESS_HALT))
     write_state(root, "chain-gadgets-state.json", product_walk("gadgets", started_at=LATER))
 
@@ -778,24 +827,24 @@ def test_a_development_walk_halted_before_its_change_existed_stays_for_another_p
 
 def test_a_development_walk_halted_before_its_change_existed_with_no_project_stays(tmp_path):
     root = make_instance(tmp_path, "inst")
-    write_state(root, "chain-change-state.json",
+    write_state(root, "chain-walk-state.json",
                 development_walk("", ended="halted", ended_reason=KEYLESS_HALT))
     write_state(root, "chain-state.json", product_walk("", started_at=LATER))
 
     (row,) = waiting_rows(root)
 
-    assert row.launcher == "chain-change"
+    assert row.launcher == "walk"
 
 
-def test_a_halted_change_walk_with_a_key_stays_though_a_definition_walk_started_later(tmp_path):
+def test_a_halted_walk_with_a_key_stays_though_a_definition_walk_started_later(tmp_path):
     root = make_instance(tmp_path, "inst")
-    write_state(root, "chain-change-widgets-state.json",
+    write_state(root, "chain-walk-widgets-state.json",
                 development_walk(key=CHANGE, ended="halted", ended_reason="stopped at seal"))
     write_state(root, "chain-widgets-state.json", product_walk(started_at=LATER))
 
     (row,) = waiting_rows(root)
 
-    assert row.launcher == "chain-change"
+    assert row.launcher == "walk"
 
 
 MOVED_PAST_ENDS = ["machinery", "could_not_be_settled", "cap", "no_runnable_command", "unheard"]
@@ -820,29 +869,29 @@ def test_a_definition_walk_left_for_the_owner_stays_though_a_later_walk_started(
     root = make_instance(tmp_path, "inst")
     write_state(root, "chain-widgets-state.json",
                 product_walk(ended="left_for_the_owner", ended_reason="a signature is owed"))
-    write_state(root, "chain-change-widgets-state.json", development_walk(started_at=LATER))
+    write_state(root, "chain-walk-widgets-state.json", development_walk(started_at=LATER))
 
     (row,) = waiting_rows(root)
 
-    assert (row.launcher, row.status) == ("chain-product", "left_for_the_owner")
+    assert (row.launcher, row.status) == ("product-docs", "left_for_the_owner")
 
 
 def test_a_stopped_definition_walk_stays_when_the_other_walk_started_before_it(tmp_path):
     root = make_instance(tmp_path, "inst")
     write_state(root, "chain-widgets-state.json",
                 product_walk(ended="machinery", ended_reason="it broke", started_at=LATER))
-    write_state(root, "chain-change-widgets-state.json", development_walk(ended="sealed"))
+    write_state(root, "chain-walk-widgets-state.json", development_walk(ended="sealed"))
 
     (row,) = waiting_rows(root)
 
-    assert row.launcher == "chain-product"
+    assert row.launcher == "product-docs"
 
 
 def test_a_stopped_definition_walk_stays_when_the_later_walk_is_another_projects(tmp_path):
     root = make_instance(tmp_path, "inst")
     write_state(root, "chain-widgets-state.json",
                 product_walk(ended="machinery", ended_reason="it broke"))
-    write_state(root, "chain-change-gadgets-state.json",
+    write_state(root, "chain-walk-gadgets-state.json",
                 development_walk("gadgets", started_at=LATER))
 
     (row,) = waiting_rows(root)
@@ -908,7 +957,7 @@ def test_no_row_holds_a_md_path_or_a_pinned_launcher_path(tmp_path):
     pinned = "/home/someone/.kensaiapp/pins/20260101T000000Z-abc/core/launchers/build-idea"
     pinned += "/launcher.sh"
     reason = (f"resume with `{pinned} widgets`,"
-              " or `core/launchers/chain-change/launcher.sh widgets`;"
+              " or `core/launchers/walk/launcher.sh widgets`;"
               f" see system/projects/widgets/journey/shukuba/{station} and"
               " system/projects/widgets/notes/2026-02-03_the-missing-note.md")
     write_state(root, "walk-state.json", build_idea_walk(
@@ -920,7 +969,7 @@ def test_no_row_holds_a_md_path_or_a_pinned_launcher_path(tmp_path):
                  row.reason, row.started_at):
         assert ".md" not in text and "launcher.sh" not in text
     assert "build-idea widgets" in row.reason
-    assert "chain-change widgets" in row.reason
+    assert "walk widgets" in row.reason
     assert "the widgets ship" in row.reason
     assert "the missing note" in row.reason
 
@@ -1088,7 +1137,7 @@ def write_unit(journey: Path, folder: str, key: str) -> None:
 
 
 def board_with_route(root: Path, openings: FakeOpenings | None = None) -> chain_board.Board:
-    write_state(root, "chain-change-widgets-state.json",
+    write_state(root, "chain-walk-widgets-state.json",
                 development_walk(key="2026-03-03_ship-one"))
     return chain_board.read_board(root, FakeLaunches(), openings or FakeOpenings(),
                                   FakeStarts(), FakeTasks())
@@ -1136,7 +1185,7 @@ def test_each_station_carries_its_walks_in_key_order_wherever_they_sit(tmp_path)
 
 
 def test_an_open_unit_the_history_does_not_link_is_the_open_stations(tmp_path):
-    """A unit opened by hand carries `Agari:`, not `Shukuba:`, on its opening commit."""
+    """A unit opened by hand carries `Finish-line:`, not `Shukuba:`, on its opening commit."""
     root = make_instance(tmp_path, "inst")
     journey = write_route(root)
     write_unit(journey, "", "2026-03-03_ship-one")
@@ -1333,7 +1382,7 @@ def test_a_row_carries_its_change_key(tmp_path):
 def test_the_cli_prints_each_route(tmp_path, capsys):
     root = make_instance(tmp_path, "inst")
     write_route(root)
-    write_state(root, "chain-change-widgets-state.json", development_walk())
+    write_state(root, "chain-walk-widgets-state.json", development_walk())
 
     chain_board.main([str(root)])
 
@@ -1386,7 +1435,7 @@ def test_the_history_links_a_unit_to_the_station_its_opening_commit_names(tmp_pa
 def test_the_history_ignores_an_opening_with_no_station_and_another_projects_units(tmp_path):
     repo = make_repo(tmp_path)
     commit_unit(repo, f"{UNITS}/2026-03-03_by-hand/change_request.md",
-                "widgets: open change by-hand\n\nAgari: widgets — progress: x\n")
+                "widgets: open change by-hand\n\nFinish-line: widgets — progress: x\n")
     commit_unit(repo, "system/projects/gadgets/journey/tobiishi/2026-03-03_g/change_request.md",
                 "open tobiishi: g\n\nShukuba: 2026-03-02_a-gadget-stop — progress: x\n")
 

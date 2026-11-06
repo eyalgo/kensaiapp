@@ -7,7 +7,7 @@ description: |
 license: MIT
 argument-hint: <project>
 metadata:
-  version: "4.18.0"
+  version: "4.21.0"
   category: product
   risk: safe
   created: "2026-07-05"
@@ -18,7 +18,7 @@ metadata:
 ## Purpose
 
 The **front of the change pipeline**. It places one `change_request.md` — the single 飛び石 Tobiishi
-that `<CORE>/launchers/chain-development/launcher.sh <project>` discovers and carries (spec → design →
+that `<CORE>/launchers/change/launcher.sh <project>` discovers and carries (spec → design →
 plan → content → implement → seal).
 
 **Mode:** derived where a station is open, routing where none is — neither path asks anything. **Posture:** PM only — § *Posture* below is the gate.
@@ -85,7 +85,7 @@ Resolve `system/projects/<project>/` and read, in this order of importance:
    determined next move* below, `<YYYY-MM-DD>_<slug>.md` or the folder form) and its station checklist,
    which say where this station sits on the route and what comes after it; and `unpicked/` as secondary
    context.
-2. **`agari.md` — the destination.** The product's "done"; the change opened here points toward it.
+2. **`finish_line.md` — the destination.** The product's "done"; the change opened here points toward it.
 3. **`project.md`** — take `Product path:` (relative → in-instance, absolute → external) to locate the
    product's `docs/`.
 4. **`docs/SDD.md` / `docs/fdr.md` / `docs/adr/` / `docs/nfdr.md` — optional context, read only when
@@ -103,7 +103,7 @@ Critical Rules — this is the load-bearing correction this skill exists to hold
 Run the chain's read-only discovery command from the instance root:
 
 ```bash
-python3 "<CORE>/tools/chain_development.py" --list-open-changes --instance-root "$PWD" --project <project>
+"<CORE>/tools/locked_python.sh" "<CORE>/tools/chain_development.py" --list-open-changes --instance-root "$PWD" --project <project>
 ```
 
 The returned JSON array is the authority for active keys; do not infer them from folder names.
@@ -159,7 +159,7 @@ its route section, and the candidate pool in `unpicked/` — and name the **firs
 | A seed at the root with **no route section at all** | Cut its route — `stations-from-seed` writes the first checklist, which is the same act as re-cutting one. A seed arrives without a route whenever it was seeded as the idea arose, and `<CORE>/templates/journey-templates/nemawashi_template.md:32-35` says so: inventing a checklist before the work is picked is the fixed-plan the checklist exists to avoid | yours |
 | A seed at the root, with an unticked item in its route section | Open that station — `shukuba-open` (`<CORE>/docs/michi_agari.md` § *How we work — walking a project's journey*, step 2). Where the checklist is still the proposal the seed arrived with, `stations-from-seed` re-cuts it first: that is the PM's first act on a picked seed (same §, step 1) | yours |
 | A seed at the root, every item in its route section ticked | Retire the idea — `nemawashi-retire` — then answer it — `nemawashi-refine` — then pick the next seed from `unpicked/` (same §, step 4) | the retire is the **Scrum Master**'s — that skill halts outside the seat, and a `scrum-master:` session or `<CORE>/launchers/skill/launcher.sh nemawashi-retire <project>` is the way in; the answer is the **Principal PM**'s (`<CORE>/launchers/skill/launcher.sh nemawashi-refine <project>`); the pick that follows is yours |
-| No seed at the root, `unpicked/` holds candidates | Pick the one worked now — `nemawashi-pick` — then re-cut its checklist with `stations-from-seed` (same §, step 1) | yours |
+| No seed at the root, `unpicked/` holds candidates | Pick the one worked now — `seed-pick` — then re-cut its checklist with `stations-from-seed` (same §, step 1) | yours |
 | No seed at the root, `unpicked/` empty, **and Step 1 found the draw-from documents** — any of `docs/SDD.md`, `docs/fdr.md`, `docs/adr/`, `docs/nfdr.md` | Cut seeds from those documents — `seeds-from-product-docs`. The work is already drawn there and this cut draws it out. Whether they are settled *enough* to cut is that skill's own check and not this one's, so a `Draft` document is still this row | the **Principal PM**'s — that skill halts outside the seat, and a `principal-pm:` session is the way in (`<CORE>/docs/michi_agari.md` § *Who owns each step — and where the seeds come from*) |
 | No seed at the root, `unpicked/` empty, **and none of those four documents present** — including a project whose seedbed does not exist yet | Cut seeds from a direction — `seeds-from-idea`. With no settled documents to draw from, this is the only cut available, and the direction it cuts is the one its caller brings to that run | the **Principal PM**'s — same gate, same way in (same §) |
 
@@ -271,7 +271,7 @@ reading: `Shukuba: <YYYY-MM-DD>_<slug> — progress: <how this change request mo
 station>`. The builder refuses a line that puts `progress:` where the station belongs. The remaining
 standard trailers follow the doctrine.
 
-**Do not run `<CORE>/launchers/chain-development/launcher.sh <project>`.** This skill stops at the placed change request; running the pipeline is the
+**Do not run `<CORE>/launchers/change/launcher.sh <project>`.** This skill stops at the placed change request; running the pipeline is the
 owner's next move.
 
 ## Outputs
@@ -329,4 +329,4 @@ No worktree, no branch, no spec — those all belong to the change pipeline.
 - **No `Project:` field.** The project is implied by the `journey/tobiishi/` the request sits in.
 - **Right-size the derived change to one flow.** One honest merge that moves the product forward — the test is `<CORE>/prompts/pm_right_size.md` § *Right-size to one honest merge*, which owns it.
 - **Don't run the pipeline.** Stop at the placed change request; the owner runs
-  `<CORE>/launchers/chain-development/launcher.sh <project>` next.
+  `<CORE>/launchers/change/launcher.sh <project>` next.

@@ -46,6 +46,8 @@ from pathlib import Path
 
 import pytest
 
+from test_support_python3_stub import python3_calls_outside_uv, python3_that_only_fails
+
 import launcher_telemetry_test_support as support
 from provenance_test_support import assert_provenance_stamped
 from test_skill_launcher_telemetry import install_telemetry_command
@@ -875,7 +877,7 @@ def test_launch_skill_evals_helper_observation_matches_case_inputs(run, tmp_path
     package, prints the lines, exports the six variables and hands its run the settings its own
     inputs call for: the arm it runs under, the skill it was given and the provider, model and
     source its fixed tier resolves, with no effort."""
-    package = support.require_real_package(tmp_path / "package")
+    package = support.recorded_package(tmp_path / "package")
     run.skill("demo-skill")
     endpoint_file = tmp_path / "published-endpoint"
     cause = support.publish_endpoint(endpoint_file, endpoint)
@@ -905,7 +907,7 @@ def test_skill_evals_ordinary_launch_discovers_source_host_setting(run, tmp_path
     """CP-692: a launch whose environment names no command is instrumented from its source host's
     setting, whether the launcher runs from a core or a pin of it, for the host or for an
     instance that binds that core."""
-    package = support.require_real_package(tmp_path / "package")
+    package = support.recorded_package(tmp_path / "package")
     run.skill("demo-skill")
     endpoint_file = tmp_path / "published-endpoint"
     support.publish_endpoint(endpoint_file)
@@ -943,9 +945,15 @@ def test_skill_evals_telemetry_failures_preserve_launch(run, tmp_path, kind, cap
     support.assert_failure_scenario(observation, scenario, cap=cap)
 
 
-def test_skill_evals_observation_skips_an_unreachable_package_and_fails_a_reached_one(tmp_path):
-    """CP-689: the observation above is skipped, with the reason named, where the package's
-    command cannot be reached, and fails where it is reached and breaks the contract."""
-    support.assert_selection_skips_unreachable_and_fails_reached(
-        tmp_path, f"{__file__}::test_launch_skill_evals_helper_observation_matches_case_inputs"
-    )
+
+
+def test_launch_skill_evals_runs_no_python3(run, tmp_path):
+    run.skill("demo-skill")
+    path, marker = python3_that_only_fails(tmp_path, run.env["PATH"])
+    run.env["PATH"] = path
+
+    result = run("demo-skill")
+
+    assert result.returncode == 0, result.stderr
+    assert run.launched_argv() != []
+    assert python3_calls_outside_uv(marker) == []

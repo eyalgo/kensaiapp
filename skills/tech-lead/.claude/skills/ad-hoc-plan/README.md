@@ -32,7 +32,7 @@ then runs unchanged.
   but three stops (`SKILL.md` § *The run's report*). A stop's report is committed on `main`.
 - Never interviews. A stop before the worktree opens leaves nothing behind but its report; a refusal while opening
   it (the worktree command or the path tool) reports what it left.
-- Ends by naming the next move — `<CORE>/launchers/chain-development/launcher.sh <project>`, with no
+- Ends by naming the next move — `<CORE>/launchers/change/launcher.sh <project>`, with no
   entry argument — and does not run it.
 
 ## File Structure
@@ -79,7 +79,7 @@ has one; `development_path.py` resolves the product's docs and code inside them.
 Then carry it with:
 
 ```
-<CORE>/launchers/chain-development/launcher.sh <project>
+<CORE>/launchers/change/launcher.sh <project>
 ```
 
 Do **not** use it for a change the chain is already carrying, for cutting seeds, or for executing

@@ -141,7 +141,7 @@ The assignee list holds `Dana` and `Ari`, in that order, and project `Alpha` hol
 
 ## Verified Claims
 
-All runs below used a disposable copy made with `git archive HEAD products/tracker17` from this change's worktree at `5cd99bd71` and `git init`-ed, never the main checkout. The probes used the real `Site`, `Tracker` and `SavedData`.
+All runs below used a disposable copy made with `git archive HEAD products/tracker17` from this change's worktree at `<a commit not in the public history>` and `git init`-ed, never the main checkout. The probes used the real `Site`, `Tracker` and `SavedData`.
 
 | Claim | Verified by | What came back |
 |---|---|---|

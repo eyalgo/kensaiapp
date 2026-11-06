@@ -1,16 +1,18 @@
 #!/usr/bin/env python3
-"""pin.py — a frozen copy of a host's `core/`, `.claude/` and `skills/` trees, which a run reads
-in place of the host's own.
+"""pin.py — a frozen copy of a host's `core/`, `.claude/` and `skills/` trees and of its root's
+`.python-version`, `pyproject.toml` and `uv.lock`, which a run reads in place of the host's own.
 
 WHY THIS EXISTS
 
 A running launcher resolves `<CORE>` as wherever the host's `core/` sits today. A long chain, a
 background agent, or a resumed Claude turn can span minutes to hours; if the owner edits a skill
 or a doctrine file while one is in flight, the running turn silently picks up the edit mid-run —
-version drift nobody asked for and nobody can reproduce. A pin freezes the three trees a run needs
-at the moment a launch makes it, so a walk in flight keeps its pin: an edit to those trees made
-after the launch cannot reach it, and a resumed turn reads the tree as it stood then, not as it
-stands now. Which pin a launch runs in is decided by the rules in `core/tools/pin_run.sh`; a
+version drift nobody asked for and nobody can reproduce. A pin freezes the three trees a run needs,
+and the three root files its hooks' and launches' runner reads the pinned Python from
+(`core/tools/locked_python.sh` looks for them two directories above itself), at the moment a launch
+makes it, so a walk in flight keeps its pin: an edit to those trees or files made after the launch
+cannot reach it, and a resumed turn reads the tree as it stood then, not as it stands now. Which
+pin a launch runs in is decided by the rules in `core/tools/pin_run.sh`; a
 `build-idea` start inside a pin takes a new pin when the host has changed since that pin was made.
 
 `make` copies a host's working tree as it stands, never a commit — an uncommitted edit rides
@@ -36,9 +38,11 @@ from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 
-__version__ = "1.5.0"
+__version__ = "1.6.1"
 
 _TREES = ("core", ".claude", "skills")
+# Each is copied only where the host has it; a host missing one still pins, without that file.
+_ROOT_FILES = (".python-version", "pyproject.toml", "uv.lock")
 
 
 class PinMissing(Exception):
@@ -48,7 +52,8 @@ class PinMissing(Exception):
 
 @dataclass(frozen=True)
 class Pin:
-    """One frozen copy of a host's `core/`, `.claude/` and `skills/` trees.
+    """One frozen copy of a host's `core/`, `.claude/` and `skills/` trees and of the
+    `.python-version`, `pyproject.toml` and `uv.lock` at its root.
 
     `root` is the pin's own top directory; `core` is `root/core`, the path every launcher inside
     the pin resolves `<CORE>` to. `source_host_root` is the real path of the host the pin was made
@@ -92,10 +97,10 @@ def is_git_work_tree(host_root: Path) -> bool:
 
 
 def _tracked_relpaths(host_root: Path) -> list[str]:
-    """Every file under the three trees as the host's working tree stands right now: tracked
-    (uncommitted edits included) plus untracked-but-not-ignored — never a file `.gitignore`
-    matches."""
-    existing = [tree for tree in _TREES if (host_root / tree).exists()]
+    """Every file under the three trees, and each of the three root files the host has, as the
+    host's working tree stands right now: tracked (uncommitted edits included) plus
+    untracked-but-not-ignored — never a file `.gitignore` matches."""
+    existing = [name for name in (*_TREES, *_ROOT_FILES) if (host_root / name).exists()]
     if not existing:
         return []
     result = subprocess.run(
@@ -108,9 +113,10 @@ def _tracked_relpaths(host_root: Path) -> list[str]:
 
 
 def tree_files(root: Path) -> list[str]:
-    """Every file under the three trees of `root`, no ignore rule applied — the listing for a host
-    that is not a git work tree, where the whole of each tree that exists is copied, and for a pin
-    root, which is a plain copy with no git behind it."""
+    """Every file under the three trees of `root`, and each of the three root files `root` has, no
+    ignore rule applied — the listing for a host that is not a git work tree, where the whole of
+    each tree that exists is copied, and for a pin root, which is a plain copy with no git behind
+    it. Nothing else at `root` is listed: a pin root's `.venv/` is not part of the pin."""
     relpaths: list[str] = []
     for tree in _TREES:
         tree_root = root / tree
@@ -119,12 +125,14 @@ def tree_files(root: Path) -> list[str]:
         for path in tree_root.rglob("*"):
             if path.is_file():
                 relpaths.append(str(path.relative_to(root)))
+    relpaths.extend(name for name in _ROOT_FILES if (root / name).is_file())
     return relpaths
 
 
 def host_files(host_root: Path) -> list[str]:
     """The relpaths `make` copies from `host_root`: on a git work tree the tracked and the
-    untracked-not-ignored files under the three trees, otherwise every file under them. It is the
+    untracked-not-ignored files under the three trees and among the three root files, otherwise
+    every file under them and each root file the host has. It is the
     listing as `make` reads it — a tracked path deleted from the working tree may still appear,
     and `make` skips it when the copy finds it gone."""
     if is_git_work_tree(host_root):
@@ -146,8 +154,9 @@ def _host_head(host_root: Path) -> str | None:
 
 
 def make(host_root: Path, pins_home: Path) -> Pin:
-    """Copy `host_root`'s `core/`, `.claude/` and `skills/` trees, as they stand right now, into a
-    new directory under `pins_home`. Each file's mode travels with it. `pin.json` is written
+    """Copy `host_root`'s `core/`, `.claude/` and `skills/` trees and its root `.python-version`,
+    `pyproject.toml` and `uv.lock` (each only where the host has it), as they stand right now, into
+    a new directory under `pins_home`. Each file's mode travels with it. `pin.json` is written
     last — a pin without it is incomplete, and neither `of_core` nor `inherited` will find one.
 
     Also records the host's `HEAD` at this moment as `source_head` — the revision a later `git

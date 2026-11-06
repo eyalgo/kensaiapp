@@ -1,5 +1,5 @@
 ---
-version: "2.11.0"
+version: "2.12.0"
 ---
 
 # Language packets — the per-language engineering-practice family
@@ -132,6 +132,18 @@ which nothing here settled before. It matters because the alternative has no flo
 style is whatever the last hand left, so deferring to it makes the packet unfalsifiable — a reviewer
 comparing code against the file always finds agreement. Splitting a file's style is an acceptable cost
 and a recordable one; a rule that cannot be checked is not.
+
+### A fix that hands a collaborator in is not a topology decision
+
+**The port and fake modules a fix needs, to hand a collaborator in or to keep a unit test off real resources, are not a topology decision.** A port is the abstraction a unit is handed in place of the concrete collaborator. Topology is the module set a product's records fix (`docs/nfdr.md` § 1.2), and planning and implementation hold it binding. Adding these modules does not count as changing it. The conflicts this covers are two: code that builds its own collaborator, against `<CORE>/doctrine/engineering/arch_defaults.md` § *Dependency Graph Rules*, and a unit test that touches a real resource, against `<CORE>/doctrine/engineering/testing_doctrine.md` § *A unit test hands its unit fakes and touches nothing real*.
+
+**Whichever stage meets one of these conflicts makes the fix in its own run.** That holds for design, planning, implementation and code integrity alike. The stage does not hand the conflict on as a *packet departure* entry in `deferred_decisions.md`.
+
+**On `Behaviour: preserving`, the fix changes the signature, and every caller changes with it.** A Layout Plan that keeps every importable signature as it is does not hold this fix back.
+
+**An Accepted ADR, the NFDR or the FDR that sets the packet line aside still wins**, by the chain above. The stage that meets one keeps the code's form and cites that record.
+
+**Every other packet conflict keeps its hand-on.** Where a stage cannot fix such a conflict within its own change, the stage hands it on as a *packet departure* entry, as that stage's own skill says.
 
 ## Gate environment defaults
 

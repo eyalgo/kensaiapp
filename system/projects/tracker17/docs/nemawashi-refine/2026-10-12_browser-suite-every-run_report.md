@@ -1,6 +1,6 @@
 # 根回し Nemawashi refine — `2026-10-12_browser-suite-every-run`
 
-*The Principal PM's answer to the seed retired to `journey/nemawashi/trail/2026-10-12_browser-suite-every-run` at `3ae47114c`,
+*The Principal PM's answer to the seed retired to `journey/nemawashi/trail/2026-10-12_browser-suite-every-run` at `<a commit not in the public history>`,
 and the pool re-read behind it, 2026-10-12. The slug came from the caller: "answering the retired seed 2026-10-12_browser-suite-every-run". Run as the launched `principal-pm` agent.*
 
 ## Next moves
@@ -15,7 +15,7 @@ and the pool re-read behind it, 2026-10-12. The slug came from the caller: "answ
 
 | Recommendation | Answer | What was done | Why | Source |
 |---|---|---|---|---|
-| `2026-10-12_browser-suite-every-run #1` — retire this seed once its one station closes | ignored | none | The retire it asks for already happened, on this seed. | `trail/2026-10-12_browser-suite-every-run/2026-10-12_browser-suite-every-run_recommendations.md:L8-L13`; `3ae47114c` |
+| `2026-10-12_browser-suite-every-run #1` — retire this seed once its one station closes | ignored | none | The retire it asks for already happened, on this seed. | `trail/2026-10-12_browser-suite-every-run/2026-10-12_browser-suite-every-run_recommendations.md:L8-L13`; `<a commit not in the public history>` |
 
 ## Candidates
 
@@ -25,7 +25,7 @@ and the pool re-read behind it, 2026-10-12. The slug came from the caller: "answ
 | `2026-10-07_status-moves` | kept | — | SDD S-4 still owed. | `ls products/tracker17/domain` has no `workflow.py` |
 | `2026-10-11_delete-and-rename` | kept | — | SDD S-7 still owed; the grep's only hit is the HTTP method dispatcher, not a rename or delete action. | `grep -rn -i "rename\|delete" web application` → `web/listener.py:53` (`do_DELETE = … _serve`) only |
 | `2026-10-11_narrow-and-sort` | kept | — | SDD S-5 still owed. | `ls domain/filtering.py domain/sorting.py` → both missing |
-| `2026-10-11_project-summary` | modified | page-title pointer `web/pages.py:L467` → `L541`, `fdf999812` | The cited line moved; the claim (title is the bare project name) still holds. | `products/tracker17/web/pages.py:L541` `_document(f"{project.name} - tracker17", body)` |
+| `2026-10-11_project-summary` | modified | page-title pointer `web/pages.py:L467` → `L541`, `<a commit not in the public history>` | The cited line moved; the claim (title is the bare project name) still holds. | `products/tracker17/web/pages.py:L541` `_document(f"{project.name} - tracker17", body)` |
 | `2026-10-11_protect-saved-data` | kept | — | SDD S-8 still owed; the cited start path is unchanged. | `products/tracker17/main.py:L41-L48`; `grep -rln 'fcntl\|flock'` → only `docs/trail/sdd/self_answer-2.md` |
 
 ## The docs cut
@@ -36,7 +36,7 @@ Not owed: the SDD's eight slices are S-1 to S-8 (`products/tracker17/docs/SDD.md
 
 | Defect | Where | What was done | Source |
 |---|---|---|---|
-| Moved line pointer | `unpicked/2026-10-11_project-summary.md:L20` | repaired at `fdf999812` | `web/pages.py:L541` |
+| Moved line pointer | `unpicked/2026-10-11_project-summary.md:L20` | repaired at `<a commit not in the public history>` | `web/pages.py:L541` |
 | Malformed satellite triple reported by the link check | `docs/findings/2026-10-03_a-satellite-triple-is-reported-malformed.md` | none — it is that finding's own subject, already filed | `check_journey_links.py --repo .` → 0 dead, 1 malformed |
 
 ## Held and refused

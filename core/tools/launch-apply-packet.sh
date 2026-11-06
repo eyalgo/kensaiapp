@@ -2,6 +2,7 @@
 #
 # launch-apply-packet.sh — deterministic, pollution-proof launcher for a fix-packet apply.
 #
+# Version: 1.9.0 — launchers run on the locked Python
 # Version: 1.8.2 — launchers and launch scripts take a portable mktemp template, so they run on Linux
 # Version: 1.8.1 — public-repo 0.x gates 1, 3, 4, 6 — Apache-2.0 licence lines, no satellite/product/host name or machine path shipped, no default notifier, loopback-only telemetry
 # Version: 1.8.0 — the providers file lives in the instance — each instance reads its own .providers.toml, and a tracked .providers.toml.example is the template
@@ -153,7 +154,7 @@ done
 [ -f "$PROVIDERS_TOOL" ] || die "no provider reader at $PROVIDERS_TOOL"
 [ -f "$RUN_INTELLIGENCE" ] || die "no intelligence resolver at $RUN_INTELLIGENCE"
 provider_err="$(mktemp "${TMPDIR:-/tmp}/kensaiapp-apply-packet-provider.XXXXXX")"
-provider="$(python3 "$PROVIDERS_TOOL" launcher launch-apply-packet --instance-root "$INSTANCE_ROOT" --accept claude \
+provider="$("$SCRIPT_DIR/locked_python.sh" "$PROVIDERS_TOOL" launcher launch-apply-packet --instance-root "$INSTANCE_ROOT" --accept claude \
   2>"$provider_err")" && rc=0 || rc=$?
 provider_msg="$(cat "$provider_err")"
 rm -f "$provider_err"
@@ -221,7 +222,7 @@ echo "        Edits land in: $(echo "$repos" | tr '\n' ' ')"
 #   adapter, never assembled here (Task 18) — the pin was entered right after the CORE_DIR
 #   guard above.
 prompt="apply the fix packet at ${packet}."
-claude_cmd=(python3 "$CORE_DIR/tools/agent_run.py" --provider "$provider" --shape background
+claude_cmd=("$SCRIPT_DIR/locked_python.sh" "$CORE_DIR/tools/agent_run.py" --provider "$provider" --shape background
   --pin auto --instance-root "$INSTANCE_ROOT" --prompt "$prompt" --agent kaizen-fixer)
 
 # Every repo the entries edit, except the cwd, which is already covered.
@@ -255,7 +256,7 @@ fi
 #   The launched agent is identified by (name, cwd, id-not-seen-before). Name alone is
 #   ambiguous: re-applying the same packet reuses the same fixed prompt. Captured before the
 #   launch, or the new agent would be in its own exclusion set.
-ids_before="$(python3 "$WATCHER" --list-ids --cwd "$INSTANCE_ROOT" 2>/dev/null || true)"
+ids_before="$("$SCRIPT_DIR/locked_python.sh" "$WATCHER" --list-ids --cwd "$INSTANCE_ROOT" 2>/dev/null || true)"
 
 echo "Launching kaizen-fixer (background)…"
 # stdout is captured so the id `claude --bg` prints at launch can be read off it, then echoed

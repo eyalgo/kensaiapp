@@ -1,5 +1,5 @@
 ---
-version: "1.2.2"
+version: "1.2.3"
 ---
 
 # Shell — toolchain
@@ -42,22 +42,29 @@ its watcher argv as one.
 **So a bash-4 construct is not available**, whatever the machine running the file happens to have
 installed. A file that needs one has reached the boundary below.
 
-## When bash is not enough, the work crosses to `python3`
+## When bash is not enough, the work crosses to the pinned Python
 
 The house's answer to a job bash 3.2 cannot do well is not a newer bash and not a GNU coreutils
-dependency — it is `python3`, which eighteen of the twenty files already reach for: every launcher
-detaches a Python completion watcher, and each git hook `exec`s a Python checker.
+dependency. It is Python, run through `core/tools/locked_python.sh` on the Python that
+`.python-version` names at the root of the instance holding the runner. Every launcher detaches a
+Python completion watcher through the runner, and each git hook `exec`s a Python checker through
+it. No launcher and no shell helper under `core/tools/` names `python3` outside a comment, and
+`core/tools/test_launches_run_on_the_locked_python.py` fails when one does. The runner needs uv and
+never falls back to `python3`, so without uv a shell file reaches no Python at all.
 
-`core/tools/launch-fix-author.sh` states the criterion where it applies it: sorting version folders
-"by component (python3, not `sort -V`, which is GNU and unreliable on macOS) so v3.17.0 beats v3.4.0 —
-a lexical sort gets that pair backwards". The same file reaches for `python3 -c` there rather than
-adding a tool.
+`core/tools/launch-fix-author.sh` states the criterion where it applies it: it sorts version folders
+by component in Python rather than with `sort -V`, "which is GNU and unreliable on macOS", "so
+v3.17.0 beats v3.4.0 — a lexical sort gets that pair backwards". The same file runs that sort as
+inline code through the runner rather than adding a tool.
 
 **Values cross the boundary as `argv`, never interpolated into the Python source, and a heredoc is
-quoted.** `core/tools/launch-audit.sh` states both halves at the call site — "Values cross the boundary
-as argv (never interpolated into the Python source), so nothing here can inject through a
-caller-supplied version string. A quoted heredoc (`<<'PY'`) keeps the script text itself free of shell
-expansion" — and the two forms in the corpus are that quoted heredoc and `python3 -c "…" "$arg"`.
+quoted.** `core/tools/launch-audit.sh` states both halves at the call site — "Values cross the
+boundary as argv (never interpolated into the Python source), so nothing here can inject through a
+caller-supplied version string. A quoted heredoc (`<<'PY'`) keeps the script text itself free of
+shell expansion". The two forms in the corpus are that quoted heredoc, handed to the runner as
+`locked_python.sh - "$arg" <<'PY'`, and inline code, `locked_python.sh -c "…" "$arg"`. A launcher
+names the runner as `"$CORE_DIR/tools/locked_python.sh"`, and a script under `core/tools/` names it
+as `"$SCRIPT_DIR/locked_python.sh"`.
 
 ## What may be depended on, and how a new dependency is admitted
 
@@ -66,10 +73,12 @@ toolchain file usually answers becomes a narrower one: which programs a file may
 
 Three tiers, all visible in the corpus:
 
-1. **Assumed present, unguarded** — the BSD userland macOS ships and `python3`. Counted over the
-   eighteen `.sh` files: `grep` on 34 lines, `sed` on 31, `python3` on 29, `dirname` on 20, `cat` on 20,
-   `mktemp` on 17, `basename` on 8, `tr` on 6, `nohup` on 5, `git` on 4, `ps` on 3. None is guarded and
-   none needs to be.
+1. **Assumed present, unguarded** — the BSD userland macOS ships. Counted over the
+   eighteen `.sh` files: `grep` on 34 lines, `sed` on 31, `dirname` on 20, `cat` on 20,
+   `mktemp` on 17, `basename` on 8, `tr` on 6, `nohup` on 5, `git` on 4, `ps` on 3. None is guarded
+   and none needs to be. Python is not in this tier: a shell file reaches it only through
+   `core/tools/locked_python.sh`, which checks for uv with `command -v` before it runs anything and
+   refuses without it.
 2. **Required for the run, guarded before anything launches** — a program without which the run would
    fail later, checked with `command -v` and refused loudly. `core/launchers/skill/launcher.sh` does it
    for a skill whose `launcher.md` declares `**Requires:**`. Two do, both `**Requires:** npx node`,

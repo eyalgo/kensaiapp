@@ -104,5 +104,5 @@ Reach for this when **authoring, continuing, or revising a product's SRS** — t
 of truth, one step below the PRD in the upstream chain.
 
 Not for: per-change specs (that's `development-specs`), the PRD itself (`product-prd`, upstream),
-the project's "done" declaration (`project-agari`), or any downstream document — the SDD, Delivery
+the project's "done" declaration (`project-finish-line`), or any downstream document — the SDD, Delivery
 Plan, FDR, ADR, or NFDR.

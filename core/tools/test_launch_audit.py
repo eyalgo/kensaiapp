@@ -37,11 +37,15 @@ from pathlib import Path
 
 import pytest
 
+import test_support_instance_root
+
+from test_support_python3_stub import python3_calls_outside_uv, python3_that_only_fails
+
 _SCRIPT = Path(__file__).resolve().parent / "launch-audit.sh"
 _TOOLS_DIR = Path(__file__).resolve().parent
 _AUDITRUN_DIR = Path(__file__).resolve().parent / "auditrun"
 _SKILL_PATH_PY = Path(__file__).resolve().parent / "skill_path.py"
-_PIN_TOOLS = ("pin.py", "pin_run.sh", "agent_run.py", "model_assignment.py", "task_context.py",
+_PIN_TOOLS = ("pin.py", "pin_run.sh", "locked_python.sh", "agent_run.py", "model_assignment.py", "task_context.py",
                "env_file.py", "hook_wiring.py")
 # The provider reader, the one file it reads, and the two modules the reader imports: the launcher
 # asks the reader for its `launch-audit` entry before it resolves the skill.
@@ -143,6 +147,7 @@ def run(tmp_path):
     # root would make the adapter's own trailing `--add-dir <pin root>` (Task 7) indistinguishable
     # from the very add-dir a test is asserting THIS launcher's own logic did or didn't add.
     pin_root_dir = tmp_path / "pin"
+    test_support_instance_root.give_python(pin_root_dir)
     tools_dir = pin_root_dir / "core" / "tools"   # this script lives in <CORE>/tools (Task 18)
     tools_dir.mkdir(parents=True)
 
@@ -593,15 +598,15 @@ def test_a_missing_resolver_dies_as_this_launcher_not_a_traceback(run):
 # `launch-audit.sh` is flat in `<CORE>/tools/`, so its watcher default is `$SCRIPT_DIR/watch_agent.py`
 # — the other of the two path shapes, and the one `kensaiapp_structure.md` § Owner-run launcher folder
 # calls the failure that does not announce itself. It has NO `$DETACH_LIB`, deliberately: it runs the
-# watcher in the FOREGROUND under the utility form (`caffeinate -i -s python3 "$WATCHER" …`, no pid
-# anywhere, nothing detached), so there is no detach-and-return tail for the shared home to serve and
+# watcher in the FOREGROUND under the utility form (`caffeinate -i -s` in front of the runner, no
+# pid anywhere, nothing detached), so there is no detach-and-return tail for the shared home to serve and
 # no second path to prove. Asserting one here would be checking for something correctly absent.
 
 
 def test_watcher_is_found_beside_the_script_when_the_env_override_is_unset(run):
     """The only test here that drops `$LAUNCH_AUDIT_WATCHER`. Every other one stubs it and would
     stay green against a default expressed with the wrong walk — and a wrong walk here is quiet in
-    its own way: `python3 "$WATCHER" … || true` swallows the failure, so the launcher carries on to
+    its own way: `"$SCRIPT_DIR/locked_python.sh" "$WATCHER" … || true` swallows the failure, so the launcher carries on to
     its fail-closed artifact check and exits 0 having watched nothing.
 
     The stub is written to the launcher's own directory, which IS the path under test, and it exits
@@ -889,3 +894,19 @@ def test_an_instance_with_no_env_file_adds_no_host(run):
     result = run("thing", "--dry-run")
     assert result.returncode == 0
     assert str(run.host) not in result.stdout
+
+
+def test_launch_audit_runs_no_python3(run, tmp_path):
+    """A `python3` that only fails sits first on PATH: the launch, the watcher it holds awake
+    and the adapter it calls all run through the runner, so none of them reaches it."""
+    d = run.round("1.0.0", audit=False)
+    path, marker = python3_that_only_fails(tmp_path, run.env["PATH"])
+    run.env["PATH"] = path
+
+    result = run("thing", "1.0.0", "--keep-awake",
+                 extra_env={"CLAUDE_WRITES_AUDIT_AT": str(d / "audit.md")})
+
+    assert result.returncode == 0, result.stderr
+    assert run.launched_argv() != []
+    assert run.watch_argv() != []
+    assert python3_calls_outside_uv(marker) == []

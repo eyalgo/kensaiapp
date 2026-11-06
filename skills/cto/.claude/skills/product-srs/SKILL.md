@@ -1,10 +1,10 @@
 ---
 name: product-srs
-description: CTO-posture skill that authors a project's SRS — the technical source of truth, written off the settled PRD alongside the CDO's UXD. Requires CTO posture (halts if invoked outside a cto session or the cto subagent). Non-interactive by design — it derives the whole SRS best-effort from the CPO's PRD, and instead of interviewing live it surfaces everything it can't settle into a companion open-issues file (open issues, choices to confirm) for the owner to answer async. On re-run it consumes both files, retires the owner's answered companion whole to a permanent trail, folds their answers into the SRS, and when nothing is left unresolved it clears the companion — its absence means the SRS is done. The skill resolves where the files land from the project's Product path. Use when authoring, continuing, or revising a product's SRS. Do not use for per-change specs (development-specs), the PRD (product-prd), the project's Agari (project-agari), or downstream documents (SDD / Delivery Plan / FDR / ADR / NFDR).
+description: CTO-posture skill that authors a project's SRS — the technical source of truth, written off the settled PRD alongside the CDO's UXD. Requires CTO posture (halts if invoked outside a cto session or the cto subagent). Non-interactive by design — it derives the whole SRS best-effort from the CPO's PRD, and instead of interviewing live it surfaces everything it can't settle into a companion open-issues file (open issues, choices to confirm) for the owner to answer async. On re-run it consumes both files, retires the owner's answered companion whole to a permanent trail, folds their answers into the SRS, and when nothing is left unresolved it clears the companion — its absence means the SRS is done. The skill resolves where the files land from the project's Product path. Use when authoring, continuing, or revising a product's SRS. Do not use for per-change specs (development-specs), the PRD (product-prd), the project's finish line (project-finish-line), or downstream documents (SDD / Delivery Plan / FDR / ADR / NFDR).
 license: MIT
 metadata:
   author: Eyal Golan
-  version: "4.7.5"
+  version: "4.9.0"
   created: "2026-07-10"
   category: product-definition
   tags: srs, cto, product-definition, technical-source-of-truth, upstream-chain
@@ -98,11 +98,11 @@ answer permanently citable. It is the skill's job; the owner never manages it.
   there is nothing to derive an SRS from. What the status line means for the derivation — including
   a line that is missing or carries a value the PRD template's vocabulary does not hold — is the
   prompt's rule; whatever it raises reaches the owner through the companion like any other item.
-- **`system/projects/<name>/agari.md`** — the project's 上がり Agari, the declared terminus, beside
+- **`system/projects/<name>/finish_line.md`** — the project's finish line, the declared terminus, beside
   the card below. Read it in full. What it means for the derivation is the prompt's rule; it is the
   scope boundary, not a source of requirements, and the prompt says how that binds. **Its absence
   does not halt the run** — neither does a file still carrying the placeholder `project-stamp`
-  stamps. Agari and SRS gate each other in neither direction
+  stamps. Finish line and SRS gate each other in neither direction
   (`<CORE>/doctrine/setup/setting_up_a_project.md`), so a project may legitimately
   reach the SRS first; the state reaches the owner
   through the companion, exactly as an unreadable PRD status line does.
@@ -160,7 +160,7 @@ Identify the target project and read:
   Read it: a value the owner set in an earlier cycle is authorized, and changing it needs a fresh
   authorization (the prompt's *stability rule*). The prompt's *provenance gate* cites these files by
   path, and a citation you have not opened is not one. It also gives you the next cycle number.
-- `system/projects/<name>/agari.md` — the declared terminus, in full. Absent or still the
+- `system/projects/<name>/finish_line.md` — the declared terminus, in full. Absent or still the
   placeholder: record it as an open issue and derive best-effort; never halt.
 - `system/projects/<name>/doctrine/` — the project's own doctrine, if any is there.
 - the rest of `<Product path>/docs/` — **list the directory** and read what the bullets above have

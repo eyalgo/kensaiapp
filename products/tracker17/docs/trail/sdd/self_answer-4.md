@@ -162,8 +162,8 @@ None this run. Sections 1, 3, 4 and 5 of the companion each read "None."
 
 ## Companions opened
 
-- **products/tracker17/docs/SRS_open_issues.md** — **opened** — companion to `SRS.md`, landed in commit `c589cb948`
-- **products/tracker17/docs/UXD_open_issues.md** — **opened** — companion to `UXD.md`, landed in commit `6ece08ba1`
+- **products/tracker17/docs/SRS_open_issues.md** — **opened** — companion to `SRS.md`, landed in commit `<a commit not in the public history>`
+- **products/tracker17/docs/UXD_open_issues.md** — **opened** — companion to `UXD.md`, landed in commit `<a commit not in the public history>`
 
 Both were routed by item 2.1's answer, whose slot names them. Each holds one item, 2.1, under
 choices to confirm, with its slot left open for that document's own round.

@@ -517,7 +517,7 @@ def test_unanswered_companion_message_names_the_label_once():
 # behaviours and its five trap fences — and never from reading `reporters.py`.
 
 # The eight reporters the plan puts in scope, in its own order (§ The eight call sites).
-_EIGHT_DOCUMENTS = ("PRD", "SRS", "UXD", "DESIGN", "CONTENT", "Agari", "SDD", "FDR")
+_EIGHT_DOCUMENTS = ("PRD", "SRS", "UXD", "DESIGN", "CONTENT", "FINISH_LINE", "SDD", "FDR")
 
 
 @pytest.mark.parametrize("artifact", _EIGHT_DOCUMENTS)
@@ -1854,34 +1854,34 @@ def test_a_companion_present_but_empty_is_flagged(tmp_path):
     assert "✅" not in out.body
 
 
-# --- agari: a project-management artifact, not a product document ---------------------
+# --- finish_line: a project-management artifact, not a product document ---------------------
 #
-# Authored against `project-agari`'s own file contract, NOT by cloning a product reporter.
+# Authored against `project-finish-line`'s own file contract, NOT by cloning a product reporter.
 # Four load-bearing differences, and every case below is one of them:
 #   - The three files sit DIRECTLY under the artifact path — `system/projects/<name>/` in the
-#     instance repo (`skills/cpo/.claude/skills/project-agari/SKILL.md:77-81`), with no
+#     instance repo (`skills/cpo/.claude/skills/project-finish-line/SKILL.md:77-81`), with no
 #     `docs/` hop, so none of `read_product` / `read_srs` / `read_uxd` / `read_design` can be
 #     reused.
-#   - `agari.md` carries no `**Status:**` and no `**Version:**`; the declared signal is the
-#     `PLACEHOLDER` marker `agari_template.md:12` stamps, plus the companion's absence.
+#   - `finish_line.md` carries no `**Status:**` and no `**Version:**`; the declared signal is the
+#     `PLACEHOLDER` marker `finish_line_template.md:12` stamps, plus the companion's absence.
 #   - The companion has TWO buckets and no directives bucket
-#     (`agari_open_issues_template.md:43-48` states why), so no third term can ever appear.
-#   - "Declared" needs BOTH signals. An undeclared Agari with no companion is a run that did
+#     (`finish_line_open_issues_template.md:43-48` states why), so no third term can ever appear.
+#   - "Declared" needs BOTH signals. An undeclared finish line with no companion is a run that did
 #     not finish, never a settled one — the pairing the launcher's own pre-launch report gets
 #     wrong (`docs/proposals/archive/project-agari-launcher/rationale.md:20-26`).
 
-AGARI_BUCKET_TITLES = {
+FINISH_LINE_BUCKET_TITLES = {
     1: "Open issues — questions about the terminus with no answer yet",
     2: "Choices to confirm — the CPO drafted a best-effort answer; confirm or override",
 }
 
 
-def agari_companion(n1=0, n2=0, extra=""):
-    """The two-bucket Agari companion (`agari_open_issues_template.md`). `extra` appends raw
+def finish_line_companion(n1=0, n2=0, extra=""):
+    """The two-bucket finish line companion (`finish_line_open_issues_template.md`). `extra` appends raw
     text after the two buckets — the seam an owner-pasted heading arrives through."""
     out = []
     for bucket, n in ((1, n1), (2, n2)):
-        out.append(f"## {bucket}. {AGARI_BUCKET_TITLES[bucket]}\n")
+        out.append(f"## {bucket}. {FINISH_LINE_BUCKET_TITLES[bucket]}\n")
         if n == 0:
             out.append("None this round.\n")
         for i in range(1, n + 1):
@@ -1892,36 +1892,36 @@ def agari_companion(n1=0, n2=0, extra=""):
     return "\n".join(out)
 
 
-PLACEHOLDER_AGARI = (
-    "# 上がり Agari — thing's \"done\"\n\n---\n\n"
-    "> **PLACEHOLDER — filled at station 2 of the project's setup seed, by `project-agari`.**\n"
+PLACEHOLDER_FINISH_LINE = (
+    "# Finish line — thing's \"done\"\n\n---\n\n"
+    "> **PLACEHOLDER — filled at station 2 of the project's setup seed, by `project-finish-line`.**\n"
 )
-DECLARED_AGARI = (
-    "# 上がり Agari — thing's \"done\"\n\n---\n\n"
+DECLARED_FINISH_LINE = (
+    "# Finish line — thing's \"done\"\n\n---\n\n"
     "Thing is done when the veranda the PRD draws is shipped and the promise has held.\n"
 )
 
 
-def agari_project(tmp_path, agari=True, placeholder=False, open_issues=False,
+def finish_line_project(tmp_path, finish_line=True, placeholder=False, open_issues=False,
                   buckets=(0, 1), trail=()):
-    """The tree `project-agari` authors into — `<project dir>/agari.md` (+ optional
-    `agari_open_issues.md` + `trail/agari/`), with no `docs/` hop. `agari=False` omits the
+    """The tree `project-finish-line` authors into — `<project dir>/finish_line.md` (+ optional
+    `finish_line_open_issues.md` + `trail/finish_line/`), with no `docs/` hop. `finish_line=False` omits the
     declaration entirely, which is how the never-authored branch is exercised."""
     tmp_path.mkdir(parents=True, exist_ok=True)
-    if agari:
-        (tmp_path / "agari.md").write_text(
-            PLACEHOLDER_AGARI if placeholder else DECLARED_AGARI)
+    if finish_line:
+        (tmp_path / "finish_line.md").write_text(
+            PLACEHOLDER_FINISH_LINE if placeholder else DECLARED_FINISH_LINE)
     if open_issues:
-        (tmp_path / "agari_open_issues.md").write_text(agari_companion(*buckets))
+        (tmp_path / "finish_line_open_issues.md").write_text(finish_line_companion(*buckets))
     if trail:
-        (tmp_path / "trail/agari").mkdir(parents=True, exist_ok=True)
+        (tmp_path / "trail/finish_line").mkdir(parents=True, exist_ok=True)
         for n in trail:
-            (tmp_path / "trail/agari" / f"cycle-{n}.md").write_text("# cycle\n")
+            (tmp_path / "trail/finish_line" / f"cycle-{n}.md").write_text("# cycle\n")
     return str(tmp_path)
 
 
-def agari_ctx(artifact_path, *, state="blocked", head_before="aaa", head_after="bbb"):
-    """Default HEADs DIFFER — the agari run commits into the instance repo, so a moved HEAD is
+def finish_line_ctx(artifact_path, *, state="blocked", head_before="aaa", head_after="bbb"):
+    """Default HEADs DIFFER — the finish_line run commits into the instance repo, so a moved HEAD is
     the ordinary case and the unchanged-HEAD guard is asked for explicitly."""
     return OutcomeContext(
         label="example-product", cwd="/repo", artifact_path=artifact_path,
@@ -1929,13 +1929,13 @@ def agari_ctx(artifact_path, *, state="blocked", head_before="aaa", head_after="
     )
 
 
-def test_agari_is_registered():
-    assert reporters.get_reporter("agari") is reporters.agari
-    assert reporters.get_reporter("agari") is not reporters.generic
+def test_finish_line_is_registered():
+    assert reporters.get_reporter("finish-line") is reporters.finish_line
+    assert reporters.get_reporter("finish-line") is not reporters.generic
 
 
-def test_agari_run_that_wrote_no_agari_is_not_a_success(tmp_path):
-    out = reporters.agari(agari_ctx(agari_project(tmp_path, agari=False)))
+def test_finish_line_run_that_wrote_no_finish_line_is_not_a_success(tmp_path):
+    out = reporters.finish_line(finish_line_ctx(finish_line_project(tmp_path, finish_line=False)))
     assert "left nothing to read" in out.body
     assert "✅" not in out.body
 
@@ -1943,55 +1943,55 @@ def test_agari_run_that_wrote_no_agari_is_not_a_success(tmp_path):
 # --- the two signals, and the pairing the launcher's own report gets wrong -------------
 
 
-def test_agari_declared_is_no_placeholder_and_no_companion(tmp_path):
-    out = reporters.agari(agari_ctx(agari_project(tmp_path)))
+def test_finish_line_declared_is_no_placeholder_and_no_companion(tmp_path):
+    out = reporters.finish_line(finish_line_ctx(finish_line_project(tmp_path)))
     assert out.body.startswith("✅")
     assert "declared" in out.body
     assert "nothing pending" in out.body
 
 
-def test_agari_placeholder_with_no_companion_is_never_reported_as_settled(tmp_path):
+def test_finish_line_placeholder_with_no_companion_is_never_reported_as_settled(tmp_path):
     """The one pairing worth its own test: both "is it declared" and "is a round open" read
     clean, and the answer is still no. Reporting it as settled would tell the owner a product
     has a terminus when its file still holds the stamped placeholder."""
-    out = reporters.agari(agari_ctx(agari_project(tmp_path, placeholder=True)))
+    out = reporters.finish_line(finish_line_ctx(finish_line_project(tmp_path, placeholder=True)))
     assert "✅" not in out.body
     assert "PLACEHOLDER" in out.body
     assert "not declared" in out.body
 
 
-def test_agari_an_open_companion_is_never_reported_as_declared(tmp_path):
+def test_finish_line_an_open_companion_is_never_reported_as_declared(tmp_path):
     """The companion's absence IS the done signal (`SKILL.md:80`), so a drafted terminus with
     a companion still out is a round in flight, not a declaration."""
-    out = reporters.agari(agari_ctx(
-        agari_project(tmp_path, open_issues=True, buckets=(0, 2))))
+    out = reporters.finish_line(finish_line_ctx(
+        finish_line_project(tmp_path, open_issues=True, buckets=(0, 2))))
     assert "declared" not in out.body
     assert "✅" not in out.body
 
 
-def test_agari_open_companion_reports_the_pending_work_and_the_next_move(tmp_path):
-    out = reporters.agari(agari_ctx(
-        agari_project(tmp_path, open_issues=True, buckets=(2, 1))))
+def test_finish_line_open_companion_reports_the_pending_work_and_the_next_move(tmp_path):
+    out = reporters.finish_line(finish_line_ctx(
+        finish_line_project(tmp_path, open_issues=True, buckets=(2, 1))))
     assert out.body.startswith("📋")
     assert "2 open issues" in out.body
     assert "1 choice to confirm" in out.body
-    assert "Answer agari_open_issues.md, commit, re-run." in out.body
+    assert "Answer finish_line_open_issues.md, commit, re-run." in out.body
 
 
-def test_agari_placeholder_with_an_open_companion_says_the_terminus_is_missing(tmp_path):
-    """A run writes `agari.md` and the companion in the same step, so a companion beside an
+def test_finish_line_placeholder_with_an_open_companion_says_the_terminus_is_missing(tmp_path):
+    """A run writes `finish_line.md` and the companion in the same step, so a companion beside an
     untouched placeholder is a run that did not finish its own draft."""
-    out = reporters.agari(agari_ctx(
-        agari_project(tmp_path, placeholder=True, open_issues=True, buckets=(1, 0))))
+    out = reporters.finish_line(finish_line_ctx(
+        finish_line_project(tmp_path, placeholder=True, open_issues=True, buckets=(1, 0))))
     assert "placeholder" in out.body.lower()
     assert "1 open issue" in out.body
-    assert "Answer agari_open_issues.md, commit, re-run." in out.body
+    assert "Answer finish_line_open_issues.md, commit, re-run." in out.body
     assert "✅" not in out.body
 
 
-def test_agari_companion_present_but_empty_is_flagged(tmp_path):
-    out = reporters.agari(agari_ctx(
-        agari_project(tmp_path, open_issues=True, buckets=(0, 0))))
+def test_finish_line_companion_present_but_empty_is_flagged(tmp_path):
+    out = reporters.finish_line(finish_line_ctx(
+        finish_line_project(tmp_path, open_issues=True, buckets=(0, 0))))
     assert "lists no items" in out.body
     assert "✅" not in out.body
 
@@ -1999,115 +1999,115 @@ def test_agari_companion_present_but_empty_is_flagged(tmp_path):
 # --- two buckets by construction: no third term can reach the message -----------------
 
 
-def test_agari_has_no_directives_bucket(tmp_path):
-    """`agari_open_issues_template.md:43-48` states the companion has no third bucket. An
+def test_finish_line_has_no_directives_bucket(tmp_path):
+    """`finish_line_open_issues_template.md:43-48` states the companion has no third bucket. An
     owner who pastes one in mid-answer must not make the word "directive" appear."""
-    root = agari_project(tmp_path, open_issues=True, buckets=(1, 0))
-    (tmp_path / "agari_open_issues.md").write_text(agari_companion(
+    root = finish_line_project(tmp_path, open_issues=True, buckets=(1, 0))
+    (tmp_path / "finish_line_open_issues.md").write_text(finish_line_companion(
         1, 0, extra="## 3. Directives\n\n### 3.1 do a thing\n"))
 
-    out = reporters.agari(agari_ctx(root))
+    out = reporters.finish_line(finish_line_ctx(root))
 
     assert "directive" not in out.body.lower()
     assert "1 open issue" in out.body
 
 
-def test_agari_bucket_terms_are_singular_and_plural(tmp_path):
-    one = reporters.agari(agari_ctx(
-        agari_project(tmp_path / "a", open_issues=True, buckets=(1, 1))))
+def test_finish_line_bucket_terms_are_singular_and_plural(tmp_path):
+    one = reporters.finish_line(finish_line_ctx(
+        finish_line_project(tmp_path / "a", open_issues=True, buckets=(1, 1))))
     assert "1 open issue," in one.body
     assert "1 choice to confirm" in one.body
 
-    many = reporters.agari(agari_ctx(
-        agari_project(tmp_path / "b", open_issues=True, buckets=(3, 2))))
+    many = reporters.finish_line(finish_line_ctx(
+        finish_line_project(tmp_path / "b", open_issues=True, buckets=(3, 2))))
     assert "3 open issues" in many.body
     assert "2 choices to confirm" in many.body
 
 
-# --- the trail is the discriminator (agari HAS one, like prd/uxd/design) ---------------
+# --- the trail is the discriminator (finish_line HAS one, like prd/uxd/design) ---------------
 
 
-def test_agari_open_round_names_the_cycle_from_the_trail(tmp_path):
-    out = reporters.agari(agari_ctx(
-        agari_project(tmp_path, open_issues=True, buckets=(1, 0), trail=(1, 2))))
+def test_finish_line_open_round_names_the_cycle_from_the_trail(tmp_path):
+    out = reporters.finish_line(finish_line_ctx(
+        finish_line_project(tmp_path, open_issues=True, buckets=(1, 0), trail=(1, 2))))
     assert "cycle 3" in out.body
 
 
-def test_agari_open_round_with_no_trail_names_cycle_1(tmp_path):
-    out = reporters.agari(agari_ctx(
-        agari_project(tmp_path, open_issues=True, buckets=(1, 0))))
+def test_finish_line_open_round_with_no_trail_names_cycle_1(tmp_path):
+    out = reporters.finish_line(finish_line_ctx(
+        finish_line_project(tmp_path, open_issues=True, buckets=(1, 0))))
     assert "cycle 1" in out.body
 
 
-def test_agari_trail_uses_the_highest_cycle_not_the_count(tmp_path):
+def test_finish_line_trail_uses_the_highest_cycle_not_the_count(tmp_path):
     """`SKILL.md:83-86` numbers a new cycle one above the highest that exists, so a removed
     cycle must not be able to make the message collide with a real one."""
-    out = reporters.agari(agari_ctx(
-        agari_project(tmp_path, open_issues=True, buckets=(1, 0), trail=(1, 4))))
+    out = reporters.finish_line(finish_line_ctx(
+        finish_line_project(tmp_path, open_issues=True, buckets=(1, 0), trail=(1, 4))))
     assert "cycle 5" in out.body
 
 
-def test_agari_trail_ignores_a_non_cycle_filename(tmp_path):
-    root = agari_project(tmp_path, open_issues=True, buckets=(1, 0), trail=(1,))
-    (tmp_path / "trail/agari" / "notes.md").write_text("# not a cycle\n")
+def test_finish_line_trail_ignores_a_non_cycle_filename(tmp_path):
+    root = finish_line_project(tmp_path, open_issues=True, buckets=(1, 0), trail=(1,))
+    (tmp_path / "trail/finish_line" / "notes.md").write_text("# not a cycle\n")
 
-    out = reporters.agari(agari_ctx(root))
+    out = reporters.finish_line(finish_line_ctx(root))
 
     assert "cycle 2" in out.body
 
 
-def test_agari_declared_branch_names_no_cycle_even_with_a_trail(tmp_path):
+def test_finish_line_declared_branch_names_no_cycle_even_with_a_trail(tmp_path):
     """The trail counts rounds folded in, a different quantity from the round now open — and
     a first run that settled everything has none."""
-    out = reporters.agari(agari_ctx(agari_project(tmp_path, trail=(1, 2, 3))))
+    out = reporters.finish_line(finish_line_ctx(finish_line_project(tmp_path, trail=(1, 2, 3))))
     assert "cycle" not in out.body
 
 
 # --- a run that committed nothing must not inherit the last run's work ----------------
 
 
-def test_agari_run_that_committed_nothing_says_so_in_the_body(tmp_path):
-    out = reporters.agari(agari_ctx(
-        agari_project(tmp_path), head_before="same", head_after="same"))
+def test_finish_line_run_that_committed_nothing_says_so_in_the_body(tmp_path):
+    out = reporters.finish_line(finish_line_ctx(
+        finish_line_project(tmp_path), head_before="same", head_after="same"))
     assert "committed nothing" in out.body
     assert out.body.startswith("⚠️")
 
 
-def test_agari_run_that_committed_nothing_borrows_no_figures_from_the_last_one(tmp_path):
+def test_finish_line_run_that_committed_nothing_borrows_no_figures_from_the_last_one(tmp_path):
     """The failure this guards: a run that died leaves the previous round's companion and
     trail on disk, so reading them reports that round's cycle and counts as this run's."""
-    root = agari_project(tmp_path, open_issues=True, buckets=(4, 2), trail=(1, 2))
+    root = finish_line_project(tmp_path, open_issues=True, buckets=(4, 2), trail=(1, 2))
 
-    out = reporters.agari(agari_ctx(root, head_before="same", head_after="same"))
+    out = reporters.finish_line(finish_line_ctx(root, head_before="same", head_after="same"))
 
     assert "4 open issues" not in out.body
     assert "cycle 3" not in out.body
-    assert "Answer agari_open_issues.md" not in out.body
+    assert "Answer finish_line_open_issues.md" not in out.body
 
 
-def test_agari_run_that_committed_nothing_but_left_an_unanswered_companion_says_so(tmp_path):
-    root = agari_project(tmp_path)
-    (Path(root, "agari_open_issues.md")).write_text(
+def test_finish_line_run_that_committed_nothing_but_left_an_unanswered_companion_says_so(tmp_path):
+    root = finish_line_project(tmp_path)
+    (Path(root, "finish_line_open_issues.md")).write_text(
         "## 1. Open issues\n\n### 1.1 a question\n\n- **Answer:** <the owner fills this in>\n")
-    out = reporters.agari(agari_ctx(root, head_before="same", head_after="same"))
-    assert "Agari" in out.body
+    out = reporters.finish_line(finish_line_ctx(root, head_before="same", head_after="same"))
+    assert "finish line" in out.body
     assert "waiting on you" in out.body
     assert "may have stopped" not in out.body
 
 
-def test_agari_names_the_agari_and_not_a_sibling_artifact(tmp_path):
-    out = reporters.agari(agari_ctx(
-        agari_project(tmp_path), head_before="same", head_after="same"))
-    assert "The Agari on disk is from an earlier run." in out.body
+def test_finish_line_names_the_finish_line_and_not_a_sibling_artifact(tmp_path):
+    out = reporters.finish_line(finish_line_ctx(
+        finish_line_project(tmp_path), head_before="same", head_after="same"))
+    assert "The finish line on disk is from an earlier run." in out.body
     for other in ("PRD", "SRS", "UXD", "DESIGN"):
         assert other not in out.body
 
 
-def test_agari_a_project_that_is_not_a_repo_still_reads_the_files(tmp_path):
+def test_finish_line_a_project_that_is_not_a_repo_still_reads_the_files(tmp_path):
     """An unreadable HEAD is a third case: it is not evidence of an idle run, so it claims
     neither outcome and the body is the read."""
-    out = reporters.agari(agari_ctx(
-        agari_project(tmp_path), head_before=None, head_after=None))
+    out = reporters.finish_line(finish_line_ctx(
+        finish_line_project(tmp_path), head_before=None, head_after=None))
     assert "committed nothing" not in out.body
     assert out.body.startswith("✅")
 
@@ -2115,49 +2115,49 @@ def test_agari_a_project_that_is_not_a_repo_still_reads_the_files(tmp_path):
 # --- best-effort: a parser bug costs specificity, never the message -------------------
 
 
-def test_agari_unreadable_project_falls_back_rather_than_failing(monkeypatch, tmp_path):
-    root = agari_project(tmp_path)
+def test_finish_line_unreadable_project_falls_back_rather_than_failing(monkeypatch, tmp_path):
+    root = finish_line_project(tmp_path)
 
     def boom(_path):
         raise OSError("permission denied")
 
     monkeypatch.setattr(reporters.os.path, "isfile", boom)
-    out = reporters.agari(agari_ctx(root))
+    out = reporters.finish_line(finish_line_ctx(root))
     assert "could not be read" in out.body
     assert "✅" not in out.body
 
 
-def test_agari_a_parser_bug_costs_specificity_not_the_message(monkeypatch, tmp_path):
-    root = agari_project(tmp_path, open_issues=True, buckets=(1, 0))
+def test_finish_line_a_parser_bug_costs_specificity_not_the_message(monkeypatch, tmp_path):
+    root = finish_line_project(tmp_path, open_issues=True, buckets=(1, 0))
 
     def boom(_text):
         raise ValueError("bad regex")
 
     monkeypatch.setattr(reporters, "count_buckets", boom)
-    out = reporters.agari(agari_ctx(root))
+    out = reporters.finish_line(finish_line_ctx(root))
     assert out.body == "example-product: run ended."
 
 
-def test_agari_without_an_artifact_path_degrades_to_run_ended(tmp_path):
-    out = reporters.agari(agari_ctx(None))
+def test_finish_line_without_an_artifact_path_degrades_to_run_ended(tmp_path):
+    out = reporters.finish_line(finish_line_ctx(None))
     assert out.body == "example-product: run ended."
 
 
 # --- the real templates parse ----------------------------------------------------------
 
 
-def test_agari_the_real_templates_parse_to_their_own_marker_and_item_counts(tmp_path):
-    """The committed `agari_template.md` and `agari_open_issues_template.md`, copied verbatim
+def test_finish_line_the_real_templates_parse_to_their_own_marker_and_item_counts(tmp_path):
+    """The committed `finish_line_template.md` and `finish_line_open_issues_template.md`, copied verbatim
     into a fixture, must yield the placeholder reading and the bucket counts their own bytes
     imply — the blockquote preamble, the HTML comments and the em-dashed headings must not
     perturb the read. Both templates carried one item per bucket (1.1, 2.1) when written."""
     templates = Path(__file__).resolve().parent.parent / "templates" / "project-templates"
-    (tmp_path / "agari.md").write_text(
-        (templates / "agari_template.md").read_text(encoding="utf-8"))
-    (tmp_path / "agari_open_issues.md").write_text(
-        (templates / "agari_open_issues_template.md").read_text(encoding="utf-8"))
+    (tmp_path / "finish_line.md").write_text(
+        (templates / "finish_line_template.md").read_text(encoding="utf-8"))
+    (tmp_path / "finish_line_open_issues.md").write_text(
+        (templates / "finish_line_open_issues_template.md").read_text(encoding="utf-8"))
 
-    out = reporters.agari(agari_ctx(str(tmp_path)))
+    out = reporters.finish_line(finish_line_ctx(str(tmp_path)))
 
     assert "1 open issue" in out.body
     assert "1 choice to confirm" in out.body
@@ -2168,7 +2168,7 @@ def test_agari_the_real_templates_parse_to_their_own_marker_and_item_counts(tmp_
 # --- no existing reporter changes -------------------------------------------------------
 
 
-def test_existing_reporters_are_unaffected_by_the_agari_addition():
+def test_existing_reporters_are_unaffected_by_the_finish_line_addition():
     assert reporters.get_reporter("prd") is reporters.prd
     assert reporters.get_reporter("srs") is reporters.srs
     assert reporters.get_reporter("uxd") is reporters.uxd
@@ -2423,7 +2423,7 @@ def test_existing_reporters_are_unaffected_by_the_content_addition():
     assert reporters.get_reporter("srs") is reporters.srs
     assert reporters.get_reporter("uxd") is reporters.uxd
     assert reporters.get_reporter("design") is reporters.design
-    assert reporters.get_reporter("agari") is reporters.agari
+    assert reporters.get_reporter("finish-line") is reporters.finish_line
     assert reporters.get_reporter("fix-author") is reporters.fix_author
     assert reporters.get_reporter("apply-packet") is reporters.apply_packet
     assert reporters.get_reporter("writing-bar") is reporters.writing_bar
@@ -2956,7 +2956,7 @@ def test_fdr_names_the_fdr_and_not_a_sibling_artifact(tmp_path):
     out = reporters.fdr(fdr_ctx(
         fdr_product(tmp_path, status="Settled"),
         head_before="abc123", head_after="abc123"))
-    for sibling in ("PRD", "SRS", "UXD", "DESIGN", "CONTENT", "SDD", "Agari"):
+    for sibling in ("PRD", "SRS", "UXD", "DESIGN", "CONTENT", "SDD", "FINISH_LINE"):
         assert sibling not in out.body
 
 
@@ -3054,7 +3054,7 @@ def test_existing_reporters_are_unaffected_by_the_fdr_addition():
     assert reporters.get_reporter("uxd") is reporters.uxd
     assert reporters.get_reporter("design") is reporters.design
     assert reporters.get_reporter("content") is reporters.content
-    assert reporters.get_reporter("agari") is reporters.agari
+    assert reporters.get_reporter("finish-line") is reporters.finish_line
     assert reporters.get_reporter("sdd-document") is reporters.sdd_document
     assert reporters.get_reporter("fix-author") is reporters.fix_author
     assert reporters.get_reporter("apply-packet") is reporters.apply_packet
@@ -3457,7 +3457,7 @@ def test_architecture_names_no_sibling_artifact_when_committed_nothing(tmp_path)
     out = reporters.architecture(architecture_ctx(
         architecture_product(tmp_path, records=("a-decision",), status="Settled"),
         head_before="abc123", head_after="abc123"))
-    for sibling in ("PRD", "SRS", "UXD", "DESIGN", "CONTENT", "SDD", "Agari", "NFDR"):
+    for sibling in ("PRD", "SRS", "UXD", "DESIGN", "CONTENT", "SDD", "FINISH_LINE", "NFDR"):
         assert sibling not in out.body
 
 
@@ -3544,7 +3544,7 @@ def test_existing_reporters_are_unaffected_by_the_architecture_addition():
     assert reporters.get_reporter("uxd") is reporters.uxd
     assert reporters.get_reporter("design") is reporters.design
     assert reporters.get_reporter("content") is reporters.content
-    assert reporters.get_reporter("agari") is reporters.agari
+    assert reporters.get_reporter("finish-line") is reporters.finish_line
     assert reporters.get_reporter("sdd-document") is reporters.sdd_document
     assert reporters.get_reporter("fdr") is reporters.fdr
     assert reporters.get_reporter("fix-author") is reporters.fix_author
@@ -3943,7 +3943,7 @@ def test_companion_self_answer_a_parser_bug_costs_specificity_not_the_message(
 
 
 def test_companion_self_answer_has_no_unchanged_head_branch(tmp_path):
-    """Unlike prd/srs/uxd/design/content/agari/sdd/fdr, this artifact carries no Status or
+    """Unlike prd/srs/uxd/design/content/finish_line/sdd/fdr, this artifact carries no Status or
     Version for an unchanged HEAD to protect — the report either exists or it does not, and
     the body is identical whatever head_before/head_after carry."""
     self_answer_report(tmp_path / "system" / "doctrine", worked=["answered"])
@@ -4391,7 +4391,7 @@ def test_existing_reporters_are_unaffected_by_the_companion_self_answer_addition
     assert reporters.get_reporter("uxd") is reporters.uxd
     assert reporters.get_reporter("design") is reporters.design
     assert reporters.get_reporter("content") is reporters.content
-    assert reporters.get_reporter("agari") is reporters.agari
+    assert reporters.get_reporter("finish-line") is reporters.finish_line
     assert reporters.get_reporter("sdd-document") is reporters.sdd_document
     assert reporters.get_reporter("fdr") is reporters.fdr
     assert reporters.get_reporter("fix-author") is reporters.fix_author
@@ -4589,8 +4589,8 @@ _REFINE_REPORT_TEXT = f"""# 宿場 Shukuba refine — `{_REFINE_KEY}`
 
 | # | Move | Whose | Command | After | From |
 |---|---|---|---|---|---|
-| 1 | sweep the product's companions | owner | `core/launchers/chain-product/launcher.sh proj` | — | Moves row 2 |
-| 2 | pick a seed | PM | `core/launchers/skill/launcher.sh nemawashi-pick proj` | — | recommendation 1 |
+| 1 | sweep the product's companions | owner | `core/launchers/product-docs/launcher.sh proj` | — | Moves row 2 |
+| 2 | pick a seed | PM | `core/launchers/skill/launcher.sh seed-pick proj` | — | recommendation 1 |
 | 3 | cut a seed | Principal PM | none — `seeds-from-idea`, in a `principal-pm:` session, on that recommendation | — | recommendation 2 |
 
 ## Read
@@ -4656,9 +4656,9 @@ def test_shukuba_refine_message_lists_every_next_move_with_seat_and_command(tmp_
         f"2 recommendations to the Principal PM.\n"
         f"Next:\n"
         f"1. sweep the product's companions — owner\n"
-        f"   core/launchers/chain-product/launcher.sh proj\n"
+        f"   core/launchers/product-docs/launcher.sh proj\n"
         f"2. pick a seed — PM\n"
-        f"   core/launchers/skill/launcher.sh nemawashi-pick proj\n"
+        f"   core/launchers/skill/launcher.sh seed-pick proj\n"
         f"3. cut a seed — Principal PM\n"
         f"   none — seeds-from-idea, in a principal-pm: session, on that recommendation\n"
         f"Report: system/projects/proj/{_REFINE_REPORT}"
@@ -4756,7 +4756,7 @@ def test_git_changed_paths_lists_what_the_range_added_relative_to_the_project(tm
 
 
 # Every launcher backgrounds its run and returns at once, so a wait read as "once 1 is launched":
-# a `chain-change` started 8s after `shukuba-retire` found the station still open and opened a
+# a `walk` started 8s after `shukuba-retire` found the station still open and opened a
 # change for it (2026-09-18). A wait now says the earlier move must have LANDED, on its own line
 # above the command it gates. It is read from the After column — the rows a move waits on, by
 # number — and never from the From cell, which points at the reasoning and is prose.
@@ -4767,7 +4767,7 @@ def test_shukuba_refine_a_row_that_waits_says_the_earlier_move_must_have_landed(
     body = _refine((_REFINE_REPORT,))(_refine_ctx(project)).body
     assert ("2. pick a seed — PM\n"
             "   only once 1 has landed, not merely launched\n"
-            "   core/launchers/skill/launcher.sh nemawashi-pick proj\n"
+            "   core/launchers/skill/launcher.sh seed-pick proj\n"
             ) in body
     assert "1. sweep the product's companions — owner\n   core/" in body
 
@@ -4804,7 +4804,7 @@ def test_shukuba_refine_a_five_column_table_prints_no_wait_line(tmp_path):
     project = _refine_project(tmp_path, report=report)
     body = _refine((_REFINE_REPORT,))(_refine_ctx(project)).body
     assert "only once" not in body
-    assert "2. pick a seed — PM\n   core/launchers/skill/launcher.sh nemawashi-pick" in body
+    assert "2. pick a seed — PM\n   core/launchers/skill/launcher.sh seed-pick" in body
 
 
 def test_shukuba_refine_the_columns_are_found_by_header_not_by_position(tmp_path):

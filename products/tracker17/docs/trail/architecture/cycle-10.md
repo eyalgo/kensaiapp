@@ -61,7 +61,7 @@ None.
 - **Where it shows:** `nfdr.md:L396-L397` and `L908`, against `core/roles/CROSS_ROLE.md:L14-L19`
   (§ *Every seat*): "a fresh clone of the repository that holds it, checked out at the commit under
   test … A clone, not `git archive`: an archive drops the git history". Measured on 2026-10-12 at
-  `2866e76de`: `pytest products/tracker17/tests/` in a `git archive` copy gave 1 failed
+  `<a commit not in the public history>`: `pytest products/tracker17/tests/` in a `git archive` copy gave 1 failed
   (`test_data_is_ignored_by_version_control`, `fatal: not a git repository`), 936 passed; in a fresh
   clone at the same commit, 937 passed. The change asked: name the disposable clone at the tested
   commit, keep the Git-repository prerequisite, and keep the check failing rather than skipping.

@@ -274,7 +274,7 @@ def test_nemawashi_one_root_seed_is_active_with_title_and_checklist(tmp_path):
 
 def test_a_seed_whose_open_items_are_all_nested_does_not_read_finished(tmp_path):
     """An item indented under another is still an item — `core/templates/project-templates/
-    setup_seed_template.md` stamps four of them into every define-the-product seed, so a count anchored
+    setup_seed_template.md` stamps four of them into every `full` define-the-product seed, so a count anchored
     on a line start renders those seeds finished while their nested work is untouched."""
     root = _instance(tmp_path)
     journey = _project(root, "alpha")

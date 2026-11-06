@@ -19,7 +19,7 @@ import model_assignment
 import pin
 import task_context
 
-__version__ = "2.3.0"
+__version__ = "2.3.1"
 
 # Claude Code's prefix on the tool result of a call a PreToolUse hook refused.
 _HOOK_REFUSAL = re.compile(r"(?:Error: )?PreToolUse:\w+ hook error:")
@@ -68,9 +68,12 @@ def claude_command(*, prompt: str, session_id: str, resume: bool, agent: str | N
 def codex_command(*, prompt: str, session_id: str | None, model: str | None,
                   tier: str | None, add_dirs: tuple[str, ...],
                   core_root: Path | None = None,
-                  effort: agent_run.Effort | None = None) -> tuple[str, ...]:
+                  effort: agent_run.Effort | None = None,
+                  uv_cache_dir: str | None = None) -> tuple[str, ...]:
     """One detached Codex turn. A caller's `effort` wins over the assignment's own level, as it
-    does in `agent_run.CodexAdapter`, and is the level the prompt's identity block reports."""
+    does in `agent_run.CodexAdapter`, and is the level the prompt's identity block reports.
+    `uv_cache_dir` becomes `agent_run.codex_uv_cache_config`'s `--config`, for the reason
+    `agent_run.sandbox_uv_cache` gives."""
     argv = ["codex", "exec", "--approve-for-me"]
     if session_id:
         argv.append("resume")
@@ -84,6 +87,8 @@ def codex_command(*, prompt: str, session_id: str | None, model: str | None,
         argv.extend(("--model", assignment.model))
     if reasoning_effort:
         argv.extend(("--config", f'model_reasoning_effort="{reasoning_effort}"'))
+    if uv_cache_dir:
+        argv.extend(("--config", agent_run.codex_uv_cache_config(uv_cache_dir)))
     if not session_id:
         for directory in add_dirs:
             argv.extend(("--add-dir", directory))
@@ -310,7 +315,8 @@ def main(argv=None) -> int:
             return 2
         command = codex_command(prompt=prompt, session_id=session_id, model=args.model,
                                 tier=args.model_tier, add_dirs=tuple(args.add_dir),
-                                core_root=args.core_dir)
+                                core_root=args.core_dir,
+                                uv_cache_dir=agent_run.sandbox_uv_cache())
     try:
         turn = launch(args.provider, command, args.log, session_id, args.identity_timeout)
     except (OSError, ValueError, model_assignment.UnknownTier,

@@ -22,7 +22,7 @@ from typing import Any
 
 import development_path
 
-__version__ = "1.2.0"
+__version__ = "1.3.0"
 
 
 class Role(str, Enum):
@@ -231,7 +231,7 @@ _PATH_FIELDS = ("instance_repo", "instance_worktree", "product_repo", "product_w
 _REQUIRED_MERGE_FIELDS = {"description", "merge_context", "surface"}
 _LIST_MERGE_FIELDS = {"branch_commits", "bump"}
 _OPTIONAL_MERGE_FIELDS = {"actor", "authorizer", "co_authored_by", "reasoning_effort",
-                          "claude_session", *_LIST_MERGE_FIELDS}
+                          "claude_session", "user_invisible", *_LIST_MERGE_FIELDS}
 _BLOCKING_HOOKS = {"pre-merge-commit", "prepare-commit-msg", "commit-msg", "pre-commit"}
 _CREATION_MESSAGE = "branch: Created from"
 

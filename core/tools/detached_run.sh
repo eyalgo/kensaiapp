@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # detached_run.sh — start one unattended run as a detached process, and say where it is.
+# Version: 1.3.1 — remove the readme-status skill and every live trace that starts, schedules or names it
+# Version: 1.3.0 — launchers run on the locked Python
 # Version: 1.2.1 — delete the seven old telemetry files and their seven tests, and move everything that pointed at them
-# Version: 1.2.0 — the queue runs readme-status after each close
+# Version: 1.2.0 — a started run does not inherit its launch's receipt destination
 # Version: 1.1.0 — a stop ends the wait — one shared stop that ends a live walk across chain, chain_development and build_idea, marks it ended with a reason and leaves the state file readable
 # Version: 1.0.0
 #
@@ -25,6 +27,13 @@
 DETACHED_RUN_WITHHELD=(DETACH_WATCHER_ON_COMPLETE INSTRUMENT_RUN_CHAIN INSTRUMENT_RUN_WALK_ID
   INSTRUMENT_RUN_ROLE INSTRUMENT_RUN_AUDIT_TARGET INSTRUMENT_RUN_SETTINGS
   DETACHED_RUN_IDENTITY_FILE DETACHED_RUN_RESULT_FILE)
+
+# _detached_run_runner
+#   Prints the path of `locked_python.sh`, beside this file: the Python this file starts runs on the
+#   pinned Python through it, and a pinned run finds the runner in its own pin.
+_detached_run_runner() {
+  printf '%s/locked_python.sh' "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+}
 
 # print_detached_run <agent_run.py command…>
 #   The dry run: the exact provider command the launch would start, indented, or the runner's own
@@ -54,7 +63,7 @@ start_detached_run() {
     return "$rc"
   fi
   printf '%s\n' "$launch_out"
-  record="$(python3 -c 'import json,sys; r = json.loads(sys.argv[1]); print(r["pid"], r["session_id"] or "")' \
+  record="$("$(_detached_run_runner)" -c 'import json,sys; r = json.loads(sys.argv[1]); print(r["pid"], r["session_id"] or "")' \
     "$launch_out" 2>/dev/null)" || { echo "the launch printed no run record — nothing to watch" >&2; return 1; }
   read -r DETACHED_RUN_PID DETACHED_RUN_SESSION_ID <<<"$record"
   export DETACHED_RUN_PID DETACHED_RUN_SESSION_ID
@@ -84,7 +93,7 @@ record_detached_run_identity() {
   [ -z "${DETACH_PROCESS_WATCHER_PID:-}" ] \
     || recorded+=(--watcher-pid "$DETACH_PROCESS_WATCHER_PID")
   # The recorder's own stderr is dropped so a failure is one note line, whatever it said.
-  python3 "$walk_stop" record "$DETACHED_RUN_IDENTITY_FILE" ${recorded[@]+"${recorded[@]}"} \
+  "$(_detached_run_runner)" "$walk_stop" record "$DETACHED_RUN_IDENTITY_FILE" ${recorded[@]+"${recorded[@]}"} \
     2>/dev/null \
     || echo "(could not record the launch identity at $DETACHED_RUN_IDENTITY_FILE — a stop will find no run to stop)" >&2
   return 0

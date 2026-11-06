@@ -7,6 +7,7 @@ import os
 import shlex
 import subprocess
 import sys
+import tempfile
 import time
 import uuid
 from dataclasses import replace
@@ -21,6 +22,12 @@ import pin
 from agent_run import AgentRunner, ClaudeAdapter, CodexAdapter, GeminiAdapter, RunRequest
 
 _SCRIPT = Path(__file__).resolve().parent / "agent_run.py"
+_CODEX_UV = "--config " + shlex.quote(
+    agent_run.codex_uv_cache_config(agent_run.sandbox_uv_cache())
+)
+# Every Codex run's commands are told they are one (the adapter's `KENSAIAPP_RUN_PROVIDER`).
+_RUN_PROVIDER = ("--config", 'shell_environment_policy.set.KENSAIAPP_RUN_PROVIDER="codex"')
+_CODEX_RUN = "--config 'shell_environment_policy.set.KENSAIAPP_RUN_PROVIDER=\"codex\"'"
 
 
 @pytest.fixture
@@ -63,7 +70,9 @@ def _build_pin_host(root: Path) -> Path:
                                 {
                                     "type": "command",
                                     "command": (
-                                        'python3 "${CLAUDE_PROJECT_DIR}/.claude/hooks/'
+                                        '"${CLAUDE_PROJECT_DIR}/core/tools/'
+                                        'locked_python.sh" '
+                                        '"${CLAUDE_PROJECT_DIR}/.claude/hooks/'
                                         'resolve_core.py"'
                                     ),
                                 }
@@ -223,6 +232,7 @@ def test_codex_adapter_maps_the_shared_request_to_non_interactive_exec():
         "--approve-for-me",
         "--model",
         "gpt-5.6-sol",
+        *_RUN_PROVIDER,
         "--add-dir",
         "/first path",
         "--add-dir",
@@ -238,6 +248,7 @@ def test_codex_adapter_uses_configured_model_when_request_omits_one():
         "codex",
         "exec",
         "--approve-for-me",
+        *_RUN_PROVIDER,
         "do the minimum",
     )
 
@@ -373,6 +384,7 @@ def test_codex_adapter_resolves_model_and_effort_from_a_kensaiapp_tier():
         "gpt-5.6-sol",
         "--config",
         'model_reasoning_effort="high"',
+        *_RUN_PROVIDER,
         "do the work",
     )
 
@@ -396,6 +408,7 @@ def test_codex_adapter_resumes_a_thread_with_the_same_tier():
         "gpt-5.6-sol",
         "--config",
         'model_reasoning_effort="xhigh"',
+        *_RUN_PROVIDER,
         "thread-1",
         "next turn",
     )
@@ -565,6 +578,7 @@ def test_codex_background_command_emits_json_lifecycle_events():
         "exec",
         "--approve-for-me",
         "--json",
+        *_RUN_PROVIDER,
         "work",
     )
 
@@ -576,7 +590,31 @@ def test_codex_settings_env_prefixes_the_command():
         RunRequest(prompt="work", settings='{"env":{"A":"1","B":"two words"}}')
     )
 
-    assert command == ("env", "A=1", "B=two words", *bare)
+    config = (
+        "--config", 'shell_environment_policy.set.A="1"',
+        "--config", 'shell_environment_policy.set.B="two words"',
+    )
+    assert command[:3] == ("env", "A=1", "B=two words")
+    rest = list(command[3:])
+    at = rest.index(config[0])
+    assert tuple(rest[at : at + 4]) == config
+    assert tuple(rest[:at] + rest[at + 4 :]) == bare
+
+
+def test_codex_settings_env_reaches_the_commands_codex_starts():
+    """The pin's `core.hooksPath` travels as `GIT_CONFIG_*` in the settings `env`. Under the
+    owner's `shell_environment_policy` (inherit = "core") only a `set` entry reaches the `git` a
+    Codex run starts, so each variable is a `set` entry too — or a Codex commit skips the hooks."""
+    settings = json.dumps({"env": {"GIT_CONFIG_COUNT": "1",
+                                   "GIT_CONFIG_KEY_0": "core.hooksPath",
+                                   "GIT_CONFIG_VALUE_0": "/pin/core/githooks"}})
+
+    command = CodexAdapter().command(RunRequest(prompt="work", settings=settings))
+
+    pairs = list(zip(command, command[1:]))
+    for name, value in (("GIT_CONFIG_COUNT", "1"), ("GIT_CONFIG_KEY_0", "core.hooksPath"),
+                        ("GIT_CONFIG_VALUE_0", "/pin/core/githooks")):
+        assert ("--config", f"shell_environment_policy.set.{name}={json.dumps(value)}") in pairs
 
 
 def test_codex_settings_env_keeps_document_order():
@@ -1063,6 +1101,7 @@ def test_background_codex_uses_a_detached_process_and_returns_its_pid(tmp_path):
                 "exec",
                 "--approve-for-me",
                 "--json",
+                *_RUN_PROVIDER,
                 "work",
             ),
             log_path,
@@ -1169,7 +1208,7 @@ def test_cli_dry_run_prints_the_codex_command():
     assert result.returncode == 0, result.stderr
     assert result.stderr == ""
     assert result.stdout == (
-        "codex exec --approve-for-me --model gpt-5.6-sol "
+        f"codex exec --approve-for-me --model gpt-5.6-sol {_CODEX_RUN} {_CODEX_UV} "
         "--add-dir '/a path' 'work in this repo'\n"
     )
 
@@ -1223,7 +1262,7 @@ def test_cli_dry_run_resolves_a_codex_model_tier():
     assert result.returncode == 0, result.stderr
     assert result.stdout == (
         "codex exec --approve-for-me --model gpt-5.6-terra "
-        "--config 'model_reasoning_effort=\"medium\"' work\n"
+        f"--config 'model_reasoning_effort=\"medium\"' {_CODEX_RUN} {_CODEX_UV} work\n"
     )
 
 
@@ -1317,7 +1356,7 @@ def test_cli_background_dry_run_prints_codex_json_command(tmp_path):
 
     assert result.returncode == 0, result.stderr
     assert result.stdout == (
-        "codex exec --approve-for-me --json work\n"
+        f"codex exec --approve-for-me --json {_CODEX_RUN} {_CODEX_UV} work\n"
     )
     assert not (tmp_path / "run.jsonl").exists()
 
@@ -1677,6 +1716,7 @@ def test_codex_command_is_unchanged():
         "--approve-for-me",
         "--model",
         "gpt-5.6-sol",
+        *_RUN_PROVIDER,
         "--add-dir",
         "/first path",
         "--add-dir",
@@ -1960,7 +2000,9 @@ def test_hooks_in_the_merged_settings_point_into_the_pin(tmp_path, pins_home):
     settings_path = Path(_flag_value(command, "--settings"))
     rendered = settings_path.read_text()
     assert "${CLAUDE_PROJECT_DIR}/.claude/hooks/" not in rendered
+    assert "${CLAUDE_PROJECT_DIR}/core/" not in rendered
     assert str(made.root / ".claude" / "hooks") in rendered
+    assert str(made.core / "tools" / "locked_python.sh") in rendered
 
 
 def test_the_merged_settings_layer_in_order(tmp_path, pins_home):
@@ -3156,3 +3198,27 @@ def test_codex_and_gemini_refuse_xhigh_and_max(adapter, provider, level):
 
     assert provider in str(raised.value)
     assert level.value in str(raised.value)
+
+
+def test_a_codex_run_sets_a_uv_cache_its_sandbox_may_write():
+    command = CodexAdapter("/tmp/uv-cache").command(RunRequest(prompt="work"))
+
+    assert command == (
+        "codex", "exec", "--approve-for-me",
+        *_RUN_PROVIDER,
+        "--config", 'shell_environment_policy.set.UV_CACHE_DIR="/tmp/uv-cache"',
+        "work",
+    )
+
+
+def test_a_resumed_codex_run_keeps_the_uv_cache():
+    command = CodexAdapter("/tmp/uv-cache").command(
+        RunRequest(prompt="next", resume_session_id="thread-1")
+    )
+
+    assert 'shell_environment_policy.set.UV_CACHE_DIR="/tmp/uv-cache"' in command
+
+
+def test_the_registered_codex_adapter_carries_the_sandbox_uv_cache():
+    assert agent_run.ADAPTERS["codex"].uv_cache_dir == agent_run.sandbox_uv_cache()
+    assert agent_run.sandbox_uv_cache().startswith(tempfile.gettempdir())

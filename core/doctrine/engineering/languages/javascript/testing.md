@@ -1,5 +1,5 @@
 ---
-version: "1.1.3"
+version: "1.3.0"
 ---
 
 # JavaScript — testing
@@ -74,6 +74,8 @@ tail. This packet says only what runs it.
   closes both (`conventions.md` § Comments, form 3).
 - **Assertions come from `node:assert/strict`**, so `assert.equal` is `===` without the caller having
   to remember to reach for `strictEqual`.
+- **A unit test hands the function a hand-written fake through the parameter production passes the real collaborator through.** The fake is a plain object or function made by a factory written once in `tests/fakes/` (`testing_doctrine.md` § A fake is verified against its port's contract), and it records what it received so the test can assert on it. A test never replaces a module the subject imports, because that edits the subject rather than mocking it: "Reach a collaborator through a seam; never patch the subject" (`testing_doctrine.md` § Layers 1–5 — Code-Time (TDD)). What a unit test may touch is `testing_doctrine.md` § A unit test hands its unit fakes and touches nothing real, and this file restates none of it. This idiom is the packet author's call, 2026-11-04.
+- **A fake is verified by a contract suite, by `testing_doctrine.md` § A fake is verified against its port's contract.** In JavaScript the fakes live in a test-support folder, `tests/fakes/`, each as a factory that returns a fresh recording object, so each test makes and seeds its own. The suite is a function that takes a factory and declares the port's tests with `node:test`'s `test`, exported beside the fake and called from a layer-2 test file twice: once with a factory for the real adapter, writing only inside a temporary directory the test makes, and once with the fake's. **JavaScript has no unit-tier sandbox:** nothing refuses a real resource in a unit test while it runs, so the seam and review hold the rule.
 
 ## Testing a file that is not an importable module
 

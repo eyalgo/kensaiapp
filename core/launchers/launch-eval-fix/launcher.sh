@@ -2,6 +2,7 @@
 #
 # launcher.sh (launch-eval-fix) — deterministic, pollution-proof launcher for the eval-fix pass.
 #
+# Version: 1.13.1 — launchers run on the locked Python
 # Version: 1.13.0 — the other six launchers run on the package's turn-on
 # Version: 1.12.1 — launchers and launch scripts take a portable mktemp template, so they run on Linux
 # Version: 1.12.0 — the providers file lives in the instance — each instance reads its own .providers.toml, and a tracked .providers.toml.example is the template
@@ -151,13 +152,13 @@ esac
 [ -f "$PROVIDERS_TOOL" ] || die "no provider reader at $PROVIDERS_TOOL"
 [ -f "$RUN_INTELLIGENCE" ] || die "no intelligence resolver at $RUN_INTELLIGENCE"
 provider_err="$(mktemp "${TMPDIR:-/tmp}/kensaiapp-eval-fix-provider.XXXXXX")"
-provider="$(python3 "$PROVIDERS_TOOL" launcher launch-eval-fix --instance-root "$INSTANCE_ROOT" --accept claude 2>"$provider_err")" && rc=0 || rc=$?
+provider="$("$CORE_DIR/tools/locked_python.sh" "$PROVIDERS_TOOL" launcher launch-eval-fix --instance-root "$INSTANCE_ROOT" --accept claude 2>"$provider_err")" && rc=0 || rc=$?
 provider_msg="$(cat "$provider_err")"
 rm -f "$provider_err"
 [ "$rc" -eq 0 ] || die "${provider_msg:-could not read the provider for the launch-eval-fix launcher}"
 
 resolved_err="$(mktemp "${TMPDIR:-/tmp}/kensaiapp-resolve-err.XXXXXX")"
-resolved="$(python3 "$RESOLVER" "$skill" --root "$INSTANCE_ROOT" 2>"$resolved_err")" && rc=0 || rc=$?
+resolved="$("$CORE_DIR/tools/locked_python.sh" "$RESOLVER" "$skill" --root "$INSTANCE_ROOT" 2>"$resolved_err")" && rc=0 || rc=$?
 case $rc in
   0) skill_dir="$resolved" ;;
   3) die "no skill at $INSTANCE_ROOT (is '$skill' a real skill in this instance?)" ;;
@@ -202,7 +203,7 @@ fi
 
 # --- stand down while a benchmark round is running ----------------------------------
 if [ -z "$force" ] && [ -z "$dry_run" ]; then
-  held="$(python3 "$LOCK_TOOL" --repo "$INSTANCE_ROOT" holder 2>/dev/null || true)"
+  held="$("$CORE_DIR/tools/locked_python.sh" "$LOCK_TOOL" --repo "$INSTANCE_ROOT" holder 2>/dev/null || true)"
   if [ -n "$held" ]; then
     echo "launch-eval-fix: an eval round is running — $held" >&2
     die "this pass edits skills, and a skill edited mid-benchmark makes that round's numbers describe a skill that never existed. Wait for it, or pass --force if you mean it."
@@ -224,7 +225,7 @@ prompt="Run the saved workflow named 'eval-fix' by invoking the Workflow tool wi
 #   its seat, so that skill's intelligence is never read. The resolver is asked with no skill and
 #   no tier and answers `default` with an empty pair — asked rather than assumed, so the stamp
 #   below is the one answer every instrumented launcher's stamp comes from.
-resolution="$(python3 "$RUN_INTELLIGENCE" --provider "$provider")" \
+resolution="$("$CORE_DIR/tools/locked_python.sh" "$RUN_INTELLIGENCE" --provider "$provider")" \
   || die "could not resolve the run's intelligence through $RUN_INTELLIGENCE"
 run_model="$(printf '%s\n' "$resolution" | sed -n 's/^model=//p')"
 run_effort="$(printf '%s\n' "$resolution" | sed -n 's/^effort=//p')"
@@ -247,7 +248,7 @@ fi
 #   The Claude argv comes from the one adapter, never assembled here (Task 17) — the pin was
 #   entered right after the CORE_DIR guard above. No --agent (see WHY NO --agent ABOVE): the
 #   workflow spawns its own postures, so none is passed to the adapter either.
-claude_cmd=(python3 "$CORE_DIR/tools/agent_run.py" --provider "$provider" --shape background --pin auto
+claude_cmd=("$CORE_DIR/tools/locked_python.sh" "$CORE_DIR/tools/agent_run.py" --provider "$provider" --shape background --pin auto
   --instance-root "$INSTANCE_ROOT" --prompt "$prompt")
 [ -n "${INSTRUMENT_RUN_SETTINGS:-}" ] && claude_cmd+=(--settings "$INSTRUMENT_RUN_SETTINGS")
 claude_cmd+=(--print-argv)
@@ -264,7 +265,7 @@ if [ -n "$dry_run" ]; then
   exit 0
 fi
 
-ids_before="$(python3 "$WATCHER" --list-ids --cwd "$INSTANCE_ROOT" 2>/dev/null || true)"
+ids_before="$("$CORE_DIR/tools/locked_python.sh" "$WATCHER" --list-ids --cwd "$INSTANCE_ROOT" 2>/dev/null || true)"
 
 echo "Launching eval-fix pass for '$skill' over iteration-$settled (background)…"
 # stdout is captured so the id `claude --bg` prints at launch can be read off it, then echoed

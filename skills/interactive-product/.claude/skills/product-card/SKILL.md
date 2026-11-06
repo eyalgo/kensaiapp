@@ -21,7 +21,7 @@ description: >-
 license: MIT
 metadata:
   author: Eyal Golan
-  version: "1.3.2"
+  version: "1.5.0"
   created: "2026-09-05"
   category: product-definition
   tags: card, readme, principal-pm, foundation-step, language-roots, product-card
@@ -97,7 +97,7 @@ end.
   nothing to read and the card would carry a guess.
 - **The rest of `<Product path>/docs/`** — read it by **listing the directory**, not by recalling
   filenames. Whatever else is there is input the run is entitled to. Skip binary assets.
-- **`system/projects/<name>/agari.md`** — the declared terminus. It bounds what the README may
+- **`system/projects/<name>/finish_line.md`** — the declared terminus. It bounds what the README may
   promise. Absent or still the stamped placeholder: record it in the report and derive best-effort;
   never halt.
 - **`<CORE>/templates/project_template.md`** — the grammar of every card field, in that field's own
@@ -171,10 +171,10 @@ stages by hand.
   from an interactive `principal-pm:` session with no agent named,
   `--role "Principal PM" --skill product-card`.
 - **And `--prompt product-card/rich`**, naming the body this skill carries.
-- **The directional** is `Agari:` or `Shukuba:`, resolved against
+- **The directional** is `Finish-line:` or `Shukuba:`, resolved against
   `<CORE>/doctrine/governance/commit_format.md` § *Directional trailer* — the trailer follows the
   commit's scope. Both files are project-scoped, and this step runs upstream of the delivery loop, so
-  a project with no open station resolves to its Agari. The same directional rides both commits: the
+  a project with no open station resolves to its finish line. The same directional rides both commits: the
   product repo carries no `system/projects/`, and the builder reports that referent as uncheckable
   rather than wrong.
 

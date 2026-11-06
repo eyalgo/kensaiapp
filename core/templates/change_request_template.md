@@ -1,7 +1,7 @@
 # Change request — <key>
 
 *The PM-minted intake for one **飛び石 Tobiishi** — the single change the chain
-(`core/launchers/chain-development/launcher.sh <project>` → `core/tools/chain_development.py`) carries
+(`core/launchers/change/launcher.sh <project>` → `core/tools/chain_development.py`) carries
 through the pipeline. Lives at `system/projects/<name>/journey/tobiishi/<key>/change_request.md` (`<key>` =
 `<YYYY-MM-DD>_<slug>`). The PM writes this when opening the Tobiishi, through `tobiishi-open`; `development-specs`
 reads it as the pipeline's first input — it does **not** coin the key or scan a queue. **No `Project:`

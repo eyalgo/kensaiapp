@@ -174,9 +174,9 @@ confirmation; Locked Answers Gap 4 expressly permits moving that witness.
 
 ### Previous-change fence verdict
 
-Ran `git -C <instance-worktree> diff --name-only e97b021f0 e0b0f245d -- products/tracker17`:
+Ran `git -C <instance-worktree> diff --name-only <a commit not in the public history> <a commit not in the public history> -- products/tracker17`:
 its twelve paths are exactly the CP-349 allowance. Ran
-`git -C <instance-worktree> diff e97b021f0 e0b0f245d -- products/tracker17/domain/workflow.py`:
+`git -C <instance-worktree> diff <a commit not in the public history> <a commit not in the public history> -- products/tracker17/domain/workflow.py`:
 the only hunk, `@@ -7,14 +7,18 @@`, is inside the opening docstring. The allow-list comparison
 printed `Previous-change file fence: PASS; no paths outside CP-349 list`; an AST-delimited
 body comparison printed `Workflow body comparison: PASS; bytes after opening docstring match`.

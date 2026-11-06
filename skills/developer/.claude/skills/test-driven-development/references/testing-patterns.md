@@ -96,19 +96,19 @@ expect(mockFn).toHaveBeenCalledWith('arg1', 'arg2');
 expect(mockFn).toHaveBeenCalledTimes(3);
 ```
 
-### Mock Modules
+### Hand the Mock In
+
+The function takes its collaborators as parameters, and the test passes the mock in. Never `jest.mock` a module the subject imports: that edits the subject rather than mocking it (`<CORE>/doctrine/engineering/languages/javascript/testing.md`, `<CORE>/doctrine/engineering/languages/typescript/testing.md`).
 
 ```typescript
-// Mock an entire module
-jest.mock('./database', () => ({
-  query: jest.fn().mockResolvedValue([{ id: 1, title: 'Test' }]),
-}));
+// listTasks(db, generateId) is handed both collaborators
+const db = { query: jest.fn().mockResolvedValue([{ id: 1, title: 'Test' }]) };
+const generateId = jest.fn().mockReturnValue('test-id');
 
-// Mock specific exports
-jest.mock('./utils', () => ({
-  ...jest.requireActual('./utils'),
-  generateId: jest.fn().mockReturnValue('test-id'),
-}));
+const tasks = await listTasks(db, generateId);
+
+expect(tasks).toEqual([{ id: 1, title: 'Test' }]);
+expect(db.query).toHaveBeenCalledTimes(1);
 ```
 
 ### Mock at Boundaries Only

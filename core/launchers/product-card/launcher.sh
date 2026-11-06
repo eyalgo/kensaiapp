@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # product-card — the owner's one move after the foundation step settles: the card, then the skeleton.
 #
+# Version: 1.13.1 — launchers run on the locked Python
 # Version: 1.13.0 — the other six launchers run on the package's turn-on
 # Version: 1.12.3 — Python floor is 3.13 everywhere, product-card --keep-awake runs where caffeinate is absent, and .env.example says its launcher settings come from the environment
 # Version: 1.12.2 — re-running the card leaves a built product's code alone — the skeleton places a frame whole or not at all
@@ -130,7 +131,7 @@ project_md="$INSTANCE_ROOT/system/projects/$project/project.md"
 [ -f "$PROVIDERS_TOOL" ] || die "no provider reader at $PROVIDERS_TOOL"
 [ -f "$RUN_INTELLIGENCE" ] || die "no intelligence resolver at $RUN_INTELLIGENCE"
 provider_err="$(mktemp "${TMPDIR:-/tmp}/kensaiapp-product-card-provider.XXXXXX")"
-provider="$(python3 "$PROVIDERS_TOOL" launcher product-card --instance-root "$INSTANCE_ROOT" --accept claude 2>"$provider_err")" && rc=0 || rc=$?
+provider="$("$CORE_DIR/tools/locked_python.sh" "$PROVIDERS_TOOL" launcher product-card --instance-root "$INSTANCE_ROOT" --accept claude 2>"$provider_err")" && rc=0 || rc=$?
 provider_msg="$(cat "$provider_err")"
 rm -f "$provider_err"
 [ "$rc" -eq 0 ] || die "${provider_msg:-could not read the provider for the product-card launcher}"
@@ -175,7 +176,7 @@ prompt="invoke the product-card skill for the ${project} project."
 #   Unlike the skill launcher's own Claude path (Task 13), this --add-dir is NOT dropped for the
 #   pin's plugin — the design (Sub-job I) names only product-sdd, launch-audit and the experience/
 #   writing-bar seat groups for that drop; this one passes through as today.
-setup_dir="$(python3 "$CORE_DIR/tools/skill_path.py" product-card --root "$SKILLS_ROOT" 2>/dev/null || true)"
+setup_dir="$("$CORE_DIR/tools/locked_python.sh" "$CORE_DIR/tools/skill_path.py" product-card --root "$SKILLS_ROOT" 2>/dev/null || true)"
 add_dir=""
 case "$setup_dir" in
   "$SKILLS_ROOT/skills/"*"/.claude/skills/product-card") add_dir="${setup_dir%/.claude/skills/product-card}" ;;
@@ -191,7 +192,7 @@ own_skill_dir="$setup_dir"
 resolution_args=(--provider "$provider")
 [ -z "$own_skill_dir" ] || resolution_args+=(--skill-dir "$own_skill_dir")
 resolution_err="$(mktemp "${TMPDIR:-/tmp}/kensaiapp-product-card-intelligence.XXXXXX")"
-resolution="$(python3 "$RUN_INTELLIGENCE" "${resolution_args[@]}" 2>"$resolution_err")" && rc=0 || rc=$?
+resolution="$("$CORE_DIR/tools/locked_python.sh" "$RUN_INTELLIGENCE" "${resolution_args[@]}" 2>"$resolution_err")" && rc=0 || rc=$?
 resolution_msg="$(cat "$resolution_err")"
 rm -f "$resolution_err"
 [ "$rc" -eq 0 ] || die "${resolution_msg:-$RUN_INTELLIGENCE answered no model, effort or source}"
@@ -219,7 +220,7 @@ fi
 #   right after the CORE_DIR guard above. INSTRUMENT_RUN_SETTINGS is handed to the adapter as the
 #   caller's own --settings rather than appended a second time, since it folds into the pin's one
 #   merged document.
-claude_cmd=(python3 "$CORE_DIR/tools/agent_run.py" --provider "$provider" --shape print --pin auto
+claude_cmd=("$CORE_DIR/tools/locked_python.sh" "$CORE_DIR/tools/agent_run.py" --provider "$provider" --shape print --pin auto
   --instance-root "$INSTANCE_ROOT" --prompt "$prompt" --agent principal-pm
   --grant-skill product-card)
 [ -z "$run_model" ] || claude_cmd+=(--model "$run_model")

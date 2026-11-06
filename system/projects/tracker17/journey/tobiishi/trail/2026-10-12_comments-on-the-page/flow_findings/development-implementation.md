@@ -1,6 +1,6 @@
 # Flow Findings — development-implementation  (audited 2026-10-12)
 
-Findings for this step's output only, produced by the `development-audit` skill. Audited at the closing commit `560c28c62`; code-integrity's `2fae8c166` was read as input.
+Findings for this step's output only, produced by the `development-audit` skill. Audited at the closing commit `<a commit not in the public history>`; code-integrity's `<a commit not in the public history>` was read as input.
 Change-local findings live here; skill-general findings are also raised as kaizen items.
 
 Held: language resolves to Python and matches `project.md` `Languages:`; the six packet concerns each have a per-concern line, and the quotes I opened (toolchain.md:17, layout.md:17 and :64, quality_gates.md:14, :33, :62, conventions.md:17, :46, :49, :76, :82, :92, :143, :152, errors_logging.md:12, :74, testing_python.md:17, :29, :31) are verbatim at the lines named. The Step 1b block is present with both counts; spot-checked instruction assertions in `test_comment_post_normalizes_line_breaks_before_domain_counting` and `test_comment_failed_save_keeps_data_and_retains_the_field` against their `#### Behaviours to verify` lines and each asserts what it lists. Placement of the domain and application logic matches `docs/SDD.md` § 3 and the code-integrity **Placement** entries; no misplacement found (lens 9).

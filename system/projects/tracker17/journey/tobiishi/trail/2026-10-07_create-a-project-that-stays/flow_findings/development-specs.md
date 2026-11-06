@@ -3,7 +3,7 @@
 Findings for this step's output only, produced by the `development-audit` skill.
 Change-local findings live here; skill-general findings are also raised as kaizen items.
 
-Lenses 3 (classification copied verbatim: `feature` / `changing`), 5, 6 and 8 found nothing. The Verified Claims section is present and its commands ran; commit `311cd4b6b` is an ancestor of the change branch.
+Lenses 3 (classification copied verbatim: `feature` / `changing`), 5, 6 and 8 found nothing. The Verified Claims section is present and its commands ran; commit `<a commit not in the public history>` is an ancestor of the change branch.
 
 - **[non-blocking · change-local · evidence-that-could-have-failed]** CP-14's whitespace set ("every character Unicode classes as whitespace") is justified by a run of Python's `str.isspace()`/`strip()`, which is a different set. Run here, `isspace()` is true for U+001C–U+001F, and those four are not Unicode White_Space. The claim was run, but about a different system than the rule states. Where: `change_spec.md` CP-14, §Verified Claims (tracker16-X row), §Locked Answers Gap 13. Direction: state the set by an observable property (the blank-name examples) rather than a Unicode class, or verify against the stated class.
 - **[non-blocking · change-local · altitude]** The Gap 13 rationale names a mechanism (`str.strip()`, the line `if not name.strip():` in tracker16-X source). It sits in `## Locked Answers`, which lens 2 holds to PO altitude. Where: `change_spec.md` §Locked Answers Gap 13. Direction: keep the mechanism in Verified Claims and state the rationale as the set of characters refused.

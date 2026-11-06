@@ -19,7 +19,7 @@
   `test_data_is_ignored_by_version_control`, which runs `git check-ignore` and cannot pass outside a
   repository — a property of the copy, not the product. `tests/architecture/test_trace.py` passed
   7 of 7 there. The end-to-end suite could not be run on this machine (no Playwright installed);
-  its green stands on `691edf98b` (9 passed, exit 0), and `git diff --stat 691edf98b HEAD --
+  its green stands on `<a commit not in the public history>` (9 passed, exit 0), and `git diff --stat <a commit not in the public history> HEAD --
   products/tracker17 ':!products/tracker17/docs'` printed nothing, so the code it ran against is the
   code on `main`.
 
@@ -125,7 +125,7 @@ not apply.
   *Nothing settled moves (check 3).* § 11 R-2 already places the three focus tests in "the first,
   second and fourth slices" (`SDD.md:1131-1132`), so narrowing the open question to the second and
   fourth is what R-2 says. RT-10's statements from the HTML standard stay as the standard's; this
-  answer neither relies on nor re-reads them. The e2e green is `691edf98b` (9 passed, exit 0) and the
+  answer neither relies on nor re-reads them. The e2e green is `<a commit not in the public history>` (9 passed, exit 0) and the
   product code has not moved since (Header).
 
   *Failure paths (check 4).* *Stale*: a Chromium release could change either behaviour; both tests

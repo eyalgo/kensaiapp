@@ -27,12 +27,12 @@ state a real `product-prd` run leaves behind — the same shape the CDO reads wh
 - `docs/product_request.md` — the raw owner brief.
 - (the answered `PRD_open_issues.md` is **deleted** when the PRD loop closed — absent by design.)
 
-Beside `docs/`, each fixture also carries **`agari.md`** — the project's declared terminus, which
-`product-uxd` reads as the boundary it scopes against. In a real instance the Agari sits in the
-project folder (`system/projects/<name>/agari.md`) while the product lives elsewhere; the fixtures
+Beside `docs/`, each fixture also carries **`finish_line.md`** — the project's declared terminus, which
+`product-uxd` reads as the boundary it scopes against. In a real instance the finish line sits in the
+project folder (`system/projects/<name>/finish_line.md`) while the product lives elsewhere; the fixtures
 collapse the two, exactly as they already do for `project.md`.
 
-**The eval prompts deliberately never mention `agari.md`.** They name the binding and say to read
+**The eval prompts deliberately never mention `finish_line.md`.** They name the binding and say to read
 the product input; only the skill's own intake knows the terminus is there. That is what keeps the
 terminus assertion discriminating — a prompt that named the file would hand the behavior to the
 baseline and grade the instruction instead of the skill.
@@ -70,7 +70,7 @@ The full-input shape, no UXD yet — the run authors one.
   *choice* carries the literal `Confirm or override` slot; entries are typed `UX-…` IDs with an inline
   `(→ PRD …)` trace tag; and the UXD's `Status:` line reads `Draft`, since items remain open (`Locked`
   is ratification, which the skill never writes). It also carries **`scope-names-the-terminus`**:
-  mailmate's `agari.md` declares done as one paying team running a full billing cycle and puts the
+  mailmate's `finish_line.md` declares done as one paying team running a full billing cycle and puts the
   adoption and retention numbers outside it, so an *Out of Scope* section scoped against that terminus
   reads differently from one scoped against the PRD alone — which is all a baseline has, since the
   prompt never says the file exists.

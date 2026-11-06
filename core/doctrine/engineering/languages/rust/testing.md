@@ -1,5 +1,5 @@
 ---
-version: "1.0.1"
+version: "1.1.0"
 ---
 
 # Rust — testing
@@ -87,6 +87,18 @@ allowed to re-resolve dependencies is a run against a tree nobody reviewed.
   cost less in Rust than elsewhere** is that a unit constructing its own collaborator leaves a test no
   door at all, so the shape the doctrine calls a defect shows up as a test that cannot be written
   rather than as a test that quietly patches its subject.
+- **A fake is verified by a contract suite, by `testing_doctrine.md` § A fake is verified against its port's contract.** In Rust the fakes
+  live in the library crate as `#[cfg(any(test, feature = "testing"))] pub mod fakes`, and the crate
+  names itself under `[dev-dependencies]` with `features = ["testing"]`, so the module's own unit
+  tests and the `tests/` files both reach them while a release build carries none, since `testing`
+  is in no default feature (measured 2026-11-04 on edition 2021: a unit test and a `tests/` file
+  both reached the fake, and `cargo build --release` compiled without it). The suite is a generic
+  function over the port's trait — for a port trait named, say, `Files`, `fn files_contract<F:
+  Files>(make: impl Fn() -> F)` — whose body asserts the port's behaviour. It lives in a layer-2
+  file, `tests/<area>.rs`, and is called there from two `#[test]` functions: one with the real
+  adapter, in a directory the test makes under `std::env::temp_dir()`, and one with the fake. **Rust
+  has no unit-tier sandbox:** nothing refuses a real resource in a unit test while it runs, so the
+  seam and review hold the rule.
 
 ## Doc tests sit outside the seven layers
 

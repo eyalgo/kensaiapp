@@ -13,10 +13,14 @@ from __future__ import annotations
 import contextlib
 import copy
 import dataclasses
+import glob
 import itertools
 import os
 import re
-from pathlib import Path
+import select
+import shutil
+import signal
+from pathlib import Path, PurePosixPath
 
 import pytest
 
@@ -169,8 +173,29 @@ INSTANCE_SHARE = {"host": "/work/instance", "guest": "/Volumes/My Shared Files/i
 GUEST = {"name": "swift-guest", "shares": [PRODUCTS_SHARE, INSTANCE_SHARE]}
 
 
+def guest_of(raw: dict | None) -> "gate_suite.Guest | None":
+    """The guest a login job of this name and shares starts, as `GuestJob` would read it."""
+    if not raw:
+        return None
+    return gate_suite.Guest(raw["name"], tuple(gate_suite.Share(share["host"], share["guest"])
+                                               for share in raw.get("shares", ())))
+
+
+class FakeGuestJob:
+    """The host's login job, standing in for `GuestJob`: `value` is the guest it starts."""
+
+    def __init__(self, guest: "gate_suite.Guest | None" = None) -> None:
+        self.value = guest
+
+    def guest(self) -> "gate_suite.Guest | None":
+        return self.value
+
+
+HOST_GUEST = guest_of(GUEST)
+
+
 def raw_input(ci=None, languages=("python",), override=None, amd64=None, candidates=None,
-              guest=GUEST, declared=None) -> dict:
+              guest=None, declared=None) -> dict:
     wanted = list(languages)
     return {
         "languages": {"declared": declared if declared is not None else wanted, "invoked": None},
@@ -182,10 +207,11 @@ def raw_input(ci=None, languages=("python",), override=None, amd64=None, candida
     }
 
 
-def request_from(raw: dict | None, files: FakeFiles | None = None):
+def request_from(raw: dict | None, files: FakeFiles | None = None,
+                 guest: "gate_suite.Guest | None" = HOST_GUEST):
     return gate_suite.parse_request(
         copy.deepcopy(raw), files=files or standard_files(), product_checkout=PRODUCT,
-        language_root=PRODUCT, core_root=CORE, project=PROJECT)
+        language_root=PRODUCT, core_root=CORE, project=PROJECT, guest_job=FakeGuestJob(guest))
 
 
 def resolve(raw: dict | None, owners_ask: bool = False, files: FakeFiles | None = None):
@@ -637,9 +663,12 @@ MAPPED = "/Volumes/My Shared Files/instance/.worktrees/key1"
 SCRATCH = f"/tmp/kensaiapp-gate-suite-{TOKEN}"
 # The copy is streamed from the host, never read through the share: the guest's view of a share
 # goes stale for a file the host replaced, and a copy read through it fails on that file.
-COPY = (f"rm -rf /tmp/kensaiapp-gate-suite-* && mkdir {shlex.quote(SCRATCH)} && "
+# Each removal first stops what a suite left running from the copies it removes (`stop_leftovers`).
+COPY = (f"{gate_suite.stop_leftovers(gate_suite.from_any_copy())}; "
+        f"rm -rf /tmp/kensaiapp-gate-suite-* && mkdir {shlex.quote(SCRATCH)} && "
         f"tar -C {shlex.quote(SCRATCH)} -xf -")
-CLEAN = f"rm -rf {shlex.quote(SCRATCH)}"
+CLEAN = (f"{gate_suite.stop_leftovers(gate_suite.from_copy(SCRATCH))}; "
+         f"rm -rf {shlex.quote(SCRATCH)}")
 
 
 def packed(folder: str, *excluded: str) -> list[str]:
@@ -781,7 +810,8 @@ class FakeProcesses:
 
 class Harness:
     def __init__(self, *, card: str | None = None, kind: str = "relative",
-                 run_folder: str | None = None, guest_lock=None) -> None:
+                 run_folder: str | None = None, guest_lock=None,
+                 guest: "gate_suite.Guest | None" = HOST_GUEST) -> None:
         self.events = Events()
         self.contract = contract(kind, run_folder)
         product_root = Path(self.contract["product_worktree"])
@@ -793,12 +823,13 @@ class Harness:
             card if card is not None else card_text())
         self.processes = FakeProcesses(self.events)
         self.lock = guest_lock if guest_lock is not None else FakeGuestLock(self.events)
+        self.guest_job = FakeGuestJob(guest)
         self.out = RecordingStream(self.events, "stdout")
         self.err = RecordingStream(self.events, "stderr")
         self.host = gate_suite.Host(
             files=self.files, contract=lambda worktree, project, key: self.contract,
             processes=self.processes, new_token=lambda: TOKEN, core_root=CORE,
-            guest_lock=self.lock)
+            guest_lock=self.lock, guest_job=self.guest_job)
 
     def run(self, gate: str = "developer", raw: dict | None = None, owners_ask: bool = False):
         return gate_suite.run_gate(gate=gate, worktree=WORKTREE, project=PROJECT, key="key1",
@@ -810,8 +841,15 @@ class Harness:
         return self.out.getvalue().split("\n")[0]
 
 
-def guest_raw(guest: dict | None = None) -> dict:
-    return raw_input(ci=ci_readable("macos"), guest=guest if guest is not None else GUEST)
+def guest_raw() -> dict:
+    """A plan for a macOS CI. It gives no guest: the host's login job does (`Harness.guest_job`)."""
+    return raw_input(ci=ci_readable("macos"))
+
+
+def with_guest(harness: "Harness", guest: dict | None) -> "Harness":
+    """`harness` whose login job starts `guest` (a name and shares, as `GUEST` is written)."""
+    harness.guest_job.value = guest_of(guest)
+    return harness
 
 
 def container_raw(**kwargs) -> dict:
@@ -973,11 +1011,11 @@ def test_readiness_failure_podman_stopped_unavailable_and_missing():
 
 
 def test_a_run_given_no_guest_is_unreachable_not_a_fallback():
-    harness = Harness()
-    result = harness.run(raw=raw_input(ci=ci_readable("macos"), guest=None))
+    harness = Harness(guest=None)
+    result = harness.run(raw=guest_raw())
     assert result.status != 0 and harness.processes.issued == []
-    assert harness.first_line == f"Environment: macos-guest {DASH} no guest given"
-    assert "gate_suite: this run was given no macOS guest to run in." in harness.err.getvalue()
+    assert harness.first_line == f"Environment: macos-guest {DASH} {gate_suite.NO_GUEST}"
+    assert gate_suite.NO_GUEST_LINE in harness.err.getvalue()
     assert harness.processes.probes == []
 
 
@@ -1023,13 +1061,9 @@ def _guest_outcomes() -> dict:
                              result=gate_suite.Completed(1, "", ""))
     invisible.run(raw=guest_raw())
     outcomes["invisible token"] = invisible
-    unshared = Harness()
-    unshared.run(raw=guest_raw({"name": "swift-guest", "shares": [PRODUCTS_SHARE]}))
+    unshared = with_guest(Harness(), {"name": "swift-guest", "shares": [PRODUCTS_SHARE]})
+    unshared.run(raw=guest_raw())
     outcomes["unshared"] = unshared
-    malformed = Harness()
-    with pytest.raises(gate_suite.InputError):
-        malformed.run(raw=guest_raw({"name": "swift-guest", "shares": "nope"}))
-    outcomes["malformed"] = malformed
     return outcomes
 
 
@@ -1228,24 +1262,131 @@ def test_the_real_files_name_a_linked_worktrees_git_data_and_nothing_for_a_git_f
     assert files.linked_git_dirs(tmp_path) is None
 
 
+class FakeTarPipe:
+    """The processes seam's `pipe` for the copy of a checkout, with no process started: the host's
+    `tar` that packs and the guest's shell that unpacks are read, and the files they name are
+    copied in Python. So the copy follows from what `_copy_to_guest_disk` asked for, and GNU
+    `tar`, which refuses the macOS-only `--no-mac-metadata`, never runs.
+
+    What it reads is a closed set, and anything else fails the test naming it: a fake that left
+    an argument unread would build the copy without it, and a change to what the code asks for
+    would pass unnoticed. The guest's leftover-stop (the text before the last `;`) is recorded and
+    not acted on: it stops processes an earlier copy left, and the local guest has none."""
+
+    def __init__(self) -> None:
+        self.pipes: list[tuple[list[str], list[str], str]] = []
+
+    def pipe(self, producer: list[str], consumer: list[str], *,
+             cwd: str) -> gate_suite.Completed:
+        self.pipes.append((producer, consumer, cwd))
+        folder, excluded = self._read_producer(producer, cwd)
+        if len(consumer) != 3 or consumer[:2] != ["sh", "-c"]:
+            self._unread("consumer", consumer)
+        for step in consumer[2].rsplit(";", 1)[-1].split("&&"):
+            failure = self._run_step(shlex.split(step), folder, excluded)
+            if failure is not None:
+                return gate_suite.Completed(1, "", failure)
+        return gate_suite.Completed(0, "", "")
+
+    @staticmethod
+    def _unread(what: str, text: object) -> None:
+        raise AssertionError(f"FakeTarPipe does not read this {what}: {text!r}")
+
+    def _read_producer(self, producer: list[str],
+                       cwd: str) -> tuple[Path, list[PurePosixPath]]:
+        """The folder `tar` packs and the paths below it that it leaves out."""
+        if producer[:1] != ["tar"] or producer[-3:] != ["-cf", "-", "."]:
+            self._unread("producer", producer)
+        arguments = producer[1:-3]
+        folder = None
+        excluded = []
+        position = 0
+        while position < len(arguments):
+            argument = arguments[position]
+            if argument == "-C" and folder is None and position + 1 < len(arguments):
+                folder = Path(cwd) / arguments[position + 1]
+                position += 2
+            elif argument == "--no-mac-metadata":
+                position += 1
+            elif argument == "--exclude" and position + 1 < len(arguments):
+                excluded.append(self._excluded_path(arguments[position + 1]))
+                position += 2
+            else:
+                self._unread("producer argument", argument)
+        if folder is None:
+            self._unread("producer, which names no folder", producer)
+        return folder, excluded
+
+    def _excluded_path(self, pattern: str) -> PurePosixPath:
+        """The path an anchored `^./` pattern names, with `build_output`'s `\\` escapes undone."""
+        if not pattern.startswith("^./"):
+            self._unread("exclude pattern, which is not anchored with `^./`", pattern)
+        path = ""
+        characters = iter(pattern[len("^./"):])
+        for character in characters:
+            if character == "\\":
+                character = next(characters, None)
+                if character is None:
+                    self._unread("exclude pattern, which ends in a lone `\\`", pattern)
+            elif character in "*?[":
+                self._unread("exclude pattern, which holds an unescaped glob character", pattern)
+            path += character
+        return PurePosixPath(path)
+
+    def _run_step(self, step: list[str], folder: Path,
+                  excluded: list[PurePosixPath]) -> str | None:
+        """One step of the guest's `&&` chain: None when it succeeded, else its one-line error."""
+        if len(step) == 3 and step[:2] == ["rm", "-rf"]:
+            for match in glob.glob(step[2]):
+                if Path(match).is_dir() and not Path(match).is_symlink():
+                    shutil.rmtree(match)
+                else:
+                    os.unlink(match)
+            return None
+        if len(step) == 2 and step[0] == "mkdir":
+            try:
+                Path(step[1]).mkdir()
+            except OSError as error:
+                return f"mkdir: {step[1]}: {error.strerror}"
+            return None
+        if step[:2] == ["tar", "-C"] and len(step) == 5 and step[3:] == ["-xf", "-"]:
+            if not Path(step[2]).is_dir():
+                return f"tar: {step[2]}: Cannot chdir: No such file or directory"
+            shutil.copytree(folder, step[2], symlinks=True, dirs_exist_ok=True,
+                            ignore=self._leaving_out(folder, excluded))
+            return None
+        return self._unread("guest step", step)
+
+    @staticmethod
+    def _leaving_out(folder: Path, excluded: list[PurePosixPath]):
+        """The `ignore` of `copytree`: a name whose path below `folder` is an excluded one is
+        dropped, and with it everything below it, because `copytree` does not enter it."""
+        def ignore(directory: str, names: list[str]) -> list[str]:
+            below = PurePosixPath(Path(directory).relative_to(folder).as_posix())
+            return [name for name in names if below / name in excluded]
+        return ignore
+
+
 def test_git_ls_files_in_the_copy_of_a_linked_worktree_exits_0(tmp_path):
-    """The finding's case end to end, with real tar and real git: the guest is this host, its
-    `tart exec -i` prefix dropped and its scratch folder moved under the test's own folder."""
+    """The finding's case end to end, with the tar streams answered by the fake and real git: the
+    guest is this host, its `tart exec -i` prefix dropped and its scratch folder moved under the
+    test's own folder."""
     _main, worktree = _repository_with_a_worktree(tmp_path)
     (worktree / "checks" / "new.sh").write_text("echo new\n")
     _git("add", "checks/new.sh", cwd=worktree)
     guest_disk = tmp_path / "guest" / "kensaiapp-gate-suite-"
     guest_disk.parent.mkdir()
-    real = gate_suite._RealProcesses()
+    tar_pipe = FakeTarPipe()
 
     class LocalGuest:
         def pipe(self, producer, consumer, *, cwd):
             assert consumer[:4] == ["tart", "exec", "-i", "g"]
             text = consumer[-1].replace(gate_suite.GUEST_SCRATCH_PREFIX, str(guest_disk))
-            return real.pipe(producer, ["sh", "-c", text], cwd=cwd)
+            return tar_pipe.pipe(producer, ["sh", "-c", text], cwd=cwd)
 
     host = gate_suite.Host(files=gate_suite._RealFiles(), contract=None, processes=LocalGuest(),
-                           new_token=None, core_root=CORE, guest_lock=None)
+                           new_token=None, core_root=CORE, guest_lock=None,
+                           guest_job=FakeGuestJob())
     gate_suite._copy_to_guest_disk(host, gate_suite.Guest("g", ()), str(worktree),
                                    f"{gate_suite.GUEST_SCRATCH_PREFIX}t")
     copy = Path(f"{guest_disk}t")
@@ -1266,15 +1407,16 @@ def test_the_main_checkouts_own_state_does_not_reach_a_worktrees_copy(tmp_path):
     (Path(_git("rev-parse", "--git-dir", cwd=worktree).strip()) / "index").unlink()
     guest_disk = tmp_path / "guest" / "kensaiapp-gate-suite-"
     guest_disk.parent.mkdir()
-    real = gate_suite._RealProcesses()
+    tar_pipe = FakeTarPipe()
 
     class LocalGuest:
         def pipe(self, producer, consumer, *, cwd):
             text = consumer[-1].replace(gate_suite.GUEST_SCRATCH_PREFIX, str(guest_disk))
-            return real.pipe(producer, ["sh", "-c", text], cwd=cwd)
+            return tar_pipe.pipe(producer, ["sh", "-c", text], cwd=cwd)
 
     host = gate_suite.Host(files=gate_suite._RealFiles(), contract=None, processes=LocalGuest(),
-                           new_token=None, core_root=CORE, guest_lock=None)
+                           new_token=None, core_root=CORE, guest_lock=None,
+                           guest_job=FakeGuestJob())
     gate_suite._copy_to_guest_disk(host, gate_suite.Guest("g", ()), str(worktree),
                                    f"{gate_suite.GUEST_SCRATCH_PREFIX}t")
     copy = Path(f"{guest_disk}t")
@@ -1334,13 +1476,29 @@ def test_a_cleanup_that_raises_still_removes_the_token(raised):
     assert harness.files.removed == [TOKEN_PATH] and TOKEN_PATH not in harness.files.files
 
 
+@pytest.mark.parametrize(("producer", "consumer", "status"), [
+    (0, 0, 0),
+    (0, 5, 5),
+    (4, 0, 4),
+    (4, 5, 4),
+    (-signal.SIGPIPE, 5, 5),
+    (-signal.SIGPIPE, 0, -signal.SIGPIPE),
+])
+def test_a_pipes_status_is_the_producers_failure_unless_the_consumer_broke_the_pipe(
+        producer, consumer, status):
+    assert gate_suite.pipe_status(producer, consumer) == status
+
+
 def test_the_real_pipe_feeds_the_producers_output_to_the_consumer_and_reports_either_failure(
         tmp_path):
     pipe = gate_suite._RealProcesses().pipe
     done = pipe(["printf", "a b"], ["sh", "-c", "cat; echo x >&2"], cwd=str(tmp_path))
     assert (done.status, done.stdout, done.stderr) == (0, "a b", "x\n")
     assert pipe(["sh", "-c", "echo bad >&2; exit 4"], ["cat"], cwd=str(tmp_path)).status == 4
-    assert pipe(["printf", "a"], ["sh", "-c", "exit 5"], cwd=str(tmp_path)).status == 5
+    # `yes` never stops writing, so a consumer that exits without reading always ends it by
+    # SIGPIPE — the case a short producer like `printf` hits only when it loses the race.
+    assert pipe(["yes"], ["sh", "-c", "exit 5"], cwd=str(tmp_path)).status == 5
+    assert pipe(["yes"], ["true"], cwd=str(tmp_path)).status == -signal.SIGPIPE
     # bsdtar ends a message with no newline: the two programs' messages stay on their own lines.
     joined = pipe(["sh", "-c", "printf 'tar: Write error' >&2"],
                   ["sh", "-c", "cat >/dev/null; printf 'mkdir: exists' >&2"], cwd=str(tmp_path))
@@ -1743,23 +1901,24 @@ def test_other_refusals_keep_exact_output(tmp_path):
 
     # A checkout under none of the guest's shares, in every share variant.
     checkout = ("gate_suite: this run's checkout, /work/instance/.worktrees/key1, is under none "
-                "of the shares this run was given for the macOS guest swift-guest.")
+                "of the shares the macOS guest swift-guest is started with.")
     variants = {
         "no match": [
-            checkout, "The shares this run was given: /work/products.",
+            checkout, "The shares the guest is started with: /work/products.",
             "The checkout has to be under one of those folders, or the guest has to be started "
             "with a share that holds it.", CLOSING_LINE],
         "absent": [
-            checkout, "This run was given no shares for the guest. Each share is given in "
-            "guest.shares, with the host folder and the folder it appears at inside the guest.",
+            checkout, "The guest is started with no shares. Each share is a --dir=<name>:<host "
+            "folder> argument in its login job, <home>/Library/LaunchAgents/"
+            "local.kensaiapp.macos-guest.plist.",
             CLOSING_LINE],
     }
     variants["empty"] = variants["absent"]
     guests = {"no match": {"name": "swift-guest", "shares": [PRODUCTS_SHARE]},
               "absent": {"name": "swift-guest"}, "empty": {"name": "swift-guest", "shares": []}}
     for name, guest in guests.items():
-        unshared = Harness()
-        result = unshared.run(raw=guest_raw(guest))
+        unshared = with_guest(Harness(), guest)
+        result = unshared.run(raw=guest_raw())
         assert unshared.out.getvalue() == f"Environment: macos-guest {DASH} swift-guest\n", name
         assert unshared.err.getvalue().splitlines() == variants[name], name
         assert result.status == 1 and not result.suite_issued, name
@@ -2019,7 +2178,7 @@ def test_cli_refuses_missing_card_or_path_contract():
 
     broken.host = gate_suite.Host(files=broken.files, contract=refuse, processes=broken.processes,
                                   new_token=lambda: TOKEN, core_root=CORE,
-                                  guest_lock=broken.lock)
+                                  guest_lock=broken.lock, guest_job=broken.guest_job)
     assert run_cli(broken, "--gate", "developer", "--owners-mac") != 0
     assert broken.out.getvalue() == "" and broken.processes.issued == []
     assert "missing-project-doc" in broken.err.getvalue()
@@ -2497,7 +2656,7 @@ def test_versioned_guest_declaration_names_its_toolchain():
     assert gate_suite.environment_line(guest_cell("3.12"), named) == (
         f"Environment: macos-guest {DASH} swift-guest, toolchain 3.12")
     assert gate_suite.environment_line(guest_cell("3.11"), None) == (
-        f"Environment: macos-guest {DASH} no guest given, toolchain 3.11")
+        f"Environment: macos-guest {DASH} {gate_suite.NO_GUEST}, toolchain 3.11")
     assert len({gate_suite.environment_line(cell, named)
                 for cell in resolve(mixed_raw(), files=matrix_files()).targets}) == 3
 
@@ -2505,7 +2664,7 @@ def test_versioned_guest_declaration_names_its_toolchain():
     assert gate_suite.environment_line(ordinary, named) == (
         f"Environment: macos-guest {DASH} swift-guest")
     assert gate_suite.environment_line(ordinary, None) == (
-        f"Environment: macos-guest {DASH} no guest given")
+        f"Environment: macos-guest {DASH} {gate_suite.NO_GUEST}")
     assert gate_suite.environment_line(container("python", "3.12"), named) == (
         f"Environment: container {DASH} python:3.12, arm64")
 
@@ -2561,8 +2720,8 @@ from gate_suite import Share
 GUEST_NAME = "swift-guest"
 PRODUCTS_FOLDER = "/Volumes/My Shared Files/products"
 UNSHARED_LINES = (
-    "gate_suite: this run's checkout, {checkout}, is under none of the shares this run was given "
-    "for the macOS guest {guest}.")
+    "gate_suite: this run's checkout, {checkout}, is under none of the shares the macOS guest "
+    "{guest} is started with.")
 CLOSING = "The test command was not run, on the owner's Mac or anywhere else."
 
 
@@ -2574,7 +2733,9 @@ def mapped_run(run_folder: str, guest: dict | None = None, **harness_kwargs) -> 
     """A guest run from `run_folder` — an external product's worktree under the products share —
     already run."""
     harness = Harness(kind="fixed", run_folder=run_folder, **harness_kwargs)
-    harness.run(raw=guest_raw(guest))
+    if guest is not None:
+        with_guest(harness, guest)
+    harness.run(raw=guest_raw())
     return harness
 
 
@@ -2617,41 +2778,47 @@ def test_named_guest_accepts_the_complete_fixed_share_set():
                            REGISTRY_TEXT})
         request = gate_suite.parse_request(
             copy.deepcopy(raw_input(ci=ci_readable("macos"))), files=files,
-            product_checkout=product, language_root=product, core_root=core, project=PROJECT)
+            product_checkout=product, language_root=product, core_root=core, project=PROJECT,
+            guest_job=FakeGuestJob(HOST_GUEST))
         assert request.guest == expected
     assert isinstance(request.guest.shares, tuple)
     with pytest.raises(dataclasses.FrozenInstanceError):
         request.guest.shares[0].host = "/elsewhere"
 
 
-@pytest.mark.parametrize("guest", [
-    {"name": GUEST_NAME},
-    {"name": GUEST_NAME, "shares": None},
-    {"name": GUEST_NAME, "shares": []},
-    {"name": GUEST_NAME, "share": "/Volumes/My Shared Files/checkout"},
-], ids=["absent", "null", "empty", "retired-scalar"])
-def test_named_guest_without_shares_is_unshared_not_missing(guest):
-    assert request_from(guest_raw(guest)).guest == gate_suite.Guest(GUEST_NAME, ())
-    harness = Harness()
-    result = harness.run(raw=guest_raw(guest))
+def test_a_guest_with_no_shares_is_unshared_not_missing():
+    unshared = gate_suite.Guest(GUEST_NAME, ())
+    assert request_from(guest_raw(), guest=unshared).guest == unshared
+    harness = Harness(guest=unshared)
+    result = harness.run(raw=guest_raw())
     assert result.status == 1
     assert harness.first_line == f"Environment: macos-guest {DASH} {GUEST_NAME}"
     assert harness.err.getvalue() == (
         UNSHARED_LINES.format(checkout=WORKTREE, guest=GUEST_NAME) + "\n"
-        "This run was given no shares for the guest. Each share is given in guest.shares, with "
-        "the host folder and the folder it appears at inside the guest.\n" + CLOSING + "\n")
+        "The guest is started with no shares. Each share is a --dir=<name>:<host folder> argument "
+        "in its login job, <home>/Library/LaunchAgents/local.kensaiapp.macos-guest.plist.\n"
+        + CLOSING + "\n")
 
 
-@pytest.mark.parametrize("guest", [None, {}, {"shares": [PRODUCTS_SHARE]}, {"name": ""}])
-def test_no_name_is_no_guest_whatever_else_was_given(guest):
-    assert request_from(guest_raw(guest) if guest is not None
-                        else raw_input(ci=ci_readable("macos"), guest=None)).guest is None
-    harness = Harness()
-    raw = raw_input(ci=ci_readable("macos"), guest=guest)
+# Whatever an older plan gives as its `guest`, the plan's guest is never read.
+PLAN_GUESTS = [None, {}, {"name": ""}, {"shares": [PRODUCTS_SHARE]}, GUEST, "a string", 5,
+               {"name": "plan-guest", "shares": "nope"},
+               {"name": "plan-guest", "shares": [{"host": "relative", "guest": "/g"}]}]
+
+
+@pytest.mark.parametrize("plan_guest", PLAN_GUESTS)
+def test_a_plans_guest_is_never_read(plan_guest):
+    raw = raw_input(ci=ci_readable("macos"), guest=plan_guest)
+    assert request_from(raw).guest == HOST_GUEST
+    assert request_from(raw, guest=None).guest is None
+    harness = Harness(guest=None)
     assert harness.run(raw=raw).status != 0
-    assert harness.first_line == f"Environment: macos-guest {DASH} no guest given"
-    assert "gate_suite: this run was given no macOS guest to run in." in harness.err.getvalue()
+    assert harness.first_line == f"Environment: macos-guest {DASH} {gate_suite.NO_GUEST}"
+    assert gate_suite.NO_GUEST_LINE in harness.err.getvalue()
     assert harness.processes.probes == [] and harness.lock.holds == 0
+    reached = Harness()
+    assert reached.run(raw=raw).status == 0
+    assert reached.first_line == f"Environment: macos-guest {DASH} {GUEST_NAME}"
 
 
 # --- CP-633 to CP-636: the run's folder reached through its share --------------------------------
@@ -2744,8 +2911,8 @@ UNSHARED_RAWS = {
 
 def test_unshared_run_refuses_before_lock_and_probes():
     for name, guest in UNSHARED_RAWS.items():
-        harness = Harness()
-        result = harness.run(raw=guest_raw(guest))
+        harness = with_guest(Harness(), guest)
+        result = harness.run(raw=guest_raw())
         assert result.status == 1 and not result.suite_issued, name
         assert harness.first_line == f"Environment: macos-guest {DASH} {GUEST_NAME}", name
         assert harness.out.getvalue() == harness.first_line + "\n", name
@@ -2754,74 +2921,31 @@ def test_unshared_run_refuses_before_lock_and_probes():
         lines = harness.err.getvalue().splitlines()
         assert lines[0] == UNSHARED_LINES.format(checkout=WORKTREE, guest=GUEST_NAME), name
         assert lines[-1] == CLOSING, name
-    with_shares = Harness()
-    with_shares.run(raw=guest_raw(UNSHARED_RAWS["no match"]))
+    with_shares = with_guest(Harness(), UNSHARED_RAWS["no match"])
+    with_shares.run(raw=guest_raw())
     assert with_shares.err.getvalue().splitlines()[1:] == [
-        "The shares this run was given: /work/products.",
+        "The shares the guest is started with: /work/products.",
         "The checkout has to be under one of those folders, or the guest has to be started with "
         "a share that holds it.", CLOSING]
 
 
 def test_the_refusal_lists_every_host_folder_as_given_in_order():
-    harness = Harness()
-    harness.run(raw=guest_raw({"name": GUEST_NAME, "shares": [
-        {"host": "/h/b/", "guest": "/g/b"}, {"host": "/h/a", "guest": "/g/a"}]}))
-    assert harness.err.getvalue().splitlines()[1] == "The shares this run was given: /h/b/, /h/a."
+    harness = with_guest(Harness(), {"name": GUEST_NAME, "shares": [
+        {"host": "/h/b/", "guest": "/g/b"}, {"host": "/h/a", "guest": "/g/a"}]})
+    harness.run(raw=guest_raw())
+    assert harness.err.getvalue().splitlines()[1] == (
+        "The shares the guest is started with: /h/b/, /h/a.")
 
 
 def test_a_refusal_completes_while_a_different_guest_run_holds_the_lock(tmp_path):
     lock_file = tmp_path / "guest.lock"
     holder = gate_suite.FileGuestLock(lock_file)
-    harness = Harness(guest_lock=gate_suite.FileGuestLock(lock_file))
+    harness = with_guest(Harness(guest_lock=gate_suite.FileGuestLock(lock_file)),
+                         UNSHARED_RAWS["no match"])
     with holder.hold():
-        done, result = finishes_within(
-            5, lambda: harness.run(raw=guest_raw(UNSHARED_RAWS["no match"])))
+        done, result = finishes_within(5, lambda: harness.run(raw=guest_raw()))
     assert done and result.status == 1
     assert harness.processes.probes == []
-
-
-# --- CP-638: shares that cannot place a folder ---------------------------------------------------
-
-GOOD = {"host": "/h/products", "guest": PRODUCTS_FOLDER}
-MALFORMED = [
-    ("a string", "nope", "guest.shares must be a list"),
-    ("an object", {"host": "/h"}, "guest.shares must be a list"),
-    ("a number", 5, "guest.shares must be a list"),
-    ("a scalar share", [5], "guest.shares[0] must be an object"),
-    ("a list share", [["/h"]], "guest.shares[0] must be an object"),
-    ("a null share", [None], "guest.shares[0] must be an object"),
-    ("no host", [{"guest": "/g"}], "guest.shares[0] must name its host folder"),
-    ("empty host", [{"host": "", "guest": "/g"}], "guest.shares[0] must name its host folder"),
-    ("null host", [{"host": None, "guest": "/g"}], "guest.shares[0] must name its host folder"),
-    ("numeric host", [{"host": 5, "guest": "/g"}], "guest.shares[0].host must be text"),
-    ("relative host", [{"host": "products", "guest": "/g"}],
-     "guest.shares[0].host must be an absolute path, not products"),
-    ("no guest folder", [{"host": "/h"}],
-     "guest.shares[0] must name the folder it appears at inside the guest"),
-    ("empty guest folder", [{"host": "/h", "guest": ""}],
-     "guest.shares[0] must name the folder it appears at inside the guest"),
-    ("numeric guest folder", [{"host": "/h", "guest": 5}], "guest.shares[0].guest must be text"),
-    ("second share bad", [GOOD, {"host": "x", "guest": "/g"}],
-     "guest.shares[1].host must be an absolute path, not x"),
-    ("duplicate host", [GOOD, {"host": "/h/products", "guest": "/g"}],
-     "guest.shares[0] and guest.shares[1] name the same host folder, /h/products"),
-    ("duplicate with a trailing slash", [GOOD, {"host": "/h/products/", "guest": "/g"}],
-     "guest.shares[0] and guest.shares[1] name the same host folder, /h/products/"),
-    ("the host is checked first", [{"host": "p"}],
-     "guest.shares[0].host must be an absolute path, not p"),
-]
-
-
-@pytest.mark.parametrize("shares,message", [case[1:] for case in MALFORMED],
-                         ids=[case[0] for case in MALFORMED])
-def test_malformed_shares_are_input_errors_without_side_effects(shares, message):
-    harness = Harness()
-    raw = guest_raw({"name": GUEST_NAME, "shares": shares})
-    assert run_cli(harness, "--gate", "developer", inputs=raw) == 2
-    assert harness.err.getvalue() == f"gate_suite: {message}\n"
-    assert harness.out.getvalue() == ""
-    assert harness.processes.probes == [] and harness.processes.issued == []
-    assert harness.lock.holds == 0 and harness.files.written == []
 
 
 # --- CP-635: readiness at the mapped folder, and what it keeps -----------------------------------
@@ -2887,7 +3011,8 @@ def _guest_process(role: str, lock_file: str, log: str, release: str, status: in
     host = gate_suite.Host(
         files=harness.files, contract=lambda worktree, project, key: harness.contract,
         processes=harness.processes, new_token=lambda: TOKEN, core_root=CORE,
-        guest_lock=_AnnouncedLock(Path(lock_file), lambda what: _record(log, role, what)))
+        guest_lock=_AnnouncedLock(Path(lock_file), lambda what: _record(log, role, what)),
+        guest_job=harness.guest_job)
     harness.host = host
     result = harness.run(raw=guest_raw())
     results.put((role, result.status, harness.out.getvalue(), harness.err.getvalue()))
@@ -3427,7 +3552,8 @@ class CheckHarness:
         self.files.files[self.card_path] = (
             card if card is not None else check_card(self.paths["product_path"]))
         self.read_only = ReadOnlyFiles(self.files)
-        self.host = gate_suite.CheckHost(files=self.read_only, core_root=CORE)
+        self.host = gate_suite.CheckHost(files=self.read_only, core_root=CORE,
+                                         guest_job=FakeGuestJob(HOST_GUEST))
         self.out, self.err = io.StringIO(), io.StringIO()
 
     def stage(self, raw: dict | None = None, *, tracked: tuple[str, ...] = ("src/app.py",),
@@ -3514,7 +3640,7 @@ def test_check_has_no_process_or_write_effects(no_processes, tmp_path):
 
     # Its collaborators can read and cannot do anything else.
     assert [field.name for field in dataclasses.fields(gate_suite.CheckHost)] == [
-        "files", "core_root"]
+        "files", "core_root", "guest_job"]
     for name in ("write_text", "remove", "tracked_files", "linked_git_dirs"):
         assert not hasattr(gate_suite.ReadOnlyFiles, name), name
 
@@ -3547,7 +3673,8 @@ def test_check_has_no_process_or_write_effects(no_processes, tmp_path):
         ["check", "--worktree", str(instance), "--project", PROJECT, "--key", "key1",
          "--inputs", str(context / "inputs.json"), "--paths", str(context / "paths.json"),
          "--tracked-files", str(context / "tracked.txt")],
-        check_host=gate_suite.CheckHost(files=gate_suite.ReadOnlyFiles(), core_root=core),
+        check_host=gate_suite.CheckHost(files=gate_suite.ReadOnlyFiles(), core_root=core,
+                                        guest_job=FakeGuestJob(HOST_GUEST)),
         host_factory=forbidden_host, stdout=out, stderr=err)
     assert (status, err.getvalue()) == (0, "")
     assert out.getvalue() == answer_line(
@@ -3729,7 +3856,7 @@ def test_check_accepts_an_empty_tracked_snapshot_without_git(no_processes):
     result = gate_suite.check_gate(
         worktree=WORKTREE, project=PROJECT, key="key1", inputs=raw,
         context=gate_suite.CheckContext(paths=check_paths(), tracked_files=()),
-        files=files, core_root=CORE, out=empty)
+        files=files, core_root=CORE, out=empty, guest_job=FakeGuestJob(HOST_GUEST))
     detail = ("the product's CI runs on Linux, no container default can be chosen because no "
               f"language was resolved for the product, {NO_OVERRIDE_TAIL}")
     assert result.answer is gate_suite.CheckAnswer.OWES_DECISION
@@ -3790,7 +3917,7 @@ def test_check_answers_are_exactly_three_and_carry_status_and_detail(no_processe
     result = gate_suite.check_gate(
         worktree=WORKTREE, project=PROJECT, key="key1", inputs=raw_input(ci=CI_UNREADABLE),
         context=gate_suite.CheckContext(paths=check_paths(), tracked_files=("src/app.py",)),
-        files=harness.read_only, core_root=CORE, out=out)
+        files=harness.read_only, core_root=CORE, out=out, guest_job=FakeGuestJob(HOST_GUEST))
     assert result.answer is gate_suite.CheckAnswer.DOES_NOT_RESOLVE
     assert result.status == 1
     assert result.detail == "the runner cannot be read from the product's CI configuration"
@@ -4164,7 +4291,8 @@ def _frozen_container() -> dict:
 def _parse(raw: dict | None, record: gate_suite.DecisionRecord | None, files=None):
     return gate_suite.parse_request(
         copy.deepcopy(raw), files=files or standard_files(), product_checkout=PRODUCT,
-        language_root=PRODUCT, core_root=CORE, project=PROJECT, record=record)
+        language_root=PRODUCT, core_root=CORE, project=PROJECT, record=record,
+        guest_job=FakeGuestJob(HOST_GUEST))
 
 
 def test_current_record_replaces_only_the_frozen_override():
@@ -4347,13 +4475,13 @@ def test_check_accepts_current_record_without_process_or_write_capabilities(no_p
         context=gate_suite.CheckContext(
             paths=check_paths(), tracked_files=("src/app.py",),
             decision_record=record_of(nfdr(CONTAINER_ENTRY), RECORD_FILE)),
-        files=harness.read_only, core_root=CORE, out=out)
+        files=harness.read_only, core_root=CORE, out=out, guest_job=FakeGuestJob(HOST_GUEST))
     assert (result.answer, result.status) == (gate_suite.CheckAnswer.RESOLVES, 0)
     assert result.detail == ("container: the product's gates run in "
                              "docker.io/library/python:3.13, arm64")
     assert harness.files.files == before
     assert [field.name for field in dataclasses.fields(gate_suite.CheckHost)] == [
-        "files", "core_root"]
+        "files", "core_root", "guest_job"]
     for name in ("write_text", "remove", "tracked_files", "linked_git_dirs", "main_revision"):
         assert not hasattr(gate_suite.ReadOnlyFiles, name), name
 
@@ -5629,13 +5757,13 @@ def test_mixed_declarations_precede_every_effect():
         assert len(declared) == 3 and max(declared) < min(other)
 
     # A run given no guest still declares its versioned guest line before the reason it stops.
-    harness = mixed_harness()
-    result = mixed_run(harness, guest=None)
-    no_guest = [f"Environment: macos-guest {DASH} no guest given, toolchain {GUEST_VERSION}"]
+    harness = with_guest(mixed_harness(), None)
+    result = mixed_run(harness)
+    no_guest = [f"Environment: macos-guest {DASH} {gate_suite.NO_GUEST}, toolchain {GUEST_VERSION}"]
     assert harness.out.getvalue() == "\n".join([*LINUX_LINES, *no_guest]) + "\n"
     assert result.status == gate_suite.REFUSAL_STATUS and harness.processes.issued == []
     assert harness.err.getvalue() == (
-        f"gate_suite: this run was given no macOS guest to run in.\n{CLOSING}\n")
+        f"{gate_suite.NO_GUEST_LINE}\n{CLOSING}\n")
 
 
 def test_mixed_preflight_refuses_before_any_suite():
@@ -5647,10 +5775,10 @@ def test_mixed_preflight_refuses_before_any_suite():
                              "gate_suite: podman was not found on PATH.")
     assert not [p for p in harness.processes.probes if p[0] == "tart"]
 
-    harness = mixed_harness()
     unshared = {"name": GUEST_NAME, "shares": [{"host": "/elsewhere", "guest": "/Volumes/x"}]}
-    result = mixed_run(harness, guest=unshared)
-    stopped_before_any_suite(harness, result, "is under none of the shares this run was given")
+    harness = with_guest(mixed_harness(), unshared)
+    result = mixed_run(harness)
+    stopped_before_any_suite(harness, result, "is under none of the shares the macOS guest")
     assert harness.processes.probes == [["podman", "info"]]
 
     harness = mixed_harness()
@@ -6251,6 +6379,7 @@ def test_mixed_cells_never_read_each_others_suite_writes():
                    if producer[:2] == ["tar", "-C"]]
         assert {producer[2] for producer in streams} == {WORKTREE}
         assert [consumer[-1] for _, consumer, _ in harness.processes.pipes][::1] == [
+            f"{gate_suite.stop_leftovers(gate_suite.from_any_copy())}; "
             f"rm -rf /tmp/kensaiapp-gate-suite-* && mkdir /tmp/kensaiapp-gate-suite-tok{n} && "
             f"tar -C /tmp/kensaiapp-gate-suite-tok{n} -xf -" for n in (1,)]
 
@@ -6277,8 +6406,8 @@ def test_mixed_resources_are_released_on_all_exits():
     result = mixed_run(harness)
     assert [cell.status for cell in result.cells] == [0, 0, 1]
     assert len(harness.files.removed) == 1
-    removals = [p for p in harness.processes.probes if p[-1].startswith("rm -rf ")]
-    assert [p[-1] for p in removals] == ["rm -rf /tmp/kensaiapp-gate-suite-tok1"]
+    removals = [p for p in harness.processes.probes if "; rm -rf /tmp/kensaiapp-gate-suite-tok" in p[-1]]
+    assert [p[-1].rsplit("; ", 1)[1] for p in removals] == ["rm -rf /tmp/kensaiapp-gate-suite-tok1"]
 
     # A run that raises leaves nothing behind: the other suites finish first.
     harness = mixed_harness()
@@ -6436,9 +6565,9 @@ def test_a_version_probe_that_fails_puts_its_report_between_the_two_lines():
 def test_mixed_preflight_says_podman_before_the_missing_guest():
     # CP-794: the checks stop on the first that fails, Podman's readiness first and the guest the
     # run was given after it; only Podman's reason is said.
-    harness = mixed_harness()
+    harness = with_guest(mixed_harness(), None)
     harness.processes.when("podman", "info", result=gate_suite.ExecutableMissing("podman"))
-    result = mixed_run(harness, guest=None)
+    result = mixed_run(harness)
 
     assert result.status == gate_suite.REFUSAL_STATUS and harness.processes.issued == []
     assert harness.err.getvalue() == f"gate_suite: podman was not found on PATH.\n{CLOSING}\n"
@@ -6461,7 +6590,7 @@ def test_a_refused_preflight_lets_every_copy_token_and_hold_go(refusal):
     assert set(harness.files.written) <= set(harness.files.removed)
     assert [event[1] for event in harness.events.log if event[0] == "lock"] == [
         "acquire", "release"]
-    assert not any(p[-1].startswith("rm -rf ") for p in harness.processes.probes)
+    assert not any("rm -rf /tmp/kensaiapp-gate-suite-tok" in p[-1] for p in harness.processes.probes)
 
 
 def test_mixed_run_says_the_real_locks_message_when_it_cannot_be_taken(tmp_path):
@@ -6978,3 +7107,404 @@ def test_packet_stating_no_container_install_skips_only_the_container_cells():
     assert guest_passed("3.12") in lines
     assert [cell.status for cell in result.cells] == [1, 1, 0] and result.status == 1
     assert result.environment_lines[3:] == tuple(lines[3:5])
+
+
+# --- A suite on the owner's Mac sees an empty home (testing_doctrine.md § A test reads nothing of
+# the machine it runs on) --------------------------------------------------------------------------
+
+import empty_home  # noqa: E402
+
+
+class FakeHomes:
+    """Hands out one made-up empty home and records that the run entered and left it."""
+
+    def __init__(self, events: Events) -> None:
+        self.real = Path("/made-up/real-home")
+        self.events = events
+
+    @contextlib.contextmanager
+    def made(self):
+        self.events.log.append(("home made",))
+        yield "/made-up/empty-home"
+        self.events.log.append(("home removed",))
+
+
+def _mac_with_homes(environ: dict[str, str]) -> Harness:
+    harness = Harness()
+    harness.host = dataclasses.replace(harness.host, homes=FakeHomes(harness.events), environ=environ)
+    return harness
+
+
+def test_a_suite_on_the_owners_mac_runs_with_the_empty_home():
+    harness = _mac_with_homes({"XDG_CONFIG_HOME": "/made-up/real-home/.config"})
+    harness.run(raw=mac_raw())
+    [(argv, cwd)] = harness.processes.issued
+    assert cwd == WORKTREE
+    assert argv[:3] == ["env", "-u", "XDG_CONFIG_HOME"]
+    assert "HOME=/made-up/empty-home" in argv
+    assert "USERPROFILE=/made-up/empty-home" in argv
+    assert "UV_CACHE_DIR=/made-up/real-home/.cache/uv" in argv
+    assert "CARGO_HOME=/made-up/real-home/.cargo" in argv
+    assert argv[-3:] == ["sh", "-c", CARD_COMMAND]
+
+
+def test_the_empty_home_is_removed_after_the_suite():
+    harness = _mac_with_homes({})
+    harness.run(raw=mac_raw())
+    log = harness.events.log
+    made, removed = log.index(("home made",)), log.index(("home removed",))
+    issued = next(i for i, event in enumerate(log) if event[:2] == ("process", "issue"))
+    assert made < issued < removed
+
+
+def test_a_caller_toolchain_setting_wins():
+    harness = _mac_with_homes({"CARGO_HOME": "/opt/cargo"})
+    harness.run(raw=mac_raw())
+    [(argv, _)] = harness.processes.issued
+    assert "CARGO_HOME=/opt/cargo" in argv
+
+
+def test_a_container_run_takes_no_empty_home():
+    harness = _mac_with_homes({})
+    harness.run(raw=container_raw())
+    [(argv, _)] = harness.processes.issued
+    assert argv[0] == "podman" and ("home made",) not in harness.events.log
+
+
+def test_the_empty_home_argv_really_hides_the_home(tmp_path):
+    real = tmp_path / "real"
+    (real / ".claude").mkdir(parents=True)
+    empty = tmp_path / "empty"
+    empty.mkdir()
+    home = empty_home.changes({"XDG_DATA_HOME": str(real / "data")}, real, empty)
+    argv = gate_suite.mac_argv('printf "%s|%s" "$HOME" "${XDG_DATA_HOME-unset}"; ls -A "$HOME"', home)
+    done = subprocess.run(argv, capture_output=True, text=True, env={"PATH": os.environ["PATH"]})
+    assert done.stdout == f"{empty}|unset"
+
+
+def test_the_real_host_carries_empty_homes():
+    assert isinstance(gate_suite.build_host().homes, gate_suite.EmptyHomes)
+
+
+@pytest.mark.parametrize("provider", ["codex", "claude", None])
+@pytest.mark.parametrize("operation", ["probe", "issue", "pipe"])
+def test_gate_processes_preserve_approved_localhost_access(monkeypatch, tmp_path, provider,
+                                                         operation):
+    if provider is None:
+        monkeypatch.delenv("KENSAIAPP_RUN_PROVIDER", raising=False)
+    else:
+        monkeypatch.setenv("KENSAIAPP_RUN_PROVIDER", provider)
+    processes = gate_suite.build_host().processes
+    command = [sys.executable, "-c", (
+        "import socket; "
+        "probe = socket.socket(); "
+        "probe.bind(('127.0.0.1', 0)); "
+        "probe.close(); "
+        "print('test setup reached')"
+    )]
+
+    if operation == "probe":
+        result = processes.probe(command)
+    elif operation == "issue":
+        result = processes.issue(command, cwd=str(tmp_path))
+    else:
+        result = processes.pipe([sys.executable, "-c", "pass"], command, cwd=str(tmp_path))
+
+    assert result.status == 0, result.stderr
+    assert result.stdout == "test setup reached\n"
+
+
+def test_a_missing_executable_names_the_one_the_tool_asked_for(tmp_path):
+    missing = str(tmp_path / "missing-gate-command")
+
+    with pytest.raises(gate_suite.ExecutableMissing, match=missing):
+        gate_suite.build_host().processes.probe([missing])
+
+
+# --- What a suite left running in the guest is stopped before its copy goes --------------------
+
+
+_ANNOUNCE_LIMIT = 30  # seconds a stand-in's child has to say it is running, or the test fails
+
+
+def _stand_ins(root, names, *, child_ignores_term=False, term_mark=None):
+    """A script per name under `root`, started detached; each keeps its own path in its command
+    line, as an app launched from a bundle does. The helper goes on only once each script's child
+    has said it is running: the child's own line is what a `pgrep -f` must not match, and a child
+    forked but not yet started still carries its parent's. So the child speaks, not the script.
+    A child that dies first, or says nothing within `_ANNOUNCE_LIMIT`, fails the test loudly, and
+    every stand-in started so far is stopped, so a test starts all of its stand-ins in one call.
+    With `child_ignores_term`, the child ignores TERM before it speaks, so only a KILL stops it.
+    With `term_mark`, the child writes `term` to that file when TERM reaches it, and ends."""
+    on_term = ""
+    if child_ignores_term:
+        on_term = "signal.signal(signal.SIGTERM, signal.SIG_IGN); "
+    elif term_mark is not None:
+        on_term = (f"signal.signal(signal.SIGTERM, lambda *_: (pathlib.Path({str(term_mark)!r})"
+                   ".write_text('term'), sys.exit(0))); ")
+    child = ("import pathlib, signal, sys, time; " + on_term
+             + "print('running', flush=True); time.sleep(300)")
+    started = []
+    for name in names:
+        folder = root / name
+        folder.mkdir()
+        app = folder / "app"
+        app.write_text(f"#!/bin/sh\n{shlex.quote(sys.executable)} -c {shlex.quote(child)}\n")
+        app.chmod(0o755)
+        process = subprocess.Popen([str(app)], stdout=subprocess.PIPE,
+                                   stderr=subprocess.DEVNULL, start_new_session=True)
+        started.append(process)
+        ready, _, _ = select.select([process.stdout], [], [], _ANNOUNCE_LIMIT)
+        said = process.stdout.readline() if ready else b""
+        process.stdout.close()
+        if said != b"running\n":
+            _stop_groups(*started)
+            pytest.fail(f"stand-in {name}: its child " + (
+                "ended before it said it was running" if ready
+                else f"said nothing in {_ANNOUNCE_LIMIT}s"))
+    return started
+
+
+def _alive(process) -> bool:
+    return process.poll() is None
+
+
+def _children(process) -> list[int]:
+    found = subprocess.run(["pgrep", "-P", str(process.pid)], capture_output=True, text=True)
+    return [int(pid) for pid in found.stdout.split()]
+
+
+def _running(pid: int) -> bool:
+    """Whether `pid` is a process still running. A zombie has stopped, whoever has yet to reap it."""
+    state = subprocess.run(["ps", "-o", "stat=", "-p", str(pid)], capture_output=True, text=True)
+    return bool(state.stdout.strip()) and not state.stdout.strip().startswith("Z")
+
+
+def _stop_groups(*processes) -> None:
+    """Each stand-in started its own session, so its group holds its child too. Every group is
+    stopped, whatever an earlier one did: a group already gone, or holding only zombies (which
+    macOS refuses to signal), has nothing left to stop."""
+    for process in processes:
+        with contextlib.suppress(ProcessLookupError, PermissionError):
+            os.killpg(process.pid, signal.SIGKILL)
+        process.wait(timeout=10)
+
+
+def test_the_cleanup_stops_what_runs_from_one_copy_and_never_itself(tmp_path):
+    a, b = _stand_ins(tmp_path, ["copy-a", "copy-b"])
+    kids = _children(a)
+    try:
+        assert kids  # the stand-in's child, whose own command line names no copy
+        done = subprocess.run(
+            ["sh", "-c", gate_suite.stop_leftovers(gate_suite.from_copy(str(tmp_path / "copy-a")))
+             + "; echo survived"], capture_output=True, text=True, timeout=30)
+
+        assert done.stdout == "stopped 1\nsurvived\n"
+        a.wait(timeout=10)
+        assert not _alive(a) and _alive(b)
+        assert not any(_running(pid) for pid in kids)  # the child went with its parent
+    finally:
+        _stop_groups(a, b)
+
+
+def test_the_start_of_a_run_stops_what_runs_from_any_older_copy(tmp_path, monkeypatch):
+    monkeypatch.setattr(gate_suite, "GUEST_SCRATCH_PREFIX", f"{tmp_path}/kensaiapp-gate-suite-")
+    a, b, other = _stand_ins(tmp_path, ["kensaiapp-gate-suite-tok1", "kensaiapp-gate-suite-tok2",
+                                        "not-a-copy"])
+    try:
+        done = subprocess.run(["sh", "-c", gate_suite.stop_leftovers(gate_suite.from_any_copy())
+                               + "; echo survived"], capture_output=True, text=True, timeout=30)
+
+        assert done.stdout == "stopped 2\nsurvived\n"
+        a.wait(timeout=10)
+        b.wait(timeout=10)
+        assert _alive(other)
+    finally:
+        _stop_groups(a, b, other)
+
+
+def test_the_cleanup_stops_a_child_that_ignores_term(tmp_path):
+    a = _stand_ins(tmp_path, ["copy-a"], child_ignores_term=True)[0]
+    kids = _children(a)
+    try:
+        assert kids
+        done = subprocess.run(
+            ["sh", "-c", gate_suite.stop_leftovers(gate_suite.from_copy(str(tmp_path / "copy-a")))],
+            capture_output=True, text=True, timeout=30)
+
+        assert done.stdout == "stopped 1\n"
+        assert not any(_running(pid) for pid in kids)  # TERM was not enough; KILL was
+    finally:
+        _stop_groups(a)
+
+
+def test_the_cleanup_asks_a_child_to_stop_before_it_makes_it(tmp_path):
+    mark = tmp_path / "term-reached"
+    a = _stand_ins(tmp_path, ["copy-a"], term_mark=mark)[0]
+    try:
+        done = subprocess.run(
+            ["sh", "-c", gate_suite.stop_leftovers(gate_suite.from_copy(str(tmp_path / "copy-a")))],
+            capture_output=True, text=True, timeout=30)
+
+        assert done.stdout == "stopped 1\n"
+        assert mark.read_text() == "term"  # a child that can end on TERM is let end on it
+    finally:
+        _stop_groups(a)
+
+
+@pytest.mark.parametrize("pattern", [gate_suite.from_copy("/tmp/kensaiapp-gate-suite-tok"),
+                                     gate_suite.from_any_copy()])
+def test_the_cleanup_shell_names_no_copy_itself(pattern):
+    # Read as `pgrep -f` reads it, on a pgrep that does not skip its own ancestors: macOS's does,
+    # so running the shell there could never show it matching itself.
+    assert re.search(pattern, gate_suite.stop_leftovers(pattern)) is None
+
+
+def test_the_cleanup_finding_nothing_stops_nothing_and_says_so(tmp_path):
+    done = subprocess.run(["sh", "-c", gate_suite.stop_leftovers(
+        gate_suite.from_copy(str(tmp_path / "no-copy"))) + "; echo survived"],
+        capture_output=True, text=True, timeout=30)
+
+    assert done.stdout == "stopped 0\nsurvived\n"
+
+
+def test_nothing_stopped_at_the_end_says_nothing():
+    harness = Harness()
+    harness.processes.when("tart", "exec", "swift-guest", "sh", "-c", CLEAN,
+                           result=gate_suite.Completed(0, "stopped 0\n", ""))
+
+    harness.run(raw=guest_raw())
+
+    assert "left running" not in harness.err.getvalue()
+
+
+def test_a_leftover_stopped_at_the_end_is_said_on_standard_error():
+    harness = Harness()
+    harness.processes.when("tart", "exec", "swift-guest", "sh", "-c", CLEAN,
+                           result=gate_suite.Completed(0, "stopped 3\n", ""))
+
+    harness.run(raw=guest_raw())
+
+    assert ("gate_suite: stopped 3 processes the suite left running from "
+            f"{SCRATCH} in the macOS guest swift-guest.") in harness.err.getvalue()
+
+
+# --- the guest is read from its login job, never from the plan ----------------------------------
+
+import plistlib
+
+JOB_ARGUMENTS = [
+    "/h/.local/bin/tart", "run", "--no-graphics",
+    "--dir=products:/h/products",
+    "--dir=instance:/h/projects/instance",
+    "kensai-macos"]
+
+
+def test_the_guest_is_the_last_argument_and_each_dir_is_a_share():
+    assert gate_suite.guest_from_arguments(JOB_ARGUMENTS) == gate_suite.Guest("kensai-macos", (
+        Share("/h/products", "/Volumes/My Shared Files/products"),
+        Share("/h/projects/instance", "/Volumes/My Shared Files/instance")))
+
+
+# Each form as tart reads it (`DirectoryShare` in tart's `Run.swift`): options are comma-separated
+# in the last colon-separated part, and that part is options only when it holds `ro` or a `tag=`.
+@pytest.mark.parametrize("arguments, folder", [
+    (["--dir=p:/h/p"], "/h/p"),
+    (["--dir=p:/h/p:ro"], "/h/p"),
+    (["--dir=p:/h/p:tag=com.apple.virtio-fs.automount"], "/h/p"),
+    (["--dir=p:/h/p:ro,tag=com.apple.virtio-fs.automount"], "/h/p"),
+    (["--dir=p:/h/p:tag=other,tag=com.apple.virtio-fs.automount"], "/h/p"),
+    (["--dir=p:/h/a:b"], "/h/a:b"),
+    (["--dir=p:/h/p:"], "/h/p"),
+    (["--dir=p::/h/p"], "/h/p"),
+    (["--dir=p:/h/p::ro"], "/h/p"),
+    (["--dir="], None),
+    (["--dir=p:~/p"], "/home/o/p"),
+    (["--dir", "p:/h/p"], "/h/p"),
+    (["--dir=p:/h/p:ro,tag=other"], None),
+    (["--dir=p:/h/p:tag=other"], None),
+    (["--dir=p:/h/p:tag=com.apple.virtio-fs.automount,tag=other"], None),
+    (["--dir=p:relative/p"], None),
+    (["--dir=/h/p"], None),
+    (["--dir=:/h/p"], None),
+    (["--dir=p"], None),
+    (["--dir=https://example.com/p.tar.gz"], None),
+])
+def test_a_share_is_kept_only_where_the_guest_mounts_it(arguments, folder):
+    guest = gate_suite.guest_from_arguments(["tart", "run", *arguments, "g"], "/home/o")
+    assert guest.shares == ((Share(folder, "/Volumes/My Shared Files/p"),) if folder else ())
+
+
+@pytest.mark.parametrize("arguments", [[], ["tart", "run", "--no-graphics"], [""]])
+def test_arguments_that_name_no_guest_are_no_guest(arguments):
+    assert gate_suite.guest_from_arguments(arguments) is None
+
+
+def test_the_login_job_file_is_read_each_time_and_a_bad_one_is_no_guest(tmp_path):
+    job = gate_suite.GuestJob(tmp_path / "job.plist", "/home/o")
+    assert job.guest() is None  # missing
+    job.path.write_bytes(b"not a plist")
+    assert job.guest() is None
+    for bad in ({"ProgramArguments": "tart run g"}, {"ProgramArguments": ["tart", 1]}, ["x"], {}):
+        job.path.write_bytes(plistlib.dumps(bad))
+        assert job.guest() is None, bad
+    job.path.write_bytes(plistlib.dumps({"Label": "x", "ProgramArguments": JOB_ARGUMENTS}))
+    assert job.guest().name == "kensai-macos"
+    job.path.write_bytes(plistlib.dumps({"ProgramArguments": ["tart", "run", "other"]}))
+    assert job.guest() == gate_suite.Guest("other", ())
+
+
+@pytest.mark.parametrize("path, expected", [
+    ("/h/products", "<home>/products"), ("/h", "<home>"), ("/hx/products", "/hx/products"),
+    ("/work/products", "/work/products")])
+def test_a_message_writes_the_home_as_the_placeholder(path, expected):
+    assert gate_suite.shown(path, "/h") == expected
+    assert gate_suite.shown(path, "/h/") == expected
+    assert gate_suite.shown(path, "") == path
+
+
+@pytest.mark.parametrize("text, expected", [
+    ("tart: /h/products/x: no such file", "tart: <home>/products/x: no such file"),
+    ("at /h", "at <home>"), ("'/h/a' and /h/b", "'<home>/a' and <home>/b"),
+    ("/hx/a and /h.d/a", "/hx/a and /h.d/a"), ("/users/h/x and x/h/y", "/users/h/x and x/h/y")])
+def test_another_programs_words_write_every_home_as_the_placeholder(text, expected):
+    assert gate_suite.masked(text, "/h") == expected
+    assert gate_suite.masked(text, "") == text
+
+
+def test_the_failed_checks_report_writes_the_home_as_the_placeholder():
+    err = io.StringIO()
+    gate_suite._unreachable(err, gate_suite._NotReady("gate_suite: x.", "tart: /h/p: denied"), "/h")
+    assert err.getvalue().splitlines()[1] == (
+        "The check that failed reported: tart: <home>/p: denied")
+
+
+def test_an_unshared_refusal_writes_the_home_as_the_placeholder():
+    harness = Harness(guest=gate_suite.Guest(
+        GUEST_NAME, (Share("/work/other", "/Volumes/My Shared Files/o"),)))
+    harness.host = dataclasses.replace(harness.host, home="/work")
+    result = harness.run(raw=guest_raw())
+    assert result.status == 1
+    assert harness.err.getvalue().splitlines()[:2] == [
+        "gate_suite: this run's checkout, <home>/instance/.worktrees/key1, is under none of the "
+        f"shares the macOS guest {GUEST_NAME} is started with.",
+        "The shares the guest is started with: <home>/other."]
+    assert "/work/" not in harness.err.getvalue()
+
+
+def test_the_production_hosts_read_the_login_job_under_the_home(monkeypatch, tmp_path):
+    monkeypatch.setenv("HOME", str(tmp_path))
+    host = gate_suite.build_host()
+    assert host.guest_job.path == (
+        tmp_path / "Library/LaunchAgents/local.kensaiapp.macos-guest.plist")
+    assert host.home == str(tmp_path)
+    assert gate_suite.build_check_host().guest_job.path == host.guest_job.path
+
+
+def test_a_failed_copys_report_writes_the_home_as_the_placeholder():
+    err = io.StringIO()
+    target = container("python", "3.12")
+    gate_suite._copy_failed(
+        err, gate_suite._CopyFailed(target, "[Errno 13] Permission denied: '/h/w/x'"), "/h")
+    assert err.getvalue().splitlines()[1] == (
+        "The copy reported: [Errno 13] Permission denied: '<home>/w/x'")

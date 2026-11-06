@@ -8,12 +8,12 @@ code as the developer left it.
 
 ## Deferrals
 
-None. The closing marker `7ada48cae` (`developer: 2026-10-11_edit-task-fields — implementation
+None. The closing marker `<a commit not in the public history>` (`developer: 2026-10-11_edit-task-fields — implementation
 complete`) carries no `Deferred:` line and no `Failing:` line, and reads `Suite: green`.
 
 ## What was reviewed
 
-Everything the change put under `products/tracker17/` in `main..7ada48cae`:
+Everything the change put under `products/tracker17/` in `main..<a commit not in the public history>`:
 
 - `domain/` — `tasks.py`, `refusals.py` and `__init__.py`.
 - `application/` — `tracker.py` and `__init__.py`.
@@ -76,7 +76,7 @@ in a `git archive HEAD` copy, `git init`-ed, carrying the three edited test file
 product root, the pinned `ruff format --check .`, `ruff check .` (0.16.10) and
 `mypy main.py errors.py domain application persistence web` (2.4.0) each exit 0, and so does
 `python3 -m compileall -q tests`. The e2e suite and `timed_run.py` were not rerun: no product code
-and no e2e file changed since the developer's archive verification at `02e3b35c9`.
+and no e2e file changed since the developer's archive verification at `<a commit not in the public history>`.
 
 ## Calls made
 

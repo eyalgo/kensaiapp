@@ -4,16 +4,18 @@ description: >-
   PM-posture skill that splits the picked 根回し Nemawashi seed into the 1 to N 宿場 Shukuba stations
   that will actually be walked, rewriting that seed's own station checklist in place. The checklist a
   seed arrives with is the cutter's proposal, written by a seat that never walked the product; this is
-  where it becomes the route. Requires PM posture and halts outside a pm session or the pm subagent. It
-  writes only the checklist section and the divergence lines that go with it — no station file, no
-  change_request.md — so the next moves stay the PM's own. Use when a seed has just been picked and its
+  where it becomes the route. Requires PM posture and halts outside a pm session or the pm subagent. In
+  the seed it writes only the checklist section and the divergence lines that go with it — no station file, no
+  change_request.md — so the next moves stay the PM's own. When the product has an SDD, each station
+  takes a whole slice of it, and a station taking only part of one is cut only with a split item raised
+  on the SDD's companion. Use when a seed has just been picked and its
   route has to be settled, or when a seed reached the root with no checklist at all. After a change unit
   lands, re-cutting the route against what the unit found is shukuba-refine's, not this skill's.
 when_to_use: >-
   Trigger phrases — "split the seed", "split this seed into stations", "cut the seed into stations",
   "re-cut the checklist", "what stations does this seed take", "stations-from-seed". It also fires
   right after a pick, when the expectation is a route at the end of it. Do not use for picking or
-  un-picking a seed (nemawashi-pick, nemawashi-unpick), opening a station
+  un-picking a seed (seed-pick, nemawashi-unpick), opening a station
   (shukuba-open), opening or sealing a change unit (tobiishi-open, tobiishi-seal), closing
   or parking a station (shukuba-retire, shukuba-park), re-reading the route after a change unit lands
   (shukuba-refine), or cutting an idea into seeds (seeds-from-idea and seeds-from-product-docs, which
@@ -21,7 +23,7 @@ when_to_use: >-
 license: MIT
 metadata:
   author: Eyal Golan
-  version: "1.6.0"
+  version: "1.9.0"
   created: "2026-09-05"
   category: journey
   tags: nemawashi, shukuba, stations, split, pm, journey
@@ -68,6 +70,10 @@ by design, and a live session invoking it is the ordinary way in.
 undirected. Everything else the run needs is resolved from there, and the prompt's § *Inputs you work
 from* fixes what is read and which input wins where two disagree.
 
+**The product's SDD, when it has one.** Where the product holds a `docs/SDD.md`, the run reads its § 6 slices and each slice's
+*Reached when* checks alongside the product's other records. A product with no SDD is cut on its other records alone, with no
+whole-slice rule and no split item.
+
 The run works in the instance it was started in. It opens no worktree and cuts no branch, so the
 re-cut checklist is in the seed the moment the run ends.
 
@@ -91,7 +97,7 @@ at that root** — a file, or a folder holding `seed.md` — excluding `README.m
 rewrites; the folder's own report/recommendation files are untouched.
 
 **Gate A — is a seed picked at all?** If the root holds no seed item, there is nothing to split. Stop,
-say so, and name the pick as the move that comes first — `nemawashi-pick`.
+say so, and name the pick as the move that comes first — `seed-pick`.
 
 **Gate B — is the seed being walked?** Check `system/projects/<project>/journey/tobiishi/` for a change
 unit at its root, and read the seed for an ad-hoc arc belonging to it that has not finished. If either
@@ -107,7 +113,9 @@ Read `prompts/rich.md` in full, then
 `<CORE>/templates/journey-templates/nemawashi_template.md`. Apply them. Every judgment this run makes —
 what counts as a station, how many the seed becomes, where the boundaries fall, what each reached-when
 claims, the order, and whether the seed can be split at all — is made there, including the four cases
-that stop the run.
+that stop the run. On a product with an SDD, the judgments made there include whether each station takes a whole slice and whether a station
+taking only part of one is cut together with a split item. Both are the prompt's § *How one seed becomes 1 to N stations*, read
+with its § *Inputs you work from*.
 
 ### Step 3 — Rewrite the checklist in place
 
@@ -136,7 +144,7 @@ not write* says why.
 
 Per `<CORE>/doctrine/governance/commit_via_builder.md`, staging the seed and nothing else, with
 `--skill stations-from-seed` and `--prompt stations-from-seed/rich` as this run's producing pair, and
-`--role PM`. The directional is the project's — `Agari: <project> — progress: <what the route now
+`--role PM`. The directional is the project's — `Finish-line: <project> — progress: <what the route now
 says>` — since settling a route advances the seed toward its terminus.
 
 ### Step 5 — Close, or stop
@@ -156,24 +164,27 @@ checklist is worse than none: it reads as a settled route.
 |---|---|
 | The picked seed's `## Stations — dynamic checklist` rewritten, one commit | Success (Step 3) |
 | Divergence lines in the seed's prose, same commit | The re-cut departed from the proposal |
+| A split item raised on the SDD's companion, asking for a slice and its *Reached when* checks to be split | A station delivering only part of an SDD slice is cut (Step 2) |
 | No change; the pick named as the move that comes first | The seedbed root holds no seed (Gate A) |
 | No change; what is open, named | A change unit or ad-hoc arc is unfinished (Gate B) |
 | No change; the stop case named | The prompt's § *When you stop* fired (Step 2) |
 
-The seed — `seed.md` alone, for a folder-seed — is the only file this skill ever writes, and it writes
-at most one commit per run.
+Apart from a split item raised on the SDD's companion, the seed — `seed.md` alone, for a folder-seed — is the only file this
+skill ever writes, and it writes at most one commit per run. Where the split item is written and who commits it are not settled
+in this file.
 
 ---
 
 ## Critical Rules
 
-- **The seed is the only file that changes** — `seed.md` alone, for a folder-seed. No station file, no
-  `change_request.md`, no seed of your own in `unpicked/` — stocking the pool is the **Principal PM**'s.
+- **The seed is the only file that changes, apart from a split item on the SDD's companion** — `seed.md` alone, for a
+  folder-seed. No station file, no `change_request.md`, no seed of your own in `unpicked/` — stocking the pool is the
+  **Principal PM**'s. A split item is raised only for a station that delivers part of an SDD slice.
 - **A ticked item is history.** Never re-order, re-word or un-tick an `[x]`; its station's record is in
   `shukuba/trail/` and would contradict you.
 - **Never split a seed being walked.** Gate B stops the run. The fix is an order — the open work seals
   or is set down first — never a bundled edit and never a silent one.
-- **Split, don't re-cut the seed.** What the work *is* was settled by the cut and the Agari behind it.
+- **Split, don't re-cut the seed.** What the work *is* was settled by the cut and the finish line behind it.
   Re-cutting the route is this skill's; changing the subject is another seat's.
 - **Every divergence is logged.** A re-cut that departs from the proposal and says nothing leaves the
   next reader unable to tell it from a careless one. The prompt makes this mandatory.

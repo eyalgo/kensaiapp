@@ -54,11 +54,15 @@ def pair(tmp_path: Path) -> tuple[Path, Path]:
 
 
 LIVE_PREFIX = "${CLAUDE_PROJECT_DIR}/.claude/hooks/"
-RESOLVE_CORE_SOURCE = Path(__file__).resolve().parents[2] / ".claude" / "hooks" / "resolve_core.py"
+LIVE_CORE_PREFIX = "${CLAUDE_PROJECT_DIR}/core/"
+REPO_ROOT = Path(__file__).resolve().parents[2]
+RESOLVE_CORE_SOURCE = REPO_ROOT / ".claude" / "hooks" / "resolve_core.py"
+RUNNER_SOURCE = REPO_ROOT / "core" / "tools" / "locked_python.sh"
 
 
 def _hook_entry(script: str) -> dict:
-    return {"type": "command", "command": f'python3 "{LIVE_PREFIX}{script}"'}
+    runner = f"{LIVE_CORE_PREFIX}tools/locked_python.sh"
+    return {"type": "command", "command": f'"{runner}" "{LIVE_PREFIX}{script}"'}
 
 
 def _wire_hooks(host: Path) -> dict:
@@ -76,12 +80,15 @@ def _wire_hooks(host: Path) -> dict:
 
 
 def _expected_settings(host: Path) -> str:
-    """The text a satellite's `settings.json` must hold: the host's `hooks` key alone, with each
-    live prefix replaced by the host's hooks directory, as the spec words it."""
+    """The text a satellite's `settings.json` must hold: the host's `hooks` key alone, with the
+    live hooks prefix replaced by the host's hooks directory and the live core prefix by the
+    host's `core/`, each replaced here and not through `hook_wiring`."""
     document = json.loads((host / ".claude" / "settings.json").read_text())
     kept = {"hooks": document["hooks"]} if "hooks" in document else {}
     rendered = json.dumps(kept, indent=2) + "\n"
-    return rendered.replace(LIVE_PREFIX, str(host / ".claude" / "hooks") + "/")
+    return rendered.replace(LIVE_PREFIX, str(host / ".claude" / "hooks") + "/").replace(
+        LIVE_CORE_PREFIX, str(host / "core") + "/"
+    )
 
 
 def _skill_file(root: Path) -> Path:
@@ -1121,7 +1128,8 @@ def test_another_project_dir_reference_in_a_hook_command_is_kept(pair):
     command still names the session's own project, the satellite."""
     sat, host = pair
     command = (
-        f'python3 "{LIVE_PREFIX}guard.py" --root "${{CLAUDE_PROJECT_DIR}}" '
+        f'"{LIVE_CORE_PREFIX}tools/locked_python.sh" "{LIVE_PREFIX}guard.py" '
+        '--root "${CLAUDE_PROJECT_DIR}" '
         '--log "${CLAUDE_PROJECT_DIR}/system/log"'
     )
     (host / ".claude" / "settings.json").write_text(
@@ -1132,9 +1140,72 @@ def test_another_project_dir_reference_in_a_hook_command_is_kept(pair):
 
     written = json.loads((sat / ".claude" / "settings.json").read_text())
     assert written["hooks"]["Stop"][0]["hooks"][0]["command"] == (
-        f'python3 "{host / ".claude" / "hooks"}/guard.py" --root "${{CLAUDE_PROJECT_DIR}}" '
+        f'"{host / "core"}/tools/locked_python.sh" "{host / ".claude" / "hooks"}/guard.py" '
+        '--root "${CLAUDE_PROJECT_DIR}" '
         '--log "${CLAUDE_PROJECT_DIR}/system/log"'
     )
+
+
+def _commands(document) -> list[str]:
+    """Every hook `command` string in a settings document, at any depth."""
+    if isinstance(document, dict):
+        found = [document["command"]] if isinstance(document.get("command"), str) else []
+        return found + [c for value in document.values() for c in _commands(value)]
+    if isinstance(document, list):
+        return [c for item in document for c in _commands(item)]
+    return []
+
+
+def test_the_written_commands_run_the_hosts_runner_and_hooks(pair):
+    """CP-881 — every written command names the host's runner and the host's hooks, and none
+    still names `${CLAUDE_PROJECT_DIR}`."""
+    sat, host = pair
+    _wire_hooks(host)
+
+    _level(sat, host)
+
+    commands = _commands(json.loads((sat / ".claude" / "settings.json").read_text()))
+    assert len(commands) == 3
+    for command in commands:
+        assert str(host / "core" / "tools" / "locked_python.sh") in command
+        assert str(host / ".claude" / "hooks") + "/" in command
+        assert "${CLAUDE_PROJECT_DIR}" not in command
+
+
+def test_check_reports_a_settings_file_written_in_the_old_form(pair):
+    """CP-881 — a satellite `settings.json` written before this change holds the `python3`
+    form; `--check` reports it as one it would write and leaves it as it was."""
+    sat, host = pair
+    _wire_hooks(host)
+    hooks_dir = host / ".claude" / "hooks"
+    old_form = {
+        "hooks": {
+            "SessionStart": [
+                {
+                    "hooks": [
+                        {"type": "command", "command": f'python3 "{hooks_dir}/resolve_core.py"'},
+                        {"type": "command", "command": f'python3 "{hooks_dir}/a.py"'},
+                    ]
+                }
+            ],
+            "PreToolUse": [
+                {
+                    "matcher": "Bash",
+                    "hooks": [{"type": "command", "command": f'python3 "{hooks_dir}/guard.py"'}],
+                }
+            ],
+        }
+    }
+    own = sat / ".claude" / "settings.json"
+    own.parent.mkdir(parents=True)
+    old_text = json.dumps(old_form, indent=2) + "\n"
+    own.write_text(old_text)
+
+    report = link_satellite.link_satellite(sat, host, skills_mode="consumer", check=True)
+
+    assert report.written == [str(own)]
+    assert str(own) not in report.already
+    assert own.read_text() == old_text
 
 
 def test_a_differing_settings_file_is_rewritten(pair):
@@ -1424,7 +1495,10 @@ def test_the_satellite_resolves_core_from_its_own_env(pair):
     `.env` — not the host's `core/`."""
     sat, host = pair
     shutil.copy2(RESOLVE_CORE_SOURCE, host / ".claude" / "hooks" / "resolve_core.py")
-    (host / "core").mkdir()
+    (host / "core" / "tools").mkdir(parents=True)
+    shutil.copy2(RUNNER_SOURCE, host / "core" / "tools" / "locked_python.sh")
+    for name in (".python-version", "pyproject.toml", "uv.lock"):
+        shutil.copy2(REPO_ROOT / name, host / name)
     document = {
         "hooks": {"SessionStart": [{"hooks": [_hook_entry("resolve_core.py")]}]},
     }

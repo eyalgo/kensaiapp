@@ -1,5 +1,5 @@
 ---
-version: "1.10.1"
+version: "1.10.3"
 ---
 <!-- The version above is template-file metadata; it is not copied into the instantiated document. -->
 
@@ -40,7 +40,7 @@ the PRD) it serves.>
 ## 2. Scope
 <What the system covers and — as load-bearing — what it deliberately does not. Name the PRD scope
 this SRS realizes; anything in the PRD that this SRS does not yet cover is called out here. Name
-the **terminus** this SRS is scoped against — the project's 上がり Agari — and what it places
+the **terminus** this SRS is scoped against — the project's finish line — and what it places
 outside done; where no terminus was available, say that instead of implying one.>
 
 ## 3. Functional Requirements

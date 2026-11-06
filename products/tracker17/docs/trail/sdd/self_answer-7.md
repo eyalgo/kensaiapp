@@ -14,12 +14,12 @@
   user agent "optionally return" where the user has indicated they do not want focus changed. So the
   standard promises focus and no more, and what the item cites as verified — in view, described — is
   Chromium's behaviour as measured, not the standard's. The in-repo measurement the answer rests on was
-  re-made rather than read off the record: `git archive 7653f25c8 products/tracker17` into a scratch
+  re-made rather than read off the record: `git archive <a commit not in the public history> products/tracker17` into a scratch
   folder, a scratch `venv` with `tests/requirements.txt` installed (playwright 1.63.0, the pin), and
   `pytest tests/e2e/` there → `18 passed`, `test_people.py` alone → `6 passed`, in Chromium
   153.0.8010.12 (`browser.version`). The product's main checkout ran nothing. `git diff --stat
-  641bb58b5 7653f25c8 -- products/tracker17 ':!products/tracker17/docs'` lists only `README.md` —
-  two sentences of its Status section, landed at `7653f25c8` while this run was open, which
+  <a commit not in the public history> <a commit not in the public history> -- products/tracker17 ':!products/tracker17/docs'` lists only `README.md` —
+  two sentences of its Status section, landed at `<a commit not in the public history>` while this run was open, which
   `tests/integration/test_start.py:159-160` reads for its headings and no end-to-end test reads — so
   the code the suite drives is the code the PM measured. Read in-repo besides `SDD.md` whole and the
   companion: `SRS.md` NFR-13;
@@ -48,7 +48,7 @@ back.
   experience decision it touches (no script, § 4 EX-2) is left exactly as the CDO decided it. No
   ground I cannot see; mine, in the owner's seat. The downstream record with the same sentence,
   ADR-0003's *Dependence*, is the Principal Architect's and already carries its own item,
-  `architecture_open_issues.md` § 3.1 (commit `fae779439`), still at its placeholder; my finding is the
+  `architecture_open_issues.md` § 3.1 (commit `<a commit not in the public history>`), still at its placeholder; my finding is the
   same narrowing, so I neither appended a near-duplicate nor revised it.
 
   *The question holds (check 2), and the answer.* Every citation in the item is as stated: R-2 is

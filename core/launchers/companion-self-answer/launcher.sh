@@ -2,6 +2,10 @@
 #
 # launcher.sh (companion-self-answer) — deterministic, pollution-proof launcher for a
 # companion-self-answer run: answering an open-issues companion with nobody in the room.
+# Version: 4.11.1 — the two launcher permission tests refuse through a seam, not a file mode
+# Version: 4.11.0 — the Definition of Done becomes the finish line
+# Version: 4.10.2 — Agari becomes Definition of Done (DoD)
+# Version: 4.10.1 — launchers run on the locked Python
 # Version: 4.10.0 — the other six launchers run on the package's turn-on
 # Version: 4.9.1 — launchers and launch scripts take a portable mktemp template, so they run on Linux
 # Version: 4.9.0 — ollama is a provider — a launch can run on the owner's local Ollama models
@@ -147,6 +151,9 @@
 #   that run k+1 starts only after run k's process has ended. Every command is validated before
 #   anything starts. A companion whose items cannot be read launches once, as today, after one
 #   `Grouping:  skipped` line.
+#   The reader is core/tools/companion_items.py unless LAUNCH_COMPANION_SELF_ANSWER_COMPANION_ITEMS
+#   names another. A test hands in a reader that refuses the read itself, because a file mode
+#   refuses nothing to root, and the launcher reads only that reader's exit status.
 #
 # COMPLETION NOTIFICATION
 #   agent_run.py --background starts the run as one detached process — Claude's `--print
@@ -279,7 +286,7 @@ if [ -z "$provider_given" ] || [ -n "$forced" ]; then
   [ -f "$PROVIDERS_TOOL" ] || die "no provider reader at $PROVIDERS_TOOL"
   [ -f "$RUN_INTELLIGENCE" ] || die "no intelligence resolver at $RUN_INTELLIGENCE"
   provider_err="$(mktemp "${TMPDIR:-/tmp}/kensaiapp-self-answer-provider.XXXXXX")"
-  provider="$(python3 "$PROVIDERS_TOOL" launcher companion-self-answer --instance-root "$INSTANCE_ROOT" --forced "$forced" 2>"$provider_err")" && rc=0 || rc=$?
+  provider="$("$CORE_DIR/tools/locked_python.sh" "$PROVIDERS_TOOL" launcher companion-self-answer --instance-root "$INSTANCE_ROOT" --forced "$forced" 2>"$provider_err")" && rc=0 || rc=$?
   provider_msg="$(cat "$provider_err")"
   rm -f "$provider_err"
   [ "$rc" -eq 0 ] || die "${provider_msg:-could not read the provider for the companion-self-answer launcher}"
@@ -315,10 +322,10 @@ esac
 #   And composing it cannot be caught downstream: this host is case-insensitive (APFS), so the
 #   -f guard passes on a mis-cased path and nothing is refused — the wrong string just reaches
 #   the prompt, which is the one thing this launcher exists to compose.
-# THE DOCUMENT HOMES. A project's documents do not all live in its product's docs/: the Agari is
-# written into the instance, at system/projects/<project>/agari.md, and its companion beside it
+# THE DOCUMENT HOMES. A project's documents do not all live in its product's docs/: the finish line is
+# written into the instance, at system/projects/<project>/finish_line.md, and its companion beside it
 # (kensaiapp_structure.md § 2, Per-project). A launcher that looked in docs/ alone refused a
-# live Agari companion, 2026-09-17. So <document> is resolved in both of the project's homes —
+# live finish line companion, 2026-09-17. So <document> is resolved in both of the project's homes —
 # the same two `core/tools/reporters.py`'s `self_answer_reports_present` walks for it — and in
 # nothing else: two DIRECTORIES, never a list of which document lives where. The home that holds
 # the document or its companion is the one used; neither is refused, and both is refused too,
@@ -489,7 +496,7 @@ resolve_group_agent() {
 # that has none.
 find_skill_declaration() {
   local dir
-  dir="$(python3 "$CORE_DIR/tools/skill_path.py" "$1" --root "$SKILLS_ROOT" 2>/dev/null)" || return 1
+  dir="$("$CORE_DIR/tools/locked_python.sh" "$CORE_DIR/tools/skill_path.py" "$1" --root "$SKILLS_ROOT" 2>/dev/null)" || return 1
   [ -f "$dir/launcher.md" ] || return 1
   printf '%s' "$dir/launcher.md"
 }
@@ -521,12 +528,12 @@ fi
 run_effort=high
 producer_dir=""
 if [ -n "$producing_skill" ]; then
-  producer_dir="$(python3 "$CORE_DIR/tools/skill_path.py" "$producing_skill" --root "$SKILLS_ROOT" 2>/dev/null)" || producer_dir=""
+  producer_dir="$("$CORE_DIR/tools/locked_python.sh" "$CORE_DIR/tools/skill_path.py" "$producing_skill" --root "$SKILLS_ROOT" 2>/dev/null)" || producer_dir=""
 fi
 resolution_args=(--provider "$provider")
 [ -z "$producer_dir" ] || resolution_args+=(--skill-dir "$producer_dir")
 resolution_err="$(mktemp "${TMPDIR:-/tmp}/kensaiapp-self-answer-intelligence.XXXXXX")"
-resolution="$(python3 "$RUN_INTELLIGENCE" "${resolution_args[@]}" 2>"$resolution_err")" && rc=0 || rc=$?
+resolution="$("$CORE_DIR/tools/locked_python.sh" "$RUN_INTELLIGENCE" "${resolution_args[@]}" 2>"$resolution_err")" && rc=0 || rc=$?
 resolution_msg="$(cat "$resolution_err")"
 rm -f "$resolution_err"
 case "$rc" in
@@ -607,9 +614,9 @@ add_to_group() {
   return 0
 }
 
-COMPANION_ITEMS="$CORE_DIR/tools/companion_items.py"
+COMPANION_ITEMS="${LAUNCH_COMPANION_SELF_ANSWER_COMPANION_ITEMS:-$CORE_DIR/tools/companion_items.py}"
 if [ -f "$companion_path" ]; then
-  if [ -f "$COMPANION_ITEMS" ] && open_items="$(python3 "$COMPANION_ITEMS" open-items "$companion_path" 2>/dev/null)"; then
+  if [ -f "$COMPANION_ITEMS" ] && open_items="$("$CORE_DIR/tools/locked_python.sh" "$COMPANION_ITEMS" open-items "$companion_path" 2>/dev/null)"; then
     while IFS=$'\t' read -r item_number item_tag; do
       [ -n "$item_number" ] || continue
       if [ -z "$item_tag" ]; then
@@ -672,14 +679,14 @@ build_run_command() {
   if [ "$provider" = claude ] || [ "$provider" = hf ] || [ "$provider" = ollama ]; then
     # `hf` and `ollama` are the Claude run aimed at another endpoint: the same command, with
     # the runner's `--provider "$provider"` picking the adapter.
-    set -- python3 "$CORE_DIR/tools/agent_run.py" --provider "$provider" --shape turn --pin auto \
+    set -- "$CORE_DIR/tools/locked_python.sh" "$CORE_DIR/tools/agent_run.py" --provider "$provider" --shape turn --pin auto \
       --instance-root "$INSTANCE_ROOT" --prompt "$prompt" \
       --effort "$run_effort" --grant-skill companion-self-answer
     [ -z "$run_seat" ] || set -- "$@" --agent "$run_seat"
     [ -z "$run_model" ] || set -- "$@" --model "$run_model"
     [ -z "$add_dir" ] || set -- "$@" --add-dir "$product_path"
   elif [ "$provider" = gemini ]; then
-    skill_dir="$(python3 "$CORE_DIR/tools/skill_path.py" companion-self-answer --root "$SKILLS_ROOT")" \
+    skill_dir="$("$CORE_DIR/tools/locked_python.sh" "$CORE_DIR/tools/skill_path.py" companion-self-answer --root "$SKILLS_ROOT")" \
       || die "cannot resolve companion-self-answer under $SKILLS_ROOT"
     [ -f "$skill_dir/SKILL.md" ] || die "no SKILL.md at $skill_dir"
     run_prompt="$prompt"
@@ -687,13 +694,13 @@ build_run_command() {
       agent_file="$(resolve_group_agent "$run_seat")"
       run_prompt="You are running as the $run_seat agent. Read $agent_file in full and follow it as your agent identity before doing this task: $prompt"
     fi
-    set -- python3 "$CORE_DIR/tools/agent_run.py" --provider gemini --prompt "$run_prompt" \
+    set -- "$CORE_DIR/tools/locked_python.sh" "$CORE_DIR/tools/agent_run.py" --provider gemini --prompt "$run_prompt" \
       --core-dir "$CORE_DIR" \
       --add-dir "$skill_dir" --effort "$run_effort"
     [ -z "$run_model" ] || set -- "$@" --model "$run_model"
     [ -z "$add_dir" ] || set -- "$@" --add-dir "$product_path"
   else
-    skill_dir="$(python3 "$CORE_DIR/tools/skill_path.py" companion-self-answer --root "$SKILLS_ROOT")" \
+    skill_dir="$("$CORE_DIR/tools/locked_python.sh" "$CORE_DIR/tools/skill_path.py" companion-self-answer --root "$SKILLS_ROOT")" \
       || die "cannot resolve companion-self-answer under $SKILLS_ROOT"
     [ -f "$skill_dir/SKILL.md" ] || die "no SKILL.md at $skill_dir"
     codex_prompt="You are running a Kensaiapp unattended companion-self-answer task. For every instruction, <CORE> resolves to: $CORE_DIR. The instance root is: $INSTANCE_ROOT. "
@@ -703,7 +710,7 @@ build_run_command() {
     fi
     [ "$provider" = codex ] || codex_prompt+="Read and follow $skill_dir/SKILL.md. "
     codex_prompt+="Execute this fixed task: $prompt"
-    set -- python3 "$CORE_DIR/tools/agent_run.py" --provider "$provider" --prompt "$codex_prompt" \
+    set -- "$CORE_DIR/tools/locked_python.sh" "$CORE_DIR/tools/agent_run.py" --provider "$provider" --prompt "$codex_prompt" \
       --core-dir "$CORE_DIR" \
       --add-dir "$SKILLS_ROOT" --effort "$run_effort"
     [ -z "$run_model" ] || set -- "$@" --model "$run_model"
@@ -783,7 +790,7 @@ else
       print_detached_run "${run_cmd[@]}" >/dev/null \
         || die "the $provider launch of run $n was refused — nothing launched"
     fi
-    plan_lines+="$(python3 -c 'import json, sys; print(json.dumps(sys.argv[1:]))' "${run_cmd[@]}")"$'\n'
+    plan_lines+="$("$CORE_DIR/tools/locked_python.sh" -c 'import json, sys; print(json.dumps(sys.argv[1:]))' "${run_cmd[@]}")"$'\n'
     k=$n
   done
   [ -z "$dry_run" ] || exit 0
@@ -794,7 +801,7 @@ else
   watch_log="$run_log_base-completion.jsonl"
   printf '%s' "$plan_lines" > "$plan_file"
   echo "Launching companion-self-answer for '$project'/'$document' through $provider (background): $group_count runs, one after another…"
-  start_detached_run python3 "$CORE_DIR/tools/detached_sequence.py" \
+  start_detached_run "$CORE_DIR/tools/locked_python.sh" "$CORE_DIR/tools/detached_sequence.py" \
     --plan "$plan_file" --log "$sequence_log" --completion-log "$watch_log" \
     || die "the $provider launch did not start — nothing launched"
   echo "Launched. Sequence log: $sequence_log"

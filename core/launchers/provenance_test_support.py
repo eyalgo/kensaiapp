@@ -13,11 +13,13 @@ from __future__ import annotations
 
 import json
 import shutil
+
+import test_support_instance_root
 import subprocess
 import sys
 from pathlib import Path
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 
 PROVENANCE_KEYS = ("provider", "model", "effort", "source")
 
@@ -82,6 +84,7 @@ _CORE = Path(__file__).resolve().parents[1]
 HOST_TOOLS = (
     "pin.py",
     "pin_run.sh",
+    "locked_python.sh",
     "agent_run.py",
     "hook_wiring.py",
     "model_assignment.py",
@@ -119,6 +122,7 @@ def isolated_host(root: Path, script: Path, *, tools: tuple[str, ...] = HOST_TOO
         )
         + "\n"
     )
+    test_support_instance_root.give_python(root)
     return copied
 
 

@@ -1,5 +1,5 @@
 ---
-version: "1.1.10"
+version: "1.3.0"
 ---
 
 # Shell — conventions
@@ -100,6 +100,8 @@ open this way, and nothing else sits between the shebang and the options line.
   `core/launchers/launch-eval-fix/launcher.sh` states the rule where it applies it: the shared library
   path has "No env override: unlike $WATCHER, no test or caller ever wants a stub in its place, only
   the real file at its real relative depth."
+- **A program the code runs is a collaborator, and it is handed in through an override.** `arch_defaults.md` § Dependency Graph Rules states the rule language-agnostically: "Only the composition root imports concrete implementations. Every other module depends on abstractions". In shell the abstraction is a variable holding the program's name, and the concrete program is the default written in that variable's `${…:-<default>}` expansion, by the two bullets above. A function in a sourced library runs such a program through a variable its caller can set, never by naming the program itself. The programs this covers are the ones that reach outside the script, such as another tool it launches, a notifier or a network client. The text tools the script is written in, such as `grep`, `sed` and `printf`, are not collaborators. This rule is the packet author's call, 2026-11-04, and is not a measurement.
+- **The four layers, where a product's SDD draws them, map onto a script's parts, and shell holds the dependency rule only in part.** `arch_defaults.md` § The four layers states them and the rule. In shell the `domain` is the functions of a sourced library, a port is the override variable the bullet above names, and an adapter is the program written as that variable's default. The composition root is the executable script's top level, which sets the defaults and calls the library. A library function runs a program that reaches outside the script only through an override variable, and reads the time and the environment only from its arguments or through one. Two parts of the rule do not hold, because shell is written in processes and files: the text tools the bullet above names run as processes, and a function reads and writes files at the paths it was handed. Shell has no import graph for a check to read, so review holds the rest.
 
 ## The header comment block
 

@@ -135,7 +135,7 @@ from pathlib import Path
 
 import hook_wiring
 
-__version__ = "1.4.0"
+__version__ = "1.5.0"
 
 # The file this script writes in a satellite, and the two links an earlier version made there that
 # it now removes when they point into the host. `settings.json` was a third; it is replaced by the
@@ -332,8 +332,9 @@ def _points_into_host(link: Path, host: Path) -> bool:
 
 
 def _render_settings(host_claude: Path) -> str:
-    """The text a satellite's `settings.json` holds: the host's `hooks` key alone, each live hook
-    path replaced by the host's own hooks directory, or `{}` when the host wires none."""
+    """The text a satellite's `settings.json` holds: the host's `hooks` key alone, each command
+    pointed at the host's own runner and hooks by absolute path, or `{}` when the host wires
+    none."""
     path = host_claude / SETTINGS_NAME
     try:
         document = json.loads(path.read_text(encoding="utf-8"))
@@ -342,9 +343,10 @@ def _render_settings(host_claude: Path) -> str:
     if not isinstance(document, dict):
         raise SystemExit(f"error: host .claude/settings.json is not a JSON object: {path}")
     hooks_dir = Path(_link_text(host_claude / "hooks"))
-    wired = {"hooks": hook_wiring.rewrite_hooks_dir(document["hooks"], hooks_dir)} if (
-        "hooks" in document
-    ) else {}
+    core_dir = Path(_link_text(host_claude.parent / "core"))
+    wired = {
+        "hooks": hook_wiring.rewrite_hooks_dir(document["hooks"], hooks_dir, core_dir)
+    } if "hooks" in document else {}
     return json.dumps(wired, indent=2) + "\n"
 
 

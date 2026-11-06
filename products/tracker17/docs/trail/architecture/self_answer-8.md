@@ -72,7 +72,7 @@
     holds the same two bullets: "blocks release", and "has a stated remediation window". They can both
     be true only if the first binds the choice and the second binds what comes after. QC-40's
     *verified by* already names the first moment, "when a change adds or changes a test dependency".
-  - **The pin's history.** `playwright==1.63.0` was chosen on 2026-10-07 (commit `83563a643`), after the
+  - **The pin's history.** `playwright==1.63.0` was chosen on 2026-10-07 (commit `<a commit not in the public history>`), after the
     2026-09-08 advisory. On that day PyPI had no Playwright release that installs a fixed Chromium, and
     it still has none. So the choice was proper under this reading, and the browser is held by the
     window.

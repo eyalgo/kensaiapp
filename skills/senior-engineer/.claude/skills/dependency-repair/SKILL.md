@@ -19,7 +19,7 @@ when_to_use: >-
 license: MIT
 metadata:
   author: Eyal Golan
-  version: "1.0.0"
+  version: "1.2.0"
   created: "2026-10-24"
   category: execution
   tags: dependencies, advisories, repair, main, senior-engineer
@@ -75,7 +75,7 @@ the instance or the product's repository, add `-2`, `-3` and so on until none do
 command the chain uses for a change:
 
 ```sh
-python3 "<CORE>/tools/create_change_worktree.py" \
+"<CORE>/tools/locked_python.sh" "<CORE>/tools/create_change_worktree.py" \
   --instance "$(git rev-parse --show-toplevel)" --project <project> --key <key>
 ```
 
@@ -85,7 +85,7 @@ exit is a stop: report its `error`, `message`, `changed` and `repos` as printed.
 contract from the instance worktree:
 
 ```sh
-python3 "<CORE>/tools/development_path.py" resolve --format json \
+"<CORE>/tools/locked_python.sh" "<CORE>/tools/development_path.py" resolve --format json \
   --worktree "<instance worktree>" --project <project> --key <key>
 ```
 
@@ -148,10 +148,57 @@ what is still red.
 On `merged` or `stopped`, merge branch `<key>` into `main` in each repository that committed on it,
 through the builder — **the product's repository first, the instance last**, so the report lands only
 once the code it describes has. `<repository>` is that repository's **main working tree**, standing on
-`main` (the first entry `git -C <any worktree> worktree list` prints), because the merge runs there:
+`main` (the first entry `git -C <any worktree> worktree list` prints), because the merge runs there.
+
+The builder refuses a merge to `main` whose branch adds no entry under `## [Unreleased]` in a
+`CHANGELOG.md`, unless the merge declares `--user-invisible "<reason>"` (`<CORE>/tools/commit_builder.py`,
+"A merge into `main` lands only when the branch adds an entry under `## [Unreleased]`"). So every merge
+carries an entry or a declaration, and every repository is checked before any of them merges.
+
+**(1) Decide each repository's changelog answer.** For each repository that committed on `<key>`, list
+the paths its branch changes since it left `main`, with both sides of a rename counted:
 
 ```sh
-python3 "<CORE>/tools/commit_builder.py" --repo "<repository>" merge \
+git -C "<repository>" diff --name-only --no-renames main...<key>
+```
+
+The list is the branch's net change, so a major bump that Step 4 undid counts for nothing. The
+repository takes the first of these three answers that applies:
+
+- **Declared: the report and its upkeep rows only.** Every listed path is the report,
+  `system/projects/<project>/docs/dependency-repair/<key>_report.md`, or `system/upkeep.md`, an empty
+  list included. The repository's check and merge carry
+  `--user-invisible "the merge carries nothing beyond the dependency repair's report and its upkeep rows"`.
+- **An entry.** Map each other listed path to the changelog that logs it. In the instance's
+  repository, a root file that `<CORE>/doctrine/setup/kensaiapp_structure.md` § *The changelog — one
+  file per product path records what changed for a user of a fresh clone* lists, `uv.lock` and
+  `pyproject.toml` among them, maps to `core/tools/CHANGELOG.md`. Every other path maps to
+  `<Product path>/CHANGELOG.md`, the exception record included. Each mapped `CHANGELOG.md` that exists
+  on the branch gets an entry in (2), and the repository's check and merge carry no declaration. Read
+  whether it exists with `git -C "<repository>" cat-file -e <key>:<file>`, where `<file>` is the
+  changelog's path from that repository's top.
+- **Declared: no changelog.** None of the mapped `CHANGELOG.md` files exists on the branch. The
+  repository's check and merge carry `--user-invisible "the product path keeps no changelog"`.
+
+No other case declares a merge user-invisible. Never pass `--user-invisible` on a judgement of your
+own that no user sees the change.
+
+**(2) Write the entries, and commit them.** For each `CHANGELOG.md` that (1) gives an entry, read
+`<CORE>/templates/product-templates/changelog_template.md` and add one entry under `## [Unreleased]`,
+in the form it gives one entry. File it under `### Upgrading` where a clone must act on the change to
+keep working, and otherwise under `### Security`, the group Keep a Changelog keeps for vulnerabilities.
+The entry names `<project>` in bold, says in your own words what the repair changed for a user of a
+fresh clone, and cites each `dependencies` commit on `<key>` in that repository. Where two files in one
+repository get an entry, each entry names `<project>`. Commit the entries in the worktree of the
+repository that holds the file (§ *Commit*, the `changelog` row), before (3).
+
+**(3) Check every repository before any merge.** Once the last commit on `<key>` has landed in every
+repository, run the builder's check in each repository that committed on it, the product's repository
+first and the instance last:
+
+```sh
+"<CORE>/tools/locked_python.sh" "<CORE>/tools/commit_builder.py" --repo "<repository>" merge \
+  --check-only \
   --branch <key> --target-branch main \
   --description "dependency-repair — <what was fixed and excepted, in a phrase>" \
   --branch-commits <each line of: git -C <repository> log main..<key> --oneline> \
@@ -160,8 +207,20 @@ python3 "<CORE>/tools/commit_builder.py" --repo "<repository>" merge \
   --surface "<surface>" --co-authored-by "<runtime identity>"
 ```
 
-A merge the builder refuses stops the run there: leave every branch and worktree as it is, and say in
-the closing message which repository merged and which did not.
+Where (1) gives the repository a declaration, add `--user-invisible "<reason>"` with (1)'s reason, to
+its check here and to its merge in (5). The check writes nothing. Check every repository, even after
+one refuses, and keep each exit code and standard error. Decide whether to merge only once every check
+has run.
+
+**(4) A refused check stops the run with nothing merged.** If any check exits non-zero, for any reason,
+run no merge in any repository and no clean-up. Leave every branch and worktree as it is. Say in the
+closing message that no repository merged, name each repository whose check refused, and quote the
+builder's standard error for each.
+
+**(5) Merge, once every check has passed.** Only when every check exited 0, run the same command in each
+repository without `--check-only`, in the same order and with the same arguments as its check,
+`--user-invisible` included. A merge the builder refuses stops the run there: leave every branch and
+worktree as it is, and say in the closing message which repository merged and which did not.
 
 **Clean-up.** In each repository, once `git -C <repository> merge-base --is-ancestor <key> main`
 holds there — or, from Step 2, when nothing was committed — remove the worktree
@@ -174,7 +233,7 @@ Run it through the gate tool, never by hand: read `<CORE>/prompts/gate_suite.md`
 file, and issue
 
 ```sh
-python3 "<CORE>/tools/gate_suite.py" run \
+"<CORE>/tools/locked_python.sh" "<CORE>/tools/gate_suite.py" run \
   --worktree "<instance worktree>" --project "<project>" --key "<key>" \
   --gate code-integrity --inputs "<inputs file>" \
   > "<output file>" 2> "<error file>"
@@ -238,6 +297,7 @@ that file says. Never hand-write `git commit` or a trailer.
 |---|---|---|
 | `dependency-repair: <key> — dependencies` | `code_worktree` | the lockfile and pin bumps, the renamed identifiers, and the exception record's entries (or the record created). Only when Step 3 changed anything; again for each major bump Step 4 undoes |
 | `dependency-repair: <key> — report` | `pipeline_worktree` | the report and the `system/upkeep.md` rows (or the register created). Every run that reaches Step 5 |
+| `dependency-repair: <key> — changelog` | the worktree of the repository holding the `CHANGELOG.md`: the `code_worktree` for `<Product path>/CHANGELOG.md`, the `pipeline_worktree` for `core/tools/CHANGELOG.md` (one worktree for a product inside the instance) | the entries Step 6 (2) writes under `## [Unreleased]`. Only on `merged` or `stopped`, and only where Step 6 (1) gives an entry. Once in each repository that holds one |
 
 All commit on branch `<key>`, never on `main`; Step 6's merge carries them there.
 
@@ -248,7 +308,9 @@ All commit on branch `<key>`, never on `main`; Step 6's merge carries them there
 - **Only a red that is the audit's.** No audit, or no advisory left to answer, is
   `nothing-to-repair`, and leaves no branch behind.
 - **Merge only on a green suite**, product repository first, through the builder, as
-  `senior-engineer`.
+  `senior-engineer`, and only once every repository's `merge --check-only` has passed. Each merge
+  carries a changelog entry or a `--user-invisible` reason, decided by the paths its branch changes,
+  never by a judgement of your own that no user sees it.
 - **Never take a forbidden move** the owner has not allowed — gather every one, do all allowed work,
   then stop once.
 - **Never run the product's code in its main checkout.**

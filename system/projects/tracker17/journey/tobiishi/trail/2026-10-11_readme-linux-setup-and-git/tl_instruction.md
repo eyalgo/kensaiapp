@@ -32,7 +32,7 @@ Decisions made by the Tech Lead, 2026-10-11:
 
 - **Task shape:** Task 1 uses the review-verified shape, with all V-1 to V-9 carried as review criteria (`change_design.md:L92-L102`, § 5 **Test Additions**). The reason is that the deliverable is instructional prose, and CP-78 forbids test edits (`change_spec.md:L37`, § **Wording and boundaries**). No test names or red phase are fabricated.
 - **Task cut:** One task covers both edit sites in the one README section (`change_design.md:L18-L29`, § 1 **Change Summary**). The design explicitly supplies no sub-job split or module ordering edge (`change_design.md:L69-L70`, § 2 **Blast Radius**), so the task has no dependencies.
-- **Gate made concrete:** The diff checks compare against `06af065b288da2e637e5b00868459d7191c33574`, the input revision returned by `git rev-parse HEAD`. This makes CP-78's unchanged text and product-file boundary checkable after the edit is committed as well as before (`change_spec.md:L37`, § **Wording and boundaries**).
+- **Gate made concrete:** The diff checks compare against `<a commit not in the public history>`, the input revision returned by `git rev-parse HEAD`. This makes CP-78's unchanged text and product-file boundary checkable after the edit is committed as well as before (`change_spec.md:L37`, § **Wording and boundaries**).
 - **Gate baseline:** The card's exact command, `pytest products/tracker17/tests/`, collected 224 tests and returned `224 passed in 10.57s` with command approval. Its sandbox execution returned `5 failed, 203 passed, 16 errors`, with socket-bind traces reporting `PermissionError: [Errno 1] Operation not permitted`. The command is retained because it collects and passes the intended suite; no failing-test baseline is declared (`system/projects/tracker17/project.md:L10-L11`, **Test command**; actual command outputs).
 
 ### Task 1: Complete Linux and Git test setup instructions (`README.md`)
@@ -77,10 +77,10 @@ grep -n -F -e '--with-deps' -e 'Debian 12' products/tracker17/README.md
 Run these diff checks, using the input revision recorded in TL Review Notes:
 
 ```sh
-git -C .worktrees/2026-10-11_readme-linux-setup-and-git diff --check 06af065b288da2e637e5b00868459d7191c33574 -- products/tracker17
-git -C .worktrees/2026-10-11_readme-linux-setup-and-git diff --name-only 06af065b288da2e637e5b00868459d7191c33574 -- products/tracker17
-git -C .worktrees/2026-10-11_readme-linux-setup-and-git diff 06af065b288da2e637e5b00868459d7191c33574 -- products/tracker17/README.md
-git -C .worktrees/2026-10-11_readme-linux-setup-and-git show 06af065b288da2e637e5b00868459d7191c33574:products/tracker17/README.md
+git -C .worktrees/2026-10-11_readme-linux-setup-and-git diff --check <a commit not in the public history> -- products/tracker17
+git -C .worktrees/2026-10-11_readme-linux-setup-and-git diff --name-only <a commit not in the public history> -- products/tracker17
+git -C .worktrees/2026-10-11_readme-linux-setup-and-git diff <a commit not in the public history> -- products/tracker17/README.md
+git -C .worktrees/2026-10-11_readme-linux-setup-and-git show <a commit not in the public history>:products/tracker17/README.md
 ```
 
 - Whitespace check: exit 0, no output.

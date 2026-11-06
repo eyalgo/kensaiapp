@@ -6,14 +6,14 @@ Creates `system/projects/<name>/` and stamps it from the templates in
 
     system/projects/<name>/
     ├── project.md                     # the Product path binding + execution fields
-    ├── agari.md                       # 上がり — the project's "done" (declaration)
+    ├── finish_line.md                         # the project's "done" (declaration)
     ├── doctrine/
     │   ├── <name>_doctrine.md         # project domain doctrine
     │   └── ai_responsibility.md       # AI-vs-mechanical boundary, scope=<name>
     └── journey/                       # 根回し Nemawashi → 宿場 Shukuba → 飛び石 Tobiishi
         ├── nemawashi/                 # 根回し — seedbed (folder, one file per idea)
         │   ├── README.md              #   seedbed doctrine + lifecycle
-        │   ├── <date>_define-the-product.md  #   the recommended definition chain, as a seed
+        │   ├── <date>_define-the-product.md  #   the definition the card names, as a seed (none: absent)
         │   ├── unpicked/.gitkeep      #   the candidate pool, empty for a newborn seedbed
         │   ├── trail/.gitkeep         #   ripened-ideas bin (empty)
         │   └── drop/.gitkeep          #   killed-ideas bin (empty)
@@ -52,7 +52,7 @@ DEFAULT_CORE = "core/"
 # Files in TOKEN_FILES take a plain token replace ({<project>,<name>,<scope>} → name);
 # project.md is built by field substitution to keep the template's inline comments.
 TOKEN_FILES = [
-    ("project-templates/agari_template.md", "agari.md"),
+    ("project-templates/finish_line_template.md", "finish_line.md"),
     ("project_doctrine_template.md", "doctrine/{name}_doctrine.md"),
     ("ai_responsibility_template.md", "doctrine/ai_responsibility.md"),
     ("journey_shukuba_template.md", "journey/shukuba/README.md"),
@@ -62,12 +62,17 @@ TOKEN_FILES = [
     # (`tobiishi-open` overwrites it, `tobiishi-seal` marks it Sealed), so scaffold's job is
     # that the file exists from creation rather than appearing at the first change.
     ("context_template.md", "contexts/CONTEXT_PM.md"),
-    # The setup seed — the recommended definition chain (PRD → Agari → SRS → SDD),
-    # stamped so a new project's seedbed is never empty and the chain is never
-    # re-typed from memory. A recommendation: the owner may edit or delete it.
-    ("project-templates/setup_seed_template.md",
-     "journey/nemawashi/{date}_define-the-product.md"),
 ]
+
+# The setup seed, by the card's Definition: — the definition chain that value names, stamped so it
+# is never re-typed from memory. A recommendation: the owner may edit or delete it. `none` defines
+# no product, so it stamps no seed.
+SEED_PATH = "journey/nemawashi/{date}_define-the-product.md"
+SEED_FOR_DEFINITION = {
+    "full": "project-templates/setup_seed_template.md",
+    "prd-and-finish-line": "project-templates/setup_seed_prd_and_finish_line_template.md",
+    "none": None,
+}
 
 # project.md fields: (label, new value). The value between `**Label:**` and the
 # trailing `<!-- comment -->` is replaced; the explanatory comment is preserved.
@@ -75,9 +80,12 @@ PROJECT_FIELDS_ORDER = ["Product path", "Source material", "Type", "Definition",
                         "Execution type", "Package slug", "Test command"]
 
 # The card's Definition: follows from its Type: unless the caller names one — a no-code product
-# is defined by its PRD and Agari alone (--type's own help), so the sweep build_idea.py derives
-# from this line runs chain-agari for it, never the full chain.
-DEFINITION_FOR_TYPE = {"software": "full", "no-code": "prd-agari"}
+# defaults to its PRD and finish line alone, so the sweep build_idea.py derives from this line runs
+# prd-and-finish-line for it, never the full chain. A no-code product is never `full`:
+# the full chain's SRS and SDD describe code it does not have (the owner, 2026-11-02).
+DEFINITION_FOR_TYPE = {"software": "full", "no-code": "prd-and-finish-line"}
+DEFINITIONS_FOR_TYPE = {"software": ("full", "prd-and-finish-line", "none"),
+                        "no-code": ("prd-and-finish-line", "none")}
 
 
 def _instance_root() -> str:
@@ -200,11 +208,12 @@ def main() -> int:
                     help="Product path binding. Omit for internal (defaults to "
                          "products/<name>); required + absolute for external.")
     ap.add_argument("--type", default="software", choices=("software", "no-code"),
-                    help="What the product is: software (the whole product chain) or no-code "
-                         "(PRD and Agari only). Default: software.")
-    ap.add_argument("--definition", default=None, choices=("full", "prd-agari", "none"),
+                    help="What the product is: software (an app or tool with code) or no-code "
+                         "(no code; defined by its PRD and finish line, or not at all). Default: software.")
+    ap.add_argument("--definition", default=None, choices=("full", "prd-and-finish-line", "none"),
                     help="The card's Definition: line, which names the definition chain. "
-                         "Default: from --type — full for software, prd-agari for no-code.")
+                         "Default: from --type — full for software, prd-and-finish-line for no-code. "
+                         "A no-code product takes prd-and-finish-line or none, never full.")
     ap.add_argument("--manages", default="none",
                     help="What the product looks after outside itself — a repository, an "
                          "account, a domain — or none. Default: none.")
@@ -223,6 +232,12 @@ def main() -> int:
                     help="Date for the setup seed's filename, YYYY-MM-DD. "
                          "Default: today. Explicit so a test can pin it.")
     args = ap.parse_args()
+
+    definition = args.definition or DEFINITION_FOR_TYPE[args.type]
+    if definition not in DEFINITIONS_FOR_TYPE[args.type]:
+        print(f"error: a {args.type} product cannot be defined '{definition}' — it takes "
+              f"{' or '.join(DEFINITIONS_FOR_TYPE[args.type])}.", file=sys.stderr)
+        return 2
 
     name = args.name.strip()
     if not name or "/" in name or name.startswith("."):
@@ -280,7 +295,7 @@ def main() -> int:
         "Product path": product_path,
         "Source material": args.source_material.strip() or "<blank>",
         "Type": args.type,
-        "Definition": args.definition or DEFINITION_FOR_TYPE[args.type],
+        "Definition": definition,
         "Manages": args.manages.strip() or "none",
         "Execution type": args.execution_type,
         "Package slug": name,
@@ -299,11 +314,18 @@ def main() -> int:
         _write(p, content)
         created.append(p)
 
+    # The setup seed the card's Definition: names — none for `none`.
+    seed_template = SEED_FOR_DEFINITION[definition]
+    if seed_template:
+        p = os.path.join(target, SEED_PATH.format(date=date))
+        _write(p, _stamp_tokens(tpl(seed_template), name))
+        created.append(p)
+
     # Journey directory stubs — the empty bins the lifecycle fills later
     # (the nemawashi candidate pool, and the five record bins: nemawashi trail + drop,
     # shukuba parked + trail, tobiishi trail). The active Shukuba and Tobiishi
     # are user/pipeline-authored, never by setup; the nemawashi is the exception —
-    # it starts with the setup seed stamped above.
+    # it starts with the setup seed stamped above, unless the card reads none.
     for rel in (
         "journey/nemawashi/unpicked/.gitkeep",
         "journey/nemawashi/trail/.gitkeep",

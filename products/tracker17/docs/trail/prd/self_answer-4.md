@@ -18,7 +18,7 @@ None this run.
 
 ## Skipped
 
-- **2.1 — Key Use Case 2's trace — following one feature from the PRD to its code and tests — has no success bar** — its **Confirm or override** slot was already filled ("confirm, with two additions …"). Self-answer run 3 filled it and committed it in `606ba7c2e`, and nothing has changed the companion since. This run found the companion already answered and changed nothing in it.
+- **2.1 — Key Use Case 2's trace — following one feature from the PRD to its code and tests — has no success bar** — its **Confirm or override** slot was already filled ("confirm, with two additions …"). Self-answer run 3 filled it and committed it in `<a commit not in the public history>`, and nothing has changed the companion since. This run found the companion already answered and changed nothing in it.
 - **§ 1, § 3, § 4** — each says "None." and holds no item.
 
 ## Companions opened

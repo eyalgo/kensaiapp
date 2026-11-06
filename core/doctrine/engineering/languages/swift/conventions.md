@@ -1,5 +1,5 @@
 ---
-version: "1.0.2"
+version: "1.1.0"
 ---
 
 # Swift — conventions
@@ -144,6 +144,15 @@ comment kinds doing two different jobs:
   hand a fake through, and it says what that means: "Where the subject offers no door to hand a fake
   through, the defect is the subject's shape and not the test's" (`testing_doctrine.md` § Layers 1–5
   — Code-Time (TDD)).
+- **The four layers, where a product's SDD draws them, take the target as their unit, with `domain`
+  and `ports` in one.** `arch_defaults.md` § The four layers states them and the dependency rule. In
+  Swift a port is the protocol the bullet above names, and an adapter is a type that conforms to it;
+  only the composition root, `main.swift`'s top-level code or the `@main` type, constructs an
+  adapter. The `domain` target calls nothing that reaches the machine, such as `FileManager`,
+  `Data(contentsOf:)`, `.write(to:)`, `Process`, `ProcessInfo`, `URLSession`, `Date()`, `Date.now`,
+  `ContinuousClock.now`, `Task.sleep` or `Thread.sleep`. Its `dependencies:` naming no adapter
+  target holds the half of the rule about adapters. Foundation and the system frameworks need no
+  declared dependency to import, so the other half is held by review.
 - **The narrowest access level that works.** A declaration's default is `internal`
   (https://github.com/swiftlang/swift-book/blob/main/TSPL.docc/LanguageGuide/AccessControl.md). A
   declaration is `public` only when another package reads it. When only another target in the same

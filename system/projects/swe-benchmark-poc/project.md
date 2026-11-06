@@ -3,7 +3,7 @@
 **Product path:** products/swe-benchmark-poc   <!-- relative → internal product. A folder of the ten issues' patches, each `patch.diff` beside its `LICENSE.upstream`, so a reader can see them; not an issue's clone, which is a path on the owner's machine. -->
 **Source material:** <blank>   <!-- optional; read by product-prd at PRD time. Point at the product-intent source — proposal/brief docs, a legacy repo, links — or leave blank if the intent is supplied in conversation. Free-form; the scaffolder fills it from --source-material, else leaves <blank>. -->
 **Type:** software                    <!-- software | no-code — what the product is: an app or tool with code, or something without (a profile, a body of writing, a public presence). -->
-**Definition:** none      <!-- full | prd-agari | none. None on the owner's call, 2026-10-14: no PRD, no product-definition documents; chain-change walks each issue directly. -->
+**Definition:** none      <!-- full | prd-and-finish-line | none. None on the owner's call, 2026-10-14: no PRD, no product-definition documents; walk walks each issue directly. -->
 **Manages:** none                     <!-- The issues' repositories are worked on in local clones, never pushed to. -->
 **Execution type:** headless          <!-- headless (claude -p) | docker -->
 **Package slug:** swe-benchmark-poc              <!-- auto-derived from project name -->

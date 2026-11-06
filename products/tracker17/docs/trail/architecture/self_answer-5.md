@@ -64,7 +64,7 @@ this run also raised one item, § 2.1.
     (`<CORE>/doctrine/engineering/languages/python/quality_gates.md` § What a product installs, when
     it installs one). The same file says a per-product quality bar belongs in the product's own
     `docs/nfdr.md`. tracker17 installs both and configures both: the skeleton launcher copied them in
-    at `c5c0b74f8`, and `83563a643` pinned them. QC-39 already pins them and QC-40 already watches
+    at `<a commit not in the public history>`, and `<a commit not in the public history>` pinned them. QC-39 already pins them and QC-40 already watches
     their advisories. Leaving them out of the gates pays that cost and gets nothing for it.
   - **What the gate says.** Three commands, run from the product root inside RT-4's virtual
     environment, each passing on exit 0, gated at the suite, over the tree:
@@ -107,8 +107,8 @@ None this run.
   neither decision moved.
 - **Why it is worth a cycle:** *Something upstream moved and it has not seen it*, and *a fact in it
   is now false*. `nfdr.md:6` reads "SDD Settled (version 4)", but the SDD is at version 6
-  (`SDD.md:5`, commits `759ab7f5e` and `4e290298d`, both after `nfdr.md`'s last commit
-  `facf92e37`). RN-15 (`nfdr.md:663`) counts three SDD Open Questions. SDD RN-35 and RN-36 closed
+  (`SDD.md:5`, commits `<a commit not in the public history>` and `<a commit not in the public history>`, both after `nfdr.md`'s last commit
+  `<a commit not in the public history>`). RN-15 (`nfdr.md:663`) counts three SDD Open Questions. SDD RN-35 and RN-36 closed
   two of them, and SDD § Open Questions now holds one. The round is already owed for § 3, so this
   costs no extra run. SDD version 5's changes, RT-7 carrying what the page showed and RT-10's stated
   maximums, move no entry I could find. QC-8 and QC-9 with RN-19 already hold them.

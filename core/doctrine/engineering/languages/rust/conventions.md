@@ -1,5 +1,5 @@
 ---
-version: "1.0.1"
+version: "1.1.0"
 ---
 
 # Rust — conventions
@@ -86,6 +86,17 @@ away from it. `testing.md` says where doc tests sit relative to the seven testin
   a unit that constructs its own collaborator, because `testing_doctrine.md` then has no door to hand
   a fake through — "Where the subject offers no door to hand a fake through, the defect is the
   subject's shape and not the test's" (`testing_doctrine.md` § Layers 1–5 — Code-Time (TDD)).
+- **The four layers, where a product's SDD draws them, take the crate as their unit, with `domain`
+  and `ports` in one.** `arch_defaults.md` § The four layers states them and the dependency rule. In
+  Rust a port is the trait the bullet above names, and an adapter is a type that implements it; only
+  the composition root, `main.rs` or a `src/bin/` target, names an adapter. The `domain` crate uses
+  nothing that reaches the machine, such as `std::fs`, `std::process`, `std::net`, `std::env::var`,
+  `std::thread::sleep`, `SystemTime::now` or `Instant::now`. Its `Cargo.toml` naming no adapter
+  crate holds the half of the rule about adapters. The other half is held by `#![no_std]` at the
+  crate root where the domain needs nothing of `std` beyond `core` and `alloc`, and otherwise by a
+  `clippy.toml` in the `domain` crate's own directory, which Clippy reads before any further up,
+  listing those functions under `disallowed-methods` and those types under `disallowed-types`; the
+  gate in `quality_gates.md` runs it.
 
 ## The constructs this house avoids
 

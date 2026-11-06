@@ -14,14 +14,16 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-# No inherited telemetry variable, no inherited GIT_CONFIG_* override, and no secret value in a
-# failure report — pytest_guardrails.py.
+# No inherited telemetry variable, no inherited GIT_CONFIG_* override, no secret value in a failure
+# report, and no real network connection — pytest_guardrails.py.
 from pytest_guardrails import (  # noqa: E402,F401
     _no_ambient_colour,
     _no_ambient_git_config,
     _no_ambient_ollama,
     _no_ambient_provider_force,
     _no_ambient_telemetry,
+    _no_real_home,
+    _no_real_network,
     pytest_configure,
     pytest_runtest_makereport,
     pytest_sessionfinish,

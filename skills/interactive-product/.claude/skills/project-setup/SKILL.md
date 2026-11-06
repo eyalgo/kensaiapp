@@ -3,22 +3,24 @@ name: project-setup
 description: >-
   The front door for a project in a kensaiapp — one plain-language conversation that turns "I have an idea for a
   product" into a project whose definition is already running. It interviews the owner without
-  kensaiapp's vocabulary (no PRD, no Agari, no companion), one question at a time, offering a
+  kensaiapp's vocabulary (no PRD, no finish line, no companion), one question at a time, offering a
   suggested answer wherever the idea or the material already holds one, stamps the project through
-  project-stamp, writes the owner's answers as the PRD's and the Agari's first round, commits them,
-  and starts the chain that writes the PRD and then the Agari. Interactive, with the owner in the
+  project-stamp with the definition the owner chose and the seed it names, writes the owner's
+  answers as the PRD's and the finish line's first round, commits them, and starts the chain that writes
+  the PRD and then the finish line — or, when the owner chose to write nothing down first, stops at the
+  stamped project. Interactive, with the owner in the
   room; works the same in a host or a satellite. Use whenever someone wants to start, create, set
   up, add or kick off a new project or product in this instance, says they have a product idea and
   want kensaiapp to take it from here, or is new to kensaiapp and asks how to begin — even if they
   never say "project". Do not use for scaffolding only the management folder with no interview
-  (project-stamp), writing a PRD or an Agari for a project that already exists (product-prd,
-  project-agari), declaring the instance's own identity (kensaiapp-michi), or filling the card
+  (project-stamp), writing a PRD or a finish line for a project that already exists (product-prd,
+  project-finish-line), declaring the instance's own identity (kensaiapp-michi), or filling the card
   after the foundation step (product-card).
 license: MIT
 metadata:
   author: Eyal Golan
   category: kensaiapp-setup
-  version: "1.2.0"
+  version: "1.6.0"
   created: "2026-10-04"
   risk: safe
   tags: kensaiapp, project, setup, interview, front-door
@@ -28,7 +30,7 @@ metadata:
 # project-setup — the front door for a project
 
 A person with a product idea should not have to know that a project is stamped, that a PRD comes
-before an Agari, or that a run parks its questions in a companion. This skill asks what only they
+before a finish line, or that a run parks its questions in a companion. This skill asks what only they
 can answer — suggesting an answer where it already has one, which they accept, change or replace —
 and does the rest: it creates the project, writes their answers where the first runs read them,
 and starts those runs.
@@ -40,15 +42,15 @@ exists — setting up the instance itself is a separate door.
 person in the room is the check (`<CORE>/doctrine/setup/authoring_layers.md` § *A skill that acts
 unattended gates to its seat*). Commits carry `--role Product`.
 
-**Speak plainly.** Never say PRD, Agari, companion, stamp, chain, seed or card to the owner. Say
+**Speak plainly.** Never say PRD, finish line, companion, stamp, chain, seed or card to the owner. Say
 "what it is", "when it's finished", "your answers", "set up the project", "start writing".
 
 ## The flow
 
 1. Name the project
-2. Screen 1 — what kind of project (four taps)
+2. Screen 1 — what kind of project (four taps), then how much is written down first (one tap)
 3. Screen 2 — the product (seven questions in chat, three taps), each with a suggested answer where
-   there is one
+   there is one — skipped when nothing is written down first
 4. Confirm
 5. Set up the project
 6. Write the two companions
@@ -81,6 +83,20 @@ Then ask in chat for whatever a "yes" opened:
 - **Looks after something** → what, in one line.
 - **Material** → where it is (paths or links), and one line on what it is.
 
+**Then one more tap — how much is written down before the work starts.** One `AskUserQuestion`
+call, whose options follow the first answer:
+
+| What are you building? | Options | Lands as |
+|---|---|---|
+| Software | **Everything** (Recommended) — what it is, when it's done, what the system must do, how it looks and how it's built · **Just what it is and when it's done** · **Nothing — go straight to the work** | `--definition full` / `--definition prd-and-finish-line` / `--definition none` |
+| Something without code | **What it is and when it's done** (Recommended) · **Nothing — go straight to the work** | `--definition prd-and-finish-line` / `--definition none` |
+
+A product without code is never offered **Everything**: what the system must do and how it is built
+describe code it does not have, and the stamp refuses it.
+
+**Nothing — go straight to the work** writes nothing down, so there is nothing to ask about the
+product: skip Screen 2, step 6 and step 8, and go from here to the confirmation.
+
 ### 3. Screen 2 — the product
 
 Ask these **one at a time in chat**, and wait for each answer before asking the next.
@@ -108,7 +124,7 @@ a suggestion they changed is `edited`, with the changed text as the answer.
 | 4 | What are the 3–5 main things they'll do with it? | PRD: Key Use Cases, Core Features | PRD |
 | 5 | What is it deliberately *not*? | PRD: Out of Scope | PRD |
 | 6 | How will you know it's working? | PRD: Goals, Success Metrics | PRD |
-| 7 | When is it finished — what has to be true for you to say "done"? | The terminus itself — the condition under which the product is done | Agari |
+| 7 | When is it finished — what has to be true for you to say "done"? | The terminus itself — the condition under which the product is done | Finish line |
 
 Then one `AskUserQuestion` call. Where you have grounds for an answer, put that option first and
 add "(Recommended)" to its label; otherwise keep the order below. A recommended option the owner
@@ -126,14 +142,16 @@ these answers and lists them as choices to confirm.
 
 An answer of "I don't know" is an answer — record it as said. A question the owner refuses is left
 out of the companion rather than written empty; the first run raises it itself. If that leaves a
-document with no answers at all, write no companion for it: with no Agari answer, the Agari run
+document with no answers at all, write no companion for it: with no finish line answer, the finish line run
 drafts from the PRD alone and asks what it cannot settle. Question 1 is the one that cannot be
 skipped — with no answer to "what is it?" there is nothing to start from, so ask it again in other
 words rather than go on.
 
 ### 4. Confirm
 
-Show a short summary in plain words — the name, the four screen-1 answers, and the ten answers,
+Show a short summary in plain words — the name, the four screen-1 answers, how much is written
+down first, and the ten answers
+(none when nothing is written down first),
 with the ones that came from your suggestion marked as such — and ask with `AskUserQuestion`:
 **Create it** · **Change something**. Nothing is written before **Create it**; that answer is also
 the consent to commit.
@@ -143,9 +161,9 @@ the consent to commit.
 From the instance root:
 
 ```bash
-python3 <CORE>/../skills/interactive-product/.claude/skills/project-stamp/scripts/stamp_project.py <slug> \
+"<CORE>/tools/locked_python.sh" <CORE>/../skills/interactive-product/.claude/skills/project-stamp/scripts/stamp_project.py <slug> \
   --placement <internal|external> [--product-path <absolute path>] \
-  --type <software|no-code> --manages '<what or none>' \
+  --type <software|no-code> --definition <full|prd-and-finish-line|none> --manages '<what or none>' \
   --source-material '<source line>' \
   --execution-type headless --test-command "<pytest tests/ | none>"
 ```
@@ -157,6 +175,8 @@ python3 <CORE>/../skills/interactive-product/.claude/skills/project-stamp/script
   `the owner's answers to the project-setup interview, <YYYY-MM-DD> — docs/PRD_open_issues.md until
   the first PRD run folds it, docs/trail/prd/cycle-1.md after`, followed by `; ` and the material the
   owner named, if any. The first fold always files that copy as `cycle-1.md` on a new project.
+  Under `--definition none` there is no interview to name and no PRD run to read it: the source
+  line is the material the owner named, or `<blank>` when they named none.
 - **The owner's words go in single quotes**, with every `'` inside them written `'\''`. A backtick,
   a `$` or a `"` inside double quotes is run by the shell or breaks the line.
 
@@ -164,16 +184,18 @@ On exit 3 (the project exists) or exit 2 (a path mismatch), report the script's 
 
 ### 6. Write the two companions
 
+Skipped under `--definition none`: there are no answers, and no document will be written from them.
+
 Write each document's answers to a JSON list of `{"question", "why", "answer"}` in a scratch file
 outside the repository — adding `"suggested": "accepted"` or `"suggested": "edited"` to an answer that
 came from your suggestion, and nothing to one in the owner's own words — then render:
 
 ```bash
 W=<CORE>/../skills/interactive-product/.claude/skills/project-setup/scripts/write_companion.py
-python3 $W --template <CORE>/templates/product-templates/prd_open_issues_template.md \
+"<CORE>/tools/locked_python.sh" $W --template <CORE>/templates/product-templates/prd_open_issues_template.md \
   --out <Product path>/docs/PRD_open_issues.md --name <slug> --answers <prd.json>
-python3 $W --template <CORE>/templates/project-templates/agari_open_issues_template.md \
-  --out system/projects/<slug>/agari_open_issues.md --name <slug> --answers <agari.json>
+"<CORE>/tools/locked_python.sh" $W --template <CORE>/templates/project-templates/finish_line_open_issues_template.md \
+  --out system/projects/<slug>/finish_line_open_issues.md --name <slug> --answers <finish-line.json>
 ```
 
 `<Product path>` is the card's: `products/<slug>` for an internal product, the absolute path for an
@@ -188,10 +210,13 @@ the open-issues file resolve into the body).
 The first runs refuse an uncommitted companion, so both are committed before anything starts. Read
 `<CORE>/doctrine/governance/commit_via_builder.md` and commit through
 `<CORE>/tools/commit_builder.py` with `--role Product --skill project-setup`, and
-`--directional "Agari: none — <one line>"` — no Agari is declared yet.
+`--directional "Finish-line: none — <one line>"` — no finish line is declared yet.
 
+- **Nothing written down first** (`--definition none`) — one commit in the instance:
+  `--add system/projects/<slug>`, internal or external alike, since step 6 wrote nothing in the
+  product.
 - **Internal product** — one commit in the instance: `--add system/projects/<slug>
-  products/<slug>/docs/PRD_open_issues.md`. The Agari companion sits inside `system/projects/<slug>`,
+  products/<slug>/docs/PRD_open_issues.md`. The finish line companion sits inside `system/projects/<slug>`,
   so that one path covers it, and covers its absence when step 6 wrote none.
 - **External product** — two commits. The instance: `--add system/projects/<slug>`. The product
   repo (`--repo` = `git -C <Product path> rev-parse --show-toplevel`): `--add` the PRD companion,
@@ -199,30 +224,34 @@ The first runs refuse an uncommitted companion, so both are committed before any
 
 ### 8. Start the chain
 
-From the instance root:
+Skipped under `--definition none`: there is no definition to write. Otherwise, from the instance
+root:
 
 ```bash
-<CORE>/launchers/chain-agari/launcher.sh <slug>
+<CORE>/launchers/prd-and-finish-line/launcher.sh <slug>
 ```
 
 It writes the PRD from the answers, answers the questions that run raises itself through
-`companion-self-answer` — as every chain does — then declares the Agari the same way, and stops. It runs in the background and reports on completion. A walk can also stop early —
-the PRD's questions not settled within its rounds, or a run that failed — and then the Agari waits;
+`companion-self-answer` — as every chain does — then declares the finish line the same way, and stops. It runs in the background and reports on completion. A walk can also stop early —
+the PRD's questions not settled within its rounds, or a run that failed — and then the finish line waits;
 the end message says which.
 
 ### 9. Tell the owner what happens next
 
-In plain words: the project exists; their answers are saved where the writing starts; the
+Under `--definition none`, in plain words: the project exists, nothing is being written about it,
+and the first piece of work is the next step. Otherwise, in plain words: the project exists; their
+answers are saved where the writing starts; the
 definition is being written now, and the writing answers its own follow-up questions as it goes.
 They will get a message when it finishes, and they hear back only if that message says something is
 left for them. Do not guess which questions the runs will raise — they have not run yet. If the
 message says the writing stopped before it finished, running
-`<CORE>/launchers/chain-agari/launcher.sh <slug>` again carries on from where it stopped. For a software product, say that the rest of the definition — what the system must do, how
+`<CORE>/launchers/prd-and-finish-line/launcher.sh <slug>` again carries on from where it stopped. When the owner chose **Everything**, say that the rest of the definition — what the system must do, how
 it looks, how it is built — follows once this part is done.
 
 ## What it does not do
 
-- It does not write the PRD or the Agari — the chain's runs do.
-- It does not pick or walk any journey item, and plants no seed.
+- It does not write the PRD or the finish line — the chain's runs do.
+- It does not pick or walk any journey item, and plants no seed of its own — the stamp plants the
+  one the chosen definition names, and none under `--definition none`.
 - It does not overwrite a project, a companion, or a card that already exists.
 - In a satellite it touches only the satellite it runs in.

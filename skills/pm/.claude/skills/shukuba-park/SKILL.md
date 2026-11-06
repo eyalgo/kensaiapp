@@ -21,7 +21,7 @@ description: |
   "the station isn't reached but I need the slot", "shukuba-park".
 license: MIT
 metadata:
-  version: "3.6.0"
+  version: "3.9.0"
   category: journey
   risk: safe
   created: "2026-08-03"
@@ -169,7 +169,7 @@ One commit, carrying the station's rename and — only if Step 4 found something
 correction. Per `<CORE>/docs/journey_move.md` § The commit:
 
 ```bash
-python3 "<CORE>/tools/commit_builder.py" --repo . commit \
+"<CORE>/tools/locked_python.sh" "<CORE>/tools/commit_builder.py" --repo . commit \
   --staged "<shukuba>/<YYYY-MM-DD>_<slug>.md" "<shukuba>/parked/<YYYY-MM-DD>_<slug>.md" \
   --add "<shukuba>/parked/<YYYY-MM-DD>_<slug>.md" \
   --subject "park shukuba: <YYYY-MM-DD>_<slug> → parked/, unreached" \
@@ -181,7 +181,7 @@ python3 "<CORE>/tools/commit_builder.py" --repo . commit \
 The shared file owns the identity flag, the `--add`-only-if-you-edited rule (Step 4 changes nothing in the common
 case, and then `--staged` alone carries the commit), no-`--skill`, and the `aside:` reading for a
 set-down. What is specific here: the directional is always a **`Shukuba:`** line, resolved against the
-station being parked — a station is open by definition, so it never degrades to `Agari:`.
+station being parked — a station is open by definition, so it never degrades to `Finish-line:`.
 
 Then check `git show --stat` per the shared file. Expect a rename, and content only if Step 4 made a
 correction.

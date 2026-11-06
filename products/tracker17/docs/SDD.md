@@ -1370,7 +1370,7 @@ Architect to record. None of RC-1 to RC-6 moves either.
 - **Prior assumption:** whether a page tells the operator a field's maximum was open (RC-1), and
   the behaviour line of `tasks-in-a-project` read every save of a task whose assignee had left the
   list as refused, because UXD version 3's UX-F9 refused "an assignee not on the list".
-- **Observed reality:** `products/tracker17/docs/UXD.md` version 4, landed at commit `6091a6f8b`,
+- **Observed reality:** `products/tracker17/docs/UXD.md` version 4, landed at commit `<a commit not in the public history>`,
   folds `products/tracker17/docs/trail/uxd/cycle-3.md` §§ 2.1 and 2.2. UX-F2 and UX-F7 have the
   project-description field and the comment field state the most characters they hold, beside the
   field, with the number "taken from the same place that sets the field's limit", and no other
@@ -1400,12 +1400,12 @@ both.*
   purpose, and the setup instructions owed nothing about it.
 - **Observed reality:** `products/tracker17/docs/PRD.md` version 5 adds `critical` to § Core
   Features, Priorities, and names Priorities as "The one exception" to the predecessor rule
-  (commit `29352d2fc`). Version 6 gives tracker17 a second purpose, kensaiapp's own testing ground,
+  (commit `<a commit not in the public history>`). Version 6 gives tracker17 a second purpose, kensaiapp's own testing ground,
   and ends § Purpose with "A reader learns both purposes from the first thing they read about
-  tracker17" (commit `cafd1cb92`). `products/tracker17/docs/SRS.md` version 5 names the four
+  tracker17" (commit `<a commit not in the public history>`). `products/tracker17/docs/SRS.md` version 5 names the four
   priorities in FR-15, orders them in FR-36, counts four in FR-38 and carries the exception in C-5
-  (commit `083aa6d92`). Version 6 names the second purpose in § 1, adds FR-41, the README's opening
-  paragraph, and AC-21, its inspection (commit `b72ea80e6`). `grep -n "critical\|FR-41\|AC-21"
+  (commit `<a commit not in the public history>`). Version 6 names the second purpose in § 1, adds FR-41, the README's opening
+  paragraph, and AC-21, its inspection (commit `<a commit not in the public history>`). `grep -n "critical\|FR-41\|AC-21"
   products/tracker17/docs/SDD.md` printed nothing on 2026-10-11, before this revision. On the same
   day the opening paragraph of `products/tracker17/README.md` names the worked example and not the
   testing ground, and its Status section says so ("The tracker doesn't say first that it is
@@ -1434,11 +1434,11 @@ both.*
   *Reached when* read "A move made from a page that is out of date is refused, says the status has
   changed, and offers a reload (UX-I3)". The refusal reached by an address with no press was not
   named by this document.
-- **Observed reality:** `products/tracker17/docs/UXD.md` version 7, landed at commit `f90b692f9`,
+- **Observed reality:** `products/tracker17/docs/UXD.md` version 7, landed at commit `<a commit not in the public history>`,
   keeps the no-press refusal as a case of its own (UXD RN-33): the address that shows the
   confirmation of a move to `cancelled`, or the one that backs out of it, opened again once the
   task's status no longer allows the move, shows the refusal beside the task's status, says what is
-  true now, names no action and offers no reload (UX-F4). Version 8, at `afffd0d5e`, has no refusal
+  true now, names no action and offers no reload (UX-F4). Version 8, at `<a commit not in the public history>`, has no refusal
   offer a reload on a page built after it: the overtaken move names the moves the page now shows,
   or none for a final status (UX-I3, UX-F4; UXD RN-34). The PM found `status-moves`'s bar false
   against both (`trail/sdd/cycle-8.md` § 5.2).
@@ -1538,10 +1538,10 @@ both.*
   accessible description and no `script` element on the page, and the same file's
   `test_people_keyboard_refusals_and_removal_keep_focus_at_the_action` finds the People heading
   focused after a removal (`web/pages.py`, the `if on_heading:` branch), a second such element.
-  Both passed at `641bb58b5` (`pytest products/tracker17/tests/e2e/`, 18 passed;
-  `trail/sdd/cycle-5.md` § 5.1) and in a disposable copy of `7653f25c8` with the pinned library,
+  Both passed at `<a commit not in the public history>` (`pytest products/tracker17/tests/e2e/`, 18 passed;
+  `trail/sdd/cycle-5.md` § 5.1) and in a disposable copy of `<a commit not in the public history>` with the pinned library,
   playwright 1.63.0 and Chromium 153.0.8010.12 (`pytest tests/e2e/`, 18 passed;
-  `trail/sdd/self_answer-7.md`, Header), and `git diff --stat 7653f25c8 1bdfc68fe --
+  `trail/sdd/self_answer-7.md`, Header), and `git diff --stat <a commit not in the public history> <a commit not in the public history> --
   products/tracker17 ':!products/tracker17/docs'` printed nothing on 2026-10-11, so the code they
   ran against is the code on `main`. On the confirmation (§ 4 EX-6), `tests/e2e/test_moves.py`
   verifies the three parts of the case: `test_keyboard_opening_focuses_the_visible_sentence` finds
@@ -1551,15 +1551,15 @@ both.*
   double-clicks for real on a short page, on the task's page and on row 40 of 60 with the list
   scrolled part-way, and never confirms; and
   `test_keyboard_opening_on_a_far_row_focuses_the_visible_sentence` does the focus case on that far
-  row. The four passed in a fresh clone at `9b05680c7`, 67 passed in `tests/e2e/`, with the pinned
+  row. The four passed in a fresh clone at `<a commit not in the public history>`, 67 passed in `tests/e2e/`, with the pinned
   library, `playwright==1.63.0` (`pyproject.toml`). The browser build is asserted by the run and
   not inferred from the pin: the same run's `test_history_matrix_revalidates_current_saved_status`
   asserts `browser.version` equals `PINNED_BROWSER`, `153.0.8010.12`, on the full Chromium of that
   install (`tests/e2e/conftest.py`, the `history_browser` fixture, `channel="chromium"`), while
   the four focus tests drive the headless shell the same install provides (the `browser` fixture,
-  `chromium.launch()`). `git diff --stat 9b05680c7 HEAD -- products/tracker17
+  `chromium.launch()`). `git diff --stat <a commit not in the public history> HEAD -- products/tracker17
   ':!products/tracker17/docs'` listed one line of `products/tracker17/README.md` and no code on
-  2026-10-21, at `6de932f9d`. One case stays unverified. Assistive technology reading the
+  2026-10-21, at `<a commit not in the public history>`. One case stays unverified. Assistive technology reading the
   description when the page opens (§ 4 EX-14): a computed accessible description puts the line in
   the accessibility tree and does not prove it is spoken, no test drives a screen reader, and no
   slice requires one. One pass with VoiceOver on the owner's macOS machine would settle it, and no
@@ -2015,7 +2015,7 @@ a draft, that note now says so and names the note that carries the answer.
   the address bar or a bookmark is marked `none` (the `Sec-Fetch-Site` page above), so only a
   submission is held to `same-origin`, or the tracker could not be opened. The two readings reached
   this document as `products/tracker17/docs/SDD_open_issues.md` §§ 2.1 and 2.2, committed at
-  `86c8acfb0` by a `companion-self-answer` run that was answering
+  `<a commit not in the public history>` by a `companion-self-answer` run that was answering
   `products/tracker17/docs/architecture_open_issues.md` §§ 2.1 and 2.2 in the owner's seat; those
   answers confirmed `products/tracker17/docs/nfdr.md` QC-32 and QC-33 with the additions SEC-2 and
   SEC-3 now carry, and their reasoning is `products/tracker17/docs/trail/architecture/self_answer-1.md`
@@ -2030,7 +2030,7 @@ a draft, that note now says so and names the note that carries the answer.
   NFR-13, AC-10)*
 - **RN-29:** *(CTO)* *(changed)* § 12 refers to `products/tracker17/docs/adr/`, ADR-0001 to
   ADR-0009, and `products/tracker17/docs/nfdr.md`, where it said they did not exist — *because*
-  both landed at commit `ab7a066ff`, after this document's version 3, and § 12's own text has this
+  both landed at commit `<a commit not in the public history>`, after this document's version 3, and § 12's own text has this
   document refer to the records once they exist. The sentence is written as what is true now, with
   no claim about when it became true, under `<CORE>/doctrine/governance/written_forward.md` § 2.
   § 12 also states which store wins when the two disagree, which this round is the first case of.
@@ -2078,7 +2078,7 @@ a draft, that note now says so and names the note that carries the answer.
   the field's `maxlength`. Neither moved § 4; what moved it is the UXD. *(re: § 4 RT-7, RT-10;
   § 6; source: UXD UX-F2, UX-F7, UX-F9; SRS NFR-3, FR-21, FR-22, FR-40)*
 - **RN-33:** *(CTO)* *(added)* The round that caught up with UXD version 4 read seven things
-  beyond the inputs RN-16, RN-23, RN-27 and RN-30 list. It read `git diff 35aec4aad HEAD --
+  beyond the inputs RN-16, RN-23, RN-27 and RN-30 list. It read `git diff <a commit not in the public history> HEAD --
   products/tracker17/docs/UXD.md`, the whole change to the UXD since this document's version 4. It
   read `products/tracker17/docs/trail/uxd/cycle-3.md` and
   `products/tracker17/docs/trail/uxd/self_answer-3.md`, the answered round and its reasoning. It
@@ -2089,10 +2089,10 @@ a draft, that note now says so and names the note that carries the answer.
   hints, and searched `products/tracker17/docs/CONTENT.md` for "maximum", "characters" and "no
   longer on the list", which returned nothing; the UXD's round records that the verbal language's
   instruction form covers the sentences and their words are written when a change publishes them
-  (`self_answer-3.md`, "`CONTENT.md` is owed nothing"). It read `git log 35aec4aad..HEAD --
+  (`self_answer-3.md`, "`CONTENT.md` is owed nothing"). It read `git log <a commit not in the public history>..HEAD --
   products/tracker17/docs/ system/projects/tracker17/` for the order in which the UXD, the design
   language and the NFDR moved. The SRS and the PRD are unchanged since this document's version 4:
-  `git diff --stat 35aec4aad HEAD` on both printed nothing on 2026-10-07.
+  `git diff --stat <a commit not in the public history> HEAD` on both printed nothing on 2026-10-07.
 - **RN-34:** *(CTO)* *(changed)* § 4 TS-4 holds the pointer test to the feature words whose slice
   has landed, where it held it to every word in TS-3's table, and it fails in both directions: a
   landed word with no module, and a word with a module that is not listed as landed — *because*
@@ -2137,8 +2137,8 @@ a draft, that note now says so and names the note that carries the answer.
   break as one, and the value reached the saved data whole. The same file's
   `test_a_refused_name_puts_focus_in_the_name_field_with_the_reason_as_its_description` finds
   focus in the name field and the reason as its accessible description, which is what § 11 R-2
-  asks on a form control. Both passed at commit `691edf98b`, `pytest tests/e2e/` at 9 passed, exit
-  0, and `git diff --stat 691edf98b HEAD -- products/tracker17 ':!products/tracker17/docs'`
+  asks on a form control. Both passed at commit `<a commit not in the public history>`, `pytest tests/e2e/` at 9 passed, exit
+  0, and `git diff --stat <a commit not in the public history> HEAD -- products/tracker17 ':!products/tracker17/docs'`
   printed nothing when the round was answered, so the code they ran against is the code on `main`
   (`products/tracker17/docs/trail/sdd/self_answer-5.md`, Header). The PM raised both
   (`trail/sdd/cycle-3.md` § 5.3), and the answer added one sentence on how the first closes: the
@@ -2153,7 +2153,7 @@ a draft, that note now says so and names the note that carries the answer.
   UX-A3)*
 - **RN-37:** *(CTO)* *(added)* The round that folded the third answered round read these things
   beyond the inputs RN-16, RN-23, RN-27, RN-30 and RN-33 list. It read
-  `products/tracker17/docs/SDD_open_issues.md` as intake found it, committed at `c3493c396` with
+  `products/tracker17/docs/SDD_open_issues.md` as intake found it, committed at `<a commit not in the public history>` with
   all three answer slots filled, and `products/tracker17/docs/trail/sdd/self_answer-5.md`, the
   reasoning behind the answers. It read `main.py`, `tests/unit/test_address.py`,
   `tests/architecture/test_trace.py`, `web/routes.py`, `tests/integration/test_routes.py` and
@@ -2218,7 +2218,7 @@ a draft, that note now says so and names the note that carries the answer.
   § 6 `first-project`; source: SRS FR-6, C-7, NFR-11)*
 - **RN-40:** *(CTO)* *(added)* The round that folded the fourth answered round read these things
   beyond the inputs RN-16, RN-23, RN-27, RN-30, RN-33 and RN-37 list. It read
-  `products/tracker17/docs/SDD_open_issues.md` as intake found it, committed at `7c6137157` with its
+  `products/tracker17/docs/SDD_open_issues.md` as intake found it, committed at `<a commit not in the public history>` with its
   one answer slot filled, and `products/tracker17/docs/trail/sdd/self_answer-6.md`, the reasoning
   behind the answer. It read `products/tracker17/README.md` whole, `tests/requirements.txt`,
   `pyproject.toml`, `tests/integration/test_start.py` and `tests/e2e/conftest.py`, to verify on disk
@@ -2245,7 +2245,7 @@ a draft, that note now says so and names the note that carries the answer.
   `tests/e2e/test_people.py`, `test_added_markup_name_has_browser_focus_and_accessible_description`,
   asserts in Chromium that the added name, a `span`, holds keyboard focus, is in the viewport and
   has the completion line as its computed accessible description, with no script on the page, and
-  it passed on `main` at `641bb58b5`. The answer, given in the CTO's seat, narrowed both places as
+  it passed on `main` at `<a commit not in the public history>`. The answer, given in the CTO's seat, narrowed both places as
   the item asked and added four things, with the reasoning in
   `products/tracker17/docs/trail/sdd/self_answer-7.md` § 5.1. First, the precision `tabindex="-1"`:
   the standard makes `autofocus` apply to all elements, and only a focusable element takes focus,
@@ -2256,9 +2256,9 @@ a draft, that note now says so and names the note that carries the answer.
   in view and described are Chromium's behaviour as measured and not the standard's. Fourth,
   assistive-technology speech keeps a settling path, one VoiceOver pass on the owner's macOS
   machine, which no slice requires, in the form R-8 and R-9 use, because an open question with no
-  settling path is a hole. The measurement was re-made in a disposable copy of `7653f25c8` rather
+  settling path is a hole. The measurement was re-made in a disposable copy of `<a commit not in the public history>` rather
   than read off the record, 18 passed with the pinned library, and this round checked that no code
-  moved between that commit and `main` at `1bdfc68fe` (RN-44), so the recorded runs stand against
+  moved between that commit and `main` at `<a commit not in the public history>` (RN-44), so the recorded runs stand against
   the code on `main` and this round ran no suite. The two passing tests stay among R-2's triggers,
   as RN-36 keeps `first-project`'s, because a Chromium release could change the behaviour. Nothing
   settled moves: UXD UX-A5 and § 4 EX-14's mechanism stand as written, the answer says only what is
@@ -2302,14 +2302,14 @@ a draft, that note now says so and names the note that carries the answer.
   FR-38, FR-41, C-5, AC-21, RN-18, RN-24, RN-25)*
 - **RN-44:** *(CTO)* *(added)* The round that folded the fifth answered round read these things
   beyond the inputs RN-16, RN-23, RN-27, RN-30, RN-33, RN-37 and RN-40 list. It read
-  `products/tracker17/docs/SDD_open_issues.md` as intake found it, committed at `1bdfc68fe` with its
+  `products/tracker17/docs/SDD_open_issues.md` as intake found it, committed at `<a commit not in the public history>` with its
   one answer slot filled, and `products/tracker17/docs/trail/sdd/self_answer-7.md`, the reasoning
   behind the answer. It read `tests/e2e/test_people.py`, `tests/e2e/conftest.py`,
   `tests/requirements.txt` and `web/pages.py`, to verify on disk each line the answer cites. It ran
-  `git diff --stat 7653f25c8 1bdfc68fe -- products/tracker17 ':!products/tracker17/docs'`, which
+  `git diff --stat <a commit not in the public history> <a commit not in the public history> -- products/tracker17 ':!products/tracker17/docs'`, which
   printed nothing, and `git log` on `products/tracker17/docs/SRS.md`, `PRD.md` and `UXD.md`, for
-  the versions that landed since this document's version 7: SRS version 5 at `083aa6d92`, version
-  6 at `b72ea80e6`, PRD version 5 at `29352d2fc`, version 6 at `cafd1cb92`, and the UXD unchanged at
+  the versions that landed since this document's version 7: SRS version 5 at `<a commit not in the public history>`, version
+  6 at `<a commit not in the public history>`, PRD version 5 at `<a commit not in the public history>`, version 6 at `<a commit not in the public history>`, and the UXD unchanged at
   version 4. It read `products/tracker17/README.md`, its opening paragraph and Status section, for
   what the setup instructions say of the second purpose today. It read
   `products/tracker17/docs/adr/0003-no-script-in-any-page.md` and
@@ -2357,7 +2357,7 @@ a draft, that note now says so and names the note that carries the answer.
   *(re: § 3, the `application` row; source: SRS FR-9, FR-18, NFR-3; UXD UX-I4; FDR R-65, R-116)*
 - **RN-46:** *(CTO)* *(added)* The round that folded the sixth answered round read these things
   beyond the inputs RN-16, RN-23, RN-27, RN-30, RN-33, RN-37, RN-40 and RN-44 list. It read
-  `products/tracker17/docs/SDD_open_issues.md` as intake found it, committed at `65f0bb1a4` with its
+  `products/tracker17/docs/SDD_open_issues.md` as intake found it, committed at `<a commit not in the public history>` with its
   one answer slot filled, and `products/tracker17/docs/trail/sdd/self_answer-8.md`, the reasoning
   behind the answer. It read `application/tracker.py`, `application/contracts.py`, `domain/tasks.py`,
   `web/routes.py` and `tests/integration/test_task_tracker.py`, to verify on disk each line the
@@ -2370,9 +2370,9 @@ a draft, that note now says so and names the note that carries the answer.
   `products/tracker17/docs/adr/README.md` and
   `products/tracker17/docs/architecture_open_issues.md` § 3.1, for the state of the downstream
   records. It read the headers of the PRD, the SRS and the UXD, which stand at the versions
-  version 8 read, 6, 6 and 4. It ran `git diff --stat 8315df674 65f0bb1a4 -- products/tracker17
+  version 8 read, 6, 6 and 4. It ran `git diff --stat <a commit not in the public history> <a commit not in the public history> -- products/tracker17
   ':!products/tracker17/docs'`, which listed two lines of `products/tracker17/README.md` and no
-  code, so the code the answer read at `8315df674` is the code on `main`. It ran no suite: the item
+  code, so the code the answer read at `<a commit not in the public history>` is the code on `main`. It ran no suite: the item
   is about what the code says, which was read on disk, and this round changed no code. It read the
   status lines of `products/tracker17/docs/DESIGN.md` and `products/tracker17/docs/CONTENT.md` and
   nothing more of either, because what this round changed describes a part and names no word a
@@ -2393,8 +2393,8 @@ a draft, that note now says so and names the note that carries the answer.
   `products/tracker17/docs/trail/sdd/self_answer-9.md` § 5.1. First, the label is the same shape:
   `domain/tasks.py`, `add_task_label`, checks the label "against the labels it carries now" and
   returns `changed=False` for one already carried, which `tests/unit/test_tasks.py`,
-  `test_duplicate_task_label_reports_no_change`, asserts. Labels landed at `25fff47d2` and the
-  operator name at `cb48338e3`, both after version 9 (`33ad1a2a7`), so RN-45's "Today the edit is
+  `test_duplicate_task_label_reports_no_change`, asserts. Labels landed at `<a commit not in the public history>` and the
+  operator name at `<a commit not in the public history>`, both after version 9 (`<a commit not in the public history>`), so RN-45's "Today the edit is
   the one action that reports" and its "will be the second action to report none" are a dated
   record of that round and stay as written. The row now names the comparison per action instead
   of enumerating the actions, so it stays true when a fourth action reports. Second, what does not
@@ -2423,7 +2423,7 @@ a draft, that note now says so and names the note that carries the answer.
   FR-27, FR-40, NFR-3, DR-5; UXD UX-F8, UX-I4; FDR R-62, R-65)*
 - **RN-48:** *(CTO)* *(added)* The round that folded the seventh answered round read these things
   beyond the inputs RN-16, RN-23, RN-27, RN-30, RN-33, RN-37, RN-40, RN-44 and RN-46 list. It read
-  `products/tracker17/docs/SDD_open_issues.md` as intake found it, committed at `2bc621f65` with
+  `products/tracker17/docs/SDD_open_issues.md` as intake found it, committed at `<a commit not in the public history>` with
   its one answer slot filled, and `products/tracker17/docs/trail/sdd/self_answer-9.md`, the
   reasoning behind the answer. It read `domain/operator_name.py`, `application/tracker.py`,
   `domain/tasks.py`, `web/routes.py`, `tests/integration/test_people_routes.py` and
@@ -2434,26 +2434,26 @@ a draft, that note now says so and names the note that carries the answer.
   `products/tracker17/docs/nfdr.md`'s header, QC-21 and RN-37,
   `products/tracker17/docs/adr/README.md` and
   `products/tracker17/docs/architecture_open_issues.md` whole, for the state of the downstream
-  records. It ran `git log --format='%h %ad %s' --date=iso -1` on `25fff47d2`, `cb48338e3` and
-  `33ad1a2a7`, and `git merge-base --is-ancestor 33ad1a2a7` against the first two, which confirmed
-  that labels and the operator name landed after version 9. It ran `git diff --stat 2bc621f65 HEAD
+  records. It ran `git log --format='%h %ad %s' --date=iso -1` on `<a commit not in the public history>`, `<a commit not in the public history>` and
+  `<a commit not in the public history>`, and `git merge-base --is-ancestor <a commit not in the public history>` against the first two, which confirmed
+  that labels and the operator name landed after version 9. It ran `git diff --stat <a commit not in the public history> HEAD
   -- products/tracker17 ':!products/tracker17/docs'`, which printed nothing, so the code the answer
   read is the code on `main`. It ran no suite: the item is about what the code says, which was read
   on disk, and this round changed no code. It read the headers of the PRD and the SRS, which stand
-  at version 6 as version 9 read them, and `git diff 6091a6f8b HEAD --
+  at version 6 as version 9 read them, and `git diff <a commit not in the public history> HEAD --
   products/tracker17/docs/UXD.md`, the whole change to the UXD since version 4, the version this
   document last read. Two things moved there, and neither moves a line here. UXD version 5 (commit
-  `7634a24bd`) has UX-S1 open with what tracker17 is and its two reasons for existing (UXD RN-31);
+  `<a commit not in the public history>`) has UX-S1 open with what tracker17 is and its two reasons for existing (UXD RN-31);
   `first-project`'s *Artifact* already holds that opening paragraph through SRS FR-41 (RN-43), and
   its "every section UXD UX-S1 lists" reads the list as it now stands. UXD version 6 (commit
-  `5d32fb74e`) has UX-I3 name what to do only where something is left to do, and has a refusal whose
+  `<a commit not in the public history>`) has UX-I3 name what to do only where something is left to do, and has a refusal whose
   wanted state already holds name no action and offer no reload (UXD RN-32), while "A status move
   another tab overtook" and "an assignee who left the list before an add or an edit" still offer
   one. The two places this document states an out-of-date refusal, `tasks-in-a-project`'s assignee
   refused "as out of date" and `status-moves`'s move that "offers a reload", are those two cases,
   and § 4 EX-4 restates UX-I3's first sentence, which did not change. So no re-cut under § 10 is
   recorded, and the header's *Inputs read* names version 6. The NFDR stands at version 11 (commit
-  `df8ac27ea`), which folded the architecture companion's earlier § 3.1 into QC-21 in the wording
+  `<a commit not in the public history>`), which folded the architecture companion's earlier § 3.1 into QC-21 in the wording
   version 9's row carried; the companion now holds the two items its header names, and this
   document does not wait on them (§ 12). It read the opening lines of
   `products/tracker17/docs/DESIGN.md` and `products/tracker17/docs/CONTENT.md` and nothing more of
@@ -2463,7 +2463,7 @@ a draft, that note now says so and names the note that carries the answer.
   the decision, § 11 R-12 names its browser dependence, and RT-8's last sentence is scoped to a page
   whose address names a finished outcome — *because* the product has answered a page that shows a
   pending confirmation with HTTP 202, and every move interaction and outcome page with
-  `Cache-Control: no-store`, since `9b05680c7`, and no line of this document or of an ADR said so
+  `Cache-Control: no-store`, since `<a commit not in the public history>`, and no line of this document or of an ADR said so
   or why. The PM found it tracing UXD UX-F4's Back case to its code (`trail/sdd/cycle-8.md`
   § 5.1): `web/routes.py`, `Site._pending_status`, answers `HTTPStatus.ACCEPTED` when the resolved
   view renders a pending confirmation and `HTTPStatus.OK` otherwise, `_stored_as_asked` adds
@@ -2493,7 +2493,7 @@ a draft, that note now says so and names the note that carries the answer.
   *Reached when*, fence or place moves and no edge in § 7 changes, so this is an added condition
   and not a re-cut under § 10. The decision record and the obligation that binds it are the
   Principal Architect's: `products/tracker17/docs/architecture_open_issues.md` § 2.1, opened at
-  `b52bdedf1` in the CTO's seat, hands them the decision, its ruled-out alternatives, its
+  `<a commit not in the public history>` in the CTO's seat, hands them the decision, its ruled-out alternatives, its
   dependence and the obligation's verification, to write after this fold; this document does not
   wait on that answer (§ 12). *(re: § 4 RT-8, RT-11; § 9 TO-8; § 11 R-12; source: SRS NFR-3,
   NFR-4, NFR-13; UXD § 4, UX-F4, UX-I3)*
@@ -2530,11 +2530,11 @@ a draft, that note now says so and names the note that carries the answer.
   `tests/e2e/test_moves.py` (`trail/sdd/cycle-8.md` § 2.1), and the answer, given in the same seat,
   confirmed the draft and added four things, with the reasoning in
   `products/tracker17/docs/trail/sdd/self_answer-11.md` § 2.1. First, the form: the result is a
-  count at the commit it names, 67 passed at `9b05680c7` in a fresh clone, with a dated diff beside
+  count at the commit it names, 67 passed at `<a commit not in the public history>` in a fresh clone, with a dated diff beside
   it, the form R-2 already uses for `first-project` and `tasks-in-a-project` and the one
   `products/tracker17/docs/nfdr.md` RN-15 settled on (`trail/architecture/cycle-11.md` § 3.1); the
-  item's "printed nothing on 2026-10-20" was true at `ca2f9e98a`, and this round re-measured the
-  diff at `6de932f9d`, where it lists one line of `products/tracker17/README.md` and no code.
+  item's "printed nothing on 2026-10-20" was true at `<a commit not in the public history>`, and this round re-measured the
+  diff at `<a commit not in the public history>`, where it lists one line of `products/tracker17/README.md` and no code.
   Second, the browser build is asserted by the run and not inferred from the pin:
   `test_moves.py` asserts `browser.version == PINNED_BROWSER`, `153.0.8010.12`, inside
   `test_history_matrix_revalidates_current_saved_status`, on the full Chromium of the install the
@@ -2555,7 +2555,7 @@ a draft, that note now says so and names the note that carries the answer.
 - **RN-52:** *(CTO)* *(added)* The round that folded the eighth answered round read these things
   beyond the inputs RN-16, RN-23, RN-27, RN-30, RN-33, RN-37, RN-40, RN-44, RN-46 and RN-48 list.
   It read `products/tracker17/docs/SDD_open_issues.md` as intake found it, committed at
-  `6de932f9d` with its three answer slots filled, and
+  `<a commit not in the public history>` with its three answer slots filled, and
   `products/tracker17/docs/trail/sdd/self_answer-10.md` and `self_answer-11.md`, the reasoning
   behind the answers. It read `web/routes.py`, `web/pages.py`, `tests/integration/test_routes.py`,
   `tests/e2e/test_moves.py`, `tests/e2e/conftest.py` and `pyproject.toml`, to verify on disk each
@@ -2566,18 +2566,18 @@ a draft, that note now says so and names the note that carries the answer.
   did not re-read the Chromium source, RFC 9110 or Chrome's documentation: `self_answer-10.md`'s
   Header records each at its source on 2026-10-20, and RT-11 cites them as that record does. It
   read `products/tracker17/docs/UXD.md` whole, and § 4, UX-F4, UX-I3, UX-S4, UX-S6, RN-33 and
-  RN-34 for the change RC-4 records, and `git log` on it, which places version 7 at `f90b692f9`
-  and version 8 at `afffd0d5e`. It read `products/tracker17/docs/PRD.md`'s header and
-  § Assumptions: version 7 (commit `faf9430a4`) says tracker17 becomes public with kensaiapp's
+  RN-34 for the change RC-4 records, and `git log` on it, which places version 7 at `<a commit not in the public history>`
+  and version 8 at `<a commit not in the public history>`. It read `products/tracker17/docs/PRD.md`'s header and
+  § Assumptions: version 7 (commit `<a commit not in the public history>`) says tracker17 becomes public with kensaiapp's
   public release, and § 1 already places publishing outside done, so no line here moves. It read
   `products/tracker17/docs/SRS.md`'s header, which stands at version 6 as version 10 read it, and
   `products/tracker17/docs/fdr.md`'s header, at version 4. It read
   `products/tracker17/docs/nfdr.md`'s header and RN-15, which stands at version 13 (commit
-  `5e68bc569`, which folded the earlier architecture companion's last item and removed it),
+  `<a commit not in the public history>`, which folded the earlier architecture companion's last item and removed it),
   `products/tracker17/docs/adr/0003-no-script-in-any-page.md` § Consequences, Dependence, the
   headers of ADR-0001 to ADR-0009, and `products/tracker17/docs/architecture_open_issues.md`
-  whole, which now holds the one item § 2.1 that RN-49 names. It ran `git diff --stat 9b05680c7
-  HEAD -- products/tracker17 ':!products/tracker17/docs'` at `6de932f9d`, which listed one line of
+  whole, which now holds the one item § 2.1 that RN-49 names. It ran `git diff --stat <a commit not in the public history>
+  HEAD -- products/tracker17 ':!products/tracker17/docs'` at `<a commit not in the public history>`, which listed one line of
   `products/tracker17/README.md` and no code, so the code the answers read is the code on `main`.
   It ran no suite: the items are about what the code and the records say, the record holds the
   count at its commit, no code moved since, and this round changed no code. It read the headers of

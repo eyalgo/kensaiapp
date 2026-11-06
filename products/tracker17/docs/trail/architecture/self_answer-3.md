@@ -10,7 +10,7 @@
   - https://docs.github.com/en/code-security/dependabot/dependabot-alerts/configuring-dependabot-alerts — "You can manage Dependabot alerts for your public, private or internal repository." This settles what `self_answer-2.md` could not: the repository holding tracker17 is private (PRD § Assumptions), and it can have alerts.
   - https://docs.github.com/en/code-security/supply-chain-security/understanding-your-software-supply-chain/dependency-graph-supported-package-ecosystems — for pip, the dependency graph reads `requirements.txt` and `pipfile.lock` (also `pipfile` and `setup.py`); for Poetry it reads `poetry.lock` (also `pyproject.toml`). The page says the graph prefers lock files. It does not say outright that alerts depend on the graph.
 
-Only one item was open, so there was nothing to put in order. Nothing has changed since `self_answer-2.md`. HEAD was `67e3fe90d`, the commit that filed that report. No owner ruling on the window was found: a search for `remediation window`, `advisory feed` and `QC-40` under `system/projects/*/journey` and `system/projects/tracker17` returned nothing.
+Only one item was open, so there was nothing to put in order. Nothing has changed since `self_answer-2.md`. HEAD was `<a commit not in the public history>`, the commit that filed that report. No owner ruling on the window was found: a search for `remediation window`, `advisory feed` and `QC-40` under `system/projects/*/journey` and `system/projects/tracker17` returned nothing.
 
 ## Items worked
 

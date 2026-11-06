@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 # pin_run.sh — the shared launcher entry
+# Version: 1.3.0 — prepare new pins with the host interpreter before launch
+# Version: 1.2.0 — launchers run on the locked Python
 # Version: 1.1.0 — a build-idea start takes a new pin when the host changed
 # Version: 1.0.0 — created 2026-09-22, alongside the pin itself (core/tools/pin.py)
 #
@@ -7,6 +9,11 @@
 # `pin_enter <core_dir> <script path> "$@"` right after deriving `CORE_DIR` and its guard, before
 # anything else reads `CORE_DIR`. `build-idea` alone calls `pin_enter_renewing`, the same call with
 # the same arguments, which differs at two places below.
+#
+# Before any of that, `pin_enter` asks `core/tools/locked_python.sh --check <launcher>` whether uv is
+# on PATH, and returns its status when it is not (1, with the launch's message on stderr): a launch
+# without uv makes no pin and starts no Python. Every Python this file starts runs through the same
+# runner, on the Python the instance root pins, never the `python3` PATH finds first.
 #
 # `pin_enter` decides the pin in force for this launch, in order:
 #   1. `CORE_DIR` already lies in a pin (a `pin.json` sits beside it) → use it.
@@ -22,6 +29,10 @@
 # with one line on stderr naming the host; a comparison that fails stops the launch. The
 # comparison is skipped at rule 1 on the re-exec continuation, the pin's copy of a launch that
 # already decided, so one launch makes at most one pin and prints one `Pin:` line.
+#
+# Each new snapshot is prepared through its selected source host's locked_python.sh before
+# announcement or re-exec. The pin's own first Python therefore uses an existing .venv; inherited
+# pins and dry runs do not prepare again. A preparation error returns before announcing the pin.
 #
 # It prints `Pin: <root> (new)`, `Pin: <root> (inherited)` or `Pin: a new pin of <host root>` —
 # once per launch: the pin's copy a re-exec lands in does not print the line a second time.
@@ -43,6 +54,18 @@ _pin_dry_run_requested() {
   return 1
 }
 
+# The name a launch goes by in its own messages: the folder of a `launcher.sh`, and the file's
+# name without `.sh` for a flat `launch-*.sh`.
+_pin_launcher_name() {
+  local base
+  base="$(basename "$1" .sh)"
+  if [ "${base}" = "launcher" ]; then
+    basename "$(dirname "$1")"
+  else
+    echo "${base}"
+  fi
+}
+
 # The one body behind both public names — the four rules live here once, so `pin_enter`'s output
 # cannot drift from `pin_enter_renewing`'s. `mode` is `plain` or `renewing`.
 _pin_enter_as() {
@@ -55,6 +78,9 @@ _pin_enter_as() {
   local pin_mode=""
   local announced=""
   local host_root
+
+  # --- uv is looked for once, here, before a pin is made or any Python is started ---
+  "${core_dir}/tools/locked_python.sh" --check "$(_pin_launcher_name "${script_path}")" || return $?
 
   if [ -f "${core_dir}/../pin.json" ]; then
     pin_root="$(cd "${core_dir}/.." && pwd -P)"
@@ -70,7 +96,7 @@ _pin_enter_as() {
     host_root="$(cd "${core_dir}/.." && pwd -P)"
 
     local resolve_out resolve_rc
-    resolve_out="$(python3 "${core_dir}/tools/pin.py" resolve --core "${core_dir}" 2>&1)"
+    resolve_out="$("${core_dir}/tools/locked_python.sh" "${core_dir}/tools/pin.py" resolve --core "${core_dir}" 2>&1)"
     resolve_rc=$?
 
     if [ "${resolve_rc}" -eq 3 ]; then
@@ -94,7 +120,8 @@ _pin_enter_as() {
         return 0
       fi
 
-      pin_root="$(python3 "${core_dir}/tools/pin.py" make --host "${host_root}")"
+      pin_root="$("${core_dir}/tools/locked_python.sh" "${core_dir}/tools/pin.py" make --host "${host_root}")" || return "$?"
+      "${host_root}/core/tools/locked_python.sh" --prepare-pin "${pin_root}" || return "$?"
       pin_mode="(new)"
     fi
   fi
@@ -105,7 +132,7 @@ _pin_enter_as() {
     # Captured with an explicit status and not under `set -e`, which is suspended anyway where a
     # launcher writes `pin_enter_renewing … || exit $?`. The comparator's own stderr passes through.
     local check_out check_rc=0 verdict source_host
-    check_out="$(python3 -B "${core_dir}/tools/pin_host_changed.py" --pin "${pin_root}")" || check_rc=$?
+    check_out="$("${core_dir}/tools/locked_python.sh" -B "${core_dir}/tools/pin_host_changed.py" --pin "${pin_root}")" || check_rc=$?
     if [ "${check_rc}" -ne 0 ]; then
       return "${check_rc}"
     fi
@@ -123,7 +150,8 @@ _pin_enter_as() {
           echo "Pin: a new pin of ${source_host}"
           return 0
         fi
-        pin_root="$(python3 "${core_dir}/tools/pin.py" make --host "${source_host}")"
+        pin_root="$("${core_dir}/tools/locked_python.sh" "${core_dir}/tools/pin.py" make --host "${source_host}")" || return "$?"
+        "${source_host}/core/tools/locked_python.sh" --prepare-pin "${pin_root}" || return "$?"
         pin_mode="(new)"
         ;;
       *)
@@ -157,7 +185,7 @@ _pin_enter_as() {
       value="${env_line#*=}"
       export "${key}=${value}"
     fi
-  done < <(python3 "${core_dir}/tools/pin.py" env --pin "${pin_root}")
+  done < <("${core_dir}/tools/locked_python.sh" "${core_dir}/tools/pin.py" env --pin "${pin_root}")
 
   return 0
 }

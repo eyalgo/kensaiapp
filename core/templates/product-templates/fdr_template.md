@@ -1,5 +1,5 @@
 ---
-version: "1.1.1"
+version: "1.1.3"
 ---
 <!-- The version above is template-file metadata; it is not copied into the instantiated document. -->
 
@@ -141,7 +141,7 @@ below serves.>
 ## Out of scope
 
 <!-- What is deliberately excluded, each as one `OOS-n`, with the boundary that excludes it — the
-     project's 上がり Agari, a PRD scope call, or the SDD's § 12. -->
+     project's finish line, a PRD scope call, or the SDD's § 12. -->
 
 - **OOS-1:** <What is excluded — and the boundary that excludes it.> *(traces to: SDD § 12)*
 - **OOS-2:** ...

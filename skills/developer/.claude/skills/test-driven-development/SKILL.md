@@ -1,15 +1,15 @@
 ---
 name: test-driven-development
-description: Drives development with tests. Use when implementing any logic, fixing any bug, or changing any behavior. Use when you need to prove that code works, when a bug report arrives, or when you're about to modify existing functionality.
+description: Drives development with tests, written to the testing doctrine and the product's language guide. Use when implementing any logic, fixing any bug, or changing any behavior. Use when you need to prove that code works, when a bug report arrives, or when you're about to modify existing functionality.
 metadata:
-  version: "1.1.1"
+  version: "1.2.0"
 ---
 
 # Test-Driven Development
 
 ## Overview
 
-Write a failing test before writing the code that makes it pass. For bug fixes, reproduce the bug with a test before attempting a fix. Tests are proof — "seems right" is not done. A codebase with good tests is an AI agent's superpower; a codebase without tests is a liability.
+Write a failing test before writing the code that makes it pass. For bug fixes, reproduce the bug with a test before attempting a fix. Tests are proof — "seems right" is not done. A codebase with good tests is an AI agent's superpower; a codebase without tests is a liability. The tests meet `<CORE>/doctrine/engineering/testing_doctrine.md` and the testing and conventions files of the language guide resolved for the product (`<CORE>/doctrine/engineering/languages/README.md` § *The resolution chain*). Where this skill and either of them disagree, the doctrine wins.
 
 ## When to Use
 
@@ -195,17 +195,18 @@ Is it a critical user flow that must work end-to-end?
 
 ### Test State, Not Interactions
 
-Assert on the *outcome* of an operation, not on which methods were called internally. Tests that verify method call sequences break when you refactor, even if the behavior is unchanged.
+Assert on the *outcome* of an operation, not on which methods were called internally. Tests that verify method call sequences break when you refactor, even if the behavior is unchanged. Where the outcome *is* a call to a collaborator — a command the unit launches, a message it sends — what the fake received is that outcome, and the test asserts on it (`<CORE>/doctrine/engineering/testing_doctrine.md`, *Reach a collaborator through a seam; never patch the subject*).
 
 ```python
 # Good: Tests what the function does (state-based)
 def test_returns_tasks_sorted_by_creation_date_newest_first():
-    tasks = list_tasks(sort_by="created_at", sort_order="desc")
+    repo = InMemoryTaskRepository([older_task, newer_task])
+    tasks = list_tasks(repo, sort_by="created_at", sort_order="desc")
     assert tasks[0].created_at > tasks[1].created_at
 
 # Bad: Tests how the function works internally (interaction-based)
 def test_calls_db_with_correct_order(mock_db):
-    list_tasks(sort_by="created_at", sort_order="desc")
+    list_tasks(mock_db, sort_by="created_at", sort_order="desc")
     mock_db.query.assert_called_with("SELECT ... ORDER BY created_at DESC")
 ```
 
@@ -226,19 +227,18 @@ def test_trims_whitespace_from_titles():
 
 Duplication in tests is acceptable when it makes each test independently understandable.
 
-### Prefer Real Implementations Over Mocks
+### A Unit Test Hands In Fakes
 
-Use the simplest test double that gets the job done. The more your tests use real code, the more confidence they provide.
+A unit test keeps the subject real and hands it a fake for every collaborator, through the seam production wires the real collaborator through. The rule, and what a unit test may not touch, is `<CORE>/doctrine/engineering/testing_doctrine.md` § *A unit test hands its unit fakes and touches nothing real*. The seam and the fake in the product's language are that language guide's `conventions.md` and `testing.md`.
 
 ```
-Preference order (most to least preferred):
-1. Real implementation  → Highest confidence, catches real bugs
-2. Fake                 → In-memory version of a dependency (e.g., fake repository)
-3. Stub                 → Returns canned data, no behavior
-4. Mock (interaction)   → Verifies method calls — use sparingly
+Test doubles for a unit test (most to least preferred):
+1. Fake   → A hand-written stand-in with real behaviour (e.g., an in-memory repository)
+2. Stub   → Returns canned data, no behaviour
+3. Mock   → A library double that records calls; use sparingly
 ```
 
-**Use mocks only when:** the real implementation is too slow, non-deterministic, or has side effects you can't control (external APIs, email sending). Over-mocking creates tests that pass while production breaks.
+**A real collaborator is never a unit test's choice.** A test that needs a real database, a real server, a real process or the real clock is an integration or end-to-end test, and it is written at that layer.
 
 ### Use the Arrange-Act-Assert Pattern
 
@@ -294,10 +294,12 @@ class TestTask:
 | Testing framework code | Wastes time testing third-party behavior | Only test YOUR code |
 | Snapshot abuse | Large snapshots nobody reviews, break on any change | Use snapshots sparingly and review every change |
 | No test isolation | Tests pass individually but fail together | Each test sets up and tears down its own state |
-| Mocking everything | Tests pass but production breaks | Prefer real implementations > fakes > stubs > mocks |
+| Mocking everything | Tests pass but production breaks | Keep the subject real and fake only its collaborators, at the seam; prove the real collaborator in an integration test |
 
 ## See Also
 
+- `<CORE>/doctrine/engineering/testing_doctrine.md` — the layers, and § *A unit test hands its unit fakes and touches nothing real*, the standard every test here meets
+- `<CORE>/doctrine/engineering/languages/<language>/testing.md` and `conventions.md`, for the language resolved for the product — the seam and the fake in that language
 - `references/testing-patterns-python.md` — pytest patterns: AAA, fakes, mocking, parametrize, fixtures, CLI testing
 - `references/testing-patterns-kotlin.md` — JUnit5/MockK patterns: AAA, fakes, MockK, parametrize, lifecycle
 - `references/examples-kotlin.md` — Kotlin equivalents of the TDD cycle examples in this skill
@@ -331,6 +333,7 @@ class TestTask:
 After completing any implementation:
 
 - [ ] Every new behavior has a corresponding test
+- [ ] Every unit test hands its unit fakes through the seam and touches no real resource (`testing_doctrine.md` § *A unit test hands its unit fakes and touches nothing real*)
 - [ ] All tests pass
 - [ ] Bug fixes include a reproduction test that failed before the fix
 - [ ] Test names describe the behavior being verified

@@ -42,7 +42,7 @@
   - Focus and in-view are verified in Chromium on a form control (SDD RN-36), and on a focusable
     element that is not a control (`tabindex="-1"`, per SDD R-2's precision). The evidence is
     `tests/e2e/test_people.py`'s `test_added_markup_name_has_browser_focus_and_accessible_description`
-    (from L70, through `assert_added_name_is_focused`, L58-L67), which passed at `641bb58b5` with playwright
+    (from L70, through `assert_added_name_is_focused`, L58-L67), which passed at `<a commit not in the public history>` with playwright
     1.63.0 and Chromium 153.0.8010.12 (SDD § 11 R-2).
   - Two cases stay open. The first is the confirmation (SDD § 4 EX-6), which the `status-moves` tests
     settle. The second is assistive technology speaking the description (EX-14). None of ADR-0003's
@@ -56,7 +56,7 @@
   QC-34's trace tag already names RN-15, so no trace moves. `Inputs read:` should name SDD version 8.
   That line records what the revision read, which is RN-23's own reading of it.
 
-  **Measured this run.** `git diff --stat 641bb58b5 HEAD -- products/tracker17
+  **Measured this run.** `git diff --stat <a commit not in the public history> HEAD -- products/tracker17
   ':!products/tracker17/docs' ':!products/tracker17/README.md'` printed nothing, so the recorded pass
   ran against the code on `main` now. This run ran no suite. The lines the item cites, L58-L78, hold
   what it says: the assertion helper (L58-L67) and the test's focus calls (L70-L78).

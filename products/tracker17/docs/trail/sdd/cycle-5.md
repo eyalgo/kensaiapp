@@ -57,7 +57,7 @@ None.
   the form-control case. In the product, `tests/e2e/test_people.py:L58-L78` asserts, in Chromium, that
   after an add on People the added name (a `span`, not a control) holds keyboard focus, is in the
   viewport, and has the completion line as its computed accessible description, with no script on
-  the page. Measured on `main` at `641bb58b5`: `pytest products/tracker17/tests/e2e/` → `18 passed`.
+  the page. Measured on `main` at `<a commit not in the public history>`: `pytest products/tracker17/tests/e2e/` → `18 passed`.
   What stays unchecked: the confirmation's focus test (`status-moves` in § 11 R-2's response), and
   assistive-technology speech, which a computed accessible description does not prove. The change
   asked: narrow § 11 R-2 and the Open Question to what is still unverified, keeping R-2's experience
@@ -72,10 +72,10 @@ None.
   `span`, `web/pages.py:316`) holding keyboard focus, in the viewport, with the completion line as its
   computed accessible description and no `script` element on the page; the same file's
   `test_people_keyboard_refusals_and_removal_keep_focus_at_the_action` finds the People heading focused
-  after a removal, a second element that is not a control. Both passed at `main` `641bb58b5` (the PM's
-  run, 18 passed) and again in this run, in a disposable copy of `main` at `7653f25c8` with the
+  after a removal, a second element that is not a control. Both passed at `main` `<a commit not in the public history>` (the PM's
+  run, 18 passed) and again in this run, in a disposable copy of `main` at `<a commit not in the public history>` with the
   pinned library (playwright 1.63.0, Chromium 153.0.8010.12): `pytest tests/e2e/` → 18 passed.
-  `git diff --stat 641bb58b5 7653f25c8 -- products/tracker17 ':!products/tracker17/docs'` lists only
+  `git diff --stat <a commit not in the public history> <a commit not in the public history> -- products/tracker17 ':!products/tracker17/docs'` lists only
   `README.md`, two sentences of its Status section, which no end-to-end test reads. What R-2 still
   calls unverified: the confirmation case — focus on the confirmation's sentence, the double press that
   never confirms, and back-out returning focus to the restored button (§ 4 EX-6), which `status-moves`

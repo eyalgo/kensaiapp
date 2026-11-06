@@ -1,5 +1,5 @@
 ---
-version: "1.1.0"
+version: "1.3.0"
 ---
 
 # Commit via builder — the one way a producer skill commits
@@ -152,7 +152,7 @@ What is yours as a caller is the declaring itself — the flags and the `git mv`
    not restate it.
 
    What is yours as a caller: the directional follows the **scope of what the run wrote**. A producer
-   skill committing a project's artifact takes `Shukuba:` or `Agari:`; one committing an instance-tree
+   skill committing a project's artifact takes `Shukuba:` or `Finish-line:`; one committing an instance-tree
    artifact (an instance-level document, the instance seedbed) takes `Michi:`. A project's artifact
    never carries `Michi:`, which is the instance level's.
 7. **`--reasoning-effort <level>`** — the reasoning-effort level this run's launch resolved, so the

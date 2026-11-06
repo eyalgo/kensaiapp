@@ -46,7 +46,7 @@ def test_a_real_project_segment_is_reported():
 
 def test_a_placeholder_segment_is_not_reported():
     """`system/projects/<name>/` is the shape a vendored file is supposed to use."""
-    hits = scan_text("f.md", "See `system/projects/<name>/agari.md`.", {"tools"})
+    hits = scan_text("f.md", "See `system/projects/<name>/finish_line.md`.", {"tools"})
     assert hits == []
 
 
@@ -74,8 +74,8 @@ def test_two_real_segments_on_one_line_are_still_one_hit():
     """Multiple matches on one line report the line once — the line is the unit of a hit."""
     hits = scan_text(
         "f.md",
-        "system/projects/tools/ and system/projects/scripts/ both cited.",
-        {"tools", "scripts"},
+        "system/projects/alpha/ and system/projects/beta/ both cited.",
+        {"alpha", "beta"},
     )
     assert len(hits) == 1
     assert hits[0].line == 1
@@ -87,7 +87,7 @@ def test_a_clean_line_is_not_reported():
 
 
 def test_line_numbers_are_one_based():
-    hits = scan_text("f.md", "clean\nsystem/projects/tools/\nclean\n", {"tools"})
+    hits = scan_text("f.md", "clean\nsystem/projects/alpha/\nclean\n", {"alpha"})
     assert [h.line for h in hits] == [2]
 
 
@@ -218,7 +218,7 @@ def test_scan_repo_reads_the_claude_skills_root_too(tmp_path):
     """Task 1's intent names two roots, and `.claude/skills/` is in scope by the owner's ruling of
     2026-08-31. A hit there is reported end-to-end, not merely visible to `_tracked_files`."""
     repo = _repo(tmp_path)
-    _commit_file(repo, ".claude/skills/s/SKILL.md", "cites system/projects/alpha/agari.md\n")
+    _commit_file(repo, ".claude/skills/s/SKILL.md", "cites system/projects/alpha/finish_line.md\n")
     (repo / "system" / "projects" / "alpha").mkdir(parents=True)
 
     hits = scan_repo(repo)
@@ -234,7 +234,7 @@ def test_scan_repo_reads_the_grouped_skills_root_too(tmp_path):
     move it out of this check."""
     repo = _repo(tmp_path)
     _commit_file(
-        repo, "skills/g/.claude/skills/s/SKILL.md", "cites system/projects/alpha/agari.md\n"
+        repo, "skills/g/.claude/skills/s/SKILL.md", "cites system/projects/alpha/finish_line.md\n"
     )
     (repo / "system" / "projects" / "alpha").mkdir(parents=True)
 
@@ -504,12 +504,12 @@ def test_an_anchor_matching_two_lines_in_one_file_is_refused():
     """An entry that silently excuses two sites -- or silently picks one -- is the failure this
     trades for the old one. Refused loudly instead, naming the file and every matching line."""
     raw = [
-        Hit(path="f.md", line=5, kind="host-path", text="system/projects/tools/a"),
-        Hit(path="f.md", line=9, kind="host-path", text="system/projects/tools/b"),
+        Hit(path="f.md", line=5, kind="host-path", text="system/projects/alpha/a"),
+        Hit(path="f.md", line=9, kind="host-path", text="system/projects/alpha/b"),
     ]
 
     with pytest.raises(ValueError) as exc_info:
-        apply_allowlist(raw, {"f.md:system/projects/tools": "reason"})
+        apply_allowlist(raw, {"f.md:system/projects/alpha": "reason"})
 
     message = str(exc_info.value)
     assert "f.md" in message
@@ -600,7 +600,7 @@ def test_main_refuses_an_ambiguous_anchor_rather_than_running_past_it(tmp_path, 
 # tests located the site with `_worked_example_key()`, resolving the current line at read time —
 # necessary only because the key itself was line-pinned. The anchor-keyed entry doesn't need a
 # helper: the key IS the constant.)
-WORKED_EXAMPLE_ANCHOR = "system/projects/product-planning"
+WORKED_EXAMPLE_ANCHOR = "system/projects/product-planning"  # test-isolation: allowed — the shipped allowlist's own worked example, named in core's structure doc
 STRUCTURE_PATH = "core/doctrine/setup/kensaiapp_structure.md"
 SHIPPED_WORKED_EXAMPLE_KEY = f"{STRUCTURE_PATH}:{WORKED_EXAMPLE_ANCHOR}"
 
@@ -953,8 +953,8 @@ def test_a_product_name_is_still_seen_inside_a_code_span():
 def test_a_line_tripping_a_host_path_and_a_product_name_is_reported_once_naming_both():
     hits = scan_text(
         "f.md",
-        "system/projects/tools/ holds the widget-app notes.",
-        {"tools"},
+        "system/projects/alpha/ holds the widget-app notes.",
+        {"alpha"},
         product_names={"widget-app"},
     )
     assert len(hits) == 1
@@ -1106,8 +1106,8 @@ def test_a_home_path_spelled_as_a_claude_project_folder_is_reported():
 
 
 def test_a_fixture_is_read_for_names_but_not_for_host_paths_or_journey_stems():
-    text = "system/projects/tools/ 2026-01-01_a-seed.md Quillco"
-    hits = scan_text("test_x.py", text, {"tools"}, declared_names={"Quillco"}, fixture=True)
+    text = "system/projects/alpha/ 2026-01-01_a-seed.md Quillco"
+    hits = scan_text("test_x.py", text, {"alpha"}, declared_names={"Quillco"}, fixture=True)
     assert [hit.kind for hit in hits] == ["declared-name"]
 
 

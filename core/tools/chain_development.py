@@ -16,10 +16,11 @@ WHY IT READS THE DISK AND NOT A MESSAGE
     the folder artifacts `<CORE>/doctrine/flow/folder_state_handoff.md` § State is derived, not
     tracked names, the developer's closing marker commit, each auditor's branch, and the sealed
     folder under `trail/`. A missing artifact halts unless the developer can resume a pause or
-    use its one unexplained-marker recovery. A new or revised `halt_report.md` stops that recovery;
-    only development-specs, development-design (when no reading of a conflicting spec holds),
-    tobiishi-seal, development-content and, for its three halts, the developer write one — and
-    this engine, once, for a content step whose verdict is missing.
+    use its one unexplained-marker recovery. A `records-owed` halt report can launch the document
+    sweep instead, as § A RECORDS-OWED HALT states. A new or revised `halt_report.md` stops that
+    recovery; only development-specs, development-design (when no reading of a conflicting spec
+    holds), tobiishi-seal, development-content and, for its three halts, the developer write one
+    — and this engine, once, for a content step whose verdict is missing.
 
 WHY IT STANDS BESIDE `chain.py` RATHER THAN EXTENDING IT
     `chain.py` walks documents: its registry, its cycle and its report classification are all a
@@ -27,28 +28,28 @@ WHY IT STANDS BESIDE `chain.py` RATHER THAN EXTENDING IT
     extra arguments. This engine borrows its generic ports and changes nothing in it.
 
 THE TWO TABLES, AND WHY THEY ARE BOTH HERE
-    `DEVELOPMENT_STEPS` is the pipeline `chain-development` walks. `CHANGE_STEPS` is the same
-    nine behind `shukuba-open` and `tobiishi-open` and ahead of `shukuba-refine`. It is the walk
-    `chain-change` enters, which needs no station and no change request to already be there. When
+    `CHANGE_STEPS` is the pipeline `change` walks. `WALK_STEPS` is the same
+    ten behind `shukuba-open` and `tobiishi-open` and ahead of `shukuba-refine`. It is the walk
+    `walk` enters, which needs no station and no change request to already be there. When
     the sealed change serves a station, the walk does not end until the route has been re-read
     after the seal. When it serves none, the walk ends `sealed` at the seal. `--steps` says which a
     start is, and a caller composes neither: both are literals here, the way
-    `chain-development/launcher.sh` already said its own was. They differ by two steps at the front
+    `change/launcher.sh` already said its own was. They differ by two steps at the front
     and agree everywhere after, so a second engine would be a third copy of the state store, the
     live-walk refusal, the launch environment and the shim write.
 
     Three things the second table changes for every walk. The KEY is no longer a start-time fact: a
-    `CHANGE_STEPS` walk begins with none, and `_settle` reads it off the disk the moment the
-    `change` step lands — `_resolve_key` states why the TABLE, never the disk, decides whether an
+    `WALK_STEPS` walk begins with none, and `_settle` reads it off the disk the moment the
+    `open` step lands — `_resolve_key` states why the TABLE, never the disk, decides whether an
     absent one is legitimate. And the walk's NAME is on its state rather than a module constant,
     because the shim, the log, the telemetry tag and every message the owner reads have to say
     which of two walks they came from. And a SEALED change is no longer always the end of a walk. A
     sealed change serves a station when a commit it landed carries a `Shukuba:` trailer, or when a
     station file names its key, whether that station is open, closed or parked. Those are the two
     marks `shukuba-refine` reads to find a unit's station, and the walk counts nothing else. An open
-    station that does not name the key does not make the change serve it. A change walk whose sealed
+    station that does not name the key does not make the change serve it. A walk whose sealed
     change serves a station goes on to `refine`. One whose sealed change serves none ends `sealed`
-    at the seal, because the refine would find no station and stop without a report. A change walk
+    at the seal, because the refine would find no station and stop without a report. A walk
     started on a project whose last unit is sealed, not yet refined and serving a station carries
     that unit's key and enters at `refine`, while a station is still open. A unit that serves no
     station is owed no refine, so the start carries no key and enters at the first step whose
@@ -64,10 +65,19 @@ THE CONTENT STEP
     writes one — and moves aside again once the verdict is settled, so the delivery's clean-tree
     check never meets it. A change already past the step is never entered there (`entry_step`).
 
+THE CHANGELOG STEP
+    `changelog` runs the Content Editor's `changelog-line` on every change, directly after
+    `implementation` and before `code-integrity`, whether or not the earlier content step ran. The
+    skill's editorial output is never read here: the step is done once `changelog-report.md` is
+    committed on the change branch (`Evidence.COMMITTED_CHANGE_FILE`, read through
+    `Git.branch_has_path`), so a report that is only in the working tree or only staged does not
+    count, and a run that ends without one halts the walk at the step and launches no integrity
+    run. The step has no `runs_when` and no recovery of its own.
+
 THE END HOOK
     `--on-end <command>` is an optional command a start carries on the walk's state and `_end`
     runs once, after the ended state is saved, with the end (`sealed` or `halted`) appended. It is
-    how `chain-change` reaches `build-idea` when a walk ends without either engine importing the
+    how `walk` reaches `build-idea` when a walk ends without either engine importing the
     other. The state carries it because the run that ends a walk is a fresh process handed only a
     state path. A hook that fails is one message to the owner and never a change to the end.
 
@@ -96,7 +106,8 @@ THE PROVIDER
     launchers a hook may reach read it as a force.
 
 A PAUSE IS NOT AN END
-    A developer run past its cap finishes the task it is on and stops on a pause commit
+    A developer run past its cap finishes the task it is on (or, when it cannot land, commits its
+    failing tests as its red) and stops on a pause commit
     (`developer: <key> — implementation paused after task <N>`) instead of the closing marker.
     The step is still not done — `marker_commit` reads only the marker phrase — so `_settle`
     reads the pause (`DiskReader.paused_after`) where it would otherwise halt on a missing marker
@@ -119,6 +130,63 @@ A PAUSE IS NOT AN END
     vanished — is resumed once from its newest landed task commit instead. A second failure
     halts.
 
+A RECORDS-OWED HALT
+    A run of `specs`, `design` or `plan` that ends without its artifact may leave a
+    `halt_report.md` whose halt reason is `records-owed`. Such a step raised one item on a product
+    document's companion, under *Raised from downstream*, for each records defect it found, and
+    names each item in a `Raised item:` line of the report. On a project whose card on `main`
+    reads `**Definition:** full`, the walk does not halt there. It first carries onto the
+    product's main checkout each named item that checkout does not yet hold. It then records which
+    named items the main checkout holds open, and launches `product-docs`, the product's document
+    chain, once per walk. Any other report, and a `records-owed` report on any other card, halts
+    the walk as before, naming the report. The rule, with every way the route ends, is the
+    `records-owed` row of `core/doctrine/flow/step_outcome_contract.md` § The halts. This
+    section says why the engine is shaped the way it is.
+
+    The carry exists because the step and the sweep read two different checkouts. The step writes
+    the item in the change's own worktree, because no step writes on `main`. `product-docs` reads
+    the companion on the product's main checkout, from the instance root. An item left only in the
+    change's worktree would never be held open at the launch, so the sweep could never fold it and
+    the walk could never start the change again. The engine makes the one write on `main`, because
+    it is what reads the halt and launches the sweep. It copies the item's lines as the step wrote
+    them, its number included, to the end of the main checkout's *Raised from downstream* section,
+    so no line already there changes. An item the main checkout already holds is not copied again.
+    An item the main checkout has no companion or no such section for is not carried, because
+    creating either is `product-docs`' own work. That item ends `not folded` after the sweep.
+
+    The carry lands as one commit on the main checkout's `main`, made through `commit_builder.py`
+    with the halting step's seat as its `Role:`, because the words are that seat's and the engine
+    is no seat. Before it writes anything, the carry halts when that checkout does not have `main`
+    out, when a companion it would write holds an uncommitted change, or when git cannot read a
+    companion's status. Committing in any of those states would put the item on another branch, or
+    sweep someone else's edit into the carry's commit. When the builder refuses the commit, each
+    companion is written back byte for byte and unstaged, because a half-carried item left on
+    `main` would look carried to the next walk.
+
+    The sweep's end comes back as an ordinary `--advance`, through this walk's own completion
+    shim, and never through a command that advances the walk directly. The launcher runs the
+    document chain in the foreground, and that chain can run its end hook before the launch
+    returns. A hook that did not detach would wait on this walk's state lock for ever. For the
+    same reason the launch runs once the lock is released, and its exit is settled under the
+    lock again. A sweep's end that arrives before the launcher returns has already settled the
+    run, so the exit then changes nothing.
+
+    The launch carries the walk's forced provider. An unforced walk forces none, and an inherited
+    `KENSAIAPP_AGENT_PROVIDER` is removed, so each document runs on its own entry. The launch
+    records no process identity, because the document chain has its own state and its own stop.
+    A stop of this walk while the sweep runs ends this walk and leaves the sweep running, and the
+    sweep's later end reaches an ended walk and changes nothing.
+
+    An item has folded only when the main checkout held it open at the launch and holds it open
+    no longer, matched by its title and never by its number. An item the main checkout did not
+    hold open at the launch has not folded, so the change's branch is kept. That is an item the
+    carry could not place, or one neither checkout held. Once the sweep ends `sealed` with every
+    item folded, the walk clears the old change in each repository: the instance's first, then an
+    external product's. It removes the worktree without forcing it, so a worktree holding
+    uncommitted work is refused and the walk halts rather than lose that work. It deletes the
+    branch naming the tip it read just before. Then it launches `development-specs` again, and
+    the walk keeps its key, because the change folder on `main` is left as it is.
+
 THE PRODUCT CHECKOUT
     `_launch_run` reads the product checkout — the lines `git status --porcelain
     --untracked-files=all` prints for the walk's `product_path`, the instance root when that is
@@ -132,23 +200,25 @@ THE PRODUCT CHECKOUT
     never counted against the run. A launch whose checkout could not be read records nothing, and
     a pending run with nothing recorded — every one written before this check included — is not
     checked. The reading, the comparison and both reasons are `product_checkout.py`'s, handed to
-    the engine as `checkout`; the engine never writes the checkout.
+    the engine as `checkout`. The engine's one write on that checkout is the records-owed carry
+    (§ A RECORDS-OWED HALT), and the carry leaves no uncommitted change behind: it commits what
+    it writes, or puts it back.
 """
 
 from __future__ import annotations
 
 import argparse
-import fcntl
+import contextlib
 import hashlib
 import io
 import json
 import os
 import re
+import shlex
 import subprocess
 import sys
 import traceback
 from collections.abc import Iterable
-from contextlib import contextmanager
 from dataclasses import asdict, dataclass, field, fields
 from datetime import datetime, timezone
 from enum import Enum
@@ -161,10 +231,11 @@ import product_checkout
 import providers
 import record_declarations
 import walk_stop
-from chain import PROVIDERS, Files, IdSource, Notifier, Processes, run_end_hook, with_provider
+from chain import (PROVIDERS, FileLock, Files, IdSource, Notifier, Processes, run_end_hook,
+                   with_provider)
 from providers import ProviderFiles, ProvidersRefused
 
-__version__ = "3.22.0"
+__version__ = "4.3.0"
 
 
 class ChainRefused(Exception):
@@ -183,6 +254,7 @@ class Evidence(Enum):
     STATION_FILE = "station_file"      # a station at the shukuba root, on main — no key needed
     CHANGE_OPEN = "change_open"        # change_request.md in tobiishi/, on main — the key's source
     CHANGE_FILE = "change_file"        # an artifact in the change folder, on the change branch
+    COMMITTED_CHANGE_FILE = "committed_change_file"  # the same, but only once a commit carries it
     MARKER_COMMIT = "marker_commit"    # the developer's closing marker, on the change branch
     AUDIT_FINDINGS = "audit_findings"  # flow_findings/<step>.md, on that audit's own branch
     SEALED = "sealed"                  # the change folder under trail/, on main
@@ -259,7 +331,12 @@ _PUBLISHES_TEXT = RunsWhen(
     artifact="change_design.md", prefix=record_declarations.PUBLISHES_TEXT.prefix, runs="yes",
     passes="no")
 
-DEVELOPMENT_STEPS: tuple[Step, ...] = (
+# The report `changelog-line` commits on the change branch, whatever it did to the product
+# (`skills/content-editor/.claude/skills/changelog-line/SKILL.md`): its committed presence is the
+# step landing, including a run that wrote no product file.
+_CHANGELOG_REPORT = "changelog-report.md"
+
+CHANGE_STEPS: tuple[Step, ...] = (
     Step("specs", "development-specs", "product-owner", Evidence.CHANGE_FILE, "change_spec.md",
          takes_key=False),
     Step("design", "development-design", "architect", Evidence.CHANGE_FILE, "change_design.md"),
@@ -267,6 +344,8 @@ DEVELOPMENT_STEPS: tuple[Step, ...] = (
     Step("content", "development-content", "content-editor", Evidence.CHANGE_FILE,
          "change_text.md", runs_when=_PUBLISHES_TEXT),
     Step("implementation", "development-implementation", "developer", Evidence.MARKER_COMMIT),
+    Step("changelog", "changelog-line", "content-editor", Evidence.COMMITTED_CHANGE_FILE,
+         _CHANGELOG_REPORT),
     Step("code-integrity", "development-code-integrity", "senior-engineer", Evidence.CHANGE_FILE,
          _INTEGRITY_REPORT, declared_prefix=_INTEGRITY_PREFIX),
     Step("security", "development-security", "senior-engineer", Evidence.CHANGE_FILE,
@@ -296,7 +375,7 @@ _REPAIR_STEP = Step("repair", "dependency-repair", "senior-engineer", Evidence.C
 
 # The step each gated skill is, so the audit can leave out a step the change passed: a no-text
 # change has no `change_text.md` to audit (`DiskReader.audited`).
-_GATED_BY_SKILL = {entry.skill: entry for entry in DEVELOPMENT_STEPS if entry.runs_when}
+_GATED_BY_SKILL = {entry.skill: entry for entry in CHANGE_STEPS if entry.runs_when}
 
 # The two producer steps `ad-hoc-plan` stands in for, and the stub each leaves in their place. A stub
 # says so on its `Planned by:` line, and its step is not audited: `development-specs` and
@@ -305,17 +384,17 @@ _GATED_BY_SKILL = {entry.skill: entry for entry in DEVELOPMENT_STEPS if entry.ru
 _STUBBED_BY = "ad-hoc-plan"
 _STUB_ARTIFACT = {"development-specs": "change_spec.md", "development-design": "change_design.md"}
 
-# `chain-change`'s table: the same pipeline, entered at the two PM moves that `chain-development`
+# `walk`'s table: the same pipeline, entered at the two PM moves that `change`
 # requires a caller to have made by hand. Both take no key — `station` runs before one exists and
-# `change` is what creates it — so both reach the disk through a `ChangeLayout` whose `key` is `""`.
+# `open` is what creates it — so both reach the disk through a `ChangeLayout` whose `key` is `""`.
 # After the seal it re-reads the project's route through `shukuba-refine`, which takes the sealed
 # unit's key (`skills/pm/.claude/skills/shukuba-refine/launcher.md` § Arguments). It does so only
 # for a change that serves a station. A change that serves none ends the walk `sealed` at the seal,
 # and the `refine` step is never launched for it.
-CHANGE_STEPS: tuple[Step, ...] = (
+WALK_STEPS: tuple[Step, ...] = (
     Step("station", "shukuba-open", "pm", Evidence.STATION_FILE, takes_key=False),
-    Step("change", "tobiishi-open", "pm", Evidence.CHANGE_OPEN, takes_key=False),
-) + DEVELOPMENT_STEPS + (
+    Step("open", "tobiishi-open", "pm", Evidence.CHANGE_OPEN, takes_key=False),
+) + CHANGE_STEPS + (
     Step("refine", "shukuba-refine", "pm", Evidence.REFINED),
 )
 
@@ -327,8 +406,8 @@ CHANGE_STEPS: tuple[Step, ...] = (
 # another change's marker ahead of `main`.
 _MARKER_SUBJECT = "implementation complete"
 # What a developer run past its context cap leaves instead (`development-implementation/SKILL.md`
-# Step 2 § Pausing at the context cap): an empty commit whose subject names the last task it
-# committed. It never holds `_MARKER_SUBJECT`, so it is not a closing marker.
+# Step 2 § Pausing at the context cap): an empty commit whose subject names the last task that
+# landed. It never holds `_MARKER_SUBJECT`, so it is not a closing marker.
 _PAUSE_SUBJECT = re.compile(r"implementation paused after task (\d+)")
 # Every commit a developer run makes opens with its seat (`development-implementation/SKILL.md`,
 # its per-task, pause and closing subjects, and the free-form ones a run also makes).
@@ -344,6 +423,7 @@ _SUITE_PREFIX = record_declarations.SUITE.prefix
 # such as `none yet — set once the SDD settles`.
 _CARD_TEST_COMMAND = re.compile(r"^\*\*Test command:\*\*(.*)$", re.MULTILINE)
 _CARD_PRODUCT_PATH = re.compile(r"^\*\*Product path:\*\*(.*)$", re.MULTILINE)
+_CARD_DEFINITION = re.compile(r"^\*\*Definition:\*\*(.*)$", re.MULTILINE)
 # Where `dependency-repair` leaves its report (`skills/senior-engineer/.claude/skills/
 # dependency-repair/SKILL.md` § The report), and the worktrees an unmerged repair leaves it in:
 # the repair coins its own key, `<YYYY-MM-DD>_dependency-repair[-n]`.
@@ -429,6 +509,15 @@ _RELANE_NOTE = re.compile(
     r"^- Task (\d+) (?:no red \(lane d(?:[,;][^)]*)?\)"
     r"|red at baseline \(lane f(?:[,;][^)]*)?\))\s*—(.*)$")
 _RELANE_NOTE_START = record_declarations.RELANE_NOTE.prefix
+# The developer's note for a TDD-lane task whose failing tests were committed under another
+# suffix — `in-progress`, most often, by a run that paused partway through the task (2026-10-29, a
+# satellite walk halted missing-red-commit on a finished, green change that had no way back):
+# `- Task <N> red saved as <commit> — <what the commit holds and why it is the red>`. The commit is
+# 7 to 40 hex characters, either case, optionally in backticks. It counts as the task's red only where
+# `landed_without_red` finds it: a non-landing commit of that same task, older than its landing,
+# with a pause of this change between the two — the note is a way back for a red an earlier run
+# saved, never a way through for a task one run built green-first (`DiskReader.paused_between`).
+_SAVED_RED_NOTE = re.compile(r"^- Task (\d+) red saved as `?([0-9a-fA-F]{7,40})`?\s*—(.*)$")
 # The largest context, in tokens, a developer run may carry before it is told to pause
 # (`.claude/hooks/context_cap.py`). A walk carries its own on the state, so a resumed walk keeps the
 # cap it started with; this is what a start with no `--context-cap` records.
@@ -535,11 +624,18 @@ class ChangeLayout:
 
 
 class DiskReader:
-    """Answers what is on disk for one change. Reads only — it launches and writes nothing."""
+    """Answers what is on disk for one change. Reads only — it launches and writes nothing.
 
-    def __init__(self, *, files, git):
+    `draft_body`, when given, stands for the closing marker's body in every read of that body —
+    the commit shape's notes, and also the suite, environment and failing-case lines — so the
+    developer can ask the marker's verdicts of the record it is about to commit, before the commit
+    exists. Only `--check-commit-shape` gives one, and it asks the commit shape alone. Everything
+    else is still read off disk."""
+
+    def __init__(self, *, files, git, draft_body: str | None = None):
         self.files = files
         self.git = git
+        self.draft_body = draft_body
 
     def open_change_keys(self, instance_root: str, project: str) -> list[str]:
         """Every active change on disk: each folder under `journey/tobiishi/` — `trail/` and
@@ -676,6 +772,9 @@ class DiskReader:
             # A step the change's own records pass is done with no artifact: that is how a
             # walk's restart, and `describe`, find it behind them.
             return self.run_verdict(change, step) is RunVerdict.PASS
+        if step.evidence is Evidence.COMMITTED_CHANGE_FILE:
+            return self.git.branch_has_path(change.instance_root, change.key,
+                                            f"{change.change_rel}/{step.artifact}")
         if step.evidence is Evidence.MARKER_COMMIT:
             return self.marker_commit(change) is not None
         if step.evidence is Evidence.AUDIT_FINDINGS:
@@ -971,29 +1070,46 @@ class DiskReader:
             return None
         return rest_of_subject.rsplit(_SUFFIX_SEPARATOR, 1)[1].strip()
 
-    def landed_without_red(self, repo: str, key: str, tasks: list[int]) -> list[int]:
+    def landed_without_red(self, repo: str, key: str, tasks: list[int],
+                           saved_reds: dict[int, set[str]] | None = None,
+                           paused_between=None) -> list[int]:
         """Those of `tasks`, ascending and each once, that have a landing commit on `repo`'s
         `main..<key>` and no red commit older than their oldest landing (CP-189, CP-191). A task
         with no landing is not returned: a missing landing is another obligation's.
+
+        `saved_reds` maps a task to the commit prefixes its saved-red notes name
+        (`saved_red_commits`). A non-landing commit of that task whose SHA opens with one of them is
+        its red whatever its suffix, when `paused_between(named, landing)` answers that a pause of
+        the change lies between it and the task's oldest landing; a named commit that is another
+        task's, a landing one, not on the branch, or made by the run that landed the task counts
+        for nothing.
 
         "Older" is position in the one list `commits_ahead` answers, newest first — never author
         time, which `_worked_after` needs only because it compares two repos, and which would tie a
         red and a green made within one second."""
         # Each task's OLDEST landing and oldest red: the list is newest first, so a later position
         # is an older commit, and each write below keeps the oldest seen so far.
-        landing: dict[int, int] = {}
+        landing: dict[int, tuple[int, str]] = {}
         red: dict[int, int] = {}
-        for position, (_sha, subject) in enumerate(self.git.commits_ahead(repo, _MAIN, key)):
+        saved: dict[int, list[tuple[int, str]]] = {}
+        for position, (sha, subject) in enumerate(self.git.commits_ahead(repo, _MAIN, key)):
             task = _TASK_COMMIT.match(subject)
             if not task:
                 continue
             number = int(task.group(1))
             if self._lands(task.group(2)):
-                landing[number] = position
+                landing[number] = (position, sha)
             elif self._last_suffix(task.group(2)) == _RED_SUFFIX:
                 red[number] = position
+            elif any(sha.startswith(prefix) for prefix in (saved_reds or {}).get(number, ())):
+                saved.setdefault(number, []).append((position, sha))
+        for number, (landed_at, landing_sha) in landing.items():
+            for position, sha in saved.get(number, ()):
+                if (position > landed_at and paused_between is not None
+                        and paused_between(sha, landing_sha)):
+                    red[number] = max(red.get(number, -1), position)
         return sorted(number for number in set(tasks)
-                      if number in landing and red.get(number, -1) < landing[number])
+                      if number in landing and red.get(number, -1) < landing[number][0])
 
     def suite_verdict(self, change: ChangeLayout) -> str | None:
         """The closing marker's declared `Suite:` value — `"green"`, `"red"`, `"none"` (passes
@@ -1060,20 +1176,87 @@ class DiskReader:
         return value.lower() == _NO_SUITE
 
     def has_nfdr(self, change: ChangeLayout) -> bool:
-        """Whether `docs/nfdr.md` exists under the card's `Product path:` on `main`. A relative
-        path is read from the instance root, an absolute one as written. `main`'s card and not
-        the branch's, for `card_has_no_suite`'s reason. A card that cannot be read, or has no such
-        line, names no product, so the answer is False and `dependency-repair` is not launched."""
-        card = self.files.read_text(os.path.join(change.instance_root, "system", "projects",
-                                                 change.project, "project.md"))
-        found = _CARD_PRODUCT_PATH.search(card or "")
+        """Whether `docs/nfdr.md` exists under the card's `Product path:` on `main`. A card that
+        cannot be read, or has no such line, names no product, so the answer is False and
+        `dependency-repair` is not launched."""
+        product = self._product_directory(change)
+        return product is not None and self.files.is_file(os.path.join(product, "docs", "nfdr.md"))
+
+    def _product_directory(self, change: ChangeLayout) -> str | None:
+        """The product the card's `Product path:` names, as the instance's `main` checkout holds
+        it: a relative path is read from the instance root, an absolute one as written. `main`'s
+        card and not the branch's, for `card_has_no_suite`'s reason. `None` when the card cannot
+        be read, or has no such line or an empty one."""
+        found = _CARD_PRODUCT_PATH.search(self._card(change) or "")
         if found is None:
-            return False
+            return None
         value = found.group(1).split("<!--", 1)[0].strip().strip(_EMPHASIS).strip()
         if not value:
+            return None
+        return os.path.join(change.instance_root, value)  # an absolute `value` wins the join
+
+    def _card(self, change: ChangeLayout) -> str | None:
+        return self.files.read_text(os.path.join(change.instance_root, "system", "projects",
+                                                 change.project, "project.md"))
+
+    def definition(self, change: ChangeLayout) -> str | None:
+        """The `**Definition:**` value of the project card on `main`, cut at its trailing comment
+        and undressed of code and bold markup, with its case kept (CP-1103): `full` and `Full`
+        are two answers. `None` when the card cannot be read, or has no such line or an empty
+        one. `main`'s card and not the branch's, so a run of the change cannot edit it."""
+        found = _CARD_DEFINITION.search(self._card(change) or "")
+        if found is None:
+            return None
+        return found.group(1).split("<!--", 1)[0].strip().strip(_EMPHASIS).strip() or None
+
+    def item_held_open(self, change: ChangeLayout, companion: str, title: str) -> bool:
+        """Whether the product's main checkout holds the item open (CP-1108, CP-1109): the file
+        `docs/<companion>` exists, and the `## ` section whose heading contains `Raised from
+        downstream` holds a `### ` heading whose text, once its leading number is removed,
+        equals `title`. HTML comments are not read. A missing or unreadable file, and a path that
+        does not stay under `docs/`, hold nothing."""
+        path = self.main_companion_path(change, companion)
+        if path is None:
             return False
-        product = os.path.join(change.instance_root, value)  # an absolute `value` wins the join
-        return self.files.is_file(os.path.join(product, "docs", "nfdr.md"))
+        text = self.files.read_text(path)
+        return text is not None and _holds_item_open(text, title)
+
+    def main_companion_path(self, change: ChangeLayout, companion: str) -> str | None:
+        """The companion's path in the product's main checkout, or `None` when the card names no
+        product or `companion` does not stay under `docs/`."""
+        product = self._product_directory(change)
+        return None if product is None else _under_docs(product, companion)
+
+    def carry_repository(self, change: ChangeLayout) -> str | None:
+        """The repository whose main checkout holds the companion (CP-1126): git's top level for
+        the card's product directory. `None` when the card names no product or the directory is
+        in no repository."""
+        product = self._product_directory(change)
+        return None if product is None else self.git.toplevel(product)
+
+    def checkout_branch(self, repository: str) -> str | None:
+        """The branch `repository`'s checkout has out; `None` when it is detached or git cannot
+        say."""
+        return self.git.current_branch(repository)
+
+    def path_status(self, repository: str, relative: str) -> list[str] | None:
+        """The `git status --porcelain` lines for one repository-relative path, empty when it is
+        clean; `None` when git cannot answer."""
+        return self.git.path_status(repository, relative)
+
+    def worktree_companion_path(self, change: ChangeLayout, companion: str) -> str | None:
+        """The same companion in the change's worktree of the carry's repository:
+        `<repository>/.worktrees/<key>/<product directory relative to repository>/docs/...`. Git
+        gives a resolved top level, so the offset is taken from the real path of each. `None`
+        when there is no repository or `companion` does not stay under `docs/`."""
+        product = self._product_directory(change)
+        repository = self.carry_repository(change)
+        if product is None or repository is None:
+            return None
+        offset = os.path.relpath(os.path.realpath(product), os.path.realpath(repository))
+        worktree_product = os.path.normpath(
+            os.path.join(repository, ".worktrees", change.key, offset))
+        return _under_docs(worktree_product, companion)
 
     def repair_reports(self, change: ChangeLayout) -> list[str]:
         """The sorted path of every `*_report.md` under `system/projects/<project>/docs/
@@ -1146,6 +1329,42 @@ class DiskReader:
                 relaned.add(int(note.group(1)))
         return relaned
 
+    def paused_between(self, change: ChangeLayout, repo: str, older: str, newer: str) -> bool:
+        """Whether a pause commit of this change lies between `older` and `newer`, two commits of
+        `repo`'s `main..<key>`. Where the pause is in `repo`'s own history, by position there — a
+        red saved and the pause after it can land in one second. Otherwise, for an external
+        product, by author time as `_worked_after` reads it: the pause no earlier than `older`, and
+        `newer` strictly after the pause. A time git cannot read answers no pause."""
+        pauses = [sha for sha, subject in self._own_commits(change)
+                  if _PAUSE_SUBJECT.search(subject)]
+        order = [sha for sha, _subject in self.git.commits_ahead(repo, _MAIN, change.key)]
+        if older not in order or newer not in order:
+            return False
+        for pause in pauses:
+            if pause in order:
+                # Newest first: `newer` above the pause, the pause above `older`.
+                if order.index(newer) < order.index(pause) < order.index(older):
+                    return True
+                continue
+            paused_at = self.git.author_time(change.instance_root, pause)
+            older_at = self.git.author_time(repo, older)
+            newer_at = self.git.author_time(repo, newer)
+            if None not in (paused_at, older_at, newer_at) and older_at <= paused_at < newer_at:
+                return True
+        return False
+
+    def saved_red_commits(self, change: ChangeLayout) -> dict[int, set[str]]:
+        """The commits the closing marker's body names as a task's red under another suffix: every
+        line in `_SAVED_RED_NOTE`'s form, task to the prefixes named for it. Empty when there is no
+        marker. A note with no reason names nothing, as a re-lane note's does (CP-190). Whether a
+        named commit is that task's red is `landed_without_red`'s to judge."""
+        named: dict[int, set[str]] = {}
+        for line in self._marker_record(change).read(record_declarations.RELANE_NOTE):
+            note = _SAVED_RED_NOTE.match(line.text)
+            if note and note.group(3).strip().strip(_EMPHASIS).strip():
+                named.setdefault(int(note.group(1)), set()).add(note.group(2).lower())
+        return named
+
     def failing_cases(self, change: ChangeLayout) -> list[str]:
         """Each `Failing:` line in the first run of consecutive `Failing:` lines in the closing
         marker's body, undressed, in body order, and none when there is no marker. The engine runs
@@ -1159,6 +1378,8 @@ class DiskReader:
         asked of it by its row, never by a bare prefix: a mention inside `Developer Review Notes`
         elsewhere in the body must not read as the declaration, and the row says where a
         declaration may appear."""
+        if self.draft_body is not None:
+            return record_declarations.parse(self.draft_body)
         sha = self.marker_commit(change)
         if sha is None:
             return record_declarations.parse("")
@@ -1246,6 +1467,10 @@ class DiskReader:
         return next((path for path in candidates if self.files.is_file(path)), None)
 
 
+    def branch_tip(self, repo: str, branch: str) -> str | None:
+        """The commit `branch` points at in `repo`, or `None` when it does not exist."""
+        return self.git.branch_tip(repo, branch)
+
     def halt_snapshot(self, change: ChangeLayout) -> dict | None:
         """Identify inherited report bytes without copying their content into chain state.
         Unreadable reports have no snapshot, so they cannot be dismissed as unchanged.
@@ -1256,6 +1481,46 @@ class DiskReader:
             return None
         return {"path": path, "sha256": hashlib.sha256(text.encode("utf-8")).hexdigest()}
 
+    def halt_reason(self, path: str) -> str | None:
+        """The halt report's reason: the first non-blank line under its `## Halt Reason` heading,
+        read with HTML comments removed and undressed of surrounding whitespace, backticks and
+        `*`, case kept (CP-1101). `None` when the report cannot be read, has no such heading, or
+        nothing non-blank follows it before the next heading. Only the first heading is read."""
+        text = self.files.read_text(path)
+        if text is None:
+            return None
+        lines = _report_lines(_HTML_COMMENT.sub("", text))
+        heading = next((index for index, line in enumerate(lines)
+                        if line.rstrip() == _HALT_REASON_HEADING), None)
+        if heading is None:
+            return None
+        first = next((line for line in lines[heading + 1:] if line.strip()), None)
+        if first is None or first.lstrip().startswith("#"):
+            return None
+        return first.strip().strip(_REASON_DRESSING).strip() or None
+
+    def raised_items(self, path: str) -> list[str]:
+        """The `Raised item:` values of the halt report, in report order: the text after
+        `Raised item: ` on each line that begins with it, taken as given (CP-1102). Read from the
+        whole report, comments included, so a template line left behind errs toward a halt that
+        names it. `[]` when the report cannot be read."""
+        text = self.files.read_text(path)
+        if text is None:
+            return []
+        return [line[len(_RAISED_ITEM_PREFIX):] for line in _report_lines(text)
+                if line.startswith(_RAISED_ITEM_PREFIX)]
+
+    @staticmethod
+    def split_raised_item(value: str) -> tuple[str, str] | None:
+        """A raised item's companion path and title, or `None` when the value is unreadable
+        (CP-1102): the path is the text before the first ` § `, the title the text after the
+        first ` — ` that follows it, and a missing separator or an empty part is unreadable."""
+        path, section_sign, rest = value.partition(_ITEM_SECTION_SIGN)
+        _, dash, title = rest.partition(_ITEM_TITLE_DASH)
+        if not section_sign or not dash or not path or not title:
+            return None
+        return path, title
+
 
 # --- the walk's own record ------------------------------------------------------------------
 
@@ -1264,7 +1529,7 @@ STATE_SCHEMA = 1
 # Each table's own name — the walk's identity, carried on the state and worn by its shim, its log,
 # its telemetry tag and every message the owner reads. A module constant could not say which of two
 # walks a message came from.
-CHAIN_NAMES: dict[int, str] = {id(DEVELOPMENT_STEPS): "development", id(CHANGE_STEPS): "change"}
+CHAIN_NAMES: dict[int, str] = {id(CHANGE_STEPS): "change", id(WALK_STEPS): "walk"}
 
 
 class Ended(str, Enum):
@@ -1287,7 +1552,7 @@ class WalkState:
     key: str
     walk_id: str
     product_docs: str
-    chain_name: str = "development"
+    chain_name: str = "change"
     notifier: str = ""
     keep_awake: bool = False
     started_at: str = ""
@@ -1334,6 +1599,13 @@ class WalkState:
     # older state file still loads.
     repairs: int = 0
     repair_reports_before: list = field(default_factory=list)
+    # How many times this walk launched `product-docs` for a `records-owed` halt (CP-1106: at most
+    # one), the id of the step whose halt it answered, and the report's named items in report order
+    # with whether the main checkout held each one open at the launch (CP-1108). All defaulted, so
+    # an older state file still loads (CP-1114).
+    sweeps: int = 0
+    sweep_step: str = ""
+    sweep_items: list = field(default_factory=list)
     schema_version: int = STATE_SCHEMA
 
     def to_json(self) -> dict:
@@ -1351,7 +1623,7 @@ class StateStore:
     """The state file behind a seam. A `.tmp` sibling is written whole and then replaced over
     the real path, so no reader ever observes half a file."""
 
-    def __init__(self, files, path: str, chain_name: str = "development"):
+    def __init__(self, files, path: str, chain_name: str = "change"):
         self.files = files
         self.path = os.path.abspath(path)
         # Only so an absence names the walk that has none. The default keeps every caller that
@@ -1410,12 +1682,191 @@ _FINISHED = frozenset({"completed", "produced_nothing"})
 
 _HALT_REPORT = "halt_report.md"
 
+# What a `records-owed` halt report is read by (CP-1101, CP-1102). The reason's dressing is
+# exactly the backticks and `*` CP-1101 lists: `record_declarations.EMPHASIS` also strips `_`, which
+# would read `_records-owed_` as the reason.
+_HALT_REASON_HEADING = "## Halt Reason"
+_REASON_DRESSING = "`*"
+_RAISED_ITEM_PREFIX = "Raised item: "
+_ITEM_SECTION_SIGN = " § "
+_ITEM_TITLE_DASH = " — "
+_RAISED_SECTION = "Raised from downstream"
+_ITEM_HEADING = re.compile(r"^### +(?:[0-9.]+(?:\s+|$))?(.*?)\s*$")
+_SECTION_END = re.compile(r"^#{1,2}(?:\s|$)")
+_HTML_COMMENT = re.compile(r"<!--.*?-->", re.DOTALL)
+
+# The `records-owed` route (CP-1101–CP-1108). The halt is answered only from these steps, on a
+# card whose `**Definition:**` is exactly `full`. The sweep's run sits outside both step tables like
+# the repair, has no provider-file entry, and is named so no table step uses its word.
+_RECORDS_OWED = "records-owed"
+_RECORDS_OWED_STEPS = frozenset({"specs", "design", "plan"})
+_FULL_DEFINITION = "full"
+_SWEEP_RUN = "records-sweep"
+# Where a folded, sealed sweep restarts the change: the step that raised the records is run again
+# from its start, on a branch cut fresh from the records the sweep settled (CP-1112).
+_REENTRY_STEP = "specs"
+_SWEEP_SKILL = "product-docs"
+# What the carry writes on `main` (CP-1126). The commit's words are the content step's, placed
+# whole: one subject, body and progress clause for one item, another for two or more.
+_CARRY_SUBJECT = "{seat}: {key} — raised {things} carried onto main for the document sweep"
+_CARRY_BODY_ONE = ("The {step} step raised this item in the change's worktree and halted "
+                   "records-owed. The walk copies it onto main as the step wrote it, so the "
+                   "document sweep finds it open and can fold it.")
+_CARRY_BODY_MANY = ("The {step} step raised these items in the change's worktree and halted "
+                    "records-owed. The walk copies each onto main as the step wrote it, so the "
+                    "document sweep finds it open and can fold it.")
+_CARRY_PROGRESS = "carries {key}'s raised {things} onto main for the document sweep"
+_CARRY_REFUSED = "{owed} — cannot carry onto main: {why}"
+_CARRY_NO_SURFACE = "no surface for provider {provider}"
+_CARRY_BRANCH = "{repository} is on {branch}"
+_CARRY_DIRTY = "{companion} has uncommitted changes"
+_CARRY_UNREADABLE = "git could not read the status of {companion}"
+_CARRY_FAILED = "{owed} — carrying onto main failed: commit_builder exited {code}"
+_CARRY_RESTORE_FAILED = "restoring {companion} exited {code}"
+_NO_BRANCH = "detached"
+# What a walk's own runs are launched with and the sweep is not: the sweep is another walk's, with
+# its own state and its own stop, so it takes none of this walk's per-run variables.
+_SWEEP_REMOVED_VARIABLES = (
+    "DETACH_WATCHER_ON_COMPLETE", "INSTRUMENT_RUN_CHAIN", "INSTRUMENT_RUN_WALK_ID",
+    "INSTRUMENT_RUN_ROLE", "INSTRUMENT_RUN_AUDIT_TARGET", _CONTEXT_CAP_VARIABLE,
+    _GATE_OWNERS_MAC_VARIABLE)
+
 
 def engine_report_marker(step: Step) -> str:
     """The first line of a `halt_report.md` this engine wrote for `step`, and the only thing that
     tells it from a seat's own report: the engine moves a report that starts with it and leaves
     every other one where it is."""
     return f"chain_development — halt at the {step.id} step: no {step.runs_when.prefix} verdict"
+
+
+def _report_lines(text: str) -> list[str]:
+    """A report's lines, split on newlines alone: `str.splitlines` also splits on characters a
+    raised item may hold, and an item is taken as the report gives it."""
+    return [line.removesuffix("\r") for line in text.split("\n")]
+
+
+_ITEM_BLOCK_END = re.compile(r"^#{1,3}(?:\s|$)")
+_NOT_A_LINE_ENDING = re.compile(r"[^\r\n]")
+
+
+def _under_docs(product: str, companion: str) -> str | None:
+    """`docs/<companion>` under `product`, normalised, or `None` when `companion` does not stay
+    under `docs/` (an absolute path wins the join and leaves it)."""
+    docs = os.path.normpath(os.path.join(product, "docs"))
+    path = os.path.normpath(os.path.join(docs, companion))
+    return path if path.startswith(docs + os.sep) else None
+
+
+def _lines_keeping_ends(text: str) -> list[str]:
+    """`text` cut on `\n` alone, each line keeping its own ending, so joining them gives `text`
+    back byte for byte. `str.splitlines` also cuts on characters a record may hold."""
+    parts = text.split("\n")
+    lines = [part + "\n" for part in parts[:-1]]
+    return (lines + [parts[-1]]) if parts[-1] else lines
+
+
+def _visible_lines(lines: list[str]) -> list[str]:
+    """What each of `lines` reads as once HTML comments are not read: the same lines, a comment's
+    characters blanked and every line ending kept, so a visible line and its raw line share an
+    index and a heading inside a comment is no heading (CP-1108, CP-1125)."""
+    blanked = _HTML_COMMENT.sub(lambda comment: _NOT_A_LINE_ENDING.sub(" ", comment.group()),
+                                "".join(lines))
+    return [line.rstrip("\r\n") for line in _lines_keeping_ends(blanked)]
+
+
+def _raised_section(visible: list[str]) -> tuple[int, int] | None:
+    """`(first, end)`: the index of the heading line of the first `## ` section whose heading
+    contains `Raised from downstream`, and the index of the line that ends it — the next
+    level-one or level-two heading, or the number of lines. `None` when there is no such
+    section."""
+    for first, line in enumerate(visible):
+        if line.startswith("## ") and _RAISED_SECTION in line:
+            end = next((index for index in range(first + 1, len(visible))
+                        if _SECTION_END.match(visible[index])), len(visible))
+            return first, end
+    return None
+
+
+@dataclass(frozen=True)
+class _CarriedFile:
+    """One main-checkout companion the carry writes: where it is, its name as the raised items
+    give it, its path in the repository, what it holds before the carry and after it, and the
+    raised items going into it, in report order."""
+    path: str
+    companion: str
+    relative: str
+    before: str
+    after: str
+    values: tuple[str, ...]
+
+
+def _item_heading_title(line: str) -> str | None:
+    heading = _ITEM_HEADING.match(line)
+    return heading.group(1) if heading else None
+
+
+def _holds_item_open(text: str, title: str) -> bool:
+    """Whether a companion's `text` holds `title` open (CP-1108): under every `## ` section whose
+    heading contains `Raised from downstream` there is a `### ` heading whose text, once its
+    leading number is removed, equals `title`. HTML comments are not read: they are removed and
+    the text left is read, as CP-1108 always read it. `_visible_lines` blanks them in place
+    instead, which an item's extent needs, and which would stop a heading that a comment opens
+    its line with from being one."""
+    inside = False
+    for line in _report_lines(_HTML_COMMENT.sub("", text)):
+        if _SECTION_END.match(line):
+            inside = line.startswith("## ") and _RAISED_SECTION in line
+        elif inside and _item_heading_title(line) == title:
+            return True
+    return False
+
+
+def _extract_item(text: str, title: str) -> str | None:
+    """The lines of the first item titled `title` in the *Raised from downstream* section of a
+    companion's `text` (CP-1125): from its `### ` heading up to, not including, the next heading
+    of level one to three outside a comment, or the end, trailing blank lines left out, every
+    line ending as the text holds it. `None` when the section holds no such item."""
+    lines = _lines_keeping_ends(text)
+    visible = _visible_lines(lines)
+    section = _raised_section(visible)
+    if section is None:
+        return None
+    first, end = section
+    start = next((index for index in range(first + 1, end)
+                  if _item_heading_title(visible[index]) == title), None)
+    if start is None:
+        return None
+    stop = next((index for index in range(start + 1, end)
+                 if _ITEM_BLOCK_END.match(visible[index])), end)
+    while stop > start + 1 and not lines[stop - 1].strip():
+        stop -= 1
+    return "".join(lines[start:stop])
+
+
+def _append_items(text: str, blocks: list[str]) -> str | None:
+    """A companion's `text` with `blocks` added at the end of its *Raised from downstream*
+    section (CP-1125): after the section's last non-blank line, each block preceded by one blank
+    line, and one blank line kept before a heading that follows. The added lines take the line
+    ending of the section's last line; every byte outside the insertion is as it was. `None`
+    when the text has no such section."""
+    lines = _lines_keeping_ends(text)
+    section = _raised_section(_visible_lines(lines))
+    if section is None:
+        return None
+    first, end = section
+    last = next(index for index in range(end - 1, first - 1, -1)
+                if index == first or lines[index].strip())
+    ending = next(("\r\n" if line.endswith("\r\n") else "\n"
+                  for line in reversed(lines[:last + 1]) if line.endswith("\n")), "\n")
+    added = []
+    for block in blocks:
+        added += [ending] + [line.rstrip("\r\n") + ending
+                             for line in _lines_keeping_ends(block)]
+    if last + 1 < len(lines) and lines[last + 1].strip():
+        added.append(ending)
+    closed_last = lines[last].rstrip("\r\n") + ending if not lines[last].endswith("\n") \
+        else lines[last]
+    return "".join(lines[:last] + [closed_last] + added + lines[last + 1:])
 
 
 def _missing_verdict_report(step: Step, found: str) -> str:
@@ -1446,6 +1897,8 @@ def _missing(change: ChangeLayout, step: Step) -> str:
         return f"a folder holding a change_request.md under {change.tobiishi}"
     if step.evidence is Evidence.CHANGE_FILE:
         return step.artifact
+    if step.evidence is Evidence.COMMITTED_CHANGE_FILE:
+        return f"{step.artifact} committed on {change.key}"
     if step.evidence is Evidence.MARKER_COMMIT:
         return f"developer closing marker commit on {change.key}"
     if step.evidence is Evidence.REFINED:
@@ -1504,14 +1957,14 @@ class GateEnvironmentCheck:
     `gate_suite.check_gate` — which starts no process. Policy stays in the gate tool: this class
     prepares context and reports a check it could not make."""
 
-    def __init__(self, *, files, gate_files=None, contract=_real_contract,
-                 tracked_files=_real_tracked_files, record_reader=None):
+    def __init__(self, *, files, gate_files, contract, tracked_files, record_reader, guest_job):
         self.files = files
-        self.gate_files = gate_files if gate_files is not None else gate_suite.ReadOnlyFiles()
+        # The host's guest, from its login job (`gate_suite.GuestJob`), never from the plan.
+        self.guest_job = guest_job
+        self.gate_files = gate_files
         self.contract = contract
         self.tracked_files = tracked_files
-        self.record_reader = record_reader if record_reader is not None \
-            else gate_suite.GitRecordReader()
+        self.record_reader = record_reader
 
     def check(self, change: "ChangeLayout", core_dir: str) -> "gate_suite.CheckResult":
         inputs = self._planned_inputs(change)
@@ -1532,7 +1985,7 @@ class GateEnvironmentCheck:
             return gate_suite.check_gate(
                 worktree=change.worktree, project=change.project, key=change.key, inputs=inputs,
                 context=context, files=self.gate_files, core_root=Path(core_dir),
-                out=io.StringIO())
+                out=io.StringIO(), guest_job=self.guest_job)
         except (gate_suite.GateError, gate_suite.InputError) as error:
             raise EnvironmentCheckUnavailable(
                 f"the gate tool could not make the check: {error}") from None
@@ -1554,11 +2007,43 @@ class GateEnvironmentCheck:
                 f"{error}") from None
 
 
+def _task_numbers(lines: list[str], prefix: str) -> list[int]:
+    matches = (_TASK_TOKEN.search(line[len(prefix):]) for line in lines)
+    return [int(match.group(1)) for match in matches if match]
+
+
+def commit_shape_verdict(reader: DiskReader, change: ChangeLayout,
+                         product_path: str) -> str | None:
+    """`missing-red-commit — task <N>[, task <M>…]` for each judged TDD-lane task that landed
+    with no red commit older than its first landing (CP-191, CP-193) — a `— red` subject, or a
+    commit of the task a saved-red note names — or `None`. A plan that
+    cannot be read is `unreadable-plan` rather than a pass: a check that passes when it cannot
+    read its input passes everything (CP-195)."""
+    lane = reader.tdd_lane_tasks(change)
+    if lane is None:
+        return "unreadable-plan"
+    # A deferred task is declared unlanded, and its `— red` and `— deferred` commits are the
+    # shape the skill prescribes for it (CP-189).
+    deferred = set(_task_numbers(reader.deferrals(change), _DEFERRED_PREFIX))
+    # A task the developer re-laned to already-green or to red-at-baseline, with its reason
+    # recorded (CP-190).
+    exempt = deferred | reader.relaned_tasks(change)
+    judged = [number for number in lane if number not in exempt]
+    repo = reader.code_repo(change, product_path)
+    failing = reader.landed_without_red(
+        repo, change.key, judged, reader.saved_red_commits(change),
+        lambda older, newer: reader.paused_between(change, repo, older, newer))
+    if not failing:
+        return None
+    return "missing-red-commit — " + ", ".join(f"task {number}" for number in failing)
+
+
 class DevelopmentChain:
     """The walk. Everything it uses is handed to it; it constructs nothing."""
 
-    def __init__(self, *, store: StateStore, reader: DiskReader, files, processes, notifier,
-                 lock, log, id_source, environ: dict, engine_path: str, steps: tuple[Step, ...],
+    def __init__(self, *, store: StateStore, reader: DiskReader, files, exact_files, processes,
+                 notifier, lock, log, id_source, environ: dict, engine_path: str,
+                 steps: tuple[Step, ...],
                  providers: ProviderFiles, process_table: walk_stop.ProcessTable,
                  checkout: product_checkout.Checkout, environment_check,
                  chain_name: str = ""):
@@ -1568,8 +2053,12 @@ class DevelopmentChain:
         self.process_table = process_table
         self.providers = providers
         self._due_end_hook: tuple[str, str, str, str, str] | None = None
+        # The sweep's launch, decided under the state lock and run once it is released:
+        # `(argv, env, cwd)`.
+        self._due_sweep_launch: tuple[list[str], dict, str] | None = None
         self.reader = reader
         self.files = files
+        self.exact_files = exact_files
         self.processes = processes
         self.notifier = notifier
         self.lock = lock
@@ -1580,7 +2069,7 @@ class DevelopmentChain:
         self.steps = steps
         # Handed in where a caller names it; otherwise the table's own name, so a test that builds
         # the engine with a table and nothing else still gets the walk that table belongs to.
-        self.chain_name = chain_name or CHAIN_NAMES.get(id(steps), "development")
+        self.chain_name = chain_name or CHAIN_NAMES.get(id(steps), "change")
 
     # -- entry -------------------------------------------------------------------------------
 
@@ -1646,7 +2135,7 @@ class DevelopmentChain:
         `CHANGE_OPEN` step opens the change itself, so an empty `journey/tobiishi/` is the state
         it starts in. A table without one presumes the change is already there, and
         `discover_key`'s refusal — *"Open one with tobiishi-open first"* — is exactly the answer
-        `chain-development` owes a caller who has not. Deciding this off the disk would swallow
+        `change` owes a caller who has not. Deciding this off the disk would swallow
         that refusal.
 
         A table that also carries a `REFINED` step owes the refine before it opens anything new,
@@ -1723,7 +2212,7 @@ class DevelopmentChain:
         states = [walk_stop.launch_state(self.files, self.process_table, entry.get("identity", ""))
                   for entry in existing["pending"].values()]
         command = walk_stop.stop_command(existing.get("core_dir", ""),
-                                         f"chain-{self.chain_name}", existing.get("project", ""))
+                                         self.chain_name, existing.get("project", ""))
         raise ChainAlreadyWalking(
             f"{self.store.path} is still walking {existing.get('key')}, waiting on "
             f"{', '.join(sorted(existing['pending']))}. "
@@ -1762,6 +2251,7 @@ class DevelopmentChain:
         same end is itself a no-op."""
         with self.lock.hold(self.store.path):
             result = self._advance(run, outcome)
+        self._run_due_sweep_launch()
         self._run_due_end_hook()
         return result
 
@@ -1776,9 +2266,13 @@ class DevelopmentChain:
             return AdvanceResult(acted=False, ended=None)
         self.store.save(state)
 
+        change = ChangeLayout(state.instance_root, state.project, state.key)
+        if run == _SWEEP_RUN:
+            self._settle_sweep(state, change, outcome)
+            self.store.save(state)
+            return AdvanceResult(acted=True, ended=state.ended)
         step = next(candidate for candidate in (*self.steps, _REPAIR_STEP)
                     if candidate.id == entry["step"])
-        change = ChangeLayout(state.instance_root, state.project, state.key)
         if self._left_the_checkout_dirty(state, step, entry):
             self.store.save(state)
             return AdvanceResult(acted=True, ended=state.ended)
@@ -1839,6 +2333,8 @@ class DevelopmentChain:
                     return
                 if self._recover_missing_marker(state, change, step):
                     return
+            if report and self._answer_records_owed(state, change, step, report):
+                return
             self._halt(state, step, f"halt_report.md at {report}" if report
                        else f"no {_missing(change, step)} after the run ended")
             return
@@ -1857,6 +2353,282 @@ class DevelopmentChain:
             self._record_marker(state, change)
         state.history.append(f"{step.id} landed")
         self._after(state, change, step)
+
+    def _answer_records_owed(self, state: WalkState, change: ChangeLayout, step: Step,
+                             report: str) -> bool:
+        """Answer a `records-owed` halt by launching the document sweep, and say whether it did
+        (CP-1101, CP-1103). A report that is not one — another step, another reason, a card whose
+        `**Definition:**` on `main` is not `full` — is declined, and the caller halts on it as it
+        always has (CP-1113)."""
+        if (step.id not in _RECORDS_OWED_STEPS
+                or self.reader.halt_reason(report) != _RECORDS_OWED
+                or self.reader.definition(change) != _FULL_DEFINITION):
+            return False
+        named = [(value, self.reader.split_raised_item(value))
+                 for value in self.reader.raised_items(report)]
+        if not named:
+            self._halt(state, step, f"{_RECORDS_OWED} — the halt report names no raised item: "
+                                    f"halt_report.md at {report}")
+            return True
+        unreadable = next((value for value, parts in named if parts is None), None)
+        if unreadable is not None:
+            self._halt(state, step, f"{_RECORDS_OWED} — unreadable raised item: {unreadable}")
+            return True
+        if state.sweeps != 0:
+            self._halt(state, step, f"{_RECORDS_OWED} — {_SWEEP_SKILL} already ran in this walk: "
+                                    f"halt_report.md at {report}")
+            return True
+        if not self._carry(state, change, step, named):
+            return True
+        self._launch_sweep(state, change, step, named)
+        return True
+
+    def _carry(self, state: WalkState, change: ChangeLayout, step: Step,
+               named: list[tuple[str, tuple[str, str] | None]]) -> bool:
+        """Carry each named item the main checkout does not hold onto it, in one commit, before the
+        sweep records what is held open (CP-1123–CP-1126). Whether the walk goes on to the launch:
+        `False` once it has halted. Nothing carried means nothing is asked of the provider and
+        nothing is written."""
+        repository = self.reader.carry_repository(change)
+        files = [] if repository is None else self._files_to_carry(change, repository, named)
+        if not files:
+            return True
+        provider = self._provider_or_halt(state, step)
+        if provider is None:
+            return False
+        surface = _SURFACES.get(provider)
+        if surface is None:
+            self._halt(state, step, _CARRY_REFUSED.format(
+                owed=_RECORDS_OWED, why=_CARRY_NO_SURFACE.format(provider=provider)))
+            return False
+        why = self._refusal_before_writing(repository, files)
+        if why is not None:
+            self._halt(state, step, _CARRY_REFUSED.format(owed=_RECORDS_OWED, why=why))
+            return False
+        for carried in files:
+            self.exact_files.write_text(carried.path, carried.after)
+        exit_code = self.processes.run(
+            self._carry_command(state, change, step, repository, surface, files),
+            cwd=repository, env=with_provider(self.environ, provider))
+        if exit_code != 0:
+            reason = _CARRY_FAILED.format(owed=_RECORDS_OWED, code=exit_code)
+            failed = self._restore(repository, files, provider)
+            if failed:
+                reason += f" ({'; '.join(failed)})"
+            self._halt(state, step, reason)
+            return False
+        return True
+
+    def _refusal_before_writing(self, repository: str,
+                                files: list[_CarriedFile]) -> str | None:
+        """Why the carry may not write (CP-1127): the checkout does not have `main` out, or a
+        companion it would write holds an uncommitted change, staged or not, or git cannot say.
+        Committing there would put the item on another branch, or sweep someone's edit into the
+        carry's commit. `None` when it may. Every check comes before the first write."""
+        branch = self.reader.checkout_branch(repository)
+        if branch != _MAIN:
+            return _CARRY_BRANCH.format(repository=repository, branch=branch or _NO_BRANCH)
+        for carried in files:
+            status = self.reader.path_status(repository, carried.relative)
+            if status is None:
+                return _CARRY_UNREADABLE.format(companion=carried.companion)
+            if status:
+                return _CARRY_DIRTY.format(companion=carried.companion)
+        return None
+
+    def _restore(self, repository: str, files: list[_CarriedFile], provider: str) -> list[str]:
+        """Put every file the carry wrote back as it read it, and unstage it, because the builder
+        may have staged it before it refused (CP-1127). Safe, since the checks ahead of the write
+        showed none of them held an uncommitted change. Every file is restored, one failing
+        included; what names each unstaging that exited non-zero, in the order written."""
+        failed = []
+        for carried in files:
+            self.exact_files.write_text(carried.path, carried.before)
+            exit_code = self.processes.run(
+                ["git", "-C", repository, "restore", "--staged", "--", carried.relative],
+                cwd=repository, env=with_provider(self.environ, provider))
+            if exit_code != 0:
+                failed.append(_CARRY_RESTORE_FAILED.format(companion=carried.companion,
+                                                           code=exit_code))
+        return failed
+
+    def _files_to_carry(self, change: ChangeLayout, repository: str,
+                        named: list[tuple[str, tuple[str, str] | None]]) -> list[_CarriedFile]:
+        """The main-checkout companions the carry writes, in the order their first item was named,
+        each with what it holds now, what it will hold and the items going into it (CP-1124). An
+        item is carried when the main checkout's companion exists with a *Raised from downstream*
+        section and does not hold it open, and the change worktree's companion does. Two items with
+        one companion and one title are one."""
+        blocks: dict[str, dict[str, tuple[str, str]]] = {}
+        before: dict[str, str] = {}
+        companions: dict[str, str] = {}
+        for value, parts in named:
+            companion, title = parts
+            path = self.reader.main_companion_path(change, companion)
+            if path is None or self.reader.item_held_open(change, companion, title):
+                continue
+            worktree_path = self.reader.worktree_companion_path(change, companion)
+            main_text = self.exact_files.read_text(path)
+            worktree_text = (None if worktree_path is None
+                             else self.exact_files.read_text(worktree_path))
+            block = None if worktree_text is None else _extract_item(worktree_text, title)
+            if main_text is None or block is None or _append_items(main_text, []) is None:
+                continue
+            before[path] = main_text
+            companions.setdefault(path, companion)
+            blocks.setdefault(path, {}).setdefault(title, (value, block))
+        root = os.path.realpath(repository)
+        return [_CarriedFile(path, companions[path], os.path.relpath(os.path.realpath(path), root),
+                             before[path],
+                             _append_items(before[path], [block for _, block in held.values()]),
+                             tuple(value for value, _ in held.values()))
+                for path, held in blocks.items()]
+
+    def _carry_command(self, state: WalkState, change: ChangeLayout, step: Step, repository: str,
+                       surface: str, files: list[_CarriedFile]) -> list[str]:
+        """The builder call that commits the carry in `repository`: the halting step's seat as the
+        actor, the open station or else the finish line as the directional, and each companion as
+        a repository-relative `--add`, which the builder's staged-set guard requires. No model wrote
+        the commit, so it carries no skill, co-author or reasoning effort (CP-1126)."""
+        values = [value for carried in files for value in carried.values]
+        many = len(values) > 1
+        things = "items" if many else "item"
+        station = self.reader.open_station(state.instance_root, state.project)
+        progress = _CARRY_PROGRESS.format(key=change.key, things=things)
+        directional = (f"Shukuba: {station.removesuffix('.md')} — progress: {progress}"
+                       if station else f"Finish-line: {state.project} — progress: {progress}")
+        body = (_CARRY_BODY_MANY if many else _CARRY_BODY_ONE).format(step=step.id)
+        listing = "\n".join(f"- {value}" for value in values)
+        return [os.path.join(state.core_dir, "tools", "locked_python.sh"),
+                os.path.join(state.core_dir, "tools", "commit_builder.py"),
+                "--repo", repository, "commit",
+                "--subject", _CARRY_SUBJECT.format(seat=step.role, key=change.key, things=things),
+                "--body", f"{body}\n\n{listing}", "--actor", step.role,
+                "--directional", directional, "--surface", surface,
+                "--add", *[carried.relative for carried in files]]
+
+    def _launch_sweep(self, state: WalkState, change: ChangeLayout, step: Step,
+                      named: list[tuple[str, tuple[str, str] | None]]) -> None:
+        """Record the items the main checkout holds open, mark `product-docs` due and wait for its
+        end (CP-1107, CP-1108). The launch itself runs once the state lock is released
+        (`_run_due_sweep_launch`): the document engine runs in the foreground, and holding this
+        walk's lock for all of it would make a `--stop` of this walk wait."""
+        state.sweeps += 1
+        state.sweep_step = step.id
+        state.sweep_items = [{"value": value, "held": self.reader.item_held_open(change, *parts)}
+                             for value, parts in named]
+        state.history.append(f"{step.id} {_RECORDS_OWED} — launching {_SWEEP_SKILL}")
+        shim = self._shim_path(state, _SWEEP_RUN)
+        self._write_shim(state, shim, _SWEEP_RUN)
+        state.pending[_SWEEP_RUN] = {"step": _SWEEP_RUN, "audited": None, "identity": ""}
+        self.store.save(state)
+        self.notifier.send(f"{self._headline(state)} — {step.id} {_RECORDS_OWED} — launching "
+                           f"{_SWEEP_SKILL}")
+        argv = [os.path.join(state.core_dir, "launchers", _SWEEP_SKILL, "launcher.sh"),
+                state.project, "--on-end", shlex.quote(shim)]
+        if state.forced_provider:
+            argv += ["--provider", state.forced_provider]
+        if state.keep_awake:
+            argv.append("--keep-awake")
+        env = walk_stop.without_launch_identity(with_provider(self.environ, state.forced_provider))
+        for name in _SWEEP_REMOVED_VARIABLES:
+            env.pop(name, None)
+        self._due_sweep_launch = (argv, env, state.instance_root)
+
+    def _run_due_sweep_launch(self) -> None:
+        """Run the sweep's launcher, with the state lock released, and settle a non-zero exit under
+        the lock again (CP-1108): it halts at the step whose halt was answered, but only while the
+        walk has not ended and the sweep is still pending. A sweep whose end arrived before the
+        launcher returned has already consumed its entry, so the exit then changes nothing."""
+        due, self._due_sweep_launch = self._due_sweep_launch, None
+        if due is None:
+            return
+        argv, env, cwd = due
+        exit_code = self.processes.run(argv, cwd=cwd, env=env)
+        if exit_code == 0:
+            return
+        with self.lock.hold(self.store.path):
+            state = self.store.load()
+            if state.ended is not None or _SWEEP_RUN not in state.pending:
+                return
+            del state.pending[_SWEEP_RUN]
+            halting = next(candidate for candidate in self.steps
+                           if candidate.id == state.sweep_step)
+            self._halt(state, halting,
+                       f"{_RECORDS_OWED} — {_SWEEP_SKILL} launcher exited {exit_code}")
+
+    def _settle_sweep(self, state: WalkState, change: ChangeLayout, end: str) -> None:
+        """The sweep has ended (CP-1109–CP-1112). Every halt is named at the step whose halt it
+        answered, and a halt deletes nothing and launches nothing."""
+        halting = next(candidate for candidate in self.steps if candidate.id == state.sweep_step)
+        unfolded = [item["value"] for item in state.sweep_items
+                    if not self._folded(change, item)]
+        if unfolded:
+            self._halt(state, halting, f"{_RECORDS_OWED} — not folded: {'; '.join(unfolded)}")
+            return
+        if end != Ended.SEALED.value:
+            self._halt(state, halting, f"{_RECORDS_OWED} — {_SWEEP_SKILL} ended {end}")
+            return
+        why = self._clear_old_change(state, change)
+        if why is not None:
+            self._halt(state, halting, f"{_RECORDS_OWED} — the old change branch could not be "
+                                       f"deleted ({why})")
+            return
+        folded = f"{_SWEEP_SKILL} folded every raised item — re-entering at {_REENTRY_STEP}"
+        state.history.append(folded)
+        self.notifier.send(f"{self._headline(state)} — {folded}")
+        self._launch_step(state, change, next(candidate for candidate in self.steps
+                                              if candidate.id == _REENTRY_STEP))
+
+    def _clear_old_change(self, state: WalkState, change: ChangeLayout) -> str | None:
+        """Remove the old change's worktree and delete its branch in each repository that has
+        them: the instance's, then an external product's, the order `_advance_onto_main` uses
+        (CP-1111). Why it failed, or `None` when both repositories are clear. The first failure
+        stops it."""
+        repos = [change.instance_root]
+        product = self.reader.code_repo(change, state.product_path)
+        if product != change.instance_root:
+            repos.append(product)
+        for repo in repos:
+            why = self._clear_in(repo, change.key)
+            if why is not None:
+                return why
+        return None
+
+    def _clear_in(self, repo: str, key: str) -> str | None:
+        """Clear one repository, every command run from its root and never from inside the
+        worktree being removed. The worktree is removed without `--force`: git refuses one that
+        holds uncommitted work, and that refusal is the halt, since work never committed cannot be
+        got back. The branch is deleted naming the tip read just before, the explicit-SHA form
+        `commit_format.md` § *A destructive operation names an explicit SHA* asks for. Both are
+        read again afterwards, so the folder and the branch are gone by construction."""
+        worktree = os.path.join(repo, ".worktrees", key)
+        label = f".worktrees/{key}"
+        if self.files.is_dir(worktree):
+            exit_code = self.processes.run(["git", "-C", repo, "worktree", "remove", worktree],
+                                           cwd=repo, env=self.environ)
+            if exit_code != 0:
+                return f"{repo}: removing worktree {label} exited {exit_code}"
+        tip = self.reader.branch_tip(repo, key)
+        if tip is not None:
+            exit_code = self.processes.run(
+                ["git", "-C", repo, "update-ref", "-d", f"refs/heads/{key}", tip],
+                cwd=repo, env=self.environ)
+            if exit_code != 0:
+                return f"{repo}: deleting branch {key} at {tip} exited {exit_code}"
+        if self.files.is_dir(worktree):
+            return f"{repo}: worktree {label} is still there"
+        if self.reader.branch_tip(repo, key) is not None:
+            return f"{repo}: branch {key} is still there"
+        return None
+
+    def _folded(self, change: ChangeLayout, item: dict) -> bool:
+        """Whether the sweep folded `item` (CP-1109): the main checkout held it open at the launch
+        and holds it open no longer. An item that was never there has not folded, because the sweep
+        never had it to fold."""
+        parts = self.reader.split_raised_item(item["value"])
+        return (bool(item["held"]) and parts is not None
+                and not self.reader.item_held_open(change, *parts))
 
     def _launch_repair(self, state: WalkState, change: ChangeLayout, step: Step,
                        reason: str) -> bool:
@@ -1936,7 +2708,8 @@ class DevelopmentChain:
             worktrees.append(os.path.join(product, ".worktrees", change.key))
         for worktree in worktrees:
             exit_code = self.processes.run(
-                ["python3", os.path.join(state.core_dir, "tools", "commit_builder.py"),
+                [os.path.join(state.core_dir, "tools", "locked_python.sh"),
+                 os.path.join(state.core_dir, "tools", "commit_builder.py"),
                  "--repo", worktree, "advance", "--from", _MAIN, "--actor", _REPAIR_STEP.role,
                  "--surface", surface],
                 cwd=worktree, env=with_provider(self.environ, provider))
@@ -2018,8 +2791,8 @@ class DevelopmentChain:
         # one before it.
         if state.paused_after is not None and after <= state.paused_after:
             self._halt(state, step, f"paused after task {after}, no later than the last pause "
-                                    f"(after task {state.paused_after}) — the developer made no "
-                                    "progress")
+                                    f"(after task {state.paused_after}) — no later task "
+                                    "landed")
             return True
         if failure:
             state.failure_resumes += 1
@@ -2092,25 +2865,7 @@ class DevelopmentChain:
         return None
 
     def _commit_shape_verdict(self, change: ChangeLayout, product_path: str) -> str | None:
-        """`missing-red-commit — task <N>[, task <M>…]` for each judged TDD-lane task that landed
-        with no red commit older than its first landing (CP-191, CP-193), or `None`. A plan that
-        cannot be read is `unreadable-plan` rather than a pass: a check that passes when it cannot
-        read its input passes everything (CP-195)."""
-        lane = self.reader.tdd_lane_tasks(change)
-        if lane is None:
-            return "unreadable-plan"
-        # A deferred task is declared unlanded, and its `— red` and `— deferred` commits are the
-        # shape the skill prescribes for it (CP-189).
-        deferred = set(self._task_numbers(self.reader.deferrals(change), _DEFERRED_PREFIX))
-        # A task the developer re-laned to already-green or to red-at-baseline, with its reason
-        # recorded (CP-190).
-        exempt = deferred | self.reader.relaned_tasks(change)
-        judged = [number for number in lane if number not in exempt]
-        repo = self.reader.code_repo(change, product_path)
-        failing = self.reader.landed_without_red(repo, change.key, judged)
-        if not failing:
-            return None
-        return "missing-red-commit — " + ", ".join(f"task {number}" for number in failing)
+        return commit_shape_verdict(self.reader, change, product_path)
 
     def _red_is_deferred(self, change: ChangeLayout) -> bool:
         """Whether a `Suite: red` marker's red is owned by deferred tasks: at least one `Failing:`
@@ -2126,8 +2881,7 @@ class DevelopmentChain:
 
     @staticmethod
     def _task_numbers(lines: list[str], prefix: str) -> list[int]:
-        matches = (_TASK_TOKEN.search(line[len(prefix):]) for line in lines)
-        return [int(match.group(1)) for match in matches if match]
+        return _task_numbers(lines, prefix)
 
     def _marker_step_index(self) -> int:
         """Where the one step whose evidence is `MARKER_COMMIT` sits in `self.steps` — `start`
@@ -2249,7 +3003,7 @@ class DevelopmentChain:
             if provider is None:
                 return
         run = run or (step.id if audited is None else f"{step.id}-{audited}")
-        shim = os.path.join(state.shim_dir, f"chain-{state.chain_name}-{state.project}-{run}.sh")
+        shim = self._shim_path(state, run)
         self._write_shim(state, shim, run)
 
         argv = [os.path.join(state.core_dir, "launchers", "skill", "launcher.sh"), step.skill,
@@ -2316,13 +3070,17 @@ class DevelopmentChain:
         marks where each walk begins in it."""
         return os.path.join(state.shim_dir, f"chain-{state.chain_name}-{state.project}.log")
 
+    @staticmethod
+    def _shim_path(state: WalkState, run: str) -> str:
+        return os.path.join(state.shim_dir, f"chain-{state.chain_name}-{state.project}-{run}.sh")
+
     def _write_shim(self, state: WalkState, shim: str, run: str) -> None:
         completion_shim.write_shim(self.files, shim, engine_path=self.engine_path,
                                    advance_args=("--advance", self.store.path, run),
                                    log_path=self._log_path(state))
 
     def _after(self, state: WalkState, change: ChangeLayout, step: Step) -> None:
-        """The step has landed: launch the next one, or end the walk after the last. A change walk
+        """The step has landed: launch the next one, or end the walk after the last. A walk
         also ends `sealed` at a landed seal when the change serves no station, because its `refine`
         would have no station to find."""
         index = self.steps.index(step)
@@ -2400,7 +3158,35 @@ class DevelopmentChain:
         return f"{instance} · {state.project} · {state.chain_name} chain"
 
 
-# --- the three ports `chain.py` does not have -------------------------------------------------
+# --- the ports `chain.py` does not have -------------------------------------------------
+
+
+class ExactFiles:
+    """Reads and writes a text file with its line endings as they lie on disk. `chain.Files`
+    reads with universal newlines, so a companion with CRLF endings would come back rewritten;
+    the carry copies and restores bytes, so it goes through this port."""
+
+    def read_text(self, path: str) -> str | None:
+        """The file's text, every line ending kept, or `None` when it cannot be read — the shape
+        `Files.read_text` has."""
+        try:
+            with open(path, encoding="utf-8", newline="") as handle:
+                return handle.read()
+        except (OSError, UnicodeDecodeError):
+            return None
+
+    def write_text(self, path: str, text: str) -> None:
+        """Replace the file with `text`, line endings untouched. The text goes to a sibling file
+        first and the sibling replaces the target, so a crash never leaves a half-written file."""
+        staging = f"{path}.{os.getpid()}.staging"
+        try:
+            with open(staging, "w", encoding="utf-8", newline="") as handle:
+                handle.write(text)
+            os.replace(staging, path)
+        except BaseException:
+            with contextlib.suppress(OSError):
+                os.unlink(staging)
+            raise
 
 
 class Git:
@@ -2448,6 +3234,44 @@ class Git:
         sha = result.stdout.strip()
         return sha if result.returncode == 0 and sha else None
 
+    def branch_tip(self, repo: str, branch: str) -> str | None:
+        """The commit `branch` points at in `repo`, or `None` when the branch does not exist or
+        git cannot answer — the same absence-as-a-value shape. One `rev-parse --verify --quiet`
+        of the full ref name, so a tag or a path of the same name is never read as the branch."""
+        result = subprocess.run(
+            ["git", "-C", repo, "rev-parse", "--verify", "--quiet", f"refs/heads/{branch}"],
+            capture_output=True, text=True)
+        sha = result.stdout.strip()
+        return sha if result.returncode == 0 and sha else None
+
+    def toplevel(self, path: str) -> str | None:
+        """The top level of the repository `path` is in, as git gives it, or `None` when `path`
+        is in no repository or git cannot answer — the same absence-as-a-value shape."""
+        result = subprocess.run(["git", "-C", path, "rev-parse", "--show-toplevel"],
+                                capture_output=True, text=True)
+        top = result.stdout.strip()
+        return top if result.returncode == 0 and top else None
+
+    def current_branch(self, repo: str) -> str | None:
+        """The short name of the branch `repo`'s checkout has out, or `None` when HEAD is
+        detached or git cannot answer. One `symbolic-ref --quiet --short HEAD`: a non-zero exit is
+        the absence."""
+        result = subprocess.run(["git", "-C", repo, "symbolic-ref", "--quiet", "--short", "HEAD"],
+                                capture_output=True, text=True)
+        branch = result.stdout.strip()
+        return branch if result.returncode == 0 and branch else None
+
+    def path_status(self, repo: str, path: str) -> list[str] | None:
+        """The `git status --porcelain` lines for one repo-relative `path`, untracked files
+        listed singly, the reading `product_checkout.Checkout` makes narrowed to one path. `[]`
+        for a clean path, `None` when git cannot answer."""
+        result = subprocess.run(
+            ["git", "-C", repo, "--no-optional-locks", "status", "--porcelain",
+             "--untracked-files=all", "--", path], capture_output=True, text=True)
+        if result.returncode != 0:
+            return None
+        return [line for line in result.stdout.split("\n") if line]
+
     def unit_has_shukuba(self, repo: str, key: str) -> bool:
         """Whether any commit the unit `key` landed on `main` carries a `Shukuba:` trailer,
         whatever its value; `False` when git cannot answer.
@@ -2483,23 +3307,6 @@ class Git:
         return None
 
 
-class FileLock:
-    """An exclusive `flock` on `<state>.lock`. Four or five audit runs can end within a second of each
-    other, each waking its own engine process; without this, two of them load, change and save
-    the same state and the second silently erases the first's record."""
-
-    @contextmanager
-    def hold(self, state_path: str):
-        os.makedirs(os.path.dirname(os.path.abspath(state_path)), exist_ok=True)
-        handle = os.open(f"{state_path}.lock", os.O_CREAT | os.O_RDWR, 0o644)
-        try:
-            fcntl.flock(handle, fcntl.LOCK_EX)
-            yield
-        finally:
-            fcntl.flock(handle, fcntl.LOCK_UN)
-            os.close(handle)
-
-
 class WalkLog:
     """Appends one line to the chain log. The shims write the same file with `>>` from detached
     engine processes, so this opens for append and never rewrites what is there."""
@@ -2530,8 +3337,8 @@ _DESCRIBE_REQUIRED_FLAGS: tuple[tuple[str, str], ...] = (
 # What `--steps` accepts, and the one place the flag's values meet the tables. Each value names a
 # literal this engine holds; nothing here lets a caller compose a table of their own.
 STEP_TABLES: dict[str, tuple[Step, ...]] = {
-    "development": DEVELOPMENT_STEPS,
     "change": CHANGE_STEPS,
+    "walk": WALK_STEPS,
 }
 
 
@@ -2539,12 +3346,13 @@ def build_chain(state_path: str, *, notifier_command: str, engine_path: str,
                 steps: tuple[Step, ...] | None = None) -> DevelopmentChain:
     files = Files()
     processes = Processes()
-    table = DEVELOPMENT_STEPS if steps is None else steps
-    name = CHAIN_NAMES.get(id(table), "development")
+    table = CHANGE_STEPS if steps is None else steps
+    name = CHAIN_NAMES.get(id(table), "change")
     return DevelopmentChain(
         store=StateStore(files, state_path, name),
         reader=DiskReader(files=files, git=Git()),
         files=files,
+        exact_files=ExactFiles(),
         processes=processes,
         notifier=Notifier(notifier_command, processes),
         lock=FileLock(),
@@ -2556,7 +3364,10 @@ def build_chain(state_path: str, *, notifier_command: str, engine_path: str,
         providers=ProviderFiles(files),
         process_table=walk_stop.ProcessTable(),
         checkout=product_checkout.Checkout(),
-        environment_check=GateEnvironmentCheck(files=files),
+        environment_check=GateEnvironmentCheck(
+            files=files, gate_files=gate_suite.ReadOnlyFiles(), contract=_real_contract,
+            tracked_files=_real_tracked_files, record_reader=gate_suite.GitRecordReader(),
+            guest_job=gate_suite.GuestJob(Path.home() / gate_suite.GUEST_JOB, str(Path.home()))),
         chain_name=name,
     )
 
@@ -2572,9 +3383,73 @@ def _positive_integer(text: str) -> int:
 def _walk_of(raw: dict, default: str) -> str:
     """Which walk a state belongs to. It was fixed at the walk's start and written to its state;
     a shim or a stop names only the state. Read the table from there, never from the flag's
-    default: a change walk advanced on the development table has no `station` or `change` step to
+    default: a walk advanced on the change table has no `station` or `open` step to
     settle, and crashed on its first advance (measured on a satellite, 2026-09-18)."""
     return raw["chain_name"] if raw.get("chain_name") in STEP_TABLES else default
+
+
+def card_product_path(files, instance_root: str, project: str, home: str) -> str | None:
+    """The card's `Product path:` resolved as the chain's launcher resolves it
+    (`core/launchers/change/launcher.sh`): `~/` against `home`, an absolute path as
+    written, a relative one against `instance_root`. `None` when the card or the line is missing."""
+    card = files.read_text(os.path.join(instance_root, "system", "projects", project,
+                                        "project.md"))
+    found = _CARD_PRODUCT_PATH.search(card or "")
+    if found is None:
+        return None
+    value = found.group(1).split("<!--", 1)[0].strip()
+    if not value:
+        return None
+    if value.startswith("~/"):
+        return os.path.join(home, value[2:])
+    return os.path.join(instance_root, value)  # an absolute `value` wins the join
+
+
+def check_commit_shape(args, *, files, git, home: str, out, err) -> int:
+    """`--check-commit-shape`: the chain's commit-shape verdict on the closing marker the developer
+    is about to commit. Prints `commit shape: ok` and exits 0, or prints the verdict the chain
+    would halt on — `missing-red-commit — task <N>…` or `unreadable-plan` — and exits 1.
+
+    It reads the change where the chain reads it, and refuses (exit 2) inputs that cannot name it,
+    rather than answering of nothing: an answer of `ok` over no commits is the very miss this check
+    exists to stop. The product path is the card's, resolved as the launcher resolves it, so the
+    developer resolves nothing by hand; `--instance-root` is the main checkout, the folder whose
+    `.worktrees/<key>` holds the change; and the repo the task commits land in must carry the key's
+    branch with commits on it."""
+    missing = [flag for flag, value in (("--instance-root", args.instance_root),
+                                        ("--project", args.project),
+                                        ("--draft-body", args.draft_body)) if not value]
+    if missing:
+        print(f"chain_development: --check-commit-shape requires {', '.join(missing)}", file=err)
+        return 2
+    key = args.check_commit_shape
+    root = args.instance_root
+    if not files.is_dir(os.path.join(root, ".worktrees", key)):
+        print(f"chain_development: no change worktree {root}/.worktrees/{key} — --instance-root is "
+              f"the main checkout that holds it, and {key} must be the change's key", file=err)
+        return 2
+    product_path = card_product_path(files, root, args.project, home)
+    if product_path is None:
+        print(f"chain_development: no Product path: line in "
+              f"{root}/system/projects/{args.project}/project.md", file=err)
+        return 2
+    draft = files.read_text(args.draft_body)
+    if draft is None:
+        print(f"chain_development: no draft body at {args.draft_body}", file=err)
+        return 2
+    reader = DiskReader(files=files, git=git, draft_body=draft)
+    change = ChangeLayout(root, args.project, key)
+    repo = reader.code_repo(change, product_path)
+    if not git.commits_ahead(repo, _MAIN, key):
+        print(f"chain_development: no commits of {key} on {repo} — the card's Product path must "
+              f"name the repo the task commits land in", file=err)
+        return 2
+    verdict = commit_shape_verdict(reader, change, product_path)
+    if verdict is None:
+        print("commit shape: ok", file=out)
+        return 0
+    print(verdict, file=out)
+    return 1
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -2603,12 +3478,20 @@ def main(argv: list[str] | None = None) -> int:
                              "at, or why it would refuse — writing, launching and sending nothing")
     parser.add_argument("--list-open-changes", action="store_true",
                         help="print active change keys as JSON without writing or launching")
+    parser.add_argument("--check-commit-shape", metavar="KEY",
+                        help="the commit-shape verdict the chain would give change KEY's closing "
+                             "marker, asked of the draft body in --draft-body before the marker "
+                             "is committed; needs --instance-root (the main checkout) and "
+                             "--project, reads the product path off the card, and writes, "
+                             "launches and sends nothing")
+    parser.add_argument("--draft-body", metavar="FILE",
+                        help="the closing marker's draft body, for --check-commit-shape")
     parser.add_argument("--instance-root")
     parser.add_argument("--product-path")
     parser.add_argument("--project")
     parser.add_argument("--core-dir")
     parser.add_argument("--shim-dir")
-    parser.add_argument("--steps", choices=sorted(STEP_TABLES), default="development",
+    parser.add_argument("--steps", choices=sorted(STEP_TABLES), default="change",
                         help="which walk this is: the change pipeline, or the same "
                              "pipeline entered at the two journey moves that open a station "
                              "and a change")
@@ -2617,7 +3500,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--context-cap", type=_positive_integer, default=DEFAULT_CONTEXT_CAP,
                         metavar="TOKENS",
                         help="the context, in tokens, past which the developer's run is told to "
-                             "pause at a task boundary and a fresh one takes over; read only "
+                             "pause and a fresh one takes over; read only "
                              f"with --start (default {DEFAULT_CONTEXT_CAP})")
     parser.add_argument("--provider", choices=PROVIDERS, default="",
                         help="force every step of the walk onto this provider, over the one "
@@ -2634,17 +3517,21 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     chosen = [entry for entry in (args.start, args.advance, args.describe, args.stop,
-                                  args.list_open_changes) if entry]
+                                  args.list_open_changes, args.check_commit_shape) if entry]
     if len(chosen) > 1:
-        print("chain_development: --start, --advance, --describe, --stop and "
-              "--list-open-changes are mutually exclusive",
+        print("chain_development: --start, --advance, --describe, --stop, "
+              "--list-open-changes and --check-commit-shape are mutually exclusive",
               file=sys.stderr)
         return 2
     if not chosen:
-        print("chain_development: one of --start, --advance, --describe, --stop or "
-              "--list-open-changes is required",
+        print("chain_development: one of --start, --advance, --describe, --stop, "
+              "--list-open-changes or --check-commit-shape is required",
               file=sys.stderr)
         return 2
+
+    if args.check_commit_shape:
+        return check_commit_shape(args, files=Files(), git=Git(), home=os.path.expanduser("~"),
+                                  out=sys.stdout, err=sys.stderr)
 
     if args.list_open_changes:
         if not args.instance_root or not args.project:

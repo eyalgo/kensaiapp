@@ -10,4 +10,4 @@ are stated in its own header.
 **Prompt:** invoke the development-plan skill for the {project} project, change key {key}.
 
 `tech-lead` is the seat the chain runs this step in (`<CORE>/tools/chain_development.py`
-`DEVELOPMENT_STEPS`, `:117-129`). The model and effort it runs on are `intelligence/<provider>.md`'s, beside this file.
+`CHANGE_STEPS`, `:117-129`). The model and effort it runs on are `intelligence/<provider>.md`'s, beside this file.

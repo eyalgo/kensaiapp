@@ -53,9 +53,11 @@ import hashlib
 import io
 import json
 import os
+import plistlib
 import re
 import shlex
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
@@ -67,7 +69,9 @@ from enum import Enum
 from pathlib import Path, PurePosixPath
 from typing import TextIO
 
-__version__ = "1.13.0"
+import empty_home
+
+__version__ = "2.0.1"
 
 PACKET_ROOT = Path("doctrine") / "engineering" / "languages"
 REGISTRY_FILE = PACKET_ROOT / "README.md"
@@ -201,6 +205,104 @@ class Guest:
 
     name: str
     shares: tuple[Share, ...]
+
+
+# The login job that starts the host's guest, under the home
+# (`<CORE>/doctrine/engineering/languages/swift/environment.md` § macOS guest provisioning). Its
+# arguments are the record of the guest's name and shares: a fact about the machine, read from the
+# machine, never copied into a change's plan — a plan is a record, and a record names no machine.
+GUEST_JOB = Path("Library") / "LaunchAgents" / "local.kensaiapp.macos-guest.plist"
+SHARES_MOUNT = "/Volumes/My Shared Files"
+_AUTOMOUNT_TAG = "tag=com.apple.virtio-fs.automount"
+NO_GUEST = "none in its login job"
+NO_GUEST_LINE = (f"gate_suite: this Mac has no macOS guest to run in: <home>/{GUEST_JOB} "
+                 "names none.")
+
+
+def guest_from_arguments(arguments: Sequence[str], home: str = "") -> "Guest | None":
+    """The guest a `tart run` argument list starts, the way the packet writes the job: its last
+    argument is the guest's name, and each `--dir` is one share. A share is read as tart reads it
+    (`DirectoryShare.parseOptions` in tart's `Run.swift`): `[<name>:]<host folder>[:<options>]`,
+    the options comma-separated in the last colon-separated part, which is options only when it
+    holds `ro` or a `tag=`; a leading `~` is the home. A named share on the automount tag is
+    mounted at `SHARES_MOUNT/<name>`. One on another tag, one with no name, and one whose folder is
+    not absolute are mounted nowhere a gate can find, so they are left out. `None` when there is
+    no name."""
+    if not arguments:
+        return None
+    name = arguments[-1]
+    if not name or name.startswith("-"):
+        return None
+    values, before = [], ""
+    for argument in arguments[:-1]:
+        if before == "--dir":
+            values.append(argument)
+        elif argument.startswith("--dir="):
+            values.append(argument[len("--dir="):])
+        before = argument
+    shares = [share for share in (_share_from(value, home) for value in values) if share]
+    return Guest(name, tuple(shares))
+
+
+def _share_from(value: str, home: str) -> "Share | None":
+    if value.startswith(("http:", "https:")):
+        return None  # tart downloads it; it is no host folder
+    # Swift's `split` omits empty parts, so a stray colon names nothing.
+    parts = [part for part in value.split(":") if part]
+    if not parts:
+        return None
+    options = parts[-1].split(",")
+    tags = [option[len("tag="):] for option in options if option.startswith("tag=")]
+    if "ro" in options or tags:
+        parts.pop()
+    share_name, separator, folder = ":".join(parts).partition(":")
+    if not separator or not share_name:
+        return None
+    if tags and tags[-1] != _AUTOMOUNT_TAG[len("tag="):]:
+        return None
+    if folder.startswith("~") and home and (folder == "~" or folder.startswith("~/")):
+        folder = home.rstrip("/") + folder[1:]
+    return Share(folder, f"{SHARES_MOUNT}/{share_name}") if folder.startswith("/") else None
+
+
+class GuestJob:
+    """The host's guest, read from its login job at `path` each time it is asked; `home` is what a
+    share's leading `~` stands for. A job that is missing, unreadable or names no guest answers
+    `None`: the host has no guest."""
+
+    def __init__(self, path: Path, home: str) -> None:
+        self.path = path
+        self.home = home
+
+    def guest(self) -> "Guest | None":
+        try:
+            with open(self.path, "rb") as handle:
+                job = plistlib.load(handle)
+        except (OSError, plistlib.InvalidFileException, ValueError):
+            return None
+        arguments = job.get("ProgramArguments") if isinstance(job, dict) else None
+        if not isinstance(arguments, list) or not all(isinstance(a, str) for a in arguments):
+            return None
+        return guest_from_arguments(arguments, self.home)
+
+
+def masked(text: str, home: str) -> str:
+    """`text` — another program's words, which may name a host folder anywhere in them — with
+    every home folder in it written `<home>`, as `shown` writes one path."""
+    home = home.rstrip("/")
+    if not home:
+        return text
+    return re.sub(r"(?<![\w/.-])" + re.escape(home) + r"(?=/|$|[^\w.-])", "<home>", text)
+
+
+def shown(path: str, home: str) -> str:
+    """`path` as a message prints it: the home written `<home>`, the placeholder a record writes for
+    it (`<CORE>/doctrine/governance/records_name_no_machine.md`) — a run copies the tool's first
+    error line into its record, and a record names no machine."""
+    home = home.rstrip("/")
+    if home and (path == home or path.startswith(home + "/")):
+        return "<home>" + path[len(home):]
+    return path
 
 
 @dataclass(frozen=True)
@@ -524,41 +626,6 @@ def _candidate(raw: object, checker: _Checker) -> Candidate:
     return Candidate(language, image, tag, version_known, failed, tag_source)
 
 
-def _share(raw: object, position: int) -> Share:
-    where = f"guest.shares[{position}]"
-    if not isinstance(raw, dict):
-        raise InputError(f"{where} must be an object")
-    host = _text(raw.get("host"), f"{where}.host")
-    if not host:
-        raise InputError(f"{where} must name its host folder")
-    if not host.startswith("/"):
-        raise InputError(f"{where}.host must be an absolute path, not {host}")
-    inside = _text(raw.get("guest"), f"{where}.guest")
-    if not inside:
-        raise InputError(f"{where} must name the folder it appears at inside the guest")
-    return Share(host, inside)
-
-
-def _shares(raw: object) -> tuple[Share, ...]:
-    """The guest's share list, each share valid and no two naming one host folder. An absent,
-    null or empty list is no shares; the retired scalar `share` supplies no mapping."""
-    if raw is None:
-        return ()
-    if not isinstance(raw, list):
-        raise InputError("guest.shares must be a list")
-    shares: list[Share] = []
-    first_at: dict[tuple[str, ...], int] = {}
-    for position, item in enumerate(raw):
-        share = _share(item, position)
-        key = _components(share.host)
-        if key in first_at:
-            raise InputError(f"guest.shares[{first_at[key]}] and guest.shares[{position}] name "
-                             f"the same host folder, {share.host}")
-        first_at[key] = position
-        shares.append(share)
-    return tuple(shares)
-
-
 def _components(path: str) -> tuple[str, ...]:
     """A path as its components, compared as given: a trailing `/` is nothing, and no symbolic
     link is followed."""
@@ -581,7 +648,7 @@ def map_run_folder(shares: tuple[Share, ...], run_folder: str) -> str | None:
 
 def parse_request(raw: dict | None, *, files, product_checkout: Path, language_root: Path,
                   core_root: Path, project: str,
-                  record: DecisionRecord | None = None) -> GateRequest:
+                  guest_job, record: DecisionRecord | None = None) -> GateRequest:
     """The sourced input as findings, every quoted source re-opened where it must be. An absent
     input is a request with no CI evidence — which resolves only for the owner's ask. A source is
     re-opened from `product_checkout`, the repository's root, where CI lives; languages are
@@ -606,7 +673,6 @@ def parse_request(raw: dict | None, *, files, product_checkout: Path, language_r
         override = None
     else:
         override = _override(decisions.get("override"), checker)
-    guest = _mapping(raw.get("guest"), "guest")
     packets = {language: files.read_text(core_root / PACKET_ROOT / language / "environment.md")
                for language in languages.languages}
     named = (guest_tool(language, text) for language, text in packets.items())
@@ -615,7 +681,9 @@ def parse_request(raw: dict | None, *, files, product_checkout: Path, language_r
         override=override,
         amd64=_amd64(decisions.get("amd64"), checker),
         candidates=tuple(_candidate(item, checker) for item in raw.get("candidates") or []),
-        guest=Guest(guest["name"], _shares(guest.get("shares"))) if guest.get("name") else None,
+        # The host's own login job is the guest's record; a plan's `guest`, which older plans
+        # carry, is never read.
+        guest=guest_job.guest(),
         guest_tools=tuple(tool for tool in named if tool is not None),
         conflicting_decisions=isinstance(current, RecordConflict),
         installs=tuple(language_install(language, text) for language, text in packets.items()))
@@ -1099,10 +1167,28 @@ class Host:
     new_token: Callable[[], str]
     core_root: Path
     guest_lock: object
+    # The host's guest, read from its login job (`GuestJob`), never from a plan.
+    guest_job: object
     record_reader: object | None = None
     run_records: object | None = None
     workspaces: object | None = None
     environ: Mapping[str, str] = field(default_factory=dict)
+    homes: object | None = None
+    # The machine's home, which a message prints as `<home>` (`shown`).
+    home: str = ""
+
+
+class EmptyHomes:
+    """`made()` is the context a suite on the owner's Mac runs in: an empty folder that stands for
+    the home, given on entry and removed on exit — `<CORE>/doctrine/engineering/testing_doctrine.md`
+    § *A test reads nothing of the machine it runs on*. `real` is the home the owner's toolchains
+    resolve against. A host with no `homes` runs the suite in the environment it was given."""
+
+    def __init__(self, real: Path) -> None:
+        self.real = real
+
+    def made(self):
+        return tempfile.TemporaryDirectory(prefix="kensaiapp-empty-home-")
 
 
 # The owner's ask carried by a managed walk's launch context: set to exactly `1` for the steps
@@ -1242,7 +1328,7 @@ def environment_line(resolved: Resolved, guest: Guest | None) -> str:
     if resolved.kind is EnvironmentKind.OWNERS_MAC:
         return f"Environment: owners-mac {DASH} {resolved.owners_mac_cause.value}"
     if resolved.kind is EnvironmentKind.MACOS_GUEST:
-        line = f"Environment: macos-guest {DASH} {guest.name if guest else 'no guest given'}"
+        line = f"Environment: macos-guest {DASH} {guest.name if guest else NO_GUEST}"
         return line if resolved.ci_version is None else f"{line}, toolchain {resolved.ci_version}"
     return f"Environment: container {DASH} {container_text(resolved)}"
 
@@ -1324,27 +1410,34 @@ def _failed_override_source(request: GateRequest, refused: Refused) -> Source | 
     return None
 
 
-def unshared_lines(guest: Guest, checkout: str) -> list[str]:
-    """The refusal for a checkout no share holds, one string per line (CP-637)."""
-    lines = [f"gate_suite: this run's checkout, {checkout}, is under none of the shares this run "
-             f"was given for the macOS guest {guest.name}."]
+def unshared_lines(guest: Guest, checkout: str, home: str = "") -> list[str]:
+    """The refusal for a checkout no share holds, one string per line (CP-637), each path with the
+    home written `<home>` (`shown`)."""
+    lines = [f"gate_suite: this run's checkout, {shown(checkout, home)}, is under none of the "
+             f"shares the macOS guest {guest.name} is started with."]
     if guest.shares:
-        lines.append("The shares this run was given: "
-                     f"{', '.join(share.host for share in guest.shares)}.")
+        lines.append("The shares the guest is started with: "
+                     f"{', '.join(shown(share.host, home) for share in guest.shares)}.")
         lines.append("The checkout has to be under one of those folders, or the guest has to be "
                      "started with a share that holds it.")
     else:
-        lines.append("This run was given no shares for the guest. Each share is given in "
-                     "guest.shares, with the host folder and the folder it appears at inside the "
-                     "guest.")
+        lines.append("The guest is started with no shares. Each share is a "
+                     f"--dir=<name>:<host folder> argument in its login job, <home>/{GUEST_JOB}.")
     return [*lines, CLOSING_LINE]
 
 
 # --- the command in each environment (CP-621) -----------------------------------------------------
 
 
-def mac_argv(command: str) -> list[str]:
-    return ["sh", "-c", command]
+def mac_argv(command: str, home: tuple[dict[str, str], list[str]] | None = None) -> list[str]:
+    """The suite on the owner's Mac. With `home` — what `empty_home.changes` answers — the command
+    runs under `env`, its home replaced by the empty one and its toolchains kept where they are."""
+    if home is None:
+        return ["sh", "-c", command]
+    to_set, to_unset = home
+    dropped = [arg for name in to_unset for arg in ("-u", name)]
+    return ["env", *dropped, *(f"{name}={value}" for name, value in to_set.items()),
+            "sh", "-c", command]
 
 
 def container_argv(resolved: Resolved, command: str, cwd: str) -> list[str]:
@@ -1487,7 +1580,7 @@ def not_ready_line(environment: str, not_ready: NotReady) -> str:
 
 
 def _guest_where(guest: Guest | None, version: str | None) -> str:
-    text = f"the macOS guest {guest.name if guest else 'no guest given'}"
+    text = f"the macOS guest {guest.name}" if guest else "no macOS guest in its login job"
     return text if version is None else f"{text}, toolchain {version}"
 
 
@@ -1557,7 +1650,7 @@ def _check_guest_share(host: Host, guest: Guest, cwd: str, folder: str, token_na
                    "gate_suite: tart was not found on PATH, so the macOS guest cannot be reached.")
     if found.status != 0:
         raise _NotReady(f"gate_suite: the macOS guest {guest.name} cannot see this run's "
-                        f"checkout, {cwd}.", _last_stderr_line(found))
+                        f"checkout, {shown(cwd, host.home)}.", _last_stderr_line(found))
 
 
 def _where_looked(tool: GuestTool) -> str:
@@ -1704,6 +1797,7 @@ def _copy_to_guest_disk(host: Host, guest: Guest, cwd: str, scratch: str) -> Non
                                  *(["^./.git"] if linked is not None else [])]
                 for arg in ("--exclude", path)]
     _stream(host, guest, ["tar", "-C", cwd, "--no-mac-metadata", *excluded, "-cf", "-", "."],
+            f"{stop_leftovers(from_any_copy())}; "
             f"rm -rf {GUEST_SCRATCH_PREFIX}* && mkdir {shlex.quote(scratch)} && "
             f"tar -C {shlex.quote(scratch)} -xf -", cwd, f"this run's checkout, {cwd},")
     if linked is None:
@@ -1742,17 +1836,60 @@ def _stream(host: Host, guest: Guest, producer: list[str], unpack: str, cwd: str
                         _last_stderr_line(found))
 
 
+def _ere(text: str) -> str:
+    """`text` with each character an extended regular expression treats as special escaped."""
+    return re.sub(r"([.^$|()+?{}\[\]*\\])", r"\\\1", text)
+
+
+def from_copy(scratch: str) -> str:
+    """A `pgrep -f` pattern for a process running from inside the one copy at `scratch`."""
+    return _ere(scratch.rstrip("/")) + "[/]"
+
+
+def from_any_copy() -> str:
+    """A `pgrep -f` pattern for a process running from inside any copy under
+    `GUEST_SCRATCH_PREFIX`: the prefix, a name with no space or `/`, then the `/` into it."""
+    return _ere(GUEST_SCRATCH_PREFIX) + "[^ /]*[/]"
+
+
+def stop_leftovers(pattern: str) -> str:
+    """The shell that stops every guest process `pgrep -f pattern` names, and each one's direct
+    children — asked to stop, then made to — and prints `stopped <n>`, `n` counting the named ones.
+    It runs in the guest right before a copy is removed: a suite that launched an app and left it
+    running would otherwise leave it running, from a folder that no longer exists, run after run. A
+    child is stopped with its parent because its own command line need not name the copy.
+
+    `from_copy`'s pattern ends `[/]`, and this shell's command line carries the folder only without
+    a `/` after it. `from_any_copy`'s class is `[^ /]` with the space first: in this shell's own text
+    the class reads `[^ /]`, so the name stops at its space before any `/` — written `[^/ ]`, it would
+    run on to the `/` and match itself. The tests hold both."""
+    quoted = shlex.quote(pattern)
+    return (f"p=$(pgrep -f {quoted}); n=$(printf '%s\\n' $p | grep -c .); "
+            f"if [ \"$n\" -gt 0 ]; then k=$(for i in $p; do pgrep -P \"$i\"; done); "
+            f"kill -TERM $p $k 2>/dev/null; sleep 1; kill -KILL $p $k 2>/dev/null; fi; "
+            f"echo \"stopped $n\"")
+
+
 def _remove_guest_copy(host: Host, guest: Guest, scratch: str, err: TextIO) -> None:
-    """The guest-local copy removed, whatever the suite returned. A copy that stays is said on
-    standard error and leaves the suite's status alone: the suite already ran."""
+    """The guest-local copy removed, whatever the suite returned, once every process still running
+    from it is stopped (`stop_leftovers`). A copy that stays is said on standard error and leaves
+    the suite's status alone: the suite already ran. So does a process the suite left running, so a
+    suite that leaves its app behind is seen."""
     try:
         removed = host.processes.probe(["tart", "exec", guest.name, "sh", "-c",
-                                        f"rm -rf {shlex.quote(scratch)}"])
+                                        f"{stop_leftovers(from_copy(scratch))}; rm -rf {shlex.quote(scratch)}"])
     except ExecutableMissing:
         removed = None
     if removed is None or removed.status != 0:
         _fail(err, [f"gate_suite: the copy of this run's checkout at {scratch} in the macOS guest "
                     f"{guest.name} could not be removed."])
+        return
+    stopped = re.search(r"^stopped (\d+)$", removed.stdout, re.MULTILINE)
+    if stopped and int(stopped.group(1)) > 0:
+        count = int(stopped.group(1))
+        err.write(f"gate_suite: stopped {count} process{'es' if count != 1 else ''} the suite left "
+                  f"running from {scratch} in the macOS guest {guest.name}.\n")
+        err.flush()
 
 
 # --- the run --------------------------------------------------------------------------------------
@@ -1780,10 +1917,10 @@ def _stopped(*, line: str, command: str, cwd: str, status: int = REFUSAL_STATUS,
     return GateResult(line, command, cwd, status, "", "", False, lines)
 
 
-def _unreachable(err: TextIO, problem: _NotReady) -> None:
+def _unreachable(err: TextIO, problem: _NotReady, home: str) -> None:
     lines = [problem.message]
     if problem.detail is not None:
-        lines.append(f"The check that failed reported: {problem.detail}")
+        lines.append(f"The check that failed reported: {masked(problem.detail, home)}")
     _fail(err, [*lines, CLOSING_LINE])
 
 
@@ -1903,7 +2040,7 @@ def _guest_cell(host: Host, guest: Guest, folder: str, command: str, cwd: str, l
     except _NotReady as problem:
         if preflighting:
             raise
-        _unreachable(err, problem)
+        _unreachable(err, problem, host.home)
         return _stopped(line=line, command=command, cwd=cwd)
     finally:
         try:
@@ -1960,11 +2097,11 @@ class _Cells:
                                   f"removed."])
 
 
-def _copy_failed(err: TextIO, problem: _CopyFailed) -> None:
+def _copy_failed(err: TextIO, problem: _CopyFailed, home: str) -> None:
     lines = [f"gate_suite: this run's checkout could not be copied to a private folder for the "
              f"run in {container_text(problem.target)}."]
     if problem.reason:
-        lines.append(f"The copy reported: {problem.reason}")
+        lines.append(f"The copy reported: {masked(problem.reason, home)}")
     _fail(err, [*lines, CLOSING_LINE])
 
 
@@ -2054,10 +2191,10 @@ def _run_matrix(host: Host, matrix: ResolvedMatrix, guest: Guest | None, command
         folder = None
         if guests:
             if guest is None:
-                raise _NotReady("gate_suite: this run was given no macOS guest to run in.")
+                raise _NotReady(NO_GUEST_LINE)
             folder = map_run_folder(guest.shares, cwd)
             if folder is None:
-                _fail(err, unshared_lines(guest, cwd))
+                _fail(err, unshared_lines(guest, cwd, host.home))
                 return _stopped(line=lines[0], command=command, cwd=cwd, lines=lines)
         paths = cells.make([target for _, target in containers], cwd)
         results: dict[int, CellResult] = {}
@@ -2101,9 +2238,9 @@ def _run_matrix(host: Host, matrix: ResolvedMatrix, guest: Guest | None, command
         return _replay([results[position] for position in range(len(matrix.targets))], command,
                        cwd, lines, out, err, guest)
     except _NotReady as problem:
-        _unreachable(err, problem)
+        _unreachable(err, problem, host.home)
     except _CopyFailed as problem:
-        _copy_failed(err, problem)
+        _copy_failed(err, problem, host.home)
     finally:
         cells.release()
     return _stopped(line=lines[0], command=command, cwd=cwd, lines=lines)
@@ -2143,7 +2280,7 @@ def run_gate(*, gate: Gate | str, worktree: str, project: str, key: str, inputs:
     request = parse_request(
         inputs, files=host.files, product_checkout=Path(paths["product_worktree"]),
         language_root=product_tree(paths), core_root=host.core_root, project=project,
-        record=record)
+        record=record, guest_job=host.guest_job)
     resolved = resolve_environment(request, owners_ask=owners_ask)
     if isinstance(resolved, Refused):
         case_text = refusal_case_text(
@@ -2162,7 +2299,11 @@ def run_gate(*, gate: Gate | str, worktree: str, project: str, key: str, inputs:
     stages = _Stages(request.installs, read_card_dependencies(card))
     try:
         if resolved.kind is EnvironmentKind.OWNERS_MAC:
-            return _issue(host, mac_argv(command), cwd, line, command, out, err)
+            if host.homes is None:
+                return _issue(host, mac_argv(command), cwd, line, command, out, err)
+            with host.homes.made() as empty:
+                home = empty_home.changes(host.environ, host.homes.real, Path(empty))
+                return _issue(host, mac_argv(command, home), cwd, line, command, out, err)
         if resolved.kind is EnvironmentKind.CONTAINER:
             _check_podman(host)
             where = container_text(resolved)
@@ -2177,15 +2318,15 @@ def run_gate(*, gate: Gate | str, worktree: str, project: str, key: str, inputs:
                              out, err, token=token, kind=EnvironmentKind.CONTAINER, where=where,
                              single=True)
         if request.guest is None:
-            raise _NotReady("gate_suite: this run was given no macOS guest to run in.")
+            raise _NotReady(NO_GUEST_LINE)
         folder = map_run_folder(request.guest.shares, cwd)
         if folder is None:
-            _fail(err, unshared_lines(request.guest, cwd))
+            _fail(err, unshared_lines(request.guest, cwd, host.home))
             return _stopped(line=line, command=command, cwd=cwd)
         return _run_in_guest(host, request.guest, folder, command, cwd, line, out, err,
                              request.guest_tools, stages=stages)
     except _NotReady as problem:
-        _unreachable(err, problem)
+        _unreachable(err, problem, host.home)
         return _stopped(line=line, command=command, cwd=cwd)
 
 
@@ -2415,6 +2556,7 @@ class CheckHost:
 
     files: object
     core_root: Path
+    guest_job: object
 
 
 class _SnapshotFiles:
@@ -2555,7 +2697,7 @@ def _command_for_ask(files, context: CheckContext, *, worktree: str, project: st
 
 
 def check_gate(*, worktree: str, project: str, key: str, inputs: object, context: CheckContext,
-               files, core_root: Path, out: TextIO) -> CheckResult:
+               files, core_root: Path, out: TextIO, guest_job) -> CheckResult:
     """What `run` would decide for the same evidence without the owner's ask, as one line on
     `out`. Starts no process and writes no file: it holds `files` to read, and the path contract
     and tracked list arrive in `context`."""
@@ -2569,7 +2711,8 @@ def check_gate(*, worktree: str, project: str, key: str, inputs: object, context
         request = parse_request(
             inputs, files=_SnapshotFiles(files, context.tracked_files),
             product_checkout=Path(paths["product_worktree"]), language_root=product_tree(paths),
-            core_root=core_root, project=project, record=context.decision_record)
+            core_root=core_root, project=project, record=context.decision_record,
+            guest_job=guest_job)
         answer, detail = _classify(request, resolve_environment(request, owners_ask=False))
     _declare(out, f"{answer.value} {DASH} {detail}")
     return CheckResult(answer, detail, 0 if answer is CheckAnswer.RESOLVES else REFUSAL_STATUS)
@@ -2614,12 +2757,24 @@ class _RealFiles(ReadOnlyFiles):
         path.unlink(missing_ok=True)
 
 
+def pipe_status(producer: int, consumer: int) -> int:
+    """The status of a two-program pipe: the producer's when it failed, else the consumer's.
+    One exception: a producer ended by `SIGPIPE` failed only because the consumer stopped
+    reading, so when the consumer failed too, the consumer's status is the cause and is the one
+    reported. A consumer that exits 0 without reading everything leaves the producer's status
+    standing — the copy it was fed is short."""
+    if producer == -signal.SIGPIPE and consumer != 0:
+        return consumer
+    return producer or consumer
+
+
 class _RealProcesses:
     def probe(self, argv: list[str]) -> Completed:
+        asked = argv[0] if argv else ""
         try:
             done = subprocess.run(argv, capture_output=True, text=True)
         except FileNotFoundError:
-            raise ExecutableMissing(argv[0]) from None
+            raise ExecutableMissing(asked) from None
         return Completed(done.returncode, done.stdout, done.stderr)
 
     def issue(self, argv: list[str], *, cwd: str) -> Completed:
@@ -2627,9 +2782,10 @@ class _RealProcesses:
         return Completed(done.returncode, done.stdout, done.stderr)
 
     def pipe(self, producer: list[str], consumer: list[str], *, cwd: str) -> Completed:
-        """`producer`'s standard output fed to `consumer`'s standard input. The status is the
-        producer's when it failed, else the consumer's; standard error is both, in that order.
-        The producer's standard error goes to a file, so a chatty producer cannot stall."""
+        """`producer`'s standard output fed to `consumer`'s standard input. The status is
+        `pipe_status`'s; standard error is both, in that order.
+        The producer's standard error goes to a file, so a chatty producer cannot stall. The
+        producer only reads the checkout."""
         with tempfile.TemporaryFile() as producer_err:
             try:
                 first = subprocess.Popen(producer, cwd=cwd, stdout=subprocess.PIPE,
@@ -2653,7 +2809,7 @@ class _RealProcesses:
             if produced and not produced.endswith(b"\n"):
                 produced += b"\n"
             errors = produced + consumer_err
-        status = first.returncode or second.returncode
+        status = pipe_status(first.returncode, second.returncode)
         return Completed(status, out.decode(errors="replace"), errors.decode(errors="replace"))
 
 
@@ -2755,15 +2911,19 @@ def _leaving_out(root: Path, relative: Sequence[str]):
 def build_host() -> Host:
     core_root = Path(__file__).resolve().parent.parent
     files = _RealFiles()
-    return Host(files=files, contract=_real_contract, processes=_RealProcesses(),
+    return Host(files=files, contract=_real_contract,
+                processes=_RealProcesses(),
                 new_token=lambda: uuid.uuid4().hex, core_root=core_root,
                 guest_lock=FileGuestLock(Path(GUEST_LOCK_PATH)), record_reader=GitRecordReader(),
                 run_records=default_run_records(), workspaces=CheckoutCopies(files),
-                environ=os.environ)
+                environ=os.environ, homes=EmptyHomes(Path.home()),
+                guest_job=GuestJob(Path.home() / GUEST_JOB, str(Path.home())),
+                home=str(Path.home()))
 
 
 def build_check_host() -> CheckHost:
-    return CheckHost(files=ReadOnlyFiles(), core_root=Path(__file__).resolve().parent.parent)
+    return CheckHost(files=ReadOnlyFiles(), core_root=Path(__file__).resolve().parent.parent,
+                     guest_job=GuestJob(Path.home() / GUEST_JOB, str(Path.home())))
 
 
 @dataclass(frozen=True)
@@ -2840,7 +3000,8 @@ def _main_check(args: argparse.Namespace, host: CheckHost, out: TextIO) -> int:
         name for name in listed.splitlines() if name), paths_file=args.paths,
         decision_record=prepared, decision_record_file=args.decision_record or "decision-record")
     return check_gate(worktree=args.worktree, project=args.project, key=args.key, inputs=inputs,
-                      context=context, files=host.files, core_root=host.core_root, out=out).status
+                      context=context, files=host.files, core_root=host.core_root, out=out,
+                      guest_job=host.guest_job).status
 
 
 def load_decision_record(files, path: str) -> DecisionRecord:

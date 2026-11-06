@@ -233,16 +233,9 @@ verify { notifier wasNot Called }
 val mock = mockk<TaskRepository>(relaxed = true)
 ```
 
-### Spy (partial mock)
+### Spy (partial mock) — never on the subject
 
-```kotlin
-val service = spyk(TaskService(repo = InMemoryTaskRepository()))
-every { service.sendNotification(any()) } just Runs
-
-service.completeTask("task-id")
-
-verify { service.sendNotification(any()) }
-```
+A `spyk` that stubs a method of the unit under test edits the subject rather than mocking it (`<CORE>/doctrine/engineering/testing_doctrine.md`, *Reach a collaborator through a seam; never patch the subject*). Where a method of the subject reaches a collaborator, hand that collaborator in and fake it, as *MockK basics* above does with the notifier.
 
 ---
 

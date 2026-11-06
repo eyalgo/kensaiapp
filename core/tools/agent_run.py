@@ -41,6 +41,7 @@ import shlex
 import shutil
 import subprocess
 import sys
+import tempfile
 import urllib.request
 import uuid
 from collections.abc import Callable, Mapping
@@ -55,7 +56,7 @@ import model_assignment
 import pin
 import task_context
 
-__version__ = "2.13.1"
+__version__ = "2.15.1"
 
 BackgroundOwner = Literal["provider", "process"]
 
@@ -370,9 +371,11 @@ def _merge_settings_layer(base, layer):
 
 
 def _rewrite_hooks_into_pin(document, request_pin: pin.Pin):
-    """Point every hook command at the pin's own hooks directory. The rewrite itself is
+    """Point every hook command at the pin's own runner and hooks. The rewrite itself is
     `hook_wiring.rewrite_hooks_dir`'s, shared with the satellite linker."""
-    return hook_wiring.rewrite_hooks_dir(document, request_pin.root / ".claude" / "hooks")
+    return hook_wiring.rewrite_hooks_dir(
+        document, request_pin.root / ".claude" / "hooks", request_pin.core
+    )
 
 
 # Every pinned launch is a `--bg` candidate, and `--bg` forces worktree isolation unless this
@@ -628,16 +631,47 @@ def _codex_agent_context(
     return sentence, assignment
 
 
+def sandbox_uv_cache() -> str:
+    """The uv cache a Codex run is handed. Codex's workspace-write sandbox refuses writes under
+    `~/.cache/uv`, so `locked_python.sh` started inside it cannot open uv's default cache and
+    exits 2 before any Python runs. The temporary directory is one the sandbox lets it write;
+    the user id keeps it one user's where that directory is a shared `/tmp`."""
+    return str(Path(tempfile.gettempdir()) / f"kensaiapp-uv-cache-{os.getuid()}")
+
+
+def codex_command_env_config(name: str, value: str) -> str:
+    """The `--config` that sets `name` in every command a Codex run starts. The `env` prefix on the
+    argv reaches the `codex` process; under the owner's `shell_environment_policy`, which inherits
+    only the core set, it does not reach the commands Codex runs — so a pin's `core.hooksPath`
+    (`pin.run_env`) never reached a Codex run's `git commit`, and the commit-time checks did not
+    run there. A `set` entry does reach them, beside the entries the owner's own config sets."""
+    return f"shell_environment_policy.set.{name}={json.dumps(value)}"
+
+
+def codex_uv_cache_config(uv_cache_dir: str) -> str:
+    """The `--config` that sets `UV_CACHE_DIR` in every command a Codex run starts. An
+    environment variable on the `codex` process does not reach them when the owner's
+    `shell_environment_policy` inherits only the core set; a `set` entry does, beside the
+    entries the owner's own config sets."""
+    return f"shell_environment_policy.set.UV_CACHE_DIR={json.dumps(uv_cache_dir)}"
+
+
 class CodexAdapter:
     """Codex CLI's non-interactive workspace-writing command.
 
     `agent` and `settings` carry semantics in Kensaiapp, and Codex has no CLI flag for either, so
     this adapter translates both itself: `agent` becomes a sentence naming the agent and its file,
     prepended to the prompt (see `_codex_agent_context`); `settings`'s `env` object becomes a
-    leading `env KEY=value …` on the argv (see `_codex_settings_env`), and when that `env` carries
+    leading `env KEY=value …` on the argv (see `_codex_settings_env`) and one
+    `--config shell_environment_policy.set.KEY=…` each, so it reaches the commands Codex starts
+    (see `codex_command_env_config`); when that `env` carries
     telemetry, one `--config otel.exporter=…` too (see `_codex_otel_exporter_config`). `name` has
-    no Codex equivalent and is still refused.
+    no Codex equivalent and is still refused. `uv_cache_dir`, when given, becomes one more
+    `--config` (see `sandbox_uv_cache` and `codex_uv_cache_config`).
     """
+
+    def __init__(self, uv_cache_dir: str | None = None) -> None:
+        self.uv_cache_dir = uv_cache_dir
 
     def background_owner(self, request: RunRequest) -> BackgroundOwner:
         return "process"
@@ -699,6 +733,12 @@ class CodexAdapter:
             argv.extend(("--config", f'model_reasoning_effort="{effort}"'))
         if exporter_config:
             argv.extend(("--config", exporter_config))
+        for name, value in settings_env.items():
+            argv.extend(("--config", codex_command_env_config(name, value)))
+        # Preserve the provider identity in commands started by a Codex run.
+        argv.extend(("--config", codex_command_env_config("KENSAIAPP_RUN_PROVIDER", "codex")))
+        if self.uv_cache_dir:
+            argv.extend(("--config", codex_uv_cache_config(self.uv_cache_dir)))
         if not request.resume_session_id:
             for directory in request.add_dirs:
                 argv.extend(("--add-dir", directory))
@@ -1161,7 +1201,7 @@ class OllamaAdapter(_RoutedClaudeCode):
 
 ADAPTERS: dict[str, ProviderAdapter] = {
     "claude": ClaudeAdapter(),
-    "codex": CodexAdapter(),
+    "codex": CodexAdapter(sandbox_uv_cache()),
     "gemini": GeminiAdapter(),
     "hf": HfAdapter(Path.home() / ".env"),
     "ollama": OllamaAdapter(os.environ, _ollama_answers),

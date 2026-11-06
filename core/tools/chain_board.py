@@ -16,20 +16,22 @@ WHAT IT DECIDES
     ended on the owner's act is in neither list once a chain started after it ends by resuming
     that project's build-idea: the owner has acted, and that chain is the walk. A build-idea walk
     whose report sits in a seed the project has since dropped is in neither list either: what
-    the report owed went to `nemawashi/drop/` with the seed. A development walk
+    the report owed went to `nemawashi/drop/` with the seed. So is an ended one whose seed was
+    retired to `nemawashi/trail/` by another run and has its refine report written; a queue that
+    retired its own seed walks on, and is judged as any other walk. A change walk
     that ended on any end but a quiet one is in neither list once its change unit is sealed or
-    dropped (its folder is in `journey/tobiishi/trail/` or `drop/`), or once a development walk
-    started after it over the same project and change key: `chain-development` resumes a halted
-    `chain-change` walk in a state file of its own, so the later walk is the one to read, and if
+    dropped (its folder is in `journey/tobiishi/trail/` or `drop/`), or once a change walk
+    started after it over the same project and change key: `change` resumes a halted
+    `walk` in a state file of its own, so the later walk is the one to read, and if
     it stops too it waits on the owner as its own row. The unit's folder is what outlasts the
-    later walk, whose state file the next change overwrites. A development walk that halted
+    later walk, whose state file the next change overwrites. A change walk that halted
     before its change unit existed (it records no change key) has no unit to seal and no key to
     resume, so it is in neither list once any walk started after it over the same project, as a
     definition walk is. A definition walk that ended on any
     end but a quiet one or `left_for_the_owner` is in neither list once any walk started after it
     over the same project: `chain.py` keeps one state file per project and records no change, so
     the later walk on the project is the owner's act. `left_for_the_owner` stays, because a
-    signature is owed whatever ran next, and `chain-change` starts its change walk on that end by
+    signature is owed whatever ran next, and `walk` starts its walk on that end by
     itself. Every other status and reason is the engine's own; this module adds no words for a
     person to read.
 
@@ -45,7 +47,7 @@ WHAT IT DECIDES
     the machine's local time, and none where that text does not read. A waiting row, a skill run
     and a walk between launches carry none.
 
-    A running development walk on its implementation step also carries which task of the plan
+    A running change walk on its implementation step also carries which task of the plan
     the developer run is on, and how many the plan lists, as `chain_development` reads them off
     the change's branch (`DiskReader.current_task`); the reader is handed that reading. Every
     other row carries `0` for both, as does a walk whose plan cannot be read or whose run is past
@@ -62,7 +64,7 @@ WHAT IT DECIDES
     open station is named for. A walk belongs to the station whose name its opening commit carries on
     its `Shukuba:` line, the only place the record links the two; that history is the second
     collaborator the reader is handed. An open unit whose opening commit names no station — one
-    opened by hand carries `Agari:` — is the current station's, because exactly one station is open
+    opened by hand carries `Finish-line:` — is the current station's, because exactly one station is open
     and units open inside it; a sealed or dropped one the history does not link is under no station.
     A history that cannot be read links nothing, so then every open unit is the current station's —
     right whenever, as usual, one unit is open at a time.
@@ -92,7 +94,7 @@ import chain_development
 import journey_status
 import walk_stop
 
-__version__ = "1.13.0"
+__version__ = "1.19.0"
 
 QUIET_ENDS = frozenset(end.value for end in (
     chain_development.Ended.SEALED, chain_development.Ended.STOPPED,
@@ -105,8 +107,7 @@ STATE_FILE_PATTERN = "*-state.json"
 SKILL_RUN_PATTERN = "skill-*.run.json"
 SKILL_LAUNCHER = "skill"
 BUILD_IDEA_LAUNCHER = "build-idea"
-CHAIN_LAUNCHER_PREFIX = "chain-"
-DEFAULT_DEVELOPMENT_CHAIN = "development"
+DEFAULT_CHANGE_CHAIN = "change"
 DEFAULT_PRODUCT_CHAIN = "product"
 STATION_FOLDERS = ("", "parked", "trail")
 CHANGE_FOLDERS = (("", "open"), ("trail", "sealed"), ("drop", "dropped"))
@@ -117,7 +118,7 @@ HEADING_SEPARATOR = " — "
 NO_START_TIME = float("-inf")
 # The step whose runs work through a plan's tasks, named by the skill it runs so a renamed step
 # fails at import.
-IMPLEMENTATION_STEP = next(step.id for step in chain_development.DEVELOPMENT_STEPS
+IMPLEMENTATION_STEP = next(step.id for step in chain_development.CHANGE_STEPS
                            if step.skill == "development-implementation")
 
 _LAUNCHER_PATH = re.compile(r"[^\s`'\"(]*core/launchers/([\w-]+)/launcher\.sh")
@@ -247,7 +248,7 @@ def read_board(root: Path, launch_state: LaunchState, opened_stations: OpenedSta
     project_starts = _project_starts(walks)
     for kind, state in walks:
         if kind is WalkKind.BUILD_IDEA and (_is_superseded(state, handed_back)
-                                            or _is_in_a_dropped_seed(root, state)):
+                                            or _is_in_a_set_down_seed(root, state)):
             continue
         if kind is WalkKind.CHAIN_DEVELOPMENT and _is_taken_up(root, state, resumed,
                                                                project_starts):
@@ -299,21 +300,36 @@ def _is_superseded(state: dict, handed_back: dict[str, list[float]]) -> bool:
     return any(later > started for later in handed_back.get(str(state.get("project") or ""), []))
 
 
-def _is_in_a_dropped_seed(root: Path, state: dict) -> bool:
+def _is_in_a_set_down_seed(root: Path, state: dict) -> bool:
     """A build-idea walk whose report has moved, inside its seed folder, to the project's
-    `nemawashi/drop/`: the moves that report named went with the seed, and this walk waits on
-    nobody. The report file itself is looked for, so a dropped seed that only shares the folder
-    name hides nothing."""
+    `nemawashi/drop/`, or to `nemawashi/trail/` once that seed's refine is written: the moves
+    that report named went with the seed, and this walk waits on nobody. The report file itself
+    is looked for, so a set-down seed that only shares the folder name hides nothing.
+
+    A retired seed hides its walk only when three things hold. The walk has ended, and none of its
+    rows is the queue's own retire — a queue that retired its seed keeps walking in the same state
+    file, its report path still the one it started with. And the retired seed's
+    `docs/nemawashi-refine/<seed>_report.md` exists — until then the refine, and the pick after it,
+    are still owed, and the walk's row is the board's only sign of that."""
     project = str(state.get("project") or "")
     report = Path(str(state.get("report") or ""))
     if not project or not report.name:
         return False
-    dropped = _journey(root, project) / "nemawashi" / "drop" / report.parent.name / report.name
-    return dropped.is_file()
+    nemawashi = _journey(root, project) / "nemawashi"
+    seed = report.parent.name
+    if (nemawashi / "drop" / seed / report.name).is_file():
+        return True
+    if not (nemawashi / "trail" / seed / report.name).is_file():
+        return False
+    retired_by_this_queue = any(isinstance(row, dict) and row.get("move") == build_idea.RETIRE_MOVE
+                                for row in state.get("rows") or [])
+    refined = (root / "system" / "projects" / project / "docs" / "nemawashi-refine"
+               / f"{seed}_report.md").is_file()
+    return state.get("ended") is not None and not retired_by_this_queue and refined
 
 
 def _development_starts(walks: list[tuple[WalkKind, dict]]) -> dict[tuple[str, str], list[float]]:
-    """Per project and change key, the start of each development walk over it."""
+    """Per project and change key, the start of each change walk over it."""
     starts: dict[tuple[str, str], list[float]] = {}
     for kind, state in walks:
         if kind is WalkKind.CHAIN_DEVELOPMENT and state.get("key"):
@@ -323,8 +339,8 @@ def _development_starts(walks: list[tuple[WalkKind, dict]]) -> dict[tuple[str, s
 
 def _is_taken_up(root: Path, state: dict, starts: dict[tuple[str, str], list[float]],
                  project_starts: dict[str, list[float]]) -> bool:
-    """A development walk that stopped short, over a change that is sealed or dropped, or that a
-    development walk started after it took up: this one waits on nobody. One that halted before
+    """A change walk that stopped short, over a change that is sealed or dropped, or that a
+    change walk started after it took up: this one waits on nobody. One that halted before
     its change existed is taken up by any walk started after it over its project."""
     ended = state.get("ended")
     if ended is None or ended in QUIET_ENDS:
@@ -407,9 +423,10 @@ def _launcher_name(kind: WalkKind, state: dict) -> str:
     """The name each engine already gives its own stop command."""
     if kind is WalkKind.BUILD_IDEA:
         return BUILD_IDEA_LAUNCHER
-    default = (DEFAULT_DEVELOPMENT_CHAIN if kind is WalkKind.CHAIN_DEVELOPMENT
-               else DEFAULT_PRODUCT_CHAIN)
-    return CHAIN_LAUNCHER_PREFIX + (state.get("chain_name") or default)
+    if kind is WalkKind.CHAIN_DEVELOPMENT:
+        return state.get("chain_name") or DEFAULT_CHANGE_CHAIN
+    name = state.get("chain_name") or DEFAULT_PRODUCT_CHAIN
+    return chain.LAUNCHERS.get(name, name)
 
 
 def _launches(pending: object) -> list[dict]:
@@ -445,7 +462,7 @@ def _step_start(state: dict, launch_start: LaunchStart) -> str:
 
 def _task_progress(root: Path, kind: WalkKind, state: dict,
                    task_progress: TaskProgress) -> tuple[int, int]:
-    """The developer run's place among its plan's tasks and their count, for a development walk
+    """The developer run's place among its plan's tasks and their count, for a change walk
     with a launch out on its implementation step; `(0, 0)` for every other walk and where none is
     read. A launch's step is the one its entry records, not its run's name: the chain relaunches a
     developer run that ended with no marker as `implementation-recovery`."""

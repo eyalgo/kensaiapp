@@ -13,11 +13,11 @@ ends.
 
 ## Contents
 
-- **An instance and its parts:** [Instance](#instance) · [Host](#host) · [Satellite](#satellite) · [Core](#core) · [Doctrine](#doctrine) · [CORE](#core-1) · [Michi](#michi) · [Bearing](#bearing) · [Way](#way) · [Project](#project) · [Product](#product) · [Project card](#project-card) · [Agari](#agari) · [Role](#role) · [Overlay](#overlay) · [Posture](#posture) · [Skill](#skill) · [Skill group](#skill-group) · [Agent](#agent) · [Owner](#owner) · [Experience layer](#experience-layer)
+- **An instance and its parts:** [Instance](#instance) · [Host](#host) · [Satellite](#satellite) · [Core](#core) · [Doctrine](#doctrine) · [CORE](#core-1) · [Michi](#michi) · [Bearing](#bearing) · [Way](#way) · [Project](#project) · [Product](#product) · [Project card](#project-card) · [Finish line](#finish-line) · [Role](#role) · [Overlay](#overlay) · [Posture](#posture) · [Skill](#skill) · [Skill group](#skill-group) · [Agent](#agent) · [Owner](#owner) · [Experience layer](#experience-layer)
 - **The journey:** [Journey](#journey) · [Nemawashi](#nemawashi) · [Seedbed](#seedbed) · [Seed](#seed) · [Shukuba](#shukuba) · [Station](#station) · [Reached-when](#reached-when) · [Tobiishi](#tobiishi) · [Change](#change) · [Change request](#change-request) · [Cut](#cut) · [Pick](#pick) · [Unpick](#unpick) · [Open](#open) · [Refine](#refine) · [Next moves](#next-moves) · [Seal](#seal) · [Park](#park) · [Close](#close) · [Retire](#retire) · [Drop](#drop) · [Trail](#trail)
 - **The roles:** [PM](#pm) · [Principal PM](#principal-pm) · [Scrum Master](#scrum-master) · [CPO](#cpo) · [CTO](#cto) · [CDO](#cdo) · [Content Manager](#content-manager) · [Principal Architect](#principal-architect) · [Product Owner](#product-owner) · [PO](#po) · [Architect](#architect) · [Tech Lead](#tech-lead) · [Content Editor](#content-editor) · [Developer](#developer) · [Senior Engineer](#senior-engineer) · [Auditor](#auditor) · [QA](#qa) · [Teacher](#teacher) · [Delegate](#delegate) · [Brief](#brief)
-- **The documents:** [PRD](#prd) · [SRS](#srs) · [UXD](#uxd) · [DESIGN](#design) · [CONTENT](#content) · [SDD](#sdd) · [FDR](#fdr) · [NFDR](#nfdr) · [ADR](#adr) · [Companion](#companion) · [Answering run](#answering-run) · [Seat](#seat) · [Settled](#settled) · [What-left file](#what-left-file) · [Code skeleton](#code-skeleton)
-- **The runs and their settings:** [Launcher](#launcher) · [Chain](#chain) · [Documents chain](#documents-chain) · [Change chain](#change-chain) · [Spine](#spine) · [Walk](#walk) · [Pipeline](#pipeline) · [Ask](#ask) · [Spec](#spec) · [Design](#design-1) · [Plan](#plan) · [Content](#content-1) · [Build](#build) · [Prove](#prove) · [Security](#security) · [Audit](#audit) · [Queue](#queue) · [Companion sweep](#companion-sweep) · [Seven ends](#seven-ends) · [Halt report](#halt-report) · [Pin](#pin) · [Context cap](#context-cap) · [Provider](#provider) · [Intelligence](#intelligence) · [Tier](#tier) · [Language packet](#language-packet) · [Gate](#gate) · [Gate environment](#gate-environment) · [Finding](#finding) · [Panel](#panel) · [Journey page](#journey-page) · [Notifier](#notifier) · [Receiver](#receiver) · [ID](#id) · [Kaizen](#kaizen) · [Lens](#lens) · [Cold read](#cold-read) · [Fix packet](#fix-packet) · [Fix-author](#fix-author) · [Fixer](#fixer) · [Ratify](#ratify)
+- **The documents:** [PRD](#prd) · [SRS](#srs) · [UXD](#uxd) · [DESIGN](#design) · [CONTENT](#content) · [SDD](#sdd) · [FDR](#fdr) · [NFDR](#nfdr) · [ADR](#adr) · [Companion](#companion) · [Answering run](#answering-run) · [Seat](#seat) · [Settled](#settled) · [What-left file](#what-left-file) · [CHANGELOG](#changelog) · [Code skeleton](#code-skeleton)
+- **The runs and their settings:** [Launcher](#launcher) · [Chain](#chain) · [Documents chain](#documents-chain) · [Change chain](#change-chain) · [Spine](#spine) · [Walk](#walk) · [Pipeline](#pipeline) · [Ask](#ask) · [Spec](#spec) · [Design](#design-1) · [Plan](#plan) · [Content](#content-1) · [Build](#build) · [Changelog line](#changelog-line) · [Prove](#prove) · [Security](#security) · [Audit](#audit) · [Queue](#queue) · [Companion sweep](#companion-sweep) · [Seven ends](#seven-ends) · [Halt report](#halt-report) · [Pin](#pin) · [Context cap](#context-cap) · [Provider](#provider) · [Intelligence](#intelligence) · [Tier](#tier) · [Language packet](#language-packet) · [Gate](#gate) · [Gate environment](#gate-environment) · [Finding](#finding) · [Panel](#panel) · [Journey page](#journey-page) · [Notifier](#notifier) · [Receiver](#receiver) · [ID](#id) · [Kaizen](#kaizen) · [Lens](#lens) · [Cold read](#cold-read) · [Fix packet](#fix-packet) · [Fix-author](#fix-author) · [Fixer](#fixer) · [Ratify](#ratify)
 - **The journey, told two ways:** [The journey in KensaiApp's terms](#the-journey-in-kensaiapps-terms) · [The journey in industry, ticketing and Jira terms](#the-journey-in-industry-ticketing-and-jira-terms)
 
 ## Instance
@@ -27,24 +27,26 @@ own copy of KensaiApp's shared core or a pointer to another instance's core, as 
 The entries below give the rest. An instance steers by a Michi, its long-term direction. It keeps a
 seedbed of its own, of ideas that could become projects or changes across projects. It also keeps a
 router for when several projects push on one thing. Its Michi is never reached, so the instance has
-neither an Agari, a project's definition of done, nor a change pipeline of its own: those belong to
-its projects.
+neither a finish line nor a change pipeline of its own: those belong to its projects.
 
 ## Host
 
 A host is an instance that keeps the shared core in a `core/` folder of its own. Satellites read
-their core from it. An instance that carries its own core is its own host.
+their core from it. An instance that carries its own core is its own host. In everyday words, the
+host is the main instance: the one whose shared rules and tools the others use.
 
 ## Satellite
 
-A satellite is an instance with no `core/` folder of its own. It reads its host's core, through the
-`CORE` line in its `.env` file. A change to the host's core reaches every satellite as soon as it
-lands. A satellite may sit anywhere on the machine. The operations guide's section
-[More than one instance](operations.md#more-than-one-instance) shows how to stand one up.
+A satellite is an instance with no `core/` folder of its own. In everyday words, it is a second
+instance, an extra copy that shares its host's rules rather than carrying its own. It reads its
+host's core, through the `CORE` line in its `.env` file. A change to the host's core reaches every satellite as soon as it
+lands. A satellite may sit anywhere on the machine. The how-to guide's section
+[How to create an instance](how-to.md#how-to-create-an-instance) shows how to stand one up.
 
 ## Core
 
-The core is the shared foundation every instance runs on, in the host's `core/` folder. It holds the
+The core is the shared foundation every instance runs on, in the host's `core/` folder: in
+everyday words, the shared rules and tools. It holds the
 doctrine, the role postures, the contracts between roles, the prompts, the templates, the tools, the
 launchers and the commit hooks. The skills sit beside it, under `skills/`.
 
@@ -66,8 +68,8 @@ shell, a satellite's launchers are reached as `"$CORE/launchers/<name>/launcher.
 
 Michi, written 道, is an instance's bearing: one or more long-term directions the whole instance
 commits to and never finishes. It is declared once, in `system/michi.md`. It is a declaration, not a
-list of tasks, so nobody works it off or retires it. A project's Agari advances it, and nothing
-reaches it.
+list of tasks, so nobody works it off or retires it. A project's finish line advances it, and
+nothing reaches it.
 
 ## Bearing
 
@@ -78,14 +80,14 @@ directions the instance steers by and never finishes.
 
 A Way is one of the directions a Michi declares. An instance may hold several, each with a short
 slug, and a commit can name the Way it served by that slug in its `Michi:` trailer, a line at the end
-of the commit message (see Trailer). A project has no Way of its own and serves the instance's.
+of the commit message. A project has no Way of its own and serves the instance's.
 
 ## Project
 
 A project is the work of building one product. It lives under `system/projects/<name>/`, with its
-card, its Agari and its journey. A project aims at its Agari and is done when it reaches it. The
-picture KensaiApp uses is a solar system: the Michi is the star an instance turns around and never
-reaches, and each project is a planet whose journey ends at its own Agari.
+card, its finish line and its journey. A project aims at its finish line and is done when it reaches
+it. The picture KensaiApp uses is a solar system: the Michi is the star an instance turns around and
+never reaches, and each project is a planet whose journey ends at its own finish line.
 
 ## Product
 
@@ -99,22 +101,23 @@ points at it.
 The project card is the file `system/projects/<name>/project.md`. Each line holds one field, such as
 `Product path:`, `Type:`, `Definition:`, `Test command:` and `Languages:`. `Type:` says what the
 product is: `software`, with code, or `no-code`, such as a profile or a body of writing.
-`Definition:` says how much is written down before the code: `full`, `prd-agari` or `none`. The
-README's section [Types of projects](../README.md#types-of-projects) shows what each value runs.
+`Definition:` says how much is written down before the code: `full`, `prd-and-finish-line` or `none`. The
+README's section [How much is written before the code](../README.md#how-much-is-written-before-the-code) shows what each value writes.
 
-## Agari
+## Finish line
 
-Agari, written 上がり, is a project's definition of done: the declaration of when its product is
-done. The CPO sets it once, after the PRD, in `system/projects/<name>/agari.md`. Each project has
+The finish line is a project's declaration of when its product is done. The CPO sets it once, after
+the PRD, with `project-finish-line`, in `system/projects/<name>/finish_line.md`. Each project has
 exactly one. Like the Michi it is a declaration, not a checklist, and the work that reaches it is the
-journey. Each project's Agari is chosen so that reaching it advances the instance's Michi.
+journey. Each project's finish line is chosen so that reaching it advances the instance's Michi. Its
+earlier names were the definition of done and, in KensaiApp's Japanese names, Agari.
 
 ## Role
 
 A role is one part of the work, as in a software team: the PM, the architect, the developer and
 others. Every run works as one role. A role's posture is written once, in the core, and an instance
 can lay an overlay over it. Most roles also answer to a message prefix, such as `pm:`, or `ppm:` for
-the Principal PM. The operations guide's section [Asking a specific role](operations.md#asking-a-specific-role)
+the Principal PM. The how-to guide's section [How to ask a role for help](how-to.md#how-to-ask-a-role-for-help)
 shows how.
 
 ## Overlay
@@ -141,8 +144,8 @@ belongs to a group: it sits at `skills/<group>/.claude/skills/<skill>/`.
 A skill group is one folder under `skills/` that holds the skills and agents of one role or one
 purpose, such as `skills/pm` or `skills/interactive`. A session sees a group only after you name it
 with `/add-dir`, or with `--add-dir` when Claude Code starts. A launcher grants a run the group of
-the skill it starts. The operations guide's section
-[Loading skills and agents](operations.md#loading-skills-and-agents) shows both ways.
+the skill it starts. The how-to guide's section
+[How to give a session a group of skills](how-to.md#how-to-give-a-session-a-group-of-skills) shows both ways.
 
 ## Agent
 
@@ -162,11 +165,12 @@ An instance's experience layer says what every product under it may and may not 
 like. It is two pairs of files in `system/experience/`: the visual restrictions and direction, then
 the voice restrictions and direction. Each restrictions file holds the limits no product may relax.
 Each direction file holds how products look or sound where nothing narrower decides.
+KensaiApp comes with defaults, which you can change.
 `experience-visual` writes the first pair, then `experience-voice` the second.
 
 ## Journey
 
-The journey is how a project gets from its documents to its Agari. It has three parts, each with a
+The journey is how a project gets from its documents to its finish line. It has three parts, each with a
 Japanese name: the seedbed of ideas, Nemawashi; the station being walked now, Shukuba; and the
 changes that build it, Tobiishi. The architecture overview's section
 [From requirements to a product](architecture.md#from-requirements-to-a-product) shows the loop, and
@@ -175,7 +179,7 @@ elsewhere.
 
 ## Nemawashi
 
-Nemawashi, written 根回し, is the seedbed: the ideas that could carry a product toward its Agari,
+Nemawashi, written 根回し, is the seedbed: the ideas that could carry a product toward its finish line,
 each written as a seed. Candidate seeds wait in `journey/nemawashi/unpicked/`, and the one seed being
 walked sits at the seedbed's root. The product's documents do not decide what is seeded: seeds come
 from the documents, from an idea, or from work found along the way. An instance keeps a seedbed
@@ -183,12 +187,13 @@ too, in `system/nemawashi/`, of ideas that could become projects or changes acro
 
 ## Seedbed
 
-The seedbed is the English word for a Nemawashi: the pool of seeds a project or an instance keeps. A
-project's seedbed is its `journey/nemawashi/` folder.
+The seedbed is the English word for a Nemawashi: the pool of seeds a project or an instance keeps.
+In everyday words, it holds several candidate ideas at the same moment, of which at most one is
+worked on. A project's seedbed is its `journey/nemawashi/` folder.
 
 ## Seed
 
-A seed is one idea in the seedbed: a candidate route toward the Agari. It carries a checklist of the
+A seed is one idea in the seedbed: a candidate route toward the finish line. It carries a checklist of the
 stations it will take. The Principal PM proposes that checklist when it cuts the seed, and the PM
 re-cuts it once the seed is picked. At most one seed is active at a time.
 
@@ -220,8 +225,10 @@ request to sealed on `main`. A station may take several. Each change has its own
 
 ## Change
 
-A change is one Tobiishi: one unit of work, from its change request to sealed on `main`. The
-architecture overview's journey diagram labels it CHANGE, and `chain-change` walks it.
+A change is one Tobiishi: one piece of work, from its change request to sealed on `main`. The
+architecture overview's journey diagram labels it CHANGE, and `walk` walks it. To stop everything
+running for one piece of work, stop its walk: `walk --stop` stops every run in flight and keeps the
+state, so the same command carries on later.
 
 ## Change request
 
@@ -239,11 +246,11 @@ its proposed station checklist, is owned by a project and lands in that project'
 
 ## Pick
 
-To pick is to choose the one seed to walk now. The PM picks with `nemawashi-pick`, which lifts the
+To pick is to choose the one seed to walk now. The PM picks with `seed-pick`, which lifts the
 seed from `unpicked/` to the seedbed's root, and no other seed moves. A pick is refused while another
 seed sits at the root. A quality seed, such as one for tests, CI or security, is picked before a
 feature seed, unless you stated another order outright
-([Quality and security come first](how-it-works.md#quality-and-security-come-first)). The PM then
+([Quality and security come first](what-is-in-it.md#quality-and-security-come-first)). The PM then
 re-cuts the picked seed's checklist into the stations to walk, with `stations-from-seed`.
 
 ## Unpick
@@ -254,7 +261,7 @@ to `unpicked/` and leaves the root empty. It ticks nothing, so the seed keeps it
 ## Open
 
 To open is to start a station or a Tobiishi. The PM opens a station with `shukuba-open` and a
-Tobiishi with `tobiishi-open`. `chain-change` makes either move that is not made yet.
+Tobiishi with `tobiishi-open`. `walk` makes either move that is not made yet.
 
 ## Refine
 
@@ -262,7 +269,7 @@ To refine is to re-read the route after work lands. After each sealed change, th
 `shukuba-refine`. It re-reads the route against what the change left and what moved upstream, and
 writes a report with recommendations and the next moves. It can change the stations ahead, park one
 or drop a halted change, but never what was asked for
-([The route is re-decided after every change](how-it-works.md#the-route-is-re-decided-after-every-change)).
+([The route is re-decided after every change](what-is-in-it.md#the-route-is-re-decided-after-every-change)).
 After a seed is retired, the Principal PM
 runs `nemawashi-refine`. It works through every recommendation left in the seed's folder and
 re-reads the pool of candidate seeds.
@@ -333,7 +340,7 @@ it retires a seed whose whole checklist is walked with `nemawashi-retire`.
 
 ## CPO
 
-The CPO is the project's executive product role. It writes the PRD and then sets the Agari, deciding
+The CPO is the project's executive product role. It writes the PRD and then sets the finish line, deciding
 what the product is once, ahead of the changes that build it. It is not the Product Owner, who
 writes each change's spec.
 
@@ -390,9 +397,8 @@ Developer's code. It also plans a change you open by hand, with `ad-hoc-plan`, f
 
 The Content Editor writes the exact words one change puts in front of a person, such as its labels
 and messages, to the standard in CONTENT. Its step runs only when the change's design says the
-change publishes text. The Developer places those words and does not alter them. After a station
-closes, the Content Editor also brings the Status section of the product's README up to date, with
-`readme-status`.
+change publishes text. The Developer places those words and does not alter them. After every build,
+the Content Editor also writes the change's CHANGELOG entry, with `changelog-line`.
 
 ## Developer
 
@@ -526,8 +532,18 @@ source of truth, it reads `Locked`. Locking is the owner's act, never a run's.
 ## What-left file
 
 The what-left file, `docs/what_left.md` in the product, lists what the product still has to build.
-`first-what-left` writes it once the Agari is settled, a revised PRD adds what it newly wants, and
-`readme-status` removes what has merged after each station closes.
+Each entry is one thing the finish line or the PRD wants that the code can be shown not to do yet.
+The CPO's `first-what-left` writes it once the finish line is settled, and whoever changes the finish
+line or the PRD adds to it. Only `changelog-line` removes an entry, on the change's branch, once the
+change wholly builds it. When nothing is left, the file reads `Nothing is left to build.`
+
+## CHANGELOG
+
+The CHANGELOG, `CHANGELOG.md` at the root of a product's path, records each change to what a user of
+a fresh clone installs, runs, types or reads. A change that only dev's own readers see, such as one
+that only adds tests, earns no entry. A change a clone must act on to keep working goes under
+`### Upgrading`. `changelog-line` writes each entry. A product's state is read from two files: its
+CHANGELOG, for what changed, and its what-left file, for what is left.
 
 ## Code skeleton
 
@@ -540,26 +556,26 @@ places one for each unit the SDD names, as a plain copy with no model involved.
 A launcher is a script you run from a shell, outside a Claude Code session, at
 `core/launchers/<name>/launcher.sh`. Most start their work as background runs and return at once.
 `core/launchers/skill/launcher.sh` starts any single skill that has a `launcher.md` beside its
-`SKILL.md`. The operations guide's section [Using launchers](operations.md#using-launchers) lists them.
+`SKILL.md`. The README's section [Unattended runs](../README.md#unattended-runs) lists them.
 
 ## Chain
 
 A chain is a launcher that walks a sequence of runs, each starting the next when it ends.
-`chain-product` and `chain-agari` walk a project's documents, and `chain-change` and
-`chain-development` walk one change through the pipeline. Two engines in `core/tools/` carry them:
+`product-docs` and `prd-and-finish-line` walk a project's documents, and `walk` and
+`change` walk one change through the pipeline. Two engines in `core/tools/` carry them:
 `chain.py` for the documents and `chain_development.py` for a change.
 
 ## Documents chain
 
 A documents chain is a chain that writes a project's documents, one at a time, upstream first. The
-card's `Definition:` line names it: `chain-product` for `full`, `chain-agari` for `prd-agari`, and
-none for `none`. It walks a spine.
+card's `Definition:` line names it: `product-docs` for `full`, `prd-and-finish-line` for
+`prd-and-finish-line`, and none for `none`. It walks a spine.
 
 ## Change chain
 
 A change chain walks one change through the pipeline, following a fixed table of steps.
-`chain-change` also opens the station and the change where they are not open yet.
-`chain-development` starts from the spec, for a change whose request already exists.
+`walk` also opens the station and the change where they are not open yet.
+`change` starts from the spec, for a change whose request already exists.
 
 ## Spine
 
@@ -575,15 +591,15 @@ reason, such as `settled`, `sealed` or `stopped`.
 ## Pipeline
 
 The pipeline is the fixed sequence every change goes through: specs, design, plan, content,
-implementation, code-integrity, security, audit and seal. Each step is a separate agent run, in its own role,
-and a program, not a model, decides which step runs next. The README's section
-[How a change moves](../README.md#how-a-change-moves) names implementation Build and code-integrity
-Prove, and shows what each step leaves.
+implementation, changelog, code-integrity, security, audit and seal. Each step is a separate agent run, in its own role,
+and a program, not a model, decides which step runs next. The section
+[The change](under-the-hood.md#the-change) of Under the hood names implementation Build and
+code-integrity Prove, with each step's role.
 
 ## Ask
 
-Ask is the first step in the README's pipeline diagram: the PM writes the change request with
-`tobiishi-open`. It comes before the pipeline's own steps. Of the chains, only `chain-change` runs
+Ask is the first step in Under the hood's pipeline diagram: the PM writes the change request with
+`tobiishi-open`. It comes before the pipeline's own steps. Of the chains, only `walk` runs
 it.
 
 ## Spec
@@ -610,12 +626,21 @@ text. It is not CONTENT, the product's content standard.
 
 ## Build
 
-Build is the README's name for the implementation step: the Developer writes the code, each test
+Build is Under the hood's name for the implementation step: the Developer writes the code, each test
 before the code it checks, and makes the closing commit.
 
 ## Prove
 
-Prove is the README's name for the code-integrity step: the Senior Engineer proves that the code
+## Changelog line
+
+Changelog line is the pipeline's step after Build, and runs for every change: the Content Editor,
+with `changelog-line`, writes the change's entry under `## [Unreleased]` in the product's
+CHANGELOG, removes from the what-left file what the change wholly builds, and leaves
+`changelog-report.md`.
+
+## Prove
+
+Prove is Under the hood's name for the code-integrity step: the Senior Engineer proves that the code
 does what the change intends, and leaves `code-integrity-report.md`.
 
 ## Security
@@ -625,7 +650,7 @@ and reads the change's code for security holes, with `development-security`. It 
 allow, writes an exception for an advisory the product does not reach, and reports the rest for the
 PM. It leaves `security-report.md`, whose first line is `clean`, `fixed`, `reported` or `stopped`.
 Only `stopped` halts the walk: a fix needs a move the step may not make, and the questions go to you.
-It is a first iteration ([How it works](how-it-works.md#three-checks-on-every-change)).
+It is a first iteration ([What is in it](what-is-in-it.md#three-checks-on-every-change)).
 
 ## Audit
 
@@ -633,7 +658,7 @@ Audit is the pipeline's step after Security: the Auditor reviews the spec, the d
 content where it ran, and the code, each in a run of its own, for how well each step did its job. It
 checks KensaiApp, not the product, so its findings never stop the change. The next refine takes the
 product's issues among them back into the plan; one about a skill is raised to improve that skill
-([Where what the checks find goes](how-it-works.md#where-what-the-checks-find-goes)).
+([Where what the checks find goes](what-is-in-it.md#where-what-the-checks-find-goes)).
 
 ## Queue
 
@@ -645,7 +670,8 @@ disk. A row for the owner's act stops the queue until you do the act and start `
 
 The companion sweep is a run of a project's documents chain that sweeps the product's companions. It
 runs where a refine's next moves say one is owed. The card's `Definition:` line picks the chain:
-`chain-product` for `full`, `chain-agari` for `prd-agari`, and no sweep for `none`.
+`product-docs` for `full`, `prd-and-finish-line` for `prd-and-finish-line`, and no sweep for
+`none`.
 
 ## Seven ends
 
@@ -680,7 +706,8 @@ which takes a new pin when the host has changed.
 ## Context cap
 
 The context cap is the size of context, in tokens, past which a Developer run finishes its task,
-commits and hands over to a fresh run. It is set with `--context-cap` on `chain-change` and
+commits and hands over to a fresh run. In everyday words, it keeps a coding agent's working memory
+from filling up: the work moves to a fresh run first. It is set with `--context-cap` on `walk` and
 `build-idea`, and the default is 250000. The hook that applies it reads the run's context through
 ka-telemetry, an open-source package KensaiApp built; without the package, nothing is capped.
 
@@ -690,7 +717,7 @@ A provider is the service a run's model comes from: `claude`, `codex`, `gemini`,
 `hf` is a Claude run aimed at Hugging Face's router, and `ollama` runs on your own local Ollama
 models. `.providers.toml` at the instance root names the provider for each document, step and queue
 row. `--provider`, or an exported `KENSAIAPP_AGENT_PROVIDER`, forces one provider for a whole walk.
-The operations guide's section [Choosing a provider](operations.md#choosing-a-provider) has the rules.
+Under the hood's section [Models and providers](under-the-hood.md#models-and-providers) has the rules.
 
 ## Intelligence
 
@@ -734,8 +761,9 @@ asks for your Mac instead.
 A finding is a defect in KensaiApp itself, such as in a skill, a prompt, a rule, a hook or a
 launcher, noticed while doing something else. A small one is fixed in place, on the branch where it
 was found, and a larger one becomes a seed. One that is not fixed is written to
-`docs/findings/<date>_<slug>.md`. The audit step's findings are a separate kind, kept in each
-change's `flow_findings/` ([Two kinds of finding](how-it-works.md#two-kinds-of-finding)).
+`docs/findings/<date>_<slug>.md`. A defect noticed while working in a satellite is written in that
+satellite, and stays there: nothing carries it to the host. The audit step's findings are a separate kind, kept in each
+change's `flow_findings/` ([Two kinds of finding](what-is-in-it.md#two-kinds-of-finding)).
 
 ## Panel
 
@@ -769,7 +797,7 @@ finds it through the endpoint file it publishes.
 
 A run ID names one run a launcher started, so that its telemetry can be found again. It is attached
 together with the run's arm: the name of the folder of the launcher that started the run, such as
-`chain-change`. A run whose arm cannot be read from that folder still gets a run ID, with no arm. The
+`walk`. A run whose arm cannot be read from that folder still gets a run ID, with no arm. The
 launcher prints it on its `Telemetry:` line. `core/tools/run_provenance.py` reads the run's
 provider, model and effort back by that ID, from what reached the receiver.
 
@@ -826,9 +854,8 @@ hold the gate.
    one, walked in sequence, each one leg of that idea's route.
 4. Walk the station through the pipeline. The building inside a station runs as one or more
    Tobiishi, which are change units. The PM opens each with `tobiishi-open`, and the chain carries it
-   end to end: specs → design → plan → content → implementation → code-integrity → security → audit →
-   seal. A
-   station may take several Tobiishi before its reached-when is met.
+   end to end: specs → design → plan → content → implementation → changelog → code-integrity →
+   security → audit → seal. A station may take several Tobiishi before its reached-when is met.
 5. Seal each change unit. Each change unit is sealed by `tobiishi-seal`, and it lands sealed on
    `main`.
 6. Refine the route. After each change unit lands, the PM runs `shukuba-refine`. It re-reads the
@@ -848,8 +875,8 @@ hold the gate.
     recommendation `shukuba-refine` left in the retired seed's folder is processed, and the candidate
     pool is re-read with the drops made there. A report lands.
 11. Run what the answer names. The report's `## Next moves` names what is owed, and it runs. It can
-    name the companion sweep: `chain-product` when the project card's `Definition:` line reads
-    `full`, `chain-agari` when it reads `prd-agari`, and no sweep when it reads `none`. It can name a
+    name the companion sweep: `product-docs` when the project card's `Definition:` line reads
+    `full`, `prd-and-finish-line` when it reads `prd-and-finish-line`, and no sweep when it reads `none`. It can name a
     new cut of seeds from the product's documents, with `seeds-from-product-docs`. That cut is owed
     whenever the documents hold work that no candidate seed carries, whether candidates are left or
     not. After them, the PM picks the next seed and cuts its route, back to step 1.

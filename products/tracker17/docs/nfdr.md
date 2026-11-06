@@ -586,7 +586,7 @@ The start command and the setup steps are behaviour (FDR R-1, R-8 to R-13). What
   — *verified by:* three commands, each passing on exit 0: `ruff format --check .`, `ruff check .`,
   and `mypy main.py errors.py domain application persistence web`. mypy is held to those parts
   because over the whole root it stops on the two `conftest.py` files, exit 2, before checking
-  anything. The gate starts red: on the code as of commit `691edf98b`, `ruff check .` reports 8
+  anything. The gate starts red: on the code as of commit `<a commit not in the public history>`, `ruff check .` reports 8
   findings and mypy 3 errors, and the owner's answer has the first change after this revision repair
   them *(traces to: owner, `trail/architecture/cycle-3.md` § 3.2;
   `<CORE>/doctrine/engineering/languages/python/quality_gates.md` § What a product installs, when it
@@ -834,21 +834,21 @@ QC-12, QC-25, QC-26, QC-27, QC-40, QC-41 and QC-60 are review gates and have no 
   is not a control, made focusable with `tabindex="-1"`, in two places. The first is the added name
   on the People page (`tests/e2e/test_people.py`,
   `test_added_markup_name_has_browser_focus_and_accessible_description` and
-  `test_people_keyboard_refusals_and_removal_keep_focus_at_the_action`): both passed at `641bb58b5`
+  `test_people_keyboard_refusals_and_removal_keep_focus_at_the_action`): both passed at `<a commit not in the public history>`
   (`pytest products/tracker17/tests/e2e/`, 18 passed), with playwright 1.63.0 and Chromium
   153.0.8010.12 (SDD § 11 R-2, RN-41). The second is the added comment, given `tabindex="-1"
   autofocus` at `web/pages.py:L948` (`tests/e2e/test_comments.py:L89`,
   `test_keyboard_comment_add_brings_the_new_comment_into_view_and_focus`, and `:L171`,
   `test_keyboard_comment_refusals_keep_text_focus_and_description`): the same command gave 33 passed
-  at `4f6f59752` with playwright 1.63.0, and 33 passed at `c0e4d65f4`, whose product code and tests
-  match `4f6f59752`, with playwright 1.63.0 and Chromium 153.0.8010.12. The confirmation of SDD § 4
+  at `<a commit not in the public history>` with playwright 1.63.0, and 33 passed at `<a commit not in the public history>`, whose product code and tests
+  match `<a commit not in the public history>`, with playwright 1.63.0 and Chromium 153.0.8010.12. The confirmation of SDD § 4
   EX-6 is verified too, in its three parts: the sentence alone holding focus, the double press that
   never confirms, and back-out returning focus. SDD § 11 R-2 names the four tests in
   `tests/e2e/test_moves.py` that verify them (`test_keyboard_opening_focuses_the_visible_sentence`,
   `test_keyboard_confirming_and_back_out_use_their_own_intents`,
   `test_double_click_never_confirms_at_the_original_trigger_coordinates` and
   `test_keyboard_opening_on_a_far_row_focuses_the_visible_sentence`): all four passed in a fresh
-  clone at `9b05680c7` (`tests/e2e/`, 67 passed), with the pinned library, `playwright==1.63.0`. That
+  clone at `<a commit not in the public history>` (`tests/e2e/`, 67 passed), with the pinned library, `playwright==1.63.0`. That
   run asserts the browser build rather than inferring it from the pin: its
   `test_history_matrix_revalidates_current_saved_status` asserts `153.0.8010.12` on the full Chromium
   of that install, and the four focus tests drive the headless shell the same install provides.
@@ -972,7 +972,7 @@ QC-12, QC-25, QC-26, QC-27, QC-40, QC-41 and QC-60 are review gates and have no 
 - **RN-24:** Version 4 was written on 2026-10-07. It read the answered companion, copied whole to
   `trail/architecture/cycle-3.md` before the fold, and the reasoning behind its answers at
   `trail/architecture/self_answer-5.md`. It read SDD version 6's whole change since version 4
-  (`git diff facf92e37 HEAD -- products/tracker17/docs/SDD.md`): § 4 RT-5, RT-7, RT-10, TS-4,
+  (`git diff <a commit not in the public history> HEAD -- products/tracker17/docs/SDD.md`): § 4 RT-5, RT-7, RT-10, TS-4,
   § 10 RC-2, § 11 R-6, R-11, RN-31 to RN-37 and § Open Questions. RT-7's form carrying the values the
   page showed moves no entry: QC-8 has `web` keep nothing between requests, and a value carried in the
   form is not kept by `web`. RT-10's stated maximums are already QC-9's (RN-19). RT-5's address moves
@@ -1054,11 +1054,11 @@ QC-12, QC-25, QC-26, QC-27, QC-40, QC-41 and QC-60 are review gates and have no 
   hard-to-reverse gate. *(re: ADR-0009, QC-61, `adr/`; source: SDD § 4 RT-3, RT-4, § 11 R-9, § 12,
   RN-38)*
 - **RN-30:** Version 7 was written on 2026-10-08. It read SDD version 7's whole change since version
-  6 (`git show 4156e81b2 -- products/tracker17/docs/SDD.md`): § 4 RT-3, RT-4, § 6 `first-project`
+  6 (`git show <a commit not in the public history> -- products/tracker17/docs/SDD.md`): § 4 RT-3, RT-4, § 6 `first-project`
   *Artifact*, § 11 R-9 and RN-38 to RN-40, with `trail/sdd/cycle-4.md` behind them. RN-27 to RN-29
   are what it moves; it changed no obligation. The SRS, the FDR, the PRD, the UXD, `DESIGN.md`,
   `CONTENT.md`, the finish line and the project's doctrine are unchanged since version 6. It read the
-  companion as it stands at `7d6c3feee` and `trail/architecture/self_answer-8.md`. The companion holds
+  companion as it stands at `<a commit not in the public history>` and `trail/architecture/self_answer-8.md`. The companion holds
   two items with no answer slot filled — § 2.1, the reading of QC-40's first sentence, and § 3.1, the
   owner's call on a dated exception for the browser build — so it was not consumed, no trail cycle was
   written, and neither item is folded here: QC-40 stands as version 6 wrote it. Version 6 was Settled
@@ -1093,12 +1093,12 @@ QC-12, QC-25, QC-26, QC-27, QC-40, QC-41 and QC-60 are review gates and have no 
   moves: the reading settles how an entry binds, it is cheap to revise in place, and it earns no
   record. *(re: QC-40; source: owner, `trail/architecture/cycle-6.md` § 2.1)*
 - **RN-32:** Version 8 was written on 2026-10-08. It read the answered companion as committed at
-  `96dcb86b7` and copied it whole to `trail/architecture/cycle-6.md` before the fold. Of its two
+  `<a commit not in the public history>` and copied it whole to `trail/architecture/cycle-6.md` before the fold. Of its two
   items, § 2.1 was answered and is folded here (RN-31). § 3.1, the owner's call on a dated exception
   for the browser build `playwright==1.63.0` installs, has no answer, so it stays in the companion
   and this document stays Draft. The SRS, the SDD, the FDR, the PRD, the UXD, `DESIGN.md`,
   `CONTENT.md`, the finish line and the project's doctrine are unchanged since version 7
-  (`git log 332311003..96dcb86b7` touches only the companion). The one obligation that moves is
+  (`git log 332311003..<a commit not in the public history>` touches only the companion). The one obligation that moves is
   QC-40's. QC-40 is a review gate, so § 10 gains no row. No record in `adr/` moved. *(re: Version 8;
   QC-40)*
 - **RN-33:** **Dated exception to QC-40, recorded by the owner: 2026-10-10 to 2026-11-07.** The
@@ -1115,11 +1115,11 @@ QC-12, QC-25, QC-26, QC-27, QC-40, QC-41 and QC-60 are review gates and have no 
   `tests/requirements.txt:12` pins it. *(re: QC-40; source: owner, `trail/architecture/cycle-7.md`
   § 3.1)*
 - **RN-34:** Version 9 was written on 2026-10-10. It read the answered companion as committed at
-  `1aa6a4a8e` and copied it whole to `trail/architecture/cycle-7.md` before the fold, with the
+  `<a commit not in the public history>` and copied it whole to `trail/architecture/cycle-7.md` before the fold, with the
   reasoning behind the item at `trail/architecture/self_answer-10.md` and `self_answer-11.md`. Its one
   item, § 3.1, was answered and is folded here as RN-33. The SRS, the SDD, the FDR, the PRD, the UXD,
   `DESIGN.md`, `CONTENT.md`, the finish line and the project's doctrine are unchanged since version 8
-  (`git diff --stat 1f536001f..HEAD` over the product's `docs/` and the project folder touches only
+  (`git diff --stat <a commit not in the public history>..HEAD` over the product's `docs/` and the project folder touches only
   the companion, those two reports, `what_left.md` and one journey report). This run read
   `what_left.md` in full: it lists features the code does not yet have, and moves no entry. No
   obligation's text moves. QC-40's trace tag now names the exception. QC-40 is a review gate, so § 10
@@ -1138,7 +1138,7 @@ QC-12, QC-25, QC-26, QC-27, QC-40, QC-41 and QC-60 are review gates and have no 
   Questions at version 8; `tests/e2e/test_people.py:L58-L78`, the assertion helper and the test that
   calls it, and `:L90`, the removal test; `web/pages.py:L316` and `:L404`, the `tabindex="-1"
   autofocus` attributes on the added name and the heading; and `tests/requirements.txt:L12`,
-  `playwright==1.63.0`. `git diff --stat 641bb58b5 HEAD -- products/tracker17
+  `playwright==1.63.0`. `git diff --stat <a commit not in the public history> HEAD -- products/tracker17
   ':!products/tracker17/docs' ':!products/tracker17/README.md'` printed nothing, so the recorded
   pass ran against the code on `main` now. This run ran no suite. RN-15 keeps its ADR-0007 and port
   sentences, *because* QC-9's trace tag still sends a reader of ADR-0007 there (RN-23); it now says
@@ -1146,10 +1146,10 @@ QC-12, QC-25, QC-26, QC-27, QC-40, QC-41 and QC-60 are review gates and have no 
   ADR-0003; source: owner, `trail/architecture/cycle-8.md` § 3.1; SDD § 11 R-2, § Open Questions,
   RN-41)*
 - **RN-36:** Version 10 was written on 2026-10-11. It read the answered companion as committed at
-  `58ded3cc4` and copied it whole to `trail/architecture/cycle-8.md` before the fold, with the
+  `<a commit not in the public history>` and copied it whole to `trail/architecture/cycle-8.md` before the fold, with the
   reasoning behind its one item at `trail/architecture/self_answer-12.md`. Its one item, § 3.1, was
   answered and is folded into RN-15 (RN-35). The upstream documents moved since version 9
-  (`git diff --stat 24aa9ecd8 HEAD` over the product's `docs/` and the project folder). This run read
+  (`git diff --stat <a commit not in the public history> HEAD` over the product's `docs/` and the project folder). This run read
   each change: SRS versions 5 and 6, SDD version 8, FDR versions 3 and 4, PRD versions 5 and 6, and
   `CONTENT.md` version 8. None moves an entry. The fourth priority, `critical`, is behaviour (FDR
   R-51, R-90, PD-5), and no entry names the priority set. SRS FR-41 and AC-21, the README's opening
@@ -1158,7 +1158,7 @@ QC-12, QC-25, QC-26, QC-27, QC-40, QC-41 and QC-60 are review gates and have no 
   already bind. FDR R-119 and R-120 carry SDD § 4 RT-3 and RT-4's Linux lines, which RN-27 already
   reads. SDD version 8 changes no part, seam or § 4 condition, and its R-2 narrowing is what RN-15
   now records. The rest of the change, `DESIGN.md`'s one line included, replaces machine paths with
-  the predecessor's repository name. One of those edits reached `adr/`: commit `878d25dac` changed
+  the predecessor's repository name. One of those edits reached `adr/`: commit `<a commit not in the public history>` changed
   one path in `products/tracker17/docs/adr/0004-whole-state-saved-atomically-on-every-change.md`
   § Context and changed no decision. That is an in-place edit to an Accepted record that no
   producing run made. This run leaves it as it stands, because undoing it would put a machine path
@@ -1187,10 +1187,10 @@ QC-12, QC-25, QC-26, QC-27, QC-40, QC-41 and QC-60 are review gates and have no 
   *(re: QC-21, § 10, ADR-0001; source: owner, `trail/architecture/cycle-9.md` § 3.1; SDD § 3
   `application` row, § 4 RT-7, RN-45)*
 - **RN-38:** Version 11 was written on 2026-10-12. It read the answered companion as committed at
-  `1ae214355` and copied it whole to `trail/architecture/cycle-9.md` before the fold, with the
+  `<a commit not in the public history>` and copied it whole to `trail/architecture/cycle-9.md` before the fold, with the
   reasoning behind its one item at `trail/architecture/self_answer-13.md`. The PM opened that
   companion; no producing run wrote it. Its one item, § 3.1, was answered and is folded into QC-21
-  (RN-37). The upstream documents moved since version 10 (`git diff --stat ceac03d4b HEAD` over the
+  (RN-37). The upstream documents moved since version 10 (`git diff --stat <a commit not in the public history> HEAD` over the
   product's `docs/` and the project's `finish_line.md`, `doctrine/` and `project.md`). This run read each
   change: SDD version 9, whose one change is the § 3 `application` row and RN-45 and RN-46 behind it,
   and `CONTENT.md` version 9, whose one change is the date rule barring a refusal from naming how a
@@ -1227,7 +1227,7 @@ QC-12, QC-25, QC-26, QC-27, QC-40, QC-41 and QC-60 are review gates and have no 
   the owner confirmed the PM's correction with one addition (`trail/architecture/cycle-10.md` § 3.2;
   reasoning, `trail/architecture/self_answer-14.md` § 3.2), and `core/roles/CROSS_ROLE.md:L14-L19`
   now reads "a fresh clone of the repository that holds it, checked out at the commit under test …
-  A clone, not `git archive`". The PM measured the difference at `2866e76de`: `pytest
+  A clone, not `git archive`". The PM measured the difference at `<a commit not in the public history>`: `pytest
   products/tracker17/tests/` gave 1 failed, 936 passed in a `git archive` copy and 937 passed in a
   fresh clone (`trail/architecture/cycle-10.md` § 3.2). The addition is RN-28's *because*: its case,
   a cold reader running the suite where the contract sends a run, is gone, and the sentence now
@@ -1237,11 +1237,11 @@ QC-12, QC-25, QC-26, QC-27, QC-40, QC-41 and QC-60 are review gates and have no 
   § 10's QC-47 row, SDD RN-39 and SDD § 6 `first-project` stand as written. *(re: QC-47, RN-28;
   source: owner, `trail/architecture/cycle-10.md` § 3.2; SDD § 6 `first-project`, RN-39)*
 - **RN-41:** Version 12 was written on 2026-10-12. It read the answered companion as committed at
-  `4dbc7f570` and copied it whole to `trail/architecture/cycle-10.md` before the fold, with the
+  `<a commit not in the public history>` and copied it whole to `trail/architecture/cycle-10.md` before the fold, with the
   reasoning behind both items at `trail/architecture/self_answer-14.md`. The PM opened that
   companion; no producing run wrote it. Its two items, §§ 3.1 and 3.2, were answered and are folded
   into QC-21 (RN-39) and into QC-47 and RN-28 (RN-40). The upstream documents moved since version 11
-  (`git diff --stat df8ac27ea HEAD` over the product's `docs/`). This run read each change: SDD
+  (`git diff --stat <a commit not in the public history> HEAD` over the product's `docs/`). This run read each change: SDD
   version 10, whose one change is the § 3 `application` row and RN-47 and RN-48 behind it; UXD
   versions 5 and 6, which open UX-S1 with tracker17's two purposes (UXD RN-31) and let UX-I3 name no
   action and offer no reload where the wanted state already holds and the page shows it (UXD RN-32);
@@ -1256,19 +1256,19 @@ QC-12, QC-25, QC-26, QC-27, QC-40, QC-41 and QC-60 are review gates and have no 
   record in `adr/` moves. Nothing is left open, so the companion is removed and this document is
   Settled. *(re: Version 12; QC-21, QC-47, RN-28)*
 - **RN-42:** RN-15 ties each focus-test result to the commit it was measured at and makes no claim
-  about the tree after it, where version 12 said "no product code has moved since" `641bb58b5` —
+  about the tree after it, where version 12 said "no product code has moved since" `<a commit not in the public history>` —
   *because* the owner confirmed the PM's correction with one addition (`trail/architecture/cycle-11.md`
   § 3.1; reasoning, `trail/architecture/self_answer-15.md` § 3.1). The sentence had gone false:
-  `git diff --stat 641bb58b5 4f6f59752 -- products/tracker17/web products/tracker17/domain` prints
+  `git diff --stat <a commit not in the public history> <a commit not in the public history> -- products/tracker17/web products/tracker17/domain` prints
   `12 files changed, 2350 insertions(+), 26 deletions(-)`, `domain/comments.py` among them. The
   addition is the rule behind the fix: a "since" sentence goes false at the next merge whatever date
   it names, and a result tied to its commit does not, so RN-15 now writes none. RN-15 also records the
   comment focus tests as a second element that is not a control — the added comment carries
-  `tabindex="-1" autofocus` (`web/pages.py:L948`) — with their own verdict, 33 passed at `4f6f59752`
-  (the PM's run) and at `c0e4d65f4` (the answer's own run, in a fresh clone per
+  `tabindex="-1" autofocus` (`web/pages.py:L948`) — with their own verdict, 33 passed at `<a commit not in the public history>`
+  (the PM's run) and at `<a commit not in the public history>` (the answer's own run, in a fresh clone per
   `<CORE>/roles/CROSS_ROLE.md` § *Every seat*). This run checked the locators at `HEAD`
   (`web/pages.py:L948`, `tests/e2e/test_comments.py:L89` and `:L171`, `tests/requirements.txt:L12`)
-  and that `git diff --stat 4f6f59752 c0e4d65f4 -- products/tracker17 ':!products/tracker17/docs'`
+  and that `git diff --stat <a commit not in the public history> <a commit not in the public history> -- products/tracker17 ':!products/tracker17/docs'`
   names only `README.md`; it ran no suite. The comment tests reach neither open case, so both stay:
   the EX-6 confirmation, which SDD § 6 `status-moves` settles, and assistive-technology speech for
   EX-14, which one VoiceOver pass settles. ADR-0003 is neither edited nor superseded, because its
@@ -1276,10 +1276,10 @@ QC-12, QC-25, QC-26, QC-27, QC-40, QC-41 and QC-60 are review gates and have no 
   obligation and trace tag do not move, and § 10 gains no row. *(re: RN-15, ADR-0003, QC-34; source:
   owner, `trail/architecture/cycle-11.md` § 3.1)*
 - **RN-43:** Version 13 was written on 2026-10-13. It read the answered companion as committed at
-  `c6f8b0f65` and copied it whole to `trail/architecture/cycle-11.md` before the fold, with the
+  `<a commit not in the public history>` and copied it whole to `trail/architecture/cycle-11.md` before the fold, with the
   reasoning behind its one item at `trail/architecture/self_answer-15.md`. The PM opened that
   companion; no producing run wrote it. Its one item, § 3.1, was answered and is folded into RN-15
-  (RN-42). Since version 12 (`git diff --stat 1e9f21d7e HEAD` over the product's `docs/` and the
+  (RN-42). Since version 12 (`git diff --stat <a commit not in the public history> HEAD` over the product's `docs/` and the
   project's `finish_line.md`, `doctrine/` and `project.md`), two upstream files moved. This run read each
   change. PRD version 7 says tracker17 becomes public with kensaiapp's public release, which ships
   it as an example; that is a planning assumption, no entry or record names publication, and
@@ -1291,7 +1291,7 @@ QC-12, QC-25, QC-26, QC-27, QC-40, QC-41 and QC-60 are review gates and have no 
 - **RN-44:** ADR-0010 records the history-admission boundary and QC-63 binds it — *because* the
   owner confirmed companion § 2.1 with three additions (`trail/architecture/cycle-12.md` § 2.1;
   reasoning, `trail/architecture/self_answer-16.md` § 2.1), and SDD version 11 settled the decision
-  in § 4 RT-11, § 9 TO-8 and § 11 R-12 (SDD RN-49). The product has run on it since `9b05680c7`, and
+  in § 4 RT-11, § 9 TO-8 and § 11 R-12 (SDD RN-49). The product has run on it since `<a commit not in the public history>`, and
   until this version no record and no obligation named the 202 or the header. The first addition is
   the reversal cost. SDD TO-8 puts undoing the 202 at one line in `web`, and RN-13 and RN-22 refused
   records to one-line decisions. This one passes the hard-to-reverse gate because the line is not
@@ -1312,13 +1312,13 @@ QC-12, QC-25, QC-26, QC-27, QC-40, QC-41 and QC-60 are review gates and have no 
   confirmation), `Site._stored_as_asked` (`NOT_STORED` when the address carries `move_task`) and
   `Site._move_view`; the four layer-3 tests in `tests/integration/test_routes.py`, the 404 rows
   among them; the two layer-5 tests and `PINNED_BROWSER` in `tests/e2e/test_moves.py`. The recorded
-  result is SDD RT-11's: 67 passed in `tests/e2e/` in a fresh clone at `9b05680c7`, a count at that
+  result is SDD RT-11's: 67 passed in `tests/e2e/` in a fresh clone at `<a commit not in the public history>`, a count at that
   commit. This run ran no suite. ADR-0003 and ADR-0006 are neither edited nor superseded: ADR-0010
   adds a decision inside both and moves neither. *(re: ADR-0010, QC-63, § 10; source: owner,
   `trail/architecture/cycle-12.md` § 2.1; SDD § 4 RT-11, § 9 TO-8, § 11 R-12, RN-49; SRS NFR-3,
   NFR-13; UXD UX-F4, UX-I3)*
 - **RN-45:** Version 14 was written on 2026-10-21. It read the answered companion as committed at
-  `d9fe641ff` and copied it whole to `trail/architecture/cycle-12.md` before the fold, with the
+  `<a commit not in the public history>` and copied it whole to `trail/architecture/cycle-12.md` before the fold, with the
   reasoning behind both items at `trail/architecture/self_answer-16.md`. A `companion-self-answer`
   run opened that companion in the CTO's seat; no producing run wrote it. Of its two items, § 2.1
   was answered and is folded into ADR-0010 and QC-63 (RN-44). § 2.2, which asks for RN-15 to count
@@ -1338,7 +1338,7 @@ QC-12, QC-25, QC-26, QC-27, QC-40, QC-41 and QC-60 are review gates and have no 
 - **RN-46:** RN-15 counts the SDD § 4 EX-6 confirmation verified and one SDD Open Question left —
   *because* the owner confirmed companion § 2.2 with two additions (`trail/architecture/cycle-13.md`
   § 2.2; reasoning, `trail/architecture/self_answer-17.md` § 2.2), and SDD version 11 settled it:
-  § 11 R-2 counts the confirmation case verified by four tests at `9b05680c7`, and § Open Questions
+  § 11 R-2 counts the confirmation case verified by four tests at `<a commit not in the public history>`, and § Open Questions
   keeps only the assistive-technology item. The first addition is the browser build. RN-15 states it
   as R-2 does: the run pinned `playwright==1.63.0`, and asserted `153.0.8010.12` on the full Chromium
   of that install through `test_history_matrix_revalidates_current_saved_status`, while the four
@@ -1350,17 +1350,17 @@ QC-12, QC-25, QC-26, QC-27, QC-40, QC-41 and QC-60 are review gates and have no 
   run checked the locators at `HEAD`: the four tests at `tests/e2e/test_moves.py:174`, `:208`, `:321`
   and `:606`, `PINNED_BROWSER` at `:452`, the `browser` and `history_browser` fixtures in
   `tests/e2e/conftest.py`, `playwright==1.63.0` in `pyproject.toml` and `tests/requirements.txt`, and
-  that `git diff --stat 9b05680c7 HEAD -- products/tracker17 ':!products/tracker17/docs'` lists one
+  that `git diff --stat <a commit not in the public history> HEAD -- products/tracker17 ':!products/tracker17/docs'` lists one
   line of `README.md` and no code. It ran no suite. RN-42 is a dated record and is not edited.
   ADR-0003 and ADR-0007 are neither edited nor superseded, because neither decision moved and each
   citation was true on its date (RN-15's own rule). QC-9's and QC-34's obligations and trace tags do
   not move, and § 10 gains no row. *(re: RN-15, ADR-0003, ADR-0007, QC-9, QC-34; source: owner,
   `trail/architecture/cycle-13.md` § 2.2; SDD § 11 R-2, § Open Questions, RN-36)*
 - **RN-47:** Version 15 was written on 2026-10-21. It read the answered companion as committed at
-  `b8fec1f86` and copied it whole to `trail/architecture/cycle-13.md` before the fold, with the
+  `<a commit not in the public history>` and copied it whole to `trail/architecture/cycle-13.md` before the fold, with the
   reasoning behind its one item at `trail/architecture/self_answer-17.md`. A `companion-self-answer`
   run raised that item in this seat; no producing run wrote it. It was answered and is folded into
-  RN-15 (RN-46). Since version 14 (`git diff --stat b4810919c HEAD` over the product and the project's
+  RN-15 (RN-46). Since version 14 (`git diff --stat <a commit not in the public history> HEAD` over the product and the project's
   `finish_line.md`, `doctrine/` and `project.md`), only the companion and its reasoning file moved; no
   upstream document changed, so `Inputs read:` stands. No obligation's text, no trace tag and no
   § 10 row moves, and no record in `adr/` moves. Nothing is left open, so the companion is removed

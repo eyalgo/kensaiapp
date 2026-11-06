@@ -21,9 +21,9 @@ Two rules, and the second is what makes the first mean anything:
    end it; if that something is not an identity check, it is a pid number by elimination.
 
 **The utility form is deliberately exempt, and naming it is the point.**
-`core/tools/launch-audit.sh:222` runs `caffeinate -i -s python3 "$WATCHER" …` — caffeinate as a
-*wrapper*, holding exactly as long as its own child, with no pid anywhere and nothing to reissue.
-It is not detached, so rule 2 never reaches it, and it carries no `-w`, so rule 1 passes it. A
+`core/tools/launch-audit.sh:326` runs `caffeinate -i -s "$SCRIPT_DIR/locked_python.sh" "$WATCHER" …`
+— caffeinate as a *wrapper*, holding exactly as long as its own child, with no pid anywhere and
+nothing to reissue. It is not detached, so rule 2 never reaches it, and it carries no `-w`, so rule 1 passes it. A
 check that flagged it would be reporting a finding against correct code, and the first reader to
 learn that would stop reading the rest.
 """
@@ -238,7 +238,7 @@ def test_every_file_that_detaches_a_watcher_reaches_the_shared_home():
                 l for l in path.read_text().splitlines() if not l.lstrip().startswith("#")
             ]
             body = "\n".join(lines)
-            if not any("nohup python3" in l and "WATCHER" in l for l in lines):
+            if not any("nohup" in l and "locked_python.sh" in l and "WATCHER" in l for l in lines):
                 continue  # detaches no watcher — nothing for the shared home to serve
             if "detach_completion_watcher" not in body:
                 offenders.append(rel)

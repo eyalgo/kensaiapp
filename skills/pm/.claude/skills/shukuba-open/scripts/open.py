@@ -4,9 +4,11 @@
 The model writes the station from the shukuba template; this file decides whether a station may
 be opened, and whether the one written may land. Three commands:
 
-    check    — the journey is in a state where a station can open; prints the active seed, the
-               next unticked item on its route, and a parked station of that seed that already
-               carries it.
+    check    — the journey is in a state where a station can open, and, when the product the
+               project's card names has a `docs/SDD.md`, the SDD's companion
+               `docs/SDD_open_issues.md` holds no open Raised from downstream item tracked by the
+               active seed; prints the active seed, the next unticked item on its route, and a
+               parked station of that seed that already carries it.
     apply    — the station written outside the repository names that item and carries the
                template's three parts; writes it to the shukuba root and prints its path.
     take-up  — a parked station carries the item; moves it whole back to the root and prints
@@ -16,8 +18,9 @@ Every refusal is printed and exits 1; nothing is written or moved on a refusal. 
 root, the git runner and today's date are given, never derived, so the checks are testable at
 their seams.
 
-Stdlib only, plus `<CORE>/tools/journey_names.py`, which owns a station slug's characters and is
-reached through this file's own path.
+Stdlib only, plus `<CORE>/tools/journey_names.py`, which owns a station slug's characters, and
+`<CORE>/tools/development_path.py`, which owns how a project card's `Product path:` line is read.
+Both are reached through this file's own path.
 """
 
 from __future__ import annotations
@@ -33,9 +36,10 @@ from typing import Callable
 
 # <root>/skills/pm/.claude/skills/shukuba-open/scripts/open.py → <root>/core/tools
 sys.path.insert(0, str(Path(__file__).resolve().parents[6] / "core" / "tools"))
+import development_path  # noqa: E402
 import journey_names  # noqa: E402
 
-__version__ = "1.3.0"
+__version__ = "1.4.0"
 
 Git = Callable[[Path, list[str]], str]
 Today = Callable[[], datetime.date]
@@ -47,6 +51,8 @@ _SLUG = re.compile(rf"^`?({journey_names.SLUG})`?(?:\s+—\s+.*)?$")
 _COMMENT = re.compile(r"<!--.*?-->", re.DOTALL)
 _PLACEHOLDER = re.compile(r"^<[^>]*>$", re.DOTALL)
 _PARTS = ("What it is", "Reached when", "Guardrail")
+_RAISED_SECTION = "Raised from downstream"
+_TRACKED_BY = "**Tracked by:**"
 
 
 class Refused(Exception):
@@ -69,6 +75,20 @@ def run_git(root: Path, args: list[str]) -> str:
     return subprocess.run(
         ["git", "-C", str(root), *args], check=True, capture_output=True, text=True
     ).stdout
+
+
+class Files:
+    """The product's records as `hold` reads them — the one place the hold touches a file."""
+
+    def read_text(self, path: Path) -> str | None:
+        """The file's text, or `None` when no readable file is there."""
+        try:
+            return path.read_text(encoding="utf-8")
+        except OSError:
+            return None
+
+    def is_file(self, path: Path) -> bool:
+        return path.is_file()
 
 
 def _visible(folder: Path, fixtures: set[str]) -> list[Path]:
@@ -139,11 +159,13 @@ def _parked_for(folder: Path, slug: str, seed: str) -> list[Path]:
 
 
 def check(root: Path, project: str, git: Git) -> Next:
-    """Refuse unless a station can open now; return the item it opens from."""
+    """Refuse unless the journey lets a station open now; return the item it opens from.
+
+    It answers the journey alone. Whether the SDD's companion holds the seed back is `hold()`'s."""
     j = journey(root, project)
     seeds = _visible(j / "nemawashi", _SEEDBED_FIXTURES)
     if not seeds:
-        raise Refused("no seed is active — nemawashi-pick first")
+        raise Refused("no seed is active — seed-pick first")
     if len(seeds) > 1:
         raise Refused(f"more than one seed at the seedbed root: {', '.join(p.name for p in seeds)}")
     station = _visible(j / "shukuba", _SHUKUBA_FIXTURES)
@@ -174,6 +196,72 @@ def check(root: Path, project: str, git: Git) -> Next:
     if git(root, ["status", "--porcelain", "--", str(j.relative_to(root))]).strip():
         raise Refused("the working tree is not clean")
     return Next(project, seed, number, slug, line, parked[0] if parked else None)
+
+
+def _sdd_docs(root: Path, project: str, *, files: Files, home: str) -> Path | None:
+    """The `docs/` folder of the product the project's card names, when it holds a `docs/SDD.md`.
+    No card, no `Product path:` the parser accepts, or no SDD there, name no product."""
+    card = files.read_text(root / "system" / "projects" / project / "project.md")
+    if card is None:
+        return None
+    try:
+        _, value = development_path.parse_product_path(card, home)
+    except development_path.ToolError:
+        return None
+    docs = root / value / "docs"
+    return docs if files.is_file(docs / "SDD.md") else None
+
+
+def _tracked_by(item: list[str], triple: str) -> bool:
+    """The item's `**Tracked by:**` value names `triple` whole, and is not a `<…>` placeholder."""
+    for line in item:
+        if _TRACKED_BY not in line:
+            continue
+        value = line.split(_TRACKED_BY, 1)[1].strip()
+        if not (value.startswith("<") and value.endswith(">")) and _names(value, triple):
+            return True
+    return False
+
+
+def _open_items(companion: str, triple: str) -> list[str]:
+    """The `### ` headings, in file order, of the items in the companion's Raised from downstream
+    section that `triple` tracks. Only text outside HTML comments is read."""
+    lines = _COMMENT.sub("", companion).splitlines()
+    start = next((i for i, line in enumerate(lines)
+                  if line.startswith("## ") and _RAISED_SECTION in line), None)
+    if start is None:
+        return []
+    items: list[tuple[str, list[str]]] = []
+    for line in lines[start + 1:]:
+        if line.startswith("## "):
+            break
+        if line.startswith("### "):
+            items.append((line[len("### "):].strip(), []))
+        elif items:
+            items[-1][1].append(line)
+    return [heading for heading, body in items if _tracked_by(body, triple)]
+
+
+def hold(root: Path, nxt: Next, *, files: Files, home: str) -> None:
+    """Refuse while the SDD's companion holds an open Raised from downstream item that the active
+    seed tracks. The product is the one the project's card names, and only a product with a
+    `docs/SDD.md` is held. Reads through `files`, writes nothing, returns when nothing is held."""
+    docs = _sdd_docs(root, nxt.project, files=files, home=home)
+    companion = files.read_text(docs / "SDD_open_issues.md") if docs is not None else None
+    if companion is None:
+        return
+    triple = f"{nxt.project} · nemawashi · {nxt.seed}"
+    headings = _open_items(companion, triple)
+    if not headings:
+        return
+    listed = "; ".join(headings)
+    if len(headings) == 1:
+        raise Refused(
+            f"records-owed — SDD_open_issues.md holds an open Raised from downstream item tracked "
+            f"by {triple}, and no station of that seed opens until it has folded: {listed}")
+    raise Refused(
+        f"records-owed — SDD_open_issues.md holds open Raised from downstream items tracked "
+        f"by {triple}, and no station of that seed opens until they have folded: {listed}")
 
 
 def _validate(station: str, nxt: Next) -> None:
@@ -233,9 +321,11 @@ def main(argv: list[str] | None = None, git: Git = run_git, today: Today = datet
     sub.add_parser("take-up")
     args = parser.parse_args(argv)
     root = args.root.resolve()
+    files, home = Files(), str(Path.home())  # the composition root: the one place they are built
     try:
+        nxt = check(root, args.project, git)
+        hold(root, nxt, files=files, home=home)
         if args.command == "check":
-            nxt = check(root, args.project, git)
             print(f"Seed: {nxt.seed}\nItem: {nxt.number}\nSlug: {nxt.slug}\nLine: {nxt.line}")
             if nxt.parked is not None:
                 print(f"Parked: {nxt.parked.relative_to(root)}")

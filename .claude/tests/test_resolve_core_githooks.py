@@ -135,3 +135,71 @@ def test_resolution_still_works_when_wiring_is_impossible(tmp_path):
 
     assert str(plain / "core") in context
     assert "core.hooksPath" not in context
+
+
+def _product(tmp_path: Path, name: str = "product") -> Path:
+    repo = tmp_path / name
+    repo.mkdir()
+    _git(repo, "init", "-q")
+    return repo
+
+
+def _card(instance: Path, project: str, product_path: str) -> None:
+    card = instance / "system" / "projects" / project / "project.md"
+    card.parent.mkdir(parents=True)
+    card.write_text(f"# {project}\n\n**Product path:** {product_path}   <!-- note -->\n")
+
+
+def test_wires_an_external_product_repo_a_card_names(tmp_path):
+    instance = _instance(tmp_path)
+    product = _product(tmp_path)
+    _card(instance, "p", str(product))
+
+    context = _run_hook(instance)
+
+    assert _hooks_path(product) == str(instance / "core" / "githooks")
+    assert str(product) in context
+
+
+def test_leaves_a_product_inside_the_instance_alone(tmp_path):
+    instance = _instance(tmp_path)
+    (instance / "products" / "inner").mkdir(parents=True)
+    _card(instance, "p", "products/inner")
+
+    _run_hook(instance)
+
+    assert _hooks_path(instance) == str(instance / "core" / "githooks")  # the instance's own wiring
+
+
+def test_does_not_override_a_products_own_choice(tmp_path):
+    instance = _instance(tmp_path)
+    product = _product(tmp_path)
+    _git(product, "config", "core.hooksPath", "/products/own")
+    _card(instance, "p", str(product))
+
+    _run_hook(instance)
+
+    assert _hooks_path(product) == "/products/own"
+
+
+def test_does_not_shadow_a_products_active_hooks(tmp_path):
+    instance = _instance(tmp_path)
+    product = _product(tmp_path)
+    (product / ".git" / "hooks" / "pre-commit").write_text("#!/bin/sh\nexit 0\n")
+    _card(instance, "p", str(product))
+
+    _run_hook(instance)
+
+    assert _hooks_path(product) is None
+
+
+def test_a_card_naming_a_missing_or_non_git_folder_is_skipped(tmp_path):
+    instance = _instance(tmp_path)
+    plain = tmp_path / "plain"
+    plain.mkdir()
+    _card(instance, "a", str(tmp_path / "gone"))
+    _card(instance, "b", str(plain))
+
+    context = _run_hook(instance)
+
+    assert "product repository" not in context

@@ -21,7 +21,7 @@ when_to_use: >-
 license: MIT
 metadata:
   author: Eyal Golan
-  version: "2.0.0"
+  version: "2.2.0"
   created: "2026-09-11"
   category: planning
   tags: tobiishi, tl_instruction, change_design, change_spec, tech-lead, development
@@ -159,7 +159,7 @@ the same answer from any linked worktree of it. Step 4's command cuts the branch
    again once it is committed. Unattended with none, the Request is the brief; skip to Step 2.
    Otherwise run
 
-       python3 <CORE>/tools/check_brief_quotes.py <brief> --root "$(git rev-parse --show-toplevel)"
+       "<CORE>/tools/locked_python.sh" <CORE>/tools/check_brief_quotes.py <brief> --root "$(git rev-parse --show-toplevel)"
 
    It prints one line per citation whose quote is not at its lines, and ends with a count on stderr
    of the citations it checked and the ones it skipped as unresolvable. **Any line it prints before
@@ -222,7 +222,7 @@ Run the command `development-specs` Step 4 runs, with the main checkout's top le
 the key:
 
 ```bash
-python3 "<CORE>/tools/create_change_worktree.py" \
+"<CORE>/tools/locked_python.sh" "<CORE>/tools/create_change_worktree.py" \
   --instance "$(git rev-parse --show-toplevel)" --project <project> --key <key>
 ```
 
@@ -269,7 +269,9 @@ missing:** keep every section the template has, and write each as briefly as the
   the line after `Behaviour:`, **decided by this run** from the spec: `yes — <the places the words live>`
   when the change puts text in front of a person to read, `no` otherwise, and always `no` for a
   `Behaviour: preserving` change (the rule is `development-design`'s Step 6). The chain reads its first
-  word, which must be exactly `yes` or `no`. Below it in the header:
+  word, which must be exactly `yes` or `no`. On a product with code, the `Language resolution:` line
+  follows it, resolved as `development-design`'s Pre-flight says — the plan header carries the same
+  value — and on a product with no code the line is omitted. Below them in the header:
   `**Planned by:** ad-hoc-plan — stub design; development-design did not run on this change.`;
 - §1–§5 (§3 omitted when one module is affected, as the template says);
 - `## Records this change makes false` — always, its zero form naming what was read.
@@ -289,7 +291,8 @@ Before committing, read the spec and design as the stages after this one will:
 - **Headers.** `Category` and `Behaviour` read the same in all three files and in `change_request.md`,
   each file carries its `**Planned by:** ad-hoc-plan` line, and
   `change_design.md` carries a `Publishes text:` line whose first word is exactly `yes` or `no`, with a
-  `yes` naming its places.
+  `yes` naming its places, and on a product with code a filled `Language resolution:` line, never the
+  template's placeholder.
 
 A miss here is this run's own output, so fix it in place and check again.
 
@@ -311,7 +314,7 @@ Report the key, the worktree, the three files and the report by path, and name t
 The next move is the chain, with no entry argument and no key:
 
 ```
-<CORE>/launchers/chain-development/launcher.sh <project>
+<CORE>/launchers/change/launcher.sh <project>
 ```
 
 The chain takes the project's single active Tobiishi and enters at the first step whose artifact is

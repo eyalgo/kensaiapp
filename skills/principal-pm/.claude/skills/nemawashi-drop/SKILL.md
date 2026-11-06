@@ -21,7 +21,7 @@ description: |
   this", "rule this one out", "this seed is superseded for good", "nemawashi-drop".
 license: MIT
 metadata:
-  version: "3.6.2"
+  version: "3.9.0"
   category: journey
   risk: safe
   created: "2026-09-04"
@@ -210,7 +210,7 @@ root one. Naming a path the index does not carry is refused by the staged-set gu
 a staged path undeclared; the wrong template produces both refusals at once.
 
 ```bash
-python3 "<CORE>/tools/commit_builder.py" --repo "<instance root>" commit \
+"<CORE>/tools/locked_python.sh" "<CORE>/tools/commit_builder.py" --repo "<instance root>" commit \
   --staged "<seed>" "<nema>/drop/<slug>.md" \
   [--add system/contexts/CONTEXT_PPM.md] \
   --subject "drop: nemawashi/<slug> → drop/" \
@@ -234,7 +234,7 @@ the retire is the one journey move that does, per `<CORE>/docs/journey_move.md` 
 reading follows the move, not the referent" — so claiming `progress:` for a kill would say the project
 advanced by giving something up:
 
-- **project** seed → `Agari: <name> — aside: <why the idea was killed>`. A station should not be open on
+- **project** seed → `Finish-line: <name> — aside: <why the idea was killed>`. A station should not be open on
   this idea — Step 1C stops if one is — so `Shukuba:` does not apply. Never `Shukuba: none`, which
   doctrine retired.
 - **instance** seed → `Michi: aside: <why the idea was killed>`, with no way-slug, per
@@ -251,7 +251,7 @@ not have been.
 ### Step 5 — Say which pointers the move broke
 
 ```bash
-python3 "<CORE>/tools/check_journey_links.py" --repo "<instance root>"
+"<CORE>/tools/locked_python.sh" "<CORE>/tools/check_journey_links.py" --repo "<instance root>"
 ```
 
 Per `<CORE>/docs/journey_move.md` § After the move, say which pointers it broke, which owns both halves of

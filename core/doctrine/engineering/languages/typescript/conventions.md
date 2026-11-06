@@ -1,5 +1,5 @@
 ---
-version: "1.0.1"
+version: "1.2.0"
 ---
 
 # TypeScript — conventions
@@ -70,6 +70,8 @@ their force: a rule here is a requirement whether or not a tool can see it.
 - **A type-only import says so** — `import type { FileTree } from "./file-tree"`. Under
   `verbatimModuleSyntax` an import is emitted as written, so an unmarked type import becomes a real
   runtime import of a module that may hold no runtime value at all.
+- **A unit is given its collaborators through a type, as a constructor or function parameter.** `arch_defaults.md` § Dependency Graph Rules states the rule language-agnostically: "Only the composition root imports concrete implementations. Every other module depends on abstractions". In TypeScript the abstraction is a type naming the methods the unit calls: an `interface` where a class `implements` it, and a `type` otherwise, by the first bullet of this section. The concrete collaborator is imported and passed in at one place only, the composition root. A unit that constructs or imports its own collaborator does not meet the rule, because `testing_doctrine.md` then has no door to hand a fake through: "Where the subject offers no door to hand a fake through, the defect is the subject's shape and not the test's" (`testing_doctrine.md` § Layers 1–5 — Code-Time (TDD)). This idiom is the packet author's call, 2026-11-04.
+- **The four layers, where a product's SDD draws them, take the module as their unit.** `arch_defaults.md` § The four layers states them and the dependency rule. In TypeScript a port is the `interface` or `type` the bullet above names, declared in a `ports` module, and an adapter is the class that `implements` it, or the object that `satisfies` it, in an `adapters` module. Only the composition root imports an adapter. A `domain` or `ports` module imports no `node:` module that reaches the machine, such as `node:fs/promises`, `node:child_process` or `node:http`, subpaths included, and reads or calls no global that does, such as `process.env`, `fetch`, `Date.now`, `new Date()` with no argument, `performance.now` or `setTimeout`.
 
 ## The constructs this packet avoids
 

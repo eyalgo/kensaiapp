@@ -1,5 +1,5 @@
 ---
-version: "1.8.0"
+version: "1.10.0"
 ---
 
 # nemawashi-refine — the judgment
@@ -16,7 +16,7 @@ A seed walked to the end leaves two things behind: the asks its walk raised for 
 the next pick will be made from. The retire filed the first in `trail/`, where nothing looks again, and
 the second has not been read since the seed was picked. The run succeeds when **every ask has an
 answer the reader can check, and the pool holds only candidates worth picking now** — each still
-advancing the project's Agari, each still true to what the walk found.
+advancing the project's finish line, each still true to what the walk found.
 
 A run that moves nothing is a good run when nothing was owed. A run that drops half the pool because the
 walk made it look stale, without saying what made it stale, is a bad one.
@@ -53,10 +53,10 @@ follows the first.
 
 ## Every candidate is kept, modified or dropped
 
-Read each candidate in `unpicked/` against three things: the project's `agari.md`, `system/michi.md`,
+Read each candidate in `unpicked/` against three things: the project's `finish_line.md`, `system/michi.md`,
 and what the retired seed's walk found — its reports, its recommendations and the seed's own checklist.
 
-- **Kept** — it still advances the Agari, serves a Way the Michi still steers by, and nothing the walk
+- **Kept** — it still advances the finish line, serves a Way the Michi still steers by, and nothing the walk
   found changes what it says. Most candidates are kept, and a kept candidate is still a row.
 - **Modified** — it still belongs, but something it says is now false or incomplete: a station the walk
   already did, a source that moved, a reached-when the walk showed cannot be measured, an ask a
@@ -64,7 +64,7 @@ and what the retired seed's walk found — its reports, its recommendations and 
   candidate was never walked — and never rewrite what it is about; a candidate whose idea changed is a
   drop and a new cut, not a modification.
 - **Dropped** — ruled out: the walk did it, a document now rules it out, another candidate supersedes
-  it, or it advances no Agari. The reason is the one `nemawashi-drop` takes, in words a reader who never
+  it, or it advances no finish line. The reason is the one `nemawashi-drop` takes, in words a reader who never
   saw this run can check.
 
 **A candidate is not dropped for being old, or for being unlikely to be picked soon.** Order is the
@@ -144,13 +144,13 @@ absolute path, which a project a release ships may not name.
 
 | Move | Owed when | Whose | Command |
 |---|---|---|---|
-| sweep the product's companions | this run wrote a companion item, or a product companion is live with every item answered and not yet folded, and no chain is in flight, and the project card's **Definition:** is not none | owner | `<CORE>/launchers/chain-product/launcher.sh <project>` when the project card's **Definition:** is full; `<CORE>/launchers/chain-agari/launcher.sh <project>` when it is prd-agari; no sweep row when it is none |
+| sweep the product's companions | this run wrote a companion item, or a product companion is live with every item answered and not yet folded, and no chain is in flight, and the project card's **Definition:** is not none | owner | `<CORE>/launchers/product-docs/launcher.sh <project>` when the project card's **Definition:** is full; `<CORE>/launchers/prd-and-finish-line/launcher.sh <project>` when it is prd-and-finish-line; no sweep row when it is none |
 | cut from the product's documents | § *Whether a docs cut is owed* says so | Principal PM | `<CORE>/launchers/skill/launcher.sh seeds-from-product-docs <project>` |
 | re-run a halted cut | `seeds-from-idea` halted in this run | Principal PM | the halt's own named re-run |
 | route across projects | a recommendation was answered that way | Principal PM | none — a `principal-pm:` session, on that recommendation |
-| pick a seed | the seedbed root is empty, and the pool is not or a docs cut above will fill it | PM | `<CORE>/launchers/skill/launcher.sh nemawashi-pick <project>` |
+| pick a seed | the seedbed root is empty, and the pool is not or a docs cut above will fill it | PM | `<CORE>/launchers/skill/launcher.sh seed-pick <project>` |
 | cut the route | a pick above is owed | PM | `<CORE>/launchers/skill/launcher.sh stations-from-seed <project>` |
-| walk the next change | the route cut above is owed, or the active seed has an unticked station that can be walked where it stands, and no owner's act below comes first — and not when it turns on a pick this table leaves owed (below) | owner | `<CORE>/launchers/chain-change/launcher.sh <project>` |
+| walk the next change | the route cut above is owed, or the active seed has an unticked station that can be walked where it stands, and no owner's act below comes first — and not when it turns on a pick this table leaves owed (below) | owner | `<CORE>/launchers/walk/launcher.sh <project>` |
 | the owner's act | the next station is one only the owner walks — and not when it turns on a pick this table leaves owed (below) | owner | none — walk that station yourself, then resume with `<CORE>/launchers/build-idea/launcher.sh <project>` |
 
 **Each row of the report's table adds two columns.** *From* names the recommendation, candidate or
@@ -179,7 +179,7 @@ than executed as a command.
 When nothing is owed — no sweep, no
 cut, no pick, because the pool is empty and the documents hold nothing left to cut — write "Nothing is
 owed; the project's seedbed is exhausted." under the heading instead of a table, and say in the run's
-report that the project may be at its Agari, which is the owner's to judge.
+report that the project may be at its finish line, which is the owner's to judge.
 
 ## Tone
 

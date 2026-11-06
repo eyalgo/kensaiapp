@@ -1,5 +1,5 @@
 ---
-version: "2.0.2"
+version: "2.2.0"
 ---
 
 # TypeScript — testing
@@ -67,8 +67,8 @@ a second one.
   browser downloads instead of two. Pointing it at the dev server would undo that: the dev server
   transforms on demand and serves modules the build would have bundled differently, so a pass
   against it is not a statement about what ships.
-- **What is mocked is decided by `testing_doctrine.md`'s table**, not by what is convenient to stub
-  in TypeScript. The subject stays real.
+- **What is mocked is decided by `testing_doctrine.md`'s table**, not by what is convenient to stub in TypeScript. The subject stays real. A unit test hands it a fake through the parameter `conventions.md` requires. The fake is a class written once in `tests/fakes/` that `implements` the collaborator's type (`testing_doctrine.md` § A fake is verified against its port's contract), so the compiler refuses a fake whose shape has drifted from the real one. What the fake received is kept on its instance, and the test asserts on it. A test never replaces a module the subject imports with `vi.mock`, because that edits the subject rather than mocking it: "Reach a collaborator through a seam; never patch the subject" (`testing_doctrine.md` § Layers 1–5 — Code-Time (TDD)). What a unit test may touch is `testing_doctrine.md` § A unit test hands its unit fakes and touches nothing real, and this file restates none of it. This idiom is the packet author's call, 2026-11-04.
+- **A fake is verified by a contract suite, by `testing_doctrine.md` § A fake is verified against its port's contract.** In TypeScript the fakes live in a test-support folder, `tests/fakes/`, each as a class that `implements` the port's interface, so each test constructs and seeds its own instance; a port that is a function type is faked by a factory that returns a recording function. A method's parameters are checked bivariantly, so a port declares its members as function-typed properties, which `strictFunctionTypes` checks strictly, to have the compiler refuse a fake that widens one. The suite is a function typed on the port's interface that takes a factory and declares the port's tests with Vitest's `describe` and `it`, called from a layer-2 test file twice: once with a factory for the real adapter, writing only inside a temporary directory the test makes, and once with the fake's. **TypeScript has no unit-tier sandbox:** nothing refuses a real resource in a unit test while it runs, so the seam and review hold the rule.
 
 ## Layers 6–7 — acceptance-time
 

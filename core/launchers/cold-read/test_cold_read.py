@@ -27,11 +27,12 @@ import json
 import os
 import re
 import subprocess
-import sys
 import time
 from pathlib import Path
 
 import pytest
+
+from test_support_python3_stub import python3_calls_outside_uv, python3_that_only_fails
 
 import launcher_telemetry_test_support as support
 from path_test_support import path_without_caffeinate as _path_without_caffeinate
@@ -80,15 +81,19 @@ log_dir = os.environ["WATCHER_ARGV_DIR"]
 # the later ones silently overwrite the earlier, and the recorded count comes up short by however
 # many collided. That is not a slow write a reader can wait out; the file never existed separately.
 # O_CREAT|O_EXCL makes the claim indivisible: exactly one process wins each n, the losers retry.
+# Keep the claim and publish the .argv hard link only after writing, so a count-based reader
+# cannot observe a claimed but empty record.
 n = 0
 while True:
     try:
-        fd = os.open(os.path.join(log_dir, f"call-{n}.argv"), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+        claim = os.path.join(log_dir, f"call-{n}.claim")
+        fd = os.open(claim, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
         break
     except FileExistsError:
         n += 1
 with os.fdopen(fd, "wb") as fh:
     fh.write(b"\\0".join(a.encode("utf-8") for a in sys.argv[1:]))
+os.link(claim, os.path.join(log_dir, f"call-{n}.argv"))
 seq = os.environ.get("SEQ_LOG")
 if seq:
     with open(seq, "a") as fh:
@@ -519,8 +524,8 @@ def test_skill_argument_starting_with_dot_is_refused_as_a_path(run):
 
 def test_unknown_flag_is_refused_not_ignored(run):
     run.skill("product-uxd")
-    run.project("product-definition")
-    result = run("product-uxd", "--project", "product-definition", "--dryrun")
+    run.project("demo-product")
+    result = run("product-uxd", "--project", "demo-product", "--dryrun")
     assert result.returncode == 1
     assert "--dryrun" in result.stderr
     assert run.claude_calls() == []
@@ -528,15 +533,15 @@ def test_unknown_flag_is_refused_not_ignored(run):
 
 def test_unknown_second_positional_is_refused(run):
     run.skill("product-uxd")
-    run.project("product-definition")
-    result = run("product-uxd", "extra-positional", "--project", "product-definition")
+    run.project("demo-product")
+    result = run("product-uxd", "extra-positional", "--project", "demo-product")
     assert result.returncode == 1
     assert "extra-positional" in result.stderr
 
 
 def test_missing_skill_dies_before_launching(run):
-    run.project("product-definition")
-    result = run("ghost-skill", "--project", "product-definition")
+    run.project("demo-product")
+    result = run("ghost-skill", "--project", "demo-product")
     assert result.returncode == 1
     assert "ghost-skill" in result.stderr
     assert run.claude_calls() == []
@@ -544,8 +549,8 @@ def test_missing_skill_dies_before_launching(run):
 
 def test_missing_manifest_names_the_one_entry_fix(run):
     run.skill("product-uxd", manifest=False)
-    run.project("product-definition")
-    result = run("product-uxd", "--project", "product-definition")
+    run.project("demo-product")
+    result = run("product-uxd", "--project", "demo-product")
     assert result.returncode == 1
     assert "stack.json" in result.stderr
     assert "one-entry manifest" in result.stderr
@@ -555,8 +560,8 @@ def test_missing_manifest_names_the_one_entry_fix(run):
 def test_malformed_manifest_fails_loudly_with_manifest_pys_own_message(run):
     skill_dir = run.skill("product-uxd")
     (skill_dir / "stack.json").write_text(json.dumps({"version": 2, "substance": ["x"]}))
-    run.project("product-definition")
-    result = run("product-uxd", "--project", "product-definition")
+    run.project("demo-product")
+    result = run("product-uxd", "--project", "demo-product")
     assert result.returncode == 1
     assert "version" in result.stderr
     assert run.claude_calls() == []
@@ -565,8 +570,8 @@ def test_malformed_manifest_fails_loudly_with_manifest_pys_own_message(run):
 def test_manifest_with_empty_substance_array_fails(run):
     skill_dir = run.skill("product-uxd")
     (skill_dir / "stack.json").write_text(json.dumps({"version": 1, "substance": []}))
-    run.project("product-definition")
-    result = run("product-uxd", "--project", "product-definition")
+    run.project("demo-product")
+    result = run("product-uxd", "--project", "demo-product")
     assert result.returncode == 1
     assert "substance" in result.stderr
 
@@ -576,8 +581,8 @@ def test_manifest_naming_an_absolute_path_fails(run):
     (skill_dir / "stack.json").write_text(
         json.dumps({"version": 1, "substance": ["/etc/passwd"]})
     )
-    run.project("product-definition")
-    result = run("product-uxd", "--project", "product-definition")
+    run.project("demo-product")
+    result = run("product-uxd", "--project", "demo-product")
     assert result.returncode == 1
     assert "absolute" in result.stderr
 
@@ -587,8 +592,8 @@ def test_manifest_naming_a_nonexistent_file_fails(run):
     (skill_dir / "stack.json").write_text(
         json.dumps({"version": 1, "substance": ["core/prompts/does_not_exist.md"]})
     )
-    run.project("product-definition")
-    result = run("product-uxd", "--project", "product-definition")
+    run.project("demo-product")
+    result = run("product-uxd", "--project", "demo-product")
     assert result.returncode == 1
     assert "does_not_exist.md" in result.stderr
 
@@ -603,8 +608,8 @@ def test_missing_project_dies_before_launching(run):
 
 def test_no_open_station_dies(run):
     run.skill("product-uxd")
-    run.project("product-definition", stations=[])
-    result = run("product-uxd", "--project", "product-definition")
+    run.project("demo-product", stations=[])
+    result = run("product-uxd", "--project", "demo-product")
     assert result.returncode == 1
     assert "station" in result.stderr
     assert run.claude_calls() == []
@@ -613,10 +618,10 @@ def test_no_open_station_dies(run):
 def test_two_open_stations_dies_and_lists_them(run):
     run.skill("product-uxd")
     run.project(
-        "product-definition",
+        "demo-product",
         stations=["2026-08-01_first.md", "2026-08-02_second.md"],
     )
-    result = run("product-uxd", "--project", "product-definition")
+    result = run("product-uxd", "--project", "demo-product")
     assert result.returncode == 1
     assert "2026-08-01_first.md" in result.stderr
     assert "2026-08-02_second.md" in result.stderr
@@ -627,16 +632,16 @@ def test_station_slug_is_the_dated_stem_without_the_extension(run):
     """commit_format.md names a station by its dated stem: one project may hold two stations under
     one bare slug on different dates."""
     run.skill("product-uxd")
-    run.project("product-definition", stations=["2026-08-01_uxd-prompt-and-skill.md"])
-    result = run("product-uxd", "--project", "product-definition", "--dry-run")
+    run.project("demo-product", stations=["2026-08-01_uxd-prompt-and-skill.md"])
+    result = run("product-uxd", "--project", "demo-product", "--dry-run")
     assert result.returncode == 0
     assert "station '2026-08-01_uxd-prompt-and-skill'" in result.stdout
 
 
 def test_station_slug_with_no_date_prefix_is_the_whole_basename(run):
     run.skill("product-uxd")
-    run.project("product-definition", stations=["no-date-here.md"])
-    result = run("product-uxd", "--project", "product-definition", "--dry-run")
+    run.project("demo-product", stations=["no-date-here.md"])
+    result = run("product-uxd", "--project", "demo-product", "--dry-run")
     assert result.returncode == 0
     assert "no-date-here" in result.stdout
 
@@ -652,8 +657,8 @@ def test_report_filenames_are_indexed_ordered_and_lowercased(run):
             "skills/cdo/.claude/skills/product-uxd/prompts/rich.md",
         ],
     )
-    run.project("product-definition")
-    result = run("product-uxd", "--project", "product-definition", "--dry-run")
+    run.project("demo-product")
+    result = run("product-uxd", "--project", "demo-product", "--dry-run")
     assert result.returncode == 0
     assert "01_skill.md" in result.stdout
     assert "02_rich.md" in result.stdout
@@ -667,8 +672,8 @@ def test_two_substance_files_sharing_a_basename_still_get_distinct_report_names(
             "core/prompts/skill.md",
         ],
     )
-    run.project("product-definition")
-    result = run("twofile", "--project", "product-definition", "--dry-run")
+    run.project("demo-product")
+    result = run("twofile", "--project", "demo-product", "--dry-run")
     assert result.returncode == 0
     assert "01_skill.md" in result.stdout
     assert "02_skill.md" in result.stdout
@@ -676,10 +681,10 @@ def test_two_substance_files_sharing_a_basename_still_get_distinct_report_names(
 
 def test_output_directory_is_derived_from_project_and_skill(run):
     run.skill("product-uxd")
-    run.project("product-definition")
-    result = run("product-uxd", "--project", "product-definition", "--dry-run")
+    run.project("demo-product")
+    result = run("product-uxd", "--project", "demo-product", "--dry-run")
     assert result.returncode == 0
-    assert "system/projects/product-definition/docs/product-uxd-coldread" in result.stdout
+    assert "system/projects/demo-product/docs/product-uxd-coldread" in result.stdout
 
 
 # --- rounds: a re-read never writes over the round before it ------------------
@@ -695,21 +700,21 @@ def test_output_directory_is_derived_from_project_and_skill(run):
 
 def test_first_ever_read_writes_into_round_1(run):
     run.skill("product-uxd")
-    run.project("product-definition")
-    result = run("product-uxd", "--project", "product-definition", "--dry-run")
+    run.project("demo-product")
+    result = run("product-uxd", "--project", "demo-product", "--dry-run")
     assert result.returncode == 0
     assert "product-uxd-coldread/round-1/" in result.stdout
 
 
 def test_a_second_read_writes_into_round_2_leaving_round_1_alone(run):
     run.skill("product-uxd")
-    run.project("product-definition")
-    round_1 = (run.root / "system/projects/product-definition/docs"
+    run.project("demo-product")
+    round_1 = (run.root / "system/projects/demo-product/docs"
                / "product-uxd-coldread" / "round-1")
     round_1.mkdir(parents=True)
     (round_1 / "01_skill.md").write_text("# an earlier round's report\n")
 
-    result = run("product-uxd", "--project", "product-definition", "--dry-run")
+    result = run("product-uxd", "--project", "demo-product", "--dry-run")
 
     assert result.returncode == 0
     assert "product-uxd-coldread/round-2/" in result.stdout
@@ -720,13 +725,13 @@ def test_a_second_read_writes_into_round_2_leaving_round_1_alone(run):
 def test_the_next_round_comes_off_the_highest_not_the_count(run):
     """round-2 deleted by hand must not let this run reuse round-3's number."""
     run.skill("product-uxd")
-    run.project("product-definition")
-    coldread = (run.root / "system/projects/product-definition/docs"
+    run.project("demo-product")
+    coldread = (run.root / "system/projects/demo-product/docs"
                 / "product-uxd-coldread")
     for n in (1, 3):
         (coldread / f"round-{n}").mkdir(parents=True)
 
-    result = run("product-uxd", "--project", "product-definition", "--dry-run")
+    result = run("product-uxd", "--project", "demo-product", "--dry-run")
 
     assert result.returncode == 0
     assert "product-uxd-coldread/round-4/" in result.stdout
@@ -735,14 +740,14 @@ def test_the_next_round_comes_off_the_highest_not_the_count(run):
 def test_a_non_numeric_round_folder_is_ignored_not_fatal(run):
     """An owner's own folder beside the rounds is not a round and must not break numbering."""
     run.skill("product-uxd")
-    run.project("product-definition")
-    coldread = (run.root / "system/projects/product-definition/docs"
+    run.project("demo-product")
+    coldread = (run.root / "system/projects/demo-product/docs"
                 / "product-uxd-coldread")
     (coldread / "round-1").mkdir(parents=True)
     (coldread / "round-notes").mkdir()
     (coldread / "notes.md").write_text("# mine\n")
 
-    result = run("product-uxd", "--project", "product-definition", "--dry-run")
+    result = run("product-uxd", "--project", "demo-product", "--dry-run")
 
     assert result.returncode == 0
     assert "product-uxd-coldread/round-2/" in result.stdout
@@ -751,8 +756,8 @@ def test_a_non_numeric_round_folder_is_ignored_not_fatal(run):
 def test_the_round_is_reported_before_anything_launches(run):
     """The round number is the one thing a caller cannot derive; say it in the header."""
     run.skill("product-uxd")
-    run.project("product-definition")
-    result = run("product-uxd", "--project", "product-definition", "--dry-run")
+    run.project("demo-product")
+    result = run("product-uxd", "--project", "demo-product", "--dry-run")
     assert result.returncode == 0
     assert "round 1" in result.stdout
 
@@ -762,10 +767,10 @@ def test_project_path_escaping_the_instance_root_is_refused(run):
     outside.mkdir()
     (outside / "project.md").write_text("# outside\n\n**Product path:** .\n")
     run.skill("product-uxd")
-    project_dir = run.root / "system" / "projects" / "product-definition"
+    project_dir = run.root / "system" / "projects" / "demo-product"
     project_dir.parent.mkdir(parents=True, exist_ok=True)
     os.symlink(outside, project_dir)
-    result = run("product-uxd", "--project", "product-definition")
+    result = run("product-uxd", "--project", "demo-product")
     assert result.returncode == 1
     assert "outside" in result.stderr or "refus" in result.stderr
 
@@ -775,8 +780,8 @@ def test_project_path_escaping_the_instance_root_is_refused(run):
 
 def test_dry_run_launches_nothing(run):
     run.skill("product-uxd")
-    run.project("product-definition")
-    result = run("product-uxd", "--project", "product-definition", "--dry-run")
+    run.project("demo-product")
+    result = run("product-uxd", "--project", "demo-product", "--dry-run")
     assert result.returncode == 0
     assert run.claude_calls() == []
     assert run.watcher_calls() == []
@@ -790,8 +795,8 @@ def test_dry_run_prints_one_command_per_planned_run(run):
             "skills/cdo/.claude/skills/product-uxd/prompts/rich.md",
         ],
     )
-    run.project("product-definition")
-    result = run("product-uxd", "--project", "product-definition", "--dry-run")
+    run.project("demo-product")
+    result = run("product-uxd", "--project", "demo-product", "--dry-run")
     assert result.returncode == 0
     # two substance files -> two per-file readers + one seam reader = three claude commands
     assert result.stdout.count("claude --bg") == 3
@@ -800,10 +805,10 @@ def test_dry_run_prints_one_command_per_planned_run(run):
 def test_the_variable_is_no_force_and_the_command_is_unchanged(run):
     """cold-read reads no force: an exported provider neither changes the command nor refuses."""
     run.skill("product-uxd")
-    run.project("product-definition")
+    run.project("demo-product")
     run.env["KENSAIAPP_AGENT_PROVIDER"] = "codex"
 
-    result = run("product-uxd", "--project", "product-definition", "--dry-run")
+    result = run("product-uxd", "--project", "demo-product", "--dry-run")
 
     assert result.returncode == 0, result.stderr
     assert "claude --bg" in result.stdout
@@ -812,15 +817,15 @@ def test_the_variable_is_no_force_and_the_command_is_unchanged(run):
 def test_dry_run_still_runs_every_guard(run):
     """A dry run that reports a command it would refuse to run is a dry run that lies —
     every guard above still runs under --dry-run."""
-    result = run("--project", "product-definition", "--dry-run")
+    result = run("--project", "demo-product", "--dry-run")
     assert result.returncode == 1
     assert run.claude_calls() == []
 
 
 def test_starting_version_is_reported_but_never_launched(run):
     run.skill("product-uxd", version_lines={".claude/skills/product-uxd/SKILL.md": "9.9.9"})
-    run.project("product-definition")
-    result = run("product-uxd", "--project", "product-definition", "--dry-run")
+    run.project("demo-product")
+    result = run("product-uxd", "--project", "demo-product", "--dry-run")
     assert result.returncode == 0
     assert "9.9.9" in result.stdout
     assert "9.9.9" not in result.stdout.split("DRY RUN")[-1] if "DRY RUN" in result.stdout else True
@@ -830,8 +835,8 @@ def test_dry_run_prints_the_pin_line(run):
     # Task 17: pin_enter runs right after the CORE_DIR guard, ahead of everything else — the
     # fixture's own session-scoped pin (core/launchers/conftest.py) is what this launcher inherits.
     run.skill("product-uxd")
-    run.project("product-definition")
-    result = run("product-uxd", "--project", "product-definition", "--dry-run")
+    run.project("demo-product")
+    result = run("product-uxd", "--project", "demo-product", "--dry-run")
     assert result.returncode == 0, result.stderr
     assert re.search(r"^Pin: .+\(inherited\)$", result.stdout, re.MULTILINE)
 
@@ -852,8 +857,8 @@ def test_no_literal_core_path_in_the_script():
 
 def test_a_grouped_skill_resolves_and_its_readers_launch(run):
     run.grouped_skill("thing")
-    run.project("product-definition")
-    result = run("thing", "--project", "product-definition", "--dry-run")
+    run.project("demo-product")
+    result = run("thing", "--project", "demo-product", "--dry-run")
     assert result.returncode == 0, result.stderr
     assert result.stdout.count("----- [") == 1
 
@@ -865,8 +870,8 @@ def test_grouped_fixture_builds_no_flat_path(run):
 
 def test_the_prompts_manifest_sentence_names_the_grouped_path(run):
     run.grouped_skill("thing")
-    run.project("product-definition")
-    result = run("thing", "--project", "product-definition", "--dry-run")
+    run.project("demo-product")
+    result = run("thing", "--project", "demo-product", "--dry-run")
     assert result.returncode == 0, result.stderr
     assert "skills/g/.claude/skills/thing/stack.json" in result.stdout
     # The bare flat form must never appear ON ITS OWN — only as a suffix of the grouped path
@@ -876,8 +881,8 @@ def test_the_prompts_manifest_sentence_names_the_grouped_path(run):
 
 def test_the_no_manifest_die_message_shows_a_usable_grouped_example(run):
     run.grouped_skill("thing", manifest=False)
-    run.project("product-definition")
-    result = run("thing", "--project", "product-definition")
+    run.project("demo-product")
+    result = run("thing", "--project", "demo-product")
     assert result.returncode == 1
     assert "skills/g/.claude/skills/thing/SKILL.md" in result.stderr
     assert '".claude/skills/thing/SKILL.md"' not in result.stderr
@@ -892,8 +897,8 @@ def test_the_refusal_still_fires_appends_usage_and_no_longer_says_where_it_resol
 
 
 def test_unknown_skill_dies_naming_no_layout(run):
-    run.project("product-definition")
-    result = run("ghost-skill", "--project", "product-definition")
+    run.project("demo-product")
+    result = run("ghost-skill", "--project", "demo-product")
     assert result.returncode == 1
     assert "no skill at" in result.stderr
     assert str(run.root) in result.stderr           # the root searched
@@ -906,8 +911,8 @@ def test_unknown_skill_dies_naming_no_layout(run):
 def test_ambiguous_skill_dies_naming_both_matching_directories(run):
     d1 = run.bare_grouped_skill("thing", "g1")
     d2 = run.bare_grouped_skill("thing", "g2")
-    run.project("product-definition")
-    result = run("thing", "--project", "product-definition")
+    run.project("demo-product")
+    result = run("thing", "--project", "demo-product")
     assert result.returncode == 1
     assert str(d1) in result.stderr
     assert str(d2) in result.stderr
@@ -917,9 +922,9 @@ def test_ambiguous_skill_dies_naming_both_matching_directories(run):
 def test_ambiguous_message_differs_from_not_found_message(run):
     run.bare_grouped_skill("thing", "g1")
     run.bare_grouped_skill("thing", "g2")
-    run.project("product-definition")
-    ambiguous = run("thing", "--project", "product-definition")
-    not_found = run("ghost-skill", "--project", "product-definition")
+    run.project("demo-product")
+    ambiguous = run("thing", "--project", "demo-product")
+    not_found = run("ghost-skill", "--project", "demo-product")
     assert ambiguous.stderr != not_found.stderr
     assert ambiguous.returncode == 1
     assert not_found.returncode == 1
@@ -931,7 +936,7 @@ def test_stderr_noise_on_a_clean_resolve_never_reaches_the_captured_path(run):
     resolver here — exit 0, a real directory on stdout, a line of noise on stderr — proves the
     fold does not happen: the launcher proceeds against the stdout path alone."""
     skill_dir = run.skill("thing")
-    run.project("product-definition")
+    run.project("demo-product")
     stub = run.root / "stub_resolver.py"
     stub.write_text(
         "import sys\n"
@@ -939,7 +944,7 @@ def test_stderr_noise_on_a_clean_resolve_never_reaches_the_captured_path(run):
         "print('resolver: a future warning', file=sys.stderr)\n"
     )
     run.env["LAUNCH_COLD_READ_RESOLVER"] = str(stub)
-    result = run("thing", "--project", "product-definition", "--dry-run")
+    result = run("thing", "--project", "demo-product", "--dry-run")
     assert result.returncode == 0, result.stderr
     assert "resolver: a future warning" not in result.stdout
 
@@ -959,8 +964,8 @@ def test_a_skill_held_only_by_the_skills_root_resolves(run):
     skills_root = run.other_root()
     run.skills_root(skills_root)
     run.grouped_skill("thing", root=skills_root)
-    run.project("product-definition")
-    result = run("thing", "--project", "product-definition", "--dry-run")
+    run.project("demo-product")
+    result = run("thing", "--project", "demo-product", "--dry-run")
     assert result.returncode == 0, result.stderr
 
 
@@ -968,8 +973,8 @@ def test_a_skill_held_only_by_the_instance_is_not_found(run):
     skills_root = run.other_root()
     run.skills_root(skills_root)
     run.grouped_skill("thing")   # built under `run.root` (the instance), not the skills root
-    run.project("product-definition")
-    result = run("thing", "--project", "product-definition")
+    run.project("demo-product")
+    result = run("thing", "--project", "demo-product")
     assert result.returncode == 1
     assert f"cold-read: no skill at {skills_root} (is 'thing' a real skill?)" in result.stderr
 
@@ -984,8 +989,8 @@ def test_a_substance_entry_only_the_skills_root_holds_passes(run):
             "skills/g/.claude/skills/thing/second.md",
         ],
     )
-    run.project("product-definition")
-    result = run("thing", "--project", "product-definition", "--dry-run")
+    run.project("demo-product")
+    result = run("thing", "--project", "demo-product", "--dry-run")
     assert result.returncode == 0, result.stderr
 
 
@@ -1001,8 +1006,8 @@ def test_a_substance_entry_only_the_instance_holds_is_refused(run):
     instance_copy = run.root / extra_rel
     instance_copy.parent.mkdir(parents=True, exist_ok=True)
     instance_copy.write_text('version: "1.0.0"\n\n# prompt\n')   # only the instance does
-    run.project("product-definition")
-    result = run("thing", "--project", "product-definition")
+    run.project("demo-product")
+    result = run("thing", "--project", "demo-product")
     assert result.returncode == 1
     assert "does not exist" in result.stderr
 
@@ -1016,8 +1021,8 @@ def test_a_skills_root_whose_path_carries_a_quote_still_validates(run):
     skills_root.mkdir()
     run.skills_root(skills_root)
     run.grouped_skill("thing", root=skills_root)
-    run.project("product-definition")
-    result = run("thing", "--project", "product-definition", "--dry-run")
+    run.project("demo-product")
+    result = run("thing", "--project", "demo-product", "--dry-run")
     assert result.returncode == 0, result.stderr
     assert f"{skills_root}/skills/g/.claude/skills/thing/SKILL.md" in result.stdout
 
@@ -1029,8 +1034,8 @@ def test_the_default_skills_root_is_the_inherited_pin(run, _session_pin):
     (a real skill in this worktree, under `skills/cdo/.claude/skills/product-uxd`) can have
     resolved it."""
     run.default_skills_root()
-    run.project("product-definition")
-    result = run("product-uxd", "--project", "product-definition", "--dry-run")
+    run.project("demo-product")
+    result = run("product-uxd", "--project", "demo-product", "--dry-run")
     assert result.returncode == 0, result.stderr
     # CP-115 says the pin root, not merely "not the instance": the subject each reader is handed
     # is the inherited pin's own copy, never the live worktree's.
@@ -1059,8 +1064,8 @@ def _skills_root_two_file_dry_run(run, skill="thing", group="g"):
             f"skills/{group}/.claude/skills/{skill}/second.md",
         ],
     )
-    run.project("product-definition")
-    result = run(skill, "--project", "product-definition", "--dry-run")
+    run.project("demo-product")
+    result = run(skill, "--project", "demo-product", "--dry-run")
     assert result.returncode == 0, result.stderr
     return skills_root, result, _dry_run_blocks(result.stdout)
 
@@ -1090,8 +1095,8 @@ def test_the_starting_version_is_read_from_the_skills_root(run):
     instance_copy = run.root / "skills" / "g" / ".claude" / "skills" / "thing" / "SKILL.md"
     instance_copy.parent.mkdir(parents=True, exist_ok=True)
     instance_copy.write_text('---\nname: thing\nmetadata:\n  version: "1.0.0"\n---\n# skill\n')
-    run.project("product-definition")
-    result = run("thing", "--project", "product-definition", "--dry-run")
+    run.project("demo-product")
+    result = run("thing", "--project", "demo-product", "--dry-run")
     assert result.returncode == 0, result.stderr
     assert "9.9.9" in result.stdout
     assert "1.0.0" not in result.stdout
@@ -1101,8 +1106,8 @@ def test_the_manifest_sentence_names_the_skill_relative_to_the_skills_root(run):
     skills_root = run.other_root()
     run.skills_root(skills_root)
     run.grouped_skill("thing", root=skills_root)
-    run.project("product-definition")
-    result = run("thing", "--project", "product-definition", "--dry-run")
+    run.project("demo-product")
+    result = run("thing", "--project", "demo-product", "--dry-run")
     assert result.returncode == 0, result.stderr
     assert "in skills/g/.claude/skills/thing/stack.json" in result.stdout
     assert f"in {skills_root}" not in result.stdout
@@ -1112,8 +1117,8 @@ def test_the_no_manifest_example_names_the_skill_relative_to_the_skills_root(run
     skills_root = run.other_root()
     run.skills_root(skills_root)
     run.grouped_skill("thing", root=skills_root, manifest=False)
-    run.project("product-definition")
-    result = run("thing", "--project", "product-definition")
+    run.project("demo-product")
+    result = run("thing", "--project", "demo-product")
     assert result.returncode == 1
     assert '"skills/g/.claude/skills/thing/SKILL.md"' in result.stderr
     assert f'"{skills_root}/skills/g/.claude/skills/thing/SKILL.md"' not in result.stderr
@@ -1121,7 +1126,7 @@ def test_the_no_manifest_example_names_the_skill_relative_to_the_skills_root(run
 
 def test_reports_and_commit_stay_in_the_instance(run):
     skills_root, _, blocks = _skills_root_two_file_dry_run(run)
-    round_dir = "system/projects/product-definition/docs/thing-coldread/round-1"
+    round_dir = "system/projects/demo-product/docs/thing-coldread/round-1"
     for block in blocks:
         assert f"{run.root}/{round_dir}/" in block
         assert f"{skills_root}/{round_dir}/" not in block
@@ -1156,8 +1161,8 @@ def _two_file_dry_run(run, skill="product-uxd"):
             "skills/cdo/.claude/skills/product-uxd/prompts/rich.md",
         ],
     )
-    run.project("product-definition", stations=["2026-08-01_uxd-prompt-and-skill.md"])
-    result = run(skill, "--project", "product-definition", "--dry-run")
+    run.project("demo-product", stations=["2026-08-01_uxd-prompt-and-skill.md"])
+    result = run(skill, "--project", "demo-product", "--dry-run")
     assert result.returncode == 0, result.stderr
     return result, _dry_run_blocks(result.stdout)
 
@@ -1183,8 +1188,8 @@ def test_three_entry_manifest_yields_four_runs(run):
             "core/prompts/b.md",
         ],
     )
-    run.project("product-definition")
-    result = run("threefile", "--project", "product-definition", "--dry-run")
+    run.project("demo-product")
+    result = run("threefile", "--project", "demo-product", "--dry-run")
     assert result.returncode == 0
     assert len(_dry_run_blocks(result.stdout)) == 4
 
@@ -1246,8 +1251,8 @@ def test_seam_prompt_names_every_substance_file(run):
             "core/prompts/b.md",
         ],
     )
-    run.project("product-definition")
-    result = run("threefile", "--project", "product-definition", "--dry-run")
+    run.project("demo-product")
+    result = run("threefile", "--project", "demo-product", "--dry-run")
     blocks = _dry_run_blocks(result.stdout)
     seam_block = blocks[-1]
     assert ".claude/skills/threefile/SKILL.md" in seam_block
@@ -1288,7 +1293,7 @@ def test_no_prompt_restates_the_lens_grammar(run):
 
 def test_each_prompt_names_only_its_own_report_path(run):
     _, blocks = _two_file_dry_run(run)
-    round_dir = "system/projects/product-definition/docs/product-uxd-coldread/round-1"
+    round_dir = "system/projects/demo-product/docs/product-uxd-coldread/round-1"
     targets = [
         f"{round_dir}/01_skill.md",
         f"{round_dir}/02_rich.md",
@@ -1306,6 +1311,9 @@ def test_commit_instruction_is_complete_and_correct(run):
     _, blocks = _two_file_dry_run(run)
     for block in blocks:
         assert "commit_builder.py" in block
+        assert 'tools/locked_python.sh" "' in block
+        assert block.index("locked_python.sh") < block.index("commit_builder.py")
+        assert "python3" not in block
         assert '--repo "' in block
         assert "--add " in block
         assert "--actor kensaiapp-auditor" in block
@@ -1335,7 +1343,7 @@ def test_only_validated_values_are_interpolated(run):
     for i, block in enumerate(blocks[:2]):
         assert f"{run.root}/{expected_substance[i]}" in block   # absolute, root-anchored
         assert (
-            f"{run.root}/system/projects/product-definition/docs/product-uxd-coldread/"
+            f"{run.root}/system/projects/demo-product/docs/product-uxd-coldread/"
             in block
         )
     for block in blocks:
@@ -1402,8 +1410,8 @@ def _launch_two_file(run, skill="product-uxd", extra_args=()):
             "skills/cdo/.claude/skills/product-uxd/prompts/rich.md",
         ],
     )
-    run.project("product-definition", stations=["2026-08-01_uxd-prompt-and-skill.md"])
-    result = run(skill, "--project", "product-definition", *extra_args)
+    run.project("demo-product", stations=["2026-08-01_uxd-prompt-and-skill.md"])
+    result = run(skill, "--project", "demo-product", *extra_args)
     return result
 
 
@@ -1850,8 +1858,8 @@ def test_the_starting_version_never_reaches_a_launched_command(run):
         ],
         version_lines={".claude/skills/product-uxd/SKILL.md": "9.9.9"},
     )
-    run.project("product-definition", stations=["2026-08-01_uxd-prompt-and-skill.md"])
-    result = run("product-uxd", "--project", "product-definition")
+    run.project("demo-product", stations=["2026-08-01_uxd-prompt-and-skill.md"])
+    result = run("product-uxd", "--project", "demo-product")
     assert result.returncode == 0
     assert "9.9.9" in result.stdout
     for argv in run.claude_calls():
@@ -1863,7 +1871,7 @@ def test_a_real_launch_creates_the_output_directory(run):
     """The readers are told to write into it; nothing else creates it."""
     result = _launch_two_file(run)
     assert result.returncode == 0
-    out = run.root / "system" / "projects" / "product-definition" / "docs" / "product-uxd-coldread"
+    out = run.root / "system" / "projects" / "demo-product" / "docs" / "product-uxd-coldread"
     assert out.is_dir()
 
 
@@ -1871,10 +1879,10 @@ def test_a_dry_run_creates_no_output_directory(run):
     """A dry run that materializes a directory has a side effect, which is the one thing "dry"
     promises not to have."""
     run.skill("product-uxd")
-    run.project("product-definition")
-    result = run("product-uxd", "--project", "product-definition", "--dry-run")
+    run.project("demo-product")
+    result = run("product-uxd", "--project", "demo-product", "--dry-run")
     assert result.returncode == 0
-    out = run.root / "system" / "projects" / "product-definition" / "docs" / "product-uxd-coldread"
+    out = run.root / "system" / "projects" / "demo-product" / "docs" / "product-uxd-coldread"
     assert not out.exists()
 
 
@@ -2338,9 +2346,9 @@ def test_dry_run_states_the_arm_it_would_run_under(run, tmp_path):
     run.env["INSTRUMENT_RUN_ENDPOINT_FILE"] = str(endpoint_file)
     install_telemetry_command(tmp_path / "home", run.env)
     run.skill("product-uxd")
-    run.project("product-definition")
+    run.project("demo-product")
 
-    result = run("product-uxd", "--project", "product-definition", "--dry-run")
+    result = run("product-uxd", "--project", "demo-product", "--dry-run")
 
     assert result.returncode == 0, result.stderr
     assert "kensai.arm=cold-read" in result.stdout
@@ -2359,8 +2367,8 @@ def _dry_run_with_endpoint(run, tmp_path):
     endpoint_file.write_text("http://127.0.0.1:9/v1\n")
     run.env["INSTRUMENT_RUN_ENDPOINT_FILE"] = str(endpoint_file)
     install_telemetry_command(tmp_path / "home", run.env)
-    run.project("product-definition")
-    result = run("product-uxd", "--project", "product-definition", "--dry-run")
+    run.project("demo-product")
+    result = run("product-uxd", "--project", "demo-product", "--dry-run")
     assert result.returncode == 0, result.stderr
     return result
 
@@ -2372,7 +2380,7 @@ def test_the_telemetry_line_stamps_provider_claude_and_source_default_with_no_mo
     it stamped before this change come first and keep their values (CP-227)."""
     run.skill("product-uxd")
     result = _dry_run_with_endpoint(run, tmp_path)
-    assert "kensai.skill=product-uxd,kensai.project=product-definition" in result.stdout
+    assert "kensai.skill=product-uxd,kensai.project=demo-product" in result.stdout
     assert_provenance_stamped(
         result.stdout, provider="claude", source="default", after=("skill", "project")
     )
@@ -2396,7 +2404,7 @@ def test_a_skill_with_an_intelligence_folder_is_still_default_and_the_argv_carri
 
 # --- the launcher's launch, observed over the real helper (CP-685, CP-688, CP-759) -------------
 
-_READ_ARGV = ("product-uxd", "--project", "product-definition", "--dry-run")
+_READ_ARGV = ("product-uxd", "--project", "demo-product", "--dry-run")
 
 
 def _card_product(project_dir):
@@ -2418,9 +2426,9 @@ def test_cold_read_helper_observation_matches_case_inputs(run, tmp_path, endpoin
     package, prints the lines, exports the six variables and hands its readers the settings its
     own inputs call for: the arm it runs under, the skill and project it was given, the product
     that project's card names, and the provider it resolved with no model or effort."""
-    package = support.require_real_package(tmp_path / "package")
+    package = support.recorded_package(tmp_path / "package")
     run.skill("product-uxd")
-    run.project("product-definition")
+    run.project("demo-product")
     endpoint_file = tmp_path / "published-endpoint"
     cause = support.publish_endpoint(endpoint_file, endpoint)
     launcher = support.scratch_core(tmp_path / "scratch", _SCRIPT)
@@ -2440,8 +2448,8 @@ def test_cold_read_helper_observation_matches_case_inputs(run, tmp_path, endpoin
                 ("arm", "cold-read"),
                 ("run_id", None),
                 ("skill", "product-uxd"),
-                ("project", "product-definition"),
-                ("product", _card_product(tmp_path / "system" / "projects" / "product-definition")),
+                ("project", "demo-product"),
+                ("product", _card_product(tmp_path / "system" / "projects" / "demo-product")),
                 ("provider", "claude"),
                 ("source", "default"),
             ],
@@ -2460,9 +2468,9 @@ def test_cold_read_ordinary_launch_discovers_source_host_setting(run, tmp_path, 
     """CP-692: a launch whose environment names no command is instrumented from its source host's
     setting, whether the launcher runs from a core or a pin of it, for the host or for an
     instance that binds that core."""
-    package = support.require_real_package(tmp_path / "package")
+    package = support.recorded_package(tmp_path / "package")
     run.skill("product-uxd")
-    run.project("product-definition")
+    run.project("demo-product")
     endpoint_file = tmp_path / "published-endpoint"
     support.publish_endpoint(endpoint_file)
     launch = support.ordinary_launch(tmp_path, _SCRIPT, tmp_path, combination, package.command)
@@ -2482,7 +2490,7 @@ def test_cold_read_telemetry_failures_preserve_launch(run, tmp_path, kind, cap):
     """CP-687, CP-693, CP-694: whatever is wrong with the command or the endpoint, the launch is
     not failed by it — it prints the one cause on stdout and hands its readers the cap alone."""
     run.skill("product-uxd")
-    run.project("product-definition")
+    run.project("demo-product")
     scenario = support.failure_scenario(
         kind, run.env, home=tmp_path / "failure-home", endpoint_file=tmp_path / "endpoint", cap=cap
     )
@@ -2500,9 +2508,16 @@ def test_cold_read_telemetry_failures_preserve_launch(run, tmp_path, kind, cap):
     support.assert_failure_scenario(observation, scenario, cap=cap)
 
 
-def test_cold_read_observation_skips_an_unreachable_package_and_fails_a_reached_one(tmp_path):
-    """CP-689: the observation above is skipped, with the reason named, where the package's
-    command cannot be reached, and fails where it is reached and breaks the contract."""
-    support.assert_selection_skips_unreachable_and_fails_reached(
-        tmp_path, f"{__file__}::test_cold_read_helper_observation_matches_case_inputs"
-    )
+
+
+def test_cold_read_runs_no_python3(run, tmp_path):
+    run.skill("single", substance=[".claude/skills/single/SKILL.md"])
+    run.project("solo-project", stations=["2026-08-01_a-station.md"])
+    path, marker = python3_that_only_fails(tmp_path, run.env["PATH"])
+    run.env["PATH"] = path
+
+    result = run("single", "--project", "solo-project")
+
+    assert result.returncode == 0, result.stderr
+    assert len(run.claude_calls()) == 1
+    assert python3_calls_outside_uv(marker) == []

@@ -1,5 +1,5 @@
 ---
-version: "2.3.0"
+version: "2.4.0"
 ---
 
 # Found while walking — a defect found mid-route is fixed before the merge
@@ -34,11 +34,7 @@ Three clauses, and they are one rule:
    it is a decision someone makes — not what happens by default when a branch is ready and the seed
    is not.
 
-**The rule does not fix where small ends and big begins — except for one class pre-classified
-below.** That call belongs to the session that found the defect, with one standing exception: a
-dead journey pointer is always clause 1, no exception, by the section right after this one. Outside
-that one pre-classified class, misjudging the size costs a redirect and skipping the rule costs the
-fix — what the rule fixes is what follows from either answer, not which answer it is.
+**The rule does not fix where small ends and big begins, except for two classes pre-classified below.** That call belongs to the session that found the defect, with two standing exceptions, each always clause 1: a dead journey pointer, by the section right after this one, and a module the change edits that breaks the code standard, by § *A module the change edits is brought up to the standard in the same change*. Outside those two pre-classified classes, misjudging the size costs a redirect and skipping the rule costs the fix — what the rule fixes is what follows from either answer, not which answer it is.
 
 ## A broken journey pointer is repaired, and the triple is what stops it breaking
 
@@ -92,6 +88,16 @@ The move-side mechanics — when to run the check, and why its exit code never g
 `<CORE>/docs/journey_move.md` § *After the move, say which pointers it broke*, which
 carries no second statement of this rule.
 
+## A module the change edits is brought up to the standard in the same change
+
+**A change that edits a module which builds its own collaborators, or whose unit tests touch a real resource, brings that module and its unit tests up to the standard in the same change.** The session that edits the module makes the fix on the branch it is on. That is clause 1 with no exception, the way a broken journey pointer is. The fix is never cut as a seed for later, never deferred, and never a reason to halt — the owner's ruling, 2026-11-04: "I don't want a halt. I want fix."
+
+**The standard has two owners, and this section restates neither.** A module is given its collaborators: "Only the composition root imports concrete implementations" (`<CORE>/doctrine/engineering/arch_defaults.md` § *Dependency Graph Rules*), in the idiom the language guide's `conventions.md` names. A unit test hands in fakes and touches no real resource (`<CORE>/doctrine/engineering/testing_doctrine.md` § *A unit test hands its unit fakes and touches nothing real*).
+
+**The size of the fix does not move it to clause 2.** The port and fake modules the fix needs are not a topology decision, so no stage hands them on (`<CORE>/doctrine/engineering/languages/README.md` § *A fix that hands a collaborator in is not a topology decision*).
+
+**A module the change only imports is not edited, and this section does not reach it.** That module stays as it is until a change edits it.
+
 ## Where a surfaced defect is written down
 
 A defect that is surfaced rather than fixed needs somewhere to land, or surfacing is a sentence in a
@@ -110,7 +116,7 @@ when the rest of the run did not land, and it holds when another finding already
 beside it. Neither stopping early nor finding an uncommitted sibling is a reason to leave the finding
 for someone else to commit. An uncommitted finding leaves the working tree dirty, and a journey move
 that runs next refuses on a dirty tree — on 2026-09-23 two findings left untracked by `product-sdd`
-and `product-architecture` stopped a satellite's `chain-change` at `shukuba-open`.
+and `product-architecture` stopped a satellite's `walk` at `shukuba-open`.
 
 **A satellite writes to its own `docs/findings/`, never to the host's** — the owner's call,
 2026-09-12. A satellite reads the host's `core/` through `<CORE>` and finds defects in files it does

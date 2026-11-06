@@ -4,7 +4,7 @@ description: Content-Manager-posture skill that authors an instance's writing ba
 license: MIT
 metadata:
   author: Eyal Golan
-  version: "6.3.6"
+  version: "6.5.0"
   created: "2026-08-16"
   category: instance-setup
   tags: writing-bar, instance-setup, content-manager, doctrine, house-style
@@ -264,7 +264,7 @@ agent; from an interactive `content-manager:` session with no agent named, `--ro
 
 **And `--prompt kensaiapp-writing-bar/rich`**, naming the body this skill is the carrier for. A thin skill over a fat prompt is recorded by both lines and neither implies the other (`<CORE>/doctrine/governance/commit_format.md` § *`Prompt-Version:` trailer*); it takes the bare name, never a path.
 
-**The directional is `Michi:`, not `Shukuba:` or `Agari:`.** This commit touches no single project —
+**The directional is `Michi:`, not `Shukuba:` or `Finish-line:`.** This commit touches no single project —
 it is instance-level, and the directional trailer follows the commit's scope rather than what kind of
 thing produced it (`<CORE>/doctrine/governance/commit_format.md` § Directional trailer). Resolve it
 against `system/michi.md`. The recipe's parenthetical that producer skills are project-level describes

@@ -21,7 +21,7 @@ when_to_use: >-
 license: MIT
 metadata:
   author: Eyal Golan
-  version: "3.0.2"
+  version: "3.1.0"
   created: "2026-08-30"
   category: journey
   tags: nemawashi, seeds, idea, principal-pm, journey
@@ -147,7 +147,7 @@ session* says who writes it.
 
 **Check its quotes before anything else is read:**
 
-    python3 <CORE>/tools/check_brief_quotes.py <brief> --root "$(git rev-parse --show-toplevel)"
+    "<CORE>/tools/locked_python.sh" <CORE>/tools/check_brief_quotes.py <brief> --root "$(git rev-parse --show-toplevel)"
 
 It prints one line per citation whose quote is not at its lines, and ends with a count on stderr of
 the citations it checked and the ones it skipped as unresolvable. **Any line it prints stops the run**,

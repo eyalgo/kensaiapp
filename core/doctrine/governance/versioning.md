@@ -1,5 +1,5 @@
 ---
-version: "1.11.0"
+version: "1.12.0"
 ---
 
 # Versioning — which artifacts carry a `version:`, and how it moves
@@ -134,7 +134,10 @@ statement about the source, never as a claim about the galaxy.
   moves a frontmatter `version:`, a Python `__version__`, a workflow `// Version:`, a mod's
   `plugin.json` `"version"` and a shell `# Version:` header alike, so no marker is set by hand and
   none is exempt for being an executable. A shell header is the one form it does not rewrite in place: it **prepends** a new
-  entry above the current one, carrying the merge's own one-line description. Do not rewrite such
+  entry above the current one, carrying the merge's one-line description less anything the
+  vendor-neutrality check would report in that file — a change's key or a path into one of the
+  instance's projects, since the file is vendored and the merge subject already keeps them. The
+  product-name, declared-name and home-path kinds are not removed there. Do not rewrite such
   an entry's digits — that header is a changelog stack whose topmost line says what *that* version
   changed, so moving the number leaves the previous change's note under it. `commit_builder.py
   markers --base <ref>` is the check for the rule above it: it names every file whose marker moved

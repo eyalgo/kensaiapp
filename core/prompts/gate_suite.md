@@ -1,5 +1,5 @@
 ---
-version: "1.9.2"
+version: "2.0.0"
 ---
 
 # Gate suite — read the product's evidence, then run the card's command through the tool
@@ -138,20 +138,17 @@ tool takes the newest one from the candidates. Where the languages call for more
 image, or are given different sets of versions, it refuses and says why, on a CI that runs on both
 macOS and Linux as on one that runs on Linux only.
 
-**The guest.** When the product's CI runs on macOS, give the guest the host runs: its Tart name and
-every share it was started with (`guest.name`, `guest.shares`). Each share is a host folder (`host`,
-an absolute path) and the folder it appears at inside the guest (`guest`). Give the same name and the
-whole list for every run on the host, whichever instance, project, worktree or core copy the run comes
-from. Never give a share made for this run's checkout alone, and never give part of the list. The
-host's guest is started by a login job, `~/Library/LaunchAgents/local.kensaiapp.macos-guest.plist`,
-and its arguments are the record: the last argument is the guest's name, and each
-`--dir=<name>:<host folder>` argument is one share, `{"host": "<host folder>", "guest":
-"/Volumes/My Shared Files/<name>"}`.
+**The guest.** Give none: `guest` is `null`, on a CI that runs on macOS as on any other. The tool
+reads the host's guest itself, each time it is called, from the login job that starts it,
+`~/Library/LaunchAgents/local.kensaiapp.macos-guest.plist`: the job's last argument is the guest's
+name, and each `--dir=<name>:<host folder>` argument is one share, which the guest sees at
+`/Volumes/My Shared Files/<name>`. The guest's name and its shares are folders on the host, and a plan
+is a record, so the plan names neither. A `guest` an older plan gives is ignored.
 `<CORE>/doctrine/engineering/languages/swift/environment.md` § macOS guest provisioning says how the
 guest and its shares are set up. The tool reads each language's guest tool from that language's
 packet, so the input names none. The tool finds this run's checkout inside the guest through the
-share that holds it, and refuses a checkout under none of them. If the host has no such job, or no
-guest is running, give none: the tool reports the missing guest and starts nothing.
+share that holds it, and refuses a checkout under none of them. If the host has no such job, the tool
+reports the missing guest and starts nothing.
 
 ## Step 4 — the shape
 
@@ -192,15 +189,6 @@ A matrix that gives python two versions gives two candidates, alike except for `
                                "anchor": "python-version: [\"3.12\", \"3.13\"]"}}]
 ```
 
-A product whose CI runs on macOS gives the guest in place of `null`, with every share the host's guest
-was started with:
-
-```json
-"guest": {"name": "kensai-macos",
-          "shares": [{"host": "<products root>", "guest": "/Volumes/My Shared Files/products"},
-                     {"host": "<instance repository>", "guest": "/Volumes/My Shared Files/<instance>"}]}
-```
-
 ## Step 5 — the call
 
 Fill the placeholders: `<instance change worktree>` is the absolute path of the change's instance
@@ -237,6 +225,13 @@ python3 "<CORE>/tools/gate_suite.py" run \
   > "<output file>" 2> "<error file>"
 ```
 
+**A Codex run requests approval for this gate invocation before executing it.** With
+`exec_command`, use `sandbox_permissions: require_escalated` and a justification naming the
+project, gate and test command being authorized. The approval covers this concrete invocation;
+if it is denied, report the denial and stop. The gate executes its subprocesses directly in the
+selected test environment, without adding another agent sandbox. Leave the suite's own isolation
+fixtures in place. Other providers make the call as written.
+
 A call that exits 2 could not be made — no card, no path contract, an unreadable or malformed input
 file (never under the owner's ask, which reads none), or a product repository whose `main` branch fails when the tool reads it. Its message is on standard error; correct the input and call again. That is not a refusal and
 not a no-suite finding.
@@ -267,8 +262,8 @@ checkout. A run that has to know whether a product owes an environment decision,
 uses the check.
 
 Read the evidence by Steps 1, 3 and 4, with two differences. Never take Step 2's ask: the check always
-answers as if no ask were made. And give no guest: `guest` is `null`, because whether the guest runs
-and reaches the checkout is a question for the run that issues the suite, not for the check. On a card
+answers as if no ask were made. And `guest` is `null` here as in every call (Step 3, § The guest).
+On a card
 reading `Test command: none` the inputs file may hold an empty object, `{}`, and the check answers
 without reading it.
 

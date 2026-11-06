@@ -18,7 +18,7 @@ None this run.
 
 ## Skipped
 
-- **3.1 — What the page a refused out-of-date move lands on says when it is opened again with no press** — its **Answer** slot is already filled (by `self_answer-14.md`), so it is an answer already given and is left exactly as written. It is the only item in the companion; §§ 1 and 2 read "None.", so no open item remained for this run to decide. The companion was clean in git at the start (last commit `b72ad6569`), nothing in it changed, and the producing skill is still owed the fold.
+- **3.1 — What the page a refused out-of-date move lands on says when it is opened again with no press** — its **Answer** slot is already filled (by `self_answer-14.md`), so it is an answer already given and is left exactly as written. It is the only item in the companion; §§ 1 and 2 read "None.", so no open item remained for this run to decide. The companion was clean in git at the start (last commit `<a commit not in the public history>`), nothing in it changed, and the producing skill is still owed the fold.
 
 ## Companions opened
 

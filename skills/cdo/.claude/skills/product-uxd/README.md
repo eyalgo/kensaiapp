@@ -129,5 +129,5 @@ of truth, written off the PRD in parallel with the SRS.
 
 Not for: per-change specs (that's `development-specs`), the PRD itself (`product-prd`, upstream),
 the SRS (`product-srs`, its sibling), the design language that follows from the UXD's direction
-call (`product-design`), the project's "done" declaration (`project-agari`), or any downstream
+call (`product-design`), the project's "done" declaration (`project-finish-line`), or any downstream
 document — the SDD, Delivery Plan, FDR, ADR, or NFDR.

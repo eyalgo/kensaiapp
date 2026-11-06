@@ -4,7 +4,7 @@ description: CDO-posture skill that authors a kensaiapp instance's visual experi
 license: MIT
 metadata:
   author: Eyal Golan
-  version: "1.5.6"
+  version: "1.7.0"
   created: "2026-08-12"
   category: instance-setup
   tags: experience-layer, instance-setup, cdo, visual, ordered-pair
@@ -289,7 +289,7 @@ changed neither document, and has nothing to stage, make no file change at all. 
 interactive `cdo:` session with no agent named, `--role CDO --skill experience-visual` instead. Both
 derive `Role: CDO`.
 
-**The directional is `Michi:`, not `Shukuba:` or `Agari:`.** This commit touches no single project —
+**The directional is `Michi:`, not `Shukuba:` or `Finish-line:`.** This commit touches no single project —
 it is instance-level, and the directional trailer follows the commit's scope rather than what kind
 of thing produced it (`<CORE>/doctrine/governance/commit_format.md` § Directional trailer). Resolve
 it against `system/michi.md`. The recipe's parenthetical that producer skills are project-level

@@ -7,12 +7,12 @@ Every gate in Task 1 (C1–C8) and the Verification gate held when I ran it myse
 
 ## Deferrals
 
-None. The newest closing marker, `39cff98eb`, has no `Deferred:` line (`git log -1 main..2026-10-10_readme-content-rules --grep='2026-10-10_readme-content-rules — implementation complete' --format=%B`).
+None. The newest closing marker, `<a commit not in the public history>`, has no `Deferred:` line (`git log -1 main..2026-10-10_readme-content-rules --grep='2026-10-10_readme-content-rules — implementation complete' --format=%B`).
 
 ## What was reviewed
 
-`products/tracker17/README.md` at `2e6bb71cd`, compared with base `5dfc3343efecbc67362aea8d91b516c18a8a9809` (`git merge-base main HEAD`).
-The product diff is two lines, README 23 and 81, landed in `4ceb32809` (`git diff --stat 5dfc3343e -- products/tracker17`: `1 file changed, 2 insertions(+), 2 deletions(-)`).
+`products/tracker17/README.md` at `<a commit not in the public history>`, compared with base `<a commit not in the public history>` (`git merge-base main HEAD`).
+The product diff is two lines, README 23 and 81, landed in `<a commit not in the public history>` (`git diff --stat <a commit not in the public history> -- products/tracker17`: `1 file changed, 2 insertions(+), 2 deletions(-)`).
 `development_path.py resolve` returns `kind: relative`, with `code_worktree` and `pipeline_worktree` both set to this change's worktree.
 
 ## Intent
@@ -43,7 +43,7 @@ I ran these myself on 2026-10-11 and did not reuse the developer's numbers. The 
 | C4 | Read § Setting saved data aside before and after | Line 81 drops "now" and nothing else. The home-directory location, `tracker17-set-aside`, the date-and-time naming, `2026-10-08-143205` and `ls ~/tracker17-set-aside` are kept. So are the stop-first step, the no-deletion consequence, the unreadable-data case, the `mv` branch and the empty next start. |
 | C5 | Same script, comparing before and after | Headings (12), fenced blocks (6) and inline code spans (54) identical in text and order. The text before `## Status` and from `## How it's built` on is byte-identical. |
 | C6 | The two heading tests in `tests/integration/test_start.py` | Unchanged and passing. |
-| C7 | `git diff --exit-code 5dfc3343e… -- products/tracker17 ':!products/tracker17/README.md'` | No output, exit 0. |
+| C7 | `git diff --exit-code <a commit not in the public history>… -- products/tracker17 ':!products/tracker17/README.md'` | No output, exit 0. |
 | C8 | `pytest tests/` and `pytest tests/e2e/` from the product directory, in its `.venv` (Python 3.14.7, pytest 9.1.1) | `224 passed in 12.32s`, exit 0. `12 passed in 2.27s`, exit 0. Before the run, `lsof -nP -iTCP:8017 -sTCP:LISTEN` found no listener (exit 1). |
 
 The rest of the Verification gate, all exit 0:
@@ -58,8 +58,8 @@ The rest of the Verification gate, all exit 0:
 
 No issues. Both content-rule breaks are fixed, the full-span check finds no other break, and every invariant holds.
 
-The earlier stopped report, `7325cabb1`, recorded an end-to-end failure: `test_a_created_project_is_listed_after_a_stop_and_a_start` timed out on stop. `2e6bb71cd` reverted that report. In this run the same test passed, inside a `12 passed` result.
-I don't know why it failed before. Its run was on Codex (the `Surface: Codex` trailer on `7325cabb1`), and this one is on Claude Code. Repeating the e2e suite under both surfaces would tell an environment cause from a flaky test. That question is outside this change, because C7 shows no code or test byte changed.
+The earlier stopped report, `<a commit not in the public history>`, recorded an end-to-end failure: `test_a_created_project_is_listed_after_a_stop_and_a_start` timed out on stop. `<a commit not in the public history>` reverted that report. In this run the same test passed, inside a `12 passed` result.
+I don't know why it failed before. Its run was on Codex (the `Surface: Codex` trailer on `<a commit not in the public history>`), and this one is on Claude Code. Repeating the e2e suite under both surfaces would tell an environment cause from a flaky test. That question is outside this change, because C7 shows no code or test byte changed.
 
 ## Calls made
 

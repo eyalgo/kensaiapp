@@ -114,7 +114,7 @@ realization of it.
 - **Layers 3 and 4 are omitted:** there is one process and one external service (SMTP) behind a port,
   so a contract layer would test the fake and an integration layer would repeat layer 5.
 - **Layers 6–7 are QA-role ATDD work.** QA is not active on sealbox; layer 6 is realized above as a
-  structural check, and layer 7 is recorded as QA-owned with the Agari's end-to-end condition standing
+  structural check, and layer 7 is recorded as QA-owned with the finish line's end-to-end condition standing
   in for it until QA is active.
 
 ## 9. Verification map

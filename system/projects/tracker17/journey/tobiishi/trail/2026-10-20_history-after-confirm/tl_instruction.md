@@ -52,7 +52,7 @@ Decisions by the Tech Lead, 2026-10-20:
   products/tracker17/tests/e2e/test_moves.py::test_real_history_traversal_revalidates_the_confirmation`
   from the worktree root, with approval for the local server/browser: `1 failed in 6.59s`,
   at `test_moves.py:423`, expected strip count 0, actual 1. `git diff --stat main --
-  products/tracker17` printed nothing. Commit `1ab3345271c03d60c9df2b9a86dd82b3e493c66a`
+  products/tracker17` printed nothing. Commit `<a commit not in the public history>`
   records the earlier change's deferred task 1 and names that exact case. Task 2 therefore
   carries the existing red explicitly; Task 1's additional tests still require their own red.
 - **Intermediate browser gate:** Task 1's gate names its new browser matrix, rather than
@@ -250,7 +250,7 @@ existing test name. Add no test or parameter here; Task 1 carries additional sce
 Tests are red at baseline.
 
 Reason: `tracker17 · tobiishi · 2026-10-19_cancel-confirmation` deferred task 1 in closing
-commit `1ab3345271c03d60c9df2b9a86dd82b3e493c66a`; the exact existing case failed this planning
+commit `<a commit not in the public history>`; the exact existing case failed this planning
 run at L423 with strip count 1 instead of 0. Task 1 supplies the production mechanism; this
 task adapts only the design's named obsolete cache witness and strengthens the two permissive
 false observations in that retained case. Its existing red is observed, not newly created.
@@ -289,8 +289,8 @@ a Git base, a file fence or the shape of another test.
 #### Deliverables verified by review
 
 - Previous-change fence, from the **worktree root**:
-  `git diff --name-only e97b021f0 e0b0f245d -- products/tracker17` must name precisely CP-349's
-  twelve allowed files. `git diff e97b021f0 e0b0f245d -- products/tracker17/domain/workflow.py`
+  `git diff --name-only <a commit not in the public history> <a commit not in the public history> -- products/tracker17` must name precisely CP-349's
+  twelve allowed files. `git diff <a commit not in the public history> <a commit not in the public history> -- products/tracker17/domain/workflow.py`
   must touch the opening docstring only. Planning re-ran both: twelve allowed paths;
   the sole workflow hunk is `@@ -7,14 +7,18 @@`, wholly inside that docstring. Verdict: PASS;
   undo nothing from the previous change.

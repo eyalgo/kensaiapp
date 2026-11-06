@@ -50,6 +50,7 @@ coverage.xml
 cover/
 # Runtime guardrail probes must not enter a concurrently created source pin.
 core/*/_pytest_guardrails_wiring_probe/
+core/*/_pytest_guardrails_network_probe/
 
 # Translations
 *.mo

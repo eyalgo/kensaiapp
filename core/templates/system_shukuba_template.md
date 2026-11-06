@@ -21,7 +21,7 @@ is moved whole.
 checklist, crossed by 飛び石 Tobiishi, reached. This station is **never crossed by Tobiishi**: the
 contributing projects do the crossing in their own journeys, each project's Shukuba pointing up to this
 one while the router points down at whichever project is currently active. It is a coordination baton
-along a Way, not a terminus — the instance still has no 上がり Agari and steers by its Michi.
+along a Way, not a terminus — the instance still has no finish line and steers by its Michi.
 
 **Lifecycle.** Open a router station when several projects converge on one thing. When its cross-project
 reached-when is met, **move the station file to `trail/` — by hand today, because no skill moves it

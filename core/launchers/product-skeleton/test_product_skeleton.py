@@ -37,6 +37,7 @@ import subprocess
 from pathlib import Path
 
 import pytest
+from test_support_python3_stub import python3_calls_outside_uv, python3_that_only_fails
 
 _SCRIPT = Path(__file__).resolve().parent / "launcher.sh"
 
@@ -58,6 +59,10 @@ def run(tmp_path, _session_pin):
 
     env = dict(os.environ)
     env["HOME"] = str(home)
+    # uv keeps its cache under HOME by default, and a refusal test snapshots the whole tree; the
+    # launch's Python runs through uv, so its cache stays where pytest_guardrails.py guard 7 put
+    # it (empty_home.py), outside the fixture.
+    env["UV_CACHE_DIR"] = os.environ["UV_CACHE_DIR"]
     env["LAUNCH_PRODUCT_SKELETON_TEMPLATES_ROOT"] = str(templates_root)
 
     def _run(*cli_args, cwd=None, use_env=None):
@@ -1576,7 +1581,10 @@ def test_both_manifest_entries_name_the_token_the_launcher_actually_substitutes(
 # Every check here was proved to discriminate by mutation; the mutations and their results are
 # in `system/projects/launchers/docs/launcher-absolutes-guarded/delegate-report.md`.
 
-_HEREDOC_RE = re.compile(r"^python3 - .*<<'PYEOF'\n(?P<body>.*?)\n^PYEOF$", re.MULTILINE | re.DOTALL)
+_HEREDOC_RE = re.compile(
+    r"^\"\$CORE_DIR/tools/locked_python.sh\" - .*<<'PYEOF'\n(?P<body>.*?)\n^PYEOF$",
+    re.MULTILINE | re.DOTALL,
+)
 
 
 def _halves() -> tuple[str, str]:
@@ -1586,7 +1594,8 @@ def _halves() -> tuple[str, str]:
     text = _SCRIPT.read_text()
     match = _HEREDOC_RE.search(text)
     assert match, (
-        "launcher.sh no longer embeds its Python half in a `python3 - ... <<'PYEOF'` heredoc. "
+        "launcher.sh no longer embeds its Python half in a `locked_python.sh - ... <<'PYEOF'` "
+        "heredoc. "
         "Every rule in this section reads the two halves through that boundary — re-derive them "
         "against the new shape rather than deleting this assertion."
     )
@@ -2426,13 +2435,13 @@ def test_the_commit_carries_surface_product_skeleton_and_no_model(run):
     assert "Role: Product" in message
 
 
-def test_the_commit_carries_the_products_own_agari_directional(run):
+def test_the_commit_carries_the_products_own_finish_line_directional(run):
     root = _init_product_repo(run)
     run.happy("example-product", lang="pylang")
 
     assert run("example-product").returncode == 0
 
-    assert "Agari: example-product" in _log(root)
+    assert "Finish-line: example-product" in _log(root)
 
 
 def test_a_dry_run_commits_nothing(run):
@@ -2495,11 +2504,13 @@ def test_the_python_heredoc_is_never_nested_in_a_substitution():
     is a trap that looks correct and is not.
 
     The launcher's answer is a pipe off a brace group, which does no such re-parse. This holds it
-    there: an editor reaching for `$(python3 - ... <<'PYEOF')` gets told why it will not work rather
-    than discovering it from a runtime message about a paren nobody wrote."""
+    there: an editor reaching for `$(locked_python.sh - ... <<'PYEOF')` gets told why it will not
+    work rather than discovering it from a runtime message about a paren nobody wrote."""
     text = _SCRIPT.read_text()
-    opener = re.search(r"^(?P<prefix>.*)python3 - .*<<'PYEOF'$", text, re.MULTILINE)
-    assert opener, "the Python half no longer opens with a `python3 - ... <<'PYEOF'` line"
+    opener = re.search(
+        r"^(?P<prefix>.*)\"\$CORE_DIR/tools/locked_python.sh\" - .*<<'PYEOF'$", text, re.MULTILINE
+    )
+    assert opener, "the Python half no longer opens with a `locked_python.sh - ... <<'PYEOF'` line"
     prefix = opener.group("prefix")
 
     assert "$(" not in prefix and "<(" not in prefix, (
@@ -2554,3 +2565,20 @@ def test_a_units_table_path_that_is_not_a_bare_path_is_refused(run, unit):
     assert result.returncode != 0
     assert f"unit path {unit!r} must be bare and relative to the product root" in result.stderr
     assert _files_under(run.product_root()) == {"docs", "docs/SDD.md"}
+
+
+def test_product_skeleton_runs_no_python3(run, tmp_path):
+    run.project("example-product", languages="Shell", slug="example-product")
+    run.sdd(
+        rows=(("acceptance", "checks"),),
+        units=(("checks", "Shell", "directory"),),
+    )
+    run.tree("shell", readme_only=True)
+    path, marker = python3_that_only_fails(tmp_path, run.env["PATH"])
+    run.env["PATH"] = path
+
+    result = run("example-product")
+
+    assert result.returncode == 0, result.stderr
+    assert (run.product_root() / "checks").is_dir()
+    assert python3_calls_outside_uv(marker) == []

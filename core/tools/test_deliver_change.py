@@ -97,6 +97,7 @@ class Scenario:
         self.merges = {role: {
             "description": f"deliver {role}", "merge_context": f"verified {role}",
             "surface": "Codex", "actor": "pm",
+            "user_invisible": f"{role} fixture, no changelog entry",
         } for role in self.repos}
         self.wrapper = root / "record builder.py"
         self.wrapper.write_text(
@@ -124,7 +125,7 @@ class Scenario:
             "Path('seal-content').write_text(sys.argv[1])\n"
             f"r = subprocess.run([sys.executable, {str(BUILDER)!r}, '--repo', str(repo), "
             "'commit', '--add', 'seal-content', '--subject', 'seal: example', '--actor', 'pm', "
-            "'--directional', 'Agari: example — progress: seal', '--surface', 'Codex'], "
+            "'--directional', 'Finish-line: example — progress: seal', '--surface', 'Codex'], "
             "check=True, capture_output=True, text=True)\n"
             "with log.open('a') as f: f.write(json.dumps({'seal': run('rev-parse', 'HEAD'), "
             "'argv': sys.argv[1:]}) + '\\n')\n"
@@ -1362,3 +1363,174 @@ def test_teardown_nonzero_after_effect_cannot_report_complete(tmp_path, operatio
                    check=False).returncode == 1
     diagnostic = "worktree remove exited 1" if operation == "remove" else "branch deletion exited 1"
     assert diagnostic in "\n".join(result.diagnostics)
+
+
+# ── a merge to main declares its changelog line ─────────────────────────────
+# The default Scenario record carries a fixture-only declaration; a test about the declaration
+# or its absence sets or removes it explicitly, so no result rests on the default.
+
+ENTRY = "# Changelog\n\n## [Unreleased]\n\n- an entry\n"
+REFUSAL = "refusing to merge {key} into main — the branch adds no entry under ## [Unreleased]"
+LITERAL_REASONS = {
+    "product": "product: spaces, 日本語 ; $(echo bad) 'q' \"d\" * `x`",
+    "instance": "instance: another reason ; rm -rf /",
+}
+
+
+def changelog_repository_state(s):
+    """The refs, registrations, index and checkout bytes a refused delivery must preserve."""
+    states = {}
+    for role, repo in s.repos.items():
+        checkouts = []
+        for checkout in (repo, s.worktrees[role]):
+            git_dir = Path(git(checkout, "rev-parse", "--absolute-git-dir").stdout.strip())
+            merge_head = git_dir / "MERGE_HEAD"
+            files = {
+                str(path.relative_to(checkout)): path.read_bytes()
+                for path in checkout.rglob("*")
+                if ".git" not in path.relative_to(checkout).parts and path.is_file()
+            }
+            checkouts.append((
+                git(checkout, "rev-parse", "HEAD").stdout,
+                (git_dir / "index").read_bytes(), files,
+                merge_head.read_bytes() if merge_head.exists() else None,
+            ))
+        states[role] = (
+            git(repo, "show-ref").stdout,
+            git(repo, "worktree", "list", "--porcelain").stdout,
+            checkouts,
+        )
+    return states
+
+
+def declared_calls(s, role):
+    return [e["argv"] for e in s.log()
+            if "seal" not in e and e["argv"][1] == str(s.repos[role])]
+
+
+@pytest.mark.parametrize("fixed", [False, True])
+def test_changelog_delivery_transports_present_reason_literally(tmp_path, fixed):
+    s = Scenario(tmp_path, fixed)
+    for role in s.repos:
+        s.merges[role]["user_invisible"] = LITERAL_REASONS[role]
+
+    product_tip = (
+        git(s.worktrees["product"], "rev-parse", "HEAD").stdout.strip()
+        if fixed else None
+    )
+    assert_success(s, s.call())
+    if fixed:
+        assert git(s.repos["product"], "show", "-s", "--format=%P", "main").stdout.split() == [
+            s.tips["product"], product_tip,
+        ]
+
+    for role in s.repos:
+        calls = declared_calls(s, role)
+        assert any("--check-only" in argv for argv in calls)
+        assert any("--check-only" not in argv for argv in calls)
+        for argv in calls:
+            assert argv.count("--user-invisible") == 1
+            assert argv[argv.index("--user-invisible") + 1] == LITERAL_REASONS[role]
+        body = git(s.repos[role], "log", "-1", "--format=%B", "main").stdout
+        assert f"\nUser-invisible: {LITERAL_REASONS[role]}\n" in body
+
+
+@pytest.mark.parametrize("fixed", [False, True])
+def test_changelog_delivery_preserves_absence(tmp_path, fixed):
+    s = Scenario(tmp_path, fixed)
+    for role in s.repos:
+        s.merges[role].pop("user_invisible", None)
+        commit(s.worktrees[role], "CHANGELOG.md", ENTRY)
+
+    product_tip = (
+        git(s.worktrees["product"], "rev-parse", "HEAD").stdout.strip()
+        if fixed else None
+    )
+    assert_success(s, s.call())
+    if fixed:
+        assert git(s.repos["product"], "show", "-s", "--format=%P", "main").stdout.split() == [
+            s.tips["product"], product_tip,
+        ]
+
+    for role in s.repos:
+        assert not any("--user-invisible" in argv for argv in declared_calls(s, role))
+        assert "User-invisible:" not in git(s.repos[role], "log", "-1", "--format=%B",
+                                            "main").stdout
+
+    (tmp_path / "control").mkdir()
+    control = Scenario(tmp_path / "control", fixed)
+    for role in control.repos:
+        control.merges[role].pop("user_invisible", None)
+    before = changelog_repository_state(control)
+    result = control.call()
+    halt(result, "deliver-precondition-failed")
+    assert changelog_repository_state(control) == before
+    assert REFUSAL.format(key=KEY) in result.stderr
+    assert not control.merges_called()
+    for role in control.repos:
+        control.assert_recovery(role)
+
+
+@pytest.mark.parametrize("fixed", [False, True])
+@pytest.mark.parametrize("value", [True, 1, None, ["a"], {"a": 1}])
+def test_changelog_delivery_wrong_types_refuse_before_merging(tmp_path, fixed, value):
+    for role in (["product", "instance"] if fixed else ["instance"]):
+        run_root = tmp_path / role
+        run_root.mkdir()
+        s = Scenario(run_root, fixed)
+        s.merges[role]["user_invisible"] = value
+
+        before = changelog_repository_state(s)
+        result = s.call()
+
+        halt(result, "deliver-precondition-failed")
+        assert changelog_repository_state(s) == before
+        assert f"{role} merge user_invisible has the wrong type" in result.stderr
+        assert not s.merges_called() and not any("seal" in e for e in s.log())
+        for name in s.repos:
+            s.assert_recovery(name)
+
+
+def test_changelog_delivery_checks_every_role_before_effects(tmp_path):
+    cases = {"first-role": ("product",), "second-role": ("instance",)}
+    for name, refusing in cases.items():
+        run_root = tmp_path / name
+        run_root.mkdir()
+        s = Scenario(run_root, True)
+        for role in s.repos:
+            if role in refusing:
+                s.merges[role].pop("user_invisible", None)
+            else:
+                s.merges[role]["user_invisible"] = "declared for this role"
+
+        before = changelog_repository_state(s)
+        result = s.call()
+
+        halt(result, "deliver-precondition-failed")
+        assert changelog_repository_state(s) == before
+        assert REFUSAL.format(key=KEY) in result.stderr
+        assert not s.merges_called() and not any("seal" in e for e in s.log())
+        for role in s.repos:
+            s.assert_recovery(role)
+
+
+@pytest.mark.parametrize("reason,cause", [
+    ("", "--user-invisible was given a blank reason"),
+    ("   ", "--user-invisible was given a blank reason"),
+    ("two\nlines", "the --user-invisible reason contains a line break"),
+])
+def test_changelog_delivery_defers_invalid_string_validation_to_builder(tmp_path, reason, cause):
+    s = Scenario(tmp_path)
+    s.merges["instance"]["user_invisible"] = reason
+
+    before = changelog_repository_state(s)
+    result = s.call()
+
+    halt(result, "deliver-precondition-failed")
+    assert changelog_repository_state(s) == before
+    assert cause in result.stderr
+    assert "wrong type" not in result.stderr
+    assert any(reason == argv[argv.index("--user-invisible") + 1]
+               for argv in declared_calls(s, "instance"))
+    assert not s.merges_called()
+    s.assert_recovery("instance")

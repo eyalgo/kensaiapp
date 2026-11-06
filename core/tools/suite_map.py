@@ -19,7 +19,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from fnmatch import fnmatchcase
 
-__version__ = "1.1.0"
+__version__ = "1.1.3"
 
 
 class SuiteMapError(ValueError):
@@ -51,8 +51,8 @@ class SuiteMap:
     entries: tuple[Entry, ...]
 
 
-def _python(*targets: str) -> tuple[str, ...]:
-    return ("python3", "-m", "pytest", "-q", *targets)
+def _pytest(*targets: str) -> tuple[str, ...]:
+    return ("uv", "run", "--locked", "pytest", "-q", *targets)
 
 
 # `skill-local` names each skill directory holding a `test_*.py` — pytest skips the `.claude/`
@@ -62,7 +62,7 @@ _SKILL_LOCAL_DIRECTORIES = (
     "skills/experimental/.claude/skills/skill-evals/scripts",
     "skills/interactive-product/.claude/skills/project-setup/tests",
     "skills/interactive-product/.claude/skills/project-stamp/tests",
-    "skills/pm/.claude/skills/nemawashi-pick/tests",
+    "skills/pm/.claude/skills/seed-pick/tests",
     "skills/pm/.claude/skills/shukuba-open/tests",
     "skills/pm/.claude/skills/tobiishi-drop/tests",
     "skills/scrum-master/.claude/skills/shukuba-retire/tests",
@@ -80,15 +80,16 @@ _SYSTEM_READERS = (
 
 SUITE_MAP = SuiteMap(
     suites=(
-        Suite("tools", _python("core/tools/")),
-        Suite("launchers", _python("core/launchers/")),
-        Suite("hooks", _python(".claude/hooks/")),
-        Suite("claude-tests", _python(".claude/tests/")),
+        Suite("tools", _pytest("core/tools/")),
+        Suite("launchers", _pytest("core/launchers/")),
+        Suite("hooks", _pytest(".claude/hooks/")),
+        Suite("claude-tests", _pytest(".claude/tests/")),
         Suite("workflows", ("node", "--test", ".claude/workflows/tests/")),
-        Suite("skill-local", _python(*_SKILL_LOCAL_DIRECTORIES)),
-        Suite("products", _python("products/")),
-        Suite("system-readers", _python(*_SYSTEM_READERS)),
-        Suite("journey-links", ("python3", "core/tools/check_journey_links.py", "--repo", ".")),
+        Suite("skill-local", _pytest(*_SKILL_LOCAL_DIRECTORIES)),
+        Suite("products", _pytest("products/")),
+        Suite("system-readers", _pytest(*_SYSTEM_READERS)),
+        Suite("journey-links", (
+            "core/tools/locked_python.sh", "core/tools/check_journey_links.py", "--repo", ".")),
     ),
     entries=(
         Entry("core/**", ("tools", "launchers", "hooks", "claude-tests", "system-readers")),
@@ -102,6 +103,7 @@ SUITE_MAP = SuiteMap(
         Entry("*", ("tools", "launchers", "hooks", "system-readers")),
         Entry("docs/**", ()),
         Entry("about/**", ()),
+        Entry(".github/**", ()),
     ),
 )
 

@@ -2,6 +2,7 @@
 #
 # launcher.sh (launch-skill-evals) — deterministic, pollution-proof launcher for one skill-evals round.
 #
+# Version: 1.15.1 — launchers run on the locked Python
 # Version: 1.15.0 — the other six launchers run on the package's turn-on
 # Version: 1.14.2 — launchers and launch scripts take a portable mktemp template, so they run on Linux
 # Version: 1.14.1 — the permissions comment names where a pinned run's allow list comes from: settings.local.json, not settings.json
@@ -224,13 +225,13 @@ esac
 [ -f "$PROVIDERS_TOOL" ] || die "no provider reader at $PROVIDERS_TOOL"
 [ -f "$RUN_INTELLIGENCE" ] || die "no intelligence resolver at $RUN_INTELLIGENCE"
 provider_err="$(mktemp "${TMPDIR:-/tmp}/kensaiapp-skill-evals-provider.XXXXXX")"
-provider="$(python3 "$PROVIDERS_TOOL" launcher launch-skill-evals --instance-root "$INSTANCE_ROOT" --accept claude 2>"$provider_err")" && rc=0 || rc=$?
+provider="$("$CORE_DIR/tools/locked_python.sh" "$PROVIDERS_TOOL" launcher launch-skill-evals --instance-root "$INSTANCE_ROOT" --accept claude 2>"$provider_err")" && rc=0 || rc=$?
 provider_msg="$(cat "$provider_err")"
 rm -f "$provider_err"
 [ "$rc" -eq 0 ] || die "${provider_msg:-could not read the provider for the launch-skill-evals launcher}"
 
 resolved_err="$(mktemp "${TMPDIR:-/tmp}/kensaiapp-resolve-err.XXXXXX")"
-resolved="$(python3 "$RESOLVER" "$skill" --root "$INSTANCE_ROOT" 2>"$resolved_err")" && rc=0 || rc=$?
+resolved="$("$CORE_DIR/tools/locked_python.sh" "$RESOLVER" "$skill" --root "$INSTANCE_ROOT" 2>"$resolved_err")" && rc=0 || rc=$?
 case $rc in
   0) skill_dir="$resolved" ;;
   3) die "no skill at $INSTANCE_ROOT (is '$skill' a real skill in this instance?)" ;;
@@ -277,7 +278,7 @@ LOCK_TOOL="${LAUNCH_EVALS_LOCK_TOOL:-$CORE_DIR/tools/evals_round_lock.py}"
 if [ -z "$force" ] && [ -z "$dry_run" ]; then
   # `holder` prints the holding round or nothing, and clears a stale lock as it goes — so a killed
   # launcher, a crashed round or a rebooted Mac all leave a lock the next launch heals by itself.
-  held="$(python3 "$LOCK_TOOL" --repo "$INSTANCE_ROOT" holder 2>/dev/null || true)"
+  held="$("$CORE_DIR/tools/locked_python.sh" "$LOCK_TOOL" --repo "$INSTANCE_ROOT" holder 2>/dev/null || true)"
   if [ -n "$held" ]; then
     echo "launch-skill-evals: an eval round is already running — $held" >&2
     die "rounds are run one at a time — two parallel fan-outs is what exhausted the session window on 2026-07-26. Wait for it, or pass --force if you mean it."
@@ -317,7 +318,7 @@ prompt="$prompt then commit the round on the current branch, reporting in the co
 #   asked for that tier and its answer is both what the run is handed and what it is stamped with
 #   (`source=tier`). The evaluated skill is the run's subject, not its seat: no --skill-dir, so its
 #   own intelligence is never read and never moves the driver off `sonnet`.
-resolution="$(python3 "$RUN_INTELLIGENCE" --provider "$provider" --tier sonnet)" \
+resolution="$("$CORE_DIR/tools/locked_python.sh" "$RUN_INTELLIGENCE" --provider "$provider" --tier sonnet)" \
   || die "could not resolve tier sonnet through $RUN_INTELLIGENCE"
 run_model="$(printf '%s\n' "$resolution" | sed -n 's/^model=//p')"
 run_effort="$(printf '%s\n' "$resolution" | sed -n 's/^effort=//p')"
@@ -341,7 +342,7 @@ fi
 #   entered right after the CORE_DIR guard above. The model is tier sonnet's, as resolved above
 #   (see WHY A SONNET DRIVER) — an explicit model choice, not a seat/agent grant the pin's plugin
 #   replaces — and it is the same variable the stamp carries, so the two cannot disagree.
-claude_cmd=(python3 "$CORE_DIR/tools/agent_run.py" --provider "$provider" --shape background --pin auto
+claude_cmd=("$CORE_DIR/tools/locked_python.sh" "$CORE_DIR/tools/agent_run.py" --provider "$provider" --shape background --pin auto
   --instance-root "$INSTANCE_ROOT" --prompt "$prompt" --model "$run_model"
   --grant-skill skill-evals)
 [ -z "$run_effort" ] || claude_cmd+=(--effort "$run_effort")
@@ -367,7 +368,7 @@ fi
 #   The launched agent is identified by (name, cwd, id-not-seen-before). Name alone is ambiguous:
 #   relaunching the same skill reuses the same fixed prompt. Captured before the launch, or the new
 #   agent would be in its own exclusion set.
-ids_before="$(python3 "$WATCHER" --list-ids --cwd "$INSTANCE_ROOT" 2>/dev/null || true)"
+ids_before="$("$CORE_DIR/tools/locked_python.sh" "$WATCHER" --list-ids --cwd "$INSTANCE_ROOT" 2>/dev/null || true)"
 
 echo "Launching skill-evals round for '$skill' → iteration-$next (background)…"
 #   stdout is captured so the launched agent's id can be recorded in the lock AND handed to the
@@ -395,7 +396,7 @@ if [ -f "$DETACH_LIB" ]; then
   agent_id="$(capture_agent_id "$launch_out")"
 fi
 if [ -n "$agent_id" ]; then
-  python3 "$LOCK_TOOL" --repo "$INSTANCE_ROOT" write \
+  "$CORE_DIR/tools/locked_python.sh" "$LOCK_TOOL" --repo "$INSTANCE_ROOT" write \
       --agent-id "$agent_id" --skill "$skill" --cwd "$INSTANCE_ROOT" --iteration "$next" \
     && echo "          Round lock:   held by agent $agent_id"
 else

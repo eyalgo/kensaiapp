@@ -13,8 +13,7 @@ WHY IT IS DETERMINISTIC
     No model decides what runs next. The kinds a row can be are a literal in this file, spelled
     the way the two refine prompts spell them, and each maps to one launcher and
     one way of telling that it worked. The sweep's launcher is the one the project card's
-    `**Definition:**` names, `chain-product` for `full` and `chain-agari` for `prd-agari`; a `none`
-    card has no sweep. A row whose kind is not in the table is refused before
+    `**Definition:**` names, `product-docs` for `full` and `prd-and-finish-line` for `prd-and-finish-line`; a `none` card has no sweep. A row whose kind is not in the table is refused before
     anything starts. A runnable row whose Command cell is not the command the table says that
     kind runs is refused alone: it never runs, the rows waiting on it are blocked, the rows that
     do not wait on it still run, and the queue ends halted naming the cell — one cell of prose
@@ -49,10 +48,10 @@ THE PROVIDER A ROW GOES TO
 
 THE OWNER'S MAC ASK
     `--gate-owners-mac` is the owner's ask that a walk's test gate run on the owner's Mac
-    (`chain-change`'s `--gate-owners-mac`). It is kept on the state as `gate_owners_mac` and put
-    on every `chain-change` row the queue launches, that launcher alone, so the next change's walk
+    (`walk`'s `--gate-owners-mac`). It is kept on the state as `gate_owners_mac` and put
+    on every `walk` row the queue launches, that launcher alone, so the next change's walk
     has the ask the sealed one had. Every start states it, a resume included, as it states the
-    force: the start a `chain-change` walk's end makes passes the flag when that walk had the ask,
+    force: the start a `walk`'s end makes passes the flag when that walk had the ask,
     and an owner's plain resume passes none and lifts it, which is why every resume hint the
     queue sends restates the ask it holds. It travels as a flag and never in the
     environment, because the gate tool reads `KENSAIAPP_GATE_OWNERS_MAC` itself.
@@ -99,7 +98,6 @@ from enum import Enum
 from pathlib import Path
 
 import completion_shim
-import development_path
 import journey_names
 import journey_status
 import pin
@@ -107,6 +105,7 @@ import product_checkout
 import reporters
 import providers
 import walk_stop
+from chain import LAUNCHERS as DOCUMENT_LAUNCHERS
 from chain import (EXIT_ALREADY_WALKING, PROVIDERS, Files, IdSource, Notifier, Processes,
                    walk_is_live, with_provider)
 from chain import StateStore as ChainStateStore
@@ -116,7 +115,7 @@ from chain_development import (_FINISHED, DEFAULT_CONTEXT_CAP, AdvanceResult,
 from chain_development import StateStore as WalkStateStore
 from providers import ProviderFiles, ProvidersRefused
 
-__version__ = "2.14.0"
+__version__ = "2.24.0"
 
 
 # --- the kinds a row can be ---------------------------------------------------------------------
@@ -143,7 +142,6 @@ class Landed(Enum):
     SEED_RETIRED = "seed_retired"
     SEED_REFINED = "seed_refined"
     DOCS_CUT = "docs_cut"
-    README_STATUS_REPORTED = "readme_status_reported"
     NONE = "none"
 
 
@@ -159,9 +157,9 @@ class Kind:
     """One row of the kind table. `arguments` may hold `<project>` and `<station>`, filled at
     `expected_argv`;
     `role` is the seat whose move it is, the value a run's telemetry is tagged with.
-    `takes_chain_change_flags` is True for the launcher that accepts `--context-cap` and
-    `--gate-owners-mac` — `chain-change` alone. It is a fact of the launcher rather than of the
-    disposition: `chain-product` is a `RUN_CHAIN` row too, and refuses a flag it does not know.
+    `takes_walk_flags` is True for the launcher that accepts `--context-cap` and
+    `--gate-owners-mac` — `walk` alone. It is a fact of the launcher rather than of the
+    disposition: `product-docs` is a `RUN_CHAIN` row too, and refuses a flag it does not know.
     The provider a `RUN_SKILL` row runs on is not the table's: the instance's `.providers.toml`
     names it, under `build-idea."<kind>"` (§ THE PROVIDER A ROW GOES TO)."""
 
@@ -170,7 +168,7 @@ class Kind:
     arguments: tuple[str, ...] = ()
     role: str = ""
     landed: Landed = Landed.NONE
-    takes_chain_change_flags: bool = False
+    takes_walk_flags: bool = False
 
 
 # The two refine prompts own report kinds; `refine a seed` is the engine's retirement
@@ -182,16 +180,12 @@ KINDS: dict[str, Kind] = {
     "close the reached station": Kind(
         Disposition.RUN_SKILL, "skill", ("shukuba-retire", _PROJECT, _STATION), "scrum-master",
         Landed.STATION_CLOSED),
-    # Immediately after the close it follows: the table reads in the order the queue runs the two.
-    "readme-status": Kind(
-        Disposition.RUN_SKILL, "skill", ("readme-status", _PROJECT), "content-editor",
-        Landed.README_STATUS_REPORTED),
     "pick a seed": Kind(
-        Disposition.RUN_SKILL, "skill", ("nemawashi-pick", _PROJECT), "pm", Landed.SEED_PICKED),
+        Disposition.RUN_SKILL, "skill", ("seed-pick", _PROJECT), "pm", Landed.SEED_PICKED),
     "cut the route": Kind(
         Disposition.RUN_SKILL, "skill", ("stations-from-seed", _PROJECT), "pm", Landed.ROUTE_CUT),
-    "walk the next change": Kind(Disposition.HAND_OFF, "chain-change", (_PROJECT,),
-                                 takes_chain_change_flags=True),
+    "walk the next change": Kind(Disposition.HAND_OFF, "walk", (_PROJECT,),
+                                 takes_walk_flags=True),
     "the owner's act": Kind(Disposition.OWNER),
     "retire a seed": Kind(Disposition.RUN_SKILL, "skill", ("nemawashi-retire", _PROJECT),
                           "scrum-master", Landed.SEED_RETIRED),
@@ -206,7 +200,7 @@ KINDS: dict[str, Kind] = {
     "route across projects": Kind(Disposition.SKIP),
 }
 
-_RETIRE = "retire a seed"
+RETIRE_MOVE = "retire a seed"
 _PICK = "pick a seed"
 _SWEEP = "sweep the product's companions"
 _REFINE = "refine a seed"
@@ -265,20 +259,20 @@ class Definition(str, Enum):
     writes after `**Definition:**`, so a card's text is read into a member by its value."""
 
     FULL = "full"
-    PRD_AGARI = "prd-agari"
+    PRD_AND_FINISH_LINE = "prd-and-finish-line"
     NONE = "none"
 
 
 # The launcher folder a sweep runs, by definition. `none` has no entry: it has no sweep.
 SWEEP_LAUNCHERS: dict[Definition, str] = {
-    Definition.FULL: "chain-product",
-    Definition.PRD_AGARI: "chain-agari",
+    Definition.FULL: DOCUMENT_LAUNCHERS["product"],
+    Definition.PRD_AND_FINISH_LINE: DOCUMENT_LAUNCHERS["finish-line"],
 }
 
 _DEFINITION_LINE = "**Definition:**"
 _COMMENT_OPENS = "<!--"
 _THE_SWEEP_IS_DECIDED = "and the sweep is decided by that line"
-_THE_THREE = "full, prd-agari or none"
+_THE_THREE = "full, prd-and-finish-line or none"
 
 
 def card_path(instance_root: str, project: str) -> str:
@@ -287,7 +281,7 @@ def card_path(instance_root: str, project: str) -> str:
 
 
 def read_definition(card_text: str | None, *, card: str) -> Definition:
-    """The card's definition, read the way `chain-change` reads it: the one line beginning exactly
+    """The card's definition, read the way `walk` reads it: the one line beginning exactly
     `**Definition:**`, its text after the label up to any `<!--`, trimmed. `card_text` is `None`
     when there is no card file, and `card` is the path the refusals name. A card with no such
     line, with more than one, or with a value outside the three refuses."""
@@ -573,14 +567,14 @@ class QueueState:
     engine_path: str = ""
     notifier: str = ""
     keep_awake: bool = False
-    # The developer's context cap every `chain-change` row is launched with. Recorded at a fresh
+    # The developer's context cap every `walk` row is launched with. Recorded at a fresh
     # start and kept by a resume, so a queue carries one cap for its whole life.
     context_cap: int = DEFAULT_CONTEXT_CAP
     # The provider `--provider` forced every row and nested chain of this queue onto, or empty
     # when each runs on its own. Stated by every start, a resume included: the start a
-    # `chain-change` walk's end makes carries the force in its environment and so restates it.
+    # `walk`'s end makes carries the force in its environment and so restates it.
     forced_provider: str = ""
-    # The owner's ask that every `chain-change` row's walk gate on the owner's Mac. Stated by every
+    # The owner's ask that every `walk` row's walk gate on the owner's Mac. Stated by every
     # start, as the force is (§ THE OWNER'S MAC ASK).
     gate_owners_mac: bool = False
     # The product the project builds, read by the launcher off its card. A pick waits for the
@@ -696,35 +690,15 @@ class Plan:
 
 # What each landed fact says when it does not hold, for the failed row's reason.
 _NOT_LANDED = {
-    Landed.STATION_CLOSED: "the station has not moved from the shukuba root to trail/",
-    Landed.SEED_PICKED: "no seed sits at the seedbed root",
-    Landed.ROUTE_CUT: "the seed at the seedbed root has no station checklist",
-    Landed.SEED_RETIRED: "the recorded seed has not moved from the root to trail/",
+    Landed.STATION_CLOSED: "the station's move from the shukuba root to trail/ is not in the "
+                           "last commit",
+    Landed.SEED_PICKED: "no seed sits at the seedbed root, committed as it is on disk",
+    Landed.ROUTE_CUT: "the seed at the seedbed root has no station checklist, committed",
+    Landed.SEED_RETIRED: "the recorded seed's move from the root to trail/ is not in the last "
+                         "commit",
     Landed.SEED_REFINED: "no fresh nemawashi-refine report was written",
     Landed.DOCS_CUT: "no candidate sits in unpicked/ for the pick to take",
-    Landed.README_STATUS_REPORTED: "readme-status neither made its commit nor found nothing to "
-                                   "change",
 }
-
-# What a finished `readme-status` run's final message reports a result with: the two sentences
-# `skills/content-editor/.claude/skills/readme-status/prompts/thin.md` publishes. The commit
-# sentence must open the message, with both quoted fields nonempty and its terminating period. The
-# nothing-to-change sentence may open it, or stand as a whole line anywhere in it once the line's
-# blockquote markers, surrounding `*` emphasis and outer whitespace are stripped; case, inner
-# spacing and the period stay verbatim. A run that wrote a preamble or set the sentence in bold still reported it.
-_README_STATUS_COMMIT = re.compile(r"readme-status made commit `[^`]+` in `[^`]+`\.")
-_README_STATUS_NOTHING = "readme-status found nothing to change and made no commit."
-_WHAT_LEFT_FILE = os.path.join("docs", "what_left.md")
-
-
-def _bare_line(line: str) -> str:
-    """One message line without its blockquote markers, surrounding `*` emphasis or outer
-    whitespace — the markdown a run may wrap a sentence in."""
-    text = line.strip()
-    while text.startswith(">"):
-        text = text[1:].lstrip()
-    return text.strip("*").strip()
-
 
 # --- the queue ------------------------------------------------------------------------------------
 
@@ -801,7 +775,7 @@ class BuildIdea:
                  core_dir: str = "", shim_dir: str = "", *, forced_provider: str = "") -> Plan:
         """What a start would do, decided by the same checks `start` makes and touching nothing:
         no lock, no write, no launch, no message. A dry run built on anything else could report a
-        queue the real start refuses — so the live `chain-change` walk, the fully consumed
+        queue the real start refuses — so the live `walk`, the fully consumed
         report and the provider file are refused here, where both the dry run and the start meet
         them. The provider file is read last, once the plan holds, and never when
         `forced_provider` is given: a forced queue does not read it. `shim_dir` is where the
@@ -816,7 +790,7 @@ class BuildIdea:
         """`describe` before its provider check: one body with four ways out, so the check lives
         in the one place that follows all of them."""
         self._refuse_a_live_queue()
-        self._refuse_a_live_chain_change(
+        self._refuse_a_live_walk(
             shim_dir or os.path.join(instance_root, "system", "logs"), project)
         key = key or self.reader.sealed_key(instance_root, project)
         if not key:
@@ -830,19 +804,22 @@ class BuildIdea:
         # the report is read and its digest decides, like any other.
         # A retire the owner's stop caught in flight counts: its run may have moved the report
         # before the stop reached it, and the stop leaves the row `failed`.
-        retiring = any(entry["move"] == _RETIRE
+        retiring = any(entry["move"] == RETIRE_MOVE
                        and (entry["status"] in (RowStatus.LAUNCHED, RowStatus.LANDED,
                                                 RowStatus.HANDED_OFF)
                             or entry.get("reason", "").startswith(_STOPPED_BY_THE_OWNER))
                        for entry in existing.get("rows", []))
         seed = existing.get("seed", "") if existing.get("key") == key and retiring else ""
         old_retirement = existing.get("key") == key and any(
-            entry["move"] == _RETIRE and entry["status"] == RowStatus.HANDED_OFF
+            entry["move"] == RETIRE_MOVE and entry["status"] == RowStatus.HANDED_OFF
             for entry in existing.get("rows", []))
         if old_retirement and not seed:
             report = self.reader.report_path(change)
             folder = os.path.dirname(report or "")
-            if os.path.dirname(folder) != os.path.join(change.nemawashi, "trail"):
+            root_seed = os.path.join(change.nemawashi, os.path.basename(folder))
+            if (os.path.dirname(folder) != os.path.join(change.nemawashi, "trail")
+                    or not self.journey.committed(change.instance_root, folder)
+                    or self.journey.committed(change.instance_root, root_seed)):
                 raise QueueRefused("the previous retirement has not landed in trail/ yet")
             seed = os.path.join(change.nemawashi, os.path.basename(folder))
         if seed:
@@ -879,7 +856,7 @@ class BuildIdea:
         refused = validate(rows, core_dir=core, instance_root=instance_root, project=project,
                            card=self._card_text(instance_root, project))
         seed = ""
-        if any(row.move == _RETIRE for row in rows):
+        if any(row.move == RETIRE_MOVE for row in rows):
             seeds = self.journey.root_seeds(change.nemawashi)
             if len(seeds) != 1:
                 raise QueueRefused("retirement needs exactly one active seed at the seedbed root")
@@ -939,7 +916,7 @@ class BuildIdea:
         the rest left to `advance`. A report the state file already records, unchanged since, is
         RESUMED instead: the record says what landed, the disk says what landed since, and only
         what is still owed runs. A report rewritten at the same path is a new queue. A unit whose
-        seed has retired to trail/ runs that seed's nemawashi-refine report. A start the `chain-change` walk's own end makes (`by_hook`) does nothing while the
+        seed has retired to trail/ runs that seed's nemawashi-refine report. A start the `walk`'s own end makes (`by_hook`) does nothing while the
         owner's stop stands, and says so. Such a start on a unit with no refine report that
         serves no station has nothing to run either: it touches nothing and returns
         `NoStationStart`, whose message says why."""
@@ -947,7 +924,7 @@ class BuildIdea:
             existing = self.store.raw()
             if by_hook and existing.get("stop_requested"):
                 self.notifier.send(
-                    f"{project}: build-idea is stopped — chain-change's end did not restart it; "
+                    f"{project}: build-idea is stopped — walk's end did not restart it; "
                     f"run {self._resume_command(core_dir, project, gate_owners_mac)} to resume")
                 return AdvanceResult(acted=False, ended=existing.get("ended"))
             if existing.get("stop_requested"):
@@ -1008,7 +985,7 @@ class BuildIdea:
 
         The one row no disk fact can land is the owner's act, and the owner's own start says it is
         made (`by_owner`): each such row whose After rows have all landed lands. A start the
-        `chain-change` walk's end makes is not the owner and lands none."""
+        `walk`'s end makes is not the owner and lands none."""
         state = self.store.load()
         state.seed = plan.seed or state.seed
         state.report_digest = state.report_digest or plan.digest
@@ -1032,7 +1009,7 @@ class BuildIdea:
                 entry["refused"] = refused[entry["number"]]
                 entry["status"], entry["reason"] = RowStatus.FAILED.value, entry["refused"]
                 continue
-            if entry["move"] == _RETIRE and entry["status"] == RowStatus.HANDED_OFF:
+            if entry["move"] == RETIRE_MOVE and entry["status"] == RowStatus.HANDED_OFF:
                 if not self._landed(state, Landed.SEED_RETIRED, entry):
                     raise QueueRefused("the previous retirement has not landed in trail/ yet")
                 entry["status"] = RowStatus.LANDED.value
@@ -1078,15 +1055,15 @@ class BuildIdea:
                             for status in self._statuses(state, entry["after"]))):
                 entry["status"] = RowStatus.LANDED.value
 
-    def _refuse_a_live_chain_change(self, shim_dir: str, project: str) -> None:
-        """A `chain-change` walk on the project is live while its state records no end and a run
+    def _refuse_a_live_walk(self, shim_dir: str, project: str) -> None:
+        """A `walk` on the project is live while its state records no end and a run
         pending — the rule `DevelopmentChain` applies to its own state. Its end starts this queue
         through the hook, so a start beside it would only race the restart."""
-        path = os.path.join(shim_dir, f"chain-change-{project}-state.json")
+        path = os.path.join(shim_dir, f"chain-walk-{project}-state.json")
         walk = WalkStateStore(self.files, path).raw()
         if walk and walk.get("ended") is None and walk.get("pending"):
             raise QueueRefused(
-                f"a chain-change walk is live on {project}: {path} still has a run pending. Let "
+                f"a walk the walk launcher started is live on {project}: {path} still has a run pending. Let "
                 f"it finish — its end starts this queue again — or start this once it has ended.")
 
     def advance(self, row: int, outcome: str) -> AdvanceResult:
@@ -1104,10 +1081,6 @@ class BuildIdea:
             if pending is None:
                 return AdvanceResult(acted=False, ended=None)
             entry = self._row(state, row)
-            if KINDS[entry["move"]].landed is Landed.README_STATUS_REPORTED:
-                # The ending is saved before the landing fact is read: a resume inspects the same
-                # attempt's ending, and an absent one never means the run finished.
-                entry["ending"] = outcome
             self.store.save(state)
             reason = self._left_the_checkout_dirty(state, pending)
             if reason is None:
@@ -1360,9 +1333,14 @@ class BuildIdea:
             if not state.seed:
                 return False
             trail = os.path.join(change.nemawashi, "trail", os.path.basename(state.seed))
-            return (not self.files.is_file(state.seed) and not self.files.is_dir(state.seed)
-                    and (self.files.is_file(trail)
-                         or self.files.is_file(os.path.join(trail, "seed.md"))))
+            moved = (not self.files.is_file(state.seed) and not self.files.is_dir(state.seed)
+                     and (self.files.is_file(trail)
+                          or self.files.is_file(os.path.join(trail, "seed.md"))))
+            # A move on disk is not a retire: a retire whose commit was refused leaves the seed
+            # moved and staged, and the refine after it can only stop. It has landed once the
+            # move is in the instance's last commit — the trail there, the seedbed root not.
+            return (moved and self.journey.committed(state.instance_root, trail)
+                    and not self.journey.committed(state.instance_root, state.seed))
         if fact is Landed.SEED_REFINED:
             report = self.files.read_text(self._refine_report(state))
             return ("before" in entry and report is not None
@@ -1370,9 +1348,8 @@ class BuildIdea:
         if fact is Landed.DOCS_CUT:
             # The PM always picks unless it can't (owner, 2026-09-30): a cut that finished lands
             # whenever the pool holds a candidate, new or not. Only an empty pool holds the pick.
-            return "before" in entry and bool(self._candidates(state))
-        if fact is Landed.README_STATUS_REPORTED:
-            return self._readme_status_reported(state, entry)
+            return "before" in entry and any(
+                self.journey.clean(state.instance_root, path) for path in self._candidates(state))
         if fact is Landed.STATION_CLOSED:
             # The station the close was launched naming, else the one open at the first start:
             # closed is that file moved from the root into trail/, which is what the skill does.
@@ -1381,48 +1358,21 @@ class BuildIdea:
             stem = self._launched_station(entry) or state.station.removesuffix(".md")
             if stem:
                 name = f"{stem}.md"
-                return (self.files.is_file(os.path.join(change.shukuba, "trail", name))
-                        and not self.files.is_file(os.path.join(change.shukuba, name)))
+                trail, root = (os.path.join(change.shukuba, "trail", name),
+                               os.path.join(change.shukuba, name))
+                # A close lands with its commit, as a retire does.
+                return (self.files.is_file(trail) and not self.files.is_file(root)
+                        and self.journey.committed(state.instance_root, trail)
+                        and not self.journey.committed(state.instance_root, root))
             return self.reader.open_station(state.instance_root, state.project) is None
         seeds = self.journey.root_seeds(change.nemawashi)
+        # A pick and a cut land with their commits: the seed at the root, as it is on disk.
         if fact is Landed.SEED_PICKED:
-            return bool(seeds)
+            return bool(seeds) and self.journey.clean(state.instance_root, seeds[0])
         if fact is Landed.ROUTE_CUT:
-            return bool(seeds) and self.journey.checklist_items(seeds[0]) > 0
+            return (bool(seeds) and self.journey.checklist_items(seeds[0]) > 0
+                    and self.journey.clean(state.instance_root, seeds[0]))
         return True
-
-    def _readme_status_reported(self, state: QueueState, entry: dict) -> bool:
-        """A `readme-status` run that finished landed in exactly three cases: its final message
-        (the receipt of this attempt) opens with the commit sentence, opens with the
-        nothing-to-change sentence or holds it as a whole line, or the product has no what-left file when the run ends. A run
-        with no recorded finished ending lands in none of them, whatever the product holds."""
-        if entry.get("ending") not in _FINISHED:
-            return False
-        message = completion_shim.read_result(self.files, entry.get("receipt"))
-        if message is not None and (_README_STATUS_COMMIT.match(message)
-                                    or message.startswith(_README_STATUS_NOTHING)
-                                    or _README_STATUS_NOTHING in map(_bare_line,
-                                                                     message.splitlines())):
-            return True
-        product = self._product_directory(state)
-        return product is not None and not self.files.is_file(
-            os.path.join(product, _WHAT_LEFT_FILE))
-
-    def _product_directory(self, state: QueueState) -> str | None:
-        """The product the queue was started on; for a state that kept none, the one the project
-        card names, a relative value against the instance. `None` when neither resolves: an
-        unresolved product is no evidence that a file is absent."""
-        if state.product_path:
-            return os.path.join(state.instance_root, state.product_path)
-        card = self._card_text(state.instance_root, state.project)
-        if card is None:
-            return None
-        try:
-            kind, value = development_path.parse_product_path(card, self.environ.get("HOME"))
-        except development_path.ToolError:
-            return None
-        return value if kind == development_path.FIXED else os.path.join(
-            state.instance_root, value)
 
     def _candidates(self, state: QueueState) -> dict[str, str]:
         pool = os.path.join(ChangeLayout(state.instance_root, state.project, state.key).nemawashi,
@@ -1463,7 +1413,7 @@ class BuildIdea:
 
     @staticmethod
     def _needs_continuation(entry: dict) -> bool:
-        return (entry["move"] in (_RETIRE, _REFINE)
+        return (entry["move"] in (RETIRE_MOVE, _REFINE)
                 and entry["status"] == RowStatus.LANDED and not entry.get("continued"))
 
     def _continue_seed(self, state: QueueState) -> bool:
@@ -1473,7 +1423,7 @@ class BuildIdea:
             if not self._needs_continuation(entry):
                 continue
             offset = max(row["number"] for row in state.rows)
-            if entry["move"] == _RETIRE:
+            if entry["move"] == RETIRE_MOVE:
                 argv = self._argv(_REFINE, state.core_dir, state.instance_root, state.project,
                                   state.seed)
                 rows = [Row(1, _REFINE, "Principal PM", shlex.join(argv), (), "retirement")]
@@ -1559,7 +1509,8 @@ class BuildIdea:
     def _watch_argv(self, state: QueueState) -> list[str]:
         """The watch, run on the pinned engine as the completion shim runs an advance, so an edit
         to the engine cannot change a queue already in flight."""
-        return ["python3", state.engine_path, "--wait-on-walk", self.store.path, state.queue_id]
+        return [os.path.join(os.path.dirname(state.engine_path), "locked_python.sh"),
+                state.engine_path, "--wait-on-walk", self.store.path, state.queue_id]
 
     @staticmethod
     def _held(state: QueueState) -> bool:
@@ -1577,7 +1528,7 @@ class BuildIdea:
         and retirement even when a report omitted their dependency."""
         moved = False
         retired = [entry["number"] for entry in state.rows
-                   if entry["move"] == _RETIRE
+                   if entry["move"] == RETIRE_MOVE
                    and entry["status"] in (RowStatus.LAUNCHED, RowStatus.LANDED,
                                             RowStatus.HANDED_OFF)]
         for entry in state.rows:
@@ -1597,7 +1548,7 @@ class BuildIdea:
             # row back to waiting, so a rule applied only at entry would be lost on the first one.
             elif (owner_rows
                     and (KINDS[entry["move"]].disposition is Disposition.HAND_OFF
-                         or entry["move"] == _RETIRE)
+                         or entry["move"] == RETIRE_MOVE)
                     and not self._waits_on_any(state, entry, set(owner_rows))):
                 entry["status"] = RowStatus.BLOCKED.value
                 entry["reason"] = f"the owner's act comes first (row {owner_rows[0]})"
@@ -1632,7 +1583,7 @@ class BuildIdea:
                     continue
                 self._launch(state, entry)
                 moved = True
-                if entry["move"] == _RETIRE:
+                if entry["move"] == RETIRE_MOVE:
                     break
         return moved
 
@@ -1686,8 +1637,8 @@ class BuildIdea:
 
     @staticmethod
     def _walk_path(state: QueueState) -> str:
-        """The one state file both definition chains write for the project (`chain-product` and
-        `chain-agari` share it), so it names the walk whichever chain started it."""
+        """The one state file both definition chains write for the project (`product-docs` and
+        `prd-and-finish-line` share it), so it names the walk whichever chain started it."""
         return os.path.join(state.shim_dir, f"chain-{state.project}-state.json")
 
     def _queued_sweep(self, state: QueueState, pick: dict) -> dict | None:
@@ -1702,16 +1653,16 @@ class BuildIdea:
         return None
 
     def _live_companions(self, product_path: str, instance_root: str, project: str) -> list[str]:
-        """The Agari's companion, `system/projects/<project>/agari_open_issues.md` in the
+        """The finish line's companion, `system/projects/<project>/finish_line_open_issues.md` in the
         instance, and every `*_open_issues.md` under the product's docs/ — a companion outlives
         its round only while it holds something open (`core/tools/chain.py`
-        `_live_companions`). The Agari's lives in the instance, so a missing product path says
+        `_live_companions`). The finish line's lives in the instance, so a missing product path says
         nothing about it."""
         found = []
-        agari = os.path.join(instance_root, "system", "projects", project,
-                             "agari_open_issues.md")
-        if self.files.is_file(agari):
-            found.append(agari)
+        finish_line = os.path.join(instance_root, "system", "projects", project,
+                           "finish_line_open_issues.md")
+        if self.files.is_file(finish_line):
+            found.append(finish_line)
         if not product_path:
             return found
         folders, seen = [os.path.join(product_path, "docs")], set()
@@ -1750,11 +1701,9 @@ class BuildIdea:
         else:
             provider = state.forced_provider
         argv, env = list(entry["argv"]), with_provider(self.environ, provider)
-        # Set or removed on every launch, as the provider is: the engine's own environment is the
-        # previous row's, and only a `readme-status` row is given a receipt of its own.
+        # Removed on every launch, because the engine's own environment is the previous row's.
+        # No row is given a receipt of its own.
         env.pop(completion_shim.RESULT_FILE_VARIABLE, None)
-        if kind.landed is Landed.README_STATUS_REPORTED:
-            env[completion_shim.RESULT_FILE_VARIABLE] = self._fresh_receipt(state, entry)
         if kind.role:
             env["INSTRUMENT_RUN_CHAIN"] = QUEUE_NAME
             env["INSTRUMENT_RUN_WALK_ID"] = state.queue_id
@@ -1783,7 +1732,7 @@ class BuildIdea:
                 # would otherwise split in two, the hook would never run, and the row would wait
                 # for ever.
                 argv += ["--on-end", shlex.quote(self._write_shim(state, number))]
-        if kind.takes_chain_change_flags:
+        if kind.takes_walk_flags:
             argv += ["--context-cap", str(state.context_cap)]
             if state.gate_owners_mac:
                 argv.append("--gate-owners-mac")
@@ -1815,20 +1764,6 @@ class BuildIdea:
         if kind.disposition is Disposition.HAND_OFF:
             state.pending.pop(str(number), None)
             entry["status"] = RowStatus.HANDED_OFF.value
-
-    @staticmethod
-    def _fresh_receipt(state: QueueState, entry: dict) -> str:
-        """A destination no earlier attempt of any row had, kept on the row before the launcher
-        runs, with the prior attempt's ending cleared: a late watcher from a previous attempt
-        writes somewhere this attempt never reads."""
-        attempt = entry.get("attempts", 0) + 1
-        entry["attempts"] = attempt
-        entry.pop("ending", None)
-        entry["receipt"] = os.path.abspath(os.path.join(
-            state.shim_dir,
-            f"build-idea-{state.project}-row-{entry['number']}-{state.queue_id}-{attempt}"
-            f".receipt.json"))
-        return entry["receipt"]
 
     def _write_shim(self, state: QueueState, number: int) -> str:
         shim = os.path.join(state.shim_dir, f"build-idea-{state.project}-row-{number}.sh")
@@ -1926,6 +1861,39 @@ class Journey:
     """The seedbed, read through `journey_status`'s own reading of it, so a seed means here what it
     means to every other reader: a `.md` file, or a folder holding `seed.md`."""
 
+    def committed(self, repo: str, path: str) -> bool:
+        """Whether `path`, a file or a folder under `repo`, is in `repo`'s last commit — what a
+        journey move has landed, as against what it has only moved on disk or staged. `./` makes
+        git read the path from `repo`, not from the top of the repository holding it.
+
+        Every instance is a git work tree, and a journey move lands with its commit. A folder that
+        is not one keeps no commits for a move to land in, so there the disk is the whole record
+        and a path on it counts — the answer the queue gave before it asked git at all."""
+        if not self._work_tree(repo):
+            return os.path.exists(path)
+        relative = os.path.relpath(path, repo)
+        done = subprocess.run(["git", "-C", repo, "cat-file", "-e", f"HEAD:./{relative}"],
+                              capture_output=True)
+        return done.returncode == 0
+
+    @staticmethod
+    def _work_tree(repo: str) -> bool:
+        done = subprocess.run(["git", "-C", repo, "rev-parse", "--is-inside-work-tree"],
+                              capture_output=True, text=True)
+        return done.returncode == 0 and done.stdout.strip() == "true"
+
+    def clean(self, repo: str, path: str) -> bool:
+        """Whether `path` is in `repo`'s last commit exactly as it is on disk — an edit that was
+        made but never committed, staged or not, is not clean. Outside a work tree, as
+        `committed`."""
+        if not self.committed(repo, path):
+            return False
+        if not self._work_tree(repo):
+            return True
+        done = subprocess.run(["git", "-C", repo, "diff", "--quiet", "HEAD", "--", path],
+                              capture_output=True)
+        return done.returncode == 0
+
     def report_revision(self, path: str) -> list[int] | None:
         """A rewrite counts even when a fresh run reaches the same report text."""
         try:
@@ -2015,7 +1983,7 @@ def main(argv: list[str] | None = None) -> int:
                              "launching and sending nothing")
     parser.add_argument("--stop", metavar="STATE_PATH",
                         help="record the owner's stop: runs in flight finish, nothing new "
-                             "starts, and chain-change's end does not restart the queue")
+                             "starts, and walk's end does not restart the queue")
     parser.add_argument("--wait-on-walk", nargs=2, metavar=("STATE_PATH", "QUEUE_ID"),
                         help="the watch a queue leaves behind when it ends waiting-on-a-walk: "
                              "poll that walk, and continue the queue once it is no longer "
@@ -2033,7 +2001,7 @@ def main(argv: list[str] | None = None) -> int:
                              "chain while one of its documents has a live companion")
     parser.add_argument("--context-cap", type=_positive_integer, default=DEFAULT_CONTEXT_CAP,
                         metavar="TOKENS",
-                        help="the developer's context cap for every chain-change row this queue "
+                        help="the developer's context cap for every walk row this queue "
                              "launches; read only with --start, and kept by a resumed queue "
                              f"(default {DEFAULT_CONTEXT_CAP})")
     parser.add_argument("--provider", choices=PROVIDERS, default="",
@@ -2042,11 +2010,11 @@ def main(argv: list[str] | None = None) -> int:
                              "names, which is then not read; read with --start and "
                              "--describe")
     parser.add_argument("--gate-owners-mac", action="store_true",
-                        help="the owner's ask that every chain-change row's walk run its test "
+                        help="the owner's ask that every walk row's walk run its test "
                              "gate on the owner's Mac; read with --start, and stated by every "
                              "start, a resume included")
     parser.add_argument("--by-hook", action="store_true",
-                        help="this start is the one chain-change's end makes: it does nothing "
+                        help="this start is the one walk's end makes: it does nothing "
                              "while a stop stands")
     args = parser.parse_args(argv)
 

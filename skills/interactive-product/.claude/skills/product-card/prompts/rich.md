@@ -1,5 +1,5 @@
 ---
-version: "2.2.0"
+version: "2.4.0"
 ---
 
 # product-card — reading a settled product into its card and its README
@@ -50,7 +50,7 @@ day it does.
 | `<product>/docs/SRS.md`, `<product>/docs/PRD.md` | what the product is and does — the README's substance. |
 | `<product>/docs/fdr.md`, `UXD.md`, `DESIGN.md`, `CONTENT.md` | behaviour, experience and words, where the README describes any of them. |
 | `system/projects/<name>/project.md` | what the card already declares, and its stamp-time fields. |
-| `system/projects/<name>/agari.md` | the declared terminus — what "done" means, which bounds what the README may promise. |
+| `system/projects/<name>/finish_line.md` | the declared terminus — what "done" means, which bounds what the README may promise. |
 | `core/templates/project_template.md` | the grammar of every card field, stated in that field's own inline comment. |
 
 **Where two disagree, the more architectural wins**: an ADR record over the SDD, the SDD over the
@@ -131,7 +131,7 @@ Work claim by claim:
 
 1. **Status.** A README opening with `Status: proposal` or `not yet implemented` is describing a
    state the settled set has ended. Replace that claim with what is now true, taking the
-   bound from `agari.md` — a defined product is not a shipped one, and the README may not promise
+   bound from `finish_line.md` — a defined product is not a shipped one, and the README may not promise
    more than the terminus declares.
 2. **The stack.** Name the languages and units the ADR fixes. A README naming one of two toolchains
    sends a contributor to the wrong half of the repository.

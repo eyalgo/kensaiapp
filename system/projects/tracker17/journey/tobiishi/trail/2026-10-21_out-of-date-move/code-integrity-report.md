@@ -35,12 +35,12 @@ test showed that a refusal line escapes the title.
 
 ## Deferrals
 
-None. The newest closing marker (`61b380e78`, `developer: 2026-10-21_out-of-date-move — implementation
+None. The newest closing marker (`<a commit not in the public history>`, `developer: 2026-10-21_out-of-date-move — implementation
 complete`) has no `Deferred:` line and no `Failing:` line.
 
 ## What was reviewed
 
-The diff from the merge base `06d6aea1a` to the marker `61b380e78`, under `products/tracker17/`:
+The diff from the merge base `<a commit not in the public history>` to the marker `<a commit not in the public history>`, under `products/tracker17/`:
 
 - `web/pages.py`: `MoveRefusalContext`, the appended `MoveOutcome.refusal_context` field,
   `_OVERTAKEN_LINES` and `_ADDRESS_LINE`, `_has_move_line`, `_refusal_line`, the extended

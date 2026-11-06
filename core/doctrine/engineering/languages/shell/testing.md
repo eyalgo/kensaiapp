@@ -1,5 +1,5 @@
 ---
-version: "1.0.8"
+version: "1.3.0"
 ---
 
 # Shell — testing
@@ -8,8 +8,9 @@ This language's implementation of the layer model in `testing_doctrine.md` — t
 file goes, and the run command per layer. The pass/fail bar for the suite as a gate is
 `quality_gates.md`'s, per `languages/README.md` § The seven concerns.
 
-Every measurement below was taken on 2026-08-23, except the two restated on 2026-10-03 after the
-SDD runner's launcher and its suite were removed — each says so where it stands.
+Every measurement below was taken on 2026-08-23, except two restated on 2026-10-03 after the SDD
+runner's launcher and its suite were removed, and the count of tracked bash files, restated on
+2026-10-26 when the git hook shims and the hook runner gained suites — each says so where it stands.
 
 ## The tool is pytest, and the tests are written in Python
 
@@ -17,20 +18,24 @@ SDD runner's launcher and its suite were removed — each says so where it stand
 and neither `bats` nor `shunit` appears anywhere in the tree. A shell file here is tested by a Python
 suite that runs the real script as a subprocess.
 
-**Twenty-one of the twenty-three tracked bash files carry a suite (2026-10-03, over
-`git ls-files '*.sh' 'core/githooks/*'`).** The thirteen launchers each carry one flat beside them
+**All twenty-three tracked bash files carry a suite (2026-10-26, over
+`git ls-files '*.sh' 'core/githooks/*'`).** The twelve launchers each carry one flat beside them
 (`core/launchers/<identity>/test_<identity>.py`, the hyphens of the identity written as underscores,
-and `_launcher` appended in three cases); the eight bash files under `core/tools/` each carry one there
+and `_launcher` appended in three cases). The nine bash files under `core/tools/` each carry one there
 (`test_detach_watcher.py`, `test_detach_process_watcher.py`, `test_detached_run.py`,
 `test_run_telemetry.py`, `test_pin_run.py`, `test_launch_audit.py`, `test_launch_apply_packet.py`,
-`test_launch_fix_author.py`).
+`test_launch_fix_author.py`, `test_locked_python.py`). The two git hook shims share one,
+`core/tools/test_githooks.py`.
 
-**The two git hook shims have none, and that is a gap rather than a rule.** The Python checkers they
-`exec` are tested (`core/tools/test_verify_commit_msg.py`, `core/tools/test_written_forward.py`), and
-`.claude/tests/test_resolve_core_githooks.py` tests the wiring of `core.hooksPath` against stub hook
-files rather than the real shims. What is untested is each shim's own two lines — the self-location
-`core="$(cd "$(dirname "$0")/.." && pwd)"` and the `exec`. A new shim should not read this absence as
-permission.
+**The two git hook shims are tested as git runs them.** `core/tools/test_githooks.py` commits in a
+scratch repository with no `pyproject.toml` whose `core.hooksPath` is the host's `core/githooks`, with
+a `python3` that only exits 1 first on `PATH`. A well-formed commit lands, and a commit the checkers
+refuse is refused with the checker's own message, not the stub's exit. That covers each shim's own two
+lines — the self-location `core="$(cd "$(dirname "$0")/.." && pwd)"` and the `exec` through
+`core/tools/locked_python.sh` — and that neither reaches the machine's `python3`. The Python checkers
+the shims run keep their own suites (`core/tools/test_verify_commit_msg.py`,
+`core/tools/test_written_forward.py`), and `.claude/tests/test_resolve_core_githooks.py` still tests
+the wiring of `core.hooksPath` against stub hook files.
 
 **Where the file goes and what it is called is `kensaiapp_structure.md`'s**, not this file's:
 § Owner-run launcher folder fixes both, and states the reason the generic name is banned — "pytest
@@ -112,6 +117,10 @@ capture_agent_id "$@"
 
 Its suite states the shape and why it is that shape: the wrapper is "the same 'source, then call' shape
 `companion-self-answer/launcher.sh` uses, minus everything a launcher does around it."
+
+**In a layer-1 test, a collaborator is faked with a shell function, never with a stub on `PATH`.** The wrapper defines a function that records the argv it was handed, and sets the override variable the library reads to that function's name before the call, so the fake runs inside the same bash as the subject. A stub on `PATH`, as Technique 1 uses, is a real process: a layer-5 test may start one and a layer-1 test may not (`testing_doctrine.md` § A unit test hands its unit fakes and touches nothing real). On this reading the bash that runs the wrapper is the subject's own interpreter rather than a collaborator, so starting it does not break that rule. This idiom is the packet author's call, 2026-11-04.
+
+**A shell port has no contract suite, so its fake is not verified**, by the no-layer-2 clause of `testing_doctrine.md` § A fake is verified against its port's contract: a shell file has no layer 2, by the table above. The fake is the recording function the library's wrapper defines, the one place that port's fake is written; nothing compares it with the real program, since the layer-5 tests stub the outside world too, so review alone holds it. **Shell has no unit-tier sandbox:** nothing refuses a real process inside a bash a test starts.
 
 ## Rules that hold across both
 

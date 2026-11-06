@@ -11,7 +11,7 @@ basename is globally unique, which `core/doctrine/setup/kensaiapp_structure.md`
 
 CP-1 — no file under `core/launchers` reaches `core/tools/` by counting `../../`.
 CP-2 — every `launcher.sh` resolves `<CORE>` by one expression that names no fixed depth.
-CP-3 — a launcher nested under `core/launchers/development/<step>/` still finds the real
+CP-3 — a launcher nested a level below `core/launchers/<identity>/` still finds the real
        `<CORE>/tools/watch_agent.py` and spawns it, with its watcher override unset.
 CP-4 — a launcher with no `launchers/` ancestor at all refuses loudly rather than guessing.
 
@@ -30,6 +30,8 @@ import time
 from pathlib import Path
 
 import pytest
+
+import test_support_instance_root
 
 _LAUNCHERS_DIR = Path(__file__).resolve().parent
 _CORE_DIR = _LAUNCHERS_DIR.parent
@@ -77,19 +79,18 @@ _RETIRED_TOOLS_WALK = "../" + "../tools"
 
 def _every_launcher_script() -> list[Path]:
     """Every `launcher.sh` under `core/launchers`, at any depth. `rglob`, never `glob("*/…")`:
-    a launcher at the newly permitted `core/launchers/development/<step>/` is a level below what
-    a flat glob reaches, and a contract sweep blind to the home the rule was widened for would
-    report compliance it never checked. The floor is a positive control — 12 launchers exist
+    a launcher nested a level below `core/launchers/<identity>/` is out of a flat glob's reach,
+    and a contract sweep blind to it would report compliance it never checked. The floor is a positive control — 12 launchers exist
     today (the three-seat product-sdd runner's was deleted on 2026-10-03; ten per-skill and chain
-    launchers were retired on 2026-09-17, and chain-change arrived the same day;
+    launchers were retired on 2026-09-17, and chain-change, now walk, arrived the same day;
     ad-hoc-flow was retired on 2026-09-18, and build-idea joined on 2026-09-18; seeds-from-product-docs's was
     retired on 2026-09-25, the skill launching from its launcher.md; kensaiapp-writing-bar's,
     experience-visual's and experience-voice's were retired on 2026-09-30 the same way, and
-    chain-agari arrived on 2026-10-04; seeds-from-idea's was deleted on 2026-10-24, the skill
+    chain-agari, now prd-and-finish-line, arrived on 2026-10-04; seeds-from-idea's was deleted on 2026-10-24, the skill
     having no launcher of its own), so a smaller read means the glob or the tree moved, not
     that the fleet complies. It is
-    a floor rather than an equality because a nested step launcher is expected to arrive and must
-    join this contract rather than break it."""
+    a floor rather than an equality because a launcher added later, at any depth, must join this
+    contract rather than break it."""
     scripts = sorted(_LAUNCHERS_DIR.rglob("launcher.sh"))
     assert len(scripts) >= 12, (
         f"expected at least the 12 known launcher.sh files, found {len(scripts)} — this sweep "
@@ -131,9 +132,8 @@ def _text_files_under_launchers() -> list[Path]:
 def test_no_file_under_launchers_reaches_tools_by_counting_folders():
     """CP-1: no file under `core/launchers` contains the retired two-parent-step spelling that
     reaches `tools/` (`_RETIRED_TOOLS_WALK` above). Recursive, not one level deep and not scoped
-    to two filename shapes: the home this change exists to permit —
-    `core/launchers/development/<step>/` — sits a level below every glob a flat sweep would use,
-    so a flat sweep would be blind to exactly the file the rule was widened for. The sweep first
+    to two filename shapes: a file nested a level below `core/launchers/<identity>/` sits below
+    every glob a flat sweep would use, so a flat sweep would be blind to it. The sweep first
     asserts it read a plausible number of files, so an empty read (a wrong glob, a moved tree)
     fails loudly rather than passing vacuously over nothing."""
     files = _text_files_under_launchers()
@@ -184,10 +184,10 @@ def test_every_launcher_resolves_core_by_the_same_expression():
 
 def test_the_flat_and_the_nested_launcher_resolve_the_same_core():
     """CP-2: the `<CORE>` resolved from `<CORE>/launchers/<identity>/` and the `<CORE>` resolved
-    from `<CORE>/launchers/development/<step>/` are the same directory, and
+    from `<CORE>/launchers/<group>/<identity>/` are the same directory, and
     `<that>/tools/watch_agent.py` is the real file and exists."""
     flat = _core_dir_for(_CORE_DIR / "launchers" / "some-identity")
-    nested = _core_dir_for(_CORE_DIR / "launchers" / "development" / "specs")
+    nested = _core_dir_for(_CORE_DIR / "launchers" / "some-group" / "some-identity")
 
     assert flat == _CORE_DIR
     assert nested == _CORE_DIR
@@ -199,10 +199,10 @@ def test_the_flat_and_the_nested_launcher_resolve_the_same_core():
 
 
 def test_an_outer_directory_named_launchers_does_not_capture_the_strip():
-    """CP-2: a launcher under `/…/launchers/…/core/launchers/development/<step>/` resolves the
+    """CP-2: a launcher under `/…/launchers/…/core/launchers/<group>/<identity>/` resolves the
     INNER `<CORE>`, not the outer directory that merely shares the name `launchers` — the
     shortest-suffix strip (`%`, never `%%`) is what makes this true."""
-    tricky = Path("/x/launchers/y") / "core" / "launchers" / "development" / "specs"
+    tricky = Path("/x/launchers/y") / "core" / "launchers" / "some-group" / "some-identity"
     resolved = _core_dir_for(tricky)
     assert resolved == Path("/x/launchers/y/core"), (
         f"the strip captured the outer 'launchers' directory instead of the inner one: {resolved}"
@@ -283,7 +283,7 @@ def test_a_launcher_with_no_launchers_ancestor_exits_non_zero_naming_the_assumpt
 
 @pytest.fixture
 def _nested_synthetic_core(tmp_path):
-    """A whole synthetic `<CORE>` under `tmp_path`: `core/launchers/development/<step>/launcher.sh`
+    """A whole synthetic `<CORE>` under `tmp_path`: `core/launchers/<group>/<identity>/launcher.sh`
     copied from the real stand-in launcher (`_MODEL_LAUNCHER`), the real `detach_watcher.sh`
     (sourced by the copy, so it must be the real behaviour, not a stub), and a recording
     `watch_agent.py` stub standing in for the real one — the one file this fixture does NOT copy
@@ -291,9 +291,9 @@ def _nested_synthetic_core(tmp_path):
     for holds the one thing that launcher needs before it reaches its watcher: a skill with a
     settled eval round (a `benchmark.md`) for it to act on."""
     core = tmp_path / "core"
-    step_dir = core / "launchers" / "development" / "specs"
-    step_dir.mkdir(parents=True)
-    nested_script = step_dir / "launcher.sh"
+    nested_dir = core / "launchers" / "some-group" / "some-identity"
+    nested_dir.mkdir(parents=True)
+    nested_script = nested_dir / "launcher.sh"
     shutil.copy(_MODEL_LAUNCHER, nested_script)
     nested_script.chmod(0o755)
 
@@ -311,6 +311,7 @@ def _nested_synthetic_core(tmp_path):
     for tool in (
         "pin.py",
         "pin_run.sh",
+        "locked_python.sh",
         "agent_run.py",
         "hook_wiring.py",
         "model_assignment.py",
@@ -331,6 +332,7 @@ def _nested_synthetic_core(tmp_path):
                     "created": "1970-01-01T00:00:00+00:00"})
         + "\n"
     )
+    test_support_instance_root.give_python(tmp_path)
 
     watcher_log = tmp_path / "watcher_argv.log"
     watcher_stub = tools_dir / "watch_agent.py"
@@ -608,7 +610,7 @@ def test_the_fleet_is_all_counted():
 
 def test_a_nested_launcher_spawns_the_real_watcher_with_the_override_unset(_nested_synthetic_core):
     """CP-3: with its watcher environment override unset, a `launcher.sh` sitting at
-    `<CORE>/launchers/development/<step>/` resolves its completion watcher to
+    `<CORE>/launchers/<group>/<identity>/` resolves its completion watcher to
     `<CORE>/tools/watch_agent.py` — the file above it, which exists — and spawns that file. The
     old fixed-two-levels-up default would have resolved to a path inside `launchers/`, where no
     such file exists, and the launch would still have reported success (`errors_logging.md`

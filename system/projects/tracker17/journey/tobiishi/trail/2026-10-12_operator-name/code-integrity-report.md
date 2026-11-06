@@ -3,7 +3,7 @@
 Integrity: pass
 
 **Date:** 2026-10-12
-**Reviewed at:** `9036cc6ed` (the closing marker `developer: 2026-10-12_operator-name — implementation complete`)
+**Reviewed at:** `<a commit not in the public history>` (the closing marker `developer: 2026-10-12_operator-name — implementation complete`)
 **Mode:** workflow · product inside the instance, so `code_worktree` = `pipeline_worktree` = the change worktree (`core/tools/development_path.py resolve`, `"kind": "relative"`)
 
 ## Deferrals
@@ -12,7 +12,7 @@ None. The closing marker carries no `Deferred:` line and reads `Suite: green`.
 
 ## What was reviewed
 
-The code commits `351496249`..`ed45e02c8` under `products/tracker17/`: `domain/operator_name.py`
+The code commits `351496249`..`<a commit not in the public history>` under `products/tracker17/`: `domain/operator_name.py`
 (new), `domain/state.py`, `domain/__init__.py`, `application/tracker.py`,
 `application/__init__.py`, `persistence/saved_data.py`, `web/pages.py`, `web/routes.py`,
 `tests/timed_run.py`, and the eleven test files the instruction's layout names.

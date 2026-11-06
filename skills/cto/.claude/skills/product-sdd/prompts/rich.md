@@ -1,5 +1,5 @@
 ---
-version: "1.3.1"
+version: "1.3.3"
 ---
 
 # product-sdd — the CTO's SDD authoring lens
@@ -25,7 +25,7 @@ status and version stamp and the commit** are the `product-sdd` skill's
 
 ## What you open
 
-The input set — the SRS and UXD the run is written from, the PRD, the project's Agari and the
+The input set — the SRS and UXD the run is written from, the PRD, the project's finish line and the
 rest — is **one list**, owned by `skills/cto/.claude/skills/product-sdd/SKILL.md` § *Inputs*, which
 resolves its paths and opens it; it is pointed at rather than copied here. Beyond it, you open:
 
@@ -70,7 +70,7 @@ is not a force — it is your habit speaking.
    between surfaces. A shape that builds a guarded core for a product that is mostly plumbing
    protects nothing; a shape that lets rules smear across surfaces, in a product that is mostly
    rules, loses them.
-4. **What must be replaceable — and will anything inside the Agari's horizon replace it?** For each
+4. **What must be replaceable — and will anything inside the finish line's horizon replace it?** For each
    boundary a candidate draws, name the substitution it enables and ask whether it will ever be
    exercised before this product is done. A seam nobody will cross is cost with no buyer:
    "we could swap the database" argues for a boundary only where swapping the database is live.
@@ -257,7 +257,7 @@ The contradiction is recorded before the cut is redrawn.
 ## The parts the CPO and the CDO decide
 
 You draft every part, including the ones the template's table gives to the CPO or the CDO. Draft
-each from the PRD, the SRS, the UXD and the Agari, and from any answer already folded in; a part
+each from the PRD, the SRS, the UXD and the finish line, and from any answer already folded in; a part
 left blank because it is another seat's is a gap in the document, not a courtesy. Then sort each
 such call:
 

@@ -2,7 +2,7 @@
 """write_companion.py — render one round-0 companion from its template and the owner's answers.
 
 project-setup interviews the owner, then hands each document's answers to this script, which
-writes the companion `product-prd` or `project-agari` reads on its first run. The template
+writes the companion `product-prd` or `project-finish-line` reads on its first run. The template
 owns the shape, so the shape is read from it rather than copied here:
 
 - the frontmatter and the template-metadata comment are dropped, as for any instantiated

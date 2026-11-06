@@ -1363,9 +1363,9 @@ def test_chain_reader_composes_transcript_access():
 
     files = chain_usage.Files(RecordingPort())
 
-    assert files.find_transcripts("s", Path("/root")) == [Path("/x/s.jsonl")]
+    assert files.find_transcripts("s", Path("/root")) == [Path("/x/s.jsonl")]  # test-isolation: allowed — an argument to a recording fake, never read
     assert files.read_lines(Path("/x/s.jsonl")) == ["a line"]
-    assert calls == [("find_transcripts", "s", Path("/root")), ("read_lines", Path("/x/s.jsonl"))]
+    assert calls == [("find_transcripts", "s", Path("/root")), ("read_lines", Path("/x/s.jsonl"))]  # test-isolation: allowed — an argument to a recording fake, never read
     assert chain_usage.Files.__bases__ == (object,)
     assert files.read_text(Path("/nonexistent/anything")) is None  # a local reach, not forwarded
 
@@ -1674,7 +1674,7 @@ STATE_FILE = {
     "project": "demo",
     "instance_root": "/instance",
     "product_path": "/product",
-    "spine": ["PRD", "Agari", "SRS", "UXD", "DESIGN", "CONTENT", "SDD"],
+    "spine": ["PRD", "FINISH_LINE", "SRS", "UXD", "DESIGN", "CONTENT", "SDD"],
     "ended": "settled",
     "ended_reason": "every spine document is settled",
     "schema_version": 2,
@@ -1688,7 +1688,7 @@ class TestChainState:
         state = chain_usage.chain_state(path, _files())
         assert state.chain_name == "definition"
         assert state.project == "demo"
-        assert state.spine == ("PRD", "Agari", "SRS", "UXD", "DESIGN", "CONTENT", "SDD")
+        assert state.spine == ("PRD", "FINISH_LINE", "SRS", "UXD", "DESIGN", "CONTENT", "SDD")
         assert state.ended == "settled"
 
     def test_a_state_that_cannot_be_read_yields_none_rather_than_raising(self, tmp_path):
@@ -2195,17 +2195,19 @@ class TestRenderJson:
 
 class TestCompositionRoot:
     def test_no_module_level_name_holds_the_expanded_projects_root(self):
-        default_root = Path.home() / ".claude" / "projects"
         holders = [
             name
             for name, value in vars(chain_usage).items()
-            if value == default_root or value == str(default_root)
+            if isinstance(value, (str, Path))
+            and str(value).endswith("/.claude/projects")
+            and not str(value).startswith("~")
         ]
         assert holders == []
 
-    def test_build_reader_resolves_the_default_projects_root(self):
+    def test_build_reader_resolves_the_default_projects_root(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("HOME", str(tmp_path))
         reader = chain_usage.build_reader(telemetry=FakeTelemetry())
-        assert reader.projects_root == Path.home() / ".claude" / "projects"
+        assert reader.projects_root == tmp_path / ".claude" / "projects"
         assert isinstance(reader.files, chain_usage.Files)
 
     def test_build_reader_honors_an_explicit_projects_root(self, tmp_path):

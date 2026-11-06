@@ -2,6 +2,7 @@
 #
 # launch-fix-author.sh — deterministic, pollution-proof launcher for a fix-packet authoring run.
 #
+# Version: 1.10.0 — launchers run on the locked Python
 # Version: 1.9.1 — launchers and launch scripts take a portable mktemp template, so they run on Linux
 # Version: 1.9.0 — public-repo 0.x gates 1, 3, 4, 6 — Apache-2.0 licence lines, no satellite/product/host name or machine path shipped, no default notifier, loopback-only telemetry
 # Version: 1.8.0 — the providers file lives in the instance — each instance reads its own .providers.toml, and a tracked .providers.toml.example is the template
@@ -109,7 +110,7 @@ INSTANCE_ROOT="$PWD"   # re-resolved absolute, even when --instance-root was giv
 # instance's own `.env` (shared_core_instance.md § What is shared). An instance that carries its own
 # core binds it relatively, or not at all, and is its own host, so nothing is added for it.
 HOST_ROOT=""
-core_binding="$(python3 "$SCRIPT_DIR/env_file.py" "$INSTANCE_ROOT/.env" CORE 2>/dev/null || true)"
+core_binding="$("$SCRIPT_DIR/locked_python.sh" "$SCRIPT_DIR/env_file.py" "$INSTANCE_ROOT/.env" CORE 2>/dev/null || true)"
 case "$core_binding" in
   /*) HOST_ROOT="$(cd "$core_binding/.." 2>/dev/null && pwd || echo "")" ;;
 esac
@@ -161,14 +162,14 @@ done
 [ -f "$PROVIDERS_TOOL" ] || die "no provider reader at $PROVIDERS_TOOL"
 [ -f "$RUN_INTELLIGENCE" ] || die "no intelligence resolver at $RUN_INTELLIGENCE"
 provider_err="$(mktemp "${TMPDIR:-/tmp}/kensaiapp-fix-author-provider.XXXXXX")"
-provider="$(python3 "$PROVIDERS_TOOL" launcher launch-fix-author --instance-root "$INSTANCE_ROOT" --accept claude \
+provider="$("$SCRIPT_DIR/locked_python.sh" "$PROVIDERS_TOOL" launcher launch-fix-author --instance-root "$INSTANCE_ROOT" --accept claude \
   2>"$provider_err")" && rc=0 || rc=$?
 provider_msg="$(cat "$provider_err")"
 rm -f "$provider_err"
 [ "$rc" -eq 0 ] || die "${provider_msg:-could not read the provider for launch-fix-author}"
 
 resolved_err="$(mktemp "${TMPDIR:-/tmp}/kensaiapp-resolve-err.XXXXXX")"
-resolved="$(python3 "$RESOLVER" "$skill" --root "$INSTANCE_ROOT" 2>"$resolved_err")" && rc=0 || rc=$?
+resolved="$("$SCRIPT_DIR/locked_python.sh" "$RESOLVER" "$skill" --root "$INSTANCE_ROOT" 2>"$resolved_err")" && rc=0 || rc=$?
 case $rc in
   0) skill_dir="$resolved" ;;
   3) die "no skill at $INSTANCE_ROOT (is '$skill' a real skill?)" ;;
@@ -181,10 +182,11 @@ evidence="$skill_dir/evidence"
 
 # --- resolve the version -------------------------------------------------------------
 #   No version given: the newest evidence/v*/ that actually holds an audit.md. Sorted numerically by
-#   component (python3, not `sort -V`, which is GNU and unreliable on macOS) so v3.17.0 beats v3.4.0 —
+#   component (the pinned Python through locked_python.sh, not `sort -V`, which is GNU and unreliable on
+#   macOS) so v3.17.0 beats v3.4.0 —
 #   a lexical sort gets that pair backwards, which is the whole reason this is not a one-line `ls | tail`.
 if [ -z "$version" ]; then
-  version="$(python3 -c "
+  version="$("$SCRIPT_DIR/locked_python.sh" -c "
 import os,re,sys
 root=sys.argv[1]
 cand=[]
@@ -250,7 +252,7 @@ if [ -n "$settle" ]; then
 else
   prompt="author the fix packet for the ${skill} skill from the audit at ${audit}. write it to ${packet}."
 fi
-claude_cmd=(python3 "$CORE_DIR/tools/agent_run.py" --provider "$provider" --shape background
+claude_cmd=("$SCRIPT_DIR/locked_python.sh" "$CORE_DIR/tools/agent_run.py" --provider "$provider" --shape background
   --pin auto --instance-root "$INSTANCE_ROOT" --prompt "$prompt" --agent kaizen-fix-author)
 [ -n "$HOST_ROOT" ] && [ "$HOST_ROOT" != "$INSTANCE_ROOT" ] && claude_cmd+=(--add-dir "$HOST_ROOT")
 claude_cmd+=(--print-argv)
@@ -271,7 +273,7 @@ fi
 #   The launched agent is identified by (name, cwd, id-not-seen-before). Name alone is ambiguous:
 #   re-authoring the same round reuses the same fixed prompt. Captured before the launch, or the new
 #   agent would be in its own exclusion set.
-ids_before="$(python3 "$WATCHER" --list-ids --cwd "$INSTANCE_ROOT" 2>/dev/null || true)"
+ids_before="$("$SCRIPT_DIR/locked_python.sh" "$WATCHER" --list-ids --cwd "$INSTANCE_ROOT" 2>/dev/null || true)"
 
 echo "Launching kaizen-fix-author (background)…"
 # stdout is captured so the id `claude --bg` prints at launch can be read off it, then echoed

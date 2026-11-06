@@ -81,8 +81,8 @@ Paths below are relative to the product root, which `system/projects/tracker17/p
 
 | Claim | Verified by | What came back |
 |---|---|---|
-| `pytest tests/` exits 0 on the product as it stands (CP-52) | `python3 -m pytest tests/ -q` from `products/tracker17/` in the change worktree at `57b86b647`, real files, no harness | `209 passed`, exit 0 |
-| Today an unlisted feature module passes the trace test — the present defect (Change Summary, CP-47) | scratch copy (`git archive` of `products/tracker17` at `57b86b647`), added `domain/tasks.py` with a one-line docstring, `tasks` not listed; ran `python3 -m pytest tests/architecture/test_trace.py -q` | `7 passed`, exit 0 |
+| `pytest tests/` exits 0 on the product as it stands (CP-52) | `python3 -m pytest tests/ -q` from `products/tracker17/` in the change worktree at `<a commit not in the public history>`, real files, no harness | `209 passed`, exit 0 |
+| Today an unlisted feature module passes the trace test — the present defect (Change Summary, CP-47) | scratch copy (`git archive` of `products/tracker17` at `<a commit not in the public history>`), added `domain/tasks.py` with a one-line docstring, `tasks` not listed; ran `python3 -m pytest tests/architecture/test_trace.py -q` | `7 passed`, exit 0 |
 | The trace file holds seven tests and only the forward module check (CP-53) | read `tests/architecture/test_trace.py:L56-L106` | seven `test_*` functions; `test_each_landed_feature_word_has_its_domain_module` at L87-L89 is the only module check |
 | `LANDED_FEATURE_WORDS` lists only `projects` (CP-47, CP-52) | read `tests/architecture/test_trace.py:L19` | `LANDED_FEATURE_WORDS = ["projects"]` |
 | `domain/` holds `projects.py` as its one feature entry, plus `__init__.py`, `refusals.py`, `state.py`, `text.py` (CP-49) | `ls products/tracker17/domain` | `__init__.py projects.py refusals.py state.py text.py` |

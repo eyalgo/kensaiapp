@@ -3,7 +3,7 @@
 Integrity: pass
 
 **Run:** 2026-10-08, workflow mode, `development-code-integrity`, Senior Engineer. **Branch:**
-`2026-10-08_setup-instructions`, reviewed at the closing marker `e75934a65`. **Product:**
+`2026-10-08_setup-instructions`, reviewed at the closing marker `<a commit not in the public history>`. **Product:**
 `products/tracker17`, which sits inside the instance repo, so the code worktree and the pipeline
 worktree are the same.
 
@@ -19,7 +19,7 @@ as a comment in section 6's command block. Both the CP-67 and the CP-55 tests pa
 
 Fixed by red, then green:
 
-- **Red** `9026ef1a0`: the new reader test, failing against the old reader (1 failed, 223 passed).
+- **Red** `<a commit not in the public history>`: the new reader test, failing against the old reader (1 failed, 223 passed).
 - **Green**: the reader now skips fenced code and accepts only one to six `#` then a space. The
   suite is 224 passed.
 
@@ -27,14 +27,14 @@ Fixed by red, then green:
 
 ## Deferrals
 
-**None.** The newest closing marker, `e75934a65`
+**None.** The newest closing marker, `<a commit not in the public history>`
 (`developer: 2026-10-08_setup-instructions — implementation complete`), carries no `Deferred:` line
 and no `Failing:` line, and reads `Suite: green`. Every case in the suite is in scope.
 
 ## What was reviewed
 
-The three files the change's code commits touched (`79fcfde21`, `8ecbe6d20`, `c0cc5d04f`,
-`9f587e679`), all under `products/tracker17/`:
+The three files the change's code commits touched (`<a commit not in the public history>`, `<a commit not in the public history>`, `<a commit not in the public history>`,
+`<a commit not in the public history>`), all under `products/tracker17/`:
 
 - `main.py`: the closing sentence added to `start`'s unreadable-data message.
 - `tests/integration/test_start.py`: the module docstring, the constants `AGAIN_SECTION`,
@@ -62,11 +62,11 @@ The three files the change's code commits touched (`79fcfde21`, `8ecbe6d20`, `c0
 | CP-67 | `test_the_message_closing_sentence_quotes_a_heading_the_readme_has`, with the corrected reader | Yes. It fails on all four wrong trees below. |
 | CP-55 | `test_the_readme_has_both_fixed_headings`, with the corrected reader | Yes |
 | CP-55 and CP-67, the reader itself | `test_the_heading_reader_counts_a_heading_and_no_other_line` (added) | Yes |
-| CP-68, existing tests unchanged | No pre-change test body was edited | Yes. `git diff e7cfd84d1` touches only the docstring, the new constants, the reader and the new tests. |
+| CP-68, existing tests unchanged | No pre-change test body was edited | Yes. `git diff <a commit not in the public history>` touches only the docstring, the new constants, the reader and the new tests. |
 | CP-54, CP-56, CP-59 to CP-62 | Review, by design § 5, because a suite test would freeze the per-change copy | The developer's runs are recorded in the marker. Here I re-checked that `README.md` holds all ten `change_text.md` blocks verbatim and in the reading order that file gives. |
 | CP-58 | Review | Re-run here. `python3 main.py` in a disposable copy printed `The tracker is running. Open http://127.0.0.1:8017 in your browser. Saved data is kept at /tmp/ci-run.DCeE/products/tracker17/data.` The README's line differs only in the location. |
 | CP-63 | Review | Re-run here. The grep matches nothing (exit 1), and the Status names `python3 main.py`. |
-| CP-64 | Review | Re-run here. From `## How it's built` to the end, the file is byte-identical to `e7cfd84d1` (`cmp`). |
+| CP-64 | Review | Re-run here. From `## How it's built` to the end, the file is byte-identical to `<a commit not in the public history>` (`cmp`). |
 
 **Scratch-copy runs of the corrected tests.** Each was run on a `cp` of the working tree. In every
 run, `test_data_is_ignored_by_version_control` also fails, because the copy is not a git repository.
@@ -112,7 +112,7 @@ Both are kept.
   makes CP-67's "fails if either changes alone" true for the README's own command blocks.
   **Whose:** the Tech Lead's (`tl_instruction.md`, Task 2, the shared reader) and the Architect's
   (`change_design.md` § 4, the CP-67 row).
-  **If reversed:** revert the reader to its `9026ef1a0` body and drop
+  **If reversed:** revert the reader to its `<a commit not in the public history>` body and drop
   `test_the_heading_reader_counts_a_heading_and_no_other_line`. Nothing in the product changes.
 - **Question:** may the red commit split the reader's signature, so that the new test can feed it a
   text?

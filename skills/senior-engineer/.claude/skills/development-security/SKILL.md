@@ -22,7 +22,7 @@ when_to_use: >-
 license: MIT
 metadata:
   author: Eyal Golan
-  version: "1.1.2"
+  version: "1.2.0"
   created: "2026-10-23"
   category: execution
   tags: security, dependencies, advisories, review, senior-engineer, pipeline
@@ -97,7 +97,7 @@ carries on; the stop, if there is one, comes in Step 4.
 Resolve the change's path contract once, as `development-code-integrity` does:
 
 ```sh
-python3 "<CORE>/tools/development_path.py" resolve --format json \
+"<CORE>/tools/locked_python.sh" "<CORE>/tools/development_path.py" resolve --format json \
   --worktree "$WORKTREE" --project <project> --key <key>
 ```
 
@@ -141,7 +141,7 @@ A major bump and a hole fix are each kept only on a green suite run after it. Ru
 gate tool, never by hand: read `<CORE>/prompts/gate_suite.md`, build its evidence file, and issue
 
 ```sh invocation
-python3 "<CORE>/tools/gate_suite.py" run \
+"<CORE>/tools/locked_python.sh" "<CORE>/tools/gate_suite.py" run \
   --worktree "<instance change worktree>" --project "<project>" --key "<key>" \
   --gate code-integrity --inputs "<inputs file>" \
   > "<output file>" 2> "<error file>"

@@ -45,7 +45,7 @@ X while I'm away"*). One shape only: an Agent-tool subagent run in the backgroun
 the session and so reports completion reliably.
 
 Not for work a launcher or pipeline stage already owns — the kaizen cold-read chain,
-the development chain, `skill-evals` — each spawns its
+the change chain, `skill-evals` — each spawns its
 own agents under its own model and notification rules. Not for work small enough to do inline: a
 launch costs a brief, a verification pass, and a notification.
 

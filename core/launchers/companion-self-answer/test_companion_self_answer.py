@@ -45,6 +45,9 @@ from pathlib import Path
 
 import pytest
 
+import test_support_instance_root
+from test_support_python3_stub import python3_calls_outside_uv, python3_that_only_fails
+
 import launcher_telemetry_test_support as support
 from provenance_test_support import (
     assert_provenance_stamped,
@@ -89,6 +92,14 @@ else:
         if os.path.exists(hold_until) and open(hold_until).read().strip():
             break
         time.sleep(0.05)
+"""
+
+# A companion reader that raises the error a refused `read_text()` raises. The launcher reads only
+# the reader's exit status, so this refusal holds for root too, which a file mode does not.
+REFUSING_READER_STUB = """import errno
+import sys
+
+raise PermissionError(errno.EACCES, "Permission denied", sys.argv[-1])
 """
 
 NOTIFIER_STUB = """#!/usr/bin/env bash
@@ -393,9 +404,9 @@ def test_neither_the_document_nor_a_companion_is_refused_naming_both_paths(run):
 
 
 # --- the document homes — a project's documents do not all live in its product's docs/ ------
-#   The Agari is written into the instance, at system/projects/<project>/agari.md, and its
-#   companion beside it. Measured on a live product, 2026-09-17: `<project> Agari` was refused
-#   while `system/projects/<project>/agari_open_issues.md` stood open.
+#   The finish line is written into the instance, at system/projects/<project>/finish_line.md, and its
+#   companion beside it. Measured on a live product, 2026-09-17: `<project> finish line` was refused
+#   while `system/projects/<project>/finish_line_open_issues.md` stood open.
 
 
 def _launched_prompt(companion):
@@ -419,15 +430,15 @@ def _project_home_companion(run, project, stem, skill=None):
 
 def test_a_companion_in_the_projects_own_home_resolves_and_launches(run):
     run.project("example-product")
-    companion = _project_home_companion(run, "example-product", "agari", skill="project-agari")
-    (companion.parent / "agari.md").write_text("# Agari\n")
-    run.skill_launcher("project-agari", agent="cpo")
+    companion = _project_home_companion(run, "example-product", "finish_line", skill="project-finish-line")
+    (companion.parent / "finish_line.md").write_text("# Finish line\n")
+    run.skill_launcher("project-finish-line", agent="cpo")
     run.agent_file("cpo")
 
-    result = run("example-product", "Agari")
+    result = run("example-product", "FINISH_LINE")
 
     assert result.returncode == 0, result.stderr
-    assert f"Document:  {companion.parent / 'agari.md'}" in result.stdout
+    assert f"Document:  {companion.parent / 'finish_line.md'}" in result.stdout
     argv = run.launched_argv()
     assert _prompt_of(argv) == _launched_prompt(companion)
     assert argv[argv.index("--agent") + 1] == "cpo"
@@ -435,9 +446,9 @@ def test_a_companion_in_the_projects_own_home_resolves_and_launches(run):
 
 def test_a_companion_standing_alone_in_the_projects_home_resolves(run):
     run.project("example-product")
-    companion = _project_home_companion(run, "example-product", "agari", skill="project-agari")
+    companion = _project_home_companion(run, "example-product", "finish_line", skill="project-finish-line")
 
-    result = run("example-product", "agari", "--dry-run")
+    result = run("example-product", "finish_line", "--dry-run")
 
     assert result.returncode == 0, result.stderr
     assert f"Companion: present — {companion}" in result.stdout
@@ -448,33 +459,33 @@ def test_the_reporter_is_pointed_at_the_instance_for_a_document_in_the_projects_
     product path holds no `system/`, so a project-home document's report is found only from the
     instance root."""
     run.project("example-product")
-    _project_home_companion(run, "example-product", "agari", skill="project-agari")
+    _project_home_companion(run, "example-product", "finish_line", skill="project-finish-line")
 
-    run("example-product", "agari")
+    run("example-product", "finish_line")
 
     argv = run.watcher_argv()
     assert argv[argv.index("--artifact-path") + 1] == str(run.root)
-    assert "example-product-agari" in argv
+    assert "example-product-finish_line" in argv
 
 
 def test_neither_home_holding_the_document_names_every_path_looked_at(run):
     run.project("example-product")
 
-    result = run("example-product", "agari")
+    result = run("example-product", "finish_line")
 
     assert result.returncode != 0
-    for looked in ("products/thing/docs/agari.md", "products/thing/docs/agari_open_issues.md",
-                   "system/projects/example-product/agari.md", "system/projects/example-product/agari_open_issues.md"):
+    for looked in ("products/thing/docs/finish_line.md", "products/thing/docs/finish_line_open_issues.md",
+                   "system/projects/example-product/finish_line.md", "system/projects/example-product/finish_line_open_issues.md"):
         assert looked in result.stderr, looked
     assert run.launched_argv(wait=_ABSENT_WAIT) == []
 
 
 def test_a_document_in_both_homes_is_refused_rather_than_guessed(run):
     product = run.project("example-product")
-    run.companion(product, "agari")
-    _project_home_companion(run, "example-product", "agari")
+    run.companion(product, "finish_line")
+    _project_home_companion(run, "example-product", "finish_line")
 
-    result = run("example-product", "agari", "--dry-run")
+    result = run("example-product", "finish_line", "--dry-run")
 
     assert result.returncode != 0
     assert "both" in result.stderr
@@ -925,6 +936,7 @@ def test_a_satellite_reads_the_seat_from_the_hosts_launcher_md(run, tmp_path_fac
     run.companion(product, "fdr", skill="product-fdr")
     run.agent_file("principal-pm")
     host = tmp_path_factory.mktemp("host")
+    test_support_instance_root.give_python(host)
     skill_dir = host / "skills" / "principal-pm" / ".claude" / "skills" / "product-fdr"
     skill_dir.mkdir(parents=True)
     (skill_dir / "SKILL.md").write_text("---\nname: product-fdr\n---\n")
@@ -1417,7 +1429,7 @@ def test_a_missing_detach_watcher_is_reported_distinctly_and_does_not_block_the_
     # `isolated` carries its own pin.json, so `pin_enter` treats this tree as already its own
     # pin (rule 1) — no `pin.py` call there — but the Claude branch still shells out to
     # `agent_run.py` (Task 19) for its argv, which imports `model_assignment` / `task_context` / `env_file`.
-    for tool in ("pin_run.sh", "pin.py", "agent_run.py", "model_assignment.py", "task_context.py",
+    for tool in ("pin_run.sh", "locked_python.sh", "pin.py", "agent_run.py", "model_assignment.py", "task_context.py",
                  "hook_wiring.py",
                  "env_file.py", "detached_run.sh", "intelligence.py", "run_intelligence.py",
                  "providers.py"):
@@ -1426,6 +1438,7 @@ def test_a_missing_detach_watcher_is_reported_distinctly_and_does_not_block_the_
         json.dumps({"id": "isolated", "source_host_root": str(isolated), "created": "1970-01-01T00:00:00+00:00"})
         + "\n"
     )
+    test_support_instance_root.give_python(isolated)
 
     result = run("example-product", "fdr", script=copied_script)
 
@@ -2450,14 +2463,14 @@ def test_a_provider_taken_from_the_environment_is_the_provider_stamped(run):
 
 def test_a_launch_records_its_run_and_watcher_for_the_engine_that_named_a_file(run):
     run.project("example-product")
-    companion = _project_home_companion(run, "example-product", "agari", skill="project-agari")
-    (companion.parent / "agari.md").write_text("# Agari\n")
-    run.skill_launcher("project-agari", agent="cpo")
+    companion = _project_home_companion(run, "example-product", "finish_line", skill="project-finish-line")
+    (companion.parent / "finish_line.md").write_text("# Finish line\n")
+    run.skill_launcher("project-finish-line", agent="cpo")
     run.agent_file("cpo")
     identity = run.root / "launch.identity.json"
     run.env["DETACHED_RUN_IDENTITY_FILE"] = str(identity)
 
-    result = run("example-product", "Agari")
+    result = run("example-product", "FINISH_LINE")
 
     assert result.returncode == 0, result.stderr
     assert_launch_recorded_its_identity(result.stdout, identity)
@@ -3006,12 +3019,14 @@ def test_identity_records_sequence_run_and_single_watcher(run):
 def test_any_refused_group_command_prevents_entire_launch(run):
     _seat_fixture(run, _THREE_SEATS)
     records = _seat_stub(run)
-    shim = run.root / "bin" / "python3"
+    # The launcher's Python goes through the runner, which runs `uv`: the refusal sits on `uv`,
+    # whose arguments end with the command the runner was given.
+    shim = run.root / "bin" / "uv"
     shim.write_text(
         "#!/bin/sh\n"
         'case " $* " in *" --agent cdo "*) case " $* " in *" --dry-run "*) '
         'echo "refused cdo" >&2; exit 7 ;; esac ;; esac\n'
-        f'exec {shlex.quote(__import__("sys").executable)} "$@"\n')
+        f'exec {shlex.quote(shutil.which("uv"))} "$@"\n')
     shim.chmod(0o755)
 
     result = run("example-product", "fdr")
@@ -3024,13 +3039,13 @@ def test_any_refused_group_command_prevents_entire_launch(run):
 
 
 def test_reader_failure_reports_grouping_skipped_and_launches_once(run):
-    companion = _seat_fixture(run, _THREE_SEATS)
-    companion.chmod(0)
-    try:
-        result = run("example-product", "fdr")
-        argv = run.launched_argv()
-    finally:
-        companion.chmod(0o644)
+    _seat_fixture(run, _THREE_SEATS)
+    refusing_reader = run.root / "refusing_companion_items.py"
+    refusing_reader.write_text(REFUSING_READER_STUB)
+    run.env["LAUNCH_COMPANION_SELF_ANSWER_COMPANION_ITEMS"] = str(refusing_reader)
+
+    result = run("example-product", "fdr")
+    argv = run.launched_argv()
 
     assert result.returncode == 0, result.stderr
     assert result.stdout.count("Grouping:  skipped") == 1, result.stdout
@@ -3519,7 +3534,7 @@ def test_companion_self_answer_helper_observation_matches_case_inputs(
     inputs call for: the arm it runs under, the project and document it was given, the product
     the card names, and the provider, model and effort its producer's Claude intelligence names
     (claude-opus-5-5 at high)."""
-    package = support.require_real_package(tmp_path / "package")
+    package = support.recorded_package(tmp_path / "package")
     _answerable_companion(run, producer_model="claude-opus-5-5")
     endpoint_file = tmp_path / "published-endpoint"
     cause = support.publish_endpoint(endpoint_file, endpoint)
@@ -3562,7 +3577,7 @@ def test_companion_default_resolution_observation_matches_case_inputs(run, tmp_p
     """CP-685, CP-759: a producer that carries no intelligence folder keeps its defaults —
     provider claude, no model, effort high, source default — and the launch shows exactly those,
     with every other observable the case's inputs call for."""
-    package = support.require_real_package(tmp_path / "package")
+    package = support.recorded_package(tmp_path / "package")
     _answerable_companion(run)
     endpoint_file = tmp_path / "published-endpoint"
     support.publish_endpoint(endpoint_file)
@@ -3598,7 +3613,7 @@ def test_companion_ordinary_launch_discovers_source_host_setting(run, tmp_path, 
     """CP-692: a launch whose environment names no command is instrumented from its source host's
     setting, whether the launcher runs from a core or a pin of it, for the host or for an
     instance that binds that core."""
-    package = support.require_real_package(tmp_path / "package")
+    package = support.recorded_package(tmp_path / "package")
     _answerable_companion(run, producer_model="claude-opus-5-5")
     endpoint_file = tmp_path / "published-endpoint"
     support.publish_endpoint(endpoint_file)
@@ -3636,10 +3651,19 @@ def test_companion_telemetry_failures_preserve_launch(run, tmp_path, kind, cap):
     support.assert_failure_scenario(observation, scenario, cap=cap)
 
 
-def test_companion_observation_skips_an_unreachable_package_and_fails_a_reached_one(tmp_path):
-    """CP-689: the observation above is skipped, with the reason named, where the package's
-    command cannot be reached, and fails where it is reached and breaks the contract."""
-    support.assert_selection_skips_unreachable_and_fails_reached(
-        tmp_path,
-        f"{__file__}::test_companion_self_answer_helper_observation_matches_case_inputs",
-    )
+
+
+def test_companion_self_answer_runs_no_python3(run, tmp_path):
+    run.project("example-product")
+    companion = _project_home_companion(run, "example-product", "finish_line", skill="project-finish-line")
+    (companion.parent / "finish_line.md").write_text("# Finish line\n")
+    run.skill_launcher("project-finish-line", agent="cpo")
+    run.agent_file("cpo")
+    path, marker = python3_that_only_fails(tmp_path, run.env["PATH"])
+    run.env["PATH"] = path
+
+    result = run("example-product", "FINISH_LINE")
+
+    assert result.returncode == 0, result.stderr
+    assert _prompt_of(run.launched_argv()) == _launched_prompt(companion)
+    assert python3_calls_outside_uv(marker) == []

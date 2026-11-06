@@ -21,7 +21,7 @@
   `test_each_feature_word_with_its_domain_module_is_listed_as_landed` (`test_trace.py:223-226`). It reads the
   words from `docs/SDD.md` when the suite runs (`:21`, `feature_words` at `:65-84`), and
   `test_the_reverse_check_can_fail` (`:229-236`) shows it fails on an unlisted word. Senior-engineer commit
-  `30d4a85b0` landed it, and that commit is an ancestor of `HEAD` (`git merge-base --is-ancestor`). On a copy of
+  `<a commit not in the public history>` landed it, and that commit is an ancestor of `HEAD` (`git merge-base --is-ancestor`). On a copy of
   `HEAD` made with `git archive`, `pytest tests/` gave 219 passed and 1 failed. The failure was
   `test_data_is_ignored_by_version_control`, which runs `git check-ignore` and needs a git checkout that the copy
   does not have, so it does not touch this item. The checks matching "reverse" or "feature_word_with" passed,

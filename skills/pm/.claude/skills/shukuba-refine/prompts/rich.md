@@ -1,5 +1,5 @@
 ---
-version: "2.25.0"
+version: "2.28.0"
 ---
 
 # shukuba-refine — the PM's review lens, after a seal or a halt
@@ -38,7 +38,7 @@ beats every record**: a record says what a run found when it looked; you check w
 3. **The project's journey.** The active seed and every seed in `unpicked/`; the open station and every
    station in `parked/`. `trail/` and `drop/` are read for context — what was already walked or killed
    — and never written.
-4. **`system/projects/<name>/agari.md`** — the judge. A move that advances no Agari is not one you have
+4. **`system/projects/<name>/finish_line.md`** — the judge. A move that advances no finish line is not one you have
    found.
 5. **The product as it now stands.** Where a record makes a claim you can measure — a test count, a
    gate that passes, a function that no longer exists — measure it.
@@ -363,16 +363,15 @@ path names a pin that is pruned or the host's absolute path:
 
 | Move | Owed when | Whose | Command |
 |---|---|---|---|
-| sweep the product's companions | you raised a companion item (move 5), or one is live that the next station reads — and no chain is in flight, which would sweep it and refuse a second walk, and the project card's **Definition:** is not none | owner | `<CORE>/launchers/chain-product/launcher.sh <project>` when the project card's **Definition:** is full; `<CORE>/launchers/chain-agari/launcher.sh <project>` when it is prd-agari; no sweep row when it is none |
+| sweep the product's companions | you raised a companion item (move 5), or one is live that the next station reads — and no chain is in flight, which would sweep it and refuse a second walk, and the project card's **Definition:** is not none | owner | `<CORE>/launchers/product-docs/launcher.sh <project>` when the project card's **Definition:** is full; `<CORE>/launchers/prd-and-finish-line/launcher.sh <project>` when it is prd-and-finish-line; no sweep row when it is none |
 | close the reached station | the open station's reached-when holds now | Scrum Master | `<CORE>/launchers/skill/launcher.sh shukuba-retire <project> <station>` |
-| readme-status | a `close the reached station` row is written in this table, and the product has both a `README.md` with exactly one `## Status` line and a `docs/what_left.md` | Content Editor | `<CORE>/launchers/skill/launcher.sh readme-status <project>` |
 | retire a seed | you recommend one, fully walked | Scrum Master | `<CORE>/launchers/skill/launcher.sh nemawashi-retire <project>` |
 | drop a seed | you recommend one killed | Principal PM | none — decided by `nemawashi-refine` after the seed's retire, which runs the drop itself |
 | cut a seed | you recommend one | Principal PM | none — answered by `nemawashi-refine` after the seed's retire, which writes new product work onto the product's documents for `seeds-from-product-docs` to cut, and cuts work no document should state through `seeds-from-idea` |
 | route across projects | you recommend one | Principal PM | none — a `principal-pm:` session, on that recommendation |
-| pick a seed | the seedbed root is empty after this run and no retire is owed — at a retire the Principal PM's `nemawashi-refine` re-reads the pool and names the pick | PM | `<CORE>/launchers/skill/launcher.sh nemawashi-pick <project>` |
+| pick a seed | the seedbed root is empty after this run and no retire is owed — at a retire the Principal PM's `nemawashi-refine` re-reads the pool and names the pick | PM | `<CORE>/launchers/skill/launcher.sh seed-pick <project>` |
 | cut the route | a pick above is owed, or the active seed has no station checklist | PM | `<CORE>/launchers/skill/launcher.sh stations-from-seed <project>` |
-| walk the next change | an active seed has an unticked station that can be walked where it stands (shape 6), or you routed a `Deferred:` line to (a) or (b) | owner | `<CORE>/launchers/chain-change/launcher.sh <project>` |
+| walk the next change | an active seed has an unticked station that can be walked where it stands (shape 6), or you routed a `Deferred:` line to (a) or (b) | owner | `<CORE>/launchers/walk/launcher.sh <project>` |
 | the owner's act | the next station to walk is one only the owner walks — the open one, or the next unticked one once a close above lands — or one whose bar two refines have re-aimed since the owner was last asked | owner | none — walk that station yourself, then resume with `<CORE>/launchers/build-idea/launcher.sh <project>` |
 
 `<station>` is the open station's dated stem — its file name at the shukuba root, without `.md`.
@@ -386,13 +385,6 @@ returns at once, so a row that names another waits for that run's result on disk
 beside a still-running close finds the station open and opens a change for it. The close comes before
 a pick, a cut and the next change, because each of them needs the station closed, so each names the
 close's row; a cut also names the pick it follows.
-For each `close the reached station` row you write, write one `readme-status` row whose After
-names that close's row and nothing else. Its From points where that close row's From points. With no
-close owed, write no `readme-status` row. **Nor where the product lacks either file** —
-`readme-status` refuses a product with no `README.md` holding one `## Status` line, or with no
-`docs/what_left.md`, and never creates either, so a row there names a run that cannot change
-anything. Check both under the project card's product path before writing the row. No other row names a `readme-status` row in its After.
-Every other row's After is written as it would be if no `readme-status` row were in the table.
 A retire names the close's row too, and
 `build-idea` waits for it to land, runs the Principal PM's `nemawashi-refine`, and
 continues from that report. Write no pick, route cut or next change after a retire here: those
@@ -403,7 +395,7 @@ station reads a document the sweep may move — then the change names the sweep'
 A station only the owner walks is its own row, `the owner's act`, and no `walk the next change` row
 is written for it. The owner's-act row names the close's row when a close is owed. A row that needs
 that station walked first — the next change after it, or a retire when it was the last station —
-names the owner's-act row. `build-idea` stops at the owner's act and starts no `chain-change` beside
+names the owner's-act row. `build-idea` stops at the owner's act and starts no `walk` beside
 it; it runs the rows that name it only once the owner resumes it.
 **A station whose bar two refines have re-aimed since the owner was last asked goes to the owner.** A **re-aim** is a refine run's
 change to what a station's reached-when requires: a line rewritten, replaced, added or removed, by

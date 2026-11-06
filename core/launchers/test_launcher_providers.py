@@ -487,8 +487,8 @@ def test_only_the_reader_opens_the_provider_file():
 # one place a launch's provider comes from, an unforced launch whose entry is missing is refused by
 # name — the entry says so, and says where the provider comes from.
 
-_USAGE_LAUNCHERS = ("build-idea", "chain-agari", "chain-change", "chain-development",
-                    "chain-product")
+_USAGE_LAUNCHERS = ("build-idea", "prd-and-finish-line", "walk", "change",
+                    "product-docs")
 # The first is written as two literals so that CP-311's own `git grep` over `core/launchers`, which
 # reads test files too, finds the phrase nowhere.
 _FALSE_CLAUSES = (

@@ -4,6 +4,9 @@
 # hook is registered there — see core/doctrine/setup/kensaiapp_structure.md
 # § Git-native hooks).
 #
+# Version: 1.5.0 — a record names no machine — record-privacy check, its pre-commit hook, the rule and the skills' pointers
+# Version: 1.4.0 — a test reads nothing of the machine it runs on — refused at commit in every repo, an empty home wherever it runs
+# Version: 1.3.0 — hooks run on the locked python
 # Version: 1.2.0 — restore pre-commit behavior before core-path enforcement
 # Version: 1.1.0 — enable provider-neutral unattended execution with Codex
 # Version: 1.0.0
@@ -20,10 +23,19 @@
 # core while git commits in theirs. Conflating the two roots would scan this
 # repo's tree and pass every satellite commit.
 #
-# Performs no checking itself: execs the written-forward checker against the
-# committing repo, and exits with its status.
+# Performs no checking itself: runs three checkers through
+# core/tools/locked_python.sh against the committing repo, so each runs on the
+# Python that `.python-version` names at the root of the instance holding this
+# core — the written-forward checker, then the test-isolation checker (a test
+# reads nothing of the machine it runs on), then the record-privacy checker (a
+# record names no machine). All three run whatever the others answer, so one
+# commit hears every refusal at once; it exits 1 if any refused.
 set -euo pipefail
 
 core="$(cd "$(dirname "$0")/.." && pwd)"
 repo="$(git rev-parse --show-toplevel)"
-exec "$core/tools/written_forward.py" --staged --repo "$repo"
+status=0
+"$core/tools/locked_python.sh" "$core/tools/written_forward.py" --staged --repo "$repo" || status=1
+"$core/tools/locked_python.sh" "$core/tools/check_test_isolation.py" --staged --repo "$repo" || status=1
+"$core/tools/locked_python.sh" "$core/tools/check_record_privacy.py" --staged --repo "$repo" || status=1
+exit "$status"

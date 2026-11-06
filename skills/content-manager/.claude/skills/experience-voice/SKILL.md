@@ -4,7 +4,7 @@ description: Content-Manager-posture skill that authors a kensaiapp instance's v
 license: MIT
 metadata:
   author: Eyal Golan
-  version: "1.6.6"
+  version: "1.8.0"
   created: "2026-08-12"
   category: instance-setup
   tags: experience-layer, instance-setup, content-manager, voice, ordered-pair
@@ -283,7 +283,7 @@ agent; from an interactive `content-manager:` session with no agent named, `--ro
 Step 2 authored against that prompt, and the flag is what records it; omitting it positively records
 that this run followed no prompt, which is the one thing that is never true here.
 
-**The directional is `Michi:`, not `Shukuba:` or `Agari:`.** This commit touches no single project —
+**The directional is `Michi:`, not `Shukuba:` or `Finish-line:`.** This commit touches no single project —
 it is instance-level, and the directional trailer follows the commit's scope rather than what kind
 of thing produced it (`<CORE>/doctrine/governance/commit_format.md` § Directional trailer). Resolve
 it against `system/michi.md`. The recipe's parenthetical that producer skills are project-level

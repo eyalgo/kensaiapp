@@ -1,17 +1,17 @@
 ---
-version: "1.8.0"
+version: "1.9.2"
 ---
 
 # The Flow — the change pipeline
 
 *One change enters, runs the stages on a blackboard, and merges — advancing the project toward
-its Agari. This file represents the flow: the loop and the stages. How state passes between stages
+its finish line. This file represents the flow: the loop and the stages. How state passes between stages
 is the handoff (`folder_state_handoff.md`); how a step reports its result to the orchestrator is
 the outcome contract (`step_outcome_contract.md`).*
 
 ## The loop
 1. A change is placed as a **Tobiishi** in the project.
-2. **The chain** (`core/launchers/chain-development/launcher.sh <project>` → `core/tools/chain_development.py`) is launched on the project.
+2. **The chain** (`core/launchers/change/launcher.sh <project>` → `core/tools/chain_development.py`) is launched on the project.
 3. The **PO opens the branch** — all work lands there.
 4. The flow runs and **ends with the PM merge**.
 5. The **PM seals the Tobiishi** — records the result and moves `<key>/` to `journey/tobiishi/trail/`
@@ -39,9 +39,10 @@ each is written from; this file does not restate it.
 | 3 | Tech Lead | `development-plan` | `change_spec.md` + `change_design.md` + `adr/`/`fdr.md`/`nfdr.md` + `SDD.md` § 3 | `tl_instruction.md` |
 | 4 | Content Editor | `development-content` | `change_spec.md` + `change_design.md` (its `Publishes text:` line) + `CONTENT.md` + the writing bar | `change_text.md` |
 | 5 | Developer | `development-implementation` | `tl_instruction.md` + `change_text.md` when Stage 4 ran + `change_design.md` (cross-check) + `SDD.md` § 3 + `project.md` (execution context) | code (green suite) |
-| 6 | Senior Engineer | `development-code-integrity` | Stage-5 code + `change_spec.md` + `SDD.md` § 3 | `code-integrity-report.md` + green suite |
-| 7 | Senior Engineer | `development-security` | the Stage-6 code | `security-report.md` (its `Security:` line) |
-| 8 | PM | `tobiishi-seal` | the change key + Stage-6 green suite | take `main`'s advance + suite green on it, then seal (result + move `<key>/` to `trail/` on branch) + `--no-ff` merge to `main` |
+| 6 | Content Editor | `changelog-line` | the implemented work on the branch (its commits and product diff) + `change_spec.md` + `change_design.md` + the product's `CHANGELOG.md` and `docs/what_left.md` | the entry under `## [Unreleased]` in the product's `CHANGELOG.md`, the what-left file reduced of the wants the change wholly completes, and `changelog-report.md` |
+| 7 | Senior Engineer | `development-code-integrity` | Stage-5 code + `change_spec.md` + `SDD.md` § 3 | `code-integrity-report.md` + green suite |
+| 8 | Senior Engineer | `development-security` | the Stage-7 code | `security-report.md` (its `Security:` line) |
+| 9 | PM | `tobiishi-seal` | the change key + Stage-7 green suite | take `main`'s advance + suite green on it, then seal (result + move `<key>/` to `trail/` on branch) + `--no-ff` merge to `main` |
 
 **Stage 4 runs only for a change that publishes text.** The architect writes a `Publishes text:` line in
 `change_design.md`, and the chain reads its first word when the walk reaches the step. `yes` runs the
@@ -50,12 +51,20 @@ of its own. `no` passes the step with no launch, and a resume finds it done. A l
 whose first word is neither `yes` nor `no`, halts the walk before any launch, with the reason
 `missing-text-verdict`. A change already past Stage 4 on disk is never entered there.
 
+**Stage 6 runs for every change, whether or not Stage 4 did.** `changelog-line` is a separate capability
+of the Content Editor from `development-content`: Stage 4 writes the words one change publishes, and
+Stage 6 keeps the product's changelog and what-left file true to what the change built. It runs on the
+change's branch once Stage 5 has landed, and the walk counts it done when its `changelog-report.md` is
+committed on that branch, whatever the run changed in the product (`step_outcome_contract.md`). The
+audit still covers the five producers it covered before this stage existed, and not this one.
+
 A product with no code has no suite. Its card reads `Test command: none`, and wherever the table says
 "green suite" it means `Suite: none` and no suite run (`step_outcome_contract.md` § What passes).
 
 The flow carries **one Tobiishi at a time**: each stage adds its artifact to the Tobiishi, the
-developer writes code into the codebase (Stage 5), the Senior Engineer proves it against its intent
-(Stage 6), the Senior Engineer reviews its security (Stage 7), and `tobiishi-seal` merges it (Stage 8). How the
+developer writes code into the codebase (Stage 5), the Content Editor records it in the changelog
+(Stage 6), the Senior Engineer proves it against its intent (Stage 7), the Senior Engineer reviews its
+security (Stage 8), and `tobiishi-seal` merges it (Stage 9). How the
 Tobiishi's artifacts pass between stages: `folder_state_handoff.md`.
 
 ## Code goes where the parts table puts it
@@ -86,7 +95,7 @@ Placement is checked by reading the parts table, at these stages:
   code.
 - **Stage 5, `development-implementation`,** writes each piece of logic in its owning part's code,
   including logic the instruction placed elsewhere.
-- **Stage 6, `development-code-integrity`,** moves any misplacement still in the code, in the same
+- **Stage 7, `development-code-integrity`,** moves any misplacement still in the code, in the same
   change and before it seals.
 - **`development-audit` on the implementation step** records a misplacement still in the code as a
   `blocking` finding.
@@ -94,7 +103,7 @@ Placement is checked by reading the parts table, at these stages:
 **What no stage after the design does to place logic: create a unit the design did not list, or add
 an import `docs/nfdr.md` § 1.2 forbids and the design did not allow.** Both are design decisions, made
 at Stage 2 and recorded there. A later stage that would need one to place a piece of logic records the
-case in its own output and leaves the placement as it found it. At Stage 6
+case in its own output and leaves the placement as it found it. At Stage 7
 the same case is a redesign, and code-integrity stops under its existing condition for one. The
 stopped walk then waits for the owner.
 
@@ -110,5 +119,5 @@ above says so in its output rather than inferring a table.
 ## Where it's going
 - **More stages + a merge ceremony** — the flow gains steps and logic beyond the happy path.
 - **The selection layer** — a PM loop that decides the next Tobiishi from the project's Shukuba +
-  Agari, places it, and approves the result before choosing the next.
+  finish line, places it, and approves the result before choosing the next.
   (Direction: hoshin `product-leadership` · kaizen `pm-two-mode`.)

@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import errno
 import os
 import pty
 import subprocess
 import sys
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
@@ -14,6 +16,31 @@ import env_file
 
 _SCRIPT = Path(__file__).resolve().parent / "env_file.py"
 _SECRET = "hf_SENTINEL_do_not_leak"
+# No newline, carriage return or tab: the terminal rewrites those (`\n` arrives as `\r\n`).
+_TERMINAL_FENCE = b"@@end-of-terminal-output@@"
+_TERMINAL_READ_SIZE = 4096
+
+
+def _read_terminal(master: int, read: Callable[[int, int], bytes]) -> str:
+    """Return what was written to the terminal before `_TERMINAL_FENCE`, decoded.
+
+    The caller writes the fence to the slave once the child has exited and reads while the
+    slave is still open: on macOS, closing the last slave descriptor discards what is
+    buffered. The read also ends on an empty read, so it cannot spin, and on `EIO`, which
+    Linux raises once the slave is gone. Any other `OSError` propagates.
+    """
+    received = b""
+    while not received.endswith(_TERMINAL_FENCE):
+        try:
+            chunk = read(master, _TERMINAL_READ_SIZE)
+        except OSError as error:
+            if error.errno != errno.EIO:
+                raise
+            break
+        if not chunk:
+            break
+        received += chunk
+    return received.removesuffix(_TERMINAL_FENCE).decode()
 
 
 def _dotenv(tmp_path: Path, text: str) -> Path:
@@ -124,16 +151,92 @@ def test_cli_writes_nothing_to_a_terminal(tmp_path):
             text=True,
             check=False,
         )
-        os.close(slave)
-        slave = -1
-        written = os.read(master, 4096).decode()
+        os.write(slave, _TERMINAL_FENCE)
+        written = _read_terminal(master, os.read)
     finally:
         os.close(master)
-        if slave != -1:
-            os.close(slave)
+        os.close(slave)
 
     assert _SECRET not in written
     assert written == ""
     assert process.returncode != 0
     assert process.stderr.strip() != ""
     assert _SECRET not in process.stderr
+
+
+def _scripted_reads(*chunks: bytes | OSError):
+    remaining = iter(chunks)
+
+    def read(descriptor: int, size: int) -> bytes:
+        chunk = next(remaining)
+        if isinstance(chunk, OSError):
+            raise chunk
+        return chunk
+
+    return read
+
+
+def test_the_terminal_read_answers_eio_as_nothing_written():
+    def read(descriptor: int, size: int) -> bytes:
+        raise OSError(errno.EIO, "Input/output error")
+
+    assert _read_terminal(-1, read) == ""
+
+
+def test_the_terminal_read_answers_the_bytes_before_an_eio():
+    read = _scripted_reads(b"CHILD_WROTE", OSError(errno.EIO, "Input/output error"))
+
+    assert _read_terminal(-1, read) == "CHILD_WROTE"
+
+
+def test_the_terminal_read_lets_another_oserror_through():
+    error = OSError(errno.EBADF, "Bad file descriptor")
+
+    def read(descriptor: int, size: int) -> bytes:
+        raise error
+
+    with pytest.raises(OSError) as raised:
+        _read_terminal(-1, read)
+
+    assert raised.value is error
+    assert raised.value.errno == errno.EBADF
+
+
+def test_the_terminal_read_answers_what_the_child_wrote():
+    master, slave = pty.openpty()
+    try:
+        subprocess.run(
+            [sys.executable, "-c", "import sys; sys.stdout.write('CHILD_WROTE')"],
+            stdout=slave,
+            check=True,
+        )
+        os.write(slave, _TERMINAL_FENCE)
+
+        written = _read_terminal(master, os.read)
+    finally:
+        os.close(slave)
+        os.close(master)
+
+    assert written == "CHILD_WROTE"
+
+
+def test_the_terminal_read_stops_on_an_empty_read():
+    assert _read_terminal(-1, _scripted_reads(b"")) == ""
+
+
+def test_the_terminal_read_answers_the_bytes_before_an_empty_read():
+    read = _scripted_reads(b"CHILD_WROTE", b"")
+
+    assert _read_terminal(-1, read) == "CHILD_WROTE"
+
+
+def test_the_terminal_read_joins_a_fence_split_across_reads():
+    half = len(_TERMINAL_FENCE) // 2
+    read = _scripted_reads(
+        b"CHILD",
+        b"_WROTE",
+        _TERMINAL_FENCE[:half],
+        _TERMINAL_FENCE[half:],
+    )
+
+    assert _read_terminal(-1, read) == "CHILD_WROTE"

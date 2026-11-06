@@ -5,7 +5,7 @@ Environment: owners-mac — no CI
 
 **Change:** `tracker17 · tobiishi · 2026-10-19_cancel-confirmation`, on the station `tracker17 · shukuba · 2026-10-19_cancel-confirmation`.
 **Date:** 2026-10-20
-**Reviewed at:** the developer's closing marker `1ab334527` (`developer: 2026-10-19_cancel-confirmation — implementation complete`).
+**Reviewed at:** the developer's closing marker `<a commit not in the public history>` (`developer: 2026-10-19_cancel-confirmation — implementation complete`).
 
 ## Summary
 
@@ -23,7 +23,7 @@ The marker was read with `git -C <worktree> log -1 main..2026-10-19_cancel-confi
 
 1. `Deferred: task 1 — the Back-after-confirm history case (tests/e2e/test_moves.py::test_real_history_traversal_revalidates_the_confirmation): Clear-Site-Data "cache" does not evict the old confirmation from the pinned browser's live history cache — system/projects/tracker17/journey/tobiishi/2026-10-19_cancel-confirmation/change_design.md § 3`
    - **The task exists:** pass. `### Task 1: The cancelled confirmation capability` is in `tl_instruction.md`.
-   - **No landing commit:** pass. Task 1's commits are `8d2e52512` (`— red`), `6b4df74aa` (`— deferred`) and `c7b040d0c` (`— in-progress`). None is a landing subject. The task does not meet its completion check now either: the case still fails on the current tree (below).
+   - **No landing commit:** pass. Task 1's commits are `<a commit not in the public history>` (`— red`), `<a commit not in the public history>` (`— deferred`) and `<a commit not in the public history>` (`— in-progress`). None is a landing subject. The task does not meet its completion check now either: the case still fails on the current tree (below).
    - **Case in the tree:** pass. The test is at `tests/e2e/test_moves.py:392`, with the assertions the instruction states (reload, back and forward save nothing; Back after confirming shows the refusal and no strip; a second tab's ordinary move invalidates an old confirmation). Nothing in `test_moves.py`, `tests/e2e/conftest.py`, `tests/conftest.py` or `pyproject.toml` skips it, deselects it or marks it expected to fail. Its fixture `history_browser` (`tests/e2e/conftest.py:149`) keeps the history cache on, as design § 3 A.3 requires. In the locked environment the folder ran `1 failed, 56 passed`, failing at `test_moves.py:423`, `Locator expected to have count '0'`, `Actual value: 1`, which is what the marker reports.
    - **Record exists:** pass. `change_design.md` is on the branch and has its § 3.
 2. `Deferred: task 3 — depends on task 1 — system/projects/tracker17/journey/tobiishi/2026-10-19_cancel-confirmation/change_design.md § 3`
@@ -36,7 +36,7 @@ Both deferrals are real. Whether they were right is not this step's call.
 
 ## What was reviewed
 
-Task 2's commits, `1e433eb91` (red) and `c7b53bed7` (green), against the merge base `127719e6d`:
+Task 2's commits, `<a commit not in the public history>` (red) and `<a commit not in the public history>` (green), against the merge base `<a commit not in the public history>`:
 
 - `products/tracker17/domain/workflow.py`: only the opening docstring changes. Everything after it is unchanged in the diff.
 - `products/tracker17/tests/architecture/test_trace.py`: one new test, `test_workflow_entry_names_every_participating_module_and_check`, with its three constants.
@@ -59,14 +59,14 @@ module names a requirement and names no unknown one; and that the docstring name
 requirement. The existing trace tests are all still there.
 
 To check that the test means something, it was run against four broken docstrings in a throwaway
-clone at `1ab334527`. It failed each time:
+clone at `<a commit not in the public history>`. It failed each time:
 
 - `tests/integration/test_comment_pages.py` renamed → `AssertionError: tests/integration/test_comment_pages.py`;
 - `tests/integration/test_routes.py` removed → `AssertionError: tests/integration/test_routes.py`;
 - `FR-19` changed to `FR-9` → `assert {'FR-18', 'FR-19'} <= {'FR-18', 'FR-9'}`;
 - `application/tracker.py` removed → `AssertionError: application/tracker.py`.
 
-The developer's red commit `1e433eb91` already showed it failing on the missing `web/style.css`.
+The developer's red commit `<a commit not in the public history>` already showed it failing on the missing `web/style.css`.
 
 ## The finding
 

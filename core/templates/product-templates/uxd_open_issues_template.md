@@ -1,12 +1,12 @@
 ---
-version: "1.5.1"
+version: "1.5.3"
 ---
 <!-- The version above is template-file metadata; it is not copied into the instantiated document. -->
 
 # UXD open issues — <product>
 
 > Companion to `UXD.md`. The CDO authored the UXD non-interactively; this file holds
-> what it could not settle from the inputs (the PRD, the project's Agari and its doctrine, the
+> what it could not settle from the inputs (the PRD, the project's finish line and its doctrine, the
 > SRS when present, and any context the owner handed over) — and, when a design run has produced
 > output for this product, the pointer to it. **Answer inline** — fill each **Answer** / **Confirm-or-override**
 > slot — **commit this file**, then re-run `product-uxd`. It folds your answers into the UXD

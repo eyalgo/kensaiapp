@@ -1,5 +1,5 @@
 ---
-version: "1.5.0"
+version: "1.7.0"
 ---
 <!-- The version above is template-file metadata; it is not copied into the authored skill. Nor is
      any comment block in this file.
@@ -278,7 +278,7 @@ answered companion.>
 interactive `<role>:` session with no agent named, `--role "<Role Title>" --skill <skill-name>`
 instead.
 
-**The directional** is `<Agari: | Shukuba: | Michi:>` — <which, and why, resolved against
+**The directional** is `<Finish-line: | Shukuba: | Michi:>` — <which, and why, resolved against
 `<CORE>/doctrine/governance/commit_format.md` § Directional trailer, whose rule is that the trailer
 follows the commit's SCOPE rather than what kind of thing produced it>.
 

@@ -44,7 +44,7 @@ Items were decided in the companion's order. Nothing was reordered.
   **Where the change lands.** QC-32 is this document's, and the slot confirms it. SEC-2's wording is
   the CTO's. The item itself said the CTO restates SEC-2 on confirm, and nothing else would carry
   that to the SDD, which is settled and had no companion. So it is raised as
-  `products/tracker17/docs/SDD_open_issues.md` § 2.1, committed in `86c8acfb0` before this slot was
+  `products/tracker17/docs/SDD_open_issues.md` § 2.1, committed in `<a commit not in the public history>` before this slot was
   written. I came close to a plain *confirmed*. What tipped it was SEC-2's every-request scope, which
   the draft drops without saying so.
 
@@ -66,7 +66,7 @@ Items were decided in the companion's order. Nothing was reordered.
   way in, and this item closes it.
   **Where the change lands.** QC-33 is this document's, and the slot confirms it. The SEC-3 addition
   is the CTO's, as the item said. It is raised as `products/tracker17/docs/SDD_open_issues.md` § 2.2,
-  in the same commit `86c8acfb0`. SEC-3 is silent here rather than wrong, and on its own that might
+  in the same commit `<a commit not in the public history>`. SEC-3 is silent here rather than wrong, and on its own that might
   not earn a cycle. But the item's confirm presupposed the CTO adding it, and once § 2.1 opens the
   SDD companion, the second item costs no extra round.
 
@@ -188,7 +188,7 @@ None this run.
 
 ## Companions opened
 
-- **`products/tracker17/docs/SDD_open_issues.md`** — **opened** — companion to `products/tracker17/docs/SDD.md`, landed in commit `86c8acfb0`
+- **`products/tracker17/docs/SDD_open_issues.md`** — **opened** — companion to `products/tracker17/docs/SDD.md`, landed in commit `<a commit not in the public history>`
 
 ## Launchers owed
 

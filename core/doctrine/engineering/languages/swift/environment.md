@@ -1,5 +1,5 @@
 ---
-version: "2.2.0"
+version: "2.3.1"
 ---
 
 # Swift — gate environment
@@ -167,8 +167,8 @@ same option). A checkout is reached inside the guest at its path under its share
    `<path to tart>` is the absolute path `command -v tart` prints. `<products root>` and each
    `<instance repository>` are absolute host paths. Repeat the `--dir=<instance>:<instance repository>`
    line once for each instance repository that holds a product, with `<instance>` its folder name.
-   These `--dir` arguments are the record a gate's caller reads its shares from
-   (`<CORE>/prompts/gate_suite.md` § Step 3, The guest).
+   This job is the record the gate tool reads the guest's name and its shares from, each time it is
+   called; a gate's caller gives none (`<CORE>/prompts/gate_suite.md` § Step 3, The guest).
 
    Load the agent now, without waiting for the next login:
 
@@ -219,7 +219,11 @@ same option). A checkout is reached inside the guest at its path under its share
    with no repository ("fatal: not a git repository"). For a worktree, the copy's `.git` is a
    folder instead: the repository's shared git data, with the worktree's own HEAD and index laid
    over it, so git in the guest sees the same branch and the same staged files. It removes any copy an earlier run left, then runs
-   the gate command in the new copy, then removes it. It runs one gate in the guest at a time: a
+   the gate command in the new copy, then removes it. Before each removal it stops every guest
+   process running from a copy it removes — an app a suite launched and left running — with that
+   process's direct children; at the end of a run it says on standard error how many it stopped.
+   At a gate's start that is any process whose command line names a path inside
+   `/tmp/kensaiapp-gate-suite-*`, since only one gate runs in the guest at a time. It runs one gate in the guest at a time: a
    second gate waits until the first gate's copy is removed. It never starts, stops or restarts the
    guest.
 

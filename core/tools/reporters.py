@@ -36,7 +36,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
 
-__version__ = "1.28.2"
+__version__ = "1.30.0"
 
 
 @dataclass(frozen=True)
@@ -235,8 +235,8 @@ def _committed_nothing_for(label: str, artifact: str, docs_dir: str | None) -> s
     The one function every one of the eight document reporters passes through, so none of
     them grows its own companion lookup (fence: "eight copies of a companion lookup is the
     failure this task is one step away from"). `docs_dir` is the caller's own — `<product>/
-    docs` for seven of the eight, the bare project path for Agari, which keeps no `docs/`
-    hop (`_agari_body`'s own note on why the companion is named bare).
+    docs` for seven of the eight, the bare project path for finish line, which keeps no `docs/`
+    hop (`_finish_line_body`'s own note on why the companion is named bare).
     """
     return _committed_nothing(label, artifact, companion_state(docs_dir, artifact))
 
@@ -1269,25 +1269,25 @@ experience_visual = _instance_reporter("experience-visual")
 experience_voice = _instance_reporter("experience-voice")
 
 
-# --- agari: a project-management artifact, not a product document ------------------
+# --- finish_line: a project-management artifact, not a product document ------------------
 #
-# Authored against `project-agari`'s own file contract, NOT by cloning a sibling. Four
+# Authored against `project-finish-line`'s own file contract, NOT by cloning a sibling. Four
 # load-bearing differences, and every rule below is one of them:
 #   - The three files sit DIRECTLY under the artifact path — `system/projects/<name>/` in
-#     the INSTANCE repo, beside the project card (skills/cpo/.claude/skills/project-agari/SKILL.md
+#     the INSTANCE repo, beside the project card (skills/cpo/.claude/skills/project-finish-line/SKILL.md
 #     :73-81) — with no `docs/` hop, so no product reader here can be reused. That is also
 #     why this is not an `_INSTANCE_SPECS` entry: those resolve a fixed directory under an
 #     instance root, and this launcher passes the project folder itself.
-#   - `agari.md` carries NO `**Status:**` and NO `**Version:**`. `parse_status` /
+#   - `finish_line.md` carries NO `**Status:**` and NO `**Version:**`. `parse_status` /
 #     `parse_version` therefore have nothing to read, and the declared signal is the
-#     `PLACEHOLDER` marker `agari_template.md:12` stamps into every fresh card, which is the
+#     `PLACEHOLDER` marker `finish_line_template.md:12` stamps into every fresh card, which is the
 #     same signal the launcher's own pre-launch report keys on.
 #   - The companion has TWO buckets and no directives bucket, stated in
-#     `agari_open_issues_template.md`'s own closing comment. `_agari_pending_phrase` names
+#     `finish_line_open_issues_template.md`'s own closing comment. `_finish_line_pending_phrase` names
 #     two terms and no third, so an owner-pasted `## 3.` can never surface one.
 #   - **Declared needs BOTH signals**: the placeholder gone AND no companion on disk (the
 #     companion's absence is the done signal, SKILL.md:80). Do not report either alone as
-#     settled — an undeclared Agari with no companion is a run that did not finish, and
+#     settled — an undeclared finish line with no companion is a run that did not finish, and
 #     pairing the two facts as though each stood on its own is the wart the launcher's
 #     pre-launch line already carries.
 #
@@ -1295,7 +1295,7 @@ experience_voice = _instance_reporter("experience-voice")
 # `_committed_nothing` are run-type-agnostic and reused as they stand.
 
 
-def _agari_pending_phrase(buckets):
+def _finish_line_pending_phrase(buckets):
     """"1 open issue" / "2 choices to confirm" — only the non-zero terms.
 
     Two buckets by construction, so no third term exists to name. Its own function rather
@@ -1311,23 +1311,23 @@ def _agari_pending_phrase(buckets):
     return ", ".join(parts)
 
 
-def read_agari(project_path: str):
-    """What is on disk in a project folder for an Agari, or None if it cannot be read.
+def read_finish_line(project_path: str):
+    """What is on disk in a project folder for a finish line, or None if it cannot be read.
 
-    The two-bucket count reuses `count_buckets` and drops its third return, which the Agari
+    The two-bucket count reuses `count_buckets` and drops its third return, which the finish line
     companion never fills. `placeholder` is a substring test on the whole file, not a
-    parse: the marker is a stamped word, and `agari_template.md` places it in a blockquote
+    parse: the marker is a stamped word, and `finish_line_template.md` places it in a blockquote
     that any heading-anchored reader would miss. The only function here that touches the
     filesystem, so the degrade path is one `except` in one place.
     """
-    agari_path = os.path.join(project_path, "agari.md")
+    finish_line_path = os.path.join(project_path, "finish_line.md")
     try:
-        if not os.path.isfile(agari_path):
-            return {"agari": False, "placeholder": False,
+        if not os.path.isfile(finish_line_path):
+            return {"finish_line": False, "placeholder": False,
                     "companion": False, "buckets": (0, 0), "trail": 0}
-        with open(agari_path, encoding="utf-8") as fh:
-            agari_text = fh.read()
-        companion_path = os.path.join(project_path, "agari_open_issues.md")
+        with open(finish_line_path, encoding="utf-8") as fh:
+            finish_line_text = fh.read()
+        companion_path = os.path.join(project_path, "finish_line_open_issues.md")
         companion = os.path.isfile(companion_path)
         buckets = (0, 0)
         if companion:
@@ -1335,23 +1335,23 @@ def read_agari(project_path: str):
                 open_issues, choices, _directives = count_buckets(fh.read())
                 buckets = (open_issues, choices)
         return {
-            "agari": True,
-            "placeholder": "PLACEHOLDER" in agari_text,
+            "finish_line": True,
+            "placeholder": "PLACEHOLDER" in finish_line_text,
             "companion": companion,
             "buckets": buckets,
-            "trail": trail_cycles(project_path, "trail/agari"),
+            "trail": trail_cycles(project_path, "trail/finish_line"),
         }
     except OSError:
         return None
 
 
-def _agari_body(label: str, project_path: str | None) -> str:
+def _finish_line_body(label: str, project_path: str | None) -> str:
     """What the round produced, read from the project folder. Never the agent's state.
 
     Best-effort like `_prd_body`/`_design_body`: the wide `except Exception` is deliberate —
     a parser bug must cost specificity, never the message.
 
-    The companion is named bare rather than as `system/projects/<name>/agari_open_issues.md`.
+    The companion is named bare rather than as `system/projects/<name>/finish_line_open_issues.md`.
     That path is one launcher's directory layout, and this reporter's whole contract is
     `ctx.artifact_path`; deriving the layout from it would make the message lie the first
     time anything else passes a different folder. The label already names the project.
@@ -1360,12 +1360,12 @@ def _agari_body(label: str, project_path: str | None) -> str:
     if not project_path:
         return plain
     try:
-        p = read_agari(project_path)
+        p = read_finish_line(project_path)
         if p is None:
             return (f"⚠️ {label}: run ended, but the project at {project_path} could not be "
                     f"read — what it produced is unknown.")
-        if not p["agari"]:
-            return (f"⚠️ {label}: no agari.md beside the project card — this run left "
+        if not p["finish_line"]:
+            return (f"⚠️ {label}: no finish_line.md beside the project card — this run left "
                     f"nothing to read.")
 
         n1, n2 = p["buckets"]
@@ -1373,35 +1373,35 @@ def _agari_body(label: str, project_path: str | None) -> str:
         if p["companion"]:
             # The companion is out for answers, so the cycle it belongs to is the one after
             # the last round folded into the trail — the prd reporter's own reasoning, and
-            # `trail/agari/` is numbered the same way (SKILL.md:83-86).
+            # `trail/finish_line/` is numbered the same way (SKILL.md:83-86).
             cycle = p["trail"] + 1
             if n1 == 0 and n2 == 0:
-                return (f"⚠️ {label}: agari_open_issues.md is present but lists no items. "
+                return (f"⚠️ {label}: finish_line_open_issues.md is present but lists no items. "
                         f"The run may not have finished clearing it; check it and re-run.")
-            pending = _agari_pending_phrase(p["buckets"])
+            pending = _finish_line_pending_phrase(p["buckets"])
             if p["placeholder"]:
                 # One run drafts the terminus and writes the companion, so a companion
                 # beside an untouched placeholder is a run that never wrote its own draft.
-                return (f"⚠️ {label}: agari.md still carries PLACEHOLDER, cycle {cycle} — "
-                        f"{pending}.\nAnswer agari_open_issues.md, commit, re-run.")
-            return (f"📋 {label}: Agari drafted, cycle {cycle} complete — {pending}.\n"
-                    f"Answer agari_open_issues.md, commit, re-run.")
+                return (f"⚠️ {label}: finish_line.md still carries PLACEHOLDER, cycle {cycle} — "
+                        f"{pending}.\nAnswer finish_line_open_issues.md, commit, re-run.")
+            return (f"📋 {label}: Finish line drafted, cycle {cycle} complete — {pending}.\n"
+                    f"Answer finish_line_open_issues.md, commit, re-run.")
 
         # No companion. Its absence is the done signal — but only together with the marker
-        # being gone, and only because we already know agari.md exists. No cycle number
+        # being gone, and only because we already know finish_line.md exists. No cycle number
         # here: the trail counts rounds folded in, a different quantity, and a first run
         # that settled everything has none.
         if p["placeholder"]:
-            return (f"⚠️ {label}: no open-issues file, but agari.md still carries "
-                    f"PLACEHOLDER — the Agari is not declared. The run may not have "
-                    f"finished; check agari.md.")
-        return f"✅ {label}: Agari declared — nothing pending."
+            return (f"⚠️ {label}: no open-issues file, but finish_line.md still carries "
+                    f"PLACEHOLDER — the finish line is not declared. The run may not have "
+                    f"finished; check finish_line.md.")
+        return f"✅ {label}: Finish line declared — nothing pending."
     except Exception:
         return plain
 
 
-def agari(ctx: OutcomeContext) -> Outcome:
-    """The project-agari outcome — reads agari.md + agari_open_issues.md + trail/agari/.
+def finish_line(ctx: OutcomeContext) -> Outcome:
+    """The project-finish-line outcome — reads finish_line.md + finish_line_open_issues.md + trail/finish_line/.
 
     An unchanged HEAD decides the message rather than annotating one, as it does in
     `prd`/`srs`/`uxd`/`design` and the instance three: a run that committed nothing leaves
@@ -1413,12 +1413,13 @@ def agari(ctx: OutcomeContext) -> Outcome:
 
     A companion left unanswered (`companion_state`) gets a different unchanged-HEAD message
     than a stall — the run had nothing to fold, not nothing to say. No `docs/` hop here,
-    unlike the product reporters: `agari_open_issues.md` sits bare beside `agari.md`
-    (`_agari_body`'s own note).
+    unlike the product reporters: `finish_line_open_issues.md` sits bare beside `finish_line.md`
+    (`_finish_line_body`'s own note).
     """
     if ctx.head_before is not None and ctx.head_before == ctx.head_after:
-        return Outcome(_committed_nothing_for(ctx.label, "Agari", ctx.artifact_path))
-    return Outcome(_agari_body(ctx.label, ctx.artifact_path), None)
+        return Outcome(_committed_nothing(ctx.label, "finish line",
+                                          companion_state(ctx.artifact_path, "finish_line")))
+    return Outcome(_finish_line_body(ctx.label, ctx.artifact_path), None)
 
 
 # --- the registry: a new run type is one entry here, nothing in the watcher --------
@@ -2611,7 +2612,7 @@ REGISTRY = {
     "writing-bar": writing_bar,
     "experience-visual": experience_visual,
     "experience-voice": experience_voice,
-    "agari": agari,
+    "finish-line": finish_line,
     "sdd-document": sdd_document,
     "fdr": fdr,
     "architecture": architecture,

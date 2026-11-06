@@ -1,5 +1,5 @@
 ---
-version: "2.4.1"
+version: "2.6.0"
 ---
 <!-- The version above is template-file metadata; it is not copied into the instantiated document. -->
 
@@ -10,6 +10,7 @@ version: "2.4.1"
 **Behaviour:** changing
 **Publishes text:** <yes — the places the words live | no>
 <!-- Decided by the CP-438 test: does this change put text in front of a person to read? `yes` names each place, as the person knows it. Otherwise write `no`. The chain reads the first word, which must be exactly `yes` or `no`. -->
+**Language resolution:** <language | none resolved> — <the resolution-chain step that answered> — <packet README.md opened | floor>; one entry per language
 
 ---
 
@@ -64,9 +65,11 @@ After B + C: Sub-job D
 
 ## 5. Test Additions
 
-| Sub-job | Test file | What to add / modify |
-|---|---|---|
-| ... | ... | ... |
+<!-- Layer: the layer's number and name from `<CORE>/doctrine/engineering/testing_doctrine.md`. Fakes handed in: each collaborator the test fakes and the seam it arrives through, or `none` (`testing_doctrine.md` § *A unit test hands its unit fakes and touches nothing real*). -->
+
+| Sub-job | Test file | Layer | Fakes handed in | What to add / modify |
+|---|---|---|---|---|
+| ... | ... | ... | ... | ... |
 
 ---
 

@@ -22,7 +22,7 @@ when_to_use: >-
 license: MIT
 metadata:
   author: Eyal Golan
-  version: "2.11.0"
+  version: "2.15.0"
   created: "2026-09-10"
   category: journey
   tags: shukuba, nemawashi, tobiishi, review, pm, journey
@@ -84,8 +84,9 @@ landed. Take the `<YYYY-MM-DD>_<slug>` key it names when that key resolves to
 **A halted unit is found the same way.** When the context's status is `Open`, take the key it names
 as a halted unit when three things hold:
 - the key resolves to an open `journey/tobiishi/<key>/`;
-- no walk is in flight on it, meaning neither `system/logs/chain-<project>-state.json` nor
-  `system/logs/chain-change-<project>-state.json` carries that `key` with `ended` null;
+- no walk is in flight on it, meaning none of `system/logs/chain-<project>-state.json`,
+  `system/logs/chain-walk-<project>-state.json` and `system/logs/chain-change-<project>-state.json`
+  carries that `key` with `ended` null;
 - a walk has ended on it, meaning one of those files carries that `key` with `ended` set to `halted`.
 
 Say in the report that the key came from the context. An ad-hoc merge never writes the context, so
@@ -180,7 +181,7 @@ Hand the prompt the held set; what it means for each seed and station is decided
 
 Read `prompts/rich.md` in full, then the two templates. Read every seed at the
 seedbed root and in `unpicked/`, the open station and every station in `parked/`, and
-`system/projects/<project>/agari.md`. Apply the prompt. Every judgment — what each finding owes, which
+`system/projects/<project>/finish_line.md`. Apply the prompt. Every judgment — what each finding owes, which
 moves are made, what is held, what is recommended, and whether nothing moves — is made there.
 
 ### Step 5 — Act on the route
@@ -235,10 +236,10 @@ the name the folder's own for a folder-seed or a change unit, with no `.md` — 
 Commit through `<CORE>/doctrine/governance/commit_via_builder.md`: `--staged` naming both halves of the
 move when there was one, `--add` the two files, `--skill shukuba-refine --prompt shukuba-refine/rich
 --role PM`. The directional follows `<CORE>/doctrine/governance/commit_format.md` § *Directional
-trailer*: `Shukuba: <YYYY-MM-DD>_<slug>` when a station is open, else `Agari: <project>`; `progress:` when the route
+trailer*: `Shukuba: <YYYY-MM-DD>_<slug>` when a station is open, else `Finish-line: <project>`; `progress:` when the route
 moved, `aside:` when nothing did.
 
-Then run `python3 "<CORE>/tools/check_journey_links.py" --repo "<instance root>"` and report what it
+Then run `"<CORE>/tools/locked_python.sh" "<CORE>/tools/check_journey_links.py" --repo "<instance root>"` and report what it
 names, per `<CORE>/docs/journey_move.md` § *After the move, say which pointers it broke*. It never gates the run.
 
 ### Step 7 — Report
@@ -246,7 +247,7 @@ names, per `<CORE>/docs/journey_move.md` § *After the move, say which pointers 
 Say what moved and what was held, how many recommendations were written, and where the two files are.
 Then list the report's `## Next moves` as written there — each move, whose it is, and its command — and
 make none of them: a station found reached that the park did not close is the **Scrum Master**'s to close (`shukuba-retire`), the
-pick is `nemawashi-pick`'s, the next change is its chain's, a walked seed's retire is the **Scrum Master**'s
+pick is `seed-pick`'s, the next change is its chain's, a walked seed's retire is the **Scrum Master**'s
 (`nemawashi-retire`), and any seed's drop or cut is the Principal PM's. The completion message of an unattended run is read off that same section
 (`launcher.md` § *Reporter*), so what is said here and what reaches the owner's phone are one list.
 

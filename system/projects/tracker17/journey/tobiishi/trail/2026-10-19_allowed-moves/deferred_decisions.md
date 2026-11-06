@@ -40,7 +40,7 @@ What this change held back, for `shukuba-refine` to place after the unit lands. 
 
 ## CP-318's "except the three named as changing" — reading set aside by development-design (2026-10-19)
 **Spec lines:** change_spec CP-318 ("Every existing test passes unchanged, except the three named as changing"); Example 30.
-**Conflict:** four more existing tests pin exactly what the request asks to change. The finding was measured on a prototype of this design in a clone at `c01872b`: 8 failed and 1083 passed, against 1091 passed on the unchanged tree. The four:
+**Conflict:** four more existing tests pin exactly what the request asks to change. The finding was measured on a prototype of this design in a clone at `<a commit not in the public history>`: 8 failed and 1083 passed, against 1091 passed on the unchanged tree. The four:
 - `tests/architecture/test_shapes.py::test_only_the_task_features_are_added_to_domain` asserts `domain/workflow.py` does not exist.
 - `tests/integration/test_task_pages.py::test_task_page_shows_the_four_fields_in_the_one_authorized_form` asserts the task page shows neither `status` nor `todo`, and its exact forms.
 - `tests/integration/test_task_pages.py::test_task_page_opens_edit_form_from_saved_values` asserts the task page's exact forms per status.

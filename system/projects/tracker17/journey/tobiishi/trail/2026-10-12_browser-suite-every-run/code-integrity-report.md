@@ -2,19 +2,19 @@
 
 Integrity: pass
 
-Re-run on the tree the owner's revised route produced. That route is design `14b5ad5b8`, plan
-`33f4bbad9`, task 3 `bd0fde96b`, and the closing marker `315e136f9`, which supersedes `7ba95e221`.
-The earlier stop at `486d5dbae` was set aside by `a5edca0b2`. Every invariant holds on HEAD
-`a5edca0b277416c232e8dbb38dd186bb775a72e1`, and I-3's twenty-run proof is 20 of 20.
+Re-run on the tree the owner's revised route produced. That route is design `<a commit not in the public history>`, plan
+`<a commit not in the public history>`, task 3 `<a commit not in the public history>`, and the closing marker `<a commit not in the public history>`, which supersedes `<a commit not in the public history>`.
+The earlier stop at `<a commit not in the public history>` was set aside by `<a commit not in the public history>`. Every invariant holds on HEAD
+`<a commit not in the public history>`, and I-3's twenty-run proof is 20 of 20.
 
 ## Deferrals
 
-None. The newest closing marker, `315e136f9`, carries no `Deferred:` line.
+None. The newest closing marker, `<a commit not in the public history>`, carries no `Deferred:` line.
 
 ## What was reviewed
 
-The developer's commits `d03bcf36b` (task 1), `36e619d29` (task 2) and `bd0fde96b` (task 3). The
-product diff since the station opened at `530d0c214` touches only four files:
+The developer's commits `<a commit not in the public history>` (task 1), `<a commit not in the public history>` (task 2) and `<a commit not in the public history>` (task 3). The
+product diff since the station opened at `<a commit not in the public history>` touches only four files:
 `tests/e2e/test_first_project.py` (+4), `tests/e2e/test_people.py` (+8),
 `tests/e2e/test_labels.py` (10 lines swapped) and `tests/e2e/test_tasks.py` (3 swapped). I read all 25 changed lines against
 the base source.
@@ -46,12 +46,12 @@ the invariants by running commands. All of them ran on a `git archive` copy at H
 | Invariant | Check | Result |
 |---|---|---|
 | I-1 | `pytest -q products/tracker17/tests/` | `813 passed`, exit 0. Holds. |
-| I-2 | `git diff --name-only 530d0c214 HEAD -- products/tracker17` | Only the four e2e modules. No `__init__.py` and no `main.py`. Holds. |
+| I-2 | `git diff --name-only <a commit not in the public history> HEAD -- products/tracker17` | Only the four e2e modules. No `__init__.py` and no `main.py`. Holds. |
 | I-3 | The plan's twenty-run loop, `PYTEST_ADDOPTS=-v pytest -p no:cacheprovider products/tracker17/tests/e2e/` | **20 of 20 exited 0**, each `27 passed`. The log check exited 0. No log holds `SKIPPED`, `XFAIL`, `deselected` or `EvalError`. Holds. |
-| I-4 | Sorted `^def test_` names at `530d0c214` compared with HEAD, plus `--collect-only` | Identical, 27 names. `27 tests collected`. No skip, xfail, deselect or ignore was added. Holds. |
+| I-4 | Sorted `^def test_` names at `<a commit not in the public history>` compared with HEAD, plus `--collect-only` | Identical, 27 names. `27 tests collected`. No skip, xfail, deselect or ignore was added. Holds. |
 | I-5, I-8 | Reading, plus the negative check below | Every original snapshot stays after its barrier. Each barrier names the same element. Holds. |
 | I-6 | The added-line grep for `rerun\|flaky\|retry\|retries` | No output, exit 1. Holds. |
-| I-7 | The closing marker `315e136f9` and the task 3 body `bd0fde96b` | Both causes are named: which tests failed, what varied, and why the fix removes it. Holds. |
+| I-7 | The closing marker `<a commit not in the public history>` and the task 3 body `<a commit not in the public history>` | Both causes are named: which tests failed, what varied, and why the fix removes it. Holds. |
 | I-9 | `ruff format --check .` · `ruff check .` · `mypy …` | `168 files already formatted` · `All checks passed!` · `Success: no issues found in 21 source files`. Holds. |
 | I-10, I-11 | Reading the diff | Nothing is patched. Module docstrings and helper signatures are unchanged. Holds. |
 | I-12 | Dependency files | Unchanged, so this invariant does not apply. |

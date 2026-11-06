@@ -68,7 +68,7 @@ None this run.
 
 ## Companions opened
 
-- **products/tracker17/docs/UXD_open_issues.md** — **opened** — companion to `UXD.md`, landed in commit `feb76b2d9`
+- **products/tracker17/docs/UXD_open_issues.md** — **opened** — companion to `UXD.md`, landed in commit `<a commit not in the public history>`
 
 ## Launchers owed
 

@@ -1,5 +1,5 @@
 ---
-version: "1.48.0"
+version: "1.49.0"
 ---
 
 # Task map — where to look, by what you're about to do
@@ -73,6 +73,7 @@ adding a row, read the destination's opening declaration and check it answers **
 | Draw the line between an AI-driven decision and a mechanical rule | `ai_responsibility.md` | governance |  |
 | Decide where an aesthetic call may be made, or what a document that does not own it may say | `where_taste_appears.md` | governance |  |
 | Write a document derived from an upstream one that is `Draft`, or unreadable in status | `unsettled_inputs.md` | governance | unprompted |
+| Write a record that quotes a path, a command or terminal output — a file under `system/projects/` or in any `docs/` folder: the journey, a halt report, a design, a plan, a spec, a trail | `records_name_no_machine.md` | governance | unprompted |
 | Name a real product as a case or fixture in a file under `core/` or a symlinked `.claude/` layer | `setup/shared_core_instance.md` | setup |  |
 | Reason about the system's layers and dependency direction | `system_anatomy.md` | governance |  |
 | Run a change through the pipeline | `development_flow.md` | flow |  |

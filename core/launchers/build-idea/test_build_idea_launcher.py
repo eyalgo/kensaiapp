@@ -8,8 +8,8 @@ test modules by basename — a second one aborts the whole run before a test exe
 **Two kinds of test, and the engine is stubbed only in the first.** The contract half stubs the
 engine through `LAUNCH_BUILD_IDEA_SCRIPT` and pins the argv this launcher builds; what the engine
 does with it is `core/tools/test_build_idea.py`'s. The end-to-end half runs the real launcher and
-the real engine over a synthetic core — its `skill`, `chain-product`, `chain-agari` and
-`chain-change` launchers replaced by stubs that record their argv and exit — and drives each
+the real engine over a synthetic core — its `skill`, `product-docs`, `prd-and-finish-line` and
+`walk` launchers replaced by stubs that record their argv and exit — and drives each
 landing by changing the disk and calling the row's shim, exactly as a finished run would.
 
 **No test invokes a real notifier.** `KENSAIAPP_NOTIFIER` is cleared on every call — to a spy when a
@@ -28,6 +28,10 @@ import time
 from pathlib import Path
 
 import pytest
+
+import test_support_instance_root
+
+from test_support_python3_stub import python3_calls_outside_uv, python3_that_only_fails
 
 import pin
 from provenance_test_support import isolated_host
@@ -141,9 +145,9 @@ def test_the_state_file_is_no_siblings(run):
     run("example-product")
 
     assert run.engine_argv()[1] not in (
-        f"{run.root}/system/logs/chain-change-example-product-state.json",
+        f"{run.root}/system/logs/chain-walk-example-product-state.json",
         f"{run.root}/system/logs/chain-example-product-state.json",
-        f"{run.root}/system/logs/chain-development-example-product-state.json")
+        f"{run.root}/system/logs/chain-change-example-product-state.json")
 
 
 def test_start_is_given_every_flag_the_engine_requires_with_resolved_values(run):
@@ -387,7 +391,7 @@ def test_unknown_provider_is_refused_before_the_engine(run):
 
 # --- --gate-owners-mac ----------------------------------------------------------------------
 #
-# The owner's ask, which the queue puts on every chain-change row. A walk's end hook passes it when
+# The owner's ask, which the queue puts on every walk row. A walk's end hook passes it when
 # that walk had the ask, so the next change's walk has it too.
 
 
@@ -428,7 +432,7 @@ def test_the_dry_run_prints_the_ask_it_would_pass(run):
 
     assert result.returncode == 0, result.stderr
     command = shlex.split(next(line for line in result.stdout.splitlines()
-                               if line.strip().startswith("python3")))
+                               if "locked_python.sh " in line))
     assert "--gate-owners-mac" in command
     assert run.engine_argv() == []
 
@@ -492,7 +496,7 @@ def test_the_dry_run_prints_the_context_cap_it_would_pass(run):
 
     assert result.returncode == 0, result.stderr
     command = shlex.split(next(line for line in result.stdout.splitlines()
-                               if line.strip().startswith("python3")))
+                               if "locked_python.sh " in line))
     assert command[command.index("--context-cap") + 1] == "80000"
     assert run.engine_argv() == []
 
@@ -592,13 +596,15 @@ def test_describe_and_start_argv_carry_the_same_provider(run, forcing):
 # a symlink would lead Python's `sys.path[0]` straight back to the whole real tree.
 
 REAL_ENGINE_TOOLS = (
-    "build_idea.py", "chain.py", "chain_development.py", "gate_suite.py", "journey_names.py",
+    "build_idea.py", "chain.py", "chain_development.py", "gate_suite.py", "empty_home.py",
+    "journey_names.py",
     "journey_status.py",
     "reporters.py",
     "providers.py", "run_intelligence.py", "agent_run.py", "hook_wiring.py", "intelligence.py",
     "model_assignment.py", "task_context.py", "env_file.py", "completion_shim.py", "walk_stop.py",
-    "pin.py", "pin_run.sh", "pin_host_changed.py", "product_checkout.py", "development_path.py",
-    "record_declarations.py",
+    "pin.py", "pin_run.sh", "locked_python.sh", "pin_host_changed.py", "product_checkout.py",
+    "development_path.py",
+    "record_declarations.py", "empty_home.py",
 )
 REMOVED_ENTRY = "pick a seed"
 PICK_ENTRY = f'build-idea."{REMOVED_ENTRY}"'
@@ -638,7 +644,13 @@ class DryRunHost:
             f"| 1 | close the reached station | owner | `{self.command}` | — | Moves row 1 |\n"
             f"\n## Read\n\nx\n")
         (self.root / "home").mkdir()
-        self.env = {"PATH": os.environ["PATH"], "HOME": str(self.root / "home")}
+        # uv looks for its managed Pythons under HOME; carry where guard 7 pinned them so a fresh
+        # HOME does not make uv download one.
+        self.env = {
+            "PATH": os.environ["PATH"],
+            "HOME": str(self.root / "home"),
+            **{name: os.environ[name] for name in ("UV_PYTHON_INSTALL_DIR", "UV_CACHE_DIR")},
+        }
         self.row_line = (f"1. close the reached station — after — — {self.command} "
                          f"{STATION.removesuffix('.md')}")
 
@@ -767,7 +779,7 @@ def test_forced_dry_run_never_decodes_the_provider_file(tmp_path, provider):
     assert host.wrote_no_queue_state()
 
 
-# --- --chain-ended: the hook a chain-change walk's end fires -----------------------------------
+# --- --chain-ended: the hook a walk's end fires -----------------------------------
 
 
 def test_chain_ended_sealed_starts_the_queue(run):
@@ -944,7 +956,7 @@ def test_the_launcher_names_no_literal_core_path():
 
 # --- end to end: the real launcher, the real engine, a synthetic core -----------------------------
 #
-# The `skill`, `chain-product`, `chain-agari` and `chain-change` launchers are stubs that record
+# The `skill`, `product-docs`, `prd-and-finish-line` and `walk` launchers are stubs that record
 # what they were run with and exit. A landing is the disk changing, then the row's shim called with
 # an outcome — the shim detaches the engine, so each test waits on the state file and never on the
 # shim.
@@ -981,7 +993,7 @@ class World:
         warm_executables.link(self.core / "launchers" / "build-idea" / "launcher.sh",
                               _SCRIPT.read_text())
         (self.core / "tools").symlink_to(_CORE / "tools")
-        for identity in ("skill", "chain-product", "chain-agari", "chain-change"):
+        for identity in ("skill", "product-docs", "prd-and-finish-line", "walk"):
             # One body per identity. Stubs sharing a body share one warm file, and
             # `pin.same_launcher` names launchers that resolve to one real file the same
             # launcher, so the engine could not tell the sweep's wrong chain from its right one.
@@ -1037,15 +1049,15 @@ class World:
                 self.command("skill", "shukuba-retire", PROJECT), after)
 
     def pick(self, after: str = "—") -> tuple[str, str, str]:
-        return ("pick a seed", self.command("skill", "nemawashi-pick", PROJECT), after)
+        return ("pick a seed", self.command("skill", "seed-pick", PROJECT), after)
 
     def sweep(self, after: str = "—") -> tuple[str, str, str]:
         return ("sweep the product's companions",
-                self.command("chain-product", PROJECT), after)
+                self.command("product-docs", PROJECT), after)
 
-    def agari_sweep(self, after: str = "—") -> tuple[str, str, str]:
+    def finish_line_sweep(self, after: str = "—") -> tuple[str, str, str]:
         return ("sweep the product's companions",
-                self.command("chain-agari", PROJECT), after)
+                self.command("prd-and-finish-line", PROJECT), after)
 
     def set_definition(self, definition: str) -> None:
         """The project card's `**Definition:**` line, rewritten to `definition`."""
@@ -1057,7 +1069,7 @@ class World:
         return ("the owner's act", "none — walk it yourself", after)
 
     def change(self, after: str = "—") -> tuple[str, str, str]:
-        return ("walk the next change", self.command("chain-change", PROJECT), after)
+        return ("walk the next change", self.command("walk", PROJECT), after)
 
     # running it
     def launch(self, *args: str) -> subprocess.CompletedProcess:
@@ -1156,30 +1168,30 @@ def test_a_dash_row_and_a_row_waiting_on_it_start_in_after_order(world):
     world.wait_for(lambda state: state["rows"][1]["status"] == "launched"
                    and len(world.launched()) == 2, "row 2 to launch")
     assert [line.split("|")[1] for line in world.launched()] == [
-        f"shukuba-retire {PROJECT} {STEM}", f"nemawashi-pick {PROJECT}"]
+        f"shukuba-retire {PROJECT} {STEM}", f"seed-pick {PROJECT}"]
     shim_seen_by_the_stub = world.launched()[0].split("|")[2]
     assert shim_seen_by_the_stub.endswith(f"build-idea-{PROJECT}-row-1.sh")
 
 
-def test_a_prd_agari_cards_sweep_runs_chain_agari_end_to_end(world):
-    """The card's `Definition:` names the chain: a `prd-agari` card's sweep row is accepted with
-    the `chain-agari` command and launched through the real launcher and the real engine."""
-    world.set_definition("prd-agari")
-    world.write_report([world.agari_sweep()])
+def test_a_prd_finish_line_cards_sweep_runs_chain_finish_line_end_to_end(world):
+    """The card's `Definition:` names the chain: a `prd-and-finish-line` card's sweep row is accepted with
+    the `prd-and-finish-line` command and launched through the real launcher and the real engine."""
+    world.set_definition("prd-and-finish-line")
+    world.write_report([world.finish_line_sweep()])
 
     result = world.launch()
 
     assert result.returncode == 0, result.stderr
     world.wait_for(lambda state: len(world.launched()) == 1, "the sweep to launch")
     row_1_shim = world.root / "system" / "logs" / f"build-idea-{PROJECT}-row-1.sh"
-    assert world.launched() == [f"chain-agari|{PROJECT} --on-end {row_1_shim}|"]
-    assert not any(line.startswith("chain-product|") for line in world.launched())
+    assert world.launched() == [f"prd-and-finish-line|{PROJECT} --on-end {row_1_shim}|"]
+    assert not any(line.startswith("product-docs|") for line in world.launched())
 
 
-def test_a_prd_agari_card_refuses_the_chain_product_sweep_row_end_to_end(world):
+def test_a_prd_finish_line_card_refuses_the_chain_product_sweep_row_end_to_end(world):
     """The row is refused alone: it never launches, and the queue ends halted naming the
     command the card's definition runs."""
-    world.set_definition("prd-agari")
+    world.set_definition("prd-and-finish-line")
     world.write_report([world.sweep()])
 
     result = world.launch()
@@ -1187,13 +1199,13 @@ def test_a_prd_agari_card_refuses_the_chain_product_sweep_row_end_to_end(world):
     assert result.returncode == 0, result.stdout + result.stderr
     state = world.wait_for(lambda state: state["ended"] is not None, "the queue to end")
     assert state["ended"] == "halted"
-    assert f"{world.core}/launchers/chain-agari/launcher.sh {PROJECT}" in state["ended_reason"]
+    assert f"{world.core}/launchers/prd-and-finish-line/launcher.sh {PROJECT}" in state["ended_reason"]
     assert world.launched() == []
 
 
 def test_the_cap_reaches_the_chain_change_row_and_no_other_launcher(world):
-    """End to end, through the real launcher and the real engine: the sweep runs `chain-product`,
-    which knows no such flag, and the change row runs `chain-change`, which needs it."""
+    """End to end, through the real launcher and the real engine: the sweep runs `product-docs`,
+    which knows no such flag, and the change row runs `walk`, which needs it."""
     world.write_report([world.close(), world.sweep(), world.change(after="1, 2")])
 
     result = world.launch("--context-cap", "80000")
@@ -1205,8 +1217,8 @@ def test_the_cap_reaches_the_chain_change_row_and_no_other_launcher(world):
     world.wait_for(lambda state: len(world.launched()) == 3, "the change row to launch")
     by_launcher = {line.split("|")[0]: line.split("|")[1] for line in world.launched()}
     assert "--context-cap" not in by_launcher["skill"]
-    assert "--context-cap" not in by_launcher["chain-product"]
-    assert by_launcher["chain-change"] == f"{PROJECT} --context-cap 80000"
+    assert "--context-cap" not in by_launcher["product-docs"]
+    assert by_launcher["walk"] == f"{PROJECT} --context-cap 80000"
     assert world.state()["context_cap"] == 80000
 
 
@@ -1219,6 +1231,19 @@ def test_retirement_refinement_and_the_next_seed_walk_through_real_shims(world):
     world.write_report([("retire a seed", retire, "—")])
     original_report = world.report.read_text()
 
+    # The queue counts a retire once its move is committed, so the instance is a repository and the
+    # stand-in retire moves the seed and commits, as `nemawashi-retire` does. A pin of a repository
+    # copies what it tracks, so the tools are a copy rather than a link, beside the Python project
+    # files every instance carries.
+    tools = world.core / "tools"
+    tools.unlink()
+    shutil.copytree(_CORE / "tools", tools, ignore=shutil.ignore_patterns("__pycache__"))
+    test_support_instance_root.give_python(world.root)
+    (world.root / ".gitignore").write_text("__pycache__/\n.venv/\nsystem/logs/\n")
+    for args in (("init", "-q"), ("add", "-A"),
+                 ("-c", "user.name=t", "-c", "user.email=t@t", "-c", "core.hooksPath=/dev/null",
+                  "commit", "-q", "-m", "initial")):
+        _git(*args, cwd=world.root)
     result = world.launch("--provider", "codex", "--context-cap", "123456")
     assert result.returncode == 0, result.stderr
     world.wait_for(lambda state: "1" in state["pending"], "retirement")
@@ -1226,6 +1251,13 @@ def test_retirement_refinement_and_the_next_seed_walk_through_real_shims(world):
     trail = world.seedbed / "trail"
     trail.mkdir()
     active.rename(trail / SEED)
+    def commit_journey(message: str) -> None:
+        """What each journey skill does after its move: commit it."""
+        _git("add", "-A", str(world.seedbed), cwd=world.root)
+        _git("-c", "user.name=t", "-c", "user.email=t@t", "-c", "core.hooksPath=/dev/null",
+             "commit", "-q", "-m", message, cwd=world.root)
+
+    commit_journey("retire")
     world.shim(1, "completed")
     world.wait_for_message("launched 2. refine a seed")
     assert world.launched()[-1].split("|")[1] == f"nemawashi-refine {PROJECT} {SEED}"
@@ -1243,25 +1275,28 @@ def test_retirement_refinement_and_the_next_seed_walk_through_real_shims(world):
     ])
     world.shim(2, "completed")
     world.wait_for_message("launched 3. sweep the product's companions")
-    assert world.launched()[-1].split("|")[0] == "chain-product"
+    assert world.launched()[-1].split("|")[0] == "product-docs"
     world.shim(3, "settled")
     world.wait_for_message("launched 4. cut from the product's documents")
     assert world.launched()[-1].split("|")[1] == f"seeds-from-product-docs {PROJECT}"
     candidate = world.seedbed / "unpicked" / "next-seed.md"
     candidate.write_text("# next seed\nCut from docs/SDD.md\n")
+    commit_journey("cut a seed")
     world.shim(4, "completed")
     world.wait_for_message("launched 5. pick a seed")
-    assert world.launched()[-1].split("|")[1] == f"nemawashi-pick {PROJECT}"
+    assert world.launched()[-1].split("|")[1] == f"seed-pick {PROJECT}"
     picked = world.seedbed / candidate.name
     candidate.rename(picked)
+    commit_journey("pick")
     world.shim(5, "completed")
     world.wait_for_message("launched 6. cut the route")
     assert world.launched()[-1].split("|")[1] == f"stations-from-seed {PROJECT}"
     picked.write_text("# next seed\n## Stations\n- [ ] build the next thing\n")
+    commit_journey("cut the route")
     world.shim(6, "completed")
     world.wait_for(lambda state: state["ended"] == "handed-off", "the next change")
     assert world.state()["ended"] == "handed-off"
-    assert world.launched()[-1] == f"chain-change|{PROJECT} --context-cap 123456|"
+    assert world.launched()[-1] == f"walk|{PROJECT} --context-cap 123456|"
     assert (trail / SEED / f"{KEY}_report.md").read_text() == original_report
 
 
@@ -1269,7 +1304,7 @@ def test_retirement_refinement_and_the_next_seed_walk_through_real_shims(world):
 def test_a_halt_ends_the_loop(world):
     world.write_report([world.sweep(), world.close(after="1")])
     world.launch()
-    assert [line.split("|")[0] for line in world.launched()] == ["chain-product"]
+    assert [line.split("|")[0] for line in world.launched()] == ["product-docs"]
 
     world.finish(1, "machinery")
 
@@ -1348,7 +1383,7 @@ def test_a_stop_then_a_chain_end_starts_nothing(world):
 
     assert result.returncode == 0, result.stderr
     assert world.launched() == []
-    assert "build-idea is stopped — chain-change's end did not restart it" in world.messages()
+    assert "build-idea is stopped — walk's end did not restart it" in world.messages()
     assert world.state()["stop_requested"] is True
     assert world.state()["rows"] == [], "a suppressed start begins no queue"
 
@@ -1359,7 +1394,7 @@ def test_a_plain_start_after_a_stop_resumes_skipping_what_landed(world):
     owed."""
     world.write_report([world.sweep(), world.close(after="1"), world.pick(after="2")])
     world.launch()
-    assert [line.split("|")[0] for line in world.launched()] == ["chain-product"]
+    assert [line.split("|")[0] for line in world.launched()] == ["product-docs"]
 
     stopped = world.launch("--stop")
     assert stopped.returncode == 0, stopped.stderr
@@ -1369,8 +1404,8 @@ def test_a_plain_start_after_a_stop_resumes_skipping_what_landed(world):
     assert world.state()["ended"] == "stopped", "the stop does not wait for the rows in flight"
     assert world.statuses() == {1: "failed", 2: "waiting", 3: "waiting"}
     assert [line.split("|")[:2] for line in world.launched()] == [
-        ["chain-product", f"{PROJECT} --on-end {row_1_shim}"],
-        ["chain-product", f"{PROJECT} --stop"]]
+        ["product-docs", f"{PROJECT} --on-end {row_1_shim}"],
+        ["product-docs", f"{PROJECT} --stop"]]
     assert "never run: 2. close the reached station" in world.messages()
     assert "never run: 3. pick a seed" in world.messages()
 
@@ -1426,7 +1461,7 @@ def test_a_table_with_an_owners_act_row_starts_no_chain_change(world):
     state = world.wait_for(lambda state: state["ended"] is not None, "the queue to end")
     assert state["ended"] == "owner-owed"
     assert world.statuses()[3] == "blocked"
-    assert not any(line.startswith("chain-change|") for line in world.launched())
+    assert not any(line.startswith("walk|") for line in world.launched())
 
 
 # --- the pin renews when the host changed: the real launcher over a throwaway git host -----------
@@ -1466,8 +1501,11 @@ class GitHost:
         _git("init", "-q", cwd=self.root)
         _git("config", "user.email", "host@example.com", cwd=self.root)
         _git("config", "user.name", "Host", cwd=self.root)
+        # A source host owns a Python project; uv cannot prepare its .venv without these files.
+        for name in (".python-version", "pyproject.toml", "uv.lock"):
+            shutil.copy2(_CORE.parent / name, self.root / name)
         (self.root / "core" / "tools").mkdir(parents=True)
-        for name in ("pin.py", "pin_run.sh", "pin_host_changed.py"):
+        for name in ("pin.py", "pin_run.sh", "locked_python.sh", "pin_host_changed.py"):
             shutil.copy2(_CORE / "tools" / name, self.root / "core" / "tools" / name)
         (self.root / "core" / "launchers" / "build-idea").mkdir(parents=True)
         shutil.copy2(_SCRIPT, self.root / "core" / "launchers" / "build-idea" / "launcher.sh")
@@ -1479,7 +1517,7 @@ class GitHost:
         card.parent.mkdir(parents=True)
         card.write_text(f"# {_GIT_HOST_PROJECT}\n\n**Product path:** products/thing\n")
         (self.root / "system" / "note.md").write_text("a note\n")
-        (self.root / ".gitignore").write_text("core/ignored.log\n__pycache__/\n")
+        (self.root / ".gitignore").write_text("core/ignored.log\n__pycache__/\n.venv/\n")
         _git("add", "-A", cwd=self.root)
         _git("commit", "-q", "-m", "initial", cwd=self.root)
 
@@ -1495,11 +1533,26 @@ class GitHost:
         self.env = {
             "PATH": os.environ["PATH"],
             "HOME": str(tmp_path / "home"),
+            # uv looks for its managed Pythons under HOME; carry where guard 7 pinned them.
+            **{name: os.environ[name] for name in ("UV_PYTHON_INSTALL_DIR", "UV_CACHE_DIR")},
             "KENSAIAPP_PINS_HOME": str(self.pins_home),
             "LAUNCH_BUILD_IDEA_SCRIPT": str(engine),
             "ENGINE_ARGV_LOG": str(self.argv_log),
             "DESCRIBE_ARGV_LOG": str(tmp_path / "describe_argv.log"),
         }
+
+        # Match a pin produced by a launch: its environment is ready before the first snapshot.
+        result = subprocess.run(
+            [str(self.root / "core/tools/locked_python.sh"), "--prepare-pin",
+             str(self.pin_of_host.root)],
+            cwd=self.root, env=self.env, capture_output=True, text=True,
+        )
+        assert result.returncode == 0, result.stderr
+        # A previously launched pin has also initialized virtualenv's site hook cache.
+        subprocess.run(
+            [str(self.pin_of_host.root / ".venv/bin/python"), "-c", "pass"],
+            cwd=self.root, env=self.env, check=True, capture_output=True,
+        )
 
     def launcher_of(self, made: pin.Pin) -> Path:
         return made.root / "core" / "launchers" / "build-idea" / "launcher.sh"
@@ -1823,3 +1876,18 @@ def test_a_provider_flag_with_no_value_is_refused_naming_the_five(run):
     assert result.returncode != 0
     assert "build-idea: --provider needs claude, codex, gemini, hf or ollama" in result.stderr
     assert run.engine_argv() == []
+
+
+def test_build_idea_launcher_runs_no_python3(run, tmp_path):
+    run.project("example-product")
+    real = run("example-product", "--dry-run")
+    path, marker = python3_that_only_fails(tmp_path)
+    run.env["PATH"] = path
+
+    stubbed = run("example-product", "--dry-run")
+    started = run("example-product")
+
+    assert (stubbed.returncode, stubbed.stdout) == (real.returncode, real.stdout)
+    assert started.returncode == 0, started.stderr
+    assert run.engine_argv() != []
+    assert python3_calls_outside_uv(marker) == []

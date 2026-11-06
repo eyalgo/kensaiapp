@@ -6,7 +6,7 @@ const THREE_HOURS_LATER = Date.parse('2026-03-01T13:00:00Z')
 const FIFTEEN_SECONDS = 15_000
 
 const WAITING_ROW = {
-  launcher: 'chain-change',
+  launcher: 'walk',
   project: 'widgets',
   seed: 'widgets everywhere',
   station: 'the widgets ship',
@@ -120,11 +120,11 @@ test('the pane shows what waits on you above what runs', async ($, on) => {
     expect(at(/^station: the widgets ship$/)).toBeGreaterThan(at(/WAITING ON YOU/))
     expect(at(/^widgets$/)).toBeGreaterThan(at(/WAITING ON YOU/))
     expect(at(/^widgets$/)).toBeLessThan(at(/^station: the widgets ship$/))
-    expect(at(/^chain-change · halted · started 3h ago · design$/)).toBeGreaterThanOrEqual(0)
+    expect(at(/^walk · halted · started 3h ago · design$/)).toBeGreaterThanOrEqual(0)
     expect(at(/the run stopped before it made a marker/)).toBeGreaterThanOrEqual(0)
-    expect(at(/^walk: the gadgets sing$/)).toBeGreaterThan(at(/RUNNING NOW/))
+    expect(at(/^the gadgets sing$/)).toBeGreaterThan(at(/RUNNING NOW/))
     expect(at(/^gadgets$/)).toBeGreaterThan(at(/RUNNING NOW/))
-    expect(at(/^build-idea/)).toBeGreaterThan(at(/^walk: the gadgets sing$/))
+    expect(at(/^build-idea/)).toBeGreaterThan(at(/^the gadgets sing$/))
     await ui.unmount()
   }
 })
@@ -144,10 +144,10 @@ test('a section names each project once, above its rows', async ($, on) => {
   const texts = (await ui.findAll({ type: 'Text' })).map((found: any) => found.text as string)
   expect(texts.filter(text => text === 'gadgets')).toHaveLength(1)
   const at = (text: string) => texts.indexOf(text)
-  expect(at('gadgets')).toBeLessThan(at('walk: the first gadget'))
-  expect(at('walk: the first gadget')).toBeLessThan(at('walk: the second gadget'))
-  expect(at('walk: the second gadget')).toBeLessThan(at('widgets'))
-  expect(at('widgets')).toBeLessThan(at('walk: a widget'))
+  expect(at('gadgets')).toBeLessThan(at('the first gadget'))
+  expect(at('the first gadget')).toBeLessThan(at('the second gadget'))
+  expect(at('the second gadget')).toBeLessThan(at('widgets'))
+  expect(at('widgets')).toBeLessThan(at('a widget'))
   await ui.unmount()
 })
 
@@ -178,8 +178,8 @@ test('a row shows its seed, its station and its walk, in that order, above its d
     const at = (text: string) => texts.indexOf(text)
     expect(at('seed: widgets everywhere')).toBeGreaterThan(at('widgets'))
     expect(at('station: the widgets ship')).toBe(at('seed: widgets everywhere') + 1)
-    expect(at('walk: the first widget')).toBe(at('station: the widgets ship') + 1)
-    expect(at('chain-change · halted · started 3h ago · design')).toBe(at('walk: the first widget') + 1)
+    expect(at('the first widget')).toBe(at('station: the widgets ship') + 1)
+    expect(at('walk · halted · started 3h ago · design')).toBe(at('the first widget') + 1)
     await ui.unmount()
   }
 })
@@ -267,8 +267,8 @@ test('a row shows only the seed, station and walk it has', async ($, on) => {
   for (const surface of SURFACES) {
     const ui = await mountPane($, surface)
     const texts = (await ui.findAll({ type: 'Text' })).map((found: any) => found.text as string)
-    expect(texts.filter(text => /^(seed|station|walk): /.test(text))).toEqual([
-      'walk: the gadgets sing',
+    expect(texts.filter(text => /^(seed|station): |^the gadgets sing$/.test(text))).toEqual([
+      'the gadgets sing',
       'station: the widgets ship',
     ])
     expect(texts.filter(text => text === '')).toEqual([])
@@ -284,7 +284,7 @@ test('a waiting row shows when its walk started, a running row how long it has r
 
   for (const surface of SURFACES) {
     const ui = await mountPane($, surface)
-    const waitingDetail = /^chain-change · halted · started 3h ago · design$/
+    const waitingDetail = /^walk · halted · started 3h ago · design$/
     expect(await ui.find({ type: 'Text', text: waitingDetail })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /^build-idea · running total 3h$/ })).toBeDefined()
     await ui.unmount()
@@ -338,7 +338,7 @@ test('a running row reads how long its walk has run, then its step with how long
     const ui = await mountPane($, surface)
     expect(await ui.find({ type: 'Text', text: /^build-idea · running total 3h · design for 2m$/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /^build-idea · running total 3h · plan for 2h$/ })).toBeDefined()
-    expect(await ui.find({ type: 'Text', text: /^walk: minutes$/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /^minutes$/ })).toBeDefined()
     await ui.unmount()
   }
 })
@@ -434,7 +434,7 @@ test('the pane re-reads every 15 seconds', async ($, on) => {
   expect(calls.reads).toHaveLength(2)
   for (const surface of SURFACES) {
     const ui = await mountPane($, surface)
-    expect(await ui.find({ type: 'Text', text: /^walk: the second board$/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /^the second board$/ })).toBeDefined()
     await ui.unmount()
   }
 })
@@ -776,7 +776,7 @@ test('a project with a route shows its seed and each station in checklist order,
     '✓ the-boxes · sealed',
   ])
   expect(texts.slice(from + 6, from + 10)).toEqual([
-    '● the-first-widget · chain-change · halted · started 3h ago · design',
+    '● the-first-widget · walk · halted · started 3h ago · design',
     'the run stopped before it made a marker',
     '○ 2↳. a-nested-step',
     '○ the-widgets-sing',
@@ -785,32 +785,33 @@ test('a project with a route shows its seed and each station in checklist order,
 
 test('a row walking the open walk names no seed, station or walk of its own', async ($, on) => {
   const texts = await routeTexts($, on, { ...EMPTY_BOARD, waiting: [WAITING_ROW], routes: [ROUTE] })
-  expect(texts.filter((text: string) => /^(seed|station|walk): /.test(text))).toEqual(['seed: widgets everywhere'])
+  expect(texts.filter((text: string) => /^(seed|station): /.test(text))).toEqual(['seed: widgets everywhere'])
+  expect(texts).not.toContain('the first widget')
 })
 
-test('a current station with no open walk says the next walk is not opened yet', async ($, on) => {
+test('a current station with no open walk says the next change is not opened yet', async ($, on) => {
   const [reached, current, ...ahead] = ROUTE.stations
   const sealedOnly = { ...current!, walks: current!.walks.filter(walk => walk.state !== 'open') }
   const route = { ...ROUTE, stations: [reached, sealedOnly, ...ahead] }
   const texts = await routeTexts($, on, { ...EMPTY_BOARD, running: [{ ...RUNNING_ROW, project: 'widgets' }], routes: [route] })
   const at = (text: string) => texts.indexOf(text)
-  expect(at('○ next walk — not opened yet')).toBe(at('✓ the-boxes · sealed') + 1)
-  expect(at('○ 2↳. a-nested-step')).toBe(at('○ next walk — not opened yet') + 1)
+  expect(at('○ next change — not opened yet')).toBe(at('✓ the-boxes · sealed') + 1)
+  expect(at('○ 2↳. a-nested-step')).toBe(at('○ next change — not opened yet') + 1)
 })
 
 test("a row on no open walk is drawn below its project's route, naming only its walk", async ($, on) => {
   const other = { ...RUNNING_ROW, project: 'widgets', walk: 'the widgets sweep', key: '' }
   const texts = await routeTexts($, on, { ...EMPTY_BOARD, running: [other], routes: [ROUTE] })
   const at = (text: string) => texts.indexOf(text)
-  expect(at('walk: the widgets sweep')).toBe(at('○ the-widgets-sing') + 1)
-  expect(at('build-idea · running total 3h')).toBe(at('walk: the widgets sweep') + 1)
+  expect(at('the widgets sweep')).toBe(at('○ the-widgets-sing') + 1)
+  expect(at('build-idea · running total 3h')).toBe(at('the widgets sweep') + 1)
   expect(texts).not.toContain('station: the widgets ship')
 })
 
 test("a route is drawn only under its own project", async ($, on) => {
   const texts = await routeTexts($, on, { ...BOARD, routes: [ROUTE] })
   const at = (text: string) => texts.indexOf(text)
-  expect(at('walk: the gadgets sing')).toBe(at('gadgets') + 1)
+  expect(at('the gadgets sing')).toBe(at('gadgets') + 1)
   expect(texts.filter((text: string) => text === 'seed: widgets everywhere')).toHaveLength(1)
 })
 
@@ -832,7 +833,7 @@ test('a route is drawn once, under the section where its project first appears',
   const at = (text: string) => texts.indexOf(text)
   expect(texts.filter((text: string) => text === 'seed: widgets everywhere')).toHaveLength(1)
   expect(at('seed: widgets everywhere')).toBeLessThan(at('RUNNING NOW (1)'))
-  expect(at('walk: the widgets sweep')).toBeGreaterThan(at('RUNNING NOW (1)'))
+  expect(at('the widgets sweep')).toBeGreaterThan(at('RUNNING NOW (1)'))
   expect(texts).not.toContain('station: the widgets ship')
 })
 
@@ -840,8 +841,8 @@ test('a row keeps its station when the route has no current station', async ($, 
   const between = { ...ROUTE, stations: ROUTE.stations.map(stop => ({ ...stop, state: stop.state === 'current' ? 'ahead' : stop.state, walks: [] })) }
   const texts = await routeTexts($, on, { ...EMPTY_BOARD, waiting: [WAITING_ROW], routes: [between] })
   expect(texts).toContain('station: the widgets ship')
-  expect(texts).toContain('walk: the first widget')
-  expect(texts).not.toContain('○ next walk — not opened yet')
+  expect(texts).toContain('the first widget')
+  expect(texts).not.toContain('○ next change — not opened yet')
   expect(texts.filter((text: string) => text === 'seed: widgets everywhere')).toHaveLength(1)
 })
 
@@ -855,7 +856,7 @@ test('a walk line on the route carries its step age too', async ($, on) => {
 test('an open walk no row is walking reads alone', async ($, on) => {
   const texts = await routeTexts($, on, { ...EMPTY_BOARD, running: [{ ...RUNNING_ROW, project: 'widgets' }], routes: [ROUTE] })
   expect(texts).toContain('● the-first-widget')
-  expect(texts).not.toContain('○ next walk — not opened yet')
+  expect(texts).not.toContain('○ next change — not opened yet')
 })
 
 test('the route is drawn where the row walking its open walk is, even when another row waits', async ($, on) => {
@@ -865,9 +866,9 @@ test('the route is drawn where the row walking its open walk is, even when anoth
   const at = (text: string) => texts.indexOf(text)
   expect(texts).toContain('● the-first-widget · running total 3h · implementation')
   expect(at('● the-first-widget · running total 3h · implementation')).toBeGreaterThan(at('RUNNING NOW (1)'))
-  expect(at('walk: an older idea')).toBeLessThan(at('RUNNING NOW (1)'))
+  expect(at('an older idea')).toBeLessThan(at('RUNNING NOW (1)'))
   expect(texts.filter((text: string) => text === 'seed: widgets everywhere')).toHaveLength(1)
-  expect(texts).not.toContain('walk: the first widget')
+  expect(texts).not.toContain('the first widget')
 })
 
 test('a parked station reads with its own mark and says it is parked', async ($, on) => {
@@ -915,7 +916,7 @@ test('a walk with a skill run fixing it is live work: it reads under Running now
   expect(texts).toContain('WAITING ON YOU (0)')
   expect(texts).toContain('RUNNING NOW (1)')
   expect(at('widgets')).toBeGreaterThan(at('RUNNING NOW (1)'))
-  expect(at('● the-first-widget · chain-change · halted · started 3h ago · design'))
+  expect(at('● the-first-widget · walk · halted · started 3h ago · design'))
     .toBe(at('the run stopped before it made a marker') - 1)
 })
 
@@ -923,8 +924,8 @@ test('a walk with a skill run fixing it, and no route, reads under Running now, 
   const texts = await routeTexts($, on, { ...EMPTY_BOARD, waiting: [WAITING_ROW], running: [SKILL_ROW] })
   const at = (text: string) => texts.indexOf(text)
   expect(texts).toContain('RUNNING NOW (1)')
-  expect(at('walk: the first widget')).toBeGreaterThan(at('RUNNING NOW (1)'))
-  expect(at('chain-change · halted · started 3h ago · design')).toBe(at('walk: the first widget') + 1)
+  expect(at('the first widget')).toBeGreaterThan(at('RUNNING NOW (1)'))
+  expect(at('walk · halted · started 3h ago · design')).toBe(at('the first widget') + 1)
 })
 
 test('a fixed walk moves to Running now alone: another walk waiting on you keeps its place', async ($, on) => {
@@ -976,7 +977,7 @@ test('a skill run on no waiting walk is a running row named as a skill', async (
   expect(texts).toContain('RUNNING NOW (1)')
   expect(texts).toContain('skill: widget-implementation')
   expect(texts.indexOf('running total 3h')).toBe(texts.indexOf('skill: widget-implementation') + 1)
-  expect(texts.some((text: string) => text.startsWith('walk: widget') || text.startsWith('↳ fixing'))).toBe(false)
+  expect(texts.some((text: string) => text === 'widget-implementation' || text.startsWith('↳ fixing'))).toBe(false)
 })
 
 test('a skill run with no start time draws no empty detail line', async ($, on) => {
@@ -988,11 +989,11 @@ test('a skill run with no start time draws no empty detail line', async ($, on) 
 
 test('a second row on one walk reads beneath the walk line with its own ages', async ($, on) => {
   const stepStarted = new Date(THREE_HOURS_LATER - 5 * 60_000).toISOString()
-  const walking = { ...RUNNING_ROW, launcher: 'chain-change', project: 'widgets', key: OPEN_WALK.key, step: 'implementation', step_started_at: stepStarted }
-  const alongside = { ...RUNNING_ROW, project: 'widgets', key: OPEN_WALK.key, started_at: new Date(THREE_HOURS_LATER - 60 * 60_000).toISOString(), step: 'readme-status', step_started_at: new Date(THREE_HOURS_LATER - 2 * 60_000).toISOString() }
+  const walking = { ...RUNNING_ROW, launcher: 'walk', project: 'widgets', key: OPEN_WALK.key, step: 'implementation', step_started_at: stepStarted }
+  const alongside = { ...RUNNING_ROW, project: 'widgets', key: OPEN_WALK.key, started_at: new Date(THREE_HOURS_LATER - 60 * 60_000).toISOString(), step: 'pick a seed', step_started_at: new Date(THREE_HOURS_LATER - 2 * 60_000).toISOString() }
   const texts = await routeTexts($, on, { ...EMPTY_BOARD, running: [walking, alongside], routes: [ROUTE] })
   const at = (text: string) => texts.indexOf(text)
-  expect(at('build-idea · running total 1h · readme-status for 2m')).toBe(at('● the-first-widget · running total 3h · implementation for 5m') + 1)
+  expect(at('build-idea · running total 1h · pick a seed for 2m')).toBe(at('● the-first-widget · running total 3h · implementation for 5m') + 1)
 })
 
 test('a row on a sealed walk of the current station reads on that walk line, not as a line of its own', async ($, on) => {
@@ -1003,7 +1004,7 @@ test('a row on a sealed walk of the current station reads on that walk line, not
   const row = { ...RUNNING_ROW, project: 'widgets', key: OPEN_WALK.key, walk: 'the first widget', step: 'close the reached station' }
   const texts = await routeTexts($, on, { ...EMPTY_BOARD, running: [row], routes: [route] })
   expect(texts).toContain('✓ the-first-widget · sealed · running total 3h · close the reached station')
-  expect(texts).not.toContain('walk: the first widget')
+  expect(texts).not.toContain('the first widget')
 })
 
 // --- a closed station: its walks hidden, but for one a row is still on ---------------------------
@@ -1016,7 +1017,7 @@ const CLOSED_ROUTE = {
       ? { ...stop, state: 'reached', walks: stop.walks.map(walk => ({ ...walk, state: walk.state === 'open' ? 'sealed' : walk.state })) }
       : stop),
 }
-const CLOSING_ROW = { ...RUNNING_ROW, project: 'widgets', station: 'the widgets ship', walk: 'the first widget', key: OPEN_WALK.key, step: 'readme-status' }
+const CLOSING_ROW = { ...RUNNING_ROW, project: 'widgets', station: 'the widgets ship', walk: 'the first widget', key: OPEN_WALK.key, step: 'pick a seed' }
 
 // The cells a walk sits further in than its station.
 const WALK_INDENT = 4
@@ -1036,7 +1037,7 @@ const indentedAt = async ($: any, on: any, board: object) => {
 test('a row still on the walk of a closed station reads on that walk, under the station as a tree', async ($, on) => {
   const rows = await indentedAt($, on, { ...EMPTY_BOARD, running: [CLOSING_ROW], routes: [CLOSED_ROUTE] })
   const station = rows.find(([, text]) => text === '✓ the-widgets-ship')
-  const walk = rows.find(([, text]) => text === '✓ the-first-widget · sealed · running total 3h · readme-status')
+  const walk = rows.find(([, text]) => text === '✓ the-first-widget · sealed · running total 3h · pick a seed')
   expect(station).toBeDefined()
   expect(rows.indexOf(walk ?? [0, ''])).toBe(rows.indexOf(station ?? [0, '']) + 1)
   expect(walk?.[0]).toBe((station?.[0] ?? 0) + WALK_INDENT)
@@ -1060,17 +1061,17 @@ test('a row on the walk of a parked station reads under it too', async ($, on) =
   const parked = { ...CLOSED_ROUTE, stations: CLOSED_ROUTE.stations.map(stop => stop.name === 'the-widgets-ship' ? { ...stop, state: 'parked' } : stop) }
   const texts = await routeTexts($, on, { ...EMPTY_BOARD, running: [CLOSING_ROW], routes: [parked] })
   const at = (text: string) => texts.indexOf(text)
-  expect(at('✓ the-first-widget · sealed · running total 3h · readme-status')).toBe(at('‖ the-widgets-ship · parked') + 1)
+  expect(at('✓ the-first-widget · sealed · running total 3h · pick a seed')).toBe(at('‖ the-widgets-ship · parked') + 1)
 })
 
 test("a running row on the current station's walk keeps the tree over a waiting row on a closed station's walk", async ($, on) => {
   const [reached, current, ...ahead] = ROUTE.stations
   const route = { ...ROUTE, stations: [{ ...reached!, walks: [{ name: 'made-the-first', key: 'unit-made-the-first', state: 'sealed' }] }, current, ...ahead] }
   const owed = { ...WAITING_ROW, launcher: 'build-idea', key: 'unit-made-the-first', walk: 'made the first', status: 'owner-owed' }
-  const walking = { ...RUNNING_ROW, launcher: 'chain-change', project: 'widgets', key: OPEN_WALK.key, step: 'implementation' }
+  const walking = { ...RUNNING_ROW, launcher: 'walk', project: 'widgets', key: OPEN_WALK.key, step: 'implementation' }
   const texts = await routeTexts($, on, { ...EMPTY_BOARD, waiting: [owed], running: [walking], routes: [route] })
   const at = (text: string) => texts.indexOf(text)
   expect(at('● the-first-widget · running total 3h · implementation')).toBeGreaterThan(at('RUNNING NOW (1)'))
   expect(at('▸ the-widgets-ship')).toBeGreaterThan(at('RUNNING NOW (1)'))
-  expect(texts).not.toContain('walk: the first widget')
+  expect(texts).not.toContain('the first widget')
 })

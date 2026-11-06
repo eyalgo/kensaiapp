@@ -82,7 +82,7 @@ The paths below are relative to the product root, which is the directory `system
 
 ## Verified Claims
 
-The commands ran on 2026-10-07 against commit `e21a54119`, in a disposable copy of the product made with `git archive HEAD products/tracker17` (`<CORE>/roles/CROSS_ROLE.md` § *Every seat*), on macOS under Python 3.14.7. `git diff --stat e21a54119 0bbb53c5d -- products/tracker17` is empty, so the same holds at this branch's base, `0bbb53c5d`. A holder in the rows below is a separate Python process that binds a TCP socket and listens.
+The commands ran on 2026-10-07 against commit `<a commit not in the public history>`, in a disposable copy of the product made with `git archive HEAD products/tracker17` (`<CORE>/roles/CROSS_ROLE.md` § *Every seat*), on macOS under Python 3.14.7. `git diff --stat <a commit not in the public history> <a commit not in the public history> -- products/tracker17` is empty, so the same holds at this branch's base, `<a commit not in the public history>`. A holder in the rows below is a separate Python process that binds a TCP socket and listens.
 
 | Claim | Verified by | What came back |
 |---|---|---|

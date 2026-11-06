@@ -36,7 +36,7 @@ from pathlib import Path
 import chain_development
 import record_declarations
 
-__version__ = "1.0.1"
+__version__ = "1.1.1"
 
 SECTION_MARKERS = "markers"
 SECTION_CODE_INTEGRITY = "code_integrity_reports"
@@ -228,6 +228,8 @@ def marker_readings(message: str) -> dict[str, object]:
         "deferrals": digest_form(reader.deferrals(layout)),
         "failing_cases": digest_form(reader.failing_cases(layout)),
         "relaned_tasks": sorted(reader.relaned_tasks(layout)),
+        "saved_red_commits": {str(task): sorted(prefixes) for task, prefixes
+                              in sorted(reader.saved_red_commits(layout).items())},
         "builder_environment": digest_form(
             [(line.raw, line.text) for line in record.read(record_declarations.ENVIRONMENT)]),
         "builder_failing": digest_form(
@@ -238,7 +240,7 @@ def marker_readings(message: str) -> dict[str, object]:
 def report_readings(text: str, section: str) -> dict[str, object]:
     """What the chain reads from a report of `section`'s kind, in stored form, with the chain
     step whose artifact is that kind's file."""
-    step = next(candidate for candidate in chain_development.DEVELOPMENT_STEPS
+    step = next(candidate for candidate in chain_development.CHANGE_STEPS
                 if candidate.artifact == _REPORT_FILE_BY_SECTION[section])
     reader = chain_development.DiskReader(files=_ReportFiles(text), git=_MarkerGit(""))
     layout = _layout()

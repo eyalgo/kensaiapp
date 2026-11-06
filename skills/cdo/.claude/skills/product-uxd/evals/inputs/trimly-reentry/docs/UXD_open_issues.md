@@ -1,7 +1,7 @@
 # UXD open issues — Trimly
 
 > Companion to `UXD.md`. The CDO authored the UXD non-interactively; this file holds
-> what it could not settle from the inputs (the PRD, the project's Agari and its doctrine, the
+> what it could not settle from the inputs (the PRD, the project's finish line and its doctrine, the
 > SRS when present, and any context the owner handed over). **Answer inline** — fill each **Answer** / **Confirm-or-override**
 > slot — **commit this file**, then re-run `product-uxd`. It folds your answers into the UXD
 > and drops the resolved items. When nothing is left open, `product-uxd` **deletes this file**:

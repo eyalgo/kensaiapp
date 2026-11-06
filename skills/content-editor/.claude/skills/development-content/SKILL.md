@@ -3,7 +3,7 @@ name: development-content
 description: Content-editor-posture skill for ongoing work. Takes change_spec.md and change_design.md as primary inputs, with the product's CONTENT.md, the instance's writing bar and the product's existing strings as the standard, and writes change_text.md, the exact words this one change puts in front of a person, one string per state, each verbatim and checked against the product's banned words, so the Developer places them without choosing a word. Runs only when the design's Publishes text line reads yes. Never decides that verdict, never edits a standing rule, never names an identifier or file layout. Run when a change_design.md and tl_instruction.md are on the branch and the design says yes.
 license: MIT
 metadata:
-  version: "1.0.2"
+  version: "1.2.1"
 ---
 
 # Development Content
@@ -71,7 +71,7 @@ folder is `$WORKTREE/system/projects/<project>/journey/tobiishi/<key>/`.
 hand:
 
 ```bash
-python3 "<CORE>/tools/development_path.py" resolve --format json \
+"<CORE>/tools/locked_python.sh" "<CORE>/tools/development_path.py" resolve --format json \
   --worktree "$WORKTREE" --project <project> --key <key>
 ```
 
@@ -209,6 +209,8 @@ step-outcome message (`<CORE>/doctrine/flow/step_outcome_contract.md`), and the 
 next stage from the folder.
 
 ## Halts
+
+**A record names no machine.** Every file this skill writes into the change folder is a record, its halt report included. No line of one names the home folder or the login name of the machine the run is on, or the repository's own `<owner>/<name>` address. Terminal output pasted into a report, and the commands an evidence line quotes, are the cases to look at first. The rule, with the placeholders to write instead, is `<CORE>/doctrine/governance/records_name_no_machine.md`. The pre-commit hook refuses a commit that adds such a line. The absolute `$WORKTREE` written down at entry is for the run's own use and goes into no record.
 
 **Halt, don't ask.** This is an automatic pipeline skill. When a halting condition is found, write
 `halt_report.md` and stop. Do not ask the user for clarification.

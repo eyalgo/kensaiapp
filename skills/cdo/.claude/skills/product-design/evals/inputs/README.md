@@ -37,7 +37,7 @@ product-design needs the input state a real definition chain leaves behind:
   nothing above 14px exists anywhere in the source, so the heading scale cannot be grounded and
   must surface rather than be invented.
 
-**No `agari.md` in any fixture** — deliberate. Unlike `product-uxd`, this skill does not list the
+**No `finish_line.md` in any fixture** — deliberate. Unlike `product-uxd`, this skill does not list the
 terminus as an input: the design language's inputs are the UXD, the source, brand assets, and the
 PRD (the fat prompt's § Inputs), and the scope boundary was already applied one document up.
 

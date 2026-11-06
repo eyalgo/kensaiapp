@@ -1,5 +1,5 @@
 ---
-version: "1.0.3"
+version: "1.0.4"
 ---
 
 # Shell — errors and logging
@@ -67,7 +67,7 @@ summed). The message names the value that failed, not the check that failed:
 **`set -euo pipefail` would otherwise take the report away, so the corpus disarms the command and puts
 the check on the next line.** Under `pipefail` a `grep` that matches nothing ends the script inside the
 command substitution, before any guard can run — so the substitution carries `|| true` and the guard
-follows it. `core/launchers/chain-product/launcher.sh` writes the reason on the guard line itself:
+follows it. `core/launchers/product-docs/launcher.sh` writes the reason on the guard line itself:
 "`|| true` above: pipefail would otherwise exit before this guard reports". `2>/dev/null || true`
 appears on 20 lines across the twenty-three tracked bash files (2026-10-03,
 `git grep -c -F '2>/dev/null || true'` summed), always in that role.

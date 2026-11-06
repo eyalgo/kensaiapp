@@ -127,7 +127,7 @@ The paths below are relative to the product root, which is the directory `system
 
 ## Verified Claims
 
-All commands ran on 2026-10-07 against the main checkout at commit `311cd4b6b`, from the product root, which holds the same tree this change's branch was created from.
+All commands ran on 2026-10-07 against the main checkout at commit `<a commit not in the public history>`, from the product root, which holds the same tree this change's branch was created from.
 
 | Claim | Verified by | What came back |
 |---|---|---|

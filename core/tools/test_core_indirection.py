@@ -92,7 +92,7 @@ def test_change_request_template_keeps_its_working_command_example(tmp_path):
     _stage(
         repo,
         "core/templates/change_request_template.md",
-        "run core/launchers/chain-development/launcher.sh <project>\n",
+        "run core/launchers/change/launcher.sh <project>\n",
     )
 
     assert core_indirection.scan_staged(repo) == []
@@ -129,5 +129,9 @@ def test_cli_requires_the_explicit_staged_mode(tmp_path, capsys):
 def test_git_precommit_keeps_written_forward_without_core_path_enforcement():
     body = HOOK.read_text(encoding="utf-8")
 
-    assert 'exec "$core/tools/written_forward.py" --staged --repo "$repo"' in body
+    assert (
+        '"$core/tools/locked_python.sh" '
+        '"$core/tools/written_forward.py" --staged --repo "$repo"'
+        in body
+    )
     assert "core_indirection.py" not in body

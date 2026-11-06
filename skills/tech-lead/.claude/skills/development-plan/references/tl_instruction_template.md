@@ -1,15 +1,18 @@
 ---
-version: "1.7.0"
+version: "1.9.1"
 ---
 <!-- The version above is template-file metadata; it is not copied into the instantiated document. -->
 <!-- The shape of one tl_instruction.md, in document order. development-plan owns every rule about
      what goes in it — which shape a task takes, the exact `#### Implement` markers (§ *Implement
-     section rules*), and when a section may be omitted. This file carries the shape only. -->
+     section rules*), and when a section may be omitted. This file carries the shape only.
+
+     A record names no machine. `tl_instruction.md` is a record, so no line of it names the home folder or the login name of the machine the plan is written on, or the repository's own `<owner>/<name>` address. A product outside the instance whose worktree sits under the home folder is written on the `Product root:` line as `<home>/…`, the rest of the path unchanged. A command or its output pasted into a task is written the same way. The rule is `<CORE>/doctrine/governance/records_name_no_machine.md`. -->
 
 # Tech Lead instruction — <slug>: <description>
 
 **Category:** <copied verbatim from `change_design.md`>
 **Behaviour:** <copied verbatim from `change_design.md`>
+**Language resolution:** <language | none resolved> — <the resolution-chain step that answered> — <packet README.md opened | floor>; one entry per language. Omit the line on a product with no code (`Test command: none`).
 **Product root:** <the product's folder, relative to the change worktree; an absolute path only for a product outside the instance> — every path below is relative to it.
 **Scope:** <one-line scope description>
 
@@ -75,8 +78,8 @@ Decisions that diverged from `change_design.md` / `change_spec.md` (each with it
 
 #### Behaviours to verify (developer adds tests to `tests/test_<module>.py`)
 
-- `test_<behaviour>` — <one-line description of what passes>
-- `test_<edge_case>` — expects `<ErrorClass>` on `<call_that_raises>()`
+- `test_<behaviour>` — layer <1 Unit | 2 Integration | 3 Application | 4 UI | 5 End-to-End> — fakes: <each collaborator faked, and the seam it is handed through | none> — <one-line description of what passes>
+- `test_<edge_case>` — layer <1 Unit | 2 Integration | 3 Application | 4 UI | 5 End-to-End> — fakes: <each collaborator faked, and the seam it is handed through | none> — expects `<ErrorClass>` on `<call_that_raises>()`
 
 <!-- Only where a behaviour's failing test is red only sometimes, one line in exactly this form: -->
 Red is probabilistic: <the behaviour> — <why the red is not deterministic>

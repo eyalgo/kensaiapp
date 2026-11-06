@@ -26,18 +26,27 @@ silence. Resolution owns this because the target *is* the resolved core.
 Under a pin, this wiring is skipped entirely — the pin's hooks reach git
 through the environment (CP-112), not through `core.hooksPath`.
 
+The same wiring, under the same guards, is given to every product repository a
+project card names outside the instance (`**Product path:**` an absolute path).
+A pinned run already carries the hooks there through its environment; a commit
+made by hand in that repository otherwise meets no hook, and a test that reads
+the machine (`core/doctrine/engineering/testing_doctrine.md` § A test reads
+nothing of the machine it runs on) lands there unchecked.
+
 Fail-open: any error still emits the default so the session is never broken.
 Stdlib-only imports.
 """
 
 from __future__ import annotations
 
+import glob
 import json
 import os
+import re
 import subprocess
 import sys
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 
 DEFAULT_CORE = "core/"
 SENTINEL = "KENSAIAPP_CORE_RESOLVED"  # probe marker — lets a test confirm propagation
@@ -159,6 +168,32 @@ def _wire_githooks(project_dir: str, core_abs: str) -> str | None:
         return None
 
 
+PRODUCT_PATH = re.compile(r"^\*\*Product path:\*\*\s+(\S+)", re.MULTILINE)
+
+
+def _external_products(project_dir: str) -> list[str]:
+    """The top level of each git repository a project card names as its product, outside the
+    instance — absolute `**Product path:**` values only, since a relative one is inside it. Never
+    raises."""
+    found: list[str] = []
+    instance = os.path.realpath(project_dir)
+    for card in sorted(glob.glob(os.path.join(project_dir, "system", "projects", "*", "project.md"))):
+        try:
+            with open(card, encoding="utf-8") as fh:
+                match = PRODUCT_PATH.search(fh.read())
+        except OSError:
+            continue
+        if not match or not os.path.isabs(match.group(1)):
+            continue
+        path = os.path.realpath(match.group(1))
+        if path == instance or path.startswith(instance + os.sep) or not os.path.isdir(path):
+            continue
+        rc, top = _git(["rev-parse", "--show-toplevel"], path)
+        if rc == 0 and top and top not in found:
+            found.append(top)
+    return found
+
+
 def _emit_env_file(core_abs: str) -> None:
     env_file = os.environ.get("CLAUDE_ENV_FILE")
     if not env_file:
@@ -197,6 +232,13 @@ def main() -> int:
     wired = _wire_githooks(project_dir, core_abs)
     if wired:
         context += f"\n\n{wired}"
+    for product in _external_products(project_dir):
+        if _wire_githooks(product, core_abs):
+            context += (
+                f"\n\nWired `core.hooksPath` in the product repository `{product}` -> "
+                f"`{os.path.join(core_abs, 'githooks')}`, so a commit made there by hand meets the "
+                "same commit-time checks a pipeline run's commit does."
+            )
     print(json.dumps({
         "hookSpecificOutput": {
             "hookEventName": event,

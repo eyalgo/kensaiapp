@@ -13,9 +13,12 @@ calls and the evidence they carry.
 
 from __future__ import annotations
 
+import dataclasses
 import json
+import plistlib
 import re
 import shlex
+import textwrap
 import types
 from pathlib import Path
 
@@ -615,7 +618,7 @@ def run_seal_action(bookkeeping: dict, deferred: list[str] = ()):
         configuration: json.dumps({
             "contract": {"instance_worktree": str(worktree), "project": "demo", "key": "key1"},
             "bookkeeping": {"date": SEAL_DATE, "deferred": list(deferred),
-                            "directional": "Agari: demo — progress: seal", "surface": "Codex",
+                            "directional": "Finish-line: demo — progress: seal", "surface": "Codex",
                             "co_authored_by": "model <noreply@example.invalid>",
                             "reasoning_effort": "high", **bookkeeping},
             "builder": "/stable/commit_builder.py", "evidence": "/stable/seal-evidence.json"}),
@@ -740,28 +743,45 @@ def test_seal_step_one_a_calls_the_tool_once_after_the_advance():
     assert "invocation-no-inputs" in step and "Environment: none — no suite ran" in step
 
 
-# --- the guest example the recipe publishes, run through the adopted call -------------------------
+# --- the login job the swift packet publishes, read by the tool, run through the adopted call ----
 
-_GUEST_EXAMPLE = re.compile(r'```json\n(?P<body>\s*"guest": \{.*?)```', re.DOTALL)
+_GUEST_JOB_EXAMPLE = re.compile(r"```xml\n(?P<body>.*?)\n *```", re.DOTALL)
+_PACKET = CORE_ROOT / "doctrine" / "engineering" / "languages" / "swift" / "environment.md"
 _GUEST_NAME = "kensai-macos"
 _PRODUCTS_ROOT = "/h/products"
 _INSTANCE_REPOSITORY = "/h/kensai/host-instance"
 _CLOSING = "The test command was not run, on the owner's Mac or anywhere else."
 
 
-def published_guest() -> dict:
-    """The `guest` member of the recipe's own macOS example, with its placeholders filled the way
-    a caller reading the host's login job would fill them."""
-    found = _GUEST_EXAMPLE.search(RECIPE.read_text())
-    assert found, "the recipe publishes no macOS guest example"
-    text = (found["body"].replace("<products root>", _PRODUCTS_ROOT)
-            .replace("<instance repository>", _INSTANCE_REPOSITORY)
-            .replace("<instance>", "host-instance"))
-    return json.loads("{" + text + "}")["guest"]
+class _PublishedJob(gate_suite.GuestJob):
+    """The packet's own login job, its placeholders filled the way the owner fills them, read
+    through the tool's own reader."""
+
+    def __init__(self) -> None:
+        found = _GUEST_JOB_EXAMPLE.search(_PACKET.read_text())
+        assert found, "the swift packet publishes no login job for the guest"
+        self.text = (textwrap.dedent(found["body"]).replace("<path to tart>", "/h/.local/bin/tart")
+                     .replace("<products root>", _PRODUCTS_ROOT)
+                     .replace("<instance repository>", _INSTANCE_REPOSITORY)
+                     .replace("<instance>", "host-instance"))
+
+    def guest(self):
+        return gate_suite.guest_from_arguments(
+            plistlib.loads(self.text.encode())["ProgramArguments"])
+
+
+def published_guest() -> gate_suite.Guest:
+    return _PublishedJob().guest()
 
 
 def macos_input() -> dict:
-    return guest_raw(published_guest())
+    """A plan for a macOS CI, as the recipe has it written: it gives no guest."""
+    return raw_input(ci=ci_readable("macos"), guest=None)
+
+
+def with_published_job(harness: Harness) -> Harness:
+    harness.host = dataclasses.replace(harness.host, guest_job=_PublishedJob())
+    return harness
 
 
 def running_guest(harness: Harness) -> Harness:
@@ -774,13 +794,13 @@ def running_guest(harness: Harness) -> Harness:
 @pytest.mark.parametrize("gate", GATES)
 def test_published_guest_example_runs_two_worktrees_for_every_gate(gate):
     guest = published_guest()
-    assert guest["name"] == _GUEST_NAME and len(guest["shares"]) == 2
+    assert guest.name == _GUEST_NAME and len(guest.shares) == 2
     folders = (f"{_PRODUCTS_ROOT}/widget-app/.worktrees/k1",
                f"{_INSTANCE_REPOSITORY}/.worktrees/k2")
     guests = ("/Volumes/My Shared Files/products/widget-app/.worktrees/k1",
               "/Volumes/My Shared Files/host-instance/.worktrees/k2")
     for folder, in_guest in zip(folders, guests):
-        harness = running_guest(Harness(run_folder=folder))
+        harness = with_published_job(running_guest(Harness(run_folder=folder)))
 
         status = run_adopted(harness, "invocation", gate, macos_input())
 
@@ -793,7 +813,8 @@ def test_published_guest_example_runs_two_worktrees_for_every_gate(gate):
             ["tart", "exec", _GUEST_NAME, "sh", "-c",
              f"test -f {shlex.quote(in_guest + '/.gate_suite_token_tok123')}"],
             ["tart", "exec", _GUEST_NAME, "sh", "-c", "command -v python3"],
-            ["tart", "exec", _GUEST_NAME, "sh", "-c", f"rm -rf {scratch}"]]
+            ["tart", "exec", _GUEST_NAME, "sh", "-c",
+             f"{gate_suite.stop_leftovers(gate_suite.from_copy(scratch))}; rm -rf {scratch}"]]
         [(producer, consumer, _cwd)] = harness.processes.pipes
         assert producer[:3] == ["tar", "-C", folder] and consumer[:4] == [
             "tart", "exec", "-i", _GUEST_NAME]
@@ -804,7 +825,7 @@ def test_published_guest_example_runs_two_worktrees_for_every_gate(gate):
 
 @pytest.mark.parametrize("gate", GATES)
 def test_adopted_guest_call_refuses_an_unshared_run(gate):
-    harness = Harness(run_folder="/Users/o/scratch/w")
+    harness = with_published_job(Harness(run_folder="/Users/o/scratch/w"))
 
     status = run_adopted(harness, "invocation", gate, macos_input())
 
@@ -812,8 +833,9 @@ def test_adopted_guest_call_refuses_an_unshared_run(gate):
     assert harness.first_line == f"Environment: macos-guest {DASH} {_GUEST_NAME}"
     lines = harness.err.getvalue().splitlines()
     assert lines[0] == ("gate_suite: this run's checkout, /Users/o/scratch/w, is under none of "
-                        f"the shares this run was given for the macOS guest {_GUEST_NAME}.")
-    assert lines[1] == f"The shares this run was given: {_PRODUCTS_ROOT}, {_INSTANCE_REPOSITORY}."
+                        f"the shares the macOS guest {_GUEST_NAME} is started with.")
+    assert lines[1] == (f"The shares the guest is started with: {_PRODUCTS_ROOT}, "
+                        f"{_INSTANCE_REPOSITORY}.")
     assert lines[-1] == _CLOSING
     assert harness.processes.probes == [] and harness.processes.issued == []
     assert harness.lock.holds == 0

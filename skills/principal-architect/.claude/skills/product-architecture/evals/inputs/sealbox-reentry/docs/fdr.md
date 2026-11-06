@@ -44,7 +44,7 @@ running entirely on the buying firm's host.
 ## Product decisions
 
 - **PD-1:** The signed PDF is the artifact of record, not the database row. If sealbox is uninstalled,
-  the firm still holds everything the signature is worth. *(traces to: agari.md, condition 2)*
+  the firm still holds everything the signature is worth. *(traces to: finish_line.md, condition 2)*
 - **PD-2:** **The PDF renderer is replaceable.** Which library flattens the document is not a product
   promise — a swap is invisible to a signer as long as R-2 holds. *(traces to: SDD § 3, the `Renderer`
   seam)*

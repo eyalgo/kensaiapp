@@ -9,7 +9,7 @@
 - **Sources re-read:** None. No answer this run gave rests on one, because this run gave no answer.
 
 The companion was already answered when this run reached it. Its one open item, 1.1, carries a filled
-**Answer** slot. The owner wrote it through `companion-answer` in commit `1d15dac1d`, which confirms
+**Answer** slot. The owner wrote it through `companion-answer` in commit `<a commit not in the public history>`, which confirms
 the 30-day window recommended in `self_answer-3.md`. §§ 2 and 3 read "None". Nothing was left to
 write. The answered companion is now waiting for `product-architecture` to fold it into `nfdr.md`
 QC-40.
@@ -25,7 +25,7 @@ None this run.
 ## Skipped
 
 - **1.1 — How long may a known critical vulnerability in a test dependency stay unfixed?** — slot
-  already filled. The owner answered it in commit `1d15dac1d`, and a filled slot is never rewritten.
+  already filled. The owner answered it in commit `<a commit not in the public history>`, and a filled slot is never rewritten.
 
 ## Companions opened
 

@@ -474,3 +474,10 @@ def test_no_effort_leaves_every_builders_command_as_today(provider):
     with_effort_left_out = _turn(provider, resume=False, effort=None)
 
     assert _effort_tokens(provider, with_effort_left_out) == []
+
+
+def test_a_codex_turn_sets_a_uv_cache_its_sandbox_may_write():
+    start = agent_turn.codex_command(prompt="work", session_id=None, model=None,
+                                     tier=None, add_dirs=(), uv_cache_dir="/tmp/uv-cache")
+
+    assert start[-3:-1] == ("--config", 'shell_environment_policy.set.UV_CACHE_DIR="/tmp/uv-cache"')

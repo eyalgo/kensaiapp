@@ -16,8 +16,8 @@
   `architecture_open_issues.md` whole; the seed `2026-10-07_status-moves`, its refine report
   `2026-10-20_history-after-confirm_report.md` and the closed station
   `shukuba/trail/2026-10-19_cancel-confirmation.md`; the unit's `code-integrity-report.md` (lines
-  40-52 and 140-170); `trail/sdd/self_answer-10.md`. Measured: `git diff --stat 9b05680c7 HEAD --
-  products/tracker17 ':!products/tracker17/docs'` at `72d80bffa` → `products/tracker17/README.md | 2 +-`,
+  40-52 and 140-170); `trail/sdd/self_answer-10.md`. Measured: `git diff --stat <a commit not in the public history> HEAD --
+  products/tracker17 ':!products/tracker17/docs'` at `<a commit not in the public history>` → `products/tracker17/README.md | 2 +-`,
   one line of the Status paragraph (`819818875`), no heading (`git diff … | grep -c '^[-+]#'` → 0).
   No suite was run: the item is about whether recorded runs settle a case, the record holds the
   count at its commit, no code moved since, and this round changes no code.
@@ -48,13 +48,13 @@ run worked the one open item. It did not split: one question, one seat.
   and in the viewport after backing out; `test_double_click_never_confirms_at_the_original_trigger_coordinates`
   (321) double-clicks for real, on `short-row`, `task-page` and `row-40-of-60` with
   `window.scrollY > 0`; `test_keyboard_opening_on_a_far_row_focuses_the_visible_sentence` (606)
-  does the focus case on row 40 of 60, scrolled. The count, 67 passed at `9b05680c7` in a fresh
+  does the focus case on row 40 of 60, scrolled. The count, 67 passed at `<a commit not in the public history>` in a fresh
   clone, is the refine report's first "Considered, not moved" row and the unit's code-integrity
   report ("The browser folder … `67 passed in 30.68s`, with no skip"). RN-36 closed the form-control
   case and RN-41 the not-a-control case, so the draft's "as RN-36 and RN-41 closed the other two"
   is right. § 7's `validates` row says the tests "show whether", which stays true once they show
   that they can. **Addition one** is the dated form: the draft's "printed nothing on 2026-10-20"
-  was true at `ca2f9e98a` and is not true at `72d80bffa`, where the diff lists one README line and
+  was true at `<a commit not in the public history>` and is not true at `<a commit not in the public history>`, where the diff lists one README line and
   no code. The README's headings did not change and the only test reading it is layer 3, so "no
   product code moved" still holds — but the sentence R-2 gains is written as a count at its commit
   with a dated diff, the form R-2 already uses and the form NFDR RN-15 settled on at

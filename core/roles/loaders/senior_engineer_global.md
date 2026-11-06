@@ -1,5 +1,5 @@
 ---
-version: "2.3.0"
+version: "2.3.1"
 ---
 
 # Senior Engineer role loader
@@ -115,7 +115,7 @@ The three skills are grouped under `skills/senior-engineer/`, so a session reach
 granted it by the launcher.
 
 - `development-code-integrity` — the integrity step, in the pipeline or on a file or folder the owner
-  names.
+  names. It halts outside this seat.
 - `development-security` — the security review of a change's branch after the integrity step: it
   repairs dependency advisories and holes within the rules, and reports the rest for the PM. It halts
   outside this seat.

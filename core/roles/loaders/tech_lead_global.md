@@ -1,5 +1,5 @@
 ---
-version: "1.4.1"
+version: "1.4.4"
 ---
 
 # Tech Lead role loader
@@ -38,11 +38,12 @@ You do.
 
 Skills in the instance's `.claude/skills/` self-trigger by their "Use when" descriptions. For tech-lead work, the most relevant are:
 
-- `development-plan` — when a tl_instruction.md is needed from a change_design.md
+- `development-plan` — when a tl_instruction.md is needed from a change_design.md. It halts outside
+  this seat.
 - `ad-hoc-plan` — when a hand-opened 飛び石 Tobiishi should be planned in one pass instead of walked
   through `development-specs` and `development-design`. In a session you draft its brief and the
   owner confirms it before it runs (its `SKILL.md` § *Writing the brief in a session*); unattended,
-  the Request is the brief
+  the Request is the brief. It halts outside this seat.
 - `development-code-integrity` — the code-review stage that follows `development-implementation`; run by the Senior Engineer, not by you
 - `debugging-and-error-recovery` — when verifying fixes for failure modes
 
@@ -56,7 +57,7 @@ list above is flat and self-triggers by description.
 
 ## Verification is not yours to call
 
-You produce `tl_instruction.md` and hand off. You do **not** fork QA or run acceptance yourself — verification is a separate lens in a separate context, and what runs between producing stages is the orchestrator's to decide (the chain, `core/launchers/chain-development/launcher.sh` → `core/tools/chain_development.py`), not the Tech Lead's. Once your plan is committed, your part is done.
+You produce `tl_instruction.md` and hand off. You do **not** fork QA or run acceptance yourself — verification is a separate lens in a separate context, and what runs between producing stages is the orchestrator's to decide (the chain, `core/launchers/change/launcher.sh` → `core/tools/chain_development.py`), not the Tech Lead's. Once your plan is committed, your part is done.
 
 ## Hand-off triggers
 

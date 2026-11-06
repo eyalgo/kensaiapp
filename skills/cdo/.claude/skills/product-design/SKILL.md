@@ -1,10 +1,10 @@
 ---
 name: product-design
-description: CDO-posture skill that authors a project's design language — the visual source of truth in Google's DESIGN.md format, written off the settled UXD's design-system direction and read cold by implementing agents to style the product. Requires CDO posture (halts if invoked outside a cdo session or the cdo subagent). Non-interactive by design — it grounds every value in the evidence where evidence exists (the product's own source, its brand assets, the UXD's constraints) and designs the rest itself, and instead of interviewing live it surfaces its load-bearing calls into a companion open-issues file for the owner to sign off async. It runs the format's own linter before committing and never reports a design language finished on a file that has not met the prompt's bar. On re-run it consumes both files, retires the owner's answered companion whole to a permanent trail, folds their answers into the design language, and when nothing is left unresolved it clears the companion — its absence means the design language is done. The skill resolves where the files land from the project's Product path. Use when authoring, continuing, or revising a product's design language. Do not use for the experience definition (product-uxd), per-change specs (development-specs), the PRD (product-prd), the SRS (product-srs), the project's Agari (project-agari), or downstream documents (SDD / Delivery Plan / FDR / ADR / NFDR).
+description: CDO-posture skill that authors a project's design language — the visual source of truth in Google's DESIGN.md format, written off the settled UXD's design-system direction and read cold by implementing agents to style the product. Requires CDO posture (halts if invoked outside a cdo session or the cdo subagent). Non-interactive by design — it grounds every value in the evidence where evidence exists (the product's own source, its brand assets, the UXD's constraints) and designs the rest itself, and instead of interviewing live it surfaces its load-bearing calls into a companion open-issues file for the owner to sign off async. It runs the format's own linter before committing and never reports a design language finished on a file that has not met the prompt's bar. On re-run it consumes both files, retires the owner's answered companion whole to a permanent trail, folds their answers into the design language, and when nothing is left unresolved it clears the companion — its absence means the design language is done. The skill resolves where the files land from the project's Product path. Use when authoring, continuing, or revising a product's design language. Do not use for the experience definition (product-uxd), per-change specs (development-specs), the PRD (product-prd), the SRS (product-srs), the project's finish line (project-finish-line), or downstream documents (SDD / Delivery Plan / FDR / ADR / NFDR).
 license: MIT
 metadata:
   author: Eyal Golan
-  version: "0.11.5"
+  version: "0.14.0"
   created: "2026-08-04"
   category: product-definition
   tags: design-language, design-tokens, cdo, product-definition, upstream-chain
@@ -115,7 +115,7 @@ answer permanently citable. It is the skill's job; the owner never manages it.
   name, resolved from `<CORE>/../skills/cpo/.claude/skills/product-prd/SKILL.md`. Read it if it is there; what it
   feeds is the prompt's § *Inputs you work from*. **Its absence does not halt the run** — the
   state reaches the owner through the companion like any other input gap.
-- **`system/projects/<name>/agari.md`** — the project's 上がり Agari, beside the card below. Read it
+- **`system/projects/<name>/finish_line.md`** — the project's finish line, beside the card below. Read it
   in full; what the terminus bounds is the prompt's rule. **Absence does not halt the run**, nor
   does an unfilled placeholder — the state reaches the owner through the companion.
 - **`system/projects/<name>/doctrine/`** — the project's own doctrine, if the folder holds anything.
@@ -202,7 +202,7 @@ nor an assertion written against those halts can tell which one was hit. Run it 
 repo root:
 
 ```
-python3 <CORE>/tools/experience_gate.py
+"<CORE>/tools/locked_python.sh" <CORE>/tools/experience_gate.py
 ```
 
 Pass it no root. *Path resolution* above already fixes where an instance-relative path resolves

@@ -266,8 +266,8 @@ def test_the_example_is_the_delivered_file():
                  "launch-audit", "launch-fix-author")
 
     assert set(chain.DOCUMENT_REGISTRY) <= set(table["documents"])
-    steps = {entry.id for entry in chain_development.DEVELOPMENT_STEPS}
-    steps |= {entry.id for entry in chain_development.CHANGE_STEPS}
+    steps = {entry.id for entry in chain_development.CHANGE_STEPS}
+    steps |= {entry.id for entry in chain_development.WALK_STEPS}
     assert steps <= set(table["steps"])
     assert set(build_idea._SKILL_ROWS) <= set(table["build-idea"])
     assert "no-document" in table["owed-items"]

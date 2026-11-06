@@ -42,14 +42,14 @@ None.
   says the EX-6 confirmation is verified. Its three parts are the sentence alone holding focus, the
   double press that never confirms, and back-out returning focus. SDD § 11 R-2 at version 11 names
   the four tests in `tests/e2e/test_moves.py` that verify them, and records that all four passed in
-  a fresh clone at `9b05680c7`, 67 passed, with `playwright==1.63.0` and Chromium 153.0.8010.12.
+  a fresh clone at `<a commit not in the public history>`, 67 passed, with `playwright==1.63.0` and Chromium 153.0.8010.12.
   Assistive-technology speech for EX-14 stays as the one open case, which one VoiceOver pass
   settles, as SDD § Open Questions now holds it alone. The result is tied to its commit, by RN-42's
   own rule. ADR-0003 is neither edited nor superseded, because its decision did not move and its
   *Dependence* was true on its date.
 - **Rationale:** `nfdr.md` RN-15 reads "What stays open is two cases. The first is the confirmation
   of SDD § 4 EX-6", and RN-42 reads "so both stay: the EX-6 confirmation, which SDD § 6
-  `status-moves` settles". SDD version 11 (`9c7db2266`) settled it: § 11 R-2 counts the
+  `status-moves` settles". SDD version 11 (`<a commit not in the public history>`) settled it: § 11 R-2 counts the
   confirmation case verified, and § Open Questions keeps only the assistive-technology case. A
   `development-design` review that reads RN-15 meets a case as open that the SDD has closed.
 - **If overridden:** with "leave it", RN-15 keeps counting two open cases where the SDD holds one,
@@ -57,7 +57,7 @@ None.
   unsettled.
 - **Confirm or override:** confirm, with two additions. RN-15 is owed the change, and SDD version 11
   holds every fact the draft hands the fold: § 11 R-2 names the four `tests/e2e/test_moves.py` tests,
-  all four are on disk at `HEAD`, and `git diff --stat 9b05680c7 HEAD` over the product outside
+  all four are on disk at `HEAD`, and `git diff --stat <a commit not in the public history> HEAD` over the product outside
   `docs/` lists one line of `README.md` and no code. First, the browser is stated as R-2 states it,
   and not as the draft does. R-2 records the run with the pinned library, `playwright==1.63.0`. It
   has the build asserted by the run, `153.0.8010.12`, on the full Chromium of that install, through

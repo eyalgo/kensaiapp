@@ -16,7 +16,7 @@
   `trail/sdd/self_answer-8.md`, the previous round; the open station
   `system/projects/tracker17/journey/shukuba/2026-10-12_operator-name.md` and its refine report
   `journey/nemawashi/2026-10-07_comment-on-a-task/2026-10-12_operator-name_report.md`. No suite was
-  run: the item is about what the code says, which was read on disk at `main` `22660036e`, and the
+  run: the item is about what the code says, which was read on disk at `main` `<a commit not in the public history>`, and the
   round changes no code.
 
 The companion held one open item, § 5.1, `Seat: cto`, and the invocation listed none, so this run
@@ -41,7 +41,7 @@ statement found false to be corrected, not for the document to state a case it d
   The answer binds this document's agreement with the product and nothing outside it — no person,
   no party, no risk the owner carries — and I can name no ground I cannot see. Mine, in the owner's
   seat. The same sentence in NFDR QC-21 is the Principal Architect's and already carries its own
-  item, `architecture_open_issues.md` § 3.1 (commit `15b201d62`), still at its placeholder.
+  item, `architecture_open_issues.md` § 3.1 (commit `<a commit not in the public history>`), still at its placeholder.
 
   *The draft holds (check 2), and the answer.* Every citation in the item is as stated: the row is
   `SDD.md:202`; `domain/operator_name.py:60-62` returns `state, OperatorNameOutcome(..., changed=False)`
@@ -57,8 +57,8 @@ statement found false to be corrected, not for the document to state a case it d
   labels it carries now" and reports `changed=False` for one already carried
   (`tests/unit/test_tasks.py:727-735`). That is the same shape as the name — a comparison with the
   state at the moment of the action — and it falsifies the row's "never of the new state with the
-  current one" a second time. Labels landed at `25fff47d2` and the name at `cb48338e3`, both after
-  version 9 (`33ad1a2a7`), which is why RN-45 could say "the edit is the one action that reports"
+  current one" a second time. Labels landed at `<a commit not in the public history>` and the name at `<a commit not in the public history>`, both after
+  version 9 (`<a commit not in the public history>`), which is why RN-45 could say "the edit is the one action that reports"
   and name the label as a future second; both lines are a dated record and stay. Naming the per-action
   rule rather than two exceptions keeps the row true when a fourth action reports. **Addition two**
   says what does not move, because the item's heading invites a reader to look for the sentence

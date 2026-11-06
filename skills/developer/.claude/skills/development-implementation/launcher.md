@@ -17,4 +17,4 @@ bracketed segment is dropped whole, so the prompt is the one it always was. The 
 `{after}+1` and the run reads the task number off it (`SKILL.md` Step 2, the launch prompt's batch scope).
 
 `developer` is the seat the chain runs this step in (`<CORE>/tools/chain_development.py`
-`DEVELOPMENT_STEPS`). The model and effort it runs on are `intelligence/<provider>.md`'s, beside this file.
+`CHANGE_STEPS`). The model and effort it runs on are `intelligence/<provider>.md`'s, beside this file.

@@ -13,7 +13,7 @@ SEED = f"journey/nemawashi/{SEED_DATE}_define-the-product.md"
 # The exact per-project tree §2 prescribes, for a project named "demo".
 EXPECTED_TREE = [
     "project.md",
-    "agari.md",
+    "finish_line.md",
     "doctrine/demo_doctrine.md",
     "doctrine/ai_responsibility.md",
     "journey/nemawashi/README.md",
@@ -33,7 +33,7 @@ EXPECTED_TREE = [
 # assert nothing about where the station sits.
 SEED_STATIONS = [
     "product-prd",
-    "project-agari",
+    "project-finish-line",
     "product-srs",
     "product-uxd",
     "product-design",

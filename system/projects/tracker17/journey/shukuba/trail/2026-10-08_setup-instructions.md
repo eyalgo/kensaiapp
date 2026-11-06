@@ -30,4 +30,4 @@ Each is checked in a fresh copy of the repository.
 
 *Amended by `shukuba-refine`, 2026-10-08: reached-when 8 added. The README's setup instructions landed with "now" at line 79, which `docs/CONTENT.md:126-127` rules out of every string, and a 21-word sentence at line 23 over the 20-word limit at `:120`. The content audit marked the first blocking, and no station on the route fixes either.*
 
-*Amended by `shukuba-refine`, 2026-10-11: reached-when 9 added. SDD v7 (`4156e81b2`) put RT-4's Linux setup line and the suite's Git prerequisite into S-1's *Artifact*, which this station is the artifact half of; `README.md:87-107` carries neither, and the last unit's plan named it owed outside its reach.*
+*Amended by `shukuba-refine`, 2026-10-11: reached-when 9 added. SDD v7 (`<a commit not in the public history>`) put RT-4's Linux setup line and the suite's Git prerequisite into S-1's *Artifact*, which this station is the artifact half of; `README.md:87-107` carries neither, and the last unit's plan named it owed outside its reach.*

@@ -7,14 +7,14 @@ description: >-
   commit. A station of that seed parked for that item is taken up again instead, its reached-when
   unchanged. Halts outside a pm session or the pm subagent. Use when a project has an active seed and
   no open station — "open the next station", "open the shukuba", "start the next leg",
-  "shukuba-open". Do not use for picking or un-picking a seed (nemawashi-pick, nemawashi-unpick),
+  "shukuba-open". Do not use for picking or un-picking a seed (seed-pick, nemawashi-unpick),
   cutting or re-cutting the route (stations-from-seed, shukuba-refine), opening a change unit
   (tobiishi-open), closing or parking a station (shukuba-retire, shukuba-park), or the instance router
   under system/shukuba/.
 license: MIT
 metadata:
   author: Eyal Golan
-  version: "1.4.0"
+  version: "1.8.0"
   created: "2026-09-15"
   category: journey
   tags: shukuba, open, pm, journey
@@ -52,11 +52,13 @@ Run everything from the instance root. `OPEN=<CORE>/../skills/pm/.claude/skills/
 ### 1 — Can a station open?
 
 ```bash
-python3 "$OPEN" --root . --project <project> check
+"<CORE>/tools/locked_python.sh" "$OPEN" --root . --project <project> check
 ```
 
 It prints the active seed and the next unticked item on its route — `Item:`, `Slug:` and `Line:` —
 or `REFUSED: <reason>` and exits 1. On a refusal, report the reason and stop.
+
+**An open item on the SDD's companion holds every station of the seed.** When the directory the project's card names under `Product path:` has a `docs/SDD.md`, `open.py` also reads the SDD's companion, `docs/SDD_open_issues.md`, beside it. While the companion's *Raised from downstream* section holds an item whose `Tracked by:` names the active seed by its triple, `check`, `apply` and `take-up` each refuse with a `REFUSED: records-owed` line and write nothing. A parked station is held the same way, so `check` prints no `Parked:` line and `take-up` moves nothing. The hold is keyed to the seed rather than to the station, because such an item says the SDD owes the seed a record, and the seed's route was cut against that SDD. A run that meets this refusal edits neither the SDD nor its companion nor the seed. The station opens once the item has folded. A fold, which is `product-sdd`'s, removes the item from that section, or deletes the companion once nothing in it is left open. A product with no `docs/SDD.md` is not affected, even where a `docs/SDD_open_issues.md` sits beside the missing SDD. How such an item is raised is `<CORE>/../skills/product-owner/.claude/skills/development-specs/SKILL.md` § *A record the spec cannot fold is raised*.
 
 **A `Parked:` line means the station already exists.** Go to step 3b and write nothing: a parked
 station is taken up again against the bar it was opened against (the template's comment block). Read
@@ -65,7 +67,7 @@ fails, stop as step 2 does, and take nothing up.
 
 ### 2 — Write
 
-Read the active seed, the project's `agari.md`, and the template with its comment block. Write the
+Read the active seed, the project's `finish_line.md`, and the template with its comment block. Write the
 station for the item step 1 named, in the template's shape, to a file **outside the repository** (the
 scratchpad or `$TMPDIR`) — nothing else is written.
 
@@ -81,7 +83,7 @@ landed, `shukuba-refine`'s after one has.
 ### 3a — May it be opened?
 
 ```bash
-python3 "$OPEN" --root . --project <project> apply --station <station file>
+"<CORE>/tools/locked_python.sh" "$OPEN" --root . --project <project> apply --station <station file>
 ```
 
 It re-checks step 1, then refuses unless the station's `*Item` line names the item number, the seed
@@ -93,7 +95,7 @@ reason and stop — nothing was written.
 ### 3b — Take it up
 
 ```bash
-python3 "$OPEN" --root . --project <project> take-up
+"<CORE>/tools/locked_python.sh" "$OPEN" --root . --project <project> take-up
 ```
 
 It re-checks step 1, moves the parked station whole back to `journey/shukuba/`, and prints its old
@@ -106,7 +108,7 @@ route line carries backticks, so write it to a file outside the repository and p
 `--body "$(cat <body file>)"`. A written station:
 
 ```bash
-python3 "<CORE>/tools/commit_builder.py" --repo . commit \
+"<CORE>/tools/locked_python.sh" "<CORE>/tools/commit_builder.py" --repo . commit \
   --add "<station path>" \
   --subject "open shukuba: <YYYY-MM-DD>_<slug>" --body "$(cat <body file>)" \
   --actor pm --skill shukuba-open \
@@ -118,7 +120,7 @@ A station taken up is a move, so its commit is `<CORE>/docs/journey_move.md` § 
 in `--staged`, no `--skill`:
 
 ```bash
-python3 "<CORE>/tools/commit_builder.py" --repo . commit \
+"<CORE>/tools/locked_python.sh" "<CORE>/tools/commit_builder.py" --repo . commit \
   --staged "<old path>" "<new path>" \
   --subject "open shukuba: <YYYY-MM-DD>_<slug>, taken up from parked/" --body "$(cat <body file>)" \
   --actor pm \

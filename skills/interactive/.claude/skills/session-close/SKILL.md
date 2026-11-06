@@ -15,7 +15,7 @@ description: |
   session", "hand this over", "session-close".
 license: MIT
 metadata:
-  version: "1.6.2"
+  version: "1.7.4"
   category: journey
   risk: safe
   created: "2026-08-25"
@@ -86,7 +86,7 @@ The session's own account of where it got to is the least reliable source availa
 Read the state instead.
 
 ```bash
-python3 "<CORE>/tools/journey_status.py"
+"<CORE>/tools/locked_python.sh" "<CORE>/tools/journey_status.py"
 ```
 
 It walks every seedbed, station and change folder in the instance and checks the model's four
@@ -103,7 +103,7 @@ Then compare where the journey stands against where the session left the work, a
 | Walked the last item on the seed's checklist | Retire the idea | `nemawashi-retire` |
 | Decided the idea is dead — ruled out, superseded, not going to be done | Drop it | `nemawashi-drop` |
 | Is setting the active idea down unfinished | Un-pick it back to the pool | `nemawashi-unpick` |
-| Left a change open on its branch | Carry it on or seal it | `<CORE>/launchers/chain-development/launcher.sh <project>`, `tobiishi-seal` |
+| Left a change open on its branch | Carry it on or seal it | `<CORE>/launchers/change/launcher.sh <project>`, `tobiishi-seal` |
 | Worked inside an open station and it is still open | Nothing — the station carries the position | — |
 
 **Six of those moves are seat-gated.** `shukuba-retire` and `nemawashi-retire` halt outside the Scrum Master,
@@ -138,11 +138,11 @@ grep -rn "<the distinguishing phrase>" system/projects/*/journey/ system/nemawas
 ```
 
 If it is not, write **one seed per idea** into the `journey/nemawashi/unpicked/` of the project whose
-Agari it serves — not the project the session happened to be working in. A seed states what was found,
-why it matters against that Agari, and what a station would have to settle. Keep it terse: a seed is a
+finish line it serves — not the project the session happened to be working in. A seed states what was found,
+why it matters against that finish line, and what a station would have to settle. Keep it terse: a seed is a
 working note, not a report.
 
-If no project's Agari covers it, that is itself the finding. Say so rather than filing it somewhere
+If no project's finish line covers it, that is itself the finding. Say so rather than filing it somewhere
 close.
 
 > **Gate.** List the candidates and where each would land before writing any of them.

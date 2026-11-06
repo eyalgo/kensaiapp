@@ -273,7 +273,7 @@ None this run.
 
 ## Companions opened
 
-- **products/tracker17/docs/UXD_open_issues.md** — **opened** — companion to `UXD.md`, landed in commits `f43d08360` and `d78e48ce7`
+- **products/tracker17/docs/UXD_open_issues.md** — **opened** — companion to `UXD.md`, landed in commits `<a commit not in the public history>` and `<a commit not in the public history>`
 
   Found while answering item 2.7, and not routed by any item's slot. UX-I2 says an irreversible
   action's confirmation "appears where the first press was made" and that keyboard focus "lands on"
@@ -286,9 +286,9 @@ None this run.
   cheapest point to settle it. `UXD.md` itself was not edited. The item sits in § 2 with its slot
   left open for the next round.
 
-  The item went through two commits in this run. The first (`f43d08360`) carried the focus half
+  The item went through two commits in this run. The first (`<a commit not in the public history>`) carried the focus half
   only, under the heading "When an irreversible action's confirmation appears, focus lands on its
-  sentence, never on the confirming control". The second (`d78e48ce7`) added the pointer half, the
+  sentence, never on the confirming control". The second (`<a commit not in the public history>`) added the pointer half, the
   strip's order, which I had first written into the 2.7 slot here, and widened the heading to match.
   No other run read the file between the two commits.
 

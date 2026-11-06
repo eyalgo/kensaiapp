@@ -35,6 +35,10 @@ from pathlib import Path
 
 import pytest
 
+import test_support_instance_root
+
+from test_support_python3_stub import python3_calls_outside_uv, python3_that_only_fails
+
 import launcher_telemetry_test_support as support
 from provenance_test_support import assert_provenance_stamped
 from test_skill_launcher_telemetry import install_telemetry_command
@@ -525,7 +529,7 @@ def test_a_missing_detach_watcher_is_reported_distinctly_and_does_not_block_the_
     # Task 17: pin_enter (sourced right after the CORE_DIR guard) and the adapter it shells out
     # to are reached before either the resolver or the detach library, so they go in too.
     # The one intelligence resolution and its reader are reached before the detach library too.
-    for _tool in ("pin.py", "pin_run.sh", "agent_run.py", "model_assignment.py", "task_context.py",
+    for _tool in ("pin.py", "pin_run.sh", "locked_python.sh", "agent_run.py", "model_assignment.py", "task_context.py",
                   "hook_wiring.py",
                   "env_file.py", "run_intelligence.py", "intelligence.py", "providers.py"):
         shutil.copy2(
@@ -542,6 +546,7 @@ def test_a_missing_detach_watcher_is_reported_distinctly_and_does_not_block_the_
         )
         + "\n"
     )
+    test_support_instance_root.give_python(isolated)
 
     result = run("demo-skill", script=copied)
 
@@ -623,7 +628,7 @@ def test_launch_eval_fix_helper_observation_matches_case_inputs(run, tmp_path, e
     package, prints the lines, exports the six variables and hands its run the settings its own
     inputs call for: the arm it runs under, the skill it was given and the provider it resolved
     with no model or effort."""
-    package = support.require_real_package(tmp_path / "package")
+    package = support.recorded_package(tmp_path / "package")
     _fix_launch(run)
     endpoint_file = tmp_path / "published-endpoint"
     cause = support.publish_endpoint(endpoint_file, endpoint)
@@ -652,7 +657,7 @@ def test_eval_fix_percent_role_is_carried_encoded_in_every_representation(run, t
     """CP-686.1, CP-759: a role carrying a percent sign is encoded by the helper, so the role
     `r%1` reaches the printed line, the exports and both settings documents as `r%0000251`,
     after the pairs the launcher stamps itself."""
-    package = support.require_real_package(tmp_path / "package")
+    package = support.recorded_package(tmp_path / "package")
     _fix_launch(run)
     endpoint_file = tmp_path / "published-endpoint"
     support.publish_endpoint(endpoint_file)
@@ -677,7 +682,7 @@ def test_eval_fix_ordinary_launch_discovers_source_host_setting(run, tmp_path, c
     """CP-692: a launch whose environment names no command is instrumented from its source host's
     setting, whether the launcher runs from a core or a pin of it, for the host or for an
     instance that binds that core."""
-    package = support.require_real_package(tmp_path / "package")
+    package = support.recorded_package(tmp_path / "package")
     _fix_launch(run)
     endpoint_file = tmp_path / "published-endpoint"
     support.publish_endpoint(endpoint_file)
@@ -715,9 +720,15 @@ def test_eval_fix_telemetry_failures_preserve_launch(run, tmp_path, kind, cap):
     support.assert_failure_scenario(observation, scenario, cap=cap)
 
 
-def test_eval_fix_observation_skips_an_unreachable_package_and_fails_a_reached_one(tmp_path):
-    """CP-689: the observation above is skipped, with the reason named, where the package's
-    command cannot be reached, and fails where it is reached and breaks the contract."""
-    support.assert_selection_skips_unreachable_and_fails_reached(
-        tmp_path, f"{__file__}::test_launch_eval_fix_helper_observation_matches_case_inputs"
-    )
+
+
+def test_launch_eval_fix_runs_no_python3(run, tmp_path):
+    run.skill("demo-skill", settled=(1,))
+    path, marker = python3_that_only_fails(tmp_path, run.env["PATH"])
+    run.env["PATH"] = path
+
+    result = run("demo-skill")
+
+    assert result.returncode == 0, result.stderr
+    assert run.launched_argv() != []
+    assert python3_calls_outside_uv(marker) == []

@@ -138,7 +138,7 @@ THE BLIND WATCH — NOT KNOWING WHICH RUN IS YOURS IS NOT THE SAME AS THERE BEIN
 
 USAGE
     watch_agent.py (--agent-id <id> | --name <agent name>) --label <human label>
-                   [--reporter generic|prd|srs|uxd|design|content|writing-bar|agari|sdd|fdr|
+                   [--reporter generic|prd|srs|uxd|design|content|writing-bar|finish-line|sdd|fdr|
                                experience-visual|experience-voice|fix-author|apply-packet|
                                companion-self-answer]
                    [--artifact-path <path>] [--head-repo <path>]
@@ -174,7 +174,7 @@ import sys
 import time
 from enum import Enum
 
-__version__ = "1.18.0"
+__version__ = "1.20.0"
 
 # The script's own directory is on sys.path when run directly (python3 watch_agent.py)
 # and the tests insert it before importing this module, so a plain import resolves the

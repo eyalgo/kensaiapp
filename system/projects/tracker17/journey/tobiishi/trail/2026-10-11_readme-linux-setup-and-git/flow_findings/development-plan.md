@@ -3,7 +3,7 @@
 Findings for this step's output only, produced by the `development-audit` skill.
 Change-local findings live here; skill-general findings are also raised as kaizen items.
 
-Audited `tl_instruction.md` against `change_design.md` and `change_spec.md`. No `docs/adr/` conflict found; cited line ranges into design and spec resolve to the stated sections, input revision `06af065b` exists and is an ancestor of the tip.
+Audited `tl_instruction.md` against `change_design.md` and `change_spec.md`. No `docs/adr/` conflict found; cited line ranges into design and spec resolve to the stated sections, input revision `<a commit not in the public history>` exists and is an ancestor of the tip.
 
 - **[non-blocking · change-local · coverage]** The spec's Out of Scope bars naming the failing test's function or file in the README (CP-75 says what it checks, not where it lives), but no V-criterion carries that boundary. Where: `tl_instruction.md §Deliverables verified by review` (V-4). The reviewer is told to check the test is described, not that it is not located; add a clause to the V-4 reading. Low risk: `change_text.md` names neither.
 

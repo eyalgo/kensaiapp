@@ -20,7 +20,9 @@ against the git-layer `commit-msg` checker that replaced it.
 
 from __future__ import annotations
 
+import os
 import re
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -403,7 +405,7 @@ def test_no_co_authored_by_line_when_none():
         subject="s",
         body="b",
         role="Product",
-        directional="Agari: example-product — progress: it",
+        directional="Finish-line: example-product — progress: it",
         surface="product-skeleton",
     )
     assert "Co-Authored-By:" not in message
@@ -415,11 +417,11 @@ def test_a_model_less_commit_still_carries_the_two_enforced_trailers():
         subject="s",
         body="b",
         role="Product",
-        directional="Agari: example-product — progress: it",
+        directional="Finish-line: example-product — progress: it",
         surface="product-skeleton",
     )
     assert message.split("\n\n")[-1].splitlines() == [
-        "Agari: example-product — progress: it",
+        "Finish-line: example-product — progress: it",
         "Role: Product",
         "Surface: product-skeleton",
     ]
@@ -448,12 +450,12 @@ def test_claude_session_still_places_correctly_with_no_co_author():
         subject="s",
         body="b",
         role="Product",
-        directional="Agari: example-product — progress: it",
+        directional="Finish-line: example-product — progress: it",
         surface="product-skeleton",
         claude_session=SESSION_URL,
     )
     assert message.split("\n\n")[-1].splitlines() == [
-        "Agari: example-product — progress: it",
+        "Finish-line: example-product — progress: it",
         "Role: Product",
         "Surface: product-skeleton",
         f"Claude-Session: {SESSION_URL}",
@@ -471,7 +473,7 @@ def test_the_cli_accepts_a_commit_with_no_co_authored_by(tmp_path):
             "--add", "a.txt",
             "--subject", "skeleton: the frame",
             "--role", "Product",
-            "--directional", "Agari: example-product — progress: it",
+            "--directional", "Finish-line: example-product — progress: it",
             "--surface", "product-skeleton",
         ]
     )
@@ -493,7 +495,7 @@ def test_an_explicit_co_authored_by_is_still_placed(tmp_path):
         subject="s",
         body="b",
         role="Product",
-        directional="Agari: example-product — progress: it",
+        directional="Finish-line: example-product — progress: it",
         surface="Claude Code",
         co_authored_by=CO_AUTHORED_BY,
     )
@@ -610,7 +612,7 @@ def test_both_provenance_lines_appear_skill_then_prompt():
         "commit",
         subject="cpo: draft the PRD",
         actor="cpo",
-        directional="Agari: thing — progress: drafts it",
+        directional="Finish-line: thing — progress: drafts it",
         surface="Claude Code",
         co_authored_by=CO_AUTHORED_BY,
         skill_version="product-prd@4.11.0 " + "a" * 40,
@@ -2017,6 +2019,7 @@ def test_merge_op_runs_git_no_ff_and_creates_merge_commit(tmp_path):
         "--branch-commits", "feature: add a thing",
         "--actor", "pm",
         "--merge-context", "manual",
+        "--user-invisible", "fixture only, no changelog entry",
         "--surface", "Claude Code",
         "--co-authored-by", CO_AUTHORED_BY,
     ])
@@ -2095,6 +2098,7 @@ def test_codex_model_merge_lands_canonical_trailers(tmp_path):
         "--branch-commits", "feature: add a thing",
         "--actor", "pm",
         "--merge-context", "manual",
+        "--user-invisible", "fixture only, no changelog entry",
         "--surface", "Codex",
         "--co-authored-by", "gpt-5.6-sol <noreply@openai.com>",
     ])
@@ -2140,7 +2144,7 @@ def test_claude_and_model_less_builder_paths_remain_unchanged(tmp_path, monkeypa
         "--subject", "skeleton: the frame",
         "--role", "Product",
         "--add", "deterministic.txt",
-        "--directional", "Agari: example-product — progress: it",
+        "--directional", "Finish-line: example-product — progress: it",
         "--surface", "product-skeleton",
     ])
     assert exit_code == 0
@@ -2168,6 +2172,7 @@ def test_claude_and_model_less_builder_paths_remain_unchanged(tmp_path, monkeypa
         "--branch-commits", "feature: add a thing",
         "--actor", "pm",
         "--merge-context", "manual",
+        "--user-invisible", "fixture only, no changelog entry",
         "--surface", "product-skeleton",
     ])
     assert exit_code == 0
@@ -2385,7 +2390,7 @@ def test_end_to_end_both_flags_land_both_lines(tmp_path, monkeypatch):
         "--skill", "product-prd",
         "--prompt", "cpo_create_prd",
         "--add", "PRD.md",
-        "--directional", "Agari: thing — progress: drafts it",
+        "--directional", "Finish-line: thing — progress: drafts it",
         "--surface", "Claude Code",
         "--co-authored-by", CO_AUTHORED_BY,
     ])
@@ -2441,7 +2446,7 @@ def test_end_to_end_prompt_resolves_against_instance_not_repo(tmp_path, monkeypa
         "--role", "CTO",
         "--prompt", "cto_create_srs",
         "--add", "SRS.md",
-        "--directional", "Agari: thing — progress: drafts it",
+        "--directional", "Finish-line: thing — progress: drafts it",
         "--surface", "Claude Code",
         "--co-authored-by", CO_AUTHORED_BY,
     ])
@@ -3116,6 +3121,7 @@ def test_end_to_end_merge_omits_line(tmp_path):
         "--branch-commits", "feature: add a thing",
         "--actor", "pm",
         "--merge-context", "manual",
+        "--user-invisible", "fixture only, no changelog entry",
         "--surface", "Claude Code",
         "--co-authored-by", CO_AUTHORED_BY,
     ])
@@ -3234,7 +3240,7 @@ def test_a_repo_that_is_a_subdirectory_declares_paths_relative_to_it(tmp_path, m
         "--subject", "skeleton: demo",
         "--role", "Product",
         "--add", "main.py", "tests/conftest.py",
-        "--directional", "Agari: none",
+        "--directional", "Finish-line: none",
         "--surface", "product-skeleton",
     ])
 
@@ -3261,7 +3267,7 @@ def test_a_subdirectory_repo_still_refuses_staged_work_outside_it(tmp_path, monk
         "--subject", "skeleton: demo",
         "--role", "Product",
         "--add", "main.py",
-        "--directional", "Agari: none",
+        "--directional", "Finish-line: none",
         "--surface", "product-skeleton",
     ])
 
@@ -3294,6 +3300,7 @@ def test_repeated_branch_commits_flags_land_both_dash_lines(tmp_path):
         "--branch-commits", "l2",
         "--actor", "pm",
         "--merge-context", "manual",
+        "--user-invisible", "fixture only, no changelog entry",
         "--surface", "Claude Code",
         "--co-authored-by", CO_AUTHORED_BY,
     ])
@@ -3340,7 +3347,7 @@ def test_single_flag_multi_path_form_unchanged(tmp_path, monkeypatch):
 # sets" (:221). A path the caller DID declare must therefore commit —
 # whatever characters its name happens to contain. This matters here and not
 # in the abstract: this repo's own vocabulary is Japanese (宿場 / 飛び石 /
-# 根回し / 上がり), so a journey file named in kana is an ordinary artifact,
+# 根回し), so a journey file named in kana is an ordinary artifact,
 # and `shukuba-retire` moving one is precisely the shape
 # the deferred migration prescribes `--staged <old> <new>` for
 # (rationale.md:339-341).
@@ -3457,6 +3464,7 @@ def test_merge_bump_lands_inside_the_merge_commit(tmp_path):
         "--branch-commits", "feature: add a rule",
         "--actor", "pm",
         "--merge-context", "manual",
+        "--user-invisible", "fixture only, no changelog entry",
         "--bump", "core/doctrine.md=minor",
         "--surface", "Claude Code",
         "--co-authored-by", CO_AUTHORED_BY,
@@ -3500,6 +3508,7 @@ def test_merge_without_bump_touches_no_version(tmp_path):
         "--branch-commits", "feature: unrelated",
         "--actor", "pm",
         "--merge-context", "manual",
+        "--user-invisible", "fixture only, no changelog entry",
         "--surface", "Claude Code",
         "--co-authored-by", CO_AUTHORED_BY,
     ])
@@ -3546,6 +3555,7 @@ def test_merge_refuses_an_unusable_bump_before_merging(tmp_path, spec, capsys):
         "--branch-commits", "feature: unrelated",
         "--actor", "pm",
         "--merge-context", "manual",
+        "--user-invisible", "fixture only, no changelog entry",
         "--bump", spec,
         "--surface", "Claude Code",
         "--co-authored-by", CO_AUTHORED_BY,
@@ -3619,6 +3629,7 @@ def test_merge_bump_conflict_leaves_a_resumable_state_then_resumes(tmp_path):
         "--branch-commits", "feature: add a row",
         "--actor", "pm",
         "--merge-context", "manual",
+        "--user-invisible", "fixture only, no changelog entry",
         "--bump", "core/doctrine.md=minor",
         "--surface", "Claude Code",
         "--co-authored-by", CO_AUTHORED_BY,
@@ -3691,6 +3702,7 @@ def test_merge_conflict_prints_a_resume_instruction_not_a_reformat_hint(tmp_path
         "--branch-commits", "feature: add a row",
         "--actor", "pm",
         "--merge-context", "manual",
+        "--user-invisible", "fixture only, no changelog entry",
         "--bump", "core/doctrine.md=minor",
         "--surface", "Claude Code",
         "--co-authored-by", CO_AUTHORED_BY,
@@ -3739,6 +3751,7 @@ def test_merge_conflict_with_no_bump_is_unchanged_by_the_resume_logic(tmp_path):
         "--branch-commits", "feature: add a row",
         "--actor", "pm",
         "--merge-context", "manual",
+        "--user-invisible", "fixture only, no changelog entry",
         "--surface", "Claude Code",
         "--co-authored-by", CO_AUTHORED_BY,
     ])
@@ -3810,6 +3823,7 @@ def _merge_argv(tmp_path, main_branch: str, branch: str = "feature") -> list[str
         "--branch-commits", f"{branch}: add a row",
         "--actor", "pm",
         "--merge-context", "manual",
+        "--user-invisible", "fixture only, no changelog entry",
         "--bump", "core/doctrine.md=minor",
         "--surface", "Claude Code",
         "--co-authored-by", CO_AUTHORED_BY,
@@ -3933,10 +3947,10 @@ def test_directional_referent_shukuba_with_progress():
     ) == ("Shukuba", "commit-builder")
 
 
-def test_directional_referent_agari_with_progress():
+def test_directional_referent_finish_line_with_progress():
     assert commit_builder._directional_referent(
-        "Agari: tools — progress: x"
-    ) == ("Agari", "tools")
+        "Finish-line: tools — progress: x"
+    ) == ("Finish-line", "tools")
 
 
 def test_directional_referent_michi_with_serves():
@@ -3945,8 +3959,8 @@ def test_directional_referent_michi_with_serves():
     ) == ("Michi", "sharpen-by-living")
 
 
-def test_directional_referent_agari_none_is_not_a_referent():
-    assert commit_builder._directional_referent("Agari: none — did a thing") is None
+def test_directional_referent_finish_line_none_is_not_a_referent():
+    assert commit_builder._directional_referent("Finish-line: none — did a thing") is None
 
 
 def test_directional_referent_michi_none_is_not_a_referent():
@@ -3954,7 +3968,7 @@ def test_directional_referent_michi_none_is_not_a_referent():
 
 
 def test_directional_referent_shukuba_none_is_not_a_referent():
-    # Retired by `commit_format.md` in favour of `Agari:`; it names no referent.
+    # Retired by `commit_format.md` in favour of `Finish-line:`; it names no referent.
     assert commit_builder._directional_referent(
         "Shukuba: none — sealed 2026-08-01_x"
     ) is None
@@ -4023,70 +4037,70 @@ def test_directional_skip_tokens_constant_is_progress_aside_serves():
     )
 
 
-# ── _resolve_agari / _resolve_michi — does the referent a --directional line
+# ── _resolve_finish_line / _resolve_michi — does the referent a --directional line
 #    names actually exist in the tree the commit lands in? Three-valued:
 #    RESOLVES / MISSING / UNCHECKABLE — MISSING is the only one that may ever
 #    refuse a commit (Task 4). Root is `--repo`, never instance_repo_root() —
 #    a journey referent lives in whichever tree the commit is landing in. ────
 
-def _write_agari(projects_root: Path, name: str) -> None:
+def _write_finish_line(projects_root: Path, name: str) -> None:
     project_dir = projects_root / name
     project_dir.mkdir(parents=True, exist_ok=True)
-    (project_dir / "agari.md").write_text(f"# Agari — {name}\n")
+    (project_dir / "finish_line.md").write_text(f"# Finish line — {name}\n")
 
 
-def test_resolve_agari_present_resolves(tmp_path):
-    _write_agari(tmp_path / "system" / "projects", "doctrine")
+def test_resolve_finish_line_present_resolves(tmp_path):
+    _write_finish_line(tmp_path / "system" / "projects", "doctrine")
     assert (
-        commit_builder._resolve_agari(str(tmp_path), "doctrine")
+        commit_builder._resolve_finish_line(str(tmp_path), "doctrine")
         == commit_builder.DirectionalResolution.RESOLVES
     )
 
 
-def test_resolve_agari_project_dir_present_agari_absent_is_missing(tmp_path):
+def test_resolve_finish_line_project_dir_present_finish_line_absent_is_missing(tmp_path):
     (tmp_path / "system" / "projects" / "doctrine").mkdir(parents=True)
     assert (
-        commit_builder._resolve_agari(str(tmp_path), "doctrine")
+        commit_builder._resolve_finish_line(str(tmp_path), "doctrine")
         == commit_builder.DirectionalResolution.MISSING
     )
 
 
-def test_resolve_agari_no_projects_root_is_uncheckable(tmp_path):
+def test_resolve_finish_line_no_projects_root_is_uncheckable(tmp_path):
     assert (
-        commit_builder._resolve_agari(str(tmp_path), "doctrine")
+        commit_builder._resolve_finish_line(str(tmp_path), "doctrine")
         == commit_builder.DirectionalResolution.UNCHECKABLE
     )
 
 
-def test_resolve_agari_observed_incident_versioning_against_doctrine_only_tree(tmp_path):
-    # 06962bb0's actual trailer: `Agari: versioning` in a tree whose only
+def test_resolve_finish_line_observed_incident_versioning_against_doctrine_only_tree(tmp_path):
+    # 06962bb0's actual trailer: `Finish-line: versioning` in a tree whose only
     # project is `doctrine` — the incident this whole plan exists for.
-    _write_agari(tmp_path / "system" / "projects", "doctrine")
+    _write_finish_line(tmp_path / "system" / "projects", "doctrine")
     assert (
-        commit_builder._resolve_agari(str(tmp_path), "versioning")
+        commit_builder._resolve_finish_line(str(tmp_path), "versioning")
         == commit_builder.DirectionalResolution.MISSING
     )
 
 
-def test_resolve_agari_token_with_dotdot_never_escapes_projects_dir(tmp_path):
+def test_resolve_finish_line_token_with_dotdot_never_escapes_projects_dir(tmp_path):
     # A file that really exists one level above system/projects/ — proves
     # a `..` token can't be used to read it.
     (tmp_path / "system" / "projects").mkdir(parents=True)
-    (tmp_path / "system" / "agari.md").write_text("# not a project\n")
+    (tmp_path / "system" / "finish_line.md").write_text("# not a project\n")
     assert (
-        commit_builder._resolve_agari(str(tmp_path), "../")
+        commit_builder._resolve_finish_line(str(tmp_path), "../")
         == commit_builder.DirectionalResolution.MISSING
     )
 
 
-def test_resolve_agari_token_with_slash_never_escapes_projects_dir(tmp_path):
-    # A decoy agari.md sitting exactly where `../doctrine` would resolve to
+def test_resolve_finish_line_token_with_slash_never_escapes_projects_dir(tmp_path):
+    # A decoy finish_line.md sitting exactly where `../doctrine` would resolve to
     # (one level above system/projects/) — proves the containment check
     # catches it even when a real file sits at the escaped path.
     (tmp_path / "system" / "projects").mkdir(parents=True)
-    _write_agari(tmp_path / "system", "doctrine")
+    _write_finish_line(tmp_path / "system", "doctrine")
     assert (
-        commit_builder._resolve_agari(str(tmp_path), "../doctrine")
+        commit_builder._resolve_finish_line(str(tmp_path), "../doctrine")
         == commit_builder.DirectionalResolution.MISSING
     )
 
@@ -4310,7 +4324,7 @@ def test_resolve_shukuba_non_md_file_matching_the_token_is_missing(tmp_path):
 
 # ── _directional_refusal — the parser and the three resolvers composed into
 #    the builder's house refusal shape: a message to print, or None to
-#    proceed. Refuses on MISSING, and on a Shukuba:/Agari: line with a
+#    proceed. Refuses on MISSING, and on a Shukuba:/Finish-line: line with a
 #    reading where its station or project belongs; RESOLVES, UNCHECKABLE and
 #    an unparseable directional all proceed. ─────────────────────────────────
 
@@ -4331,13 +4345,13 @@ def test_directional_refusal_none_when_reading_not_a_referent(tmp_path):
     "Shukuba: progress: check-names-invalid-metric-values",
     "Shukuba: aside: hygiene",
     "Shukuba: progress — x",
-    "Agari: progress: defines the done",
-    "Agari: aside: hygiene",
+    "Finish-line: progress: defines the done",
+    "Finish-line: aside: hygiene",
 ])
-def test_directional_refusal_when_shukuba_or_agari_names_nothing(tmp_path, directional):
+def test_directional_refusal_when_shukuba_or_finish_line_names_nothing(tmp_path, directional):
     # The 2026-10-24 tobiishi-open commit in a satellite wrote the first line,
     # and the panel could not place the change under its station. A Shukuba:
-    # or Agari: line names its station or project before its reading.
+    # or Finish-line: line names its station or project before its reading.
     refusal = commit_builder._directional_refusal(str(tmp_path), directional)
     assert refusal is not None
     assert refusal.splitlines()[0].startswith(_REFUSAL_PREFIX)
@@ -4346,41 +4360,41 @@ def test_directional_refusal_when_shukuba_or_agari_names_nothing(tmp_path, direc
     assert f"{form}: <" in refusal
 
 
-def test_directional_refusal_shukuba_naming_nothing_names_the_agari_fallback(tmp_path):
+def test_directional_refusal_shukuba_naming_nothing_names_the_finish_line_fallback(tmp_path):
     # A committer who wrote `Shukuba: aside:` may have no station open; the
     # refusal names the line doctrine gives that case, not only a station.
     refusal = commit_builder._directional_refusal(str(tmp_path), "Shukuba: aside: hygiene")
-    assert "Agari: <project> — " in refusal
-    agari_refusal = commit_builder._directional_refusal(str(tmp_path), "Agari: aside: hygiene")
-    assert "With no station open" not in agari_refusal
+    assert "Finish-line: <project> — " in refusal
+    finish_line_refusal = commit_builder._directional_refusal(str(tmp_path), "Finish-line: aside: hygiene")
+    assert "With no station open" not in finish_line_refusal
 
 
 @pytest.mark.parametrize("directional", [
     "Michi: aside: hygiene",
-    "Agari: none — x",
+    "Finish-line: none — x",
 ])
 def test_directional_refusal_none_for_the_forms_that_name_nothing_legally(tmp_path, directional):
     assert commit_builder._directional_refusal(str(tmp_path), directional) is None
 
 
 def test_directional_refusal_none_when_resolves(tmp_path):
-    _write_agari(tmp_path / "system" / "projects", "doctrine")
+    _write_finish_line(tmp_path / "system" / "projects", "doctrine")
     assert commit_builder._directional_refusal(
-        str(tmp_path), "Agari: doctrine — progress: x"
+        str(tmp_path), "Finish-line: doctrine — progress: x"
     ) is None
 
 
 def test_directional_refusal_none_when_uncheckable(tmp_path):
     # No system/projects/ at all — an external product repo.
     assert commit_builder._directional_refusal(
-        str(tmp_path), "Agari: doctrine — progress: x"
+        str(tmp_path), "Finish-line: doctrine — progress: x"
     ) is None
 
 
 def test_directional_refusal_message_when_missing(tmp_path):
     (tmp_path / "system" / "projects" / "doctrine").mkdir(parents=True)
     refusal = commit_builder._directional_refusal(
-        str(tmp_path), "Agari: versioning — progress: x"
+        str(tmp_path), "Finish-line: versioning — progress: x"
     )
     assert refusal is not None
     assert refusal != ""
@@ -4389,19 +4403,19 @@ def test_directional_refusal_message_when_missing(tmp_path):
 def test_directional_refusal_first_line_has_the_house_prefix(tmp_path):
     (tmp_path / "system" / "projects" / "doctrine").mkdir(parents=True)
     refusal = commit_builder._directional_refusal(
-        str(tmp_path), "Agari: versioning — progress: x"
+        str(tmp_path), "Finish-line: versioning — progress: x"
     )
     assert refusal.splitlines()[0].startswith(_REFUSAL_PREFIX)
 
 
-def test_directional_refusal_agari_names_form_and_referent_and_path(tmp_path):
+def test_directional_refusal_finish_line_names_form_and_referent_and_path(tmp_path):
     (tmp_path / "system" / "projects" / "doctrine").mkdir(parents=True)
     refusal = commit_builder._directional_refusal(
-        str(tmp_path), "Agari: versioning — progress: x"
+        str(tmp_path), "Finish-line: versioning — progress: x"
     )
-    assert "Agari" in refusal
+    assert "Finish-line" in refusal
     assert "versioning" in refusal
-    assert "system/projects/versioning/agari.md" in refusal
+    assert "system/projects/versioning/finish_line.md" in refusal
 
 
 def test_directional_refusal_michi_names_form_and_referent_and_path(tmp_path):
@@ -4431,7 +4445,7 @@ def test_directional_refusal_shukuba_names_form_referent_and_all_three_folders(t
 def test_directional_refusal_never_says_directional_required_or_removable(tmp_path):
     (tmp_path / "system" / "projects" / "doctrine").mkdir(parents=True)
     refusal = commit_builder._directional_refusal(
-        str(tmp_path), "Agari: versioning — progress: x"
+        str(tmp_path), "Finish-line: versioning — progress: x"
     )
     lowered = refusal.lower()
     assert "required" not in lowered
@@ -4443,7 +4457,7 @@ def test_directional_refusal_never_says_directional_required_or_removable(tmp_pa
 #    it found them. Runs regardless of --take-index/--allow-empty; the merge
 #    op is untouched (it takes no --directional). ───────────────────────────
 
-def test_directional_wiring_cli_bad_agari_refuses_and_names_referent(tmp_path, capsys):
+def test_directional_wiring_cli_bad_finish_line_refuses_and_names_referent(tmp_path, capsys):
     _init_repo(tmp_path)
     (tmp_path / "system" / "projects" / "doctrine").mkdir(parents=True)
     (tmp_path / "work.txt").write_text("work\n")
@@ -4454,7 +4468,7 @@ def test_directional_wiring_cli_bad_agari_refuses_and_names_referent(tmp_path, c
         "--subject", "developer: work",
         "--actor", "developer",
         "--add", "work.txt",
-        "--directional", "Agari: versioning — progress: x",
+        "--directional", "Finish-line: versioning — progress: x",
         "--surface", "Claude Code",
         "--co-authored-by", CO_AUTHORED_BY,
     ])
@@ -4478,7 +4492,7 @@ def test_directional_wiring_cli_refusal_leaves_add_unstaged_and_head_unmoved(tmp
         "--subject", "developer: work",
         "--actor", "developer",
         "--add", "work.txt",
-        "--directional", "Agari: versioning — progress: x",
+        "--directional", "Finish-line: versioning — progress: x",
         "--surface", "Claude Code",
         "--co-authored-by", CO_AUTHORED_BY,
     ])
@@ -4517,7 +4531,7 @@ def test_directional_wiring_cli_refusal_leaves_rm_target_on_disk_and_tracked(tmp
         "--subject", "developer: work",
         "--actor", "developer",
         "--rm", "keep.txt",
-        "--directional", "Agari: versioning — progress: x",
+        "--directional", "Finish-line: versioning — progress: x",
         "--surface", "Claude Code",
         "--co-authored-by", CO_AUTHORED_BY,
     ])
@@ -4531,7 +4545,7 @@ def test_directional_wiring_cli_refusal_leaves_rm_target_on_disk_and_tracked(tmp
 def test_directional_wiring_cli_good_referent_lands_canonical_trailers(tmp_path, monkeypatch):
     _init_repo(tmp_path)
     monkeypatch.setattr(commit_builder, "instance_repo_root", lambda: tmp_path)
-    _write_agari(tmp_path / "system" / "projects", "tools")
+    _write_finish_line(tmp_path / "system" / "projects", "tools")
     (tmp_path / "work.txt").write_text("work\n")
 
     exit_code = commit_builder.main([
@@ -4541,7 +4555,7 @@ def test_directional_wiring_cli_good_referent_lands_canonical_trailers(tmp_path,
         "--body", "Proof the wiring doesn't disturb a resolving referent.",
         "--actor", "developer",
         "--add", "work.txt",
-        "--directional", "Agari: tools — progress: builds it",
+        "--directional", "Finish-line: tools — progress: builds it",
         "--surface", "Claude Code",
         "--co-authored-by", CO_AUTHORED_BY,
     ])
@@ -4550,7 +4564,7 @@ def test_directional_wiring_cli_good_referent_lands_canonical_trailers(tmp_path,
     body = _commit_body(tmp_path)
     trailer_block = body.strip().split("\n\n")[-1]
     assert trailer_block.splitlines() == [
-        "Agari: tools — progress: builds it",
+        "Finish-line: tools — progress: builds it",
         "Role: Developer",
         "Surface: Claude Code",
         f"Co-Authored-By: {CO_AUTHORED_BY}",
@@ -4558,21 +4572,21 @@ def test_directional_wiring_cli_good_referent_lands_canonical_trailers(tmp_path,
 
 
 @pytest.mark.parametrize("directional", [
-    "Agari: tools — progress: defines the done",
-    "Agari: tools — aside: hygiene",
-    "Agari: none — stamps the project",
+    "Finish-line: tools — progress: defines the done",
+    "Finish-line: tools — aside: hygiene",
+    "Finish-line: none — stamps the project",
     "Michi: sharpen — serves: walks the Way",
     "Michi: aside: hygiene",
     "Michi: none — stamps the instance",
 ])
-def test_directional_wiring_cli_no_open_station_commits_with_agari_or_michi(
+def test_directional_wiring_cli_no_open_station_commits_with_finish_line_or_michi(
         tmp_path, monkeypatch, directional):
-    # With no station open, a commit names the project's Agari or the
+    # With no station open, a commit names the project's finish line or the
     # instance's Michi instead; refusing a Shukuba: line that names no
     # station must leave every one of those forms committing.
     _init_repo(tmp_path)
     monkeypatch.setattr(commit_builder, "instance_repo_root", lambda: tmp_path)
-    _write_agari(tmp_path / "system" / "projects", "tools")
+    _write_finish_line(tmp_path / "system" / "projects", "tools")
     shukuba = tmp_path / "system" / "projects" / "tools" / "journey" / "shukuba"
     shukuba.mkdir(parents=True)
     (shukuba / "README.md").write_text("# Shukuba\n")
@@ -4608,7 +4622,7 @@ def test_directional_wiring_cli_no_system_dir_at_all_is_never_refused(tmp_path):
         "--subject", "developer: work",
         "--actor", "developer",
         "--add", "work.txt",
-        "--directional", "Agari: nonexistent-project — progress: x",
+        "--directional", "Finish-line: nonexistent-project — progress: x",
         "--surface", "Claude Code",
         "--co-authored-by", CO_AUTHORED_BY,
     ])
@@ -4709,7 +4723,7 @@ def test_directional_wiring_cli_allow_empty_with_bad_referent_is_refused(tmp_pat
         "commit",
         "--subject", "developer: <key> — implementation complete",
         "--actor", "developer",
-        "--directional", "Agari: versioning — progress: x",
+        "--directional", "Finish-line: versioning — progress: x",
         "--surface", "Claude Code",
         "--co-authored-by", CO_AUTHORED_BY,
         "--allow-empty",
@@ -4732,7 +4746,7 @@ def test_directional_wiring_cli_take_index_does_not_waive_this_check(tmp_path):
         "commit",
         "--subject", "developer: work",
         "--actor", "developer",
-        "--directional", "Agari: versioning — progress: x",
+        "--directional", "Finish-line: versioning — progress: x",
         "--surface", "Claude Code",
         "--co-authored-by", CO_AUTHORED_BY,
         "--take-index",
@@ -4846,7 +4860,7 @@ def test_no_workflow_version_line_when_none():
         subject="a hand-authored commit",
         body="No workflow drove this.",
         role="PM",
-        directional="Agari: p — progress: x",
+        directional="Finish-line: p — progress: x",
         surface="Claude Code",
         co_authored_by=CO_AUTHORED_BY,
     )
@@ -5022,7 +5036,7 @@ def test_end_to_end_no_workflow_flag_omits_line(tmp_path, monkeypatch):
         "--subject", "a commit with no workflow named",
         "--body", "b", "--role", "PM",
         "--add", "f.md",
-        "--directional", "Agari: p — progress: x",
+        "--directional", "Finish-line: p — progress: x",
         "--surface", "Claude Code", "--co-authored-by", CO_AUTHORED_BY,
     ])
 
@@ -5136,6 +5150,7 @@ def _merge_with_bump(tmp_path, main_branch, spec, description="bring it in"):
         "--branch-commits", "feature: the edit",
         "--actor", "pm",
         "--merge-context", "manual",
+        "--user-invisible", "fixture only, no changelog entry",
         "--bump", spec,
         "--surface", "Claude Code",
         "--co-authored-by", CO_AUTHORED_BY,
@@ -5373,6 +5388,119 @@ def test_merge_bump_prepends_a_shell_entry_and_keeps_the_old_one(tmp_path):
     assert 'echo "hello"' in script.read_text()
 
 
+_STAMPED_SHELL = (
+    "#!/usr/bin/env bash\n#\n# hook.sh — a hook.\n#\n# Version: 1.0.0 — first\n\necho hi\n"
+)
+
+
+def test_a_shell_bump_leaves_the_change_name_out_of_the_version_note(tmp_path):
+    # The 2026-10-26 hooks merge: the seal's description ended in the change's key, and the
+    # shell form copied it into two `core/githooks/` headers. The merge subject keeps the whole
+    # description; the note in the file drops every segment the neutrality check would report.
+    description = "hooks run on the locked python — tools change 2026-10-26_hooks-run-on-the-locked-python"
+    script = tmp_path / "core/script.sh"
+    _shell_script(script, [("1.2.0", "the previous change")])
+    main_branch = _branch_with_edit(
+        tmp_path, "core/script.sh", lambda: script.write_text(
+            script.read_text().replace('echo "hi"', 'echo "hello"')
+        ),
+    )
+
+    assert _merge_with_bump(
+        tmp_path, main_branch, "core/script.sh=minor", description=description,
+    ) == 0
+    lines = script.read_text().splitlines()
+    assert "# Version: 1.3.0 — hooks run on the locked python" in lines
+    assert "2026-10-26_hooks-run-on-the-locked-python" not in script.read_text()
+    subject = subprocess.run(
+        ["git", "-C", str(tmp_path), "log", "-1", "--format=%s"],
+        capture_output=True, text=True, check=True,
+    ).stdout
+    assert description in subject
+
+
+def test_a_note_that_is_only_a_change_name_leaves_a_bare_version_line(tmp_path):
+    _scope_repo(tmp_path, {"core/githooks/hook.sh": _STAMPED_SHELL}, instance=True)
+
+    note = commit_builder._version_note(
+        str(tmp_path), "core/githooks/hook.sh", "2026-10-26_some-slug"
+    )
+
+    assert note == ""
+
+
+@pytest.mark.parametrize("repo_sub, path", [
+    ("", "./core/githooks/hook.sh"),
+    ("system", "../core/githooks/hook.sh"),
+])
+def test_a_path_spelled_through_dot_segments_is_still_cleaned(tmp_path, repo_sub, path):
+    _scope_repo(tmp_path, {"core/githooks/hook.sh": _STAMPED_SHELL,
+                           "system/README.md": "x\n"}, instance=True)
+
+    note = commit_builder._version_note(
+        str(tmp_path / repo_sub) if repo_sub else str(tmp_path), path,
+        "the hooks move — tools change 2026-10-26_some-slug",
+    )
+
+    assert note == "the hooks move"
+
+
+def test_a_project_path_is_cleaned_from_a_subdirectory_repo(tmp_path):
+    # A path into one of the instance's projects is the check's host-path kind; the names are
+    # the top's `system/projects/`, never `--repo`'s, which may be a subdirectory.
+    _scope_repo(tmp_path, {"core/githooks/hook.sh": _STAMPED_SHELL,
+                           "system/projects/alpha/project.md": "x\n"}, instance=True)
+
+    note = commit_builder._version_note(
+        str(tmp_path / "core"), "githooks/hook.sh",
+        "the hooks move — see system/projects/alpha/project.md",
+    )
+
+    assert note == "the hooks move"
+
+
+@pytest.mark.parametrize("description, note", [
+    ("hooks run on the locked python 2026-10-26_x", "hooks run on the locked python"),
+    ("hooks run -- 2026-10-26_x", "hooks run --"),
+    ("run (2026-10-26_x) fixed", "run () fixed"),
+])
+def test_a_name_not_set_off_by_a_dash_drops_only_the_name(tmp_path, description, note):
+    # The seal's descriptions set the key off with ` — `, but nothing enforces it. Where no
+    # segment survives, only the reported names go, so the stack keeps a note.
+    _scope_repo(tmp_path, {"core/githooks/hook.sh": _STAMPED_SHELL}, instance=True)
+
+    assert commit_builder._version_note(
+        str(tmp_path), "core/githooks/hook.sh", description
+    ) == note
+
+
+def test_a_note_outside_the_scanned_roots_is_kept_whole(tmp_path):
+    _scope_repo(tmp_path, {"system/tools/hook.sh": _STAMPED_SHELL}, instance=True)
+
+    note = commit_builder._version_note(
+        str(tmp_path), "system/tools/hook.sh", "the hooks move — tools change 2026-10-26_some-slug"
+    )
+
+    assert note == "the hooks move — tools change 2026-10-26_some-slug"
+
+
+def test_a_non_shell_bump_is_untouched_by_the_description(tmp_path):
+    # Only the shell form writes the description into the file; the other four move a bare
+    # value in place, so a dated stem in the description lands nowhere it could be reported.
+    tool = tmp_path / "core/tool.py"
+    _python_module(tool, "1.0.0")
+    main_branch = _branch_with_edit(
+        tmp_path, "core/tool.py",
+        lambda: _python_module(tool, "1.0.0", preamble="\n# an added behaviour\n"),
+    )
+
+    assert _merge_with_bump(
+        tmp_path, main_branch, "core/tool.py=patch",
+        description="tools change 2026-10-26_hooks-run-on-the-locked-python",
+    ) == 0
+    assert '__version__ = "1.0.1"' in tool.read_text()
+
+
 def test_a_shell_bump_folds_a_multiline_description_onto_one_line(tmp_path):
     # A comment line is one line. A description carrying a newline would break
     # the file it is written into, so whitespace is collapsed rather than
@@ -5589,6 +5717,21 @@ def test_markers_reports_one_path_form_line_and_semver(tmp_path, capsys):
     assert f"line {index + 1}" in out
 
 
+def test_markers_reads_a_crlf_frontmatter_files_marker(tmp_path, capsys):
+    """The real reader translates `\\r\\n` to `\\n`, so a frontmatter block whose
+    lines end `\\r\\n` still closes on `---` and its marker is found. A reader
+    that kept the `\\r` would stop `lines.index("---", 1)` matching and answer
+    "no marker"."""
+    target = tmp_path / "crlf.md"
+    target.write_bytes(b'---\r\nversion: "1.2.3"\r\n---\r\n# Title\r\n')
+
+    exit_code = commit_builder.main(["markers", str(target)])
+
+    assert exit_code == 0
+    out = capsys.readouterr().out.strip("\n")
+    assert out == f"{target}: frontmatter line 2 semver 1.2.3"
+
+
 def test_markers_reported_line_agrees_with_grep_n(tmp_path, capsys):
     """The whole point of the subcommand is that a session stops grepping and
     asks the builder instead. If the two disagree about the line, there are
@@ -5737,15 +5880,49 @@ def test_markers_reports_an_absent_path_without_raising(tmp_path, capsys):
 def test_markers_reports_an_unreadable_path_without_raising(tmp_path, capsys):
     target = tmp_path / "locked.py"
     target.write_text('__version__ = "1.0.0"\n')
-    target.chmod(0o000)
-    try:
-        exit_code = commit_builder.main(["markers", str(target)])
-    finally:
-        target.chmod(0o644)
+    asked: list[Path] = []
+
+    def refusing_reader(path: Path) -> str:
+        asked.append(path)
+        raise PermissionError(13, "Permission denied", str(path))
+
+    exit_code = commit_builder._main(
+        ["markers", str(target)], read_body_file=commit_builder._read_body_file,
+        read_marker_text=refusing_reader, gate_run_records=None,
+        branch_observer=commit_builder.GitBranchObserver(),
+    )
 
     assert exit_code == 0
     out = capsys.readouterr().out.strip("\n")
     assert out == f"{target}: no marker"
+    assert asked == [target]
+
+
+def test_locate_marker_reads_the_text_its_reader_returns(tmp_path):
+    """A reader returns the file's whole text, and the lookup reads that text —
+    not the file on disk. The disk says 1.0.0 and the reader says 2.0.0, so a
+    lookup that asked the reader and then read the file itself answers 1.0.0."""
+    target = tmp_path / "tool.py"
+    target.write_text('__version__ = "1.0.0"\n')
+
+    def handed_reader(path: Path) -> str:
+        return 'import os\n__version__ = "2.0.0"\n'
+
+    located = commit_builder._locate_marker(target, read_marker_text=handed_reader)
+
+    assert located == ("python", 1, "2.0.0")
+
+
+def test_locate_marker_answers_none_when_its_reader_cannot_decode(tmp_path):
+    """A reader raises `UnicodeDecodeError` for bytes that are not UTF-8, and the
+    lookup answers that None in the same place it answers an unreadable file."""
+    target = tmp_path / "blob.py"
+    target.write_text('__version__ = "1.0.0"\n')
+
+    def undecodable_reader(path: Path) -> str:
+        raise UnicodeDecodeError("utf-8", b"\xff", 0, 1, "invalid start byte")
+
+    assert commit_builder._locate_marker(target, read_marker_text=undecodable_reader) is None
 
 
 def test_markers_reports_a_mixed_list_without_short_circuiting(tmp_path, capsys):
@@ -6229,7 +6406,7 @@ def test_advance_message_carries_no_role_directional_or_provenance_lines(tmp_pat
     body = _commit_body(tmp_path)
     assert "Role:" not in body
     assert "Shukuba:" not in body
-    assert "Agari:" not in body
+    assert "Finish-line:" not in body
     assert "Michi:" not in body
     assert "Skill-Version:" not in body
     assert "Prompt-Version:" not in body
@@ -6751,7 +6928,9 @@ def test_merge_run_at_max_lands_one_max_trailer_after_co_authored_by(tmp_path):
     exit_code = commit_builder.main([
         "--repo", str(tmp_path), "merge", "--branch", "feature",
         "--target-branch", main_branch, "--description", "bring in the row",
-        "--actor", "pm", "--merge-context", "manual", "--surface", "Claude Code",
+        "--actor", "pm", "--merge-context", "manual",
+        "--user-invisible", "fixture only, no changelog entry",
+        "--surface", "Claude Code",
         "--co-authored-by", CO_AUTHORED_BY, "--reasoning-effort", "max",
     ])
 
@@ -7678,7 +7857,7 @@ def test_builder_refusals_retain_body_file(tmp_path, refusal):
         subprocess.run(["git", "-C", str(repo), "add", "foreign.txt"], check=True)
     if refusal == "bad directional":
         (repo / "system" / "projects" / "doctrine").mkdir(parents=True)
-        directional = "Agari: versioning — progress: x"
+        directional = "Finish-line: versioning — progress: x"
     source = _body_file(scratch, "keep me `safe`\n")
     before = _head(repo)
 
@@ -8644,3 +8823,663 @@ def test_check_directional_changes_nothing(tmp_path):
     ])
 
     assert subprocess.run(status, capture_output=True, text=True, check=True).stdout == before
+
+
+# ── a merge to `main` declares its changelog line ───────────────────────────
+# Each test builds real disposable repositories and runs `merge` through the CLI entry point
+# (`commit_builder.main`). A refusal is judged by the target tip, the index, every working-tree
+# byte and MERGE_HEAD; a landing by the two ordered parents of `main`'s head. A positive scenario
+# the previous builder already accepts carries an independent refusing control, so the test is red
+# on that builder too.
+
+_CL_REFUSAL_PREFIX = "commit_builder: refusing to merge"
+_CL_BASE = "# Changelog\n\n## [Unreleased]\n\n## [0.4.0]\n\n- old entry\n"
+_CL_WITH_ENTRY = "# Changelog\n\n## [Unreleased]\n\n- new entry\n\n## [0.4.0]\n\n- old entry\n"
+_CL_WITH_RELEASED_ENTRY = (
+    "# Changelog\n\n## [Unreleased]\n\n## [0.4.0]\n\n- old entry\n- late entry\n"
+)
+
+
+def _cl_git(repo: Path, *args: str, check: bool = True) -> str:
+    return subprocess.run(
+        ["git", "-C", str(repo), *args], capture_output=True, text=True, check=check,
+    ).stdout.strip()
+
+
+def _cl_apply(repo: Path, edits) -> None:
+    for edit in edits:
+        if edit[0] == "w":
+            target = repo / edit[1]
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(edit[2])
+        elif edit[0] == "rm":
+            (repo / edit[1]).unlink()
+        elif edit[0] == "mv":
+            (repo / edit[2]).parent.mkdir(parents=True, exist_ok=True)
+            (repo / edit[1]).rename(repo / edit[2])
+    _cl_git(repo, "add", "-A")
+
+
+def _cl_repo(tmp_path: Path, name: str, *, base=(), branch=(), on_main=()) -> Path:
+    """A repo whose `main` holds `base` and whose `feature` carries `branch` as one commit."""
+    repo = tmp_path / name
+    repo.mkdir()
+    _cl_git(repo, "init", "-q", "-b", "main")
+    _cl_git(repo, "config", "user.name", "Test")
+    _cl_git(repo, "config", "user.email", "test@example.com")
+    _cl_git(repo, "config", "commit.gpgsign", "false")
+    (repo / "seed.txt").write_text("seed\n")
+    (repo / "kensaiapp.md").write_text("# throwaway instance\n")
+    _cl_apply(repo, [("w", path, text) for path, text in base])
+    _cl_git(repo, "add", "-A")
+    _cl_git(repo, "commit", "-q", "-m", "seed")
+    _cl_git(repo, "checkout", "-q", "-b", "feature")
+    _cl_apply(repo, branch)
+    _cl_git(repo, "commit", "-q", "--allow-empty", "-m", "feature: edit")
+    _cl_git(repo, "checkout", "-q", "main")
+    if on_main:
+        _cl_apply(repo, on_main)
+        _cl_git(repo, "commit", "-q", "-m", "main: edit")
+    return repo
+
+
+def _cl_state(repo: Path) -> tuple:
+    """Everything a refused merge must leave alone: the tip, the index, every worktree byte."""
+    tree = {}
+    for path in sorted(repo.rglob("*")):
+        relative = path.relative_to(repo)
+        if ".git" in relative.parts or not path.is_file():
+            continue
+        tree[str(relative)] = path.read_bytes()
+    return (
+        _cl_git(repo, "rev-parse", "refs/heads/main"),
+        _cl_git(repo, "ls-files", "-s"),
+        (repo / ".git" / "index").read_bytes(),
+        tree,
+        (repo / ".git" / "MERGE_HEAD").exists(),
+    )
+
+
+def _cl_argv(repo: Path, *extra: str, branch="feature", target="main", check=False,
+             commits=("feature: edit",), actor=("--actor", "pm")) -> list[str]:
+    argv = ["--repo", str(repo), "merge"]
+    if check:
+        argv.append("--check-only")
+    argv += [
+        "--branch", branch, "--target-branch", target, "--description", "bring it in",
+        *actor, "--merge-context", "manual", "--surface", "Claude Code",
+    ]
+    for commit in commits:
+        argv += ["--branch-commits", commit]
+    return argv + list(extra)
+
+
+def _cl_run(repo: Path, capsys, *extra: str, **options) -> tuple[int, str, str]:
+    expected_parents = [
+        _cl_git(repo, "rev-parse", "HEAD"),
+        _cl_git(repo, "rev-parse", options.get("branch", "feature")),
+    ]
+    capsys.readouterr()
+    try:
+        code = commit_builder.main(_cl_argv(repo, *extra, **options))
+    except SystemExit as refusal:  # argparse rejecting an option is a verdict, not a crash
+        code = refusal.code
+    captured = capsys.readouterr()
+    if code == 0 and not options.get("check", False):
+        parents = _cl_git(repo, "rev-list", "--parents", "-n", "1", "HEAD").split()[1:]
+        assert parents == expected_parents
+    return code, captured.out, captured.err
+
+
+def _cl_assert_landed(repo: Path, branch: str = "feature", into: str = "main") -> None:
+    parents = _cl_git(repo, "rev-list", "--parents", "-n", "1", into).split()[1:]
+    assert len(parents) == 2
+    assert parents[1] == _cl_git(repo, "rev-parse", branch)
+
+
+def _cl_assert_refused(repo: Path, before: tuple, code: int, out: str, err: str) -> None:
+    assert code == 1
+    assert out == ""
+    assert err.startswith(_CL_REFUSAL_PREFIX)
+    assert _cl_state(repo) == before
+
+
+def _cl_missing_entry_text(branch: str = "feature") -> str:
+    return (
+        f"commit_builder: refusing to merge {branch} into main — the branch adds no entry "
+        "under ## [Unreleased] in any CHANGELOG.md.\n"
+        "  An entry counts when a commit the branch carries since it left main adds it under "
+        "## [Unreleased], in a file named exactly CHANGELOG.md, and it is not blank and does "
+        "not start with #.\n"
+        f"  To merge, add the change's entry under ## [Unreleased] in a CHANGELOG.md and "
+        f"commit it on {branch}.\n"
+        "  If the merge changes nothing a user sees, pass --user-invisible \"<reason>\" "
+        "instead, with a one-line reason the merge commit records.\n"
+    )
+
+
+_CL_CONTROL_BRANCH = (("w", "a.txt", "a\n"),)
+
+
+def _cl_expect(tmp_path, capsys, name, *, base=(), branch, lands: bool, on_main=(), config=(),
+               **options):
+    """One scenario in its own repository, the same scenario under `--check-only` in an
+    equivalent one (CP-1028: the same verdict and bytes, and nothing written), plus its refusing
+    control in a third. `config` is repository-local Git configuration set before the run."""
+    def built(suffix: str, edits) -> Path:
+        made = _cl_repo(tmp_path, f"{name}{suffix}", base=base, branch=edits, on_main=on_main)
+        for key, value in config:
+            _cl_git(made, "config", key, value)
+        return made
+
+    repo = built("", branch)
+    before = _cl_state(repo)
+    merged = _cl_run(repo, capsys, **options)
+    code, out, err = merged
+    if lands:
+        assert (code, err) == (0, ""), f"{name}: {err}"
+        _cl_assert_landed(repo)
+    else:
+        _cl_assert_refused(repo, before, code, out, err)
+        assert err == _cl_missing_entry_text()
+    twin = built("-check", branch)
+    twin_before = _cl_state(twin)
+    assert _cl_run(twin, capsys, check=True, **options) == merged, f"{name}: --check-only"
+    assert _cl_state(twin) == twin_before
+    control = built("-control", _CL_CONTROL_BRANCH)
+    control_before = _cl_state(control)
+    code, out, err = _cl_run(control, capsys, **options)
+    _cl_assert_refused(control, control_before, code, out, err)
+
+
+def test_changelog_missing_entry_refuses_main_merge(tmp_path, capsys):
+    repo = _cl_repo(tmp_path, "r", branch=(("w", "a.txt", "a\n"),))
+    before = _cl_state(repo)
+
+    code, out, err = _cl_run(repo, capsys)
+
+    _cl_assert_refused(repo, before, code, out, err)
+    assert err == _cl_missing_entry_text()
+    for needle in ("feature", "CHANGELOG.md", "## [Unreleased]", "--user-invisible"):
+        assert needle in err
+    qualifying = _cl_repo(tmp_path, "q", base=(("CHANGELOG.md", _CL_BASE),),
+                          branch=(("w", "CHANGELOG.md", _CL_WITH_ENTRY),))
+    code, _, err = _cl_run(qualifying, capsys)
+    assert (code, err) == (0, "")
+
+
+def test_changelog_unreleased_addition_lands(tmp_path, capsys):
+    scenarios = {
+        "root": ((("CHANGELOG.md", _CL_BASE),), (("w", "CHANGELOG.md", _CL_WITH_ENTRY),)),
+        "nested": (
+            (("core/tools/CHANGELOG.md", _CL_BASE),),
+            (("w", "core/tools/CHANGELOG.md", _CL_WITH_ENTRY),),
+        ),
+        "new": ((), (("w", "products/x/CHANGELOG.md", "## [Unreleased]\n\n- first\n"),)),
+        "changed": (
+            (("CHANGELOG.md", "## [Unreleased]\n\n- old\n"),),
+            (("w", "CHANGELOG.md", "## [Unreleased]\n\n- rewritten\n"),),
+        ),
+        "several": (
+            (("a/CHANGELOG.md", _CL_BASE), ("b/CHANGELOG.md", _CL_BASE)),
+            (
+                ("w", "a/CHANGELOG.md", _CL_WITH_RELEASED_ENTRY),
+                ("w", "b/CHANGELOG.md", _CL_WITH_ENTRY),
+            ),
+        ),
+        "spaces": (
+            (("my dir/CHANGELOG.md", _CL_BASE),),
+            (("w", "my dir/CHANGELOG.md", _CL_WITH_ENTRY),),
+        ),
+    }
+    for name, (base, branch) in scenarios.items():
+        _cl_expect(tmp_path, capsys, name, base=base, branch=branch, lands=True)
+
+
+def test_changelog_released_addition_does_not_count(tmp_path, capsys):
+    _cl_expect(tmp_path, capsys, "released", base=(("CHANGELOG.md", _CL_BASE),),
+               branch=(("w", "CHANGELOG.md", _CL_WITH_RELEASED_ENTRY),), lands=False)
+    _cl_expect(tmp_path, capsys, "unreleased", base=(("CHANGELOG.md", _CL_BASE),),
+               branch=(("w", "CHANGELOG.md", _CL_WITH_ENTRY),), lands=True)
+
+
+@pytest.mark.parametrize("name", ["NOTES.md", "changelog.md", "CHANGELOG.txt", "CHANGELOG.md.bak"])
+def test_changelog_other_basenames_do_not_count(tmp_path, capsys, name):
+    _cl_expect(tmp_path, capsys, "other", base=((name, _CL_BASE),),
+               branch=(("w", name, _CL_WITH_ENTRY),), lands=False)
+
+
+@pytest.mark.parametrize(
+    "name,text",
+    [
+        ("whitespace", "# Changelog\n\n## [Unreleased]\n   \n\t\n\n## [0.4.0]\n\n- old entry\n"),
+        ("heading", "# Changelog\n\n## [Unreleased]\n\n### Added\n\n## [0.4.0]\n\n- old entry\n"),
+        ("no-section", "# Changelog\n\n- entry with no section\n"),
+    ],
+)
+def test_changelog_only_blank_or_heading_additions_refuse(tmp_path, capsys, name, text):
+    _cl_expect(tmp_path, capsys, name, base=(("CHANGELOG.md", "# Changelog\n"),),
+               branch=(("w", "CHANGELOG.md", text),), lands=False)
+    _cl_expect(tmp_path, capsys, f"{name}-ok", base=(("CHANGELOG.md", "# Changelog\n"),),
+               branch=(("w", "CHANGELOG.md", "# Changelog\n\n## [Unreleased]\n\n- real\n"),),
+               lands=True)
+
+
+@pytest.mark.parametrize(
+    "name,text,lands",
+    [
+        ("trailing-space", "# Changelog\n\n## [Unreleased]  \n\n- e1\n", True),
+        ("leading-space", "# Changelog\n\n ## [Unreleased]\n\n- e2\n", False),
+        ("wrong-case", "# Changelog\n\n## [unreleased]\n\n- e3\n", False),
+        ("after-release", "# Changelog\n\n## [Unreleased]\n\n## [0.4.0]\n\n- e4\n", False),
+        ("after-h1", "# Changelog\n\n## [Unreleased]\n\n# Other\n\n- e5\n", False),
+        ("under-h3", "# Changelog\n\n## [Unreleased]\n\n### Added\n\n- e6\n", True),
+        ("indented-text", "# Changelog\n\n## [Unreleased]\n\n   indented e7\n", True),
+        ("indented-hash", "# Changelog\n\n## [Unreleased]\n\n  # e8\n", True),
+        ("hash-start", "# Changelog\n\n## [Unreleased]\n\n#e9\n", False),
+    ],
+)
+def test_changelog_literal_section_boundaries(tmp_path, capsys, name, text, lands):
+    _cl_expect(tmp_path, capsys, name, base=(("CHANGELOG.md", "# Changelog\n"),),
+               branch=(("w", "CHANGELOG.md", text),), lands=lands)
+
+
+@pytest.mark.parametrize(
+    "config",
+    [(), (("diff.interHunkContext", "3"),),
+     (("diff.interHunkContext", "3"), ("diff.suppressBlankEmpty", "true"))],
+    ids=["default-diff", "inter-hunk-context", "suppress-blank-empty"],
+)
+def test_changelog_unchanged_lines_never_count_as_added(tmp_path, capsys, config):
+    # CP-1024 counts added lines only, and an entry already present at the merge base is not one.
+    # The branch adds a heading and a blank line on either side of an existing entry, so a diff
+    # that fuses the two edits into one hunk shows the entry as context, never as added. The
+    # repository's own diff configuration must not change the verdict.
+    base = (("CHANGELOG.md",
+             "# Changelog\n\n## [Unreleased]\n\n- existing entry\n\n## [0.4.0]\n\n- old\n"),)
+    _cl_expect(
+        tmp_path, capsys, "around-existing", base=base, config=config,
+        branch=(("w", "CHANGELOG.md",
+                 "# Changelog\n\n## [Unreleased]\n### Added\n- existing entry\n\n\n"
+                 "## [0.4.0]\n\n- old\n"),),
+        lands=False,
+    )
+    _cl_expect(
+        tmp_path, capsys, "beside-existing", base=base, config=config,
+        branch=(("w", "CHANGELOG.md",
+                 "# Changelog\n\n## [Unreleased]\n### Added\n- existing entry\n- new entry\n\n"
+                 "## [0.4.0]\n\n- old\n"),),
+        lands=True,
+    )
+    # A blank unchanged line between the two edits still holds its place, so the entry after
+    # it is read at its own line, not at the blank one above it.
+    _cl_expect(
+        tmp_path, capsys, "after-blank-context", base=base, config=config,
+        branch=(("w", "CHANGELOG.md",
+                 "# Changelog\n\n## [Unreleased]\n### Added\n- existing entry\n\n- new entry\n"
+                 "## [0.4.0]\n\n- old\n"),),
+        lands=True,
+    )
+
+
+def test_changelog_removal_or_pure_rename_does_not_count(tmp_path, capsys):
+    two_entries = "## [Unreleased]\n\n- one\n- two\n"
+    _cl_expect(tmp_path, capsys, "removed-entry", base=(("CHANGELOG.md", two_entries),),
+               branch=(("w", "CHANGELOG.md", "## [Unreleased]\n\n- one\n"),), lands=False)
+    _cl_expect(tmp_path, capsys, "removed-file", base=(("CHANGELOG.md", two_entries),),
+               branch=(("rm", "CHANGELOG.md"),), lands=False)
+    _cl_expect(tmp_path, capsys, "pure-move", base=(("docs/CHANGELOG.md", two_entries),),
+               branch=(("mv", "docs/CHANGELOG.md", "CHANGELOG.md"),), lands=False)
+    _cl_expect(tmp_path, capsys, "pure-rename-in", base=(("docs/NOTES.md", two_entries),),
+               branch=(("mv", "docs/NOTES.md", "docs/CHANGELOG.md"),), lands=False)
+    _cl_expect(
+        tmp_path, capsys, "modified-rename", base=(("docs/CHANGELOG.md", two_entries),),
+        branch=(
+            ("mv", "docs/CHANGELOG.md", "CHANGELOG.md"),
+            ("w", "CHANGELOG.md", two_entries + "- three\n"),
+        ),
+        lands=True,
+    )
+
+
+def test_changelog_only_named_branch_commits_count(tmp_path, capsys):
+    old = (("CHANGELOG.md", "## [Unreleased]\n\n- old\n"),)
+    _cl_expect(tmp_path, capsys, "old-entry", base=old, branch=_CL_CONTROL_BRANCH, lands=False)
+    _cl_expect(tmp_path, capsys, "main-only", base=(("CHANGELOG.md", "## [Unreleased]\n"),),
+               branch=_CL_CONTROL_BRANCH,
+               on_main=(("w", "CHANGELOG.md", "## [Unreleased]\n\n- on main\n"),), lands=False)
+
+    for check in (False, True):
+        dirty = _cl_repo(tmp_path, f"dirty-{check}", base=(("CHANGELOG.md", "## [Unreleased]\n"),),
+                         branch=_CL_CONTROL_BRANCH)
+        (dirty / "CHANGELOG.md").write_text("## [Unreleased]\n\n- staged\n")
+        _cl_git(dirty, "add", "CHANGELOG.md")
+        (dirty / "seed.txt").write_text("unstaged\n")
+        before = _cl_state(dirty)
+        code, out, err = _cl_run(dirty, capsys, check=check)
+        _cl_assert_refused(dirty, before, code, out, err)
+        assert err == _cl_missing_entry_text()
+
+    # The checkout is a third branch that itself holds an entry; the named branch decides.
+    for check in (False, True):
+        repo = _cl_repo(tmp_path, f"named-{check}", base=(("CHANGELOG.md", "## [Unreleased]\n"),),
+                        branch=_CL_CONTROL_BRANCH)
+        _cl_git(repo, "checkout", "-q", "-b", "entry", "main")
+        (repo / "CHANGELOG.md").write_text("## [Unreleased]\n\n- on entry\n")
+        _cl_git(repo, "commit", "-qam", "entry: write it")
+        _cl_git(repo, "checkout", "-q", "-b", "side", "main")
+        (repo / "docs").mkdir()
+        (repo / "docs" / "CHANGELOG.md").write_text("## [Unreleased]\n\n- on side\n")
+        _cl_git(repo, "add", "docs/CHANGELOG.md")
+        _cl_git(repo, "commit", "-qm", "side: write it")
+        before = _cl_state(repo)
+        code, out, err = _cl_run(repo, capsys, branch="feature", check=check)
+        assert code == 1 and out == "" and err == _cl_missing_entry_text()
+        assert _cl_state(repo) == before
+        code, _, err = _cl_run(repo, capsys, branch="entry", check=check)
+        assert (code, err) == (0, "")
+        if check:
+            assert _cl_state(repo) == before
+        else:
+            _cl_assert_landed(repo, branch="entry", into="side")
+
+
+def test_changelog_what_left_is_never_a_candidate(tmp_path, capsys):
+    # The refusal is asserted through the plain entry point first, so the contract itself is what
+    # fails on a builder without it, ahead of the observer seam below.
+    plain = _cl_repo(
+        tmp_path, "wl-plain", base=(("docs/what_left.md", "## [Unreleased]\n\n- item\n"),),
+        branch=(("w", "docs/what_left.md", "## [Unreleased]\n\n- item\n- more\n"),),
+    )
+    plain_before = _cl_state(plain)
+    code, out, err = _cl_run(plain, capsys)
+    _cl_assert_refused(plain, plain_before, code, out, err)
+
+    class Recording(commit_builder.GitBranchObserver):
+        def __init__(self):
+            self.read: list[str] = []
+
+        def branch_file_lines(self, repo, branch, path):
+            self.read.append(path)
+            return super().branch_file_lines(repo, branch, path)
+
+    repo = _cl_repo(
+        tmp_path, "wl", base=(("docs/what_left.md", "## [Unreleased]\n\n- item\n"),),
+        branch=(("w", "docs/what_left.md", "## [Unreleased]\n\n- item\n- more\n"),),
+    )
+    before = _cl_state(repo)
+    observer = Recording()
+    capsys.readouterr()
+
+    code = commit_builder._main(
+        _cl_argv(repo), read_body_file=commit_builder._read_body_file,
+        read_marker_text=commit_builder._read_marker_text,
+        gate_run_records=None, branch_observer=observer,
+    )
+
+    captured = capsys.readouterr()
+    _cl_assert_refused(repo, before, code, captured.out, captured.err)
+    assert observer.read == []
+    assert not (repo / "CHANGELOG.md").exists()
+
+
+def test_changelog_user_invisible_lands_and_is_recorded(tmp_path, capsys):
+    plain = _cl_repo(tmp_path, "plain", branch=_CL_CONTROL_BRANCH)
+    code, _, err = _cl_run(plain, capsys)
+    assert code == 1 and err.startswith(_CL_REFUSAL_PREFIX)
+
+    repo = _cl_repo(tmp_path, "r", branch=_CL_CONTROL_BRANCH)
+    code, _, err = _cl_run(repo, capsys, "--user-invisible", "test fixtures only",
+                           commits=("feature: one", "feature: two"))
+    assert (code, err) == (0, "")
+    _cl_assert_landed(repo)
+    lines = _cl_git(repo, "log", "-1", "--format=%B", "main").splitlines()
+    assert lines[0] == "merge: feature → main — bring it in"
+    assert lines[1:5] == [
+        "", "-> feature: one", "-> feature: two", "User-invisible: test fixtures only",
+    ]
+    assert lines[5] == ""
+    assert lines[6].startswith("Merge-Authorized: ")
+    assert lines[7] == "Surface: Claude Code"
+
+    bare = _cl_repo(tmp_path, "bare", branch=_CL_CONTROL_BRANCH)
+    code, _, _ = _cl_run(bare, capsys, "--user-invisible", "no entries", commits=())
+    assert code == 0
+    assert _cl_git(bare, "log", "-1", "--format=%B", "main").splitlines()[1:3] == [
+        "", "User-invisible: no entries",
+    ]
+
+    both = _cl_repo(tmp_path, "both", base=(("CHANGELOG.md", _CL_BASE),),
+                    branch=(("w", "CHANGELOG.md", _CL_WITH_ENTRY),))
+    code, _, _ = _cl_run(both, capsys, "--user-invisible", "also declared")
+    assert code == 0
+    assert "User-invisible: also declared" in _cl_git(both, "log", "-1", "--format=%B", "main")
+
+
+def _cl_conflicted_repo(tmp_path: Path, name: str) -> Path:
+    repo = _cl_repo(
+        tmp_path, name, base=(("core/registry.md", "base row\n"),),
+        branch=(("w", "core/registry.md", "feature row\n"),),
+        on_main=(("w", "core/registry.md", "main row\n"),),
+    )
+    _versioned(repo / "core/doctrine.md", "1.42.0")
+    _cl_git(repo, "add", "core/doctrine.md")
+    _cl_git(repo, "commit", "-q", "-m", "seed the versioned file")
+    return repo
+
+
+def test_changelog_reason_survives_real_git_cleanup(tmp_path, capsys):
+    padded = "  padded reason  "
+    expected = f"User-invisible: {padded}"
+
+    ordinary = _cl_repo(tmp_path, "ordinary", branch=_CL_CONTROL_BRANCH)
+    _cl_git(ordinary, "config", "commit.cleanup", "strip")
+    code, _, err = _cl_run(ordinary, capsys, "--user-invisible", padded)
+    assert (code, err) == (0, "")
+    assert expected in _cl_git(ordinary, "log", "-1", "--format=%B", "main").split("\n")
+    assert _cl_git(ordinary, "log", "-1", "--format=%B", "main").count("\n" + expected + "\n") == 1
+
+    bumped = _cl_conflicted_repo(tmp_path, "bumped")
+    _cl_git(bumped, "config", "commit.cleanup", "strip")
+    code, _, _ = _cl_run(bumped, capsys, "--user-invisible", padded,
+                         "--bump", "core/doctrine.md=minor")
+    assert code != 0 and (bumped / ".git" / "MERGE_HEAD").exists()
+    (bumped / "core/registry.md").write_text("resolved row\n")
+    _cl_git(bumped, "add", "core/registry.md")
+    code, _, err = _cl_run(bumped, capsys, "--user-invisible", padded,
+                           "--bump", "core/doctrine.md=minor")
+    assert (code, err) == (0, "")
+    _cl_assert_landed(bumped)
+    body = _cl_git(bumped, "log", "-1", "--format=%B", "main")
+    assert ("\n" + expected + "\n") in body
+    assert 'version: "1.43.0"' in (bumped / "core/doctrine.md").read_text()
+    bump_log = _cl_git(bumped, "log", "main", "--format=%s", "--", "core/doctrine.md")
+    assert bump_log.count("merge:") == 1
+
+
+def test_changelog_declaration_skips_diff_observation(tmp_path, capsys, monkeypatch):
+    log = tmp_path / "git-calls.log"
+    shim_dir = tmp_path / "shim"
+    shim_dir.mkdir()
+    real_git = shutil.which("git")
+    shim = shim_dir / "git"
+    shim.write_text(f'#!/bin/sh\nprintf \'%s\\n\' "$*" >> "{log}"\nexec "{real_git}" "$@"\n')
+    shim.chmod(0o755)
+    monkeypatch.setenv("PATH", f"{shim_dir}:{os.environ['PATH']}")
+
+    def observed(repo, *extra, **options):
+        log.write_text("")
+        code, _, err = _cl_run(repo, capsys, *extra, **options)
+        return code, err, log.read_text().splitlines()
+
+    declared = _cl_repo(tmp_path, "declared", branch=_CL_CONTROL_BRANCH)
+    code, err, calls = observed(declared, "--user-invisible", "nothing visible")
+    assert (code, err) == (0, "")
+    _cl_assert_landed(declared)
+    assert not [
+        call for call in calls
+        if " diff " in f" {call} " or "cat-file" in call or " show " in f" {call} "
+    ]
+
+    off_main = _cl_repo(tmp_path, "off-main", branch=_CL_CONTROL_BRANCH)
+    code, err, calls = observed(off_main, "--user-invisible", "nothing visible", target="elsewhere")
+    assert code == 0
+    assert not [call for call in calls if " diff " in f" {call} "]
+
+    bumped = _cl_conflicted_repo(tmp_path, "bumped")
+    code, _, calls = observed(bumped, "--user-invisible", "nothing visible",
+                              "--bump", "core/doctrine.md=minor")
+    assert not [call for call in calls if " diff " in f" {call} " and "main...feature" in call]
+
+    # The control: with no declaration, the same shim does see the diff observation.
+    undeclared = _cl_repo(tmp_path, "undeclared", branch=_CL_CONTROL_BRANCH)
+    code, err, calls = observed(undeclared)
+    assert code == 1
+    assert [call for call in calls if " diff " in f" {call} "]
+
+
+@pytest.mark.parametrize("target", ["main", "feature-x"])
+@pytest.mark.parametrize("with_entry", [False, True])
+def test_changelog_invalid_reason_refuses_without_effects(tmp_path, capsys, target, with_entry):
+    base = (("CHANGELOG.md", _CL_BASE),) if with_entry else ()
+    branch = (("w", "CHANGELOG.md", _CL_WITH_ENTRY),) if with_entry else _CL_CONTROL_BRANCH
+    blank = (
+        f"commit_builder: refusing to merge feature into {target} — --user-invisible was given "
+        "a blank reason.\n  Give a one-line reason that says why the merge changes nothing a "
+        "user sees.\n"
+    )
+    line_break = (
+        f"commit_builder: refusing to merge feature into {target} — the --user-invisible "
+        "reason contains a line break.\n  Give the reason on one line.\n"
+    )
+    cases = [("", blank), ("   ", blank), ("\t \t", blank), ("\n", blank), ("\r", blank),
+             ("two\nlines", line_break), ("two\rlines", line_break)]
+    for index, (reason, expected) in enumerate(cases):
+        repo = _cl_repo(tmp_path, f"r{index}", base=base, branch=branch)
+        before = _cl_state(repo)
+        code, out, err = _cl_run(repo, capsys, "--user-invisible", reason, target=target)
+        assert (code, out) == (1, "")
+        assert err == expected
+        assert _cl_state(repo) == before
+        twin = _cl_repo(tmp_path, f"r{index}-check", base=base, branch=branch)
+        twin_before = _cl_state(twin)
+        assert _cl_run(twin, capsys, "--user-invisible", reason, target=target,
+                       check=True) == (code, out, err)
+        assert _cl_state(twin) == twin_before
+    kept = _cl_repo(tmp_path, "kept", base=base, branch=branch)
+    code, _, err = _cl_run(kept, capsys, "--user-invisible", "  kept as given  ", target=target)
+    assert (code, err) == (0, "")
+    stored = _cl_git(kept, "log", "-1", "--format=%B", "main")
+    assert "\nUser-invisible:   kept as given  \n" in stored
+
+
+def test_changelog_check_only_matches_merge_without_effects(tmp_path, capsys):
+    default_base = (("CHANGELOG.md", _CL_BASE),)
+    heading_only = "# Changelog\n\n## [Unreleased]\n\n### Added\n\n## [0.4.0]\n\n- old entry\n"
+    removed = "# Changelog\n\n## [Unreleased]\n\n## [0.4.0]\n"
+    indented = "# Changelog\n\n## [Unreleased]\n\n  indented line\n\n## [0.4.0]\n"
+    entry = (("w", "CHANGELOG.md", _CL_WITH_ENTRY),)
+    # name: (base, branch edits, extra argv, options)
+    scenarios = {
+        "missing": (default_base, _CL_CONTROL_BRANCH, (), {}),
+        "entry": (default_base, entry, (), {}),
+        "nested-with-space": (
+            default_base, (("w", "sub dir/CHANGELOG.md", _CL_WITH_ENTRY),), (), {}),
+        "released-only": (
+            default_base, (("w", "CHANGELOG.md", _CL_WITH_RELEASED_ENTRY),), (), {}),
+        "other-basename": (default_base, (("w", "NOTES.md", _CL_WITH_ENTRY),), (), {}),
+        "heading-only": (default_base, (("w", "CHANGELOG.md", heading_only),), (), {}),
+        "indented-line": (default_base, (("w", "CHANGELOG.md", indented),), (), {}),
+        "removed-entry": (default_base, (("w", "CHANGELOG.md", removed),), (), {}),
+        "pure-rename": (
+            (("docs/NOTES.md", _CL_WITH_ENTRY),),
+            (("mv", "docs/NOTES.md", "docs/CHANGELOG.md"),), (), {}),
+        "what-left": (
+            (("docs/what_left.md", "# left\n"),),
+            (("w", "docs/what_left.md", _CL_WITH_ENTRY),), (), {}),
+        "declared": (default_base, _CL_CONTROL_BRANCH, ("--user-invisible", "nothing visible"), {}),
+        "blank": (default_base, _CL_CONTROL_BRANCH, ("--user-invisible", "  "), {}),
+        "line-break": (default_base, _CL_CONTROL_BRANCH, ("--user-invisible", "a\nb"), {}),
+        "off-main": (default_base, _CL_CONTROL_BRANCH, (), {"target": "elsewhere"}),
+        "off-main-blank": (
+            default_base, _CL_CONTROL_BRANCH, ("--user-invisible", ""), {"target": "elsewhere"}),
+    }
+    verdicts = set()
+    for name, (base, branch, extra, options) in scenarios.items():
+        pair = []
+        for kind in ("merge", "check"):
+            repo = _cl_repo(tmp_path, f"{name}-{kind}", base=base, branch=branch)
+            hook = repo / ".git" / "hooks" / "pre-merge-commit"
+            hook.write_text("#!/bin/sh\ntouch .git/hook-ran\n")
+            hook.chmod(0o755)
+            before = _cl_state(repo)
+            ran = _cl_run(repo, capsys, *extra, check=kind == "check", **options)
+            pair.append((repo, before, ran))
+        (merge_repo, _, merged), (check_repo, check_before, checked) = pair
+        assert checked == merged, name
+        verdicts.add(merged[0])
+        assert _cl_state(check_repo) == check_before
+        assert not (check_repo / ".git" / "hook-ran").exists()
+        if merged[0] == 0:
+            _cl_assert_landed(merge_repo)
+            assert (merge_repo / ".git" / "hook-ran").exists()
+            assert _cl_git(check_repo, "rev-list", "--merges", "-n", "1", "main") == ""
+    assert verdicts == {0, 1}
+
+
+@pytest.mark.parametrize(
+    "label,options,extra",
+    [
+        ("unknown-actor", {"actor": ("--actor", "nobody")}, ()),
+        ("invalid-authorizer", {"actor": ("--authorizer", "Nobody")}, ()),
+        ("blank-entry", {"commits": ("",)}, ()),
+        ("unusable-bump", {}, ("--bump", "absent.md=minor")),
+    ],
+)
+def test_changelog_existing_refusals_win(tmp_path, capsys, label, options, extra):
+    for check in (False, True):
+        results = []
+        for case, reason in (("no-line", ()), ("bad-reason", ("--user-invisible", " ")),
+                             ("with-line", None)):
+            if reason is None:
+                repo = _cl_repo(
+                    tmp_path, f"{label}-{check}-{case}", base=(("CHANGELOG.md", _CL_BASE),),
+                    branch=(("w", "CHANGELOG.md", _CL_WITH_ENTRY),),
+                )
+                reason = ()
+            else:
+                repo = _cl_repo(tmp_path, f"{label}-{check}-{case}", branch=_CL_CONTROL_BRANCH)
+            before = _cl_state(repo)
+            results.append(_cl_run(repo, capsys, *extra, *reason, check=check, **options))
+            assert _cl_state(repo) == before
+        assert results[0] == results[1] == results[2]
+        assert results[0][0] == 1
+        assert "changelog" not in results[0][2].lower()
+        assert "--user-invisible" not in results[0][2]
+
+
+def test_changelog_non_main_target_needs_no_entry(tmp_path, capsys):
+    repo = _cl_repo(tmp_path, "elsewhere", branch=_CL_CONTROL_BRANCH)
+    code, _, err = _cl_run(repo, capsys, target="feature-x")
+    assert (code, err) == (0, "")
+    _cl_assert_landed(repo)
+    refused = _cl_repo(tmp_path, "main-refused", branch=_CL_CONTROL_BRANCH)
+    code, _, err = _cl_run(refused, capsys)
+    assert code == 1 and err.startswith(_CL_REFUSAL_PREFIX)
+
+
+def test_changelog_help_explains_one_line_reason(capsys):
+    with pytest.raises(SystemExit) as exited:
+        commit_builder.main(["merge", "--help"])
+    assert exited.value.code == 0
+    help_text = " ".join(capsys.readouterr().out.split())
+    assert "--user-invisible REASON" in help_text
+    assert (
+        "declare that this merge changes nothing a user sees, with a one-line REASON. The merge "
+        "commit's body ends with 'User-invisible: REASON'. Without it, a merge into main is "
+        "refused unless the branch adds an entry under '## [Unreleased]' in a CHANGELOG.md."
+    ) in help_text
+    assert (
+        "validate merge metadata, bumps, the --user-invisible reason and, for a merge into main, "
+        "the changelog entry, without any repository effects"
+    ) in help_text

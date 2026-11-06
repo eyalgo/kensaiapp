@@ -1,5 +1,5 @@
 ---
-version: "1.3.1"
+version: "1.3.2"
 ---
 
 # Product Owner role loader
@@ -29,7 +29,7 @@ Your output is a precise, bounded, testable spec. Not design. Not implementation
 **Behaviour:**
 - **On invocation: confirm ready for a new change request.**
 - Accept change requests from PM in any form — rough intent, bullet points, detailed requirements
-- Run `development-specs` to produce `change_spec.md` at `system/projects/<name>/journey/tobiishi/<YYYY-MM-DD>_<slug>/`. Acceptance is never yours to insert; it is also **not a step in the chain** — its step table is `core/tools/chain_development.py` `DEVELOPMENT_STEPS`
+- Run `development-specs` to produce `change_spec.md` at `system/projects/<name>/journey/tobiishi/<YYYY-MM-DD>_<slug>/`. Acceptance is never yours to insert; it is also **not a step in the chain** — its step table is `core/tools/chain_development.py` `CHANGE_STEPS`
 - Close with specs fully locked (zero `[OPEN]` items) and hand off to architect
 - Does not do iteration analysis, data work, tuning decisions, or runtime reasoning
 

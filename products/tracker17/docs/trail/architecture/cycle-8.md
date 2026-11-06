@@ -43,7 +43,7 @@ None.
   three focus tests "settle it". In the product, `tests/e2e/test_people.py:L58-L78` asserts, in
   Chromium, that after an add on People the added name (a `span`, not a control) holds keyboard
   focus, is in the viewport, and has the completion line as its computed accessible description, with
-  no script on the page. Measured on `main` at `641bb58b5`: `pytest products/tracker17/tests/e2e/` →
+  no script on the page. Measured on `main` at `<a commit not in the public history>`: `pytest products/tracker17/tests/e2e/` →
   `18 passed`. Still unchecked: the confirmation case, and assistive-technology speech, which a
   computed accessible description does not prove. The change asked: narrow the Dependence to those,
   with the no-script decision left in force.
@@ -56,7 +56,7 @@ None.
   leads to from ADR-0003's `## Binds`. It still calls the not-a-control case open, and says
   ADR-0003's cited "second item" is the list's only one, where the list now has two. Revise RN-15
   to say four things. First, focus and in-view are verified on a form control (SDD RN-36) and on a
-  focusable element that is not a control (`tests/e2e/test_people.py`, 18 passed at `641bb58b5`,
+  focusable element that is not a control (`tests/e2e/test_people.py`, 18 passed at `<a commit not in the public history>`,
   Chromium 153.0.8010.12; no product code has moved since). Second, two cases stay open: the
   confirmation, which `status-moves`' tests settle, and assistive-technology speech, which none of
   ADR-0003's three tests reaches and one VoiceOver pass settles, with no slice requiring it. Third,

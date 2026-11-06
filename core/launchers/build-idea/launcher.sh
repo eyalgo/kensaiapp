@@ -2,6 +2,13 @@
 #
 # launcher.sh (build-idea) — the owner's one command for the moves a shukuba-refine report leaves
 # owed: it reads the report's `## Next moves` table and runs it as a queue.
+# Version: 2.11.0 — the Definition of Done becomes the finish line
+# Version: 2.10.6 — Agari becomes Definition of Done (DoD)
+# Version: 2.10.5 — prd-agari is refused, not read as prd-and-dod
+# Version: 2.10.4 — setup asks how much is written down first and stamps the seed the answer names; prd-agari is spelled prd-and-dod
+# Version: 2.10.3 — chain-product becomes product-docs and chain-agari becomes prd-and-dod; no launcher's old name is read any more
+# Version: 2.10.2 — chain-development becomes development and chain-change becomes walk; a report naming an old launcher still runs
+# Version: 2.10.1 — launchers run on the locked Python
 # Version: 2.10.0 — the owner's Mac ask carries from a walk to the next change's walk
 # Version: 2.9.1 — the queue ends clean after a walk with no station
 # Version: 2.9.0 — the close names its station and lands only in trail/; a bad Next-moves Command cell fails only its own row; journey_names owns a station's name
@@ -62,15 +69,16 @@
 #   one per project — a second queue on a project whose first is still running is refused.
 #
 # WHERE THE LOOP CLOSES
-#   chain-change's walk ends by starting this launcher with --chain-ended <end> (its WHERE THE LOOP
-#   CLOSES paragraph). On sealed the queue starts from the unit that walk just sealed and refined.
+#   The walk launcher ends each walk by starting this launcher with --chain-ended <end> (its
+#   WHERE THE LOOP CLOSES paragraph). On sealed the queue starts from the unit that walk just
+#   sealed and refined.
 #   A unit that serves no station is owed no refine, so when the walk sealed such a unit and no
 #   refine report exists, this launcher starts nothing, says so, and exits 0. On any other end this
 #   launcher starts nothing and says so. A halted walk, for one, left no refined unit to run. The
 #   queue waits for the Scrum Master's nemawashi-retire, then runs the Principal PM's
 #   nemawashi-refine for that seed. Its report feeds the same queue. The loop ends at an owner's act
 #   owed, an exhausted seedbed, a failed row, a halted walk, or the next change handed to
-#   chain-change, whose own end reaches this launcher again. A definition chain still walking pauses
+#   walk, whose own end reaches this launcher again. A definition chain still walking pauses
 #   the loop rather than ending it. The queue continues by itself once that walk is no longer
 #   walking, unless the walk was stopped. THE PICK WAITS ONLY FOR WHAT IT CANNOT PICK WITHOUT says
 #   how.
@@ -88,7 +96,7 @@
 #   <CORE>/launchers/build-idea/launcher.sh <project> --stop is the owner's brake. It stops the
 #   runs in flight, each recorded failed with the stop as its reason: a skill row's launch is
 #   stopped by the pid and start time recorded at launch, and a chain row is stopped through that
-#   chain's own --stop. The queue ends at once, nothing new starts, and chain-change's end does not
+#   chain's own --stop. The queue ends at once, nothing new starts, and the walk launcher's end does not
 #   restart the loop — it says so on the owner's channel and stops there. The stop persists. Asked
 #   when no queue is live, it still records the stop, so one asked between two queues holds. A
 #   plain start, with no flag, clears the stop and resumes the recorded queue, including
@@ -102,13 +110,13 @@
 # THE PICK WAITS ONLY FOR WHAT IT CANNOT PICK WITHOUT
 #   The PM always picks unless it can't (the owner, 2026-09-30). It can't with no candidate in
 #   unpicked/. It can't yet while a companion is live: any *_open_issues.md under the product's
-#   docs/, or the Agari's companion, system/projects/<project>/agari_open_issues.md. The queue then
-#   runs the definition chain the card's **Definition:** line names first, chain-product for full
-#   and chain-agari for prd-agari, and picks once that walk ends settled. A card reading none names
+#   docs/, or the finish line's companion, system/projects/<project>/finish_line_open_issues.md. The queue then
+#   runs the definition chain the card's **Definition:** line names first, product-docs for full
+#   and prd-and-finish-line for prd-and-finish-line, and picks once that walk ends settled. A card reading none names
 #   no chain, so its pick does not wait. When a companion is live and the card's **Definition:**
 #   line is missing, doubled or out of vocabulary, the pick fails, and the queue ends halted once
 #   nothing else is running. The product path is read off the card here and passed to the engine. A
-#   card with no product path passes none, and then only the Agari's companion can hold the pick.
+#   card with no product path passes none, and then only the finish line's companion can hold the pick.
 #   The queue never starts a second walk of the definition chain. A sweep row it already holds,
 #   waiting or launched, is what the pick waits on, and no row is added, unless that row itself
 #   waits on the pick: the pick then gets its own sweep row, as before. With no such row, a
@@ -130,16 +138,16 @@
 #
 # THE DEVELOPER'S CONTEXT CAP
 #   --context-cap <tokens> is the context past which a developer's run pauses at a task boundary and
-#   a fresh developer takes the change over. The queue records it and puts it on every chain-change
-#   row it launches — that launcher alone; chain-product takes no such flag. It is passed to the
+#   a fresh developer takes the change over. The queue records it and puts it on every walk
+#   row it launches — that launcher alone; product-docs takes no such flag. It is passed to the
 #   engine's --start only when given, so the default (250000) lives in the engine and cannot drift
 #   from this launcher, and it is refused here, before the engine or its --describe runs, unless it
 #   is a positive integer. A queue that is resumed keeps the cap it started with.
 #
 # THE OWNER'S MAC ASK
 #   --gate-owners-mac is the owner's ask that a walk's test gate run on the owner's Mac, as
-#   chain-change's own flag of that name is. The queue records it and puts it on every chain-change
-#   row it launches, so the next change's walk has it. A chain-change walk that had the ask ends by
+#   the walk launcher's own flag of that name is. The queue records it and puts it on every walk
+#   row it launches, so the next change's walk has it. A walk that had the ask ends by
 #   starting this launcher with the flag, so a queue a walk's end starts has it too. Every start
 #   states it, as it states the force: a resume without the flag lifts it.
 #
@@ -161,7 +169,7 @@
 #                   provider the file did not name. A row that starts a chain has no entry of
 #                   its own: it is handed the queue's force alone, and the chain reads the file
 #                   for its own steps.
-#                   Every start states the force, a resume included; the start a chain-change
+#                   Every start states the force, a resume included; the start a walk
 #                   walk's end makes carries it in its environment.
 #     --dry-run     ask the engine what a start would run, print each row with its After and its
 #                   command, then the exact engine invocation, and start nothing — or fail with the
@@ -172,14 +180,14 @@
 #                   core/tools/detach_watcher.sh
 #     --context-cap <tokens>
 #                   the context, in tokens, past which the developer's run pauses and a fresh one
-#                   continues; a positive integer, put on every chain-change row the queue starts
+#                   continues; a positive integer, put on every walk row the queue starts
 #                   and kept by a resumed queue. Omitted, the engine's own default applies.
 #     --gate-owners-mac
-#                   the owner's ask, put on every chain-change row the queue starts, so each
+#                   the owner's ask, put on every walk row the queue starts, so each
 #                   change's walk runs its test gate on the owner's Mac. Stated by every start, a
-#                   resume included; a chain-change walk that had the ask passes it on its end.
+#                   resume included; a walk that had the ask passes it on its end.
 #     --chain-ended <end>
-#                   what a chain-change walk passes when it ends. sealed starts the queue as the
+#                   what a walk passes when it ends. sealed starts the queue as the
 #                   hook's own start, which a standing stop suppresses. A sealed unit that serves no
 #                   station and has no refine report starts no queue: this launcher prints why and
 #                   exits 0. Anything else prints that nothing was started and exits 0
@@ -265,7 +273,7 @@ fi
 project_md="$INSTANCE_ROOT/system/projects/$project/project.md"
 [ -f "$project_md" ] || die "no project card at $project_md (is '$project' a real project?)"
 
-# --- the product path, read the way chain-product reads it; a card with none checks nothing ------
+# --- the product path, read the way product-docs reads it; a card with none checks nothing ------
 #   A pick waits for the product chain while one of the product's documents has a live companion,
 #   so the engine is told where those documents are.
 raw_path="$(grep -m1 -E '^\*\*Product path:\*\*' "$project_md" \
@@ -288,7 +296,7 @@ state_path="$log_dir/build-idea-$project-state.json"
 
 # --- the owner's stop: recorded by the engine, which says what it will do --------------
 if [ -n "$stop" ]; then
-  set -- python3 "$CHAIN_SCRIPT" --stop "$state_path" \
+  set -- "$CORE_DIR/tools/locked_python.sh" "$CHAIN_SCRIPT" --stop "$state_path" \
     --instance-root "$INSTANCE_ROOT" --project "$project"
   [ -n "$NOTIFIER" ] && set -- "$@" --notifier "$NOTIFIER"
   "$@" && rc=0 || rc=$?
@@ -301,12 +309,12 @@ if [ -n "$provider" ]; then
 else
   echo "build-idea: provider=each row's own"
 fi
-[ -z "$gate_owners_mac" ] || echo "build-idea: owner's Mac ask=on (every chain-change row)"
+[ -z "$gate_owners_mac" ] || echo "build-idea: owner's Mac ask=on (every walk row)"
 
 # --- hand the queue to the engine, through its --start CLI ---------------------------
 #   set -- / "$@" is the corpus's own way of building a command so --dry-run can print exactly
 #   what would run.
-set -- python3 "$CHAIN_SCRIPT" --start "$state_path" \
+set -- "$CORE_DIR/tools/locked_python.sh" "$CHAIN_SCRIPT" --start "$state_path" \
   --instance-root "$INSTANCE_ROOT" --project "$project" --core-dir "$CORE_DIR" --shim-dir "$log_dir"
 [ -n "$unit_key" ] && set -- "$@" --key "$unit_key"
 [ -n "$NOTIFIER" ] && set -- "$@" --notifier "$NOTIFIER"
@@ -327,7 +335,7 @@ if [ -n "$dry_run" ]; then
   # Its output goes to a FILE, never through a pipe, the same descriptor rule
   # core/launchers/skill/launcher.sh states at its launch.
   describe_out="$(mktemp "${TMPDIR:-/tmp}/kensaiapp-build-idea-describe.XXXXXX")"
-  describe_args=(python3 "$CHAIN_SCRIPT" --describe "$state_path"
+  describe_args=("$CORE_DIR/tools/locked_python.sh" "$CHAIN_SCRIPT" --describe "$state_path"
     --instance-root "$INSTANCE_ROOT" --project "$project" --core-dir "$CORE_DIR"
     --shim-dir "$log_dir")
   [ -n "$unit_key" ] && describe_args+=(--key "$unit_key")

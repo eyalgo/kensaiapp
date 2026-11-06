@@ -94,5 +94,5 @@ Reach for this when **authoring, continuing, or revising a product's PRD** — t
 source of truth at the top of the upstream chain.
 
 Not for: per-change specs (that's `development-specs`), the project's "done" declaration
-(`project-agari`), or any downstream document — the SRS, SDD, Delivery Plan, FDR, ADR, or
+(`project-finish-line`), or any downstream document — the SRS, SDD, Delivery Plan, FDR, ADR, or
 NFDR.

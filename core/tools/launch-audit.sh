@@ -3,6 +3,7 @@
 # launch-audit.sh — deterministic, pollution-proof launcher for a kaizen-audit run over one
 # snapshotted evidence round of any skill, chaining fail-closed into launch-fix-author.sh.
 #
+# Version: 1.9.0 — launchers run on the locked Python
 # Version: 1.8.1 — launchers and launch scripts take a portable mktemp template, so they run on Linux
 # Version: 1.8.0 — public-repo 0.x gates 1, 3, 4, 6 — Apache-2.0 licence lines, no satellite/product/host name or machine path shipped, no default notifier, loopback-only telemetry
 # Version: 1.7.0 — the providers file lives in the instance — each instance reads its own .providers.toml, and a tracked .providers.toml.example is the template
@@ -123,7 +124,7 @@ INSTANCE_ROOT="$PWD"   # re-resolved absolute, even when --instance-root was giv
 # instance's own `.env` (shared_core_instance.md § What is shared). An instance that carries its own
 # core binds it relatively, or not at all, and is its own host, so nothing is added for it.
 HOST_ROOT=""
-core_binding="$(python3 "$SCRIPT_DIR/env_file.py" "$INSTANCE_ROOT/.env" CORE 2>/dev/null || true)"
+core_binding="$("$SCRIPT_DIR/locked_python.sh" "$SCRIPT_DIR/env_file.py" "$INSTANCE_ROOT/.env" CORE 2>/dev/null || true)"
 case "$core_binding" in
   /*) HOST_ROOT="$(cd "$core_binding/.." 2>/dev/null && pwd || echo "")" ;;
 esac
@@ -178,14 +179,14 @@ done
 [ -f "$PROVIDERS_TOOL" ] || die "no provider reader at $PROVIDERS_TOOL"
 [ -f "$RUN_INTELLIGENCE" ] || die "no intelligence resolver at $RUN_INTELLIGENCE"
 provider_err="$(mktemp "${TMPDIR:-/tmp}/launch-audit-provider.XXXXXX")"
-provider="$(python3 "$PROVIDERS_TOOL" launcher launch-audit --instance-root "$INSTANCE_ROOT" --accept claude \
+provider="$("$SCRIPT_DIR/locked_python.sh" "$PROVIDERS_TOOL" launcher launch-audit --instance-root "$INSTANCE_ROOT" --accept claude \
   2>"$provider_err")" && rc=0 || rc=$?
 provider_msg="$(cat "$provider_err")"
 rm -f "$provider_err"
 [ "$rc" -eq 0 ] || die "${provider_msg:-could not read the provider for launch-audit}"
 
 resolved_err="$(mktemp "${TMPDIR:-/tmp}/kensaiapp-resolve-err.XXXXXX")"
-resolved="$(python3 "$RESOLVER" "$skill" --root "$INSTANCE_ROOT" 2>"$resolved_err")" && rc=0 || rc=$?
+resolved="$("$SCRIPT_DIR/locked_python.sh" "$RESOLVER" "$skill" --root "$INSTANCE_ROOT" 2>"$resolved_err")" && rc=0 || rc=$?
 case $rc in
   0) skill_dir="$resolved" ;;
   3) die "no skill at $INSTANCE_ROOT (is '$skill' a real skill?)" ;;
@@ -203,7 +204,7 @@ evidence="$skill_dir/evidence"
 #   logic, tested on its own. Values cross the boundary as argv (never interpolated into the
 #   Python source), so nothing here can inject through a caller-supplied version string. A
 #   quoted heredoc (<<'PY') keeps the script text itself free of shell expansion.
-if ! resolve_out="$(python3 - "$SCRIPT_DIR" "$evidence" "$version" <<'PY'
+if ! resolve_out="$("$SCRIPT_DIR/locked_python.sh" - "$SCRIPT_DIR" "$evidence" "$version" <<'PY'
 import sys
 
 script_dir, evidence_dir, explicit = sys.argv[1], sys.argv[2], sys.argv[3]
@@ -257,7 +258,7 @@ if [ -n "$prior_dir" ]; then
 fi
 prompt="$prompt. This run surfaces the owner's own work: ${surfaces}."
 
-claude_cmd=(python3 "$CORE_DIR/tools/agent_run.py" --provider "$provider" --shape background
+claude_cmd=("$SCRIPT_DIR/locked_python.sh" "$CORE_DIR/tools/agent_run.py" --provider "$provider" --shape background
   --pin auto --instance-root "$INSTANCE_ROOT" --prompt "$prompt" --grant-skill kaizen-audit)
 [ -n "$HOST_ROOT" ] && [ "$HOST_ROOT" != "$INSTANCE_ROOT" ] && claude_cmd+=(--add-dir "$HOST_ROOT")
 claude_cmd+=(--print-argv)
@@ -278,7 +279,7 @@ fi
 #   The launched agent is identified by (name, cwd, id-not-seen-before). Name alone is ambiguous:
 #   re-auditing the same round reuses the same fixed prompt. Captured before the launch, or the
 #   new agent would be in its own exclusion set.
-ids_before="$(python3 "$WATCHER" --list-ids --cwd "$INSTANCE_ROOT" 2>/dev/null || true)"
+ids_before="$("$SCRIPT_DIR/locked_python.sh" "$WATCHER" --list-ids --cwd "$INSTANCE_ROOT" 2>/dev/null || true)"
 
 echo "Launching kaizen-audit (background)…"
 # stdout is captured so the launched agent's id can be read off it, then echoed through unchanged
@@ -323,13 +324,13 @@ echo "          Watching:    foreground watch until the run stops…"
 if [ -n "$keep_awake" ]; then
   if command -v caffeinate >/dev/null 2>&1; then
     echo "          Keep-awake:   caffeinate -i -s held across the foreground watch"
-    caffeinate -i -s python3 "$WATCHER" "${watch_args[@]}" || true
+    caffeinate -i -s "$SCRIPT_DIR/locked_python.sh" "$WATCHER" "${watch_args[@]}" || true
   else
     echo "          (keep-awake: caffeinate not found — not macOS? — skipped)"
-    python3 "$WATCHER" "${watch_args[@]}" || true
+    "$SCRIPT_DIR/locked_python.sh" "$WATCHER" "${watch_args[@]}" || true
   fi
 else
-  python3 "$WATCHER" "${watch_args[@]}" || true
+  "$SCRIPT_DIR/locked_python.sh" "$WATCHER" "${watch_args[@]}" || true
 fi
 
 # --- the fail-closed handoff: read the artifact, never the agent state ----------------

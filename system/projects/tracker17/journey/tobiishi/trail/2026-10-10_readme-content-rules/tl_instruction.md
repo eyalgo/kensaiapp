@@ -12,7 +12,7 @@ Placement follows that Tobiishi's `change_design.md` § 3 Layout Plan.
 
 Task paths are relative to Product root.
 Record citations are relative to the instance worktree root, and command blocks name their working directory.
-The comparison base is `5dfc3343efecbc67362aea8d91b516c18a8a9809`, the output of `git merge-base main HEAD` during this review.
+The comparison base is `<a commit not in the public history>`, the output of `git merge-base main HEAD` during this review.
 
 ---
 
@@ -53,7 +53,7 @@ Tech Lead decisions, 2026-10-10:
   No end-to-end suite result is claimed by this plan.
 - **Repair-check evidence:** A read-only Python check of the complete bounded span reported `Checked 67 prose sentences` and only line 23 at 21 words.
   The exact grep from the spec exited 0 with its sole match on README line 81.
-  Comparing README bytes with `git show 5dfc3343efecbc67362aea8d91b516c18a8a9809:products/tracker17/README.md` returned equality.
+  Comparing README bytes with `git show <a commit not in the public history>:products/tracker17/README.md` returned equality.
   Keep full-span checks, because two repaired lines do not establish the span's final constraints (`change_design.md:L65-L69`, § 5 C1–C5).
 - **Additional standing gates:** Include compile, Ruff and mypy in Task 1's verification gate, because the NFDR makes them product gates (`products/tracker17/docs/nfdr.md:L472-L485`, QC-62; `:L523-L527`, § 9 Outside the layers).
   These checks add no code or test changes to the task.
@@ -81,8 +81,8 @@ The exact reading commands are:
 
 ```sh
 # From the instance worktree root:
-git -C .worktrees/2026-10-10_readme-content-rules show 5dfc3343efecbc67362aea8d91b516c18a8a9809:products/tracker17/README.md
-git -C .worktrees/2026-10-10_readme-content-rules diff --no-ext-diff 5dfc3343efecbc67362aea8d91b516c18a8a9809 -- products/tracker17/README.md
+git -C .worktrees/2026-10-10_readme-content-rules show <a commit not in the public history>:products/tracker17/README.md
+git -C .worktrees/2026-10-10_readme-content-rules diff --no-ext-diff <a commit not in the public history> -- products/tracker17/README.md
 # From Product root:
 nl -ba README.md
 ```
@@ -117,7 +117,7 @@ nl -ba README.md
 - **C7 — product continuity:** Before and after, run this exact command from the instance worktree root:
 
   ```sh
-  git -C .worktrees/2026-10-10_readme-content-rules diff --exit-code 5dfc3343efecbc67362aea8d91b516c18a8a9809 -- products/tracker17 ':!products/tracker17/README.md'
+  git -C .worktrees/2026-10-10_readme-content-rules diff --exit-code <a commit not in the public history> -- products/tracker17 ':!products/tracker17/README.md'
   ```
 
   Pass: exit 0 and no output.

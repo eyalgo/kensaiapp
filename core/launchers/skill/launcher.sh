@@ -6,6 +6,7 @@
 # `launchers.skill` entry in .providers.toml at the instance root, else a refusal. Whichever
 # provider that is, the run is one detached process the provider-neutral agent runner starts and
 # one watcher observes.
+# Version: 4.9.1 — launchers run on the locked Python
 # Version: 4.9.0 — skill launcher runs on the package's turn-on through a thin helper
 # Version: 4.8.1 — launchers and launch scripts take a portable mktemp template, so they run on Linux
 # Version: 4.8.0 — ollama is a provider — a launch can run on the owner's local Ollama models
@@ -257,7 +258,7 @@ resolve_agent_file() {
   # nothing, and `set -u` would abort the dry run on the bare name. `pin.py` reads an empty value
   # as "no pin in force" and answers from the instance (its own file, then its groups) and then
   # from the host's groups.
-  python3 "$PIN_TOOL" agent-file --pin "${KENSAIAPP_PIN:-}" --instance-root "$INSTANCE_ROOT" --name "$1"
+  "$CORE_DIR/tools/locked_python.sh" "$PIN_TOOL" agent-file --pin "${KENSAIAPP_PIN:-}" --instance-root "$INSTANCE_ROOT" --name "$1"
 }
 
 # The bounds on a <reason> value, judged in Python so a character is a character in any locale.
@@ -342,7 +343,7 @@ else
   [ -f "$PROVIDERS_TOOL" ] || die "no provider reader at $PROVIDERS_TOOL"
   [ -f "$RUN_INTELLIGENCE" ] || die "no intelligence resolver at $RUN_INTELLIGENCE"
   provider_err="$(mktemp "${TMPDIR:-/tmp}/kensaiapp-skill-provider.XXXXXX")"
-  provider="$(python3 "$PROVIDERS_TOOL" launcher skill --instance-root "$INSTANCE_ROOT" --forced "$forced" 2>"$provider_err")" && rc=0 || rc=$?
+  provider="$("$CORE_DIR/tools/locked_python.sh" "$PROVIDERS_TOOL" launcher skill --instance-root "$INSTANCE_ROOT" --forced "$forced" 2>"$provider_err")" && rc=0 || rc=$?
   provider_msg="$(cat "$provider_err")"
   rm -f "$provider_err"
   [ "$rc" -eq 0 ] || die "${provider_msg:-could not read the provider for the skill launcher}"
@@ -360,7 +361,7 @@ echo "Provider:  $provider"
 if [ -n "$model_tier" ]; then
   [ -f "$MODEL_ASSIGNMENT" ] || die "no model-tier resolver at $MODEL_ASSIGNMENT"
   tier_err="$(mktemp "${TMPDIR:-/tmp}/kensaiapp-skill-tier.XXXXXX")"
-  python3 "$MODEL_ASSIGNMENT" --provider "$provider" --tier "$model_tier" >/dev/null 2>"$tier_err" && rc=0 || rc=$?
+  "$CORE_DIR/tools/locked_python.sh" "$MODEL_ASSIGNMENT" --provider "$provider" --tier "$model_tier" >/dev/null 2>"$tier_err" && rc=0 || rc=$?
   tier_msg="$(cat "$tier_err")"
   rm -f "$tier_err"
   [ "$rc" -eq 0 ] || die "--model-tier '$model_tier' refused — ${tier_msg#model-assignment: }"
@@ -368,7 +369,7 @@ fi
 
 # --- the skill must resolve, and must declare a launch --------------------------------
 resolved_err="$(mktemp "${TMPDIR:-/tmp}/kensaiapp-skill-resolve.XXXXXX")"
-resolved="$(python3 "$RESOLVER" "$skill" --root "$SKILLS_ROOT" 2>"$resolved_err")" && rc=0 || rc=$?
+resolved="$("$CORE_DIR/tools/locked_python.sh" "$RESOLVER" "$skill" --root "$SKILLS_ROOT" 2>"$resolved_err")" && rc=0 || rc=$?
 resolve_msg="$(cat "$resolved_err")"
 rm -f "$resolved_err"
 case $rc in
@@ -414,7 +415,7 @@ done
 resolution_args=(--provider "$provider" --skill-dir "$skill_dir")
 [ -z "$model_tier" ] || resolution_args+=(--tier "$model_tier")
 intelligence_err="$(mktemp "${TMPDIR:-/tmp}/kensaiapp-skill-intelligence.XXXXXX")"
-intelligence_out="$(python3 "$RUN_INTELLIGENCE" "${resolution_args[@]}" 2>"$intelligence_err")" && rc=0 || rc=$?
+intelligence_out="$("$CORE_DIR/tools/locked_python.sh" "$RUN_INTELLIGENCE" "${resolution_args[@]}" 2>"$intelligence_err")" && rc=0 || rc=$?
 intelligence_msg="$(cat "$intelligence_err")"
 rm -f "$intelligence_err"
 # The resolver's status is what this file acts on, and this file never tests the directory. 6 is a
@@ -460,7 +461,7 @@ esac
 if [ -n "$reporter" ]; then
   # Read off the registry's source, never imported: a declaration is judged without running the
   # reporters, and an unknown name would otherwise fall back to `generic` without a word.
-  python3 - "$CORE_DIR/tools/reporters.py" "$reporter" <<'PY' \
+  "$CORE_DIR/tools/locked_python.sh" - "$CORE_DIR/tools/reporters.py" "$reporter" <<'PY' \
     || defect "**Reporter:** '$reporter' is not a name in REGISTRY in $CORE_DIR/tools/reporters.py"
 import ast, sys
 try:
@@ -594,7 +595,7 @@ while [ "$i" -lt "${#values[@]}" ]; do
       esac
       [ -e "$p" ] || die "<$n> '$v' does not exist" ;;
     reason)
-      why="$(PYTHONIOENCODING=utf-8 python3 -c "$REASON_BOUNDS" "$v")" || die "<reason> $why. $usage" ;;
+      why="$(PYTHONIOENCODING=utf-8 "$CORE_DIR/tools/locked_python.sh" -c "$REASON_BOUNDS" "$v")" || die "<reason> $why. $usage" ;;
     *)
       case "$v" in
         */*|.*) die "<$n> '$v' looks like a path — it is a bare name" ;;
@@ -740,7 +741,7 @@ if [ "$provider" = claude ] || [ "$provider" = hf ] || [ "$provider" = ollama ];
   # through the pin's plugin); the product `--add-dir` rides through --add-dir below, and
   # INSTRUMENT_RUN_SETTINGS is handed to the adapter as the caller's own --settings rather than
   # appended a second time (it folds into the pin's one merged document).
-  set -- python3 "$AGENT_RUN" --provider "$provider" --shape turn --pin auto \
+  set -- "$CORE_DIR/tools/locked_python.sh" "$AGENT_RUN" --provider "$provider" --shape turn --pin auto \
     --instance-root "$INSTANCE_ROOT" --prompt "$run_prompt" --grant-skill "$skill"
   [ -z "$agent" ] || set -- "$@" --agent "$agent"
   set -- "$@" ${intelligence_args[@]+"${intelligence_args[@]}"}
@@ -748,7 +749,7 @@ if [ "$provider" = claude ] || [ "$provider" = hf ] || [ "$provider" = ollama ];
   [ -z "${INSTRUMENT_RUN_SETTINGS:-}" ] || set -- "$@" --settings "$INSTRUMENT_RUN_SETTINGS"
 else
   if [ "$provider" = gemini ]; then
-    set -- python3 "$AGENT_RUN" --provider gemini --prompt "$run_prompt" \
+    set -- "$CORE_DIR/tools/locked_python.sh" "$AGENT_RUN" --provider gemini --prompt "$run_prompt" \
       --core-dir "$CORE_DIR" --instance-root "$INSTANCE_ROOT" \
       --add-dir "$skill_dir"
     set -- "$@" ${intelligence_args[@]+"${intelligence_args[@]}"}
@@ -771,7 +772,7 @@ else
     fi
     codex_prompt+="Execute this fixed task: $run_prompt"
 
-    set -- python3 "$AGENT_RUN" --provider "$provider" --prompt "$codex_prompt" \
+    set -- "$CORE_DIR/tools/locked_python.sh" "$AGENT_RUN" --provider "$provider" --prompt "$codex_prompt" \
       --core-dir "$CORE_DIR"
     set -- "$@" ${intelligence_args[@]+"${intelligence_args[@]}"}
     [ "$provider" != codex ] || set -- "$@" --skill-name "$skill" --skill-path "$skill_dir/SKILL.md"
@@ -843,7 +844,7 @@ record_detached_run_identity
 #   Written beside its target and moved into place, so the board never reads half a file. A record
 #   that cannot be written costs a note, never the launch.
 if [ -n "$skill_run_record" ]; then
-  python3 -c 'import json, sys; print(json.dumps(dict(zip(("skill", "project", "started_at", "identity"), sys.argv[1:]))))' \
+  "$CORE_DIR/tools/locked_python.sh" -c 'import json, sys; print(json.dumps(dict(zip(("skill", "project", "started_at", "identity"), sys.argv[1:]))))' \
     "$skill" "$project" "$skill_run_started" "$DETACHED_RUN_IDENTITY_FILE" >"$skill_run_record.tmp" \
     && mv -f "$skill_run_record.tmp" "$skill_run_record" \
     || echo "(could not write the run record at $skill_run_record — the board will not show this run)" >&2

@@ -1,5 +1,5 @@
 ---
-version: "1.8.1"
+version: "1.8.3"
 ---
 <!-- The version above is template-file metadata; it is not copied into the instantiated document. -->
 
@@ -125,7 +125,7 @@ value that satisfies it.>
 ## 10. Out of Scope
 
 <What this UXD deliberately does not design, so downstream doesn't infer silence as license.
-Name the **terminus** this UXD is scoped against — the project's 上がり Agari — and what it
+Name the **terminus** this UXD is scoped against — the project's finish line — and what it
 places outside done; where no terminus was available, say that instead of implying one.>
 
 ## 11. Traceability

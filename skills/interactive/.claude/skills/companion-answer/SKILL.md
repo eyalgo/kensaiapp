@@ -20,7 +20,7 @@ description: |
   Nemawashi seed / Shukuba station (the journey skills).
 license: MIT
 metadata:
-  version: "2.3.4"
+  version: "2.6.0"
   category: companion-loop
   risk: safe
   created: "2026-08-21"
@@ -314,7 +314,7 @@ Then the shared recipe, `<CORE>/doctrine/governance/commit_via_builder.md` — i
 staged-set guard, and this file restates neither:
 
 ```bash
-python3 "<CORE>/tools/commit_builder.py" --repo "$companion_repo" commit \
+"<CORE>/tools/locked_python.sh" "<CORE>/tools/commit_builder.py" --repo "$companion_repo" commit \
   --add "$companion_rel" \
   --subject "answer <document> open issues — <n> of <m> items" \
   --body "<which items were answered, and anything the owner said that the slot could not hold>" \
@@ -330,7 +330,7 @@ python3 "<CORE>/tools/commit_builder.py" --repo "$companion_repo" commit \
 - **The directional follows the companion's scope**, per
   `<CORE>/doctrine/governance/commit_format.md:54-55`: a companion under `system/` that belongs to no one
   project is instance-level and takes `Michi:`; one belonging to a project takes `Shukuba:` when that
-  project has an open station and `Agari:` when it does not.
+  project has an open station and `Finish-line:` when it does not.
 - Check `git show --stat` after committing: exactly one file, the companion.
 
 **Then name every launcher that must run, and stop.** That is one launcher on most runs, and two when

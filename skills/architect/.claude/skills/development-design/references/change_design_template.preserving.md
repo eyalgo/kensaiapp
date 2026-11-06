@@ -1,5 +1,5 @@
 ---
-version: "2.5.0"
+version: "2.6.0"
 ---
 <!-- The version above is template-file metadata; it is not copied into the instantiated document. -->
 
@@ -10,6 +10,7 @@ version: "2.5.0"
 **Behaviour:** preserving
 **Publishes text:** no
 <!-- A preserving change adds no words, so the line is always `no`. Moving existing text is placement, and placement is the Developer's. -->
+**Language resolution:** <language | none resolved> — <the resolution-chain step that answered> — <packet README.md opened | floor>; one entry per language
 
 ---
 

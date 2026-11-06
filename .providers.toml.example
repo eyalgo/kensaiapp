@@ -19,8 +19,8 @@
 #
 # --provider <name> on an engine (or KENSAIAPP_AGENT_PROVIDER exported to its launcher) forces
 # every launch onto that provider, and then .providers.toml is not read at all. Seven launchers
-# accept that force: the five chain launchers (chain-product, chain-agari, chain-change,
-# chain-development, build-idea), skill and companion-self-answer. The other seven never read it:
+# accept that force: the five chain launchers (product-docs, prd-and-finish-line, walk,
+# change, build-idea), skill and companion-self-answer. The other seven never read it:
 # cold-read, launch-eval-fix, launch-skill-evals, product-card and the three kaizen tool scripts.
 #
 # An entry an engine or launcher needs and .providers.toml lacks is refused by name, never
@@ -34,7 +34,7 @@
 # launcher.
 [documents]
 PRD = "claude"
-Agari = "claude"
+FINISH_LINE = "claude"
 SRS = "claude"
 UXD = "claude"
 DESIGN = "claude"
@@ -44,15 +44,16 @@ FDR = "claude"
 ADR = "claude"
 NFDR = "claude"
 
-# The development and change walks' steps — one entry governs a step in both walks.
+# The change and walk launchers' steps — one entry governs a step in both.
 [steps]
 station = "claude"
-change = "claude"
+open = "claude"
 specs = "claude"
 design = "claude"
 plan = "claude"
 content = "claude"
 implementation = "claude"
+changelog = "claude"
 code-integrity = "claude"
 security = "claude"
 audit = "claude"
@@ -63,7 +64,6 @@ refine = "claude"
 # the queue's force alone, and the chain it starts reads this file for its own launches.
 [build-idea]
 "close the reached station" = "claude"
-"readme-status" = "claude"
 "pick a seed" = "claude"
 "cut the route" = "claude"
 "retire a seed" = "claude"

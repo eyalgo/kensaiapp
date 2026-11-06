@@ -139,6 +139,7 @@ def test_resumed_run_carries_only_its_current_model_into_a_real_merge(tmp_path):
         "--branch-commits", "feature: add a thing",
         "--actor", "pm",
         "--merge-context", "manual",
+        "--user-invisible", "attribution fixture, no changelog entry",
         "--surface", surface,
         "--co-authored-by", co_authored_by,
     ])

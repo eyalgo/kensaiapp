@@ -22,7 +22,7 @@ description: |
 license: MIT
 metadata:
   author: Eyal Golan
-  version: "2.11.0"
+  version: "2.14.0"
   created: "2026-08-29"
   category: companion-loop
   risk: safe
@@ -468,7 +468,7 @@ of `--actor` and `--role` your run passes, and the staged-set guard, and this fi
 them:
 
 ```bash
-python3 "<CORE>/tools/commit_builder.py" --repo "$companion_repo" commit \
+"<CORE>/tools/locked_python.sh" "<CORE>/tools/commit_builder.py" --repo "$companion_repo" commit \
   --add "$companion_rel" "$report_rel" \
   --subject "<document> open issues answered — <n> of <m> items" \
   --body "<the verdict counts, what was left for the owner, and any companion opened elsewhere>" \
@@ -493,7 +493,7 @@ python3 "<CORE>/tools/commit_builder.py" --repo "$companion_repo" commit \
 - **The directional follows the companion's scope**, per
   `<CORE>/doctrine/governance/commit_format.md:54-55` — a companion under `system/` belonging to no one
   project is instance-level and takes `Michi:`; one belonging to a project takes `Shukuba:` when that
-  project has an open station and `Agari:` when it does not.
+  project has an open station and `Finish-line:` when it does not.
 - Check `git show --stat` after committing — exactly the files this run wrote, and nothing else.
 
 **Then name every launcher that must run, and stop.** This run may have answered across documents

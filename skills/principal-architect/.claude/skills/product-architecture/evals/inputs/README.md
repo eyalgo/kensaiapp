@@ -28,8 +28,8 @@ state the foundation step actually starts from:
 - `docs/trail/srs/cycle-1.md` — the answered SRS companion, retired whole, which is where the owner's
   already-authorized answers live (the prompt's authority order puts them above every document).
 
-Beside `docs/`, each fixture carries **`agari.md`** — the declared terminus — and **`project.md`**,
-the card whose `Product path:` resolves every output. In a real instance the Agari and the card sit in
+Beside `docs/`, each fixture carries **`finish_line.md`** — the declared terminus — and **`project.md`**,
+the card whose `Product path:` resolves every output. In a real instance the finish line and the card sit in
 the project folder (`system/projects/<name>/`) while the product lives elsewhere; the fixtures collapse
 the two, exactly as `product-srs`'s fixtures do.
 

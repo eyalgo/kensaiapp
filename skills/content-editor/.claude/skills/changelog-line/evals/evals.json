@@ -1,0 +1,362 @@
+{
+  "skill_name": "changelog-line",
+  "evals": [
+    {
+      "name": "entry-written-and-report-committed",
+      "prompt": "Build the fixture with evals/inputs/build_fixture.sh in an empty temporary directory, scenario `entry`; it prints the instance root, project and change key. You are in a content-editor session. Run changelog-line for that project and key.",
+      "assertions": [
+        {
+          "name": "skill-invoked-by-its-name",
+          "description": "The run invokes the skill named changelog-line (not development-content), and its final message begins with the word changelog-line.",
+          "tier": "structural"
+        },
+        {
+          "name": "entry-under-unreleased",
+          "description": "The change worktree's products/widget/CHANGELOG.md holds a new list item under `## [Unreleased]`, inside a `### Added` group, that begins `- **demo** — ` and ends with a parenthesis holding at least one inline-code SHA of 9 or more hex digits.",
+          "tier": "structural"
+        },
+        {
+          "name": "cited-commit-on-branch",
+          "description": "Every SHA the entry cites resolves with `git cat-file -t` in the change worktree and is reachable from the change's branch.",
+          "tier": "structural"
+        },
+        {
+          "name": "report-committed-with-four-sections",
+          "description": "`git -C <instance worktree> ls-tree -r <key> --name-only` lists system/projects/demo/journey/tobiishi/<key>/changelog-report.md, and that file has the headings Change, Changelog, What-left and Evidence.",
+          "tier": "structural"
+        },
+        {
+          "name": "older-history-unchanged",
+          "description": "The `## [1.0.0] - 2025-12-01` section and its entry are byte-identical to the base commit's.",
+          "tier": "structural"
+        },
+        {
+          "name": "final-message-reports-commit-and-report",
+          "description": "The final message holds a sentence starting `changelog-line made commit` with a SHA of 9+ hex digits, and a sentence starting `The run's report is`, and `The run added an entry under`.",
+          "tier": "structural"
+        },
+        {
+          "name": "report-carries-no-frontmatter",
+          "description": "In the instance repository, `git show <key>:system/projects/demo/journey/tobiishi/<key>/changelog-report.md` prints `# Changelog report — <key>` as its first line, not `---`, and no line of the file starts with `version:`. A report that opens with the template's frontmatter fails, whatever version it names.",
+          "tier": "structural"
+        }
+      ],
+      "id": 1
+    },
+    {
+      "name": "wrong-posture-refuses-first",
+      "prompt": "Build the fixture with evals/inputs/build_fixture.sh in an empty temporary directory, scenario `entry`; it prints the instance root, project and change key. You are in a developer session, not a content-editor one. Run changelog-line for that project and key.",
+      "assertions": [
+        {
+          "name": "positive-refusal",
+          "description": "The final message states `changelog-line changed no file and made no commit.` and that it needs Content Editor posture, naming `content-editor` as the posture to open.",
+          "tier": "structural"
+        },
+        {
+          "name": "no-project-input-read",
+          "description": "The run's transcript shows no read of any file under the fixture's system/projects or products before the refusal (the fixture may be built, but not read).",
+          "tier": "structural"
+        },
+        {
+          "name": "nothing-written",
+          "description": "`git status --porcelain` in the instance worktree is empty and `git log main..<key>` holds only the fixture's own commits; no changelog-report.md exists in the change folder.",
+          "tier": "structural"
+        }
+      ],
+      "id": 2
+    },
+    {
+      "name": "upgrading-group-for-a-required-clone-action",
+      "prompt": "Build the fixture with evals/inputs/build_fixture.sh in an empty temporary directory, scenario `upgrading`; it prints the instance root, project and change key. You are in a content-editor session. Run changelog-line for that project and key.",
+      "assertions": [
+        {
+          "name": "entry-in-upgrading",
+          "description": "The new entry sits under a `### Upgrading` group in products/widget/CHANGELOG.md, and `### Upgrading` precedes every other group under `## [Unreleased]`.",
+          "tier": "structural"
+        },
+        {
+          "name": "entry-says-what-to-do",
+          "description": "The entry names the variable WIDGET_GREETING and tells the reader to set or export it.",
+          "tier": "nuanced",
+          "nuanced_justification": "Whether the sentence tells a clone what to do is a reading of the sentence; a pattern for the variable name passes an entry that only mentions it. Structural tried: presence of WIDGET_GREETING, kept as the first half."
+        },
+        {
+          "name": "no-empty-groups",
+          "description": "Under `## [Unreleased]` no `### ` heading is followed directly by another heading or by the next `## ` heading.",
+          "tier": "structural"
+        }
+      ],
+      "id": 3
+    },
+    {
+      "name": "test-only-change-earns-no-entry-but-completes",
+      "prompt": "Build the fixture with evals/inputs/build_fixture.sh in an empty temporary directory, scenario `tests-only`; it prints the instance root, project and change key. You are in a content-editor session. Run changelog-line for that project and key.",
+      "assertions": [
+        {
+          "name": "changelog-unchanged",
+          "description": "products/widget/CHANGELOG.md in the change worktree is byte-identical to the base commit's.",
+          "tier": "structural"
+        },
+        {
+          "name": "final-message-says-no-entry",
+          "description": "The final message holds `The change earns no entry in` and names products/widget.",
+          "tier": "structural"
+        },
+        {
+          "name": "report-still-committed",
+          "description": "changelog-report.md is committed on the change's branch in the change folder, and its Changelog section says no entry is earned.",
+          "tier": "structural"
+        },
+        {
+          "name": "step-completes-not-refuses",
+          "description": "The final message does not begin with `changelog-line changed no file and made no commit.`; it begins `changelog-line made commit`.",
+          "tier": "structural"
+        },
+        {
+          "name": "report-carries-no-frontmatter",
+          "description": "In the instance repository, `git show <key>:system/projects/demo/journey/tobiishi/<key>/changelog-report.md` prints `# Changelog report — <key>` as its first line, not `---`, and no line of the file starts with `version:`. A report that opens with the template's frontmatter fails, whatever version it names.",
+          "tier": "structural"
+        }
+      ],
+      "id": 4
+    },
+    {
+      "name": "no-entry-still-removes-a-whole-want",
+      "prompt": "Build the fixture with evals/inputs/build_fixture.sh in an empty temporary directory, scenario `tests-only-removal`; it prints the instance root, project and change key. You are in a content-editor session. Run changelog-line for that project and key.",
+      "assertions": [
+        {
+          "name": "want-removed",
+          "description": "docs/what_left.md at the change worktree no longer holds the line for `widget history`, and still holds the other two entries verbatim.",
+          "tier": "structural"
+        },
+        {
+          "name": "merged-in-line",
+          "description": "The commit that removed it has a body line `Merged in <9+ hex digits>: The operator can list past greetings with ` followed by the `widget history` Wanted text verbatim, and that SHA is on the change's branch.",
+          "tier": "structural"
+        },
+        {
+          "name": "final-message-both-facts",
+          "description": "The final message says `The run removed 1 entry from` and also reports the changelog outcome (an entry, or `The change earns no entry in`).",
+          "tier": "structural"
+        },
+        {
+          "name": "h1-and-lead-unchanged",
+          "description": "The first three lines of docs/what_left.md (heading, blank line, lead sentence) are byte-identical to the base commit's.",
+          "tier": "structural"
+        }
+      ],
+      "id": 5
+    },
+    {
+      "name": "no-changelog-writes-no-product-file",
+      "prompt": "Build the fixture with evals/inputs/build_fixture.sh in an empty temporary directory, scenario `no-changelog`; it prints the instance root, project and change key. You are in a content-editor session. Run changelog-line for that project and key.",
+      "assertions": [
+        {
+          "name": "no-changelog-created",
+          "description": "No file named CHANGELOG.md exists under products/widget in the change worktree.",
+          "tier": "structural"
+        },
+        {
+          "name": "what-left-untouched",
+          "description": "docs/what_left.md is byte-identical to the base commit's, though the change builds the --json want it lists.",
+          "tier": "structural"
+        },
+        {
+          "name": "only-the-report-is-committed",
+          "description": "`git diff --name-only main <key>` in the instance repository lists only paths under system/projects/demo/journey/tobiishi/<key>/ plus the change's own product commit, and no path under products/widget/CHANGELOG.md or docs/what_left.md.",
+          "tier": "structural"
+        },
+        {
+          "name": "final-message-says-why",
+          "description": "The final message holds `keeps no `CHANGELOG.md`, so changelog-line wrote no entry and changed no product file.` and the run still committed changelog-report.md.",
+          "tier": "structural"
+        },
+        {
+          "name": "report-carries-no-frontmatter",
+          "description": "In the instance repository, `git show <key>:system/projects/demo/journey/tobiishi/<key>/changelog-report.md` prints `# Changelog report — <key>` as its first line, not `---`, and no line of the file starts with `version:`. A report that opens with the template's frontmatter fails, whatever version it names.",
+          "tier": "structural"
+        }
+      ],
+      "id": 6
+    },
+    {
+      "name": "unreleased-heading-missing-or-doubled-halts",
+      "prompt": "Build the fixture with evals/inputs/build_fixture.sh in an empty temporary directory, scenario `unreleased-none`; it prints the instance root, project and change key. Then, in a second empty directory, build scenario `unreleased-two`. You are in a content-editor session. Run changelog-line for each fixture in turn.",
+      "assertions": [
+        {
+          "name": "both-refuse-with-count",
+          "description": "For the first the final message holds `has no line that reads `## [Unreleased]``; for the second it holds `has 2 lines that read `## [Unreleased]``; both hold `needs exactly one, so it wrote neither the changelog nor the what-left file.`",
+          "tier": "structural"
+        },
+        {
+          "name": "both-targets-unchanged",
+          "description": "In both fixtures products/widget/CHANGELOG.md and docs/what_left.md are byte-identical to the base commit's.",
+          "tier": "structural"
+        },
+        {
+          "name": "halt-report-no-success-report",
+          "description": "Each change folder holds halt_report.md and no changelog-report.md, and each final message ends with `The halt report is`.",
+          "tier": "structural"
+        }
+      ],
+      "id": 7
+    },
+    {
+      "name": "removes-only-wholly-built-wants",
+      "prompt": "Build the fixture with evals/inputs/build_fixture.sh in an empty temporary directory, scenario `removals`; it prints the instance root, project and change key. You are in a content-editor session. Run changelog-line for that project and key.",
+      "assertions": [
+        {
+          "name": "two-removed-one-kept",
+          "description": "docs/what_left.md no longer holds the `--json` want or the `widget history` want, and still holds the `$WIDGET_NAME` and `--name` want, byte-for-byte as its three lines were.",
+          "tier": "structural"
+        },
+        {
+          "name": "partial-want-kept-despite-visible-code",
+          "description": "The `--name` want stays although the branch commit that reads WIDGET_NAME is on the branch.",
+          "tier": "structural"
+        },
+        {
+          "name": "body-lines-verbatim-with-metacharacters",
+          "description": "The removing commit's body holds one `Merged in <sha>: ` line per removed entry, each carrying the Wanted text verbatim, backticks included, and none holding a `$` that was expanded.",
+          "tier": "structural"
+        },
+        {
+          "name": "final-message-says-two",
+          "description": "The final message holds `The run removed 2 entries from`.",
+          "tier": "structural"
+        }
+      ],
+      "id": 8
+    },
+    {
+      "name": "last-removal-leaves-the-empty-marker",
+      "prompt": "Build the fixture with evals/inputs/build_fixture.sh in an empty temporary directory, scenario `last-removal`; it prints the instance root, project and change key. Then in a second empty directory build scenario `already-empty`. You are in a content-editor session. Run changelog-line for each in turn.",
+      "assertions": [
+        {
+          "name": "empty-marker-line",
+          "description": "In the first fixture docs/what_left.md still exists and holds the heading and lead sentence unchanged, followed by the line `Nothing is left to build.` alone on its own line, and no entry.",
+          "tier": "structural"
+        },
+        {
+          "name": "final-message-last-entry",
+          "description": "The first run's final message holds `now holds the line `Nothing is left to build.``",
+          "tier": "structural"
+        },
+        {
+          "name": "already-empty-unchanged",
+          "description": "In the second fixture docs/what_left.md is byte-identical to the base commit's, and the final message holds `already holds the line `Nothing is left to build.`, so the run removed nothing.`",
+          "tier": "structural"
+        }
+      ],
+      "id": 9
+    },
+    {
+      "name": "absent-or-malformed-what-left-keeps-the-entry",
+      "prompt": "Build the fixture with evals/inputs/build_fixture.sh in an empty temporary directory, scenario `no-what-left`; it prints the instance root, project and change key. Then build `malformed-none` and `malformed-both` in two more empty directories. You are in a content-editor session. Run changelog-line for each in turn.",
+      "assertions": [
+        {
+          "name": "entry-written-in-all-three",
+          "description": "In each fixture products/widget/CHANGELOG.md gains an entry under `### Added` for the --json flag, and changelog-report.md is committed.",
+          "tier": "structural"
+        },
+        {
+          "name": "absent-says-none",
+          "description": "For `no-what-left` the final message holds `has no `docs/what_left.md`, so the run removed nothing.`",
+          "tier": "structural"
+        },
+        {
+          "name": "malformed-bytes-kept-and-named",
+          "description": "For both malformed fixtures docs/what_left.md is byte-identical to the base commit's, and the final message names it with `so the file reads as malformed.` and `The run left`.",
+          "tier": "structural"
+        },
+        {
+          "name": "report-carries-no-frontmatter",
+          "description": "In the instance repository, `git show <key>:system/projects/demo/journey/tobiishi/<key>/changelog-report.md` prints `# Changelog report — <key>` as its first line, not `---`, and no line of the file starts with `version:`. A report that opens with the template's frontmatter fails, whatever version it names.",
+          "tier": "structural"
+        }
+      ],
+      "id": 10
+    },
+    {
+      "name": "external-product-anchors-writes-to-resolved-worktrees",
+      "prompt": "Build the fixture with evals/inputs/build_fixture.sh in an empty temporary directory, scenario `external`; it prints the instance root, project and change key. You are in a content-editor session. Run changelog-line for that project and key.",
+      "assertions": [
+        {
+          "name": "product-commit-in-the-product-repo",
+          "description": "The product repository's change worktree holds a new commit on branch <key> touching CHANGELOG.md, and the instance repository holds no commit touching any CHANGELOG.md.",
+          "tier": "structural"
+        },
+        {
+          "name": "report-in-the-instance-repo-and-cites-product-commit",
+          "description": "changelog-report.md is committed in the instance repository on <key>, and its Evidence section cites the product commit's hash.",
+          "tier": "structural"
+        },
+        {
+          "name": "two-opening-sentences-product-first",
+          "description": "The final message holds two sentences starting `changelog-line made commit`, the first naming the product repository's checkout and the second the instance's.",
+          "tier": "structural"
+        },
+        {
+          "name": "main-tips-unchanged",
+          "description": "`main` in both repositories points to the same commit as before the run, and neither primary checkout has a modified file.",
+          "tier": "structural"
+        },
+        {
+          "name": "report-carries-no-frontmatter",
+          "description": "In the instance repository, `git show <key>:system/projects/demo/journey/tobiishi/<key>/changelog-report.md` prints `# Changelog report — <key>` as its first line, not `---`, and no line of the file starts with `version:`. A report that opens with the template's frontmatter fails, whatever version it names.",
+          "tier": "structural"
+        }
+      ],
+      "id": 11
+    },
+    {
+      "name": "wrong-branch-and-missing-worktree-refuse-before-writing",
+      "prompt": "Build the fixture with evals/inputs/build_fixture.sh in an empty temporary directory, scenario `wrong-branch`; it prints the instance root, project and change key. Then build `no-worktree` in another empty directory. You are in a content-editor session. Run changelog-line for each in turn.",
+      "assertions": [
+        {
+          "name": "wrong-branch-refusal",
+          "description": "For `wrong-branch` the final message holds `is on `elsewhere`, not on the change's branch` and `never switches branches.`; the checkout is still on `elsewhere` afterwards.",
+          "tier": "structural"
+        },
+        {
+          "name": "no-worktree-refusal",
+          "description": "For `no-worktree` the final message holds `No worktree for the change` and `never creates one.`, and no .worktrees directory exists afterwards.",
+          "tier": "structural"
+        },
+        {
+          "name": "no-product-write",
+          "description": "In both, CHANGELOG.md and docs/what_left.md are byte-identical to the base commit's and `main` has not moved.",
+          "tier": "structural"
+        }
+      ],
+      "id": 12
+    },
+    {
+      "name": "refused-commits-never-claim-success",
+      "prompt": "Build the fixture with evals/inputs/build_fixture.sh in an empty temporary directory, scenario `hook-refuses`; it prints the instance root, project and change key. Then build `external-report-refused` in another empty directory. You are in a content-editor session. Run changelog-line for each in turn.",
+      "assertions": [
+        {
+          "name": "first-commit-refused-message",
+          "description": "For `hook-refuses` the final message holds `wrote its changes and made no commit, because the commit builder refused it.`, `The builder said this:` and the hook's text `fixture hook refuses`; the changed targets are left uncommitted and no commit was retried in another shape.",
+          "tier": "structural"
+        },
+        {
+          "name": "report-refused-message",
+          "description": "For `external-report-refused` the final message holds `did not finish, because the commit builder refused the commit of its report.` and names the landed product commit and the uncommitted report path.",
+          "tier": "structural"
+        },
+        {
+          "name": "no-false-success-report",
+          "description": "In both, `git ls-tree -r <key> --name-only` in the instance repository lists no changelog-report.md.",
+          "tier": "structural"
+        },
+        {
+          "name": "dirty-target-refuses",
+          "description": "Building `dirty-target` and running the skill gives a final message holding `has uncommitted changes in` and the uncommitted file is byte-identical to before the run.",
+          "tier": "structural"
+        }
+      ],
+      "id": 13
+    }
+  ]
+}

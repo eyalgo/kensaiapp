@@ -19,7 +19,7 @@ HOW A LINE IS READ
     Both bodies the scan reads are markdown written by a model, and every place the skills name a
     declared line shows it inside backticks, so `**Integrity: pass**` is the natural way to write
     one. A walk was halted `missing-integrity` by exactly that, on a green suite the step had just
-    proved (a `chain-change` walk, 2026-09-17). A line is undressed before its prefix is matched:
+    proved (a `walk`, 2026-09-17). A line is undressed before its prefix is matched:
     its surrounding whitespace is removed, then `*`, `_` and the backtick from both ends
     (`EMPHASIS`), then whitespace again. What counts as a value is not widened by an inch:
     `Integrity: Pass` and `Integrity: passed` still halt. A mention elsewhere in a line is not a
@@ -37,7 +37,7 @@ import types
 from dataclasses import dataclass
 from enum import Enum, auto
 
-__version__ = "1.2.0"
+__version__ = "1.2.1"
 
 EMPHASIS = "*_`"
 

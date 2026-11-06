@@ -65,7 +65,7 @@ None.
   `test_move_interaction_and_outcome_pages_are_not_stored`), and layer 5,
   `tests/e2e/test_moves.py` (`test_history_matrix_revalidates_current_saved_status`,
   `test_real_history_traversal_revalidates_the_confirmation`); 67 passed in a fresh clone at
-  `9b05680c7`, and no product code has moved since at `ca2f9e98a`. *Traces to:* SDD § 4 RT-11, § 9
+  `<a commit not in the public history>`, and no product code has moved since at `<a commit not in the public history>`. *Traces to:* SDD § 4 RT-11, § 9
   TO-8, § 11 R-12 as the fold writes them; SRS NFR-3, NFR-13; UXD § 4, UX-F4, UX-I3. *Binds:* the new
   QC-n.
 - **Rationale:** the decision has every mark the nine records already carry — rejected alternatives
@@ -73,7 +73,7 @@ None.
   (a 202 on a GET read as a mistake and set back to 200 brings a stale confirmation back on Back).
   The SDD surfaces it in § 9 and its Review Notes, which is where § 12 says the Principal Architect
   reads, and this item is raised as well so the record does not wait on a run nobody schedules: the
-  product has run on the decision since `9b05680c7`, and today no obligation a `development-design`
+  product has run on the decision since `<a commit not in the public history>`, and today no obligation a `development-design`
   review checks names it. The CTO judged the record worth writing in
   `products/tracker17/docs/trail/sdd/self_answer-10.md` § 5.1.
 - **If overridden:** with "no ADR; the SDD's RT-11 and TO-8 suffice", the decision stays surfaced in
@@ -114,14 +114,14 @@ None.
   says the EX-6 confirmation is verified. Its three parts are the sentence alone holding focus, the
   double press that never confirms, and back-out returning focus. SDD § 11 R-2 at version 11 names
   the four tests in `tests/e2e/test_moves.py` that verify them, and records that all four passed in
-  a fresh clone at `9b05680c7`, 67 passed, with `playwright==1.63.0` and Chromium 153.0.8010.12.
+  a fresh clone at `<a commit not in the public history>`, 67 passed, with `playwright==1.63.0` and Chromium 153.0.8010.12.
   Assistive-technology speech for EX-14 stays as the one open case, which one VoiceOver pass
   settles, as SDD § Open Questions now holds it alone. The result is tied to its commit, by RN-42's
   own rule. ADR-0003 is neither edited nor superseded, because its decision did not move and its
   *Dependence* was true on its date.
 - **Rationale:** `nfdr.md` RN-15 reads "What stays open is two cases. The first is the confirmation
   of SDD § 4 EX-6", and RN-42 reads "so both stay: the EX-6 confirmation, which SDD § 6
-  `status-moves` settles". SDD version 11 (`9c7db2266`) settled it: § 11 R-2 counts the
+  `status-moves` settles". SDD version 11 (`<a commit not in the public history>`) settled it: § 11 R-2 counts the
   confirmation case verified, and § Open Questions keeps only the assistive-technology case. A
   `development-design` review that reads RN-15 meets a case as open that the SDD has closed.
 - **If overridden:** with "leave it", RN-15 keeps counting two open cases where the SDD holds one,

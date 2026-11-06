@@ -109,7 +109,7 @@ None this run. Both open items were answered. § 1 and § 3 of the companion hol
 
 ## Companions opened
 
-- **products/tracker17/docs/UXD_open_issues.md** — **appended** — companion to `UXD.md`, landed in commit `e24ad0900`
+- **products/tracker17/docs/UXD_open_issues.md** — **appended** — companion to `UXD.md`, landed in commit `<a commit not in the public history>`
 
 Item 2.2 there, under choices to confirm, with its slot left open for the UXD's own round. It asks
 UX-F9 to show a task's current assignee in the edit form even after the name has left the list, and

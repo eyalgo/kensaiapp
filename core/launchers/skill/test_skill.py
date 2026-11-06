@@ -5,9 +5,9 @@ instance, and the suite pins what the launcher's header states: the fields, what
 name means, the refusals — of a call and of a declaration — before anything spawns, the fixed prompt
 read off the spawned argv, and the shared telemetry and completion-watch tails. Two tests read a
 real declaration — `skills/pm/.claude/skills/tobiishi-open/launcher.md`, the first skill to declare a
-launch, `nemawashi-pick`'s and `nemawashi-unpick`'s beside it,
+launch, `seed-pick`'s and `nemawashi-unpick`'s beside it,
 `skills/scrum-master/.claude/skills/shukuba-retire/launcher.md` and
-`skills/cpo/.claude/skills/project-agari/launcher.md` — so the files that ship are held to the same contract as the
+`skills/cpo/.claude/skills/project-finish-line/launcher.md` — so the files that ship are held to the same contract as the
 fixtures. Every shipped **Reporter:** is also held to the registry and to what it reads.
 
 Isolation: the real script at its real location, an independent `tmp_path` tree standing in for a
@@ -33,6 +33,9 @@ from pathlib import Path
 
 import pytest
 
+import test_support_instance_root
+from test_support_python3_stub import python3_calls_outside_uv, python3_that_only_fails
+
 import launcher_telemetry_test_support as support
 from test_skill_launcher_telemetry import (
     COMMAND_VARIABLE,
@@ -56,7 +59,7 @@ _LAUNCHERS_DIR = _SCRIPT.parent.parent
 _CORE_DIR = _LAUNCHERS_DIR.parent
 _REPO = _CORE_DIR.parent
 _TOBIISHI_OPEN_LAUNCHER_MD = _REPO / "skills" / "pm" / ".claude" / "skills" / "tobiishi-open" / "launcher.md"
-_NEMAWASHI_PICK_LAUNCHER_MD = _REPO / "skills" / "pm" / ".claude" / "skills" / "nemawashi-pick" / "launcher.md"
+_SEED_PICK_LAUNCHER_MD = _REPO / "skills" / "pm" / ".claude" / "skills" / "seed-pick" / "launcher.md"
 _NEMAWASHI_UNPICK_LAUNCHER_MD = _REPO / "skills" / "pm" / ".claude" / "skills" / "nemawashi-unpick" / "launcher.md"
 _SHUKUBA_RETIRE_LAUNCHER_MD = (
     _REPO / "skills" / "scrum-master" / ".claude" / "skills" / "shukuba-retire" / "launcher.md"
@@ -345,6 +348,7 @@ def _isolated_core(tmp_path_factory, *tools):
     `pin.json`, so `pin_enter` finds this tree already
     its own pin and neither re-execs nor copies anything: what the test built is exactly what runs."""
     isolated = tmp_path_factory.mktemp("isolated_core")
+    test_support_instance_root.give_python(isolated)
     core_root = isolated / "core"
     launcher_dir = core_root / "launchers" / "skill"
     launcher_dir.mkdir(parents=True)
@@ -353,7 +357,7 @@ def _isolated_core(tmp_path_factory, *tools):
     copied.chmod(0o755)
     tools_dir = core_root / "tools"
     tools_dir.mkdir()
-    always = ("pin.py", "pin_run.sh", "agent_run.py", "codex_skill_run.py", "model_assignment.py", "task_context.py",
+    always = ("pin.py", "pin_run.sh", "locked_python.sh", "agent_run.py", "codex_skill_run.py", "model_assignment.py", "task_context.py",
               "hook_wiring.py",
               "env_file.py", "detached_run.sh", "intelligence.py", "run_intelligence.py",
               "providers.py")
@@ -371,8 +375,6 @@ def _isolated_core(tmp_path_factory, *tools):
 # The delivered text is the tracked template at the instance root, which no suite leans a live
 # `.providers.toml` for: that file is untracked and absent from a fresh checkout.
 _DELIVERED_PROVIDERS = (_CORE_DIR.parent / ".providers.toml.example").read_text()
-_ISOLATED_TOOLS = ("skill_path.py", "detach_watcher.sh", "detach_process_watcher.sh",
-                   "run_telemetry.sh", "watch_process.py")
 
 
 def _instance_provider_file(run, text):
@@ -597,17 +599,17 @@ def test_a_shipped_declaration_launches_on_its_intelligence(run):
     assert argv.count("--effort") == 1 and argv[argv.index("--effort") + 1] == "high"
 
 
-def test_the_shipped_nemawashi_pick_declaration_launches_under_pm_with_its_fixed_prompt(run):
-    run.skill("nemawashi-pick", _NEMAWASHI_PICK_LAUNCHER_MD.read_text())
+def test_the_shipped_seed_pick_declaration_launches_under_pm_with_its_fixed_prompt(run):
+    run.skill("seed-pick", _SEED_PICK_LAUNCHER_MD.read_text())
     run.project("some-project")
 
-    result = run("nemawashi-pick", "some-project")
+    result = run("seed-pick", "some-project")
 
     assert result.returncode == 0, result.stderr
     argv = run.launched_argv()
     assert argv[:4] == _PRINT_RUN_HEAD
     assert argv[argv.index("--permission-prompts") + 1] == "none"
-    assert _prompt_of(argv) == "invoke the nemawashi-pick skill for the some-project project."
+    assert _prompt_of(argv) == "invoke the seed-pick skill for the some-project project."
     assert argv[argv.index("--agent") + 1] == "pm"
     assert "--model" not in argv
     assert argv[argv.index("--permission-mode") + 1] == "auto"
@@ -693,8 +695,17 @@ def test_every_shipped_declaration_of_a_reporter_names_a_registered_one_and_what
             assert _field(md.read_text(), "Reads") in ("product", "project", "instance"), md
 
 
+_FOLLOWED_PROMPT = re.compile(r"Follow\s+`<CORE>/prompts/([a-z0-9_]+)\.md`")
+
+
 def _named_actors(skill_md):
-    return set(re.findall(r"--actor[ \t]+[`\"]?([a-z][a-z-]*)", skill_md.read_text()))
+    # A skill's work can live in a shared `<CORE>/prompts/<name>.md` its SKILL.md says to
+    # "Follow" (`development-plan` does), so the actor it names is read there too. A prompt
+    # a SKILL.md only mentions is another skill's body, and the actor it names is not this one's.
+    text = skill_md.read_text()
+    for prompt in sorted(set(_FOLLOWED_PROMPT.findall(text))):
+        text += "\n" + (_CORE_DIR / "prompts" / f"{prompt}.md").read_text()
+    return set(re.findall(r"--actor[ \t]+[`\"]?([a-z][a-z-]*)", text))
 
 
 def test_every_shipped_skill_commits_as_the_agent_its_declaration_launches():
@@ -737,17 +748,17 @@ def test_test_driven_development_commits_as_the_developer():
     assert _named_actors(tdd) == {"developer"}
 
 
-def test_the_shipped_project_agari_declaration_is_watched_by_agari_reading_the_project(run):
+def test_the_shipped_project_finish_line_declaration_is_watched_by_finish_line_reading_the_project(run):
     shutil.copy(_group_agent("cpo"), run.root / ".claude" / "agents" / "cpo.md")
-    run.skill("project-agari", (_REPO / "skills" / "cpo" / ".claude" / "skills" / "project-agari" / "launcher.md").read_text())
+    run.skill("project-finish-line", (_REPO / "skills" / "cpo" / ".claude" / "skills" / "project-finish-line" / "launcher.md").read_text())
     run.project("some-project")
 
-    result = run("project-agari", "some-project")
+    result = run("project-finish-line", "some-project")
 
     assert result.returncode == 0, result.stderr
-    assert run.launched_prompt() == "invoke the project-agari skill for the some-project project."
+    assert run.launched_prompt() == "invoke the project-finish-line skill for the some-project project."
     argv = run.watcher_argv()
-    assert argv[argv.index("--reporter") + 1] == "agari"
+    assert argv[argv.index("--reporter") + 1] == "finish-line"
     assert argv[argv.index("--artifact-path") + 1] == str(run.root / "system" / "projects" / "some-project")
 
 
@@ -958,7 +969,7 @@ def test_codex_dry_run_bootstraps_the_agent_and_names_no_model(demo):
     argv = _dry_run_argv(result.stdout)
     assert argv[0] == "codex-skill"
     assert "--model" not in argv
-    assert "--config" not in argv
+    assert not [token for token in argv if token.startswith("model_reasoning_effort")]
     prompt = argv[-1]
     assert f"{demo.root}/.claude/agents/pm.md" in prompt
     assert argv[argv.index("--skill-path") + 1] == f"{demo.root}/.claude/skills/demo/SKILL.md"
@@ -1016,7 +1027,7 @@ def test_codex_launches_detached_through_agent_run_and_writes_jsonl(demo):
     argv = demo.codex_argv()
     assert argv[0] == "app-server"
     assert "--model" not in argv
-    assert "--config" not in argv
+    assert not [token for token in argv if token.startswith("model_reasoning_effort")]
     assert "--skill-path" in argv
     prompt = argv[-1]
     assert "as the pm agent" in prompt
@@ -1341,7 +1352,7 @@ def test_a_dash_led_value_is_refused_outside_a_reason(run):
         (_md(reads="product"), "names no **Reporter:**"),
         (_md(reporter="prd", reads="docs"), "'docs' is not product, project or instance"),
         (
-            _md(arguments="<slug>", prompt="for {slug}", reporter="agari", reads="project"),
+            _md(arguments="<slug>", prompt="for {slug}", reporter="finish-line", reads="project"),
             "needs <project> in **Arguments:**",
         ),
     ],
@@ -1714,6 +1725,7 @@ def test_a_satellite_finds_its_skill_in_the_host_and_is_granted_the_hosts_group(
     # A satellite holds no skills and no `skills` symlink: the skill lives only in the host, and
     # the host's group is what the run is granted. The project and the cwd stay the satellite's.
     host = tmp_path_factory.mktemp("host")
+    test_support_instance_root.give_python(host)
     skill_dir = host / "skills" / "pm" / ".claude" / "skills" / "demo"
     skill_dir.mkdir(parents=True)
     (skill_dir / "SKILL.md").write_text("---\nname: demo\n---\n")
@@ -1776,6 +1788,7 @@ def test_a_skill_only_in_the_instance_is_not_found(run, tmp_path_factory):
     run.skill("demo", _md(), group="pm")
     run.project("some-project")
     host = tmp_path_factory.mktemp("host")
+    test_support_instance_root.give_python(host)
     run.env["LAUNCH_SKILL_SKILLS_ROOT"] = str(host)
 
     result = run("demo", "some-project")
@@ -2006,14 +2019,14 @@ def test_a_declared_reporter_reading_the_product_is_handed_the_product_path(run)
 
 
 def test_a_declared_reporter_reading_the_project_is_handed_the_project_directory(run):
-    run.skill("demo", _md(reporter="agari", reads="project"))
+    run.skill("demo", _md(reporter="finish-line", reads="project"))
     run.project("some-project")
 
     result = run("demo", "some-project")
 
     assert result.returncode == 0, result.stderr
     argv = run.watcher_argv()
-    assert argv[argv.index("--reporter") + 1] == "agari"
+    assert argv[argv.index("--reporter") + 1] == "finish-line"
     assert argv[argv.index("--artifact-path") + 1] == str(run.root / "system" / "projects" / "some-project")
 
 
@@ -2066,13 +2079,13 @@ def test_an_explicit_generic_reporter_needs_nothing_to_read(demo):
 
 
 def test_the_dry_run_names_the_reporter_and_watches_nothing(run):
-    run.skill("demo", _md(reporter="agari", reads="project"))
+    run.skill("demo", _md(reporter="finish-line", reads="project"))
     run.project("some-project")
 
     result = run("demo", "some-project", "--dry-run")
 
     assert result.returncode == 0, result.stderr
-    assert f"Reporter:  agari reads {run.root / 'system' / 'projects' / 'some-project'}" in result.stdout
+    assert f"Reporter:  finish-line reads {run.root / 'system' / 'projects' / 'some-project'}" in result.stdout
     assert run.watcher_argv() == []
 
 
@@ -2101,7 +2114,7 @@ def test_a_reporter_with_nothing_to_read_falls_back_to_generic_and_still_launche
 def test_an_optional_project_not_given_falls_back_to_generic(run):
     run.skill(
         "demo",
-        _md(arguments="[<project>]", prompt="invoke demo[ for {project}].", reporter="agari", reads="project"),
+        _md(arguments="[<project>]", prompt="invoke demo[ for {project}].", reporter="finish-line", reads="project"),
     )
 
     result = run("demo")
@@ -2907,89 +2920,6 @@ def test_an_ollama_run_is_watched_naming_provider_ollama(demo, ollama_server):
     assert watcher[watcher.index("--provider") + 1] == "ollama"
 
 
-_README_STATUS_DIR = _REPO / "skills" / "content-editor" / ".claude" / "skills" / "readme-status"
-_README_STATUS_PROMPT = "invoke the readme-status skill for the some-project project."
-
-
-def _install_readme_status(run):
-    """The shipped package and the shipped `content-editor` agent, so no old pin stands in."""
-    shutil.copy(_group_agent("content-editor"),
-                run.root / ".claude" / "agents" / "content-editor.md")
-    run.skill("readme-status", (_README_STATUS_DIR / "launcher.md").read_text(),
-              group="content-editor")
-
-
-def test_the_shipped_readme_status_files_exist():
-    for component in ("SKILL.md", "prompts/thin.md", "launcher.md"):
-        assert (_README_STATUS_DIR / component).is_file(), component
-    assert "prompts/thin.md" in (_README_STATUS_DIR / "SKILL.md").read_text()
-
-
-def test_the_shipped_readme_status_carries_its_text_without_a_change_folder():
-    package = "\n".join(path.read_text() for path in _README_STATUS_DIR.rglob("*.md"))
-    required_text = (
-        "readme-status changed no file and made no commit.",
-        "It needs Content Editor posture.",
-        "readme-status found nothing to change and made no commit.",
-        "readme-status made commit `{sha}` in `{checkout}`.",
-        "which came in with commit `{sha}`.",
-        "Nothing that {the product's name for itself} was defined to do is left to build.",
-    )
-    for sentence in required_text:
-        assert sentence in package, f"Published text missing from the shipped package: {sentence}"
-    assert "change_text.md" not in package
-
-
-def test_the_shipped_readme_status_declaration_launches_under_content_editor_granted_its_group(run):
-    _install_readme_status(run)
-    run.project("some-project")
-
-    result = run("readme-status", "some-project")
-
-    assert result.returncode == 0, result.stderr
-    argv = run.launched_argv()
-    assert _prompt_of(argv) == _README_STATUS_PROMPT
-    assert argv[argv.index("--agent") + 1] == "content-editor"
-    assert "--model" not in argv
-
-
-def test_the_shipped_readme_status_declaration_grants_an_external_product(run):
-    _install_readme_status(run)
-    product = run.root / "external-product"
-    product.mkdir()
-    run.project("some-project", product_path=str(product))
-
-    result = run("readme-status", "some-project")
-
-    assert result.returncode == 0, result.stderr
-    assert _granted_dirs(run.launched_argv()) == [str(product), str(run.pin_root)]
-
-
-def test_the_shipped_readme_status_dry_run_reports_skill_group_and_product_and_launches_nothing(
-    run,
-):
-    _install_readme_status(run)
-    product = run.root / "external-product"
-    product.mkdir()
-    run.project("some-project", product_path=str(product))
-
-    result = run("readme-status", "some-project", "--dry-run")
-
-    assert result.returncode == 0, result.stderr
-    assert "readme-status" in result.stdout
-    assert "skills/content-editor" in result.stdout
-    assert "<project> some-project" in result.stdout
-    assert str(product) in result.stdout
-    _nothing_spawned(run)
-    assert run.watcher_argv() == []
-
-
-def test_the_shipped_readme_status_declaration_carries_no_reporter_or_reads():
-    declaration = (_README_STATUS_DIR / "launcher.md").read_text()
-    assert _field(declaration, "Reporter") is None
-    assert _field(declaration, "Reads") is None
-
-
 _FIRST_WHAT_LEFT_DIR = _REPO / "skills" / "cpo" / ".claude" / "skills" / "first-what-left"
 _FIRST_WHAT_LEFT_PROMPT = "invoke the first-what-left skill for the some-project project."
 _FIRST_WHAT_LEFT_FILES = {
@@ -3005,8 +2935,8 @@ _FIRST_WHAT_LEFT_ANCHORS = (
     "project.md",
     "nominal",
     "docs/what_left.md",
-    "agari.md",
-    "agari_open_issues.md",
+    "finish_line.md",
+    "finish_line_open_issues.md",
     "docs/PRD.md",
 )
 
@@ -3075,26 +3005,6 @@ def test_the_first_what_left_checks_list_holds_the_six_anchors_in_order():
 
     assert len(items) >= len(_FIRST_WHAT_LEFT_ANCHORS)
     assert tuple(opening) == _FIRST_WHAT_LEFT_ANCHORS
-
-
-def _refused_readme_status(run, expected, *arguments):
-    _install_readme_status(run)
-    run.project("some-project")
-
-    result = run("readme-status", *arguments)
-
-    assert result.returncode == 1
-    assert expected in result.stderr, result.stderr
-    assert run.launched_argv(wait=_ABSENT_WAIT) == []
-    assert run.watcher_argv() == []
-
-
-def test_readme_status_without_a_project_is_refused_before_anything_spawns(run):
-    _refused_readme_status(run, "needs <project>")
-
-
-def test_readme_status_with_two_projects_is_refused_before_anything_spawns(run):
-    _refused_readme_status(run, "unexpected argument", "some-project", "other-project")
 
 
 # --- telemetry on the package's turn-on (change 2026-10-21_skill-launcher-runs-on-turn-on) --------
@@ -3375,7 +3285,7 @@ def test_skill_ordinary_launch_discovers_source_host_setting(demo, tmp_path, com
     """CP-692: a launch whose environment names no command is instrumented from its source host's
     setting, whether the launcher runs from a core or a pin of it, for the host or for an
     instance that binds that core."""
-    package = support.require_real_package(tmp_path / "package")
+    package = support.recorded_package(tmp_path / "package")
     endpoint_file = tmp_path / "published-endpoint"
     support.publish_endpoint(endpoint_file)
     launch = support.ordinary_launch(tmp_path, _SCRIPT, tmp_path, combination, package.command)
@@ -3424,3 +3334,59 @@ def test_skill_environment_override_including_empty_wins(demo, tmp_path, value):
         assert not _uninstrumented_lines(result.stdout)
     else:
         assert _uninstrumented_lines(result.stdout) == [f"          ({expected}{_UNINSTRUMENTED}"]
+
+
+def test_skill_runs_no_python3(run, tmp_path):
+    path, marker = python3_that_only_fails(tmp_path, run.env["PATH"])
+    run.env["PATH"] = path
+
+    result = _implementation_run(run)
+
+    assert result.returncode == 0, result.stderr
+    assert run.launched_prompt() == _IMPLEMENTATION_PROMPT
+    assert python3_calls_outside_uv(marker) == []
+
+
+# A `claude` that records the four variables `uv run` rewrites or adds for its child, as it sees
+# them, before the argv the run's poll waits on.
+_ENVIRONMENT_RECORDING_CLAUDE = """#!/usr/bin/env bash
+{
+  printf 'PATH=%s\\n' "$PATH"
+  printf 'VIRTUAL_ENV=%s\\n' "${VIRTUAL_ENV-<unset>}"
+  printf 'UV=%s\\n' "${UV-<unset>}"
+  printf 'UV_RUN_RECURSION_DEPTH=%s\\n' "${UV_RUN_RECURSION_DEPTH-<unset>}"
+} > "$CLAUDE_ENV_LOG"
+printf '%s\\n' "$@" > "$CLAUDE_ARGV_LOG"
+printf '%s\\n' '{"type":"result","subtype":"success","is_error":false,"result":"ok"}'
+"""
+
+
+def test_the_agent_a_launch_starts_gets_the_environment_the_launcher_was_given(run, tmp_path):
+    """CP-889: the agent is started by `agent_run.py`, which the launcher runs through uv, and it
+    sees the caller's `PATH` and `VIRTUAL_ENV` and none of uv's own variables — never the pin's
+    `.venv/bin` first on `PATH`. The suite itself runs under `uv run`, so the caller here is given
+    an environment with none of those, as a launch from an ordinary shell has."""
+    stub_dir = tmp_path / "recording-claude-bin"
+    stub_dir.mkdir()
+    stub = stub_dir / "claude"
+    stub.write_text(_ENVIRONMENT_RECORDING_CLAUDE)
+    stub.chmod(0o755)
+    env_log = tmp_path / "claude_env.log"
+    venv_bin = f"{os.sep}.venv{os.sep}bin"
+    caller_path = os.pathsep.join(
+        entry for entry in run.env["PATH"].split(os.pathsep) if not entry.endswith(venv_bin))
+    run.env["PATH"] = f"{stub_dir}{os.pathsep}{caller_path}"
+    for name in ("VIRTUAL_ENV", "UV", "UV_RUN_RECURSION_DEPTH"):
+        run.env.pop(name, None)
+    run.env["CLAUDE_ENV_LOG"] = str(env_log)
+
+    result = _implementation_run(run)
+
+    assert result.returncode == 0, result.stderr
+    assert run.launched_prompt() == _IMPLEMENTATION_PROMPT
+    assert env_log.read_text().splitlines() == [
+        f"PATH={run.env['PATH']}",
+        "VIRTUAL_ENV=<unset>",
+        "UV=<unset>",
+        "UV_RUN_RECURSION_DEPTH=<unset>",
+    ]

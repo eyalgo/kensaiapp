@@ -1,10 +1,10 @@
 ---
 name: product-fdr
-description: Principal PM-posture skill that authors a product's FDR — the behavioural contract, written off the settled PRD, SRS and SDD as the foundation step. Requires Principal PM posture (halts if invoked outside a principal-pm session or the principal-pm subagent). Non-interactive by design — it derives the whole FDR best-effort from the three upstream documents, and instead of interviewing live it surfaces everything it can't settle into a companion open-issues file (open issues, choices to confirm) for the owner to answer async. On re-run it consumes both files, retires the owner's answered companion whole to a permanent trail, folds their answers into the FDR, and when nothing is left unresolved it clears the companion — its absence means the FDR is done. The skill resolves where the files land from the project's Product path. Use when authoring, continuing, or revising a product's FDR. Do not use for per-change specs (development-specs), the PRD (product-prd), the SRS (product-srs), the SDD (product-sdd), the project's Agari (project-agari), or the ADR and NFDR (product-architecture).
+description: Principal PM-posture skill that authors a product's FDR — the behavioural contract, written off the settled PRD, SRS and SDD as the foundation step. Requires Principal PM posture (halts if invoked outside a principal-pm session or the principal-pm subagent). Non-interactive by design — it derives the whole FDR best-effort from the three upstream documents, and instead of interviewing live it surfaces everything it can't settle into a companion open-issues file (open issues, choices to confirm) for the owner to answer async. On re-run it consumes both files, retires the owner's answered companion whole to a permanent trail, folds their answers into the FDR, and when nothing is left unresolved it clears the companion — its absence means the FDR is done. The skill resolves where the files land from the project's Product path. Use when authoring, continuing, or revising a product's FDR. Do not use for per-change specs (development-specs), the PRD (product-prd), the SRS (product-srs), the SDD (product-sdd), the project's finish line (project-finish-line), or the ADR and NFDR (product-architecture).
 license: MIT
 metadata:
   author: Eyal Golan
-  version: "1.4.3"
+  version: "1.6.0"
   created: "2026-07-04"
   category: product-definition
   tags: fdr, principal-pm, foundation-step, behavioural-contract, product-definition
@@ -118,7 +118,7 @@ citable. It is the skill's job; the owner never manages it.
   § *Inputs you work from*. What a status line means for the derivation — including one that is
   missing or carries a value its own template's vocabulary does not hold — is the prompt's rule;
   whatever it raises reaches the owner through the companion like any other item.
-- **`system/projects/<name>/agari.md`** — the project's 上がり Agari, the declared terminus, beside
+- **`system/projects/<name>/finish_line.md`** — the project's finish line, the declared terminus, beside
   the card below. Read it in full. What it means for the derivation is the prompt's
   § *The terminus bounds the FDR*; it is the scope boundary, not a source of behaviour. **Its
   absence does not halt the run** — neither does a file still carrying the placeholder
@@ -176,7 +176,7 @@ Identify the target project and read:
   Read it: a value the owner set in an earlier cycle is authorized, and changing it needs a fresh
   authorization (the prompt's *stability rule*). The prompt's *provenance gate* cites these files by
   path, and a citation you have not opened is not one. It also gives you the next cycle number.
-- `system/projects/<name>/agari.md` — the declared terminus, in full. Absent or still the
+- `system/projects/<name>/finish_line.md` — the declared terminus, in full. Absent or still the
   placeholder: record it as an open issue and derive best-effort; never halt.
 - `system/projects/<name>/doctrine/` — the project's own doctrine, if any is there.
 - the rest of `<Product path>/docs/` — **list the directory** and read what the bullets above have
@@ -277,11 +277,11 @@ recipe, not from an example copied here.
 
 **And `--prompt product-fdr/rich`**, naming the body this skill is the carrier for. A thin skill over a fat prompt is recorded by both lines and neither implies the other (`<CORE>/doctrine/governance/commit_format.md` § *`Prompt-Version:` trailer*); it takes the bare name, never a path.
 
-**The directional** is `Agari:` or `Shukuba:`, resolved against
+**The directional** is `Finish-line:` or `Shukuba:`, resolved against
 `<CORE>/doctrine/governance/commit_format.md` § *Directional trailer*, whose rule is that the trailer
 follows the commit's **scope** rather than what produced it. The FDR is project-scoped and the
 foundation step runs upstream of the delivery loop, so a project with no open station resolves to its
-Agari — that file names the Principal PM's FDR as one of the cases it exists for. Read the rule
+finish line — that file names the Principal PM's FDR as one of the cases it exists for. Read the rule
 there; this step does not restate it.
 
 ### Step 4 — Close / report

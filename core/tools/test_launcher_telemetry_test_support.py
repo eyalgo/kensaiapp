@@ -18,15 +18,13 @@ import dataclasses
 import json
 import os
 import shutil
-import subprocess
-import sys
-import textwrap
 from pathlib import Path
 
 import pytest
 
 import launcher_telemetry_test_support as support
-from test_skill_launcher_telemetry import FIXTURE_COMMAND, install_telemetry_command
+import test_support_instance_root
+from test_skill_launcher_telemetry import install_telemetry_command
 
 _TOOLS = Path(__file__).resolve().parent
 _ENDPOINT = "http://127.0.0.1:4318"
@@ -58,12 +56,20 @@ _HELPER_LAUNCHER_PAIRS = [
 ]
 
 
+def _add_the_runner(root: Path, core: Path) -> None:
+    """The runner the helper's Python goes through, beside the helper, and the three lock files at
+    the root two directories above it that tell the runner which Python to use."""
+    shutil.copy(_TOOLS / "locked_python.sh", core / "tools" / "locked_python.sh")
+    test_support_instance_root.give_python(root)
+
+
 def _make_core(root: Path, **launchers: str) -> Path:
     """A scratch core holding the real helper beside launchers named by keyword, each at
     `core/launchers/fx/<name>.sh`. Returns the core."""
     core = root / "core"
     (core / "tools").mkdir(parents=True)
     shutil.copy(_TOOLS / "run_telemetry.sh", core / "tools" / "run_telemetry.sh")
+    _add_the_runner(root, core)
     folder = core / "launchers" / "fx"
     folder.mkdir(parents=True)
     for name, body in launchers.items():
@@ -451,104 +457,6 @@ def test_the_cap_the_case_states_is_the_cap_the_settings_carry():
         _assert_instrumented(_instrumented(), cap="250000")
     with pytest.raises(AssertionError):
         _assert_instrumented(_instrumented(cap="250000"), cap=None)
-
-
-# --- an unreachable package is a skip; a reached one that fails is a failure ----------------------
-
-_NESTED_TEST = '''\
-import os
-import sys
-from pathlib import Path
-
-import launcher_telemetry_test_support as support
-from test_launcher_telemetry_test_support import (
-    _HELPER_LAUNCHER, _HELPER_LAUNCHER_PAIRS, _launch_environment, _make_core, _work,
-)
-
-
-def test_real_package_observation(tmp_path):
-    package = support.require_real_package(tmp_path)
-    root = tmp_path / "launch"
-    root.mkdir()
-    core = _make_core(root, launcher=_HELPER_LAUNCHER)
-    env = _launch_environment(root)
-    env["HOME"] = str(package.home)
-    env["KENSAIAPP_TELEMETRY_COMMAND"] = package.command
-    observation = support.run_launcher(
-        core / "launchers" / "fx" / "launcher.sh", [], cwd=_work(root), env=env,
-        observation_dir=root / "observed",
-    )
-    support.assert_instrumented_observation(
-        observation, pairs=_HELPER_LAUNCHER_PAIRS, helper=core / "tools" / "run_telemetry.sh"
-    )
-'''
-
-
-def _nested(tmp_path: Path, home: Path, **extra: str) -> subprocess.CompletedProcess:
-    tmp_path.mkdir(exist_ok=True)
-    test_file = tmp_path / "test_nested_real_package.py"
-    test_file.write_text(_NESTED_TEST)
-    env = {k: v for k, v in os.environ.items() if k != support.COMMAND_VARIABLE}
-    env[support.COMMAND_VARIABLE] = ""
-    env["HOME"] = str(home)
-    env["PYTHONDONTWRITEBYTECODE"] = "1"
-    env["PYTHONPATH"] = str(_TOOLS)
-    env.update(extra)
-    return subprocess.run(
-        [sys.executable, "-m", "pytest", str(test_file), "-q", "-rs", "-n", "0",
-         "-p", "no:cacheprovider", "--rootdir", str(tmp_path), "-c", os.devnull],
-        cwd=str(tmp_path), capture_output=True, text=True, env=env, timeout=300,
-    )
-
-
-def test_unreachable_package_skips_but_reached_failure_fails(tmp_path):
-    unset_home = tmp_path / "unset"
-    unset_home.mkdir()
-    unset = _nested(tmp_path / "n1", unset_home)
-    assert unset.returncode == 0, unset.stdout + unset.stderr
-    assert support.SKIP_UNSET in unset.stdout
-    assert "skipped" in unset.stdout
-    assert "passed" not in unset.stdout and "failed" not in unset.stdout
-
-    missing_home = tmp_path / "missing"
-    missing_home.mkdir()
-    absent = _nested(tmp_path / "n2", missing_home, **{support.COMMAND_VARIABLE: "no-such-command"})
-    path = missing_home / ".kensaiapp" / "venv" / "bin" / "no-such-command"
-    assert absent.returncode == 0, absent.stdout + absent.stderr
-    assert support.skip_reason_unreachable(path) in absent.stdout
-    assert "failed" not in absent.stdout and "passed" not in absent.stdout
-
-    for mode, number in (("exit-3", 3), ("garbage", 4)):
-        reached_home = tmp_path / f"reached-{mode}"
-        bin_dir = reached_home / ".kensaiapp" / "venv" / "bin"
-        bin_dir.mkdir(parents=True)
-        command = bin_dir / FIXTURE_COMMAND
-        if mode == "exit-3":
-            command.write_text("#!/bin/sh\nexit 3\n")
-        else:
-            command.write_text("#!/bin/sh\necho 'this is not a settings document'\n")
-        command.chmod(0o755)
-        reached = _nested(
-            tmp_path / f"n{number + 2}", reached_home, **{support.COMMAND_VARIABLE: FIXTURE_COMMAND}
-        )
-        assert reached.returncode == 1, reached.stdout + reached.stderr
-        assert "failed" in reached.stdout and "skipped" not in reached.stdout
-
-
-def test_the_skip_decision_names_what_is_missing(tmp_path):
-    reason = support.real_package_skip_reason
-    assert reason({}, tmp_path) == support.SKIP_UNSET
-    assert reason({support.COMMAND_VARIABLE: ""}, tmp_path) == support.SKIP_UNSET
-    assert reason({support.COMMAND_VARIABLE: "a/b"}, tmp_path) == support.SKIP_NOT_PLAIN
-    unreachable = reason({support.COMMAND_VARIABLE: "absent-command"}, tmp_path)
-    assert unreachable == support.skip_reason_unreachable(
-        tmp_path / ".kensaiapp" / "venv" / "bin" / "absent-command"
-    )
-    present = tmp_path / ".kensaiapp" / "venv" / "bin"
-    present.mkdir(parents=True)
-    (present / "present-command").write_text("#!/bin/sh\n")
-    (present / "present-command").chmod(0o755)
-    assert reason({support.COMMAND_VARIABLE: "present-command"}, tmp_path) is None
 
 
 # --- the provenance assertion ---------------------------------------------------------------------

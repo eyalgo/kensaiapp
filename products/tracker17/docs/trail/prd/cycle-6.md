@@ -19,7 +19,7 @@
 > grounds. Same file, same fold, different asker.
 
 > **No `product-prd` run wrote this file.** It was opened on 2026-10-11, at Eyal's word, to carry
-> one owner-asked revision to the seat that can fold it. The settled PRD (version 5, `29352d2fc`)
+> one owner-asked revision to the seat that can fold it. The settled PRD (version 5, `<a commit not in the public history>`)
 > had no companion. The PRD itself was not edited.
 
 ---

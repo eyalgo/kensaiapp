@@ -1,5 +1,5 @@
 ---
-version: "1.2.0"
+version: "1.2.1"
 ---
 
 # Written forward — a file states what is true now
@@ -59,7 +59,7 @@ name anywhere may be fenced — but the sentence that stays is the one the reade
 **The second carve-out is a product's what-left file, `<product>/docs/what_left.md`.** It is the one
 place a product's "what is left to build" is stated, and every entry in it is a build-state claim by
 design. It stays honest where a parenthetical status note does not. Every entry names the commit its
-thing was missing at, and an entry leaves the file only once its thing has merged. The file's shape
+thing was missing at, and when an entry leaves the file is the structure map's to say. The file's shape
 and rules are `core/doctrine/setup/kensaiapp_structure.md` § 3 Product, *The what-left file — the one
 place a product states what is still to build*.
 

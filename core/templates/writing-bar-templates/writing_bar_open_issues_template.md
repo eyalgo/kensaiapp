@@ -1,5 +1,5 @@
 ---
-version: "4.2.2"
+version: "4.4.0"
 ---
 <!-- The version above is template-file metadata; it is not copied into the stamped document. -->
 
@@ -10,7 +10,7 @@ version: "4.2.2"
      consumer).
 
      SAME TWO SECTIONS AS EVERY SIBLING COMPANION, in the same order and numbered the same way —
-     `srs`, `uxd`, `prd`, `agari` and the rest. A reader who knows one knows this one, and a rule
+     `srs`, `uxd`, `prd`, `finish_line` and the rest. A reader who knows one knows this one, and a rule
      elsewhere that names "the companion's § 2" means the same section here.
 
      What qualifies for which section is `<CORE>/../skills/content-manager/.claude/skills/kensaiapp-writing-bar/prompts/rich.md`'s, not

@@ -18,7 +18,7 @@ None this run.
 
 ## Skipped
 
-- **1.1 — Does tracker17 have a second purpose: KensaiApp's own testing ground?** — its **Answer** slot was already filled: "yes (Eyal, 2026-10-11)", in the owner's own words. It landed in `9c859d4d9`, and `a1d5f56fc` reworded its reasoning line. A filled slot is an answer already given, so this run left it as it stands. It waits for `product-prd` to fold it into § Blurb and § Purpose.
+- **1.1 — Does tracker17 have a second purpose: KensaiApp's own testing ground?** — its **Answer** slot was already filled: "yes (Eyal, 2026-10-11)", in the owner's own words. It landed in `<a commit not in the public history>`, and `<a commit not in the public history>` reworded its reasoning line. A filled slot is an answer already given, so this run left it as it stands. It waits for `product-prd` to fold it into § Blurb and § Purpose.
 - **§ 2, § 3, § 4** — each says "None." and holds no item.
 
 ## Companions opened

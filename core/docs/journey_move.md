@@ -1,5 +1,5 @@
 ---
-version: "1.0.0"
+version: "1.2.0"
 ---
 
 # Journey move — the one way a journey artifact changes folder
@@ -92,7 +92,7 @@ the reason it names the three rather than saying "any move".
 **A project-level pick adds a line; the move that takes that seed off its root removes it, in the same
 commit.** The line sits under `## Picked seeds` in the instance's `system/contexts/CONTEXT_PPM.md`, one
 line per picked seed across every project, and is the one whose backtick span reads
-`<project> · nemawashi · <slug>`. `nemawashi-pick`'s script appends it. `nemawashi-unpick`,
+`<project> · nemawashi · <slug>`. `seed-pick`'s script appends it. `nemawashi-unpick`,
 `nemawashi-retire` and `nemawashi-drop` of the active idea remove it:
 
 - **Delete that one line and nothing else.** Other projects' lines, the section heading and every other
@@ -212,9 +212,9 @@ from a sketch. What is specific to a journey move:
   way `shukuba-refine` and `seeds-from-idea` stamp the files they land in a seed folder.
 - **`--directional` follows the scope of what moved**, per
   `<CORE>/doctrine/governance/commit_format.md` § Directional trailer. **Project-level** →
-  `Shukuba: <YYYY-MM-DD>_<slug>` when a station is open, else `Agari: <project>` resolved against its `agari.md` —
+  `Shukuba: <YYYY-MM-DD>_<slug>` when a station is open, else `Finish-line: <project>` resolved against its `finish_line.md` —
   never `Shukuba: none`, which doctrine retired. **Instance-level** → `Michi: <way-slug>`. A project
-  move never carries `Michi:`, and an instance move never carries `Shukuba:`/`Agari:`.
+  move never carries `Michi:`, and an instance move never carries `Shukuba:`/`Finish-line:`.
 - **The reading follows the move, not the referent.** A move that **completes** something reads
   `progress:` (or `serves:` under `Michi:`). A move that **sets something down** reads `aside:` — parking
   is not advancing, and a directional claiming progress for a move that stopped work is the same

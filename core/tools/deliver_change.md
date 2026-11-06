@@ -1,5 +1,5 @@
 ---
-version: "1.3.0"
+version: "1.6.0"
 ---
 
 # Deliver a development-path contract
@@ -81,19 +81,29 @@ Each value has the following schema
 | --- | --- |
 | `description`, `merge_context`, `surface` | Required strings |
 | `actor` or `authorizer` | Exactly one required string; builder validates identity/authorization |
-| `co_authored_by`, `reasoning_effort`, `claude_session` | Optional strings |
+| `co_authored_by`, `reasoning_effort`, `claude_session`, `user_invisible` | Optional strings |
 | `branch_commits`, `bump` | Optional arrays of strings, preserving order |
 
 Unknown fields and wrong types refuse before delivery
 (`core/tools/deliver_change.py:L360-L372,L609-L622`, `Delivery._inputs` and `Delivery.deliver`).
 Values, ordered lists and optional absence pass through to the builder without substituted
 attribution or effort (`core/tools/deliver_change.py:L168-L180`, `Processes.builder`).
-Authorization, effort, commit-entry and bump policy remain the builder's;
-the tool checks every role through `merge --check-only` before the first merge, except an empty
+Authorization, effort, commit-entry, bump and changelog policy remain the builder's.
+The tool checks every role through `merge --check-only` before the first merge, except an empty
 product change branch, which is not merged
 (`core/tools/deliver_change.py:L415-L423,L609-L619`, `Delivery._check` and `Delivery.deliver`).
 Supply builder bump entries in its public `path=level` format, with `level` one of
-`patch`, `minor` or `major` (`core/tools/commit_builder.py:L1531-L1597`, `BUMP_LEVELS`, `_split_bump` and `_bump_refusal`).
+`patch`, `minor` or `major` (`core/tools/commit_builder.py`'s `BUMP_LEVELS`, `_split_bump` and `_bump_refusal`).
+
+`user_invisible` declares a role's merge user-invisible, which means the merge changes nothing a
+user sees. Its value is the one-line reason why. When a record carries it, the builder receives
+`--user-invisible <value>`, with the value as one argument exactly as given, on both that role's
+`merge --check-only` call and its merge call. When a record omits it, neither call carries
+`--user-invisible`. A merge to `main` whose branch adds no entry under a `CHANGELOG.md`'s
+`## [Unreleased]`, and whose record has no `user_invisible`, is refused at `--check-only`, before
+anything merges in any delivery repository. The delivery then halts `deliver-precondition-failed`.
+A blank or multi-line value is still a string, so it reaches the builder, which refuses it at the
+same check (`core/tools/deliver_change.py:L168-L180`, `Processes.builder`).
 
 A relative merges object may be:
 
@@ -387,7 +397,7 @@ with tempfile.TemporaryDirectory(prefix="delivery-example-") as directory:
         + "Path('seal-content').write_text(sys.argv[1])\n"
         f"subprocess.run([sys.executable, {str(builder)!r}, '--repo', str(Path.cwd()), "
         "'commit', '--add', 'seal-content', '--subject', 'seal: example', '--actor', 'pm', "
-        "'--directional', 'Agari: example — progress: seal', '--surface', 'Codex', "
+        "'--directional', 'Finish-line: example — progress: seal', '--surface', 'Codex', "
         "'--co-authored-by', 'gpt-6.1-sol <noreply@openai.com>', "
         "'--reasoning-effort', 'high'], check=True, capture_output=True, text=True)\n"
         "sha = git(Path.cwd(), 'rev-parse', 'HEAD').stdout.strip()\n"
@@ -538,7 +548,7 @@ with tempfile.TemporaryDirectory(prefix="delivery-example-") as directory:
         + "Path('seal-content').write_text(sys.argv[1])\n"
         f"subprocess.run([sys.executable, {str(builder)!r}, '--repo', str(Path.cwd()), "
         "'commit', '--add', 'seal-content', '--subject', 'seal: example', '--actor', 'pm', "
-        "'--directional', 'Agari: example — progress: seal', '--surface', 'Codex', "
+        "'--directional', 'Finish-line: example — progress: seal', '--surface', 'Codex', "
         "'--co-authored-by', 'gpt-6.1-sol <noreply@openai.com>', "
         "'--reasoning-effort', 'high'], check=True, capture_output=True, text=True)\n"
         "sha = git(Path.cwd(), 'rev-parse', 'HEAD').stdout.strip()\n"

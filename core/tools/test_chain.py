@@ -14,12 +14,15 @@ WHY THIS FILE LOOKS LIKE THIS
 
 from __future__ import annotations
 
+import contextlib
 import dataclasses
+import fcntl
 import json
 import os
 import re
 import shlex
 import subprocess
+import threading
 import time
 import tomllib
 import uuid
@@ -90,6 +93,13 @@ class FakeFiles:
 
     def real_path(self, path: str) -> str:
         return os.path.normpath(path)
+
+    def staging_path(self, destination: str) -> str:
+        self.stagings = getattr(self, "stagings", 0) + 1
+        return f"{os.path.normpath(destination)}.tmp.{self.stagings}"
+
+    def remove(self, path: str) -> None:
+        self.files.pop(os.path.normpath(path), None)
 
 
 class FakeProcesses:
@@ -236,11 +246,118 @@ def report(*, document=None, counts=None, owed=(), companions_opened=(), raised=
     )
 
 
+# --- the fakes a race needs: a state lock, a store that holds one call, a call on a thread ---
+
+
+LOCK_WAIT_CAP = 3.0
+GATE = 10.0
+
+
+class ThreadLock:
+    """The state lock's fake: holders of one path take turns across threads, as `FileLock`'s
+    `flock` makes processes do. `contended` counts the holds that had to wait. A wait past
+    `LOCK_WAIT_CAP` raises, so a hold kept too long fails its test where a hang would stop the
+    suite."""
+
+    def __init__(self):
+        self._locks: dict[str, threading.Lock] = {}
+        self._guard = threading.Lock()
+        self.contended = 0
+
+    def is_held(self, path: str) -> bool:
+        with self._guard:
+            lock = self._locks.get(path)
+        return lock is not None and lock.locked()
+
+    @contextlib.contextmanager
+    def hold(self, path: str):
+        with self._guard:
+            lock = self._locks.setdefault(path, threading.Lock())
+        if not lock.acquire(blocking=False):
+            self.contended += 1
+            if not lock.acquire(timeout=LOCK_WAIT_CAP):
+                raise TimeoutError(f"the state lock at {path} was held past {LOCK_WAIT_CAP}s")
+        try:
+            yield HeldThreadLock(lock)
+        finally:
+            lock.release()
+
+
+class HeldThreadLock:
+    """What `ThreadLock.hold` hands its holder: the way to let go and take the lock again."""
+
+    def __init__(self, lock: threading.Lock):
+        self._lock = lock
+
+    @contextlib.contextmanager
+    def let_go(self):
+        self._lock.release()
+        try:
+            yield
+        finally:
+            assert self._lock.acquire(timeout=LOCK_WAIT_CAP), "the lock was not given back"
+
+
+class PausingStore(chain.StateStore):
+    """A `StateStore` that holds one chosen thread after its next read, until released. The
+    thread is then inside whatever transaction its entry point opened, which is the moment a
+    race is about."""
+
+    def __init__(self, files, path: str):
+        super().__init__(files, path)
+        self.paused = threading.Event()
+        self.release = threading.Event()
+        self._holder: threading.Thread | None = None
+
+    def hold(self, thread: threading.Thread) -> None:
+        self._holder = thread
+
+    def _pause_a_held_thread(self) -> None:
+        if threading.current_thread() is self._holder:
+            self._holder = None
+            self.paused.set()
+            assert self.release.wait(GATE), "the held call was never released"
+
+    def load(self) -> chain.ChainState:
+        state = super().load()
+        self._pause_a_held_thread()
+        return state
+
+    def raw(self) -> dict:
+        raw = super().raw()
+        self._pause_a_held_thread()
+        return raw
+
+
+class Call(threading.Thread):
+    """One engine call on its own thread. `result` or `error` is read after `join`."""
+
+    def __init__(self, call, *arguments, **keywords):
+        super().__init__(daemon=True)
+        self._call = (call, arguments, keywords)
+        self.result = None
+        self.error: BaseException | None = None
+
+    def run(self) -> None:
+        call, arguments, keywords = self._call
+        try:
+            self.result = call(*arguments, **keywords)
+        except BaseException as exc:
+            self.error = exc
+
+
+def settle(lock: ThreadLock, call: Call) -> None:
+    """Wait until `call` is either blocked on the lock or finished: the two places a second
+    caller can be while the first is held."""
+    assert wait_for(lambda: lock.contended > 0 or not call.is_alive(), GATE)
+
+
 def build(files: FakeFiles, *, processes=None, reports=None, notifier=None, codes=None,
           id_source=None, environ=None, provider_port=None, process_table=None,
-          checkout=None):
+          checkout=None, lock=None, store=None):
     return chain.Chain(
-        store=chain.StateStore(files, STATE),
+        lock=lock or ThreadLock(),
+        store=store or chain.StateStore(files, STATE),
         files=files,
         processes=processes or FakeProcesses(codes=codes),
         reports=reports or FakeReports(),
@@ -311,7 +428,7 @@ class TestTheChainWalksTheSpineItWasGiven:
         processes = FakeProcesses()
         engine = build(files, processes=processes)
 
-        start(engine, "PRD,Agari,SRS,UXD,DESIGN,CONTENT,SDD")
+        start(engine, "PRD,FINISH_LINE,SRS,UXD,DESIGN,CONTENT,SDD")
 
         assert processes.launched == [through_skill("product-prd")]
 
@@ -467,7 +584,7 @@ class TestTheEngineNeverLaunchesWhatNobodyAskedFor:
         assert {tuple(argv) for argv in processes.launched} <= allowed
 
 
-PRODUCT_SPINE = "PRD,Agari,SRS,UXD,DESIGN,CONTENT,SDD,FDR,ADR,NFDR"
+PRODUCT_SPINE = "PRD,FINISH_LINE,SRS,UXD,DESIGN,CONTENT,SDD,FDR,ADR,NFDR"
 
 
 class TestAWalkThroughTheSkillLauncher:
@@ -486,7 +603,7 @@ class TestAWalkThroughTheSkillLauncher:
 
         assert processes.launched == [
             through_skill("product-prd"),
-            through_skill("project-agari"),
+            through_skill("project-finish-line"),
             through_skill("product-srs"),
             through_skill("product-uxd"),
             through_skill("product-design"),
@@ -600,6 +717,18 @@ class TestAWalkThroughTheSkillLauncher:
         env = dict(os.environ)
         env["INSTRUMENT_RUN_ENDPOINT_FILE"] = str(tmp_path / "no-instrument-endpoint")
         env["HOME"] = str(tmp_path)
+        # A dry run only checks that each program a skill's `**Requires:**` names is on PATH; it
+        # runs none of them. Stand-ins answer that check, so it never reads the machine's own.
+        stand_ins = tmp_path / "required-programs"
+        stand_ins.mkdir()
+        for launcher_md in (repo / "skills").glob("*/.claude/skills/*/launcher.md"):
+            for line in launcher_md.read_text().splitlines():
+                if line.startswith("**Requires:**"):
+                    for program in line.removeprefix("**Requires:**").split():
+                        stub = stand_ins / program
+                        stub.write_text("#!/bin/sh\nexit 0\n")
+                        stub.chmod(0o755)
+        env["PATH"] = f"{stand_ins}{os.pathsep}{env['PATH']}"
         real_project = "example-product"
         instance = scratch_instance(tmp_path, real_project)
         through = [argv for argv in processes.launched if argv[0] == f"{CORE}/launchers/skill/launcher.sh"]
@@ -835,7 +964,7 @@ class TestAFinishNamesItsLaunch:
         with pytest.raises(chain.ChainAlreadyWalking) as raised:
             start(build(files), "PRD")
 
-        assert f"{CORE}/launchers/chain-product/launcher.sh {PROJECT} --stop" in str(raised.value)
+        assert f"{CORE}/launchers/product-docs/launcher.sh {PROJECT} --stop" in str(raised.value)
         assert "delete" not in str(raised.value).lower()
 
 
@@ -884,7 +1013,7 @@ def _engines_own_members() -> list[providers.Member]:
     """The union the file must name: every document, every step of either walk, every skill
     row of the queue, and the owed item that resolves to no document."""
     return ([providers.document(name) for name in chain.DOCUMENT_REGISTRY]
-            + [providers.step(s.id) for s in chain_development.CHANGE_STEPS]
+            + [providers.step(s.id) for s in chain_development.WALK_STEPS]
             + [providers.build_idea_row(name) for name, kind in build_idea.KINDS.items()
                if kind.disposition is build_idea.Disposition.RUN_SKILL]
             + [providers.OWED_ITEM])
@@ -1757,7 +1886,7 @@ class TestTheRegistryIsOneRecordPerDocument:
 
     def test_every_registered_document_names_the_skill_that_produces_it(self):
         assert {name: spec.skill for name, spec in chain.DOCUMENT_REGISTRY.items()} == {
-            "PRD": "product-prd", "Agari": "project-agari", "SRS": "product-srs",
+            "PRD": "product-prd", "FINISH_LINE": "project-finish-line", "SRS": "product-srs",
             "UXD": "product-uxd", "DESIGN": "product-design", "CONTENT": "product-content",
             "SDD": "product-sdd", "FDR": "product-fdr", "ADR": "product-architecture",
             "NFDR": "product-architecture",
@@ -1781,8 +1910,8 @@ class TestTheRegistryIsOneRecordPerDocument:
                 == chain.document("NFDR").companion_stem
                 == "architecture_open_issues")
 
-    def test_the_agari_lives_in_the_instance_and_the_rest_in_the_product(self):
-        assert chain.document("Agari").home is chain.Home.INSTANCE_PROJECT
+    def test_the_finish_line_lives_in_the_instance_and_the_rest_in_the_product(self):
+        assert chain.document("FINISH_LINE").home is chain.Home.INSTANCE_PROJECT
         for name in ("PRD", "SRS", "UXD", "DESIGN", "CONTENT", "SDD", "FDR", "ADR", "NFDR"):
             assert chain.document(name).home is chain.Home.PRODUCT_DOCS
 
@@ -1806,7 +1935,7 @@ class TestResolveDocument:
 
     def test_resolves_each_document_by_its_own_basename(self):
         expect = {
-            "docs/PRD.md": "PRD", "agari.md": "Agari", "docs/srs.md": "SRS",
+            "docs/PRD.md": "PRD", "finish_line.md": "FINISH_LINE", "docs/srs.md": "SRS",
             "docs/SRS.MD": "SRS", "docs/UXD.md": "UXD", "docs/DESIGN.md": "DESIGN",
             "docs/CONTENT.md": "CONTENT", "docs/SDD.md": "SDD", "docs/fdr.md": "FDR",
             "docs/nfdr.md": "NFDR",
@@ -1826,7 +1955,7 @@ class TestResolveDocument:
 
     def test_a_companion_resolves_to_the_document_it_answers_for(self):
         expect = {
-            "docs/architecture_open_issues.md": "ADR", "agari_open_issues.md": "Agari",
+            "docs/architecture_open_issues.md": "ADR", "finish_line_open_issues.md": "FINISH_LINE",
             "docs/SDD_open_issues.md": "SDD", "docs/srs_open_issues.md": "SRS",
         }
         for path, name in expect.items():
@@ -2000,6 +2129,32 @@ class TestValidateOwedCommand:
         assert validated.launcher_folder == "product-card"
         assert validated.argv == [pinned_script, "sealbox"]
 
+    def test_a_core_whose_path_holds_a_space_resolves_as_one_word(self):
+        """K4 of the 2026-10-26 source review: `<CORE>` was put in before the command was split,
+        so a checkout under a folder with a space split the launcher path at the blank and the
+        walk refused a launcher that was there. The bullet is split first, as written."""
+        core = "/Users/someone/my projects/kensaiapp/core"
+        script = f"{core}/launchers/product-card/launcher.sh"
+        files = FakeFiles({script: launcher_tree()[f"{CORE}/launchers/product-card/launcher.sh"]})
+
+        validated = chain.validate_owed_command(
+            "<CORE>/launchers/product-card/launcher.sh sealbox",
+            core_dir=core, instance_root="/Users/someone/my projects/kensaiapp", files=files)
+
+        assert validated.launcher_folder == "product-card"
+        assert validated.argv == [script, "sealbox"]
+
+    def test_core_in_an_argument_resolves_inside_that_argument(self):
+        core = "/Users/someone/my projects/kensaiapp/core"
+        script = f"{core}/launchers/skill/launcher.sh"
+        files = FakeFiles({script: launcher_tree()[f"{CORE}/launchers/skill/launcher.sh"]})
+
+        validated = chain.validate_owed_command(
+            "<CORE>/launchers/skill/launcher.sh product-srs <CORE>/../docs",
+            core_dir=core, instance_root="/Users/someone/my projects/kensaiapp", files=files)
+
+        assert validated.argv == [script, "product-srs", f"{core}/../docs"]
+
     def test_a_bullet_naming_a_relative_core_launchers_path_validates_under_a_pinned_core(
             self, tmp_path):
         """CP-114: a chain bullet may name a host launcher by a relative `core/launchers/…`
@@ -2063,32 +2218,32 @@ class TestLocate:
         location = self.locate(FakeFiles(launcher_tree()), "SDD")
         assert not location.document_present and location.document_path is None
 
-    def test_the_agari_lives_beside_the_project_card_not_under_the_product(self):
+    def test_the_finish_line_lives_beside_the_project_card_not_under_the_product(self):
         files = FakeFiles({**launcher_tree(),
-                            f"{INSTANCE}/system/projects/{PROJECT}/agari.md": "x",
-                            f"{INSTANCE}/system/projects/{PROJECT}/agari_open_issues.md": "y"})
-        location = self.locate(files, "Agari")
-        assert location.document_path == f"{INSTANCE}/system/projects/{PROJECT}/agari.md"
+                            f"{INSTANCE}/system/projects/{PROJECT}/finish_line.md": "x",
+                            f"{INSTANCE}/system/projects/{PROJECT}/finish_line_open_issues.md": "y"})
+        location = self.locate(files, "FINISH_LINE")
+        assert location.document_path == f"{INSTANCE}/system/projects/{PROJECT}/finish_line.md"
         assert location.companion_present
 
-    def test_a_stamped_agari_is_absent_so_its_producer_runs(self):
-        """`project-stamp` writes `agari.md` from a template carrying `PLACEHOLDER`
-        (`agari_template.md:12`). Read as present, a fresh project's Agari had no companion and
+    def test_a_stamped_finish_line_is_absent_so_its_producer_runs(self):
+        """`project-stamp` writes `finish_line.md` from a template carrying `PLACEHOLDER`
+        (`finish_line_template.md:12`). Read as present, a fresh project's finish line had no companion and
         was walked past, never declared; with a companion, it went to the answer step instead
-        of `project-agari`."""
+        of `project-finish-line`."""
         stamped = "> **PLACEHOLDER — filled at station 2 of the project's setup seed.**\n"
-        for extra in ({}, {f"{INSTANCE}/system/projects/{PROJECT}/agari_open_issues.md": "y"}):
+        for extra in ({}, {f"{INSTANCE}/system/projects/{PROJECT}/finish_line_open_issues.md": "y"}):
             files = FakeFiles({**launcher_tree(),
-                                f"{INSTANCE}/system/projects/{PROJECT}/agari.md": stamped,
+                                f"{INSTANCE}/system/projects/{PROJECT}/finish_line.md": stamped,
                                 **extra})
-            location = self.locate(files, "Agari")
+            location = self.locate(files, "FINISH_LINE")
             assert not location.document_present and location.document_path is None
             assert chain.cycle_entry(location) is chain.CycleEntry.PRODUCER
 
-    def test_a_declared_agari_is_present(self):
+    def test_a_declared_finish_line_is_present(self):
         files = FakeFiles({**launcher_tree(),
-                            f"{INSTANCE}/system/projects/{PROJECT}/agari.md": "Done when …\n"})
-        assert self.locate(files, "Agari").document_present
+                            f"{INSTANCE}/system/projects/{PROJECT}/finish_line.md": "Done when …\n"})
+        assert self.locate(files, "FINISH_LINE").document_present
 
     def test_the_adr_is_present_only_when_it_holds_a_record(self):
         empty = FakeFiles({**launcher_tree(), f"{PRODUCT}/docs/adr/README.md": "x"})
@@ -2145,6 +2300,39 @@ class TestChainNameDefaultsWithoutBumpingTheSchema:
         assert chain.STATE_SCHEMA == 2
 
 
+def sample_state(project: str) -> chain.ChainState:
+    return chain.ChainState(instance_root=INSTANCE, product_path=PRODUCT, project=project,
+                            core_dir=CORE, shim_path=SHIM)
+
+
+def race_two_saves(directory: Path):
+    """Two `StateStore.save` calls on one real path, held so both have staged before either
+    replaces. Returns the two states saved and the exceptions the saves raised."""
+    both_staged = threading.Barrier(2)
+
+    class MeetBeforeReplace(chain.Files):
+        def replace(self, source: str, destination: str) -> None:
+            both_staged.wait(timeout=10)
+            super().replace(source, destination)
+
+    store = chain.StateStore(MeetBeforeReplace(), str(directory / "state.json"))
+    states = [sample_state("one"), sample_state("two")]
+    failures: list[BaseException] = []
+
+    def save(state: chain.ChainState) -> None:
+        try:
+            store.save(state)
+        except BaseException as exc:
+            failures.append(exc)
+
+    threads = [threading.Thread(target=save, args=(state,)) for state in states]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+    return states, failures
+
+
 class TestTheStateFile:
 
     def test_it_round_trips(self):
@@ -2170,7 +2358,42 @@ class TestTheStateFile:
         files = FakeFiles(launcher_tree())
         engine = build(files)
         start(engine, "FDR")
-        assert not any(key.endswith(".tmp") for key in files.files)
+        assert not any(key.startswith(f"{STATE}.tmp") for key in files.files)
+
+    def test_two_saves_at_once_both_return(self, tmp_path):
+        """CP-944. Both saves stage before either replaces, so a staging file the two share is
+        the one the second replace finds already gone."""
+        saves, failures = race_two_saves(tmp_path)
+        assert failures == []
+        parsed = json.loads((tmp_path / "state.json").read_text(encoding="utf-8"))
+        assert parsed in [state.to_json() for state in saves]
+
+    def test_two_saves_at_once_leave_no_staging_file(self, tmp_path):
+        race_two_saves(tmp_path)
+        assert sorted(entry.name for entry in tmp_path.iterdir()) == ["state.json"]
+
+    def test_a_failed_save_leaves_no_staging_file(self, tmp_path):
+        class RefusingReplace(chain.Files):
+            def replace(self, source: str, destination: str) -> None:
+                raise OSError("the replace was refused")
+
+        store = chain.StateStore(RefusingReplace(), str(tmp_path / "state.json"))
+        with pytest.raises(OSError):
+            store.save(sample_state("one"))
+        assert list(tmp_path.iterdir()) == []
+
+    def test_a_save_whose_write_fails_leaves_no_staging_file(self, tmp_path):
+        """Design §3 Sub-job A: a save that fails before the replace leaves no staging file —
+        at the write, where half a file is already on disk, as at the replace."""
+        class FailsMidWrite(chain.Files):
+            def write_text(self, path: str, text: str) -> None:
+                super().write_text(path, text[: len(text) // 2])
+                raise OSError("the disk filled mid-write")
+
+        store = chain.StateStore(FailsMidWrite(), str(tmp_path / "state.json"))
+        with pytest.raises(OSError):
+            store.save(sample_state("one"))
+        assert list(tmp_path.iterdir()) == []
 
     def test_a_missing_state_file_is_refused_by_name(self):
         store = chain.StateStore(FakeFiles(), STATE)
@@ -2198,10 +2421,10 @@ class TestAdvanceIsIdempotent:
         engine, processes = self.engine_mid_walk()
         finish(engine, "completed")
 
-        # `StateStore.save` writes the `.tmp` sibling and replaces it over the real path, so
-        # the temporary file is where a write is actually observed.
+        # `StateStore.save` writes a staging sibling (`{STATE}.tmp…`) and replaces it over the
+        # real path, so the staging file is where a write is actually observed.
         state_writes = [text for path, text in engine.files_written
-                        if path in (STATE, f"{STATE}.tmp")]
+                        if path == STATE or path.startswith(f"{STATE}.tmp")]
         cleared = [index for index, text in enumerate(state_writes)
                    if '"pending": null' in text]
         relaunched = [index for index, text in enumerate(state_writes)
@@ -2831,15 +3054,15 @@ class TestTheAnswerStepReadsItsOwnDocumentsTrail:
         assert chain.document("NFDR").trail_stem == "architecture"
         assert chain.document("SRS").trail_stem == "srs"
 
-    def test_the_agaris_report_is_looked_for_in_the_instance_not_the_product(self):
+    def test_the_finish_lines_report_is_looked_for_in_the_instance_not_the_product(self):
         files = FakeFiles({**launcher_tree(),
-                            f"{INSTANCE}/system/projects/{PROJECT}/agari.md": "x",
-                            f"{INSTANCE}/system/projects/{PROJECT}/agari_open_issues.md": "y"})
+                            f"{INSTANCE}/system/projects/{PROJECT}/finish_line.md": "x",
+                            f"{INSTANCE}/system/projects/{PROJECT}/finish_line_open_issues.md": "y"})
         reports = FakeReports()
         engine = build(files, reports=reports)
-        start(engine, "Agari")
+        start(engine, "FINISH_LINE")
         finish(engine, "completed")
-        assert reports.found == [(INSTANCE, "agari", [])]
+        assert reports.found == [(INSTANCE, "finish_line", [])]
 
 
 class TestSettledIsCheckedAgainstTheDisk:
@@ -3270,7 +3493,7 @@ class TestOneChainPerProjectAtATime:
 
         second = build(files)
         with pytest.raises(chain.ChainAlreadyWalking) as raised:
-            start(second, "PRD,Agari,SRS")
+            start(second, "PRD,FINISH_LINE,SRS")
         assert STATE in str(raised.value)
         assert "FDR" in str(raised.value)
 
@@ -3283,7 +3506,7 @@ class TestOneChainPerProjectAtATime:
         engine.store.save(state)
 
         second = build(files)
-        assert start(second, "PRD,Agari,SRS").acted is True
+        assert start(second, "PRD,FINISH_LINE,SRS").acted is True
 
     def test_a_fresh_project_starts_normally(self):
         assert start(build(FakeFiles(launcher_tree())), "FDR").acted is True
@@ -3398,16 +3621,16 @@ class TestAProducerThatLeavesACompanionIsNotWalkedPast:
             engine.store.load().ended is not None
 
     def test_a_producer_that_leaves_its_document_absent_is_a_machinery_stop(self):
-        """`project-agari` committed something but left the stamped placeholder and no
+        """`project-finish-line` committed something but left the stamped placeholder and no
         companion. Advancing would let the walk conclude "every spine document is settled"
-        over an undeclared Agari."""
-        agari = f"{INSTANCE}/system/projects/{PROJECT}/agari.md"
-        files = FakeFiles({**launcher_tree(), agari: "> **PLACEHOLDER — stamped.**\n"})
+        over an undeclared finish line."""
+        finish_line = f"{INSTANCE}/system/projects/{PROJECT}/finish_line.md"
+        files = FakeFiles({**launcher_tree(), finish_line: "> **PLACEHOLDER — stamped.**\n"})
         processes = FakeProcesses()
         engine = build(files, processes=processes)
 
-        start(engine, "Agari")
-        assert processes.launched[-1] == through_skill("project-agari")
+        start(engine, "FINISH_LINE")
+        assert processes.launched[-1] == through_skill("project-finish-line")
         finish(engine, "completed")
 
         assert engine.store.load().ended == chain.CycleEnd.MACHINERY.value
@@ -3826,7 +4049,7 @@ def open_fdr_companion() -> dict[str, str]:
 
 class TestTheChainsEndRunsAnOptionalHook:
     """`--on-end <command>` is carried on the state and fired once from `_halt` — the one place
-    a chain writes `ended` — with the end's value appended. `chain-product` passes it through so a
+    a chain writes `ended` — with the end's value appended. `product-docs` passes it through so a
     caller that started a sweep is told when it is over."""
 
     def test_a_settled_conclusion_runs_the_hook_with_settled_appended(self):
@@ -3999,9 +4222,8 @@ class TestTheHookReturnsWhileTheAdvanceLaunches:
     the engine, as `chain_development`'s always did.
 
     Driven through the real `watch_agent.run_on_complete_hook`, from a different cwd, with spaces
-    in every path but the core's: the engine reads each launch as a command string and splits it
-    (`validate_owed_command`), so a space in `<CORE>` ends the walk `no_runnable_command` before
-    any shim fires. The watcher's 60 seconds is a literal inside `watch_agent.py`, so the second
+    in every path, the core's too (K4 of the 2026-10-26 source review: a space in `<CORE>` used
+    to end the walk `no_runnable_command` before any shim fired). The watcher's 60 seconds is a literal inside `watch_agent.py`, so the second
     document's producer is held on a release file the test writes only after the hook has
     returned: it outlasts the hook whatever the bound is."""
 
@@ -4034,7 +4256,7 @@ class TestTheHookReturnsWhileTheAdvanceLaunches:
         logs = instance / "system" / "logs"
         release = tmp_path / "release srs"
         attached = tmp_path / "watcher attached"
-        core = self._stub_core(tmp_path / "acore", release, attached)
+        core = self._stub_core(tmp_path / "a core", release, attached)
         state_path = logs / self.STATE_NAME
         shim_path = logs / f"chain-{PROJECT}.sh"
         real_engine = str(Path(chain.__file__).resolve())
@@ -5253,3 +5475,330 @@ def test_self_answer_report_card_bullet_walk():
                                   through_skill("product-architecture"), answer("architecture"),
                                   CARD_ARGV]
     assert processes.launched.count(CARD_ARGV) == 1
+
+
+# --- the entry points are transactions over the state file (CP-941 to CP-946) -------------------
+
+
+class TestEntryPointsAreTransactions:
+
+    def held_engine(self, spine="FDR,ADR", **engine_arguments):
+        files = FakeFiles(launcher_tree())
+        processes = engine_arguments.pop("processes", None) or FakeProcesses()
+        lock = ThreadLock()
+        store = PausingStore(files, STATE)
+        engine = build(files, processes=processes, lock=lock, store=store, **engine_arguments)
+        return engine, store, lock, files, processes
+
+    def test_two_finishes_of_one_launch_advance_once(self):
+        engine, store, lock, files, processes = self.held_engine()
+        start(engine, "FDR,ADR")
+        launch = store.load().pending["launch"]
+        first = Call(engine.advance, "completed", launch)
+        store.hold(first)
+        first.start()
+        assert store.paused.wait(GATE)
+        second = Call(engine.advance, "completed", launch)
+        second.start()
+        settle(lock, second)
+        store.release.set()
+        first.join(GATE)
+        second.join(GATE)
+
+        assert first.error is None and second.error is None
+        assert sorted([first.result.acted, second.result.acted]) == [False, True]
+        assert len(processes.launched) == 2
+
+    def test_a_stop_racing_a_finish_leaves_one_ending(self):
+        engine, store, lock, files, processes = self.held_engine()
+        start(engine, "FDR,ADR")
+        launch = store.load().pending["launch"]
+        finishing = Call(engine.advance, "completed", launch)
+        store.hold(finishing)
+        finishing.start()
+        assert store.paused.wait(GATE)
+        stopping = Call(engine.stop, STOP_AT)
+        stopping.start()
+        settle(lock, stopping)
+        store.release.set()
+        finishing.join(GATE)
+        stopping.join(GATE)
+
+        assert finishing.error is None and stopping.error is None
+        state = json.loads(files.read_text(STATE))
+        assert state["ended"] == walk_stop.STOPPED
+        assert state["pending"] is None
+        assert len(processes.launched) == 2
+
+    def test_two_starts_for_one_project_start_one_walk(self):
+        engine, store, lock, files, processes = self.held_engine()
+        first = Call(start, engine, "FDR")
+        store.hold(first)
+        first.start()
+        assert store.paused.wait(GATE)
+        second = Call(start, engine, "FDR")
+        second.start()
+        settle(lock, second)
+        store.release.set()
+        first.join(GATE)
+        second.join(GATE)
+
+        assert first.error is None and first.result.acted is True
+        assert isinstance(second.error, chain.ChainAlreadyWalking)
+        assert processes.launched == [through_skill("product-fdr")]
+        assert store.load().launches == 1
+
+    def test_a_finish_delivered_while_a_stop_is_held_steps_nothing(self):
+        """CP-942 in the other order: the stop is inside its transaction when the finish comes.
+        The finish waits for it, then finds the walk stopped and launches nothing."""
+        engine, store, lock, files, processes = self.held_engine()
+        start(engine, "FDR,ADR")
+        launch = store.load().pending["launch"]
+        stopping = Call(engine.stop, STOP_AT)
+        store.hold(stopping)
+        stopping.start()
+        assert store.paused.wait(GATE)
+        finishing = Call(engine.advance, "completed", launch)
+        finishing.start()
+        settle(lock, finishing)
+        store.release.set()
+        stopping.join(GATE)
+        finishing.join(GATE)
+
+        assert stopping.error is None and finishing.error is None
+        assert finishing.result.acted is False
+        assert processes.launched == [through_skill("product-fdr")]
+        state = json.loads(files.read_text(STATE))
+        assert state["ended"] == walk_stop.STOPPED
+        assert state["pending"] is None
+
+    @pytest.mark.parametrize("ending", ["advance", "stop"])
+    def test_each_entry_point_runs_its_end_command_after_release(self, ending):
+        """CP-946 holds for every entry point that can end a walk, not only `start`: a finish
+        that settles the walk and a stop each run the end command with the lock let go."""
+        lock = ThreadLock()
+        held_at_the_end_command: list[bool] = []
+
+        class Watching(FakeProcesses):
+            def run(self, argv, **keywords):
+                if argv[:2] == HOOK_ARGV:
+                    held_at_the_end_command.append(lock.is_held(STATE))
+                return super().run(argv, **keywords)
+
+        engine = build(FakeFiles(launcher_tree()), processes=Watching(), lock=lock)
+        start(engine, "FDR", on_end=HOOK)
+        if ending == "advance":
+            finish(engine)
+        else:
+            engine.stop(STOP_AT)
+
+        assert held_at_the_end_command == [False]
+        assert engine.store.load().ended == (chain.CycleEnd.SETTLED.value
+                                             if ending == "advance" else walk_stop.STOPPED)
+
+    def test_an_end_command_that_takes_the_lock_is_not_kept_waiting(self):
+        """A next walk's `start` takes the state lock. Held through the end command, the lock
+        would make it wait on the walk that started it."""
+        lock = ThreadLock()
+
+        class NextWalk(FakeProcesses):
+            took_the_lock = False
+
+            def run(self, argv, **keywords):
+                if argv[:2] == HOOK_ARGV:
+                    with lock.hold(STATE):
+                        self.took_the_lock = True
+                return super().run(argv, **keywords)
+
+        processes = NextWalk(codes=[3])
+        engine = build(FakeFiles(launcher_tree()), processes=processes, lock=lock)
+
+        start(engine, "FDR", on_end=HOOK)
+
+        assert processes.took_the_lock
+        assert engine.store.load().ended == chain.CycleEnd.MACHINERY.value
+
+    def test_the_end_command_runs_once_after_release(self):
+        lock = ThreadLock()
+        files = FakeFiles(launcher_tree())
+        notifier = FakeNotifier()
+        seen: list[dict] = []
+
+        class Watching(FakeProcesses):
+            def run(self, argv, **keywords):
+                if argv[:2] == HOOK_ARGV:
+                    seen.append({"held": lock.is_held(STATE),
+                                 "state": json.loads(files.read_text(STATE)),
+                                 "told": list(notifier.messages)})
+                return super().run(argv, **keywords)
+
+        processes = Watching(codes=[3])
+        engine = build(files, processes=processes, notifier=notifier, lock=lock)
+
+        start(engine, "FDR", on_end=HOOK)
+
+        assert len(hook_calls(processes)) == 1
+        assert seen[0]["held"] is False
+        assert seen[0]["state"]["ended"] == chain.CycleEnd.MACHINERY.value
+        assert any("machinery" in message.lower() or "launcher exited" in message
+                   for message in seen[0]["told"])
+
+    def test_the_transactions_hold_on_the_real_lock(self, tmp_path):
+        core, instance = tmp_path / "core", tmp_path / "instance"
+        for path, text in launcher_tree().items():
+            target = Path(str(core) + path[len(CORE):])
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(text, encoding="utf-8")
+            target.chmod(0o755)
+        (tmp_path / "product").mkdir()
+        write_provider_file(instance)
+        files = chain.Files()
+        store = PausingStore(files, str(instance / "state.json"))
+        processes = FakeProcesses()
+        engine = chain.Chain(
+            store=store, files=files, processes=processes, reports=FakeReports(),
+            notifier=FakeNotifier(), id_source=FakeIdSource(), engine_path="/pinned/chain.py",
+            environ={"PATH": "/usr/bin"}, providers=chain.ProviderFiles(files),
+            process_table=FakeProcessTable(), checkout=FakeCheckout(), lock=chain.FileLock())
+        engine.start(instance_root=str(instance), product_path=str(tmp_path / "product"),
+                     project=PROJECT, core_dir=str(core),
+                     shim_path=str(instance / "system/logs/chain.sh"),
+                     spine=chain.parse_spine("FDR,ADR"))
+        launch = store.load().pending["launch"]
+        first = Call(engine.advance, "completed", launch)
+        store.hold(first)
+        first.start()
+        assert store.paused.wait(GATE)
+        second = Call(engine.advance, "completed", launch)
+        second.start()
+        time.sleep(0.5)
+        store.release.set()
+        first.join(GATE)
+        second.join(GATE)
+
+        assert first.error is None and second.error is None
+        assert sorted([first.result.acted, second.result.acted]) == [False, True]
+        assert len(processes.launched) == 2
+
+    def test_change_chain_still_holds_its_lock(self):
+        assert chain_development.FileLock is chain.FileLock
+
+
+# --- a foreground card run is made outside the transaction (CP-945) -----------------------------
+
+
+class BlockingCard(FakeProcesses):
+    """A `product-card` launch that runs until released, as the foreground run it is. Every
+    other launch answers at once. `entered` is set once the card's process is running."""
+
+    def __init__(self, *, blocked: bool = True, **keywords):
+        super().__init__(**keywords)
+        self.entered = threading.Event()
+        self.release = threading.Event()
+        if not blocked:
+            self.release.set()
+
+    def run(self, argv, **keywords) -> int:
+        code = super().run(argv, **keywords)
+        if "product-card" in argv[0]:
+            self.entered.set()
+            assert self.release.wait(GATE), "the card run was never released"
+        return code
+
+
+def a_walk_that_owes_the_card(processes):
+    engine, processes, files, _ = card_walk([("docs/fdr.md", card_command())],
+                                            processes=processes)
+    return engine, processes, files
+
+
+class TestAForegroundCardRunIsMadeOutsideTheTransaction:
+
+    def run_the_card_unreleased(self, processes=None):
+        engine, processes, files = a_walk_that_owes_the_card(processes or BlockingCard())
+        launch = engine.store.load().pending["launch"]
+        running = Call(engine.advance, "completed", launch)
+        running.start()
+        assert processes.entered.wait(GATE)
+        return engine, processes, files, running
+
+    def test_a_stop_during_a_card_run_returns_at_once(self):
+        engine, processes, files, running = self.run_the_card_unreleased()
+        stopping = Call(engine.stop, STOP_AT)
+        stopping.start()
+        stopping.join(LOCK_WAIT_CAP + 2)
+        returned_while_the_card_ran = not stopping.is_alive() and stopping.error is None
+        state_while_the_card_ran = json.loads(files.read_text(STATE))
+        processes.release.set()
+        running.join(GATE)
+
+        assert returned_while_the_card_ran
+        assert state_while_the_card_ran["ended"] == walk_stop.STOPPED
+
+    def test_a_card_run_ending_after_a_stop_steps_nothing(self):
+        engine, processes, files, running = self.run_the_card_unreleased()
+        stopping = Call(engine.stop, STOP_AT)
+        stopping.start()
+        stopping.join(LOCK_WAIT_CAP + 2)
+        launched_at_the_stop = list(processes.launched)
+        processes.release.set()
+        running.join(GATE)
+
+        assert running.error is None
+        assert processes.launched == launched_at_the_stop
+        state = json.loads(files.read_text(STATE))
+        assert state["ended"] == walk_stop.STOPPED
+        assert state["pending"] is None
+
+    def test_a_card_run_failing_after_a_stop_does_not_overwrite_stopped(self):
+        """CP-945 for a card run that ends badly: its non-zero exit, read after the stop, is
+        not a machinery end written over the stop's."""
+        class FailingCard(BlockingCard):
+            def run(self, argv, **keywords) -> int:
+                code = super().run(argv, **keywords)
+                return 1 if "product-card" in argv[0] else code
+
+        engine, processes, files, running = self.run_the_card_unreleased(FailingCard())
+        stopping = Call(engine.stop, STOP_AT)
+        stopping.start()
+        stopping.join(LOCK_WAIT_CAP + 2)
+        state_at_the_stop = json.loads(files.read_text(STATE))
+        launched_at_the_stop = list(processes.launched)
+        processes.release.set()
+        running.join(GATE)
+
+        assert running.error is None
+        assert state_at_the_stop["ended"] == walk_stop.STOPPED
+        assert json.loads(files.read_text(STATE)) == state_at_the_stop
+        assert processes.launched == launched_at_the_stop
+
+    def test_a_card_run_with_no_stop_finishes_as_before(self):
+        walks = []
+        for processes in (FakeProcesses(), BlockingCard(blocked=False)):
+            engine, processes, files = a_walk_that_owes_the_card(processes)
+            finish(engine)
+            walks.append((processes.launched, engine.store.load().to_json()))
+
+        assert walks[1] == walks[0]
+        assert [argv for argv in walks[1][0] if "product-card" in argv[0]]
+
+    def test_the_real_lock_lets_go_and_takes_it_again(self, tmp_path):
+        """`FileLock`'s held form: the lock is free while it is let go, and the caller's again,
+        as it was, once the block ends."""
+        state = str(tmp_path / "state.json")
+
+        def held_by_someone() -> bool:
+            handle = os.open(f"{state}.lock", os.O_RDWR)
+            try:
+                fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError:
+                return True
+            finally:
+                os.close(handle)
+            return False
+
+        with chain.FileLock().hold(state) as held:
+            assert held_by_someone()
+            with held.let_go():
+                assert not held_by_someone()
+            assert held_by_someone()

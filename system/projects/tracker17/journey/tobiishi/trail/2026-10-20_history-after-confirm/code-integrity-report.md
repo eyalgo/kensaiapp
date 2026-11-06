@@ -5,7 +5,7 @@ Environment: owners-mac — no CI
 
 **Change:** `tracker17 · tobiishi · 2026-10-20_history-after-confirm`, on the station `tracker17 · shukuba · 2026-10-19_cancel-confirmation`.
 **Date:** 2026-10-20
-**Reviewed at:** the developer's newest closing marker `025a7406f` (`developer: 2026-10-20_history-after-confirm — implementation complete`), which supersedes `c7dacd5fd`.
+**Reviewed at:** the developer's newest closing marker `<a commit not in the public history>` (`developer: 2026-10-20_history-after-confirm — implementation complete`), which supersedes `<a commit not in the public history>`.
 
 ## Summary
 
@@ -26,7 +26,7 @@ The marker was read with `git -C <worktree> log -1 main..2026-10-20_history-afte
 
 ## What was reviewed
 
-The product diff from the merge base `61f97a0b2` to `025a7406f`, under `products/tracker17`:
+The product diff from the merge base `<a commit not in the public history>` to `<a commit not in the public history>`, under `products/tracker17`:
 `web/routes.py`, `tests/integration/test_routes.py`, `test_move_routes.py`, `test_move_pages.py`
 and `tests/e2e/test_moves.py`. That is 5 files, 399 lines added and 72 removed. The one production
 delta is `Site._pending_status` (`web/routes.py:322-333`) and its two call sites in `_task_page` and

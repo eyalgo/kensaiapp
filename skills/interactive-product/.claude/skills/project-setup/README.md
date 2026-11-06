@@ -1,7 +1,7 @@
 # project-setup
 
 Starting a product in kensaiapp used to take knowing the machinery: run `project-stamp`, launch the
-PRD, answer its companion, launch the Agari, answer that one. A newcomer knows none of it. This
+PRD, answer its companion, launch the finish line, answer that one. A newcomer knows none of it. This
 skill is the front door for a project in a kensaiapp: one conversation in plain words, after which the project exists and its
 first two documents are being written from the owner's answers.
 
@@ -9,14 +9,18 @@ first two documents are being written from the owner's answers.
 
 - Interviews the owner with `AskUserQuestion` screens and chat questions, in plain language, one
   question at a time, offering a suggested answer where the idea or the material already holds one
-- Records what kind of product it is (software or not), where it lives, what it looks after outside
-  itself, and what material it starts from — on the project card
+- Records what kind of product it is (software or not), how much of it is written down before the
+  work starts, where it lives, what it looks after outside itself, and what material it starts
+  from — on the project card
+- Asks how much is written down first: software takes everything, just what it is and when it's
+  done, or nothing; a product without code takes the second or nothing, never everything
 - Stamps the project through `project-stamp`'s script
-- Writes the owner's answers as round 0 of the PRD's and the Agari's companions, in the templates'
+- Writes the owner's answers as round 0 of the PRD's and the finish line's companions, in the templates'
   exact shape (`scripts/write_companion.py`), marking each answer that came from a suggestion,
   and commits them
-- Starts `chain-agari`, which writes the PRD and then the Agari, answering its own follow-up
-  questions as every chain does
+- Starts `prd-and-finish-line`, which writes the PRD and then the finish line, answering its own follow-up
+  questions as every chain does — unless nothing is written down first, when it stops at the
+  stamped project
 
 ## File Structure
 
@@ -33,8 +37,8 @@ project-setup/
 ## Depends On
 
 - `project-stamp` — its `scripts/stamp_project.py` creates the project and writes the card
-- `core/launchers/chain-agari/` — the chain it starts at the end
-- `product-prd` and `project-agari` — the runs that read the companions it writes
+- `core/launchers/prd-and-finish-line/` — the chain it starts at the end
+- `product-prd` and `project-finish-line` — the runs that read the companions it writes
 
 ## When to Use
 

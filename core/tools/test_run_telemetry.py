@@ -32,20 +32,14 @@ import re
 import shlex
 import shutil
 import subprocess
-import sys
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
 
-import telemetry_command
-from launcher_telemetry_test_support import (
-    SKIP_NOT_PLAIN,
-    SKIP_UNSET,
-    real_package_skip_reason,
-    skip_reason_unreachable,
-)
+import telemetry_recording_test_support
+from launcher_telemetry_test_support import RECORDED_COMMAND
 
 _TOOLS = Path(__file__).resolve().parent
 _HELPER = _TOOLS / "run_telemetry.sh"
@@ -56,8 +50,6 @@ SETTINGS_KEY = "INSTRUMENT_RUN_SETTINGS"
 ATTRIBUTES_KEY = "OTEL_RESOURCE_ATTRIBUTES"
 ENDPOINT_KEY = "OTEL_EXPORTER_OTLP_ENDPOINT"
 
-# The home the real package is installed under. Read once, before any case isolates HOME.
-REAL_HOME = Path.home()
 
 TELEMETRY_KEYS = (
     "CLAUDE_CODE_ENABLE_TELEMETRY",
@@ -246,15 +238,10 @@ def rig(tmp_path: Path) -> Rig:
 
 @pytest.fixture
 def real(tmp_path: Path) -> Rig:
-    """A rig whose home links to the real installed environment — or the skip that names what is
-    missing."""
-    discovered = telemetry_command.resolve(_TOOLS.parent, dict(os.environ))
-    reason = real_package_skip_reason({COMMAND_VARIABLE: discovered}, REAL_HOME)
-    if reason:
-        pytest.skip(reason)
-    rig = Rig(tmp_path, discovered)
-    (rig.home / ".kensaiapp").mkdir()
-    (rig.home / ".kensaiapp" / "venv").symlink_to(REAL_HOME / ".kensaiapp" / "venv")
+    """A rig whose home holds the telemetry package as recorded
+    (`telemetry_recording_test_support.py`): every call answers what the real package answered."""
+    rig = Rig(tmp_path, RECORDED_COMMAND)
+    telemetry_recording_test_support.install(rig.home, RECORDED_COMMAND)
     return rig
 
 
@@ -882,84 +869,6 @@ def test_repeated_project_labels_each_keep_their_product(real: Rig):
     )
 
 
-# --- a missing dependency is a named skip -------------------------------------------------------
-
-
-def _nested_pytest(environ: dict[str, str], *selectors: str) -> subprocess.CompletedProcess:
-    return subprocess.run(
-        [sys.executable, "-m", "pytest", str(Path(__file__).resolve()), "-k",
-         " or ".join(selectors), "-q", "-rs", "-n", "0", "-p", "no:cacheprovider"],
-        cwd=str(_TOOLS), capture_output=True, text=True, env=environ, timeout=300,
-    )
-
-
-def _nested_environment(home: Path, **extra: str) -> dict[str, str]:
-    env = {k: v for k, v in os.environ.items() if k != COMMAND_VARIABLE}
-    env[COMMAND_VARIABLE] = ""
-    env["HOME"] = str(home)
-    env["PYTHONDONTWRITEBYTECODE"] = "1"
-    env.update(extra)
-    return env
-
-
-def test_unavailable_real_package_reports_a_named_skip(tmp_path: Path):
-    """E6 / CP-761: with the configuration absent, or naming a command that is not there, the
-    real-package case is reported skipped — with the missing dependency named — and neither
-    passes nor fails. A command that is reached and breaks the contract fails the case instead."""
-    selector = "test_helper_stamps_complete_ordered_observations"
-
-    unset_home = tmp_path / "unset"
-    unset_home.mkdir()
-    unset = _nested_pytest(_nested_environment(unset_home), selector)
-    assert unset.returncode == 0, unset.stdout + unset.stderr
-    assert SKIP_UNSET in unset.stdout
-    assert "skipped" in unset.stdout
-    assert "passed" not in unset.stdout and "failed" not in unset.stdout
-
-    missing_home = tmp_path / "missing"
-    missing_home.mkdir()
-    absent = _nested_pytest(
-        _nested_environment(missing_home, **{COMMAND_VARIABLE: "no-such-telemetry-command"}),
-        selector,
-    )
-    path = missing_home / ".kensaiapp" / "venv" / "bin" / "no-such-telemetry-command"
-    assert absent.returncode == 0, absent.stdout + absent.stderr
-    assert skip_reason_unreachable(path) in absent.stdout
-    assert "failed" not in absent.stdout and "passed" not in absent.stdout
-
-    # CP-761: a reached command that exits non-zero, or that prints no settings document, fails.
-    for label, body in (
-        ("exit-3", "#!/bin/sh\nexit 3\n"),
-        ("no-settings-document", "#!/bin/sh\necho 'this is not a settings document'\n"),
-    ):
-        broken_home = tmp_path / f"broken-{label}"
-        (broken_home / ".kensaiapp" / "venv" / "bin").mkdir(parents=True)
-        broken = broken_home / ".kensaiapp" / "venv" / "bin" / FIXTURE_COMMAND
-        broken.write_text(body)
-        broken.chmod(0o755)
-        reached = _nested_pytest(
-            _nested_environment(broken_home, **{COMMAND_VARIABLE: FIXTURE_COMMAND}), selector
-        )
-        assert reached.returncode == 1, label + ": " + reached.stdout + reached.stderr
-        assert "failed" in reached.stdout and "skipped" not in reached.stdout, label
-
-
-def test_the_skip_decision_names_what_is_missing(tmp_path: Path):
-    """The reasons themselves, without a nested run."""
-    assert real_package_skip_reason({}, tmp_path) == SKIP_UNSET
-    assert real_package_skip_reason({COMMAND_VARIABLE: ""}, tmp_path) == SKIP_UNSET
-    assert real_package_skip_reason({COMMAND_VARIABLE: "a/b"}, tmp_path) == SKIP_NOT_PLAIN
-    unreachable = real_package_skip_reason({COMMAND_VARIABLE: "absent-command"}, tmp_path)
-    assert unreachable == skip_reason_unreachable(
-        tmp_path / ".kensaiapp" / "venv" / "bin" / "absent-command"
-    )
-    present = tmp_path / ".kensaiapp" / "venv" / "bin"
-    present.mkdir(parents=True)
-    (present / "present-command").write_text("#!/bin/sh\n")
-    (present / "present-command").chmod(0o755)
-    assert real_package_skip_reason({COMMAND_VARIABLE: "present-command"}, tmp_path) is None
-
-
 # --- the failure boundary, with fixture executables ----------------------------------------------
 
 BASE_ENV = {
@@ -1030,8 +939,11 @@ def _scratch_helper(
         )
     tools = core / "tools"
     shutil.copy2(_HELPER, tools / "run_telemetry.sh")
-    for sibling in ("pin.py", "env_file.py"):
+    for sibling in ("pin.py", "env_file.py", "locked_python.sh"):
         shutil.copy2(_TOOLS / sibling, tools / sibling)
+    # The runner reads the Python from the three lock files at the root two directories above it.
+    for lock_file in ("pyproject.toml", "uv.lock", ".python-version"):
+        shutil.copy2(_TOOLS.parent.parent / lock_file, core.parent / lock_file)
     if resolver == "real":
         shutil.copy2(_TOOLS / "telemetry_command.py", tools / "telemetry_command.py")
     elif resolver is not None:
@@ -1218,7 +1130,7 @@ def test_success_prints_one_normalized_telemetry_line(real: Rig, tmp_path: Path)
     observer_bin = observer_home / ".kensaiapp" / "venv" / "bin"
     observer_bin.mkdir(parents=True)
     log = tmp_path / "argv.log"
-    real_command = REAL_HOME / ".kensaiapp" / "venv" / "bin" / real.command_name
+    real_command = real.home / ".kensaiapp" / "venv" / "bin" / real.command_name
     observer = observer_bin / "observer"
     observer.write_text(
         "#!/bin/sh\n"
@@ -1377,4 +1289,44 @@ def test_sourcing_with_setting_has_no_effects(rig: Rig):
     assert sourced.lines[:-1] == []
     assert sourced.lines[-1].startswith("OPTIONS_AFTER=")
     assert sourced.environ == control.environ
+    assert not marker.exists()
+
+
+# --- the helper runs no `python3` ----------------------------------------------------------------
+
+
+def _python3_that_only_fails(directory: Path) -> tuple[str, Path]:
+    """A PATH whose first directory holds a `python3` that writes a marker and exits 1, and the
+    marker's path."""
+    stub_dir = directory / "stub-bin"
+    stub_dir.mkdir()
+    marker = directory / "python3-marker"
+    stub = stub_dir / "python3"
+    stub.write_text(f'#!/bin/sh\necho called >> "{marker}"\nexit 1\n')
+    stub.chmod(0o755)
+    return f"{stub_dir}{os.pathsep}{os.environ['PATH']}", marker
+
+
+def test_the_run_bridge_and_the_cap_read_give_what_they_gave_with_python3_stubbed_to_fail(
+    real: Rig, tmp_path: Path
+):
+    path, marker = _python3_that_only_fails(tmp_path)
+
+    instrumented = real.call(_HELPER, ["skill=a"], env={"PATH": path})
+    real.endpoint_file.unlink()
+    capped = real.call(_HELPER, ["skill=a"], env={"PATH": path, CAP_KEY: "250000"})
+
+    assert_instrumented(instrumented, _head(_pair("skill", "a")))
+    assert_run_uninstrumented(
+        capped, f"no published telemetry endpoint at {real.endpoint_file}", cap="250000"
+    )
+    assert not marker.exists()
+
+
+def test_the_resolver_runs_no_python3(real: Rig, tmp_path: Path):
+    path, marker = _python3_that_only_fails(tmp_path)
+
+    outcome = real.call(_HELPER, ["skill=a"], env={"PATH": path, COMMAND_VARIABLE: None})
+
+    assert outcome.returncode == 0, outcome.stderr
     assert not marker.exists()

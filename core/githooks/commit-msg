@@ -3,6 +3,7 @@
 # operation (an ordinary commit and a --no-ff merge) with the path to the
 # commit-message file as $1.
 #
+# Version: 1.1.0 — hooks run on the locked python
 # Version: 1.0.0
 #
 # Self-locates core from its own path rather than reading a CORE env var or
@@ -12,9 +13,11 @@
 # `core.hooksPath` to "<resolved-core>/githooks", this hook is invoked *from*
 # core, so its own directory *is* the resolved core — self-location is exact.
 #
-# Performs no checking itself: execs the pure checker with git's message-file
-# argument and exits with the checker's exit code.
+# Performs no checking itself: execs core/tools/locked_python.sh with the pure
+# checker and git's message-file argument, so the checker runs on the Python
+# that `.python-version` names at the root of the instance holding this core
+# (never the machine's own interpreter), and exits with the checker's exit code.
 set -euo pipefail
 
 core="$(cd "$(dirname "$0")/.." && pwd)"
-exec "$core/tools/verify_commit_msg.py" "$1"
+exec "$core/tools/locked_python.sh" "$core/tools/verify_commit_msg.py" "$1"

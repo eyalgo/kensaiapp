@@ -34,6 +34,7 @@ Failing: tests/test_x.py::test_a — task 4
 
 Developer Review Notes (vs tl_instruction.md):
 - Task 2 no red (lane d) — the subject already satisfied it, confirmed
+- Task 3 red saved as 9721600 — its tests, saved before a pause
 """
 
 REPORT_TEXT = """# Report
@@ -87,6 +88,7 @@ def test_marker_readings_report_every_reader() -> None:
     assert readings["environment_kinds"] == ["container"]
     assert readings["language_resolved"] is True
     assert readings["relaned_tasks"] == [2]
+    assert readings["saved_red_commits"] == {"3": ["9721600"]}
     for line_reading in ("deferrals", "failing_cases", "builder_environment", "builder_failing"):
         assert readings[line_reading]["count"] == 1, line_reading
 
@@ -98,6 +100,7 @@ def test_marker_with_no_declarations_reads_absent() -> None:
     assert readings["environment_kinds"] == []
     assert readings["language_resolved"] is False
     assert readings["relaned_tasks"] == []
+    assert readings["saved_red_commits"] == {}
     for line_reading in ("deferrals", "failing_cases", "builder_environment", "builder_failing"):
         assert readings[line_reading]["count"] == 0, line_reading
 
@@ -383,7 +386,7 @@ _DIGEST_HEX = re.compile(r"[0-9a-f]{64}")
 _READING_NAMES = {
     rr.SECTION_MARKERS: {
         "suite_verdict", "environment_kinds", "language_resolved", "deferrals", "failing_cases",
-        "relaned_tasks", "builder_environment", "builder_failing"},
+        "relaned_tasks", "saved_red_commits", "builder_environment", "builder_failing"},
     rr.SECTION_CODE_INTEGRITY: {"environment_kinds", "declared_verdict"},
     rr.SECTION_SECURITY: {"environment_kinds", "declared_verdict"},
 }

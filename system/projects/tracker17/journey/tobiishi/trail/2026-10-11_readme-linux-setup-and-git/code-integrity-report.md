@@ -6,11 +6,11 @@ Integrity: pass
 
 ## Deferrals
 
-None. The closing marker `439add9e2` has no `Deferred:` line.
+None. The closing marker `<a commit not in the public history>` has no `Deferred:` line.
 
 ## What was reviewed
 
-`products/tracker17/README.md`, § Running the tests. This is the only product path changed against the input revision `06af065b288da2e637e5b00868459d7191c33574`, according to `git diff --name-only`. The change is the task 1 commit `ded01918d`, with 3 lines added and 1 removed. No code was changed.
+`products/tracker17/README.md`, § Running the tests. This is the only product path changed against the input revision `<a commit not in the public history>`, according to `git diff --name-only`. The change is the task 1 commit `<a commit not in the public history>`, with 3 lines added and 1 removed. No code was changed.
 
 ## The intent it was checked against
 
@@ -25,8 +25,8 @@ None. CP-78 says no file other than `README.md` changes, and `change_design.md` 
 | `pytest products/tracker17/tests/` | `224 passed in 10.58s`, exit 0. The worktree was clean before and after. |
 | Six-word grep over the whole README | no output, exit 1 |
 | `grep -n -F -e '--with-deps' -e 'Debian 12'` | exit 0. Both patterns match line 91, which sits between `### Running the tests` (87) and `## How it's built` (111). |
-| `git diff --check 06af065b -- products/tracker17` | no output, exit 0 |
-| `git diff --name-only 06af065b -- products/tracker17` | `products/tracker17/README.md` only |
+| `git diff --check <a commit not in the public history> -- products/tracker17` | no output, exit 0 |
+| `git diff --name-only <a commit not in the public history> -- products/tracker17` | `products/tracker17/README.md` only |
 | Strings vs `change_text.md` | both `>` paragraphs match a README line exactly (`grep -qxF`) |
 | V-1 / CP-69 | holds. Line 91 says the `--with-deps` command should be typed "where the commands say `python -m playwright install chromium`", and the note comes before the block. |
 | V-2 / CP-70, CP-71 | holds: "operating system's package manager", "administrator rights", "The tracker and `pytest tests/` need none of what it installs." |

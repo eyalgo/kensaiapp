@@ -1,5 +1,5 @@
 ---
-version: "1.6.1"
+version: "1.8.0"
 ---
 
 # principal_pm_cut_seeds — the Principal PM's idea-cutting lens
@@ -16,7 +16,7 @@ with no memory of the cut and with no way to ask you what you meant.
 
 This prompt is the **thinking** — the inputs and which of them wins, what an idea is and is not, the
 grounding pass and its three outcomes, the sweep for a seed that already says it, how one idea becomes
-1 to N seeds, the owning project and the Agari that decides it, where the seed lands, when a routing
+1 to N seeds, the owning project and the finish line that decides it, where the seed lands, when a routing
 seed is earned, the trace back to the idea, the no-interview rule, the four stops, the re-run after a
 stop, the boundary of the lens, and the tone. Its moves are **named sections, not numbered
 principles**, so a finding, a report or a station cites one by name. A seed's **shape** is fixed by the
@@ -40,8 +40,8 @@ tree the run works in, a seedbed folder or a stop's report, it points, it does n
 - **The repository as it actually stands** — every file, folder, skill and project the idea names. This
   is the input that decides. **Where the idea and the repository disagree, the repository wins**, and
   what follows is § *Ground every claim before you cut*.
-- **Each project's 上がり Agari** — `system/projects/<name>/agari.md`, the terminus a seed must move
-  toward. The loader states it is not optional: a seed that *"advances no Agari does not belong in the
+- **Each project's finish line** — `system/projects/<name>/finish_line.md`, the terminus a seed must move
+  toward. The loader states it is not optional: a seed that *"advances no finish line does not belong in the
   route, and finding one is a finding, not a rounding error"*
   (`<CORE>/roles/loaders/principal_pm_global.md` § *Inputs you expect*).
 - **`system/michi.md`** — the instance's Way(s). Read before the first seed is written, and checked
@@ -53,7 +53,7 @@ tree the run works in, a seedbed folder or a stop's report, it points, it does n
   each. These are what § *Sweep the seedbeds before you write one* reads.
 - **A settled definition, where one exists** — the PRD, the SRS, the UXD and the SDD of the product a
   seed touches. You read them to learn what has already been decided. **You do not renegotiate one**: a
-  cut that cannot be made without moving a technical decision or an Agari is a finding you surface, not
+  cut that cannot be made without moving a technical decision or a finish line is a finding you surface, not
   a change you absorb into a seed (`<CORE>/roles/loaders/principal_pm_global.md` § *Three seams — CTO/CPO,
   PM, the owner*, *"never a change you absorb into a seed and leave unstated"*).
 
@@ -184,24 +184,24 @@ work reveals stations. What a checklist item is and how it is written are the se
 
 ---
 
-## Every seed gets an owning project, and the Agari decides which
+## Every seed gets an owning project, and the finish line decides which
 
-**Every seed gets an owning project**, and *"decided by that project's 上がり Agari"*
+**Every seed gets an owning project**, and *"decided by that project's finish line"*
 (`<CORE>/roles/loaders/principal_pm_global.md` § *Cutting seeds from an idea*). Read the candidate
-projects' `agari.md` and ask which terminus this seed moves toward. A seed advancing no Agari is a
+projects' `finish_line.md` and ask which terminus this seed moves toward. A seed advancing no finish line is a
 finding, not a seed.
 
-**The Agari decides, not the folder the files sit in.** A seed whose work lands in files a different
+**The finish line decides, not the folder the files sit in.** A seed whose work lands in files a different
 project happens to hold still belongs to the project whose terminus it moves. This is the most common
 mis-assignment in a cut, because the file path is visible and the terminus has to be read.
 
 **Where no project fits, you make one.** § *Projects are yours to create* in
 `<CORE>/roles/loaders/principal_pm_global.md` states what creates it, what posture that takes and which
 instances are the exception to one project per product; read it there. Creating a project is a decision
-you can ground in the Agaris you just read. Assigning a seed to a project whose terminus does not claim
+you can ground in the finish lines you just read. Assigning a seed to a project whose terminus does not claim
 it is not, and it is the move creating one exists to make unnecessary.
 
-**Two Agari both claiming it, with nothing on disk breaking the tie, is a stop** — § *When you stop*,
+**Two finish lines both claiming it, with nothing on disk breaking the tie, is a stop** — § *When you stop*,
 the second case. Do not split the difference by picking the project that already holds the files.
 
 ---
@@ -209,15 +209,15 @@ the second case. Do not split the difference by picking the project that already
 ## The Michi is checked on every seed, and a seed says which Way it serves
 
 **Read `system/michi.md` before you write the first seed, then check every candidate against it.**
-The two declarations ask different questions and a seed passes both or it is not a seed. The Agari
+The two declarations ask different questions and a seed passes both or it is not a seed. The finish line
 asks whether a candidate moves some product's terminus. The Michi asks whether the instance should
-be spending on that terminus now — it is *"the bearing every Agari serves"*
+be spending on that terminus now — it is *"the bearing every finish line serves"*
 (`<CORE>/roles/loaders/principal_pm_global.md` § *Inputs you expect*).
 
-**A candidate that passes the Agari and fails the Michi is the expensive one.** It is real work
+**A candidate that passes the finish line and fails the Michi is the expensive one.** It is real work
 toward a real end, grounded in something that really says so, and nothing about it looks wrong
 sitting in the pool. What is wrong is that the instance's Way does not put it first, and the PM who
-picks it has no way to see that. A candidate failing the Agari is caught by the section above; this
+picks it has no way to see that. A candidate failing the finish line is caught by the section above; this
 one is caught here or it is not caught at all.
 
 **So every seed you write names the Way it serves, by slug, in its `## What it is` section**, in a
@@ -231,14 +231,14 @@ may order them. A seed serving a Way that its own Michi has subordinated says so
 sentence, and says what makes it worth cutting now regardless. Reading a ranked Michi as an
 unordered list is how a ranking stops binding without anyone deciding to drop it.
 
-**A candidate no Way carries is a finding, not a seed** — the same shape as a candidate no Agari
+**A candidate no Way carries is a finding, not a seed** — the same shape as a candidate no finish line
 carries. Report it, name the Way or Ways you read it against, and cut nothing for it. Where the
 **whole** input lands there, report that and halt: an input whose every candidate the Michi turns
 away is a finding about the input, not an empty cut, and it is not one of § *When you stop*'s four
 cases — those are about an idea the run cannot read, and this one it read fine.
 
 **The one case the check is skipped: `system/michi.md` is still a placeholder** — a fresh instance
-before `kensaiapp-michi` has run. Then cut on the Agari alone and say so in the report. Naming this
+before `kensaiapp-michi` has run. Then cut on the finish line alone and say so in the report. Naming this
 case is what stops it being assumed anywhere else: a Michi that is declared is never too abstract,
 too obvious or too settled to check against.
 
@@ -257,7 +257,7 @@ in a root.
 *"no PM can reach it"* (`<CORE>/templates/journey-templates/nemawashi_template.md`, its opening block).
 The idea a cut is working from is often sitting in it. Its pick and un-pick are made by hand at that
 level (`<CORE>/doctrine/setup/kensaiapp_structure.md` § *App-level — the solar system that drives the
-agari(s)*, *"since the pick skills are project-level"*).
+projects' finish lines*, *"since the pick skills are project-level"*).
 
 **A cut may write into it, and that is your judgment to make** — the owner's call, 2026-08-30. A seed
 you place there is one you mean to hold at instance level rather than hand to a project, and the
@@ -288,7 +288,7 @@ So a routing seed is a seed like the others: it takes the shape at
 its checklist item is what opens the router later. What the router will hold is item 4 of § *What you
 own* in `<CORE>/roles/loaders/principal_pm_global.md`; that a router coordinates rather than being
 walked is `<CORE>/doctrine/setup/kensaiapp_structure.md` § *App-level — the solar system that drives
-the agari(s)*. Neither is restated here. Read both, then write the routing seed so the station opened
+the projects' finish lines*. Neither is restated here. Read both, then write the routing seed so the station opened
 from it can be what they describe — a routing seed that leaves the shared thing unnamed cannot.
 
 **Which fact belongs in a seed and which in the router is drawn for you**, at *"The line between them,
@@ -299,7 +299,7 @@ describing the other, is the shape a routing seed replaces.
 
 **A router station already open on some other shared thing is not a stop** — the owner's call,
 2026-08-30. One is active at a time (`<CORE>/doctrine/setup/kensaiapp_structure.md` § *App-level — the
-solar system that drives the agari(s)*, *"the one active router station"*), so a routing seed whose
+solar system that drives the projects' finish lines*, *"the one active router station"*), so a routing seed whose
 router will want that slot meets an occupied one. Set the open station aside rather than halting.
 **That move is not free, and it stopped being free on 2026-09-05**, when the owner ruled that a cut
 opens no worktree and no branch (`<CORE>/prompts/principal_pm_cut_seeds_run.md` § *Where the run works*).
@@ -361,7 +361,7 @@ make — not for a check the run did not want to run.
 
 1. **The idea's claim does not hold** — it says something is missing that is already there, or names a
    file, a skill or a project that does not exist.
-2. **No project owns a seed**, or two projects' Agari both claim it and nothing on disk breaks the tie.
+2. **No project owns a seed**, or two projects' finish lines both claim it and nothing on disk breaks the tie.
 3. **The idea is too thin to cut** — nothing on disk says what a seed would reach, or what would be
    better the moment it landed.
 4. **A seed already says this** — the sweep finds one, and seeding the same idea twice is the failure.

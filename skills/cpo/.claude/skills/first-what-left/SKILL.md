@@ -1,9 +1,9 @@
 ---
 name: first-what-left
-description: CPO-posture skill that writes a product's first what-left file, docs/what_left.md, once the project's Agari is settled. One run checks eight conditions in a fixed order, and the first that holds stops it with no file written. Otherwise it reads the Agari and the PRD, keeps each want the product's code can be shown not to do at the tip of main and drops each want only the owner's judgement can pass, writes the file in the shape of the what-left template, and makes one commit of that file in the product's repository. Never edits an existing list. Halts outside CPO posture. Run once for a project whose product has no what-left file yet.
+description: CPO-posture skill that writes a product's first what-left file, docs/what_left.md, once the project's finish line is settled. One run checks eight conditions in a fixed order, and the first that holds stops it with no file written. Otherwise it reads the finish line and the PRD, keeps each want the product's code can be shown not to do at the tip of main and drops each want only the owner's judgement can pass, writes the file in the shape of the what-left template, and makes one commit of that file in the product's repository. Never edits an existing list. Halts outside CPO posture. Run once for a project whose product has no what-left file yet.
 license: MIT
 metadata:
-  version: "1.1.0"
+  version: "1.3.0"
 ---
 
 # first-what-left
@@ -15,7 +15,7 @@ other judgment body. The posture refusal below runs before the prompt is read.
 
 ## When to Use
 
-- A project's Agari is settled and its product has no `docs/what_left.md`. Start it with
+- A project's finish line is settled and its product has no `docs/what_left.md`. Start it with
   `<CORE>/launchers/skill/launcher.sh first-what-left <project>`.
 - **CPO role only.** Outside a `cpo:` session or the `cpo` subagent, the run writes no file, makes no
   commit, and its final message says it needs CPO posture. It reads no project input first.
@@ -31,7 +31,7 @@ other judgment body. The posture refusal below runs before the prompt is read.
 **Do not use for:**
 - Adding, rewording, reordering or removing an entry in a list that exists. The run leaves any
   existing list as it is (`<CORE>/doctrine/setup/kensaiapp_structure.md` § 3, *The what-left file*).
-- Writing the Agari or the PRD (`project-agari`, `product-prd`).
+- Writing the finish line or the PRD (`project-finish-line`, `product-prd`).
 - A product whose card names a nominal Product path. The run writes only inside a product's own `docs/`.
 
 ## Input
@@ -55,9 +55,9 @@ and items 7 and 8 follow them, still before any write.
    instance, or in an instance directory § 1 does not claim, names a product.
 3. `docs/what_left.md` — refuse if `<product>/docs/what_left.md` exists, whatever it holds. Do not read
    it.
-4. `agari.md` — refuse if `system/projects/<project>/agari.md` does not exist.
-5. `agari_open_issues.md` — refuse if `system/projects/<project>/agari_open_issues.md` exists. The Agari
-   is settled only when `agari.md` exists and this companion does not.
+4. `finish_line.md` — refuse if `system/projects/<project>/finish_line.md` does not exist.
+5. `finish_line_open_issues.md` — refuse if `system/projects/<project>/finish_line_open_issues.md` exists. The finish line
+   is settled only when `finish_line.md` exists and this companion does not.
 6. `docs/PRD.md` — refuse if `<product>/docs/PRD.md` does not exist, whether the file or the whole
    product directory is missing.
 7. `git` — find the repository holding `<product>` with `git -C <product> rev-parse --show-toplevel`.
@@ -80,7 +80,7 @@ one commit, so every entry shares one `**Missing at:**` value.
 
 ### 2 — Read and judge
 
-Read `system/projects/<project>/agari.md` and `<product>/docs/PRD.md`. Judge each want they state by
+Read `system/projects/<project>/finish_line.md` and `<product>/docs/PRD.md`. Judge each want they state by
 `prompts/thin.md`. Evidence comes from `git -C <checkout> grep … <tip> -- <sub>`, where `<sub>` is
 `<product>` relative to `<checkout>`, which needs no copy. Code is run only in a disposable copy — a fresh
 clone at `<tip>` (`git clone --quiet <repo> <scratch> && git -C <scratch> checkout --quiet <tip>`; never `git archive`,

@@ -84,7 +84,7 @@ None this run.
 ## Companions opened
 
 - **products/tracker17/docs/fdr_open_issues.md** — **opened** — companion to `fdr.md`, item 2.1,
-  landed in commit `b472b3b15`
+  landed in commit `<a commit not in the public history>`
 
 *What the FDR is owed, and why it is worth a cycle.* The grounds are "A fact in it is now false" and
 "Something upstream moved and it has not seen it" (`prompts/rich.md` § *The items are not the whole of

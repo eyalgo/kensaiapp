@@ -7,11 +7,11 @@ Integrity: pass
 
 ## Deferrals
 
-None. The closing marker (`df7c793d3`, `developer: 2026-10-07_reverse-pointer-test — implementation complete`) carries no `Deferred:` line and reads `Suite: green`.
+None. The closing marker (`<a commit not in the public history>`, `developer: 2026-10-07_reverse-pointer-test — implementation complete`) carries no `Deferred:` line and reads `Suite: green`.
 
 ## What was reviewed
 
-`products/tracker17/tests/architecture/test_trace.py` — the only file the change's code commits touch (`git diff main...HEAD -- products/` at `df7c793d3`): the reader `table_cells` / `feature_words`, the constant `FEATURE_WORDS`, the check `unlisted_feature_words`, the helpers `table_text` / `build_domain`, ten new tests, and the module docstring sentence.
+`products/tracker17/tests/architecture/test_trace.py` — the only file the change's code commits touch (`git diff main...HEAD -- products/` at `<a commit not in the public history>`): the reader `table_cells` / `feature_words`, the constant `FEATURE_WORDS`, the check `unlisted_feature_words`, the helpers `table_text` / `build_domain`, ten new tests, and the module docstring sentence.
 
 ## The intent it was checked against
 

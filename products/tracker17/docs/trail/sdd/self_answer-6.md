@@ -24,7 +24,7 @@
   `system/projects/tracker17/journey/shukuba/2026-10-08_setup-instructions.md` and the PM's refine
   report beside the seed, `2026-10-08_setup-instructions_report.md`, which records the Linux run the
   item cites. No suite was run: the item's measurements are the PM's, recorded in that report and in
-  commit `5cbaf3a80`, and this run changed no code.
+  commit `<a commit not in the public history>`, and this run changed no code.
 
 The companion held one open item, § 5.1, `Seat: cto`, and the invocation listed none, so this run
 worked it. It cites an occurrence — a run on Debian 12 aarch64 on 2026-10-08 — so § *A widening item
@@ -78,7 +78,7 @@ waits until it occurs* does not send it back.
   it: a skip makes the suite read green in exactly the copy where QC-47 cannot be checked, which is
   a hidden absence where the README's current sentence ("one test doesn't pass") is a visible one.
   The README already carries that sentence (`README.md`, "Running the tests", landed in
-  `9f587e679`); the fold has S-1 *Artifact* record it, so the artifact and its specification agree.
+  `<a commit not in the public history>`); the fold has S-1 *Artifact* record it, so the artifact and its specification agree.
 
   *Nothing settled moves (check 3).* SRS FR-4 asks the prerequisites to say setup needs a network
   connection once "to fetch the declared dependencies (§ 5.3)", and § 5.3 lets setup fetch from

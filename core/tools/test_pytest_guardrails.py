@@ -17,6 +17,7 @@ import subprocess
 import sys
 import urllib.parse
 from pathlib import Path
+from xml.etree import ElementTree
 
 import pytest
 
@@ -507,6 +508,333 @@ class TestNoAmbientOllama:
         assert result.returncode == 0, result.stdout[-2000:]
 
 
+class TestNoRealHome:
+    """Guard 7: a test reads nothing of the machine it runs on, so it gets an empty home of its
+    own. Each case runs a real pytest whose inherited home is a folder this test made and filled,
+    standing in for the owner's."""
+
+    def _inherited_home(self, tmp_path: Path) -> Path:
+        home = tmp_path / "inherited-home"
+        (home / ".claude").mkdir(parents=True)
+        (home / ".claude" / "secret.txt").write_text("owner's file\n")
+        return home
+
+    def test_the_home_is_an_empty_folder_and_not_the_inherited_one(self, tmp_path):
+        home = self._inherited_home(tmp_path)
+        result = _run_pytest(
+            tmp_path,
+            "import os\n"
+            "from pathlib import Path\n"
+            "def test_guarded():\n"
+            f"    assert Path.home() != Path({str(home)!r})\n"  # test-isolation: allowed — the guard's own subject
+            "    assert Path.home().is_dir()\n"  # test-isolation: allowed — the guard's own subject
+            "    assert list(Path.home().iterdir()) == []\n"  # test-isolation: allowed — the guard's own subject
+            "    assert os.environ['USERPROFILE'] == os.environ['HOME']\n"  # test-isolation: allowed — the guard's own subject
+            f"    assert not (Path.home() / '.claude' / 'secret.txt').exists()\n",  # test-isolation: allowed — the guard's own subject
+            {"HOME": str(home)},
+        )
+        assert result.returncode == 0, result.stdout[-2000:]
+
+    def test_a_process_the_test_starts_gets_the_empty_home_too(self, tmp_path):
+        home = self._inherited_home(tmp_path)
+        result = _run_pytest(
+            tmp_path,
+            "import subprocess, sys\n"
+            "def test_child():\n"
+            "    out = subprocess.run([sys.executable, '-c',\n"
+            "        'from pathlib import Path; print(Path.home())'],\n"  # test-isolation: allowed — the guard's own subject
+            "        capture_output=True, text=True, check=True).stdout.strip()\n"
+            f"    assert out != {str(home)!r}\n",
+            {"HOME": str(home)},
+        )
+        assert result.returncode == 0, result.stdout[-2000:]
+
+    def test_each_test_gets_a_home_of_its_own(self, tmp_path):
+        result = _run_pytest(
+            tmp_path,
+            "from pathlib import Path\n"
+            "seen = []\n"
+            "def test_one():\n"
+            "    seen.append(Path.home())\n"  # test-isolation: allowed — the guard's own subject
+            "    (Path.home() / 'left-behind').write_text('x')\n"  # test-isolation: allowed — the guard's own subject
+            "def test_two():\n"
+            "    assert Path.home() != seen[0]\n"  # test-isolation: allowed — the guard's own subject
+            "    assert not (Path.home() / 'left-behind').exists()\n",  # test-isolation: allowed — the guard's own subject
+            {},
+        )
+        assert result.returncode == 0, result.stdout[-2000:]
+
+    def test_the_xdg_folders_are_cleared(self, tmp_path):
+        result = _run_pytest(
+            tmp_path,
+            "import os\n"
+            "def test_guarded():\n"
+            "    assert [k for k in os.environ if k.startswith('XDG_')] == []\n",
+            {"XDG_CONFIG_HOME": str(tmp_path / "cfg"), "XDG_DATA_HOME": str(tmp_path / "data")},
+        )
+        assert result.returncode == 0, result.stdout[-2000:]
+
+    def test_uv_keeps_its_toolchain_from_the_inherited_home(self, tmp_path):
+        home = self._inherited_home(tmp_path)
+        result = _run_pytest(
+            tmp_path,
+            "import os\n"
+            "def test_guarded():\n"
+            f"    assert os.environ['UV_CACHE_DIR'] == {str(home / '.cache' / 'uv')!r}\n"
+            f"    assert os.environ['UV_PYTHON_INSTALL_DIR'] == "
+            f"{str(home / '.local' / 'share' / 'uv' / 'python')!r}\n",
+            {"HOME": str(home)},
+        )
+        assert result.returncode == 0, result.stdout[-2000:]
+
+    def test_an_explicit_uv_setting_wins(self, tmp_path):
+        result = _run_pytest(
+            tmp_path,
+            "import os\n"
+            "def test_guarded():\n"
+            "    assert os.environ['UV_CACHE_DIR'] == '/opt/uv-cache'\n",
+            {"UV_CACHE_DIR": "/opt/uv-cache"},
+        )
+        assert result.returncode == 0, result.stdout[-2000:]
+
+    def test_a_test_that_sets_its_own_home_keeps_it(self, tmp_path):
+        result = _run_pytest(
+            tmp_path,
+            "import os\n"
+            "def test_sets(monkeypatch, tmp_path):\n"
+            "    monkeypatch.setenv('HOME', str(tmp_path))\n"
+            "    assert os.environ['HOME'] == str(tmp_path)\n",  # test-isolation: allowed — the guard's own subject
+            {},
+        )
+        assert result.returncode == 0, result.stdout[-2000:]
+
+
+class TestNoRealNetwork:
+    """Guard 8: a test opens no real network connection. Each case runs a real pytest whose probe
+    file connects to, or looks up, a host the guard must refuse. The hosts are reserved ones, so a
+    run without the guard reaches no real machine: `192.0.2.0/24` (RFC 5737), `2001:db8::/32`
+    (RFC 3849) and the `.invalid` domain (RFC 6761). Every probe socket carries a timeout of a few
+    seconds, so a run without the guard fails fast instead of waiting on a silent address."""
+
+    _CONNECT_PROBE_HOSTS = {
+        "test_connect_ipv4": "192.0.2.1",
+        "test_connect_ipv6": "2001:db8::1",
+        "test_connect_ipv4_mapped_in_ipv6": "::ffff:192.0.2.1",
+        "test_connect_straight_to_a_name": "host.invalid",
+        "test_create_connection": "192.0.2.1",
+        "test_connect_ex": "192.0.2.1",
+    }
+    _CONNECT_PROBE = (
+        "import socket\n"
+        "\n"
+        "def _connect(family, address):\n"
+        "    with socket.socket(family) as sock:\n"
+        "        sock.settimeout(3)\n"
+        "        sock.connect(address)\n"
+        "\n"
+        "def test_connect_ipv4():\n"
+        "    _connect(socket.AF_INET, ('192.0.2.1', 80))\n"
+        "\n"
+        "def test_connect_ipv6():\n"
+        "    _connect(socket.AF_INET6, ('2001:db8::1', 80))\n"
+        "\n"
+        "def test_connect_ipv4_mapped_in_ipv6():\n"
+        "    _connect(socket.AF_INET6, ('::ffff:192.0.2.1', 80))\n"
+        "\n"
+        "def test_connect_straight_to_a_name():\n"
+        "    _connect(socket.AF_INET, ('host.invalid', 80))\n"
+        "\n"
+        "def test_create_connection():\n"
+        "    socket.create_connection(('192.0.2.1', 80), timeout=3)\n"
+        "\n"
+        "def test_connect_ex():\n"
+        "    with socket.socket() as sock:\n"
+        "        sock.settimeout(3)\n"
+        "        sock.connect_ex(('192.0.2.1', 80))\n"
+    )
+
+    # The probe imports nothing of the guard. Each call it makes either returns or raises an
+    # `OSError`, which is the machine's own answer (no IPv6 on loopback, a closed port, a resolver
+    # that rejects `LOCALHOST.`), so only the guard's refusal, which is no `OSError`, fails it.
+    _BOUNDARY_PROBE = (
+        "import os\n"
+        "import socket\n"
+        "import tempfile\n"
+        "\n"
+        "def _closed_port():\n"
+        "    with socket.socket() as sock:\n"
+        "        sock.bind(('127.0.0.1', 0))\n"
+        "        return sock.getsockname()[1]\n"
+        "\n"
+        "def _returns_or_raises_oserror(call):\n"
+        "    try:\n"
+        "        call()\n"
+        "    except OSError:\n"
+        "        pass\n"
+        "\n"
+        "def test_a_server_the_test_starts_on_loopback_is_reached():\n"
+        "    with socket.socket() as server:\n"
+        "        server.settimeout(3)\n"
+        "        server.bind(('127.0.0.1', 0))\n"
+        "        server.listen()\n"
+        "        with socket.create_connection(server.getsockname(), timeout=3) as client:\n"
+        "            connection, _ = server.accept()\n"
+        "            with connection:\n"
+        "                client.sendall(b'x')\n"
+        "                assert connection.recv(1) == b'x'\n"
+        "\n"
+        "def test_a_unix_socket_the_test_binds_is_reached():\n"
+        "    # /tmp keeps the path inside macOS's 104-byte sun_path, which tmp_path can exceed.\n"
+        "    with tempfile.TemporaryDirectory(dir='/tmp') as directory:\n"
+        "        path = os.path.join(directory, 'probe.sock')\n"
+        "        with socket.socket(socket.AF_UNIX) as server:\n"
+        "            server.settimeout(3)\n"
+        "            server.bind(path)\n"
+        "            server.listen()\n"
+        "            with socket.socket(socket.AF_UNIX) as client:\n"
+        "                client.settimeout(3)\n"
+        "                client.connect(path)\n"
+        "                connection, _ = server.accept()\n"
+        "                connection.close()\n"
+        "\n"
+        "def test_a_connect_to_loopback_or_an_unspecified_address_is_not_refused():\n"
+        "    port = _closed_port()\n"
+        "    def connect(family, address):\n"
+        "        with socket.socket(family) as sock:\n"
+        "            sock.settimeout(3)\n"
+        "            sock.connect(address)\n"
+        "    def connect_ex():\n"
+        "        with socket.socket() as sock:\n"
+        "            sock.settimeout(3)\n"
+        "            sock.connect_ex(('127.0.0.1', port))\n"
+        "    _returns_or_raises_oserror(lambda: connect(socket.AF_INET6, ('::1', port)))\n"
+        "    _returns_or_raises_oserror(lambda: connect(socket.AF_INET, ('0.0.0.0', port)))\n"
+        "    _returns_or_raises_oserror(lambda: connect(socket.AF_INET6, ('::', port)))\n"
+        "    _returns_or_raises_oserror(\n"
+        "        lambda: connect(socket.AF_INET6, ('::ffff:127.0.0.1', port)))\n"
+        "    _returns_or_raises_oserror(lambda: connect(socket.AF_INET, ('localhost', port)))\n"
+        "    _returns_or_raises_oserror(connect_ex)\n"
+        "\n"
+        "def test_a_lookup_of_localhost_or_a_loopback_literal_is_not_refused():\n"
+        "    for host in ('localhost', 'LOCALHOST.', b'localhost', None, '', '127.0.0.1',\n"
+        "                 '127.255.255.254', '::1', '::ffff:127.0.0.1', '0.0.0.0', '::'):\n"
+        "        _returns_or_raises_oserror(lambda host=host: socket.getaddrinfo(host, 80))\n"
+    )
+
+    @staticmethod
+    def _failure_messages(junit: Path) -> dict[str, str | None]:
+        """Each probe test's exception message, or `None` for one that passed. The message alone:
+        a traceback also quotes the probe's own source line, which would name the host whether or
+        not the guard did."""
+        messages = {}
+        for case in ElementTree.parse(junit).getroot().iter("testcase"):
+            failure = case.find("failure")
+            messages[case.get("name")] = None if failure is None else failure.get("message", "")
+        return messages
+
+    def _assert_each_refused(
+        self, junit: Path, refused_hosts: dict[str, str], context: str
+    ) -> None:
+        messages = self._failure_messages(junit)
+        assert set(messages) == set(refused_hosts), context
+        for name, host in refused_hosts.items():
+            message = messages[name]
+            assert message is not None, f"{context}: {name} was not refused"
+            assert "real network connection" in message, f"{context}: {name}: {message}"
+            assert host in message, f"{context}: {name} did not name {host}: {message}"
+
+    def _run_connect_probe_under_root(self, suite_root: str, tmp_path: Path) -> Path:
+        """Collect the connect probe under the real `core/<suite_root>/` with no `-p` flag, so only
+        that root's own `conftest.py` can put the guard in force. The probe directory has a name of
+        its own, which no other test shares under xdist. Returns the run's junit file."""
+        probe_dir = _TOOLS.parent / suite_root / "_pytest_guardrails_network_probe"
+        shutil.rmtree(probe_dir, ignore_errors=True)  # a prior run's crash may have left this
+        probe_dir.mkdir()
+        junit = tmp_path / f"junit_{suite_root}.xml"
+        try:
+            probe_file = probe_dir / "test_probe.py"
+            probe_file.write_text(self._CONNECT_PROBE)
+            result = subprocess.run(
+                [sys.executable, "-m", "pytest", str(probe_file), "-p", "no:cacheprovider", "-q",
+                 "-n", "0", "--junitxml", str(junit)],
+                capture_output=True, text=True, timeout=120,
+                env={"PATH": os.environ.get("PATH", ""), "HOME": str(tmp_path)},
+            )
+        finally:
+            shutil.rmtree(probe_dir, ignore_errors=True)
+        assert junit.exists(), result.stdout[-2000:] + result.stderr[-2000:]
+        return junit
+
+    def test_a_connect_to_an_address_off_this_machine_is_refused(self, tmp_path):
+        result = _run_pytest(tmp_path, self._CONNECT_PROBE, {})
+
+        assert result.returncode == 1, result.stdout[-2000:]
+        self._assert_each_refused(tmp_path / "junit.xml", self._CONNECT_PROBE_HOSTS, "-p run")
+        for suite_root in ("tools", "launchers"):
+            self._assert_each_refused(
+                self._run_connect_probe_under_root(suite_root, tmp_path),
+                self._CONNECT_PROBE_HOSTS,
+                f"collected under core/{suite_root}/",
+            )
+
+    def test_a_name_lookup_off_this_machine_is_refused(self, tmp_path):
+        own_host_name = socket.gethostname()
+        result = _run_pytest(
+            tmp_path,
+            "import socket\n"
+            "import urllib.request\n"
+            "\n"
+            "def test_lookup_of_a_reserved_name():\n"
+            "    socket.getaddrinfo('host.invalid', 80)\n"
+            "\n"
+            "def test_lookup_of_a_name_under_localhost():\n"
+            "    socket.getaddrinfo('foo.localhost', 80)\n"
+            "\n"
+            "def test_lookup_of_this_machines_own_name():\n"
+            "    socket.getaddrinfo(socket.gethostname(), 80)\n"
+            "\n"
+            "def test_lookup_of_an_ip_literal():\n"
+            "    socket.getaddrinfo('192.0.2.1', 80)\n"
+            "\n"
+            "def test_lookup_with_the_host_as_a_keyword():\n"
+            "    socket.getaddrinfo(host='host.invalid', port=80)\n"
+            "\n"
+            "def test_lookup_of_a_name_given_as_bytes():\n"
+            "    socket.getaddrinfo(b'host.invalid', 80)\n"
+            "\n"
+            "def test_lookup_of_a_loopback_address_spelled_short():\n"
+            "    socket.getaddrinfo('127.1', 80)\n"
+            "\n"
+            "def test_urlopen():\n"
+            "    urllib.request.urlopen('http://host.invalid/', timeout=3)\n",
+            {},
+        )
+
+        assert result.returncode == 1, result.stdout[-2000:]
+        self._assert_each_refused(
+            tmp_path / "junit.xml",
+            {
+                "test_lookup_of_a_reserved_name": "host.invalid",
+                "test_lookup_of_a_name_under_localhost": "foo.localhost",
+                "test_lookup_of_this_machines_own_name": own_host_name,
+                "test_lookup_of_an_ip_literal": "192.0.2.1",
+                "test_lookup_with_the_host_as_a_keyword": "host.invalid",
+                # Decoded, as the message's text states: `host.invalid` alone would also be found
+                # inside the bytes spelling `b'host.invalid'`.
+                "test_lookup_of_a_name_given_as_bytes": "look up host.invalid.",
+                "test_lookup_of_a_loopback_address_spelled_short": "127.1",
+                "test_urlopen": "host.invalid",
+            },
+            "-p run",
+        )
+
+    def test_loopback_and_a_unix_socket_are_not_refused(self, tmp_path):
+        result = _run_pytest(tmp_path, self._BOUNDARY_PROBE, {})
+
+        assert result.returncode == 0, result.stdout[-2000:]
+        assert "4 passed" in result.stdout, result.stdout[-2000:]
+
+
 class TestNoAmbientGitConfig:
     """A session whose own `core.hooksPath` is injected via `GIT_CONFIG_COUNT` +
     `GIT_CONFIG_KEY_N`/`GIT_CONFIG_VALUE_N` (rather than a repo-local `.git/config`) leaks that
@@ -600,6 +928,7 @@ class TestEachSuiteRootLoadsTheGuardByEffect:
                 "    assert [k for k in os.environ\n"
                 "            if k.startswith(('OTEL_', 'CLAUDE_CODE_ENABLE_TELEMETRY'))] == []\n"
                 "    assert 'KENSAIAPP_AGENT_PROVIDER' not in os.environ\n"
+                f"    assert os.environ['HOME'] != {str(tmp_path)!r}\n"  # test-isolation: allowed — the guard's own subject
                 "\n"
                 "def test_a_secret_is_redacted(monkeypatch):\n"
                 f"    monkeypatch.setenv('WIRING_PROBE_TOKEN', '{_FAKE}')\n"

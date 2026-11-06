@@ -4,7 +4,7 @@ Read-only inputs for `../evals.json`. Each run gets its own staged copy of this 
 not copied, which is why every note about a case lives here and never inside a fixture file: the
 executor reads fixture files whole, and a note there would hand the baseline its answer.
 
-Each folder is one project, and also its product root: `project.md`, `agari.md`, `journey/`, `docs/`
+Each folder is one project, and also its product root: `project.md`, `finish_line.md`, `journey/`, `docs/`
 and `src/` sit side by side. Staging rewrites `Product path:` to the staged copy.
 
 **Fixture names carry no date.** `core/tools/check_vendor_neutrality.py` flags any dated journey stem

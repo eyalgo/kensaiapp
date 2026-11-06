@@ -13,7 +13,7 @@ The skill's § When to Stop, case 2, requires halting for a preserving baseline 
 - Instance worktree: `.worktrees/2026-10-10_readme-content-rules`; `git rev-parse --show-toplevel` returned that exact path and `git branch --show-current` returned `2026-10-10_readme-content-rules`.
 - The path resolver returned `kind: relative`, `product_path: products/tracker17`, and both code and pipeline worktrees equal to the instance worktree (`python3 core/tools/development_path.py resolve --format json --worktree <instance-worktree> --project tracker17 --key 2026-10-10_readme-content-rules`).
 - Execution context is headless, with card command `pytest products/tracker17/tests/` and declared Python (`system/projects/tracker17/project.md:L8-L12`).
-- Both `git diff --exit-code 5dfc3343efecbc67362aea8d91b516c18a8a9809 -- products/tracker17/README.md` and the same comparison over `products/tracker17 ':!products/tracker17/README.md'` returned no output; `git status --porcelain` returned no output before this report was written.
+- Both `git diff --exit-code <a commit not in the public history> -- products/tracker17/README.md` and the same comparison over `products/tracker17 ':!products/tracker17/README.md'` returned no output; `git status --porcelain` returned no output before this report was written.
 
 ## Completed baseline execution
 

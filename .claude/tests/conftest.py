@@ -21,4 +21,5 @@ from pytest_guardrails import (  # noqa: E402,F401
     _no_ambient_colour,
     _no_ambient_git_config,
     _no_ambient_telemetry,
+    _no_real_home,
 )

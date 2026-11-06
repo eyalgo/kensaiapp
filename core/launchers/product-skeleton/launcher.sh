@@ -3,6 +3,9 @@
 # launcher.sh (product-skeleton) — the owner-run command that gives a product its skeleton,
 # deterministically, once its foundation step has settled. No AI runs here.
 #
+# Version: 1.11.0 — the Definition of Done becomes the finish line
+# Version: 1.10.0 — Agari becomes Definition of Done (DoD)
+# Version: 1.9.2 — launchers run on the locked Python
 # Version: 1.9.1 — the idea cut reads the owner's words, not its own — a checked brief, a report beside it, back in the Principal PM group, no launcher
 # Version: 1.9.0 — re-running the card leaves a built product's code alone — the skeleton places a frame whole or not at all
 # Version: 1.8.3 — each prompt one skill reads moves under that skill as prompts/rich.md
@@ -231,7 +234,7 @@ echo "Product:   $product_path"
 #   (test_the_bash_half_creates_nothing_before_the_python_half_is_reached) — a refusal must leave
 #   nothing behind, and a scratch file created before the Python half has decided is exactly that.
 {
-python3 - "$INSTANCE_ROOT" "$product_path" "$project_md" "$TEMPLATES_ROOT" "${dry_run:-0}" <<'PYEOF'
+"$CORE_DIR/tools/locked_python.sh" - "$INSTANCE_ROOT" "$product_path" "$project_md" "$TEMPLATES_ROOT" "${dry_run:-0}" <<'PYEOF'
 import os
 import re
 import sys
@@ -935,12 +938,12 @@ if ! git -C "$product_path" rev-parse --git-dir >/dev/null 2>&1; then
 fi
 
 # One flag, every path — `--add` carries action=extend, so the whole set rides one flag.
-if ! python3 "$CORE_DIR/tools/commit_builder.py" --repo "$product_path" commit \
+if ! "$CORE_DIR/tools/locked_python.sh" "$CORE_DIR/tools/commit_builder.py" --repo "$product_path" commit \
     --add "${paths[@]}" \
     --subject "skeleton: $summary" \
     --body "Written by <CORE>/launchers/product-skeleton/launcher.sh, run by the owner after the foundation step settled. No model ran: language frames are copied from <CORE>/templates/skeleton-templates/, and the product's own SDD section 3 determines each unit's path, language and kind." \
     --role "Product" \
-    --directional "Agari: $project — progress: the product has the frame its declared languages call for and a directory per part its SDD names" \
+    --directional "Finish-line: $project — progress: the product has the frame its declared languages call for and a directory per part its SDD names" \
     --surface "product-skeleton"; then
   echo "product-skeleton: the tree is written; the commit did not land (see above). Nothing was lost — commit it yourself." >&2
 fi

@@ -57,7 +57,7 @@ None.
   reads § Tone, the Failure row ("The reason comes first and the action second") and the Level 1
   definition need the same "where one exists". `UXD.md` UX-I3 still says a refusal "names what to do"
   and that an out-of-date refusal "offers a reload". That is raised as item 2.1 on
-  `docs/UXD_open_issues.md` (commit `5a6570821`), and if the CDO overrides it, the formula goes back
+  `docs/UXD_open_issues.md` (commit `<a commit not in the public history>`), and if the CDO overrides it, the formula goes back
   to unconditional. Reasoning: `products/tracker17/docs/trail/content/self_answer-9.md`.
 
 **How it closes.** `product-content` folds it on its next run exactly as it folds §§ 1–2.

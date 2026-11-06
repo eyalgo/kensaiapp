@@ -1,5 +1,5 @@
 ---
-version: "3.8.1"
+version: "3.10.0"
 ---
 
 # product-srs — the CTO's SRS authoring lens
@@ -27,7 +27,7 @@ at the skill, it does not define it.
 - **The PRD** (`<product>/docs/PRD.md`) — your primary input. Product purpose, problem, users,
   goals, success metrics, features, scope. Every requirement you write traces back to something
   in here.
-- **The project's Agari** (`system/projects/<name>/agari.md`) — the declared terminus: the condition
+- **The project's finish line** (`system/projects/<name>/finish_line.md`) — the declared terminus: the condition
   under which this product is done or shipped. It is the **scope boundary**, never a source of
   requirements; see § *The terminus bounds the SRS* below for what it binds.
 - **The PRD's trail** (`<product>/docs/trail/prd/`) — the owner's answered rounds on the PRD. These
@@ -52,7 +52,7 @@ at the skill, it does not define it.
   any known SLAs.
 
 **The order above is an authority order, and it matters more as the input widens.** The PRD is the
-source every requirement traces to. Everything else bounds it (the Agari), authorizes a value inside
+source every requirement traces to. Everything else bounds it (the finish line), authorizes a value inside
 it (the trails), evidences it (the product request), or constrains how it is built (doctrine). The
 UXD sits beside the order, not in it. More input is only an improvement while each piece keeps its
 place; the failure it risks is a requirement derived confidently from superseded material.
@@ -140,27 +140,27 @@ stable typed ID and name its PRD source.
 
 ## The terminus bounds the SRS
 
-The Agari says when the **product** is done; you say what the system must do to get there. Written
+The finish line says when the **product** is done; you say what the system must do to get there. Written
 in that order, done is a boundary you scope against — and an SRS written without it specs past the
 finish line, because the PRD alone gives no reason to stop.
 
 So run a fourth walk, against the terminus:
 
-- **Every requirement is asked what it serves.** One that serves only work the Agari places *outside*
+- **Every requirement is asked what it serves.** One that serves only work the finish line places *outside*
   done is **recorded, not specified** — named in § 2 Scope as deliberately out, with the terminus as
   the reason. Not cut silently: a later reader must see that it was considered and bounded, not
   forgotten. This is the same treatment the PRD's own out-of-scope items get, on a different axis.
 - **§ 2 Scope names the terminus it is scoped against**, per the template. A boundary that exists
   only in your reasoning cannot be checked by anyone reading the document afterward.
 - **A terminus is not a requirement source.** It bounds; it does not supply. A requirement whose only
-  trace is the Agari has no PRD source and is scope creep by the forward walk's own test.
-- **Watch the phased product.** Where the PRD describes a later phase the Agari excludes from done,
+  trace is the finish line has no PRD source and is scope creep by the forward walk's own test.
+- **Watch the phased product.** Where the PRD describes a later phase the finish line excludes from done,
   the requirements for that phase are out — but any v1 requirement that would *foreclose* it is worth
   a Review Note. Bounding the SRS is not the same as designing a dead end.
 
-**When there is no terminus to walk against** — no `agari.md`, or one still carrying the placeholder
+**When there is no terminus to walk against** — no `finish_line.md`, or one still carrying the placeholder
 — record it as an **open issue** naming exactly what you found, and derive best-effort from the PRD
-as if the boundary were the PRD's own scope. Never halt: the Agari and the SRS gate each other in
+as if the boundary were the PRD's own scope. Never halt: the finish line and the SRS gate each other in
 neither direction, so a project may legitimately arrive here first. Say so in the SRS's § 2 Scope
 rather than implying a boundary you did not have.
 
@@ -280,7 +280,7 @@ exempts one from it.
   file as a choice to confirm — "the PRD includes X; I suggest cutting it because <reason>". Saying
   so is the whole of your part in it.
 
-**The set of things a requirement may cite is closed.** The PRD, the project's Agari, this instance's
+**The set of things a requirement may cite is closed.** The PRD, the project's finish line, this instance's
 doctrine, and this document's settled siblings — every one of which settles and stays put. **Never a
 file under `journey/`.** The 宿場 Shukuba station that opened this run is a legitimate *input* — its
 guardrail binds you — but it is not a source a requirement may trace to: it moves to `shukuba/trail/`

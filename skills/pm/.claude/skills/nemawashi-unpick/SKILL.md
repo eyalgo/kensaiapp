@@ -14,12 +14,12 @@ description: |
   that will walk it (use nemawashi-retire — that files it in `trail/` and restores nothing), an idea being **killed** — ruled out, superseded for good, or not going to be
   done (use nemawashi-drop — that files it in `drop/`, because the candidate pool is for ideas that may
   still be picked), a 宿場 Shukuba station (use shukuba-park — a station really does move, to
-  its own `parked/`), a 飛び石 Tobiishi (use tobiishi-seal), or picking the next idea (nemawashi-pick).
+  its own `parked/`), a 飛び石 Tobiishi (use tobiishi-seal), or picking the next idea (seed-pick).
   Trigger phrases: "unpick this idea", "un-pick the active seed", "set this nemawashi down", "no idea
   should be active", "this idea isn't finished but I need the slot", "nemawashi-unpick".
 license: MIT
 metadata:
-  version: "4.3.4"
+  version: "4.6.0"
   category: journey
   risk: safe
   created: "2026-08-03"
@@ -207,7 +207,7 @@ picked line's removal only if Step 2 found one. Per
 `<CORE>/docs/journey_move.md` § The commit:
 
 ```bash
-python3 "<CORE>/tools/commit_builder.py" --repo . commit \
+"<CORE>/tools/locked_python.sh" "<CORE>/tools/commit_builder.py" --repo . commit \
   --staged "<nema>/<seed>.md" "<nema>/unpicked/<seed>.md" \
   --add "<nema>/unpicked/<seed>.md" system/contexts/CONTEXT_PPM.md \
   --subject "unpick nemawashi: <slug> — seed returned to the candidate pool, root empty" \
@@ -225,8 +225,8 @@ python3 "<CORE>/tools/commit_builder.py" --repo . commit \
 - **The body is the reason the seed is set down**, as the invocation gave it, and goes through a file
   per `<CORE>/doctrine/governance/commit_via_builder.md` § The call. It is never composed from the seed.
 - **The directional is `aside:`.** Un-picking does not advance the product. Gate B has already required
-  the station slot to be empty, so it resolves past `Shukuba:` to **`Agari: <project> — aside: …`**
-  against `system/projects/<project>/agari.md`. Never `Shukuba: none`.
+  the station slot to be empty, so it resolves past `Shukuba:` to **`Finish-line: <project> — aside: …`**
+  against `system/projects/<project>/finish_line.md`. Never `Shukuba: none`.
 - **The seed's move is always the commit.** The seed itself always moves when this skill completes —
   there is no path where Step 2 runs and nothing is committed.
 

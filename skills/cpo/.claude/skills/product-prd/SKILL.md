@@ -1,10 +1,10 @@
 ---
 name: product-prd
-description: CPO-posture skill that authors a project's PRD — the product source of truth and the head of the definition sequence. Requires CPO posture (halts if invoked outside a cpo session or the cpo agent). Non-interactive by design — it drafts the whole PRD best-effort from the project's inputs and a product diagnostic, and instead of interviewing live it surfaces everything it can't settle into a companion open-issues file (open issues, choices to confirm, directives) for the owner to answer async. On re-run it consumes both files, retires the owner's answered file whole to a permanent trail, folds their answers into the PRD, and when nothing is left unresolved it clears the companion — its absence means the PRD is done. The skill resolves where the files land from the project's Product path. Use when authoring, continuing, or revising a product's PRD. Do not use for per-change specs (development-specs), the project's Agari (project-agari), or downstream documents (SRS / SDD / Delivery Plan / FDR / ADR / NFDR).
+description: CPO-posture skill that authors a project's PRD — the product source of truth and the head of the definition sequence. Requires CPO posture (halts if invoked outside a cpo session or the cpo agent). Non-interactive by design — it drafts the whole PRD best-effort from the project's inputs and a product diagnostic, and instead of interviewing live it surfaces everything it can't settle into a companion open-issues file (open issues, choices to confirm, directives) for the owner to answer async. On re-run it consumes both files, retires the owner's answered file whole to a permanent trail, folds their answers into the PRD, and when nothing is left unresolved it clears the companion — its absence means the PRD is done. The skill resolves where the files land from the project's Product path. Use when authoring, continuing, or revising a product's PRD. Do not use for per-change specs (development-specs), the project's finish line (project-finish-line), or downstream documents (SRS / SDD / Delivery Plan / FDR / ADR / NFDR).
 license: MIT
 metadata:
   author: Eyal Golan
-  version: "4.16.0"
+  version: "4.18.0"
   created: "2026-07-09"
   category: product-definition
   tags: prd, cpo, product-definition, product-source-of-truth, upstream-chain
@@ -169,10 +169,10 @@ git -C "<expanded Product path>" rev-parse --show-toplevel
   reasoning. Read it: a value the owner confirmed in an earlier cycle is authorized, and
   changing it needs a fresh authorization (the prompt's principle 7). It also gives you the
   next cycle number.
-- `system/projects/<name>/agari.md` — the project's Agari: the product's "done". Read it for
+- `system/projects/<name>/finish_line.md` — the project's finish line: the product's "done". Read it for
   what you're authoring toward. Whether it has been declared yet decides the commit's
   directional line (Step 3) — if the file is still the unfilled placeholder it shipped with,
-  no Agari exists yet.
+  no finish line exists yet.
 
 Retain the prior PRD and the existing what-left list exactly as read. Read the proposed PRD revision and the relevant product code. Retain the owner's answers and earlier confirmations needed to establish authorization. Complete qualification before changing any revision output.
 
@@ -286,10 +286,10 @@ Include the revised PRD and every published what-left addition in one builder co
   session with no agent named, pass **`--role CPO --skill product-prd`** instead. Both derive `Role: CPO`;
   the explicit **`--skill product-prd`** is required to stamp `Skill-Version:` now that provenance is
   explicit-only — the actor no longer derives it.
-- **`--directional`** — the PRD is authored in the executive phase, before any 宿場 station or 上がり
-  Agari exists, so it is **`Agari: none — <what this run did>`**. (The recipe's variable #4 owns
-  *why*; `Agari: <name>` becomes reachable only on a later *revision* run made after the project's
-  Agari has been declared.)
+- **`--directional`** — the PRD is authored in the executive phase, before any 宿場 station or 
+  finish line exists, so it is **`Finish-line: none — <what this run did>`**. (The recipe's variable #4 owns
+  *why*; `Finish-line: <name>` becomes reachable only on a later *revision* run made after the project's
+  finish line has been declared.)
 
 **And `--prompt product-prd/rich`**, naming the body this skill is the carrier for. A thin skill over a fat prompt is recorded by both lines and neither implies the other (`<CORE>/doctrine/governance/commit_format.md` § *`Prompt-Version:` trailer*); it takes the bare name, never a path.
 

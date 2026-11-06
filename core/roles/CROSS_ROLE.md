@@ -1,5 +1,5 @@
 ---
-version: "1.12.1"
+version: "1.12.3"
 ---
 
 # Cross-role contracts
@@ -104,7 +104,7 @@ When a role finishes a chunk of work and signals handoff to the next role, the r
 
 **Why two lenses matter:** Tech Lead ACCEPT answers "does the implementation match the spec?" Architect review answers "what did the spec miss?" — a different question that only surfaces under adversarial reading. Codified 2026-05-04.
 
-**Under automation:** the chain (`core/launchers/chain-development/launcher.sh` → `core/tools/chain_development.py`) puts this cycle into practice — it runs each stage as its own run and derives sequencing from folder state (`<CORE>/doctrine/flow/folder_state_handoff.md`), rather than Product opening a session per stage. The interactive path above remains the hand-driven equivalent. (The PoC flow runs no acceptance/QA gate — that returns at the QA next-station.)
+**Under automation:** the chain (`core/launchers/change/launcher.sh` → `core/tools/chain_development.py`) puts this cycle into practice — it runs each stage as its own run and derives sequencing from folder state (`<CORE>/doctrine/flow/folder_state_handoff.md`), rather than Product opening a session per stage. The interactive path above remains the hand-driven equivalent. (The PoC flow runs no acceptance/QA gate — that returns at the QA next-station.)
 
 ### 8. Handoff is folder-derived
 

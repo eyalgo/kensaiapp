@@ -1,5 +1,5 @@
 ---
-version: "2.0.2"
+version: "2.1.0"
 ---
 
 # Architectural Defaults
@@ -39,7 +39,7 @@ Proposed for every non-trivial system. Two concerns justify it independently:
 
 1. **Flow orchestration** — owns use-case logic (fetch entity, validate state, mutate, save). Does not
    live in entry-point handlers.
-2. **Entry-point thinning** — CLI handlers and other adapters carry no logic: receive input, delegate,
+2. **Entry-point thinning** — CLI handlers and other entry points carry no logic: receive input, delegate,
    format output. This holds regardless of call count. A handler making "only one domain call" is
    still wrong if that call contains branching, transformation, or anything beyond delegation.
 
@@ -77,6 +77,40 @@ Language-agnostic, and the spelling of each is the language overlay's:
 - **Forbidden imports are stated explicitly** — never inferred from the allowed-imports list alone.
   A product's own graph lives in `docs/nfdr.md` § 1.2, both directions stated, and the Tech Lead runs
   structural verification off it.
+
+---
+
+## The four layers
+
+A shape a product's SDD may draw on when the product's code reaches the machine — a process, the
+network, the filesystem, the environment or the clock. Like every default here, it binds a product
+only once that SDD has chosen it.
+
+| Layer | Holds | May import |
+|---|---|---|
+| `domain` | the decisions — parsing, rules, state machines, building a command — and the flow § *Application Layer* orchestrates | `domain`, `ports`, the language's pure standard library |
+| `ports` | one abstraction per external capability: a process runner, a filesystem, a clock, a network client | `domain` types, the language's pure standard library |
+| `adapters` | the concrete implementation of each port; the only code that touches the machine | `ports`, `domain` types, and the libraries that reach the machine |
+| `entrypoints` | the composition root per program: reads its arguments, builds the adapters and wires them into the domain | everything |
+
+**The dependency rule:** `domain` and `ports` reach no process, no network, no filesystem, no
+environment variable and no clock, by import or by call, through the standard library or any other;
+they neither read the clock nor wait on it. That is what makes every unit testable with fakes: no
+other path to the machine exists, so a test that hands fakes through the ports has handed in
+everything the unit can touch (`testing_doctrine.md` § *A unit test hands its unit fakes and touches
+nothing real*).
+
+**`domain` and `ports` import each other.** Where a language's units of packaging may not depend on
+each other in a cycle, as Rust's crates and Swift's targets may not, the two share one unit;
+elsewhere each may be its own, and `adapters` and `entrypoints` may each be their own anywhere.
+
+**An adapter is the concrete implementation § *Dependency Graph Rules* speaks of**, so only the
+composition root imports one. The handler § *Application Layer* keeps logic-free sits in
+`entrypoints` beside it and is handed what it calls; it imports no adapter.
+
+A product records its own layers and their forbidden imports in `docs/nfdr.md` § 1.2, as
+§ *Dependency Graph Rules* says. Each language guide's `conventions.md` states its form of the layers
+and of the dependency rule, and points here.
 
 ---
 

@@ -1,10 +1,10 @@
 ---
 name: product-content
-description: Content-Manager-posture skill that authors a project's verbal language (CONTENT.md) — the standing source of truth for everything a product says to a person, covering voice and tone, grammar and mechanics, terminology, the message patterns for error/empty/loading/partial/recovered states, the accessibility bar for text, and localization rules. The peer of the CDO's DESIGN.md — how something looks belongs there, what it says belongs here. Requires Content Manager posture (halts outside a content-manager session or subagent). Non-interactive by design — it derives the whole verbal language best-effort off the settled UXD and the product's existing strings, and surfaces its load-bearing calls into a companion open-issues file for the owner to sign off async. On re-run it folds their answers in and clears the companion when nothing is left unresolved — its absence means the verbal language is done. Use when authoring, continuing, or revising a product's verbal language, content standard, voice and tone guide, terminology governance, or UX-writing rules — including when the request never says "CONTENT.md", such as "define how this product talks", "we need a voice and tone standard", or "our error messages are inconsistent". Do not use for per-change copy or interface strings, the design language (product-design), the experience definition (product-uxd), the PRD (product-prd), the SRS (product-srs), the project's Agari (project-agari), or downstream documents (SDD / Delivery Plan / FDR / ADR / NFDR).
+description: Content-Manager-posture skill that authors a project's verbal language (CONTENT.md) — the standing source of truth for everything a product says to a person, covering voice and tone, grammar and mechanics, terminology, the message patterns for error/empty/loading/partial/recovered states, the accessibility bar for text, and localization rules. The peer of the CDO's DESIGN.md — how something looks belongs there, what it says belongs here. Requires Content Manager posture (halts outside a content-manager session or subagent). Non-interactive by design — it derives the whole verbal language best-effort off the settled UXD and the product's existing strings, and surfaces its load-bearing calls into a companion open-issues file for the owner to sign off async. On re-run it folds their answers in and clears the companion when nothing is left unresolved — its absence means the verbal language is done. Use when authoring, continuing, or revising a product's verbal language, content standard, voice and tone guide, terminology governance, or UX-writing rules — including when the request never says "CONTENT.md", such as "define how this product talks", "we need a voice and tone standard", or "our error messages are inconsistent". Do not use for per-change copy or interface strings, the design language (product-design), the experience definition (product-uxd), the PRD (product-prd), the SRS (product-srs), the project's finish line (project-finish-line), or downstream documents (SDD / Delivery Plan / FDR / ADR / NFDR).
 license: MIT
 metadata:
   author: Eyal Golan
-  version: "1.4.5"
+  version: "1.7.0"
   created: "2026-08-05"
   category: product-definition
   tags: content-design, verbal-language, voice-and-tone, terminology, content-manager, product-definition, upstream-chain
@@ -114,7 +114,7 @@ answer permanently citable. It is the skill's job; the owner never manages it.
   name, resolved from `<CORE>/../skills/cpo/.claude/skills/product-prd/SKILL.md`. Read it if it is there; what it feeds
   is the prompt's. **Its absence does not halt the run** — the state reaches the owner through the
   companion like any other input gap.
-- **`system/projects/<name>/agari.md`** — the project's 上がり Agari, beside the card below. Read it
+- **`system/projects/<name>/finish_line.md`** — the project's finish line, beside the card below. Read it
   in full; what the terminus bounds is the prompt's rule. **Absence does not halt the run**, nor
   does an unfilled placeholder — the state reaches the owner through the companion.
 - **`system/projects/<name>/doctrine/`** — the project's own doctrine, if the folder holds anything.
@@ -191,7 +191,7 @@ nor an assertion written against those halts can tell which one was hit. Run it 
 repo root:
 
 ```
-python3 <CORE>/tools/experience_gate.py
+"<CORE>/tools/locked_python.sh" <CORE>/tools/experience_gate.py
 ```
 
 Pass it no root. *Path resolution* above already fixes where an instance-relative path resolves

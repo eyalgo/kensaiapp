@@ -652,7 +652,7 @@ browser's default look beside a styled one.
   The UXD's open question was re-sourced to FR-40 in the round kept at
   `products/tracker17/docs/trail/uxd/cycle-3.md` § 2.1, and that answer names this note as carrying
   the same outdated reason. This revision carries that upstream change. It closes the one item the
-  companion held, opened in commit `b3a00490d` with its reasoning in
+  companion held, opened in commit `<a commit not in the public history>` with its reasoning in
   `products/tracker17/docs/trail/uxd/self_answer-3.md`. The rule did not change. A shortened
   value needs a second way to read it whole, such as a tooltip. On this reading that second way is
   more code for the reader, and one more place UX-A1's keyboard rule would have to reach. Wrapping

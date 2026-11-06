@@ -1,0 +1,58 @@
+name: Bug report
+description: Something fails, stops, or does something other than the README and the guides say.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Search [existing issues](https://github.com/eyalgo/kensaiapp/issues?q=is%3Aissue) first.
+        Remove API keys, tokens and paths on your own machine from anything you paste.
+  - type: input
+    id: version
+    attributes:
+      label: Release
+      description: The release you cloned, from the README's version badge or CHANGELOG.md, or the output of `git rev-parse --short HEAD`.
+      placeholder: "0.4.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where it happened
+      options:
+        - Setting up a clone (Getting started)
+        - An interactive session (a skill such as /project-setup)
+        - A launcher or a chain (for example walk or build-idea)
+        - The panel
+        - Telemetry
+        - Somewhere else
+    validations:
+      required: true
+  - type: input
+    id: provider
+    attributes:
+      label: Provider and model
+      description: As your .providers.toml sets them, if a model run was involved.
+      placeholder: "claude, claude-opus-5-5"
+  - type: input
+    id: system
+    attributes:
+      label: Operating system and Python
+      placeholder: "macOS 26, Python 3.14"
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what you expected
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: The smallest steps that show the problem.
+  - type: textarea
+    id: output
+    attributes:
+      label: Error output or halt report
+      description: The error as text, not a screenshot. If a walk stopped, paste its halt report.
+      render: text

@@ -2,7 +2,7 @@
 
 *The **instance**-level declaration: the endless guiding goal(s) this instance commits to and never
 finishes — the bearing the armada steers by. A **declaration**, not a queue (set once; never
-worked-and-retired). **1..N** per owner. **No Agari** at instance level (the armada never docks).*
+worked-and-retired). **1..N** per owner. **No finish line** at instance level (the armada never docks).*
 
 ---
 

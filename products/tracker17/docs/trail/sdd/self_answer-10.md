@@ -25,11 +25,11 @@
   391-605`; the change record `system/projects/tracker17/journey/tobiishi/trail/2026-10-20_history-after-confirm/change_design.md`
   § 1 and § *Records this change makes false*; the seed `2026-10-07_status-moves`, its refine report
   `2026-10-20_history-after-confirm_report.md` and the open station `2026-10-19_cancel-confirmation.md`;
-  `trail/sdd/self_answer-9.md` and `cycle-7.md`. Measured: `git diff --stat 9b05680c7 HEAD --
-  products/tracker17 ':!products/tracker17/docs'` printed nothing at `ca2f9e98a`; `grep -rn -i
+  `trail/sdd/self_answer-9.md` and `cycle-7.md`. Measured: `git diff --stat <a commit not in the public history> HEAD --
+  products/tracker17 ':!products/tracker17/docs'` printed nothing at `<a commit not in the public history>`; `grep -rn -i
   'no-store\|Clear-Site-Data\|Cache-Control\|202\|history cache' docs/SDD.md docs/adr/ docs/nfdr.md
   docs/fdr.md` printed nothing. No suite was run: the items are about what the code and the records
-  say, the refine recorded 67 end-to-end and 1250 suite passes in a fresh clone at `9b05680c7`, no
+  say, the refine recorded 67 end-to-end and 1250 suite passes in a fresh clone at `<a commit not in the public history>`, no
   code moved since, and this round changes no code.
 
 The companion held two open items, §§ 5.1 and 5.2, both `Seat: cto`, and the invocation listed none,
@@ -54,10 +54,10 @@ UXD. Neither split: each is one question with one seat.
   `nfdr.md`, the Principal Architect's: the loader puts the SDD run's job at surfacing and theirs at
   recording, and § 12 says the same. So the SDD states and surfaces the decision (RT-11, TO-8, R-12,
   a Review Note), and the record is raised on `architecture_open_issues.md` § 2.1, committed at
-  `b52bdedf1` before this slot was written. I was unsure whether to open that companion at all — the
+  `<a commit not in the public history>` before this slot was written. I was unsure whether to open that companion at all — the
   Principal Architect reads each SDD version's change (NFDR RN-30, RN-41) and would meet TO-8 on the
   next round — and raised it with the doubt stated in the item: the product has run on the decision
-  since `9b05680c7`, no obligation a `development-design` review checks names it, and nothing
+  since `<a commit not in the public history>`, no obligation a `development-design` review checks names it, and nothing
   schedules that round; a double is one item folded twice, a lost record is a 202 a reader sets back
   to 200.
 
@@ -173,14 +173,14 @@ None this run.
   for the other two.
 - **Why it is worth a cycle:** the first ground, *a fact in it is now false*. The tests R-2 names as
   what settles the case exist in `tests/e2e/test_moves.py` (lines 174, 208, 321 and 606) and passed,
-  67 of 67, in a fresh clone at `9b05680c7` (the refine report of `2026-10-20_history-after-confirm`,
+  67 of 67, in a fresh clone at `<a commit not in the public history>` (the refine report of `2026-10-20_history-after-confirm`,
   "Considered, not moved", first row), and no product code moved since. The sentence sends a reader
   to run a check that has run. The slot is left at its placeholder; the fold decides.
 
 ## Companions opened
 
 - **products/tracker17/docs/architecture_open_issues.md** — **opened** — companion to `adr/` and
-  `nfdr.md`, landed in commit `b52bdedf1`
+  `nfdr.md`, landed in commit `<a commit not in the public history>`
 
 ## Launchers owed
 

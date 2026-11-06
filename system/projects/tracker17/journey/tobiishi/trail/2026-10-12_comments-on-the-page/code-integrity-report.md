@@ -6,17 +6,17 @@ This report records the Senior Engineer's integrity review of the comments chang
 checked the change's code against its intent and added one missing test. The test passed against
 the code as it stands, so no bug was found.
 
-**Reviewed at:** `560c28c62` (`developer: 2026-10-12_comments-on-the-page — implementation complete`),
+**Reviewed at:** `<a commit not in the public history>` (`developer: 2026-10-12_comments-on-the-page — implementation complete`),
 on branch `2026-10-12_comments-on-the-page`. Product root: `products/tracker17/`. Every product path
 below is relative to that root.
 
 ## Deferrals
 
-None. The newest closing marker, `560c28c62`, carries no `Deferred:` line.
+None. The newest closing marker, `<a commit not in the public history>`, carries no `Deferred:` line.
 
 ## What was reviewed
 
-Everything the branch changed under the product root, from `git diff --stat 3b5746f91..560c28c62 -- products/`
+Everything the branch changed under the product root, from `git diff --stat <a commit not in the public history>..<a commit not in the public history> -- products/`
 (22 files):
 
 - production: `domain/comments.py` (new), `domain/tasks.py`, `domain/refusals.py`,
@@ -146,10 +146,10 @@ pty, because `tests/integration/test_start.py` sends SIGINT.
   - From the product root, each of these exited 0: `python3 -m compileall -q domain application persistence web main.py errors.py`,
     `ruff format --check .`, `ruff check .`, `mypy main.py errors.py domain application persistence web`
     and `python3 tests/timed_run.py`.
-  - `git diff --exit-code 3b5746f91 -- products/tracker17/tests/timed_run.py products/tracker17/tests/integration/test_timed_run.py`
+  - `git diff --exit-code <a commit not in the public history> -- products/tracker17/tests/timed_run.py products/tracker17/tests/integration/test_timed_run.py`
     exited 0, so both timing files are byte-identical.
 - In a fresh clone (CP-275, `core/roles/CROSS_ROLE.md` § *Every seat*):
-  - The clone is `/private/tmp/tracker17-cir.3VfGYM`, checked out at `560c28c62`, with this
+  - The clone is `/private/tmp/tracker17-cir.3VfGYM`, checked out at `<a commit not in the public history>`, with this
     commit's one test file copied in. Nothing else in the clone differs from that commit.
   - Results: `pytest products/tracker17/tests/` gave 1047 passed, and `pytest products/tracker17/tests/e2e/`
     gave 33 passed.

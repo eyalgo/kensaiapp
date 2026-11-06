@@ -380,13 +380,16 @@ def test_the_real_log_source_answers_none_for_an_absent_log(tmp_path):
     assert run_provenance.LogSource().lines_carrying(tmp_path / "logs.jsonl", "x") is None
 
 
-def test_build_reader_reads_the_receiver_log_under_home_with_the_given_telemetry():
+def test_build_reader_reads_the_receiver_log_under_home_with_the_given_telemetry(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setenv("HOME", str(tmp_path))
     telemetry = FakeTelemetry()
 
     reader = run_provenance.build_reader(telemetry)
 
     assert isinstance(reader.source, run_provenance.LogSource)
-    assert reader.log_path == Path.home() / ".kensaiapp" / "telemetry" / "logs.jsonl"
+    assert reader.log_path == tmp_path / ".kensaiapp" / "telemetry" / "logs.jsonl"
     assert reader.telemetry is telemetry
 
 

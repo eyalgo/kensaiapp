@@ -13,7 +13,7 @@ HERE = Path(__file__).resolve()
 SCRIPT = HERE.parents[1] / "scripts" / "write_companion.py"
 CORE = HERE.parents[6] / "core"
 PRD_TEMPLATE = CORE / "templates" / "product-templates" / "prd_open_issues_template.md"
-AGARI_TEMPLATE = CORE / "templates" / "project-templates" / "agari_open_issues_template.md"
+FINISH_LINE_TEMPLATE = CORE / "templates" / "project-templates" / "finish_line_open_issues_template.md"
 
 ANSWERS = [
     {"question": "Who is it for?", "why": "PRD: Target Users", "answer": "Solo founders"},
@@ -38,7 +38,7 @@ def _headings(text, prefix):
 
 
 def test_every_bucket_heading_of_the_template_survives(tmp_path):
-    for template in (PRD_TEMPLATE, AGARI_TEMPLATE):
+    for template in (PRD_TEMPLATE, FINISH_LINE_TEMPLATE):
         result, out = _run(tmp_path, template, out_name=template.name)
         assert result.returncode == 0, result.stderr
         assert _headings(out.read_text(), "## ") == _headings(template.read_text(), "## ")
@@ -64,11 +64,11 @@ def test_bucket_one_holds_one_answered_item_per_answer_and_nothing_else(tmp_path
 
 
 def test_slot_labels_come_from_the_template(tmp_path):
-    """The Agari's bucket 1 carries two slots, the PRD's three — read, not assumed."""
+    """The finish line's bucket 1 carries two slots, the PRD's three — read, not assumed."""
     _, prd = _run(tmp_path, PRD_TEMPLATE, out_name="prd.md")
-    _, agari = _run(tmp_path, AGARI_TEMPLATE, out_name="agari.md")
+    _, finish_line = _run(tmp_path, FINISH_LINE_TEMPLATE, out_name="finish_line.md")
     assert "Reasoning / what would settle it" in prd.read_text()
-    assert "Reasoning / what would settle it" not in agari.read_text()
+    assert "Reasoning / what would settle it" not in finish_line.read_text()
 
 
 def test_an_existing_companion_is_never_overwritten(tmp_path):
@@ -96,7 +96,7 @@ def test_an_adopted_suggestion_is_marked_and_the_owners_words_are_not(tmp_path):
         {"question": "What problem does it remove?", "why": "PRD: Problem Statement",
          "answer": "Plans scattered across five apps"},
     ]
-    result, out = _run(tmp_path, AGARI_TEMPLATE, answers=answers)
+    result, out = _run(tmp_path, FINISH_LINE_TEMPLATE, answers=answers)
     assert result.returncode == 0, result.stderr
     text = out.read_text()
     assert ("- **Answer:** Solo founders *(the session's suggestion, accepted by the owner as "

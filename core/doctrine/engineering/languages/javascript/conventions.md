@@ -1,5 +1,5 @@
 ---
-version: "1.0.4"
+version: "1.2.0"
 ---
 
 # JavaScript — conventions
@@ -74,6 +74,8 @@ naming standard.
 - **A module locates a sibling file through `import.meta.url`**, resolved with `fileURLToPath`,
   `dirname` and `join` — `.claude/workflows/tests/eval-fix.test.js:25`. Never a path built against
   the process working directory, which is whatever the caller happened to be standing in.
+- **A function is given its collaborators as parameters, and imports none of them itself.** `arch_defaults.md` § Dependency Graph Rules states the rule language-agnostically: "Only the composition root imports concrete implementations. Every other module depends on abstractions". In JavaScript the abstraction is the shape of the value passed in, an object whose methods the function calls or a function it calls. Everything the code reaches the world through arrives that way: the filesystem, a child process, the network, the clock. The concrete one, such as `node:fs/promises`, `node:child_process` or `Date.now`, is named at one place only, the composition root, and passed in from there. A workflow script already has this shape, because its runner hands it `agent`, `log`, `phase` and `args` and it builds none of them (`testing.md` § Testing a file that is not an importable module). This rule is the packet author's call, 2026-11-04, and is not read off the corpus. A function that imports and calls its own collaborator does not meet it, because `testing_doctrine.md` then has no door to hand a fake through: "Where the subject offers no door to hand a fake through, the defect is the subject's shape and not the test's" (`testing_doctrine.md` § Layers 1–5 — Code-Time (TDD)).
+- **The four layers, where a product's SDD draws them, take the module as their unit.** `arch_defaults.md` § The four layers states them and the dependency rule. In JavaScript a port is the shape of the value passed in, by the bullet above, so a product needs no `ports` module. An adapter is the concrete collaborator: a Node module such as `node:fs/promises` passed in as it is, or a module of the product's own that wraps one. Only the composition root imports an adapter, as the bullet above says. A `domain` module therefore imports no `node:` module that reaches the machine, such as `node:fs/promises`, `node:child_process` or `node:http`, subpaths included, and reads or calls no global that does, such as `process.env`, `fetch`, `Date.now`, `new Date()` with no argument, `performance.now` or `setTimeout`.
 
 ## Comments
 

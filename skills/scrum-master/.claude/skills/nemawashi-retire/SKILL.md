@@ -16,13 +16,13 @@ description: |
   Do not use for: an idea being **killed** (use nemawashi-drop), an idea set down to be **picked up
   again** (use nemawashi-unpick), a 宿場 Shukuba station (use shukuba-retire), a 飛び石 Tobiishi
   (use tobiishi-seal), answering the retired seed's recommendations or re-reading the pool (use
-  nemawashi-refine, the Principal PM's), picking the next seed (use nemawashi-pick), or an instance
+  nemawashi-refine, the Principal PM's), picking the next seed (use seed-pick), or an instance
   seed (by hand).
   Trigger phrases: "retire the seed", "retire this nemawashi", "the seed is walked", "file the seed in
   trail", "nemawashi-retire". Not "this idea is dead" / "drop this seed" — those are nemawashi-drop's.
 license: MIT
 metadata:
-  version: "1.1.3"
+  version: "1.5.0"
   category: journey
   risk: safe
   created: "2026-09-24"
@@ -105,7 +105,7 @@ ls "<journey>/tobiishi/"   # a change-unit folder at the root is open; trail/ an
 
 An open station or change unit halts the run, named; closing it is `shukuba-retire`'s or
 `tobiishi-seal`'s, setting it down `shukuba-park`'s or `tobiishi-drop`'s. No open station also fixes
-the directional in Step 5: `Agari:`, never `Shukuba:`.
+the directional in Step 5: `Finish-line:`, never `Shukuba:`.
 
 ### Step 4 — Move the seed and remove its picked line
 
@@ -131,15 +131,32 @@ Per `<CORE>/docs/journey_move.md` § *The commit*: the rename declared with `--s
 (for a folder-seed, the old and new path of every file it holds), `--add` for the context file only
 when a line was removed, `--add` for the seed's new path only when Step 4 corrected it, no `--skill`.
 
+**For a folder-seed, read the halves off the index, never from memory** — a seed folder holds reports
+beside `seed.md`, and a list written by hand misses one:
+
 ```bash
-python3 "<CORE>/tools/commit_builder.py" --repo . commit \
+git diff --cached --name-only --no-renames -- "<nema>/<slug>" "<nema>/trail/<slug>"
+```
+
+Pass every path it prints to `--staged`, old and new halves both.
+
+```bash
+"<CORE>/tools/locked_python.sh" "<CORE>/tools/commit_builder.py" --repo . commit \
   --staged "<nema>/<slug>.md" "<nema>/trail/<slug>.md" \
   --add system/contexts/CONTEXT_PPM.md \
   --subject "retire: nemawashi/<slug> → trail/" \
   --actor scrum-master \
-  --directional "Agari: <project> — progress: <the seed's idea>, walked, retired to trail" \
+  --directional "Finish-line: <project> — progress: <the seed's idea>, walked, retired to trail" \
   --surface "Claude Code" --co-authored-by "<your model> <noreply@anthropic.com>"
 ```
+
+**A refusal naming paths under this seed's two folders is your own move, not another session's**
+(`<CORE>/doctrine/governance/commit_format.md` § *A commit carries what its caller declared, and
+nothing else*) — provided every new half it names is a file now on disk under `<nema>/trail/<slug>`,
+the folder you moved. Then add them to `--staged` and run the same command again: the refusal left the
+staging in place, so the re-run is safe. A refusal naming any other path, or a new half with no file
+under that folder, means another session is live: stop and report it, with the move staged and
+uncommitted.
 
 A caller with no posture — which Step 1 already refused — never reaches here, so `--actor scrum-master`
 is the only identity. Then eyeball `git show --stat`: renames, plus one deleted line in
@@ -147,7 +164,7 @@ is the only identity. Then eyeball `git show --stat`: renames, plus one deleted 
 
 ### Step 6 — Check the pointers, then report
 
-Run `python3 "<CORE>/tools/check_journey_links.py" --repo .` and handle what it names per
+Run `"<CORE>/tools/locked_python.sh" "<CORE>/tools/check_journey_links.py" --repo .` and handle what it names per
 `<CORE>/docs/journey_move.md` § *After the move, say which pointers it broke* — it never undoes the move.
 
 State plainly: which seed moved to `trail/`, whether its line left `## Picked seeds`, and what the

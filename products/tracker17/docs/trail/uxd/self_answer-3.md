@@ -159,7 +159,7 @@ None this run.
 
 ## Companions opened
 
-- **products/tracker17/docs/DESIGN_open_issues.md** — **opened** — companion to `DESIGN.md`, landed in commit `b3a00490d25bd8b0b0715303146f6c89b062f098`
+- **products/tracker17/docs/DESIGN_open_issues.md** — **opened** — companion to `DESIGN.md`, landed in commit `<a commit not in the public history>`
 
 No item routed it, so no slot waited on it. It was found while reading `DESIGN.md` for item 2.1,
 under the prompt's § *The items are not the whole of what a document is owed*, on the ground "A

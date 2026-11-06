@@ -31,8 +31,8 @@ WHICH FILE IS READ
 
 THE FILE'S SHAPE
     Five TOML tables, each keyed by its member's own name, verbatim and case-sensitive:
-    `[documents]` (the product chain's registry), `[steps]` (the development and change walks'
-    steps — one entry governs a step in both), `[build-idea]` (the queue's skill rows),
+    `[documents]` (the product chain's registry), `[steps]` (the change and walk
+    launchers' steps — one entry governs a step in both), `[build-idea]` (the queue's skill rows),
     `[owed-items]` (`no-document`, the product chain's launch for an owed item that names no
     document), `[launchers]` (one entry per instance skill launcher, keyed by the launcher's
     folder name, and one per kaizen tool script, keyed by the script's name without `.sh`). The
@@ -73,7 +73,7 @@ from typing import TextIO
 
 from run_intelligence import PROVIDERS
 
-__version__ = "1.4.0"
+__version__ = "1.4.1"
 
 FILE_NAME = ".providers.toml"
 
@@ -124,7 +124,7 @@ def document(name: str) -> Member:
 
 
 def step(step_id: str) -> Member:
-    """The entry for a development or change-walk step, by its id (`code-integrity`)."""
+    """The entry for a step of the change or the walk launcher, by its id (`code-integrity`)."""
     return Member(_STEPS, step_id)
 
 

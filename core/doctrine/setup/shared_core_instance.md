@@ -1,5 +1,5 @@
 ---
-version: "3.8.0"
+version: "3.9.0"
 ---
 
 # Shared-core instance — a satellite that reads another instance's core
@@ -22,8 +22,10 @@ sibling the moment it lands: zero duplication, nothing to mirror. The sibling ha
 
 **Written from the host — the hook wiring.** A satellite's `.claude/settings.json` is a real file that
 `link_satellite.py` writes: the host's `hooks` key and nothing else, with each command pointed at the
-host's own `.claude/hooks/` by absolute path. So a satellite holds no hook scripts and no link to
-them, and an edit to a hook script in the host runs in it at once. The file is a copy of the wiring.
+host's own `core/tools/locked_python.sh` and `.claude/hooks/` by absolute path. So a satellite holds no
+hook scripts and no link to them, and an edit to a hook script in the host runs in it at once. Every
+hook a satellite runs runs on the Python that the host root's `.python-version` names, whatever the
+satellite's own root holds. The file is a copy of the wiring.
 A hook wired into the host reaches the satellite only when `link_satellite.py` is run against it
 again, and `check_satellites.py` reports the satellite as drifted until then. The hooks include
 `resolve_core.py`, which is load-bearing for the binding and shareable anyway. It reads the `.env` of

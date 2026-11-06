@@ -15,8 +15,11 @@ the FDR is used as context when it exists.
 - **Expands a casual change request** into a `change_spec.md` with the scope, the behaviours, and the
   acceptance the downstream steps read.
 - **Works with or without an FDR.** `docs/fdr.md` is context when present and never a precondition.
-- **Holds the change to the records above it.** Every test or check the product's `nfdr.md`, `SDD.md`
-  or an ADR requires of the change becomes a rule, even where the request leaves it out or defers it.
+- **Holds the change to the records above it.** A test or check the product's `nfdr.md`, `SDD.md` or an
+  ADR requires of the change folds in as a rule, whether the request is silent on it or defers it, in
+  all but two cases: records that contradict each other, and a check that can only pass with a
+  behaviour this change hands on. Each is a records defect, which the spec raises as an item on the
+  owning document's companion before it halts `records-owed`.
 - **Opens the change's isolated worktree** at the front of its run, so the whole change arc lands on a
   branch rather than on `main`.
 - **Halts with a report** instead of guessing or interviewing, using its own halt-report shape.
@@ -32,6 +35,7 @@ development-specs/
 ├── references/               # the shapes it writes from
 │   ├── change_spec_template.md
 │   ├── change_spec_template.preserving.md
+│   ├── change_spec_template.preserving_docs.md
 │   ├── deferred_decisions_template.md
 │   └── halt_report_template.md
 └── evals/                    # behaviour evals, fixtures, and the trigger-eval set

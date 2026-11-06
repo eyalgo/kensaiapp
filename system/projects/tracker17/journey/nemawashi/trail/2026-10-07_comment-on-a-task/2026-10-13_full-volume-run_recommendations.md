@@ -9,5 +9,5 @@ did; this file carries what it could not do and no companion can carry.*
 
 - **Kind:** a seed to retire
 - **Why:** `full-volume-run` is the seed's third and last item, and its reached-when holds now. Once the Scrum Master closes it, every item on the checklist is ticked.
-- **Source:** `seed.md` § Stations (items 1–2 ticked, item 3 the open station); the report's Considered row 1 — fresh clone at `5eee9ce3f`, `python3 tests/timed_run.py` exit 0, `pytest products/tracker17/tests/` → `1091 passed`
+- **Source:** `seed.md` § Stations (items 1–2 ticked, item 3 the open station); the report's Considered row 1 — fresh clone at `<a commit not in the public history>`, `python3 tests/timed_run.py` exit 0, `pytest products/tracker17/tests/` → `1091 passed`
 - **Why no companion carries it:** it is a decision about a seed, not something a document should state

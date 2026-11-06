@@ -1,5 +1,5 @@
 ---
-version: "1.1.0"
+version: "1.1.2"
 ---
 <!-- The version above is template-file metadata; it is not copied into the authored prompt. Nor is
      any comment block in this file. An authoring prompt carries no HTML comments of its own: the
@@ -245,7 +245,7 @@ failure looks like when it is skipped.>
      plausible generic answer rather than a wrong one.
 
      THE TERMINUS BOUNDS THE <X> — 2 of 8 (uxd, srs), both product-facing and both binding the
-     project's Agari as a scope boundary and explicitly not as a source of requirements.
+     project's finish line as a scope boundary and explicitly not as a source of requirements.
 
      ATTRIBUTION — 3 of 8 (design, uxd, content). Where the lens's substance is borrowed from
      outside this house, the credit goes in the shipped file with what was taken, from where, and

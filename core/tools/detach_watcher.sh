@@ -2,6 +2,9 @@
 #
 # detach_watcher.sh — the one home for the completion-watch detach-and-return block.
 #
+# Version: 1.13.0 — the Definition of Done becomes the finish line
+# Version: 1.12.1 — Agari becomes Definition of Done (DoD)
+# Version: 1.12.0 — launchers run on the locked Python
 # Version: 1.11.1 — the neutrality check reads fixtures and .claude/, declares platform names, and repairs fixture hits itself; the ratify launcher is deleted
 # Version: 1.11.0 — the three chains run Claude as a detached claude -p process, not claude --bg
 # Version: 1.10.0 — enable provider-neutral unattended execution with Codex
@@ -74,7 +77,7 @@
 #   Fifteen callers are wired onto this home, measured 2026-08-22 with
 #   `grep -rln 'detach_watcher.sh' core/launchers/*/launcher.sh core/tools/launch-*.sh`:
 #   `experience-visual`, `experience-voice`, `kensaiapp-writing-bar`, `product-content`,
-#   `product-design`, `project-agari` (here since 2026-08-03), and the nine the fleet-wide
+#   `product-design`, `project-agari` (here since 2026-08-03; now the `project-finish-line` skill), and the nine the fleet-wide
 #   migration brought over — `ad-hoc-flow`, `launch-eval-fix`, `launch-product-prd`,
 #   `launch-skill-evals`, `product-srs`, `product-uxd`, `ratify`, and the two flat scripts
 #   `core/tools/launch-apply-packet.sh` and `core/tools/launch-fix-author.sh`. None of the
@@ -387,7 +390,7 @@ detach_completion_watcher() {
       watcher_args+=( --on-complete "$DETACH_WATCHER_ON_COMPLETE" )
     watcher_args+=( --exclude-ids "$exclude_ids" --notify "$notifier" )
 
-    nohup python3 "$watcher" "${watcher_args[@]}" >>"$log_file" 2>&1 &
+    nohup "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/locked_python.sh" "$watcher" "${watcher_args[@]}" >>"$log_file" 2>&1 &
     local watcher_pid=$!
     DETACH_WATCHER_PID="$watcher_pid"
     # The other half of the identity, captured here rather than inside the --keep-awake branch

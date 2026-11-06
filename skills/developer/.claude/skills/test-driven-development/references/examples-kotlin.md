@@ -117,7 +117,7 @@ class TaskCompleteTest {
 }
 ```
 
-## Prefer Real Implementations
+## Hand In a Fake
 
 ```kotlin
 // Fake repository — fast, no I/O, real behavior

@@ -33,7 +33,7 @@ None.
 ### 3.1 PRD § Purpose now wants the first thing a reader reads to name both purposes; the SRS states neither the second purpose nor that want
 - **Raised by:** PM — 2026-10-11
 - **Tracked by:** none — no 根回し Nemawashi seed carries the README's opening yet. `docs/what_left.md`
-  records the want, at `20f9076c5`.
+  records the want, at `<a commit not in the public history>`.
 - **What it blocks:** walking the want against a settled requirement. Every slice is cut from the
   SRS through the SDD, and no SRS requirement or SDD slice asks for the README's opening to change, so
   no seed can be cut for it.

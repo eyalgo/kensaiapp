@@ -48,11 +48,11 @@ def test_an_unknown_type_is_refused(run):
     assert not (Path(run.root) / "system" / "projects" / "demo").exists()
 
 
-def test_a_no_code_card_names_the_agari_chain_with_no_flag(run):
+def test_a_no_code_card_names_the_prd_and_finish_line_chain_with_no_flag(run):
     result = run("demo", "--placement", "internal", "--type", "no-code")
     assert result.returncode == 0, result.stderr
     line = next(l for l in _card(run.root).splitlines() if l.startswith("**Definition:**"))
-    assert _field(_card(run.root), "Definition") == "prd-agari"
+    assert _field(_card(run.root), "Definition") == "prd-and-finish-line"
     assert "<!--" in line, "Definition: lost its comment"
 
 

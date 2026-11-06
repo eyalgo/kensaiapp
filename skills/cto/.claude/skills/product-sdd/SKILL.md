@@ -1,10 +1,10 @@
 ---
 name: product-sdd
-description: CTO-posture skill that authors a project's SDD — the architecture-and-cut document, written off the settled SRS and UXD. Requires CTO posture (writes nothing and stops, saying "product-sdd requires CTO posture", if invoked outside a cto session or the cto subagent). Non-interactive by design — every run drafts the whole SDD best-effort, including the parts the CPO or the CDO decides, and writes whatever it cannot settle into a companion open-issues file whose items carry the answering seat's Seat field. On the next round it folds the owner's answered companion into the SDD, retires the answered file whole to a permanent trail, re-raises what stays unsettled, and removes the companion when nothing is left — its absence means the SDD is done. The skill resolves where the files land from the project's Product path. Use when authoring, continuing or revising a product's SDD — write the SDD, cut the architecture into slices, station 5 of the definition sequence. Do not use for upstream documents (product-prd / product-srs / product-uxd / product-design / product-content), the Agari (project-agari), per-change specs (development-specs), or anything downstream (Delivery Plan / FDR / ADR / NFDR).
+description: CTO-posture skill that authors a project's SDD — the architecture-and-cut document, written off the settled SRS and UXD. Requires CTO posture (writes nothing and stops, saying "product-sdd requires CTO posture", if invoked outside a cto session or the cto subagent). Non-interactive by design — every run drafts the whole SDD best-effort, including the parts the CPO or the CDO decides, and writes whatever it cannot settle into a companion open-issues file whose items carry the answering seat's Seat field. On the next round it folds the owner's answered companion into the SDD, retires the answered file whole to a permanent trail, re-raises what stays unsettled, and removes the companion when nothing is left — its absence means the SDD is done. The skill resolves where the files land from the project's Product path. Use when authoring, continuing or revising a product's SDD — write the SDD, cut the architecture into slices, station 5 of the definition sequence. Do not use for upstream documents (product-prd / product-srs / product-uxd / product-design / product-content), the finish line (project-finish-line), per-change specs (development-specs), or anything downstream (Delivery Plan / FDR / ADR / NFDR).
 license: MIT
 metadata:
   author: Eyal Golan
-  version: "1.0.4"
+  version: "1.2.0"
   created: "2026-10-03"
   category: product-definition
   tags: sdd, cto, product-definition, architecture-cut, upstream-chain
@@ -81,7 +81,7 @@ Read each of these in full; the run is entitled to nothing it did not open.
   included, plus **`<Product path>/docs/PRD.md`**. A missing one is not a halt: draft best-effort
   without it and raise it as an item for the seat that owns that document. What a `Draft` or unreadable
   status means for the derivation is `<CORE>/doctrine/governance/unsettled_inputs.md`'s rule.
-- **`system/projects/<name>/agari.md`** — the declared terminus, the scope boundary. Its absence does
+- **`system/projects/<name>/finish_line.md`** — the declared terminus, the scope boundary. Its absence does
   not halt the run.
 - **`system/projects/<name>/doctrine/`** — `<name>_doctrine.md` and `ai_responsibility.md`, when present.
 - **`<Product path>/docs/definition_brief.md`** — when present.

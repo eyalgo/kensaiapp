@@ -1,5 +1,5 @@
 ---
-version: "1.2.2"
+version: "1.4.0"
 ---
 
 # product-content — the Content Manager's verbal-language authoring lens
@@ -65,7 +65,7 @@ to move one of those to be coherent, the coherence problem goes to the owner and
   source**. No wording derives from it. Read it to notice a collision — a message pattern the
   layout cannot hold, a term that will not fit the component it lands in — and surface the
   collision rather than quietly shortening the words.
-- **The project's Agari** (`system/projects/<name>/agari.md`) — a **scope boundary, never a source
+- **The project's finish line** (`system/projects/<name>/finish_line.md`) — a **scope boundary, never a source
   of wording**: a voice rule serving only work outside the declared done is out of scope, said so
   rather than written.
 - **The project's doctrine** (`system/projects/<name>/doctrine/`) — binding where it speaks.

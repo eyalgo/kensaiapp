@@ -3,8 +3,8 @@ name: project-stamp
 description: >-
   Scaffold a new managed project inside a kensaiapp instance — create the
   per-project folder tree system/projects/<name>/ (project.md with the Product
-  path binding, agari.md, doctrine/, contexts/CONTEXT_PM.md, and the journey/ folders
-  nemawashi/ (README + the recommended define-the-product seed + unpicked/ + trail/ + drop/),
+  path binding, finish_line.md, doctrine/, contexts/CONTEXT_PM.md, and the journey/ folders
+  nemawashi/ (README + the define-the-product seed its Definition names + unpicked/ + trail/ + drop/),
   shukuba/ (README + parked/ + trail/), tobiishi/trail/) stamped from the core templates, per
   kensaiapp_structure.md §2. Use this whenever the user wants to start,
   register, scaffold, or set up a new project / product engagement in this
@@ -12,13 +12,13 @@ description: >-
   is the step that comes BEFORE the CPO session (which authors the PRD and declares the product's
   "done"); this creates the management folder that points at the product. Does
   NOT create the product's docs or code. Do not use for: declaring the product's
-  Agari (project-agari), running a change through the pipeline (the chain), or
+  finish line (project-finish-line), running a change through the pipeline (the chain), or
   first-time instance setup (setup-kensaiapp).
 license: MIT
 metadata:
   author: Eyal Golan
   category: kensaiapp-setup
-  version: "1.15.1"
+  version: "1.19.0"
   created: "2026-07-04"
   risk: safe
   tags: kensaiapp, project, scaffold, setup, structure
@@ -41,7 +41,7 @@ otherwise), that's fine, but scaffolding itself is role-free. Its commits are
 `Role: Meta`.
 
 It is the **first** step when starting a new project — it comes **before** all product
-and role work: before the CPO authors the PRD or declares the Agari, before the PM
+and role work: before the CPO authors the PRD or declares the finish line, before the PM
 opens the journey, before the change pipeline. Nothing about the product's *content* is
 decided here; this only creates the folder everything else hangs off. The single
 thing that must exist first is the **instance** itself (via `setup-kensaiapp`);
@@ -54,11 +54,11 @@ Creates, under `system/projects/<name>/`:
 
 ```
 project.md                       # the load-bearing "Product path:" binding + execution fields
-agari.md                         # 上がり — the product's "done" (a declaration, filled later)
+finish_line.md                         # the product's "done" (a declaration, filled later)
 doctrine/<name>_doctrine.md         # this project's domain doctrine (stub)
 doctrine/ai_responsibility.md       # AI-vs-mechanical boundary for this project (scope = <name>)
 journey/nemawashi/README.md         # 根回し — seedbed (folder, one file per idea)
-journey/nemawashi/<date>_define-the-product.md  # 根回し — the recommended definition chain, as a seed
+journey/nemawashi/<date>_define-the-product.md  # 根回し — the definition the card names, as a seed (none: absent)
 journey/nemawashi/unpicked/.gitkeep # 根回し — the candidate pool, empty for a newborn seedbed
 journey/nemawashi/trail/.gitkeep    # 根回し — walked-ideas bin (empty)
 journey/nemawashi/drop/.gitkeep     # 根回し — killed-ideas bin (empty)
@@ -74,13 +74,15 @@ product** (manifest §3) and are authored later — never by scaffolding. The pr
 folder only *points at* the product, by the `Product path:` field.
 
 **The setup seed is a recommendation, not a commitment.** It carries the sequence a
-product is defined by as a station checklist, so the seedbed is never empty and the
-chain is never re-derived from memory. The stations, their order, and which of them
+product is defined by as a station checklist, so the chain is never re-derived from
+memory. The stations, their order, and which of them
 are runnable today are
 `<CORE>/doctrine/setup/setting_up_a_project.md` § "The flow at a glance" — read them
-there rather than from this file, which does not own them. The seed is stamped every
-time; the owner is free to edit, reorder, or delete it if this product starts
-somewhere else. Say that plainly when you show the tree.
+there rather than from this file, which does not own them. Which seed is stamped follows the
+card's `Definition:` — `full` stamps the whole chain, `prd-and-finish-line` a seed that ends at the finish line,
+and `none` stamps no seed, because there is no definition to walk. The owner is free to edit,
+reorder, or delete it if this product starts somewhere else. Say that plainly when you show the
+tree.
 
 All files are stamped from `<CORE>/templates/` (the `<CORE>` token is resolved by
 the `resolve_core.py` session hook; the script reads the same `CORE` value).
@@ -119,12 +121,12 @@ pass `--core "$CORE"` explicitly only if you want to be certain.
 
 ```bash
 # internal — product lives in this instance; path defaults to products/<name>
-python3 <CORE>/../skills/interactive-product/.claude/skills/project-stamp/scripts/stamp_project.py <name> \
+"<CORE>/tools/locked_python.sh" <CORE>/../skills/interactive-product/.claude/skills/project-stamp/scripts/stamp_project.py <name> \
   --placement internal \
   --execution-type headless --test-command "pytest tests/"
 
 # external — product in its own repo; pass its absolute path
-python3 <CORE>/../skills/interactive-product/.claude/skills/project-stamp/scripts/stamp_project.py <name> \
+"<CORE>/tools/locked_python.sh" <CORE>/../skills/interactive-product/.claude/skills/project-stamp/scripts/stamp_project.py <name> \
   --placement external --product-path /abs/path/to/product-repo \
   --execution-type headless --test-command "pytest tests/"
 ```
@@ -139,7 +141,9 @@ Three more flags fill card lines the interview above does not ask for, and defau
 `--type software|no-code` (default `software`), `--manages "<what>"` (default `none`) and
 `--source-material "<line>"` (default `<blank>`). `project-setup` passes all three from its own
 interview; a plain stamp can leave them out. The card's `Definition:` line follows from `--type` —
-`full` for software, `prd-agari` for no-code — unless `--definition full|prd-agari|none` names it.
+`full` for software, `prd-and-finish-line` for no-code — unless `--definition full|prd-and-finish-line|none` names
+it. A no-code product takes `prd-and-finish-line` or `none`; `--type no-code --definition full` is refused
+(exit 2), because the full chain's SRS and SDD describe code it does not have.
 
 The script is **create-if-missing, never overwrite**: if `system/projects/<name>/`
 already exists it stops and changes nothing (exit 3). On success it prints the
@@ -178,12 +182,13 @@ fires, `git init <product-path>` (or have the owner do it), then proceed.
 ## After scaffolding
 
 1. Show the user the created tree (the script's output is enough).
-2. State the next step plainly: **station 1 of the setup seed**, which is a `cpo:`
+2. State the next step plainly. Under `none` there is no seed and no definition to write: the
+   project's first change is its next step. Otherwise it is **station 1 of the setup seed**, which is a `cpo:`
    session authoring the PRD (`product-prd` → `<product>/docs/PRD.md`), run through
    `<CORE>/launchers/skill/launcher.sh product-prd <name>`. Say that the seed is
    there, that its stations are the recommended path, and that it can be edited
    or deleted. Point the user at `<CORE>/doctrine/setup/setting_up_a_project.md` for
-   the full flow, and flag that `agari.md` is a placeholder waiting on station 2.
+   the full flow, and flag that `finish_line.md` is a placeholder waiting on station 2.
 3. **External product — check the git-repo status line.** If the scaffolder warned
    that the product path isn't a git repo, `git init` it (or have the owner do it)
    before the CPO step — the PRD needs somewhere to commit.

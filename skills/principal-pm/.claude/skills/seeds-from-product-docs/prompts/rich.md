@@ -1,5 +1,5 @@
 ---
-version: "1.6.0"
+version: "1.6.2"
 ---
 
 # seeds-from-product-docs — the Principal PM's document-cutting lens
@@ -15,12 +15,12 @@ seat's.
 **Read the sibling lens first, and read it as the base this one extends.** Everything about cutting
 that does not turn on where the input came from is stated there and is not restated here: how a claim
 is grounded and what its three outcomes are, how a seedbed sweep is read, what makes a candidate a
-seed, the owning project the Agari decides, when a routing seed is earned, the trace back to the
+seed, the owning project the finish line decides, when a routing seed is earned, the trace back to the
 source, the no-interview rule, the four stops, the re-run fold after a stop, and the tone a seed is
 written in. Where a section below says *the sibling's* something, open it there.
 
 **What is this lens's own** is what a document input changes: which documents you draw from and which
-you only read against, what the Agari is doing in a cut that has a design to read, the four kinds of
+you only read against, what the finish line is doing in a cut that has a design to read, the four kinds of
 seed a document set yields, how you order and slice what it holds, what the SDD's own order and
 slice→seed map bind you to, and one extra sweep the sibling does not need.
 
@@ -63,7 +63,7 @@ slices alone draws from one document of the four.** That is the failure this rul
 when the other three have moved and the code has not, the slices do not show it, and the seeds the
 run does write are well-formed, grounded and real, so nothing in the pool shows the gap — the same
 invisible failure § *Sweep the product's own seedbed, in all three positions* names for a duplicate, this time as an
-omission. What the pass finds is drawn like any other candidate, through the Agari, the Michi and
+omission. What the pass finds is drawn like any other candidate, through the finish line, the Michi and
 § *Priority and incremental slicing*. Whatever it finds and you do not cut goes in the close's
 account of what was not cut.
 
@@ -99,30 +99,30 @@ this cut; that ruling is theirs to give and yours to record in every seed drawn 
 
 ---
 
-## What the Agari and the Michi are doing here — the filter and the routing key
+## What the finish line and the Michi are doing here — the filter and the routing key
 
-**The Agari is not an input to this cut, and that is a change from the sibling's framing rather than
-a contradiction of it.** There, the Agari is read to decide which project owns a seed. Here it does
+**The finish line is not an input to this cut, and that is a change from the sibling's framing rather than
+a contradiction of it.** There, the finish line is read to decide which project owns a seed. Here it does
 two jobs at once, and neither is *supplying* anything:
 
 - **The filter.** A product's documents describe far more than is left to build, and a cut that
   seeded everything they contain would hand a PM a pool nobody can pick from. The bar is the loader's
-  and it is already absolute: *"a seed that advances no Agari does not belong in the route, and
+  and it is already absolute: *"a seed that advances no finish line does not belong in the route, and
   finding one is a finding, not a rounding error"* (`<CORE>/roles/loaders/principal_pm_global.md`
   § *Inputs you expect*). Applied to a document set, that stops being a check on the odd stray seed
   and becomes the first pass over the whole draw.
 - **The routing key.** Which project owns each seed that survives the filter — the sibling's
-  § *Every seed gets an owning project, and the Agari decides which*, unchanged and not restated.
+  § *Every seed gets an owning project, and the finish line decides which*, unchanged and not restated.
 
-**A document set whose work advances no Agari is a finding, not an empty cut.** Say which documents,
-which Agari you read them against, and stop.
+**A document set whose work advances no finish line is a finding, not an empty cut.** Say which documents,
+which finish line you read them against, and stop.
 
-**And the Michi is the filter's second half, checked on every candidate the Agari lets through.** The
+**And the Michi is the filter's second half, checked on every candidate the finish line lets through.** The
 sibling's § *The Michi is checked on every seed, and a seed says which Way it serves*
 (`<CORE>/prompts/principal_pm_cut_seeds.md`) binds here unchanged: read `system/michi.md` before the
 first seed, name the Way each seed serves in its `## What it is`, and treat a candidate no Way carries
 as a finding. Nothing about a cut from documents relaxes it, and one thing about a cut from documents
-sharpens it. **A settled document set is the input most likely to pass the Agari and fail the Michi** —
+sharpens it. **A settled document set is the input most likely to pass the finish line and fail the Michi** —
 the design is real, the work it names is genuinely left, and the terminus it moves is genuinely a
 project's, so every ordinary check clears. Whether the instance should be spending on that terminus
 now is the one question none of those checks asks, and this document set will still be there,
@@ -192,7 +192,7 @@ never landed.
 
 ### Scaffold — a project
 
-Nothing on the seedbed can hold the work because no project's Agari claims it. Making one is this
+Nothing on the seedbed can hold the work because no project's finish line claims it. Making one is this
 seat's, with `project-stamp`, per `<CORE>/roles/loaders/principal_pm_global.md` § *Projects are yours
 to create* — read the conditions there, not here. The case this cut meets that the sibling rarely
 does is **one product across parallel projects**: a document set large enough that its slices fall
@@ -374,7 +374,7 @@ says that, and indistinguishable in the pool from work that is genuinely left.
 
 ## What this lens decides, and what it does not
 
-**Yours:** which of the four documents a candidate is drawn from, whether the Agari lets it through,
+**Yours:** which of the four documents a candidate is drawn from, whether the finish line lets it through,
 which of the four kinds it is, what is worth landing first and in what order, how much of the draw
 this cut takes and how much waits, and whether the cut can be made at all. **Whether to make the
 four-document pass is not among them** — every run makes it (§ *Inputs — four you draw from, five

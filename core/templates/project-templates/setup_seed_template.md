@@ -1,4 +1,4 @@
-# Seed — define <project>: PRD → Agari → (SRS ∥ EXPERIENCE) → SDD
+# Seed — define <project>: PRD → finish line → (SRS ∥ EXPERIENCE) → SDD
 
 *Stamped by `project-stamp` when this project was created, so the seedbed starts with the
 work that has to happen before anything is built. This is a **recommendation**: it is the
@@ -17,7 +17,7 @@ active 宿場 Shukuba, and when its reached-when is met the Shukuba file moves t
 1. `system/projects/<project>/project.md` — the project card and its `Product path:` binding.
    Every `<product>/…` path below resolves through that field.
 2. `<CORE>/doctrine/setup/setting_up_a_project.md` — the doctrine these stations are stamped
-   from: the sequence, why the Agari is declared before the SRS, and which stations are
+   from: the sequence, why the finish line is declared before the SRS, and which stations are
    runnable today. It is the owner; this checklist is a copy of it, so when the two disagree
    the doctrine is right and this file is stale.
 
@@ -31,7 +31,7 @@ active 宿場 Shukuba, and when its reached-when is met the Shukuba file moves t
 - **The definition skills run in rounds.** Each drafts its whole document, then parks what it
   could not settle in a companion `<doc>_open_issues.md`. Answer those inline, commit, re-run
   the same skill. The companion file's **absence** is the done signal.
-- **Once the Agari is declared, pull each later station's guardrail from it.** That is what
+- **Once the finish line is declared, pull each later station's guardrail from it.** That is what
   declaring it early buys.
 
 ## Stations (dynamic checklist — grow it as the work reveals them)
@@ -47,10 +47,10 @@ active 宿場 Shukuba, and when its reached-when is met the Shukuba file moves t
   > That does not belong in the PRD's companion file and it is not carried by this seed. Seed it
   > as **its own file** in this seedbed, so it survives the round that found it.
 
-- [ ] 2. **project-agari** — declare <project>'s 上がり Agari, the terminus: the condition under
-  which this product is done or shipped. Fills `system/projects/<project>/agari.md` (CPO).
+- [ ] 2. **project-finish-line** — declare <project>'s finish line, the terminus: the condition under
+  which this product is done or shipped. Fills `system/projects/<project>/finish_line.md` (CPO).
   Declared off the back of the settled PRD, and **before** the SRS. Run it through
-  `<CORE>/launchers/skill/launcher.sh project-agari <project>`.
+  `<CORE>/launchers/skill/launcher.sh project-finish-line <project>`.
 
 - [ ] 3. **product-srs** — author the SRS from the settled PRD: the technical answer to the
   PRD's *what* — system requirements, interfaces, data, constraints. Lands at

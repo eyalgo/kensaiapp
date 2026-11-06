@@ -1,5 +1,5 @@
 ---
-version: "1.1.4"
+version: "1.3.0"
 ---
 
 # product-fdr — the Principal PM's FDR authoring lens
@@ -50,7 +50,7 @@ bucket, the companion, or the loop, it points at the skill, it does not define i
   *Out of scope*). **Do not read §§ 6, 7 and 8 into the FDR** — the slices, their order, and *Slice →
   seeds* are the route, and a definition document never names it
   (`<CORE>/doctrine/setup/setting_up_a_project.md` § *The definition set never names the journey*).
-- **The project's Agari** (`system/projects/<name>/agari.md`) — the declared terminus. It is the
+- **The project's finish line** (`system/projects/<name>/finish_line.md`) — the declared terminus. It is the
   **scope boundary**, never a source of behaviour; § *The terminus bounds the FDR* below says what it
   binds.
 - **The trails** — the owner's answered rounds on the upstream documents (`<product>/docs/trail/prd/`,
@@ -66,7 +66,7 @@ bucket, the companion, or the loop, it points at the skill, it does not define i
 
 **The order above is the derivation chain's, and it decides who wins.** The SRS is where a behavioural
 obligation is stated; the PRD is what the SRS was derived from; the SDD is what settled the architecture
-the behaviour now has to be true of. Everything else bounds it (the Agari), authorizes a value inside it
+the behaviour now has to be true of. Everything else bounds it (the finish line), authorizes a value inside it
 (the trails), or constrains how it is built (doctrine).
 
 **A genuine contradiction between two of the three is a finding, not a conflict you arbitrate.** Where
@@ -182,7 +182,7 @@ either the question is missing or the section is.
    business rules — state their independent replaceability as a product decision. **The shape is fixed;
    the parts vary by product** — take them from the SDD's seams rather than from any list, and where the
    SDD names no seam, say so instead of inventing one. → *Product decisions*
-8. **What is deliberately not built?** Everything the Agari places outside done, everything the SDD's
+8. **What is deliberately not built?** Everything the finish line places outside done, everything the SDD's
    § 12 *What this design is not* excludes, and every scope boundary the PRD drew. An exclusion nobody
    wrote down is read as an oversight and built by someone being helpful. → *Out of scope*
 9. **What does each rule look like on a real case?** For the rules where a reader could still pick two
@@ -239,22 +239,22 @@ rules binding the same behaviour differently.
 
 ## The terminus bounds the FDR
 
-The Agari says when the **product** is done; you say what it must do to be that. Written in that order,
+The finish line says when the **product** is done; you say what it must do to be that. Written in that order,
 done is a boundary you scope against — and an FDR written without it specs past the finish line, because
 the SRS alone gives no reason to stop.
 
-- **Every rule is asked what it serves.** One that serves only work the Agari places *outside* done is
+- **Every rule is asked what it serves.** One that serves only work the finish line places *outside* done is
   **recorded, not specified** — named under *Out of scope* with the terminus as its reason. Never cut
   silently: a later reader must see that it was considered and bounded, not forgotten.
 - **A terminus is not a source of rules.** It bounds; it does not supply. A rule whose only trace is the
-  Agari has no upstream source and is scope creep by the finish walk's own test.
-- **Watch the phased product.** Where the upstream documents describe a later phase the Agari excludes,
+  finish line has no upstream source and is scope creep by the finish walk's own test.
+- **Watch the phased product.** Where the upstream documents describe a later phase the finish line excludes,
   that phase's rules are out — but a rule now that would *foreclose* it is worth a review note. Bounding
   the FDR is not the same as locking a dead end into the contract.
 
-**When there is no terminus to walk against** — no `agari.md`, or one still carrying its placeholder —
+**When there is no terminus to walk against** — no `finish_line.md`, or one still carrying its placeholder —
 record it as an open issue naming exactly what you found, and bound the FDR by the PRD's own scope
-instead. Never halt: the Agari and the FDR gate each other in neither direction.
+instead. Never halt: the finish line and the FDR gate each other in neither direction.
 
 ---
 
@@ -368,7 +368,7 @@ something needs confirming — that is the sorting test's call, and no relation 
   the system-level *what* is the CTO's, so you never drop it yourself: it goes to the companion as a
   choice to confirm. Saying so is the whole of your part in it.
 
-**The set of things a rule may cite is closed** — the PRD, the SRS, the SDD, the project's Agari, this
+**The set of things a rule may cite is closed** — the PRD, the SRS, the SDD, the project's finish line, this
 instance's and this project's doctrine, and this document's own settled trail. Every one of them settles
 and stays put. **Never a file under `journey/`**, for the reason the sorting test's fourth boundary
 gives.

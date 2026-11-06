@@ -4,11 +4,11 @@ Integrity: pass
 
 ## Deferrals
 
-None. The newest closing marker, `af3439893` (it supersedes `6c778da38`), carries no `Deferred:` line.
+None. The newest closing marker, `<a commit not in the public history>` (it supersedes `<a commit not in the public history>`), carries no `Deferred:` line.
 
 ## What was reviewed
 
-The change's code commits `2235ac548`..`b3344945a` under `products/tracker17/`: `web/listener.py`,
+The change's code commits `<a commit not in the public history>`..`<a commit not in the public history>` under `products/tracker17/`: `web/listener.py`,
 `web/__init__.py`, `main.py`, `tests/integration/test_listener.py`, `tests/integration/test_start.py`,
 `tests/e2e/test_start_command.py`.
 
@@ -76,5 +76,5 @@ products/tracker17/tests/e2e/` → 12 passed (venv `/private/tmp/t17venv`, outsi
   - no `monkeypatch`: the address is held with a real socket and the bind failure comes from a real
     documentation address;
   - layer-2 tests go under `pytest tests/`.
-- I agree with the developer's two recorded packet divergences, in its marker at `af3439893`: no
+- I agree with the developer's two recorded packet divergences, in its marker at `<a commit not in the public history>`: no
   `__version__` marker, and no `error: ` prefix on the CONTENT line.

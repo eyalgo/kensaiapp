@@ -6,13 +6,13 @@ Integrity: pass
 
 ## Deferrals
 
-**None.** The newest marker, `06cd9a17a` (`developer: 2026-10-07_a-not-found-page — implementation
-complete`), carries no `Deferred:` line and reads `Suite: green`. It supersedes `cc2205854`, as its own
+**None.** The newest marker, `<a commit not in the public history>` (`developer: 2026-10-07_a-not-found-page — implementation
+complete`), carries no `Deferred:` line and reads `Suite: green`. It supersedes `<a commit not in the public history>`, as its own
 re-close line says.
 
 ## What was reviewed
 
-Every product file the branch changes under `products/tracker17/`, from `859e065d6` to `06cd9a17a`:
+Every product file the branch changes under `products/tracker17/`, from `<a commit not in the public history>` to `<a commit not in the public history>`:
 `web/pages.py` (`not_found_page`), `web/routes.py` (the `GET` fallback, `_html` taking a status,
 `_not_found_page`), and the tests in `tests/integration/test_pages.py`, `test_routes.py`,
 `test_listener.py` and `tests/e2e/test_first_project.py`.
@@ -49,7 +49,7 @@ target. The page tests prove the words they assert. The developer's own mutation
 
 **One defect found while walking, and repaired:** QC-62's gate was red. `ruff check .` found 8 findings
 and `mypy main.py errors.py domain application persistence web` found 3 errors. The same 8 and 3 were
-there at `859e065d6`, before this change, so the change added none. Commit `2ac931bc2` repairs them all
+there at `<a commit not in the public history>`, before this change, so the change added none. Commit `<a commit not in the public history>` repairs them all
 without changing behaviour:
 
 - `persistence/saved_data.py` TRY004: the two `ValueError` checks are merged into one, with the same
@@ -76,14 +76,14 @@ found in 16 source files".
      `web/listener.py` and `main.py` as unchanged, and the design's QC table does not include QC-62.
      The developer read it this way and left the question for the Tech Lead or the owner.
      (b) Yes. `docs/nfdr.md:461-463` says "The gate starts red … and the owner's answer has the first
-     change after this revision repair them". Revision `1a9c8fb86` came after `691edf98b`, and this is
+     change after this revision repair them". Revision `<a commit not in the public history>` came after `<a commit not in the public history>`, and this is
      the first change since. `found_while_walking.md` § *The rule* also says a defect found on a branch
      is fixed on that branch.
    - *Taken:* (b). It keeps the upstream record true as written. The plan's "Nothing else changes"
      describes behaviour, and the repair changes no behaviour (same suites, same results). Every edit is
      small and can be reverted on its own.
    - *Whose document:* the Tech Lead's (`tl_instruction.md`) and the owner's (QC-62's answer).
-   - *If ruled the other way:* revert `2ac931bc2`. That commit is the whole repair, and nothing else on
+   - *If ruled the other way:* revert `<a commit not in the public history>`. That commit is the whole repair, and nothing else on
      the branch depends on it.
 
 ## Placement

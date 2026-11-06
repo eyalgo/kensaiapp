@@ -1,5 +1,5 @@
 ---
-version: "1.0.0"
+version: "1.0.2"
 ---
 <!-- The version above is template-file metadata; it is not copied into the instantiated document. -->
 <!-- The single source of the what-left file's shape. Lands at `<product>/docs/what_left.md`.
@@ -29,8 +29,8 @@ version: "1.0.0"
 
 # What is left to build — <product name>
 
-Each entry names one thing <product name>'s Agari or PRD wants that its code did not do at the commit the entry names.
+Each entry names one thing <product name>'s finish line or PRD wants that its code did not do at the commit the entry names.
 
 - **Wanted:** <one thing the product does, or one thing that is true of it, for its user or reader>
-  **Source:** <Agari or PRD> § <section heading>, **<item name, where the section has named items>**
+  **Source:** <Finish line or PRD> § <section heading>, **<item name, where the section has named items>**
   **Missing at:** `<short SHA of a commit on main>`

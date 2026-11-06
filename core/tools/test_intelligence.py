@@ -260,12 +260,12 @@ _OPUS, _SONNET, _FABLE = "claude-opus-5-5", "claude-sonnet-5-5", "claude-fable-5
 _HAIKU = "claude-haiku-5-5"
 HIGH, MEDIUM, LOW = agent_run.Effort.HIGH, agent_run.Effort.MEDIUM, agent_run.Effort.LOW
 
-# The 28 chain skills that carry `intelligence/claude.md`, with the values CP-171 states —
+# The 29 chain skills that carry `intelligence/claude.md`, with the values CP-171 states —
 # written out, never derived. nemawashi-retire departs from CP-171: Haiku, the owner's call of
 # 2026-10-16.
 _CLAUDE_INTELLIGENCE = {
     "product-prd": (_OPUS, HIGH),
-    "project-agari": (_OPUS, HIGH),
+    "project-finish-line": (_OPUS, HIGH),
     "product-srs": (_OPUS, HIGH),
     "product-uxd": (_OPUS, HIGH),
     "product-design": (_OPUS, HIGH),
@@ -285,12 +285,12 @@ _CLAUDE_INTELLIGENCE = {
     "tobiishi-open": (_SONNET, MEDIUM),
     "tobiishi-seal": (_SONNET, MEDIUM),
     "shukuba-open": (_SONNET, MEDIUM),
-    "nemawashi-pick": (_SONNET, MEDIUM),
+    "seed-pick": (_SONNET, MEDIUM),
     "seeds-from-product-docs": (_SONNET, MEDIUM),
     "stations-from-seed": (_SONNET, MEDIUM),
     "nemawashi-retire": (_HAIKU, LOW),
     "shukuba-retire": (_SONNET, LOW),
-    "readme-status": (_SONNET, MEDIUM),
+    "changelog-line": (_OPUS, MEDIUM),
     "product-sdd": (_FABLE, HIGH),
 }
 
@@ -320,7 +320,7 @@ def _engine_launched_skills() -> set[str]:
     `chain_development.py`'s change steps, `build_idea.py`'s `RUN_SKILL` kinds — and the
     `companion-self-answer` step `chain.py` runs between documents."""
     documents = {spec.skill for spec in chain.DOCUMENT_REGISTRY.values()}
-    steps = {step.skill for step in chain_development.CHANGE_STEPS}
+    steps = {step.skill for step in chain_development.WALK_STEPS}
     kinds = {kind.arguments[0] for kind in build_idea.KINDS.values()
              if kind.disposition is build_idea.Disposition.RUN_SKILL}
     return documents | steps | kinds | {"companion-self-answer"}
@@ -330,22 +330,29 @@ def test_the_chain_launched_set_is_the_twenty_nine_skills():
     derived = _engine_launched_skills()
 
     assert len(_CHAIN_LAUNCHED) == 29
-    assert "readme-status" in derived
+    assert "changelog-line" in derived
     assert derived == _CHAIN_LAUNCHED
 
 
-def test_the_expected_claude_intelligence_map_includes_readme_status():
-    assert _CLAUDE_INTELLIGENCE["readme-status"] == (_SONNET, MEDIUM)
-    assert len(_CLAUDE_INTELLIGENCE) == 28
+@pytest.mark.parametrize("provider", ["claude", "codex"])
+def test_changelog_profiles_and_launch_contract_are_readable(provider):
+    skill_dir = _skill_dir("changelog-line")
+    step = next(entry for entry in chain_development.CHANGE_STEPS
+                if entry.skill == "changelog-line")
 
+    found = intelligence.read(skill_dir, provider)
 
-@pytest.mark.parametrize("provider", ["claude", "codex", "gemini", "ollama"])
-def test_each_readme_status_intelligence_file_is_read_by_the_real_reader_without_error(provider):
-    found = intelligence.read(_skill_dir("readme-status"), provider)
-
-    assert found is not None and found.model
-    assert "## Why" in found.path.read_text()
-    assert found.path.name == f"{provider}.md"
+    assert found is not None and found.model and found.effort is not None
+    assert found.path == skill_dir / "intelligence" / f"{provider}.md"
+    why = found.path.read_text().split("## Why", 1)[1]
+    assert len(why.split()) > 30
+    launcher = (skill_dir / "launcher.md").read_text().splitlines()
+    assert f"**Agent:** {step.role}" in launcher
+    assert "**Arguments:** <project> <key>" in launcher
+    assert not any(line.startswith(("**Model:**", "**Effort:**")) for line in launcher)
+    assert (skill_dir / "prompts" / "thin.md").is_file()
+    assert (skill_dir / "references" / "changelog_report_template.md").is_file()
+    assert (skill_dir / "evals" / "evals.json").is_file()
 
 
 def test_first_what_left_is_registered_out_of_chain():
@@ -355,7 +362,7 @@ def test_first_what_left_is_registered_out_of_chain():
 
 @pytest.mark.parametrize("provider", ["claude", "codex", "gemini", "ollama"])
 def test_first_what_left_intelligence_reads_for_each_provider(provider):
-    namesake = intelligence.read(_skill_dir("project-agari"), provider)
+    namesake = intelligence.read(_skill_dir("project-finish-line"), provider)
 
     found = intelligence.read(_skill_dir("first-what-left"), provider)
 
@@ -463,7 +470,7 @@ def _entries_naming_a_provider() -> list[tuple[str, str]]:
     documents = [(spec.skill, provider_of(providers.document(name)))
                  for name, spec in chain.DOCUMENT_REGISTRY.items()]
     steps = [(step.skill, provider_of(providers.step(step.id)))
-             for step in chain_development.CHANGE_STEPS]
+             for step in chain_development.WALK_STEPS]
     kinds = [(kind.arguments[0], provider_of(providers.build_idea_row(name)))
              for name, kind in build_idea.KINDS.items()
              if kind.disposition is build_idea.Disposition.RUN_SKILL]

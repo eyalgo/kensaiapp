@@ -97,4 +97,4 @@ companion is waiting to be folded back in.
 Not for: designing the system (`product-sdd`, the CTO's), designing one change
 (`development-design`), the behavioural contract beside these records (`product-fdr`), the upstream
 documents they derive from (`product-prd`, `product-srs`), or the project's terminus
-(`project-agari`).
+(`project-finish-line`).

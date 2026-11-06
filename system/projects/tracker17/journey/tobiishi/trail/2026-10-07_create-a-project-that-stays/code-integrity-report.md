@@ -6,14 +6,14 @@ Integrity: pass
 
 ## Deferrals
 
-**None.** The newest marker, `3c5569254` (`developer: 2026-10-07_create-a-project-that-stays —
+**None.** The newest marker, `<a commit not in the public history>` (`developer: 2026-10-07_create-a-project-that-stays —
 implementation complete`), carries no `Deferred:` line and reads `Suite: green`. The stray deferral
-label on the earlier pause `deba0675d` is superseded by that marker, as its own review notes say.
+label on the earlier pause `<a commit not in the public history>` is superseded by that marker, as its own review notes say.
 
 ## What was reviewed
 
-Every product file the branch adds or changes under `products/tracker17/`, from `83563a643` to
-`3c5569254`: `domain/` (5 modules), `application/` (3), `persistence/` (2), `web/` (4 modules and
+Every product file the branch adds or changes under `products/tracker17/`, from `<a commit not in the public history>` to
+`<a commit not in the public history>`: `domain/` (5 modules), `application/` (3), `persistence/` (2), `web/` (4 modules and
 `style.css`), `main.py`, `pyproject.toml`, `.gitignore`, `tests/requirements.txt`, `tests/conftest.py`,
 `tests/timed_run.py`, and the 18 test modules under `tests/unit/`, `tests/integration/`, `tests/e2e/` and
 `tests/architecture/`.
@@ -31,7 +31,7 @@ Every string the pages and the console write matches `change_text.md` word for w
 
 ## Tests added or fixed
 
-All are in commit `8c7e4a659` (red).
+All are in commit `<a commit not in the public history>` (red).
 
 - **Added** `test_routes.py::test_a_project_identity_too_long_to_read_as_a_number_gets_404_with_an_empty_body`.
   TL Task 9 locks this: "an identity no project holds" gets 404 with an empty body. The test uses a

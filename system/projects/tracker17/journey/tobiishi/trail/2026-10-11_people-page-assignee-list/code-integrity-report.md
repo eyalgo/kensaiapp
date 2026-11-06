@@ -3,17 +3,17 @@
 Integrity: pass
 
 **Date:** 2026-10-11 · **Reviewer:** Senior Engineer (`development-code-integrity`, workflow mode)
-**Reviewed at:** `1edaef66c` (the newest `implementation complete` marker), product `products/tracker17`
+**Reviewed at:** `<a commit not in the public history>` (the newest `implementation complete` marker), product `products/tracker17`
 (in-repo: `code_worktree` = `pipeline_worktree` = this change's worktree).
 
 ## Deferrals
 
-None. The marker `1edaef66c` carries no `Deferred:` and no `Failing:` line (`git log -1 1edaef66c
+None. The marker `<a commit not in the public history>` carries no `Deferred:` and no `Failing:` line (`git log -1 <a commit not in the public history>
 --format=%B | grep -E '^(Deferred|Failing):'` exits 1). It reads `Suite: green`.
 
 ## What was reviewed
 
-The diff `main...1edaef66c` under `products/tracker17/`: `domain/assignees.py` (new),
+The diff `main...<a commit not in the public history>` under `products/tracker17/`: `domain/assignees.py` (new),
 `domain/state.py`, `domain/refusals.py`, `domain/__init__.py`, `application/tracker.py`,
 `application/__init__.py`, `persistence/saved_data.py`, `web/pages.py`, `web/routes.py` and
 `web/style.css`, plus the 13 test files the change added or changed.

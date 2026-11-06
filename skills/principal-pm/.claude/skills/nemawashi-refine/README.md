@@ -17,8 +17,8 @@ with what is owed next.
 - Decides whether the product's documents are owed a cut — even with candidates left in `unpicked/` —
   and names it rather than running it.
 - Always writes `system/projects/<project>/docs/nemawashi-refine/<seed>_report.md`, opening with
-  `## Next moves` — the companion sweep (`chain-product` or `chain-agari`, as the project card's
-  `**Definition:**` line names), `seeds-from-product-docs`, `nemawashi-pick`, `stations-from-seed`,
+  `## Next moves` — the companion sweep (`product-docs` or `prd-and-finish-line`, as the project card's
+  `**Definition:**` line names), `seeds-from-product-docs`, `seed-pick`, `stations-from-seed`,
   plus a halted cut's re-run or a route across projects where owed — each with its seat and the
   command that starts it. It makes none of them.
 

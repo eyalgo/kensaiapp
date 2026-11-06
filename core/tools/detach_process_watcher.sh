@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # detach_process_watcher.sh — detach the structured provider-process observer.
+# Version: 2.2.0 — launchers run on the locked Python
 # Version: 2.1.1 — the content seat split states what it made false, and the content step is audited
 # Version: 2.1.0 — give the watcher its own session so launcher cleanup cannot lose the callback
 # Version: 2.0.0 — the three chains run Claude as a detached claude -p process, not claude --bg
@@ -11,6 +12,8 @@
 # `chain_usage.py` reads, and appended to rather than truncated, as the `claude --bg` watcher's is.
 
 _detach_process_watcher_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# The runner that puts every Python this file starts on the pinned Python, beside this file.
+_detach_process_watcher_runner="$_detach_process_watcher_dir/locked_python.sh"
 # shellcheck source=detach_watcher.sh
 source "$_detach_process_watcher_dir/detach_watcher.sh"
 unset _detach_process_watcher_dir
@@ -63,7 +66,7 @@ detach_process_watcher() {
     sleep 1
     observer_log="$(detach_watch_log_file "$instance_root" "$log_stem")"
   done
-  local -a command=(python3 "$watcher" --provider "$provider" --pid "$pid" --log "$run_log"
+  local -a command=("$_detach_process_watcher_runner" "$watcher" --provider "$provider" --pid "$pid" --log "$run_log"
     --label "$label" --cwd "$instance_root" --reporter "$reporter"
     --notify "$notify_target" --poll-seconds "$poll_seconds")
   [ -z "$artifact_path" ] || command+=(--artifact-path "$artifact_path")
@@ -72,7 +75,7 @@ detach_process_watcher() {
   [ -z "$done_when_exists" ] || command+=(--done-when-exists "$done_when_exists")
   [ -z "$multi_turn" ] || command+=(--multi-turn)
   [ -z "$on_complete" ] || command+=(--on-complete "$on_complete")
-  DETACH_PROCESS_WATCHER_PID="$(python3 - "$observer_log" "${command[@]}" <<'PY'
+  DETACH_PROCESS_WATCHER_PID="$("$_detach_process_watcher_runner" - "$observer_log" "${command[@]}" <<'PY'
 import subprocess
 import sys
 

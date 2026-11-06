@@ -2,6 +2,7 @@
 
 import json
 import os
+import select
 import signal
 import subprocess
 import sys
@@ -341,17 +342,24 @@ def test_stop_lingering_interrupts_a_process_group_that_outlives_its_ending(tmp_
         [sys.executable, "-c",
          "import signal, sys, time\n"
          "signal.signal(signal.SIGINT, lambda *_: sys.exit(0))\n"
+         "print('ready', flush=True)\n"
          "while True:\n"
          "    time.sleep(60)\n"],
         start_new_session=True,
+        stdout=subprocess.PIPE,
+        text=True,
     )
     try:
+        assert select.select([process.stdout], [], [], 10)[0], "child handler was not ready"
+        assert process.stdout.readline() == "ready\n"
         watch_process.stop_lingering(process.pid, grace_seconds=0.1, interrupt_seconds=5)
         assert process.wait(timeout=5) == 0
     finally:
         signal.signal(signal.SIGINT, previous)
         if process.poll() is None:
             process.kill()
+        process.wait(timeout=5)
+        process.stdout.close()
 
 
 def test_stop_lingering_leaves_a_process_that_ends_on_its_own(tmp_path):
@@ -375,7 +383,7 @@ def test_the_watch_says_it_started_before_anything_else(tmp_path, observed, caps
 
 import completion_shim  # noqa: E402  (grouped with the tests that use it)
 
-RECEIPT_MESSAGE = 'readme-status made commit `abc123` in `/a b/c`.\nSecond "line" — ünï'
+RECEIPT_MESSAGE = 'sample made commit `abc123` in `/a b/c`.\nSecond "line" — ünï'
 
 
 def _hook_that_reads_the_receipt(monkeypatch, destination: Path):

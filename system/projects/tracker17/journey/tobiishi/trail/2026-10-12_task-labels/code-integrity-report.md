@@ -2,16 +2,16 @@
 
 Integrity: pass
 
-**Reviewed at:** `85549516b` (`developer: 2026-10-12_task-labels — implementation complete`), on branch
+**Reviewed at:** `<a commit not in the public history>` (`developer: 2026-10-12_task-labels — implementation complete`), on branch
 `2026-10-12_task-labels`. Product root: `products/tracker17/`. Every path below is relative to that root.
 
 ## Deferrals
 
-None. The newest closing marker (`85549516b`) has no `Deferred:` line.
+None. The newest closing marker (`<a commit not in the public history>`) has no `Deferred:` line.
 
 ## What was reviewed
 
-Everything the implementation commits `c85cbf5c3`..`1d3439d1c` changed (`git diff --stat 00a14dba7..85549516b`,
+Everything the implementation commits `<a commit not in the public history>`..`<a commit not in the public history>` changed (`git diff --stat <a commit not in the public history>..<a commit not in the public history>`,
 25 files):
 
 - production: `domain/labels.py` (new), `domain/tasks.py`, `domain/refusals.py`,

@@ -1,0 +1,3411 @@
+{
+ "006b9c8080caf732d8401d121be21a56741d818d0e8974a24cdd188d78eded12": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=skill",
+    "--label",
+    "skill=a",
+    "--label",
+    "project=tools",
+    "--label",
+    "product=tools"
+   ],
+   "cwd": "<TMP>/instance-root/example-instance",
+   "endpoint": "http://example.com:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint"
+   },
+   "tree": "1e9ee90bda6ab5cc29c83b151f1778e4f850e986dfffed75d1187d2238e74759"
+  },
+  "status": 0,
+  "stderr": "          (telemetry endpoint at <TMP>/endpoint is not on this machine (loopback only) \u2014 run uninstrumented)\n",
+  "stdout": ""
+ },
+ "04e23678fef0e7459cd0dd287986785611487a85b221783dc1bffe2819cb0309": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=skill",
+    "--label",
+    "document=ok-document",
+    "--label",
+    "skill=ok-skill",
+    "--label",
+    "target_instance=ok-target_instance",
+    "--label",
+    "provider=ok-provider",
+    "--label",
+    "model=ok-model",
+    "--label",
+    "effort=ok-effort",
+    "--label",
+    "source=ok-source"
+   ],
+   "cwd": "<TMP>/instance-root/example-instance",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint"
+   },
+   "tree": "1e9ee90bda6ab5cc29c83b151f1778e4f850e986dfffed75d1187d2238e74759"
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.document=ok-document,kensai.skill=ok-skill,kensai.target_instance=ok-target_instance,kensai.provider=ok-provider,kensai.model=ok-model,kensai.effort=ok-effort,kensai.source=ok-source \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.document=ok-document,kensai.skill=ok-skill,kensai.target_instance=ok-target_instance,kensai.provider=ok-provider,kensai.model=ok-model,kensai.effort=ok-effort,kensai.source=ok-source\"}}\n"
+ },
+ "065880508b6cb6876e309fc1c6e490e766101a3b0c11f98cb77cbcbd72c592ff": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=product-card",
+    "--label",
+    "project=example-product",
+    "--label",
+    "product=thing",
+    "--label",
+    "provider=claude",
+    "--label",
+    "model=claude-opus-5-5",
+    "--label",
+    "effort=high",
+    "--label",
+    "source=intelligence"
+   ],
+   "cwd": "<TMP>",
+   "endpoint": null,
+   "env": {
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/published-endpoint"
+   },
+   "tree": ""
+  },
+  "status": 0,
+  "stderr": "          (no published telemetry endpoint at <TMP>/published-endpoint \u2014 run uninstrumented)\n",
+  "stdout": ""
+ },
+ "0a06c244c06dd648e7995b9e1a766b9b67f341eeb2f31fef0abc87cc4d10f59c": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=skill",
+    "--label",
+    "project=tools",
+    "--label",
+    "skill=a"
+   ],
+   "cwd": "<TMP>/named/product-instance",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint"
+   },
+   "tree": "0cf45a50a0c53308cd539fca4a711692064e33fdc601689fd316911b4df80bee"
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.instance=product-instance,kensai.arm=skill,kensai.project=tools,kensai.skill=a \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.instance=product-instance,kensai.arm=skill,kensai.project=tools,kensai.skill=a\"}}\n"
+ },
+ "0a374e463cdde56fd9b5a4ce26d051983cf60fa3e54bc6aa7683ea56751e0d8f": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=skill",
+    "--label",
+    "project=tools",
+    "--label",
+    "product=tools",
+    "--label",
+    "skill=a",
+    "--label",
+    "project=other",
+    "--label",
+    "product=other-product",
+    "--label",
+    "project=tools",
+    "--label",
+    "product=tools"
+   ],
+   "cwd": "<TMP>/named/product-repeats",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint"
+   },
+   "tree": "f543aa0f53edd62867972746c0fdd06f44dc3d8e97e33c4ecb566faa5f96e2eb"
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.instance=product-repeats,kensai.arm=skill,kensai.project=tools,kensai.product=tools,kensai.skill=a,kensai.project=other,kensai.product=other-product,kensai.project=tools,kensai.product=tools \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.instance=product-repeats,kensai.arm=skill,kensai.project=tools,kensai.product=tools,kensai.skill=a,kensai.project=other,kensai.product=other-product,kensai.project=tools,kensai.product=tools\"}}\n"
+ },
+ "0d570321a2750db207c397de555caae4cda01a76ac1c2cdf5620107a5d4cd357": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=skill",
+    "--label",
+    "skill=a",
+    "--label",
+    "project=tools",
+    "--label",
+    "product=tools"
+   ],
+   "cwd": "<TMP>/instance-root/example-instance",
+   "endpoint": "",
+   "env": {
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint"
+   },
+   "tree": "1e9ee90bda6ab5cc29c83b151f1778e4f850e986dfffed75d1187d2238e74759"
+  },
+  "status": 0,
+  "stderr": "          (telemetry endpoint at <TMP>/endpoint is unreadable or malformed \u2014 run uninstrumented)\n",
+  "stdout": ""
+ },
+ "0d8ef6d0d2ca5b051c2e176fe585073ce3e94b5dfe26e0d93d9bf4df63bec836": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=skill",
+    "--label",
+    "skill=a"
+   ],
+   "cwd": "<TMP>/instance-root/example-instance",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint",
+    "INSTRUMENT_RUN_WALK_ID": "v w"
+   },
+   "tree": "1e9ee90bda6ab5cc29c83b151f1778e4f850e986dfffed75d1187d2238e74759"
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=a \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=a\"}}\n"
+ },
+ "0ef20db88cbdc7ff66c8dde3a9c71816b33a0ebaac59dcebd6d621f376ea6eae": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=skill",
+    "--label",
+    "skill=a"
+   ],
+   "cwd": "<TMP>/instance-root/example-instance",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint",
+    "INSTRUMENT_RUN_WALK_ID": "v;w"
+   },
+   "tree": "1e9ee90bda6ab5cc29c83b151f1778e4f850e986dfffed75d1187d2238e74759"
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=a \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=a\"}}\n"
+ },
+ "1046375f795664175a9313dad359b350ae368e65e6475e91490d143bb04e32a4": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=skill",
+    "--label",
+    "skill=a"
+   ],
+   "cwd": "<TMP>/named/a\\b",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint"
+   },
+   "tree": "1e9ee90bda6ab5cc29c83b151f1778e4f850e986dfffed75d1187d2238e74759"
+  },
+  "status": 0,
+  "stderr": "          (kensai.instance 'a\\b' contains a character OTEL_RESOURCE_ATTRIBUTES cannot carry \u2014 not attached)\n          Telemetry:    kensai.run_id=<UUID-0>,kensai.arm=skill,kensai.skill=a \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.arm=skill,kensai.skill=a\"}}\n"
+ },
+ "10bd539971fd01c00150f2f6a983f855ac90e00f9289f912e573559cc06b0b4e": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=skill",
+    "--label",
+    "project=tools",
+    "--label",
+    "product=tools",
+    "--label",
+    "document=ok-document",
+    "--label",
+    "skill=ok-skill",
+    "--label",
+    "target_instance=ok-target_instance",
+    "--label",
+    "provider=ok-provider",
+    "--label",
+    "effort=ok-effort",
+    "--label",
+    "source=ok-source"
+   ],
+   "cwd": "<TMP>/instance-root/example-instance",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint"
+   },
+   "tree": "1e9ee90bda6ab5cc29c83b151f1778e4f850e986dfffed75d1187d2238e74759"
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.project=tools,kensai.product=tools,kensai.document=ok-document,kensai.skill=ok-skill,kensai.target_instance=ok-target_instance,kensai.provider=ok-provider,kensai.effort=ok-effort,kensai.source=ok-source \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.project=tools,kensai.product=tools,kensai.document=ok-document,kensai.skill=ok-skill,kensai.target_instance=ok-target_instance,kensai.provider=ok-provider,kensai.effort=ok-effort,kensai.source=ok-source\"}}\n"
+ },
+ "1587ccf8c3354f5a1674d54f2e67ec09b7a799de6d5c8af6caeae3bf85411f90": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=skill",
+    "--label",
+    "skill=a",
+    "--label",
+    "model=a\u001bb",
+    "--label",
+    "role=r\u001b"
+   ],
+   "cwd": "<TMP>/instance-root/example-instance",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint",
+    "INSTRUMENT_RUN_ROLE": "r\u001b"
+   },
+   "tree": "1e9ee90bda6ab5cc29c83b151f1778e4f850e986dfffed75d1187d2238e74759"
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=a,kensai.model=a\u001bb,kensai.role=r\u001b \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=a,kensai.model=a\\u001bb,kensai.role=r\\u001b\"}}\n"
+ },
+ "189ea48add1c3d369213a4033f93ce4612f795f3cfb80bde026db3a98f0f8a80": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=arm%1",
+    "--label",
+    "project=tools",
+    "--label",
+    "product=p%q",
+    "--label",
+    "skill=a",
+    "--label",
+    "walk_id=w%1",
+    "--label",
+    "chain=c%3",
+    "--label",
+    "role=role%2",
+    "--label",
+    "audit_target=t%4"
+   ],
+   "cwd": "<TMP>/named/percent-labels",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_ARM": "arm%1",
+    "INSTRUMENT_RUN_AUDIT_TARGET": "t%4",
+    "INSTRUMENT_RUN_CHAIN": "c%3",
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint",
+    "INSTRUMENT_RUN_ROLE": "role%2",
+    "INSTRUMENT_RUN_WALK_ID": "w%1"
+   },
+   "tree": "42ae3fe2a9aeb62c5556c60937b138ab879f0e6c422bf634ebd1c2d17f795a75"
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.instance=percent-labels,kensai.arm=arm%0000251,kensai.project=tools,kensai.product=p%000025q,kensai.skill=a,kensai.walk_id=w%0000251,kensai.chain=c%0000253,kensai.role=role%0000252,kensai.audit_target=t%0000254 \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.instance=percent-labels,kensai.arm=arm%0000251,kensai.project=tools,kensai.product=p%000025q,kensai.skill=a,kensai.walk_id=w%0000251,kensai.chain=c%0000253,kensai.role=role%0000252,kensai.audit_target=t%0000254\"}}\n"
+ },
+ "1be6b6ed780ba46c2f2008c8b1d903fd432ffcc64ee7052608cc9798f9decd5f": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=skill",
+    "--label",
+    "skill=a"
+   ],
+   "cwd": "<TMP>/instance-root/example-instance",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_ARM": "",
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint"
+   },
+   "tree": "1e9ee90bda6ab5cc29c83b151f1778e4f850e986dfffed75d1187d2238e74759"
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=a \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=a\"}}\n"
+ },
+ "21bafcac785f2d915b8eab8293594605e9ba124354d68fbc300e062a667c639b": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=skill",
+    "--label",
+    "project=tools",
+    "--label",
+    "skill=a"
+   ],
+   "cwd": "<TMP>/named/product-instance",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint"
+   },
+   "tree": "33f7c62072ad1e7356de3f430efe934fb59887dcb976acac0b82c2b7fa7f26a4"
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.instance=product-instance,kensai.arm=skill,kensai.project=tools,kensai.skill=a \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.instance=product-instance,kensai.arm=skill,kensai.project=tools,kensai.skill=a\"}}\n"
+ },
+ "24f4756d3c2a058569b239476c62ed0fe8031f4008f69116d33b50ca062718d2": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=skill",
+    "--label",
+    "skill=a"
+   ],
+   "cwd": "<TMP>/instance-root/example-instance",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint",
+    "INSTRUMENT_RUN_WALK_ID": ""
+   },
+   "tree": "1e9ee90bda6ab5cc29c83b151f1778e4f850e986dfffed75d1187d2238e74759"
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=a \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=a\"}}\n"
+ },
+ "25bb379391229d1a39bdddaeca1074bec3478c38a130df1c32449a4034ed9a34": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=skill",
+    "--label",
+    "skill=development-specs",
+    "--label",
+    "walk_id=walk-1",
+    "--label",
+    "chain=chain-development",
+    "--label",
+    "role=developer",
+    "--label",
+    "audit_target=development-plan"
+   ],
+   "cwd": "<TMP>/instance-root/example-instance",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_AUDIT_TARGET": "development-plan",
+    "INSTRUMENT_RUN_CHAIN": "chain-development",
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint",
+    "INSTRUMENT_RUN_ROLE": "developer",
+    "INSTRUMENT_RUN_WALK_ID": "walk-1"
+   },
+   "tree": "1e9ee90bda6ab5cc29c83b151f1778e4f850e986dfffed75d1187d2238e74759"
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=development-specs,kensai.walk_id=walk-1,kensai.chain=chain-development,kensai.role=developer,kensai.audit_target=development-plan \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=development-specs,kensai.walk_id=walk-1,kensai.chain=chain-development,kensai.role=developer,kensai.audit_target=development-plan\"}}\n"
+ },
+ "26fcab608ece2266f8e3e2d7da398a9aac27c7762e86d201f95348cb0eb0e1c5": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=skill",
+    "--label",
+    "skill=demo",
+    "--label",
+    "project=some-project",
+    "--label",
+    "provider=claude",
+    "--label",
+    "source=default"
+   ],
+   "cwd": "<TMP>",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/published-endpoint"
+   },
+   "tree": ""
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.arm=skill,kensai.skill=demo,kensai.project=some-project,kensai.provider=claude,kensai.source=default \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.arm=skill,kensai.skill=demo,kensai.project=some-project,kensai.provider=claude,kensai.source=default\"}}\n"
+ },
+ "27005e6ae63f00118da4dd18edf3dd2a3d1ff99c5343b8d663f16a12b975ad3a": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=skill",
+    "--label",
+    "skill=a"
+   ],
+   "cwd": "<TMP>/instance-root/example-instance",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_CHAIN": "v w",
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint"
+   },
+   "tree": "1e9ee90bda6ab5cc29c83b151f1778e4f850e986dfffed75d1187d2238e74759"
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=a \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=a\"}}\n"
+ },
+ "295d7b667fcdb9e714a6f60335d628f7f40fc131cdcb2e0f915dbd6f3b9d63dd": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=skill",
+    "--label",
+    "skill=a"
+   ],
+   "cwd": "<TMP>/instance-root/example-instance",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint",
+    "INSTRUMENT_RUN_ROLE": "v w"
+   },
+   "tree": "1e9ee90bda6ab5cc29c83b151f1778e4f850e986dfffed75d1187d2238e74759"
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=a \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=a\"}}\n"
+ },
+ "2965360fc39e94d322ec89ba0973ffe20e9f0dd9aa7a47a61a4e95a498e736a2": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=skill",
+    "--label",
+    "project=tools",
+    "--label",
+    "product=other-product",
+    "--label",
+    "skill=a"
+   ],
+   "cwd": "<TMP>/named/product-instance",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint"
+   },
+   "tree": "73e1861a527a51261b8e77daf55d498c2d1a2167857169523406f168743a94fa"
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.instance=product-instance,kensai.arm=skill,kensai.project=tools,kensai.product=other-product,kensai.skill=a \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.instance=product-instance,kensai.arm=skill,kensai.project=tools,kensai.product=other-product,kensai.skill=a\"}}\n"
+ },
+ "2c7c097c4650e4dbf05533421f3420177e3f000b695db0bb6a675b8b6f2743d8": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=skill",
+    "--label",
+    "skill=a"
+   ],
+   "cwd": "<TMP>/named/a b",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint"
+   },
+   "tree": "1e9ee90bda6ab5cc29c83b151f1778e4f850e986dfffed75d1187d2238e74759"
+  },
+  "status": 0,
+  "stderr": "          (kensai.instance 'a b' contains a character OTEL_RESOURCE_ATTRIBUTES cannot carry \u2014 not attached)\n          Telemetry:    kensai.run_id=<UUID-0>,kensai.arm=skill,kensai.skill=a \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.arm=skill,kensai.skill=a\"}}\n"
+ },
+ "2de7667bb73b41826a9f1e66d3af1fd1bfc8cea773908bf5007434abc942c2be": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=skill",
+    "--label",
+    "skill=a"
+   ],
+   "cwd": "<TMP>/named/identity-checkout",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint"
+   },
+   "tree": "1e9ee90bda6ab5cc29c83b151f1778e4f850e986dfffed75d1187d2238e74759"
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.instance=identity-checkout,kensai.arm=skill,kensai.skill=a \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.instance=identity-checkout,kensai.arm=skill,kensai.skill=a\"}}\n"
+ },
+ "2f5a9451f2994f17bb673f924999fade5348752a7531184eed332cf184ac0dc3": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "skill=a"
+   ],
+   "cwd": "<TMP>/instance-root/example-instance",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_ARM": "a b",
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint"
+   },
+   "tree": "1e9ee90bda6ab5cc29c83b151f1778e4f850e986dfffed75d1187d2238e74759"
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.skill=a \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.skill=a\"}}\n"
+ },
+ "31039f31ca551c6cdc155a66014fa1914cc5705defb28f7addee5119b4f4e8db": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=skill",
+    "--label",
+    "skill=a",
+    "--label",
+    "walk_id=valid-value"
+   ],
+   "cwd": "<TMP>/instance-root/example-instance",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint",
+    "INSTRUMENT_RUN_WALK_ID": "valid-value"
+   },
+   "tree": "1e9ee90bda6ab5cc29c83b151f1778e4f850e986dfffed75d1187d2238e74759"
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=a,kensai.walk_id=valid-value \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=a,kensai.walk_id=valid-value\"}}\n"
+ },
+ "31458eba8d2822cb6c77e68432fa260b83d385e595b34301613c4bed39b1de5d": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=skill",
+    "--label",
+    "model=50%",
+    "--label",
+    "skill=a%b",
+    "--label",
+    "provider=claude"
+   ],
+   "cwd": "<TMP>/instance-root/example-instance",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint"
+   },
+   "tree": "1e9ee90bda6ab5cc29c83b151f1778e4f850e986dfffed75d1187d2238e74759"
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.model=50%000025,kensai.skill=a%000025b,kensai.provider=claude \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.model=50%000025,kensai.skill=a%000025b,kensai.provider=claude\"}}\n"
+ },
+ "325ce16dc2b049e110d03011ef06a0a7ad67707001c5270ee817489a842f7e39": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "skill=a"
+   ],
+   "cwd": "<TMP>/instance-root/example-instance",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_ARM": "/",
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint"
+   },
+   "tree": "1e9ee90bda6ab5cc29c83b151f1778e4f850e986dfffed75d1187d2238e74759"
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.skill=a \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.skill=a\"}}\n"
+ },
+ "38464eac0c151468b0f0470ac8546aeecb6334f1d66920da631947770886ba4a": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "skill=a"
+   ],
+   "cwd": "<TMP>/instance-root/example-instance",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_ARM": "a\\b",
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint"
+   },
+   "tree": "1e9ee90bda6ab5cc29c83b151f1778e4f850e986dfffed75d1187d2238e74759"
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.skill=a \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.skill=a\"}}\n"
+ },
+ "38e78617830ae0b6e244f28248f0eed82a977e7746ad218ac7133d8d4896ac66": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=skill",
+    "--label",
+    "skill=a"
+   ],
+   "cwd": "<TMP>/instance-root/example-instance",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint",
+    "INSTRUMENT_RUN_WALK_ID": "v\"w"
+   },
+   "tree": "1e9ee90bda6ab5cc29c83b151f1778e4f850e986dfffed75d1187d2238e74759"
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=a \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=a\"}}\n"
+ },
+ "39b3762a6adaa1580dfbb5f9573b53e56741526d253bb42d6a4060f3119417b5": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=skill",
+    "--label",
+    "skill=a"
+   ],
+   "cwd": "<TMP>/instance-root/example-instance",
+   "endpoint": "http://localhost\n",
+   "env": {
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint"
+   },
+   "tree": "1e9ee90bda6ab5cc29c83b151f1778e4f850e986dfffed75d1187d2238e74759"
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=a \u2192 http://localhost\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://localhost\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=a\"}}\n"
+ },
+ "3a83e80b0f7074020c7f0a0b2ae573494d3895734aea4c3094909e119ca26fcb": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=custom-arm",
+    "--label",
+    "skill=a"
+   ],
+   "cwd": "<TMP>/instance-root/example-instance",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_ARM": "custom-arm",
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint"
+   },
+   "tree": "1e9ee90bda6ab5cc29c83b151f1778e4f850e986dfffed75d1187d2238e74759"
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=custom-arm,kensai.skill=a \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=custom-arm,kensai.skill=a\"}}\n"
+ },
+ "3c041a4879ebcced5a36fd08a981a3c50f659d5f07efef19703c21591f365821": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=skill",
+    "--label",
+    "skill=a"
+   ],
+   "cwd": "<TMP>/instance-root/example-instance",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_AUDIT_TARGET": "",
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint"
+   },
+   "tree": "1e9ee90bda6ab5cc29c83b151f1778e4f850e986dfffed75d1187d2238e74759"
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=a \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=a\"}}\n"
+ },
+ "3d535c4b0f196965ef7f890d6c7f2ddac95da4c09bca908349c246ca15eda469": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=skill",
+    "--label",
+    "project=tools",
+    "--label",
+    "product=tools",
+    "--label",
+    "document=ok-document",
+    "--label",
+    "skill=ok-skill",
+    "--label",
+    "target_instance=ok-target_instance",
+    "--label",
+    "provider=ok-provider",
+    "--label",
+    "model=ok-model",
+    "--label",
+    "effort=ok-effort"
+   ],
+   "cwd": "<TMP>/instance-root/example-instance",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint"
+   },
+   "tree": "1e9ee90bda6ab5cc29c83b151f1778e4f850e986dfffed75d1187d2238e74759"
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.project=tools,kensai.product=tools,kensai.document=ok-document,kensai.skill=ok-skill,kensai.target_instance=ok-target_instance,kensai.provider=ok-provider,kensai.model=ok-model,kensai.effort=ok-effort \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.project=tools,kensai.product=tools,kensai.document=ok-document,kensai.skill=ok-skill,kensai.target_instance=ok-target_instance,kensai.provider=ok-provider,kensai.model=ok-model,kensai.effort=ok-effort\"}}\n"
+ },
+ "3db5142b6eea1ec149649565bad58d1fc949a9ee35ad948fb0b4152e12ef2524": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=skill",
+    "--label",
+    "skill=a"
+   ],
+   "cwd": "<TMP>/instance-root/example-instance",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_AUDIT_TARGET": "v\\w",
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint"
+   },
+   "tree": "1e9ee90bda6ab5cc29c83b151f1778e4f850e986dfffed75d1187d2238e74759"
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=a \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=a\"}}\n"
+ },
+ "3e9a096d20bc67c4fd286231512fdc60ab4196073f6f0cec0e548d0093bf11ae": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=skill",
+    "--label",
+    "skill=a"
+   ],
+   "cwd": "<TMP>/named/a\"b",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint"
+   },
+   "tree": "1e9ee90bda6ab5cc29c83b151f1778e4f850e986dfffed75d1187d2238e74759"
+  },
+  "status": 0,
+  "stderr": "          (kensai.instance 'a\"b' contains a character OTEL_RESOURCE_ATTRIBUTES cannot carry \u2014 not attached)\n          Telemetry:    kensai.run_id=<UUID-0>,kensai.arm=skill,kensai.skill=a \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.arm=skill,kensai.skill=a\"}}\n"
+ },
+ "3eae6e344c4cef370021290b4725612c9b27e4e3af8f3c5cbd6176cb392748c0": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=companion-self-answer",
+    "--label",
+    "project=tools",
+    "--label",
+    "product=thing",
+    "--label",
+    "document=prd",
+    "--label",
+    "provider=claude",
+    "--label",
+    "model=claude-opus-5-5",
+    "--label",
+    "effort=high",
+    "--label",
+    "source=intelligence"
+   ],
+   "cwd": "<TMP>",
+   "endpoint": null,
+   "env": {
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/published-endpoint"
+   },
+   "tree": ""
+  },
+  "status": 0,
+  "stderr": "          (no published telemetry endpoint at <TMP>/published-endpoint \u2014 run uninstrumented)\n",
+  "stdout": ""
+ },
+ "3ed90febf58640cc3ce9320322cc4fce7cede6683575fe724ec129d889785ae2": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=product-card",
+    "--label",
+    "project=example-product",
+    "--label",
+    "product=thing",
+    "--label",
+    "provider=claude",
+    "--label",
+    "model=claude-opus-5-5",
+    "--label",
+    "effort=high",
+    "--label",
+    "source=intelligence"
+   ],
+   "cwd": "<TMP>",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/published-endpoint"
+   },
+   "tree": ""
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.arm=product-card,kensai.project=example-product,kensai.product=thing,kensai.provider=claude,kensai.model=claude-opus-5-5,kensai.effort=high,kensai.source=intelligence \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.arm=product-card,kensai.project=example-product,kensai.product=thing,kensai.provider=claude,kensai.model=claude-opus-5-5,kensai.effort=high,kensai.source=intelligence\"}}\n"
+ },
+ "3f8d7af055b52266284a973d09b807b6bf421afd2ba3854cc886e854119b667c": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=skill",
+    "--label",
+    "skill=a"
+   ],
+   "cwd": "<TMP>/instance-root/example-instance",
+   "endpoint": "https://127.5.6.7:99/path\n",
+   "env": {
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint"
+   },
+   "tree": "1e9ee90bda6ab5cc29c83b151f1778e4f850e986dfffed75d1187d2238e74759"
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=a \u2192 https://127.5.6.7:99/path\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"https://127.5.6.7:99/path\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=a\"}}\n"
+ },
+ "42d09bdb417fbe239526c450c5b32db65f17085a6f61c1f216580153a52bba51": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "skill=a"
+   ],
+   "cwd": "<TMP>/instance-root/example-instance",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_ARM": "a,b",
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint"
+   },
+   "tree": "1e9ee90bda6ab5cc29c83b151f1778e4f850e986dfffed75d1187d2238e74759"
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.skill=a \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.skill=a\"}}\n"
+ },
+ "453b45b45ba97202eb111a0611c8efc883a1e6f2ae9d189c3b3900f31ed4616c": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=skill",
+    "--label",
+    "skill=a"
+   ],
+   "cwd": "<TMP>/instance-root/example-instance",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint"
+   },
+   "tree": "1e9ee90bda6ab5cc29c83b151f1778e4f850e986dfffed75d1187d2238e74759"
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=a \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=a\"}}\n"
+ },
+ "49adbce74623ac05ccc5f5a6995a712d46e8c4936cc6561493ba92958465bed2": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=skill",
+    "--label",
+    "skill=a"
+   ],
+   "cwd": "<TMP>/instance-root/example-instance",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_CHAIN": "v;w",
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint"
+   },
+   "tree": "1e9ee90bda6ab5cc29c83b151f1778e4f850e986dfffed75d1187d2238e74759"
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=a \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=a\"}}\n"
+ },
+ "4cf5c4b81be091548a8124ceea72dc2b27df200fa8994f2be1918a3728f5a9cf": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "skill=a"
+   ],
+   "cwd": "<TMP>/instance-root/example-instance",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_ARM": "a\"b",
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint"
+   },
+   "tree": "1e9ee90bda6ab5cc29c83b151f1778e4f850e986dfffed75d1187d2238e74759"
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.skill=a \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.skill=a\"}}\n"
+ },
+ "4f765e504da2f4ad10df55dc3533e13bd9956bbcddc044d18290a6bb6496be04": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "skill=a"
+   ],
+   "cwd": "<TMP>/instance-root/example-instance",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_ARM": "a=b",
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint"
+   },
+   "tree": "1e9ee90bda6ab5cc29c83b151f1778e4f850e986dfffed75d1187d2238e74759"
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.skill=a \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.skill=a\"}}\n"
+ },
+ "528f087c8d8511c0474964ec91d4c05fa3b267acb7363ddee304d0f6e8cdc2d7": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=skill",
+    "--label",
+    "project=tools",
+    "--label",
+    "product=tools",
+    "--label",
+    "skill=ok-skill",
+    "--label",
+    "target_instance=ok-target_instance",
+    "--label",
+    "provider=ok-provider",
+    "--label",
+    "model=ok-model",
+    "--label",
+    "effort=ok-effort",
+    "--label",
+    "source=ok-source"
+   ],
+   "cwd": "<TMP>/instance-root/example-instance",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint"
+   },
+   "tree": "1e9ee90bda6ab5cc29c83b151f1778e4f850e986dfffed75d1187d2238e74759"
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.project=tools,kensai.product=tools,kensai.skill=ok-skill,kensai.target_instance=ok-target_instance,kensai.provider=ok-provider,kensai.model=ok-model,kensai.effort=ok-effort,kensai.source=ok-source \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.project=tools,kensai.product=tools,kensai.skill=ok-skill,kensai.target_instance=ok-target_instance,kensai.provider=ok-provider,kensai.model=ok-model,kensai.effort=ok-effort,kensai.source=ok-source\"}}\n"
+ },
+ "551642adc01b78f5ab5b52e1b61b5b378698ee6cf5f39108d78bf33fe02bcd69": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=skill",
+    "--label",
+    "skill=a",
+    "--label",
+    "chain=valid-value"
+   ],
+   "cwd": "<TMP>/instance-root/example-instance",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_CHAIN": "valid-value",
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint"
+   },
+   "tree": "1e9ee90bda6ab5cc29c83b151f1778e4f850e986dfffed75d1187d2238e74759"
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=a,kensai.chain=valid-value \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=a,kensai.chain=valid-value\"}}\n"
+ },
+ "560bc2113c28692753e7b400d8577e9c2d0782ea696044b75484bcabb7ac2286": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "skill=a"
+   ],
+   "cwd": "<TMP>/instance-root/example-instance",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_ARM": "a;b",
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint"
+   },
+   "tree": "1e9ee90bda6ab5cc29c83b151f1778e4f850e986dfffed75d1187d2238e74759"
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.skill=a \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.skill=a\"}}\n"
+ },
+ "58d4df25ac44c398fb12a0686120c8fa9a0c34f66c688548ec49e549aff05f65": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=skill",
+    "--label",
+    "skill=a"
+   ],
+   "cwd": "<TMP>/instance-root/example-instance",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint",
+    "INSTRUMENT_RUN_ROLE": ""
+   },
+   "tree": "1e9ee90bda6ab5cc29c83b151f1778e4f850e986dfffed75d1187d2238e74759"
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=a \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=a\"}}\n"
+ },
+ "5aa015c67333835ff27cfa24dd694c4db93bcf4cb1ed314d6bd004287f65b940": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=skill",
+    "--label",
+    "skill=a"
+   ],
+   "cwd": "<TMP>/instance-root/example-instance",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_CHAIN": "v=w",
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint"
+   },
+   "tree": "1e9ee90bda6ab5cc29c83b151f1778e4f850e986dfffed75d1187d2238e74759"
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=a \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=a\"}}\n"
+ },
+ "5c9b1861c95fa528aa509681d33fc716bee277a5e88be90a517e20ca55ae607f": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=skill",
+    "--label",
+    "skill=a"
+   ],
+   "cwd": "<TMP>/instance-root/example-instance",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint",
+    "INSTRUMENT_RUN_ROLE": "v\"w"
+   },
+   "tree": "1e9ee90bda6ab5cc29c83b151f1778e4f850e986dfffed75d1187d2238e74759"
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=a \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=a\"}}\n"
+ },
+ "5cf4c4dc5222a7bd903f30c3bbe0b4ee7bcc5ca6181477cf29554058285f2e7d": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=skill",
+    "--label",
+    "skill=a"
+   ],
+   "cwd": "<TMP>/instance-root/example-instance",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint",
+    "INSTRUMENT_RUN_WALK_ID": "v=w"
+   },
+   "tree": "1e9ee90bda6ab5cc29c83b151f1778e4f850e986dfffed75d1187d2238e74759"
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=a \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=a\"}}\n"
+ },
+ "5d0e4e46d9b4ab32f2df41a985821da1a7c44914c2551690dfea77763a3c13d9": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=skill",
+    "--label",
+    "skill=a"
+   ],
+   "cwd": "<TMP>/instance-root/example-instance",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint",
+    "OTEL_EXPORTER_OTLP_ENDPOINT": "http://127.0.0.1:4318",
+    "OTEL_EXPORTER_OTLP_PROTOCOL": "http/json",
+    "OTEL_LOGS_EXPORTER": "otlp",
+    "OTEL_METRICS_EXPORTER": "otlp",
+    "OTEL_RESOURCE_ATTRIBUTES": "kensai.arm=skill,kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.skill=a"
+   },
+   "tree": "1e9ee90bda6ab5cc29c83b151f1778e4f850e986dfffed75d1187d2238e74759"
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-1>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=a \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-1>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=a\"}}\n"
+ },
+ "5db0af653aeb98961465300ec7ddec4c4dd576f3d7d5dd7c73d7bfd93bc0dcf3": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=skill",
+    "--label",
+    "skill=a"
+   ],
+   "cwd": "<TMP>/instance-root/example-instance",
+   "endpoint": "https://127.5.6.7:99/path\n",
+   "env": {},
+   "tree": "1e9ee90bda6ab5cc29c83b151f1778e4f850e986dfffed75d1187d2238e74759"
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=a \u2192 https://127.5.6.7:99/path\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"https://127.5.6.7:99/path\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=a\"}}\n"
+ },
+ "5fcac0ff606db8f9661b2f09aba1401926277927c400f89d8ff985f0fb69c709": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=skill",
+    "--label",
+    "project=value-of-project",
+    "--label",
+    "document=value-of-document",
+    "--label",
+    "skill=value-of-skill",
+    "--label",
+    "target_instance=value-of-target_instance",
+    "--label",
+    "provider=value-of-provider",
+    "--label",
+    "model=value-of-model",
+    "--label",
+    "effort=value-of-effort",
+    "--label",
+    "source=value-of-source",
+    "--label",
+    "walk_id=w1",
+    "--label",
+    "chain=c1",
+    "--label",
+    "role=developer",
+    "--label",
+    "audit_target=t1"
+   ],
+   "cwd": "<TMP>/instance-root/example-instance",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_AUDIT_TARGET": "t1",
+    "INSTRUMENT_RUN_CHAIN": "c1",
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint",
+    "INSTRUMENT_RUN_ROLE": "developer",
+    "INSTRUMENT_RUN_WALK_ID": "w1"
+   },
+   "tree": "1e9ee90bda6ab5cc29c83b151f1778e4f850e986dfffed75d1187d2238e74759"
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.project=value-of-project,kensai.document=value-of-document,kensai.skill=value-of-skill,kensai.target_instance=value-of-target_instance,kensai.provider=value-of-provider,kensai.model=value-of-model,kensai.effort=value-of-effort,kensai.source=value-of-source,kensai.walk_id=w1,kensai.chain=c1,kensai.role=developer,kensai.audit_target=t1 \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.project=value-of-project,kensai.document=value-of-document,kensai.skill=value-of-skill,kensai.target_instance=value-of-target_instance,kensai.provider=value-of-provider,kensai.model=value-of-model,kensai.effort=value-of-effort,kensai.source=value-of-source,kensai.walk_id=w1,kensai.chain=c1,kensai.role=developer,kensai.audit_target=t1\"}}\n"
+ },
+ "609c7ba208318abd8f3f77bd6bddb33927be1d7e7ab059678efca09aee0b8417": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=skill",
+    "--label",
+    "skill=a"
+   ],
+   "cwd": "<TMP>/instance-root/example-instance",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint",
+    "INSTRUMENT_RUN_ROLE": "v;w"
+   },
+   "tree": "1e9ee90bda6ab5cc29c83b151f1778e4f850e986dfffed75d1187d2238e74759"
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=a \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=a\"}}\n"
+ },
+ "67e41ade4874ca26bda1f8c0ef293dd43e7653cb881def85fe00fddb33f81672": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=skill",
+    "--label",
+    "skill=a"
+   ],
+   "cwd": "<TMP>/instance-root/example-instance",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {},
+   "tree": "1e9ee90bda6ab5cc29c83b151f1778e4f850e986dfffed75d1187d2238e74759"
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=a \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=a\"}}\n"
+ },
+ "6a9d6c22cc409196315eec26583421bdc3a72792ee29e35b2c981821dd4acb9f": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=skill",
+    "--label",
+    "skill=a"
+   ],
+   "cwd": "<TMP>/named/a,b",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint"
+   },
+   "tree": "1e9ee90bda6ab5cc29c83b151f1778e4f850e986dfffed75d1187d2238e74759"
+  },
+  "status": 0,
+  "stderr": "          (kensai.instance 'a,b' contains a character OTEL_RESOURCE_ATTRIBUTES cannot carry \u2014 not attached)\n          Telemetry:    kensai.run_id=<UUID-0>,kensai.arm=skill,kensai.skill=a \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.arm=skill,kensai.skill=a\"}}\n"
+ },
+ "6c6f60b8e777e883c138c4ee3a8b125a859cf05b64fce9d4024727d4d04fef2e": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=skill",
+    "--label",
+    "project=tools",
+    "--label",
+    "product=tools",
+    "--label",
+    "provider=claude"
+   ],
+   "cwd": "<TMP>/instance-root/example-instance",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint"
+   },
+   "tree": "1e9ee90bda6ab5cc29c83b151f1778e4f850e986dfffed75d1187d2238e74759"
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.project=tools,kensai.product=tools,kensai.provider=claude \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.project=tools,kensai.product=tools,kensai.provider=claude\"}}\n"
+ },
+ "6c91638bd98da6804fc6b5e3f018216afd549eef6c353723db93c1671b470681": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=launcher-folder",
+    "--label",
+    "skill=a"
+   ],
+   "cwd": "<TMP>/instance-root/example-instance",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint"
+   },
+   "tree": "1e9ee90bda6ab5cc29c83b151f1778e4f850e986dfffed75d1187d2238e74759"
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=launcher-folder,kensai.skill=a \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=launcher-folder,kensai.skill=a\"}}\n"
+ },
+ "701cf711132d3148d73c2935be6164e6fce41007609e514e2837358ba9b765c2": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=skill",
+    "--label",
+    "skill=a"
+   ],
+   "cwd": "<TMP>/instance-root/example-instance",
+   "endpoint": null,
+   "env": {
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint"
+   },
+   "tree": "1e9ee90bda6ab5cc29c83b151f1778e4f850e986dfffed75d1187d2238e74759"
+  },
+  "status": 0,
+  "stderr": "          (no published telemetry endpoint at <TMP>/endpoint \u2014 run uninstrumented)\n",
+  "stdout": ""
+ },
+ "738a2505aa78bada734716ad6df6e24333bc36ff9163a95f4b93e91565b7f347": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=skill",
+    "--label",
+    "skill=a"
+   ],
+   "cwd": "<TMP>/instance-root/example-instance",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_CHAIN": "v\\w",
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint"
+   },
+   "tree": "1e9ee90bda6ab5cc29c83b151f1778e4f850e986dfffed75d1187d2238e74759"
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=a \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=a\"}}\n"
+ },
+ "77d9e518154c8b1a81fe72fd099e107149d50e41b95bfda4a03df52592b5fd91": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=companion-self-answer",
+    "--label",
+    "project=tools",
+    "--label",
+    "product=thing",
+    "--label",
+    "document=prd",
+    "--label",
+    "provider=claude",
+    "--label",
+    "effort=high",
+    "--label",
+    "source=default"
+   ],
+   "cwd": "<TMP>",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/published-endpoint"
+   },
+   "tree": ""
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.arm=companion-self-answer,kensai.project=tools,kensai.product=thing,kensai.document=prd,kensai.provider=claude,kensai.effort=high,kensai.source=default \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.arm=companion-self-answer,kensai.project=tools,kensai.product=thing,kensai.document=prd,kensai.provider=claude,kensai.effort=high,kensai.source=default\"}}\n"
+ },
+ "7899f039924bab41c40fe55e9896b06510da66e23a6792c499ab040073eda3fc": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=skill",
+    "--label",
+    "project=value-of-project",
+    "--label",
+    "document=value-of-document",
+    "--label",
+    "skill=value-of-skill",
+    "--label",
+    "target_instance=value-of-target_instance",
+    "--label",
+    "provider=value-of-provider",
+    "--label",
+    "model=value-of-model",
+    "--label",
+    "effort=value-of-effort",
+    "--label",
+    "source=value-of-source"
+   ],
+   "cwd": "<TMP>/instance-root/example-instance",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint"
+   },
+   "tree": "1e9ee90bda6ab5cc29c83b151f1778e4f850e986dfffed75d1187d2238e74759"
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.project=value-of-project,kensai.document=value-of-document,kensai.skill=value-of-skill,kensai.target_instance=value-of-target_instance,kensai.provider=value-of-provider,kensai.model=value-of-model,kensai.effort=value-of-effort,kensai.source=value-of-source \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.project=value-of-project,kensai.document=value-of-document,kensai.skill=value-of-skill,kensai.target_instance=value-of-target_instance,kensai.provider=value-of-provider,kensai.model=value-of-model,kensai.effort=value-of-effort,kensai.source=value-of-source\"}}\n"
+ },
+ "78f139dfc423a4b8049ca3d38857d99a94668da3ec347567209ee177e73e40f9": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=skill",
+    "--label",
+    "project=tools",
+    "--label",
+    "product=tools",
+    "--label",
+    "document=ok-document",
+    "--label",
+    "skill=ok-skill",
+    "--label",
+    "target_instance=ok-target_instance",
+    "--label",
+    "model=ok-model",
+    "--label",
+    "effort=ok-effort",
+    "--label",
+    "source=ok-source"
+   ],
+   "cwd": "<TMP>/instance-root/example-instance",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint"
+   },
+   "tree": "1e9ee90bda6ab5cc29c83b151f1778e4f850e986dfffed75d1187d2238e74759"
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.project=tools,kensai.product=tools,kensai.document=ok-document,kensai.skill=ok-skill,kensai.target_instance=ok-target_instance,kensai.model=ok-model,kensai.effort=ok-effort,kensai.source=ok-source \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.project=tools,kensai.product=tools,kensai.document=ok-document,kensai.skill=ok-skill,kensai.target_instance=ok-target_instance,kensai.model=ok-model,kensai.effort=ok-effort,kensai.source=ok-source\"}}\n"
+ },
+ "7bc3fc2dc069593cce4c3ee84dcd2601096bf6262f8d5b9d70cb63b25e5f7eac": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=skill",
+    "--label",
+    "skill=a"
+   ],
+   "cwd": "<TMP>/instance-root/example-instance",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint",
+    "INSTRUMENT_RUN_ROLE": "v\\w"
+   },
+   "tree": "1e9ee90bda6ab5cc29c83b151f1778e4f850e986dfffed75d1187d2238e74759"
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=a \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=a\"}}\n"
+ },
+ "7c74bb533de088cfe80a4a4d8fa3e23a45a837fcd402e1db358eb4cb15209488": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=skill",
+    "--label",
+    "skill=a"
+   ],
+   "cwd": "<TMP>/instance-root/example-instance",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_AUDIT_TARGET": "v;w",
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint"
+   },
+   "tree": "1e9ee90bda6ab5cc29c83b151f1778e4f850e986dfffed75d1187d2238e74759"
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=a \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=a\"}}\n"
+ },
+ "7c7a7d13149bec986fdbadaff274163094a2fa45529a80889413942fba4cca44": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=skill",
+    "--label",
+    "skill=a"
+   ],
+   "cwd": "<TMP>/instance-root/example-instance",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_CHAIN": "",
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint"
+   },
+   "tree": "1e9ee90bda6ab5cc29c83b151f1778e4f850e986dfffed75d1187d2238e74759"
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=a \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=a\"}}\n"
+ },
+ "7ef8858a7793f33731eaaa2172beca04134835ca2e061926ad806fd188b68878": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=launch-skill-evals",
+    "--label",
+    "skill=demo-skill",
+    "--label",
+    "provider=claude",
+    "--label",
+    "model=sonnet",
+    "--label",
+    "source=tier"
+   ],
+   "cwd": "<TMP>",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/published-endpoint"
+   },
+   "tree": ""
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.arm=launch-skill-evals,kensai.skill=demo-skill,kensai.provider=claude,kensai.model=sonnet,kensai.source=tier \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.arm=launch-skill-evals,kensai.skill=demo-skill,kensai.provider=claude,kensai.model=sonnet,kensai.source=tier\"}}\n"
+ },
+ "7f4be29c972db6df8e203acfe97644d7cbf877bb33c39397cb1e17bdf8ab0ac6": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=caller",
+    "--label",
+    "skill=a"
+   ],
+   "cwd": "<TMP>/instance-root/example-instance",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint"
+   },
+   "tree": "1e9ee90bda6ab5cc29c83b151f1778e4f850e986dfffed75d1187d2238e74759"
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=caller,kensai.skill=a \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=caller,kensai.skill=a\"}}\n"
+ },
+ "89964ea0ba4b195ce7e7be87d3f55709fc77fa16dfd88f69c5e242bb539a4fbf": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=skill",
+    "--label",
+    "skill=a",
+    "--label",
+    "project=tools",
+    "--label",
+    "product=tools"
+   ],
+   "cwd": "<TMP>/instance-root/example-instance",
+   "endpoint": "<UNREADABLE>",
+   "env": {
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint"
+   },
+   "tree": "1e9ee90bda6ab5cc29c83b151f1778e4f850e986dfffed75d1187d2238e74759"
+  },
+  "status": 0,
+  "stderr": "          (no published telemetry endpoint at <TMP>/endpoint \u2014 run uninstrumented)\n",
+  "stdout": ""
+ },
+ "8a2dd38ba4db1782e14c62bb0373e397c353f44ae3b7e0df0e3d518e141821b3": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=skill",
+    "--label",
+    "skill=a"
+   ],
+   "cwd": "<TMP>/instance-root/example-instance",
+   "endpoint": "http://[::1]:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint"
+   },
+   "tree": "1e9ee90bda6ab5cc29c83b151f1778e4f850e986dfffed75d1187d2238e74759"
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=a \u2192 http://[::1]:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://[::1]:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=a\"}}\n"
+ },
+ "8a87d455d1f83c92d8bd3690ed834a4a7fd40363fd37b588949d5c1ad6ba977a": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=skill",
+    "--label",
+    "skill=a",
+    "--label",
+    "project=tools",
+    "--label",
+    "product=tools"
+   ],
+   "cwd": "<TMP>/instance-root/example-instance",
+   "endpoint": null,
+   "env": {
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint"
+   },
+   "tree": "1e9ee90bda6ab5cc29c83b151f1778e4f850e986dfffed75d1187d2238e74759"
+  },
+  "status": 0,
+  "stderr": "          (no published telemetry endpoint at <TMP>/endpoint \u2014 run uninstrumented)\n",
+  "stdout": ""
+ },
+ "8f529e0dc8e3847e221528507714fb0b49241b0a1956deacd82297412f16d4c5": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=skill",
+    "--label",
+    "project=tools",
+    "--label",
+    "product=one"
+   ],
+   "cwd": "<TMP>/named/product-lines",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint"
+   },
+   "tree": "e5f053eea81b8202563b6205f4b365bc2456a2c02a1790d5888f6944807a3214"
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.instance=product-lines,kensai.arm=skill,kensai.project=tools,kensai.product=one \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.instance=product-lines,kensai.arm=skill,kensai.project=tools,kensai.product=one\"}}\n"
+ },
+ "8f7a26ec5fad83ff486863102c5899f970fbb073c9d1e7e506cc7fc02a7a61a4": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=cold-read",
+    "--label",
+    "skill=product-uxd",
+    "--label",
+    "project=demo-product",
+    "--label",
+    "product=.",
+    "--label",
+    "provider=claude",
+    "--label",
+    "source=default"
+   ],
+   "cwd": "<TMP>",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/published-endpoint"
+   },
+   "tree": ""
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.arm=cold-read,kensai.skill=product-uxd,kensai.project=demo-product,kensai.product=.,kensai.provider=claude,kensai.source=default \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.arm=cold-read,kensai.skill=product-uxd,kensai.project=demo-product,kensai.product=.,kensai.provider=claude,kensai.source=default\"}}\n"
+ },
+ "9220a31d300d5bfe571483b39f1fe53eff384309a78989f6433c4894716e28dd": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=skill",
+    "--label",
+    "skill=a"
+   ],
+   "cwd": "<TMP>/instance-root/example-instance",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_AUDIT_TARGET": "v\"w",
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint"
+   },
+   "tree": "1e9ee90bda6ab5cc29c83b151f1778e4f850e986dfffed75d1187d2238e74759"
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=a \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=a\"}}\n"
+ },
+ "925db21ae986de49461b49fba41c504fec4e2c79c0a7420c9db5a3d1f046e1a2": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=launch-eval-fix",
+    "--label",
+    "skill=demo-skill",
+    "--label",
+    "provider=claude",
+    "--label",
+    "source=default"
+   ],
+   "cwd": "<TMP>",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/published-endpoint"
+   },
+   "tree": ""
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.arm=launch-eval-fix,kensai.skill=demo-skill,kensai.provider=claude,kensai.source=default \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.arm=launch-eval-fix,kensai.skill=demo-skill,kensai.provider=claude,kensai.source=default\"}}\n"
+ },
+ "965a6fc402cab11aa023d651ece0dc3928ab33f39b9d39eacdb1c54b6cf23058": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=skill",
+    "--label",
+    "project=tools"
+   ],
+   "cwd": "<TMP>/named/product-lines",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint"
+   },
+   "tree": "af3a61e4b6cf2350d2e7ed3be99e59050cd465b3c06f41a9794c558a8c38021c"
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.instance=product-lines,kensai.arm=skill,kensai.project=tools \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.instance=product-lines,kensai.arm=skill,kensai.project=tools\"}}\n"
+ },
+ "98ab9ccef26ad7c4884d03581b096a67fe85e0496cba3ef44e94c635dde6c3be": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=skill",
+    "--label",
+    "skill=a"
+   ],
+   "cwd": "<TMP>/instance-root/example-instance",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint",
+    "INSTRUMENT_RUN_WALK_ID": "v\\w"
+   },
+   "tree": "1e9ee90bda6ab5cc29c83b151f1778e4f850e986dfffed75d1187d2238e74759"
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=a \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=a\"}}\n"
+ },
+ "a19d5ded2b01dc059810b3375ed63d16d17671cf1117c005aec0319663df7db4": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=skill",
+    "--label",
+    "skill=a"
+   ],
+   "cwd": "<TMP>/named/a=b",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint"
+   },
+   "tree": "1e9ee90bda6ab5cc29c83b151f1778e4f850e986dfffed75d1187d2238e74759"
+  },
+  "status": 0,
+  "stderr": "          (kensai.instance 'a=b' contains a character OTEL_RESOURCE_ATTRIBUTES cannot carry \u2014 not attached)\n          Telemetry:    kensai.run_id=<UUID-0>,kensai.arm=skill,kensai.skill=a \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.arm=skill,kensai.skill=a\"}}\n"
+ },
+ "a3ff67b346d01f9168e7258c1038fa9fa75a26949b22273ef34276df06b1dc0b": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=product-card",
+    "--label",
+    "project=example-product",
+    "--label",
+    "product=thing",
+    "--label",
+    "provider=claude",
+    "--label",
+    "source=default"
+   ],
+   "cwd": "<TMP>",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/published-endpoint"
+   },
+   "tree": ""
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.arm=product-card,kensai.project=example-product,kensai.product=thing,kensai.provider=claude,kensai.source=default \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.arm=product-card,kensai.project=example-product,kensai.product=thing,kensai.provider=claude,kensai.source=default\"}}\n"
+ },
+ "ad0e116a39c4942ba89f1f1f8bcdeee91259827345d7ff65a747c85b0f0cfce6": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=skill",
+    "--label",
+    "skill=a"
+   ],
+   "cwd": "<TMP>/instance-root/example-instance",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_AUDIT_TARGET": "v=w",
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint"
+   },
+   "tree": "1e9ee90bda6ab5cc29c83b151f1778e4f850e986dfffed75d1187d2238e74759"
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=a \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=a\"}}\n"
+ },
+ "ae40c68df6071abcba88e51ac564cfa794087c360be8a6e25e4e1121e859acd1": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=skill",
+    "--label",
+    "skill=a"
+   ],
+   "cwd": "<TMP>/instance-root/example-instance",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint",
+    "INSTRUMENT_RUN_ROLE": "v=w"
+   },
+   "tree": "1e9ee90bda6ab5cc29c83b151f1778e4f850e986dfffed75d1187d2238e74759"
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=a \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=a\"}}\n"
+ },
+ "af0952a9b60ea3534e48c6e2815f08bfa0debfc34b7c4d682607b6a48a7619ab": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=skill",
+    "--label",
+    "skill=a"
+   ],
+   "cwd": "<TMP>/instance-root/example-instance",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint",
+    "INSTRUMENT_RUN_WALK_ID": "v,w"
+   },
+   "tree": "1e9ee90bda6ab5cc29c83b151f1778e4f850e986dfffed75d1187d2238e74759"
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=a \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=a\"}}\n"
+ },
+ "b240f80decef31e1b6dbd3ed76bed15f331ea3c4174466ff93b9507b25282508": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=skill",
+    "--label",
+    "project=tools",
+    "--label",
+    "product=tools",
+    "--label",
+    "document=ok-document",
+    "--label",
+    "skill=ok-skill",
+    "--label",
+    "target_instance=ok-target_instance",
+    "--label",
+    "provider=ok-provider",
+    "--label",
+    "model=ok-model",
+    "--label",
+    "source=ok-source"
+   ],
+   "cwd": "<TMP>/instance-root/example-instance",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint"
+   },
+   "tree": "1e9ee90bda6ab5cc29c83b151f1778e4f850e986dfffed75d1187d2238e74759"
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.project=tools,kensai.product=tools,kensai.document=ok-document,kensai.skill=ok-skill,kensai.target_instance=ok-target_instance,kensai.provider=ok-provider,kensai.model=ok-model,kensai.source=ok-source \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.project=tools,kensai.product=tools,kensai.document=ok-document,kensai.skill=ok-skill,kensai.target_instance=ok-target_instance,kensai.provider=ok-provider,kensai.model=ok-model,kensai.source=ok-source\"}}\n"
+ },
+ "b60e06bc9d9de9d3b752abacc80c31e1da1e4ec748c9276aff5c66f344194163": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=skill",
+    "--label",
+    "skill=a"
+   ],
+   "cwd": "<TMP>/named/a;b",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint"
+   },
+   "tree": "1e9ee90bda6ab5cc29c83b151f1778e4f850e986dfffed75d1187d2238e74759"
+  },
+  "status": 0,
+  "stderr": "          (kensai.instance 'a;b' contains a character OTEL_RESOURCE_ATTRIBUTES cannot carry \u2014 not attached)\n          Telemetry:    kensai.run_id=<UUID-0>,kensai.arm=skill,kensai.skill=a \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.arm=skill,kensai.skill=a\"}}\n"
+ },
+ "b687928761eed88ba4c8d390a65512ca9d07fe90d09440b869e048ff68a3e57f": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=skill",
+    "--label",
+    "project=tools",
+    "--label",
+    "product=tools",
+    "--label",
+    "document=ok-document",
+    "--label",
+    "target_instance=ok-target_instance",
+    "--label",
+    "provider=ok-provider",
+    "--label",
+    "model=ok-model",
+    "--label",
+    "effort=ok-effort",
+    "--label",
+    "source=ok-source"
+   ],
+   "cwd": "<TMP>/instance-root/example-instance",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint"
+   },
+   "tree": "1e9ee90bda6ab5cc29c83b151f1778e4f850e986dfffed75d1187d2238e74759"
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.project=tools,kensai.product=tools,kensai.document=ok-document,kensai.target_instance=ok-target_instance,kensai.provider=ok-provider,kensai.model=ok-model,kensai.effort=ok-effort,kensai.source=ok-source \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.project=tools,kensai.product=tools,kensai.document=ok-document,kensai.target_instance=ok-target_instance,kensai.provider=ok-provider,kensai.model=ok-model,kensai.effort=ok-effort,kensai.source=ok-source\"}}\n"
+ },
+ "b6dce4dfe25b8db7958d449ddd030a6f952e9f7f2d5298c4d6f103447268ec39": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=skill",
+    "--label",
+    "skill=a"
+   ],
+   "cwd": "<TMP>/outside-git",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint"
+   },
+   "tree": ""
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.arm=skill,kensai.skill=a \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.arm=skill,kensai.skill=a\"}}\n"
+ },
+ "b6fc013df1f657d82916da0341e0477db0116bb2d8ff900f7d00f8800f2d1555": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=skill",
+    "--label",
+    "skill=a"
+   ],
+   "cwd": "<TMP>/instance-root/example-instance",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_AUDIT_TARGET": "v,w",
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint"
+   },
+   "tree": "1e9ee90bda6ab5cc29c83b151f1778e4f850e986dfffed75d1187d2238e74759"
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=a \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=a\"}}\n"
+ },
+ "bd42b987a3eca1038b062ace72a97655bd89a567bb202c96b84bdcead5be6249": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=skill",
+    "--label",
+    "source=value-of-source",
+    "--label",
+    "effort=value-of-effort",
+    "--label",
+    "model=value-of-model",
+    "--label",
+    "provider=value-of-provider",
+    "--label",
+    "target_instance=value-of-target_instance",
+    "--label",
+    "skill=value-of-skill",
+    "--label",
+    "document=value-of-document",
+    "--label",
+    "project=value-of-project"
+   ],
+   "cwd": "<TMP>/instance-root/example-instance",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint"
+   },
+   "tree": "1e9ee90bda6ab5cc29c83b151f1778e4f850e986dfffed75d1187d2238e74759"
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.source=value-of-source,kensai.effort=value-of-effort,kensai.model=value-of-model,kensai.provider=value-of-provider,kensai.target_instance=value-of-target_instance,kensai.skill=value-of-skill,kensai.document=value-of-document,kensai.project=value-of-project \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.source=value-of-source,kensai.effort=value-of-effort,kensai.model=value-of-model,kensai.provider=value-of-provider,kensai.target_instance=value-of-target_instance,kensai.skill=value-of-skill,kensai.document=value-of-document,kensai.project=value-of-project\"}}\n"
+ },
+ "c0e8a685666a1097cf3ff3536df89aa80031fc494dccfddd8a101d0e76e810ce": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=skill",
+    "--label",
+    "project=tools",
+    "--label",
+    "product=tools",
+    "--label",
+    "document=ok-document",
+    "--label",
+    "skill=ok-skill",
+    "--label",
+    "provider=ok-provider",
+    "--label",
+    "model=ok-model",
+    "--label",
+    "effort=ok-effort",
+    "--label",
+    "source=ok-source"
+   ],
+   "cwd": "<TMP>/instance-root/example-instance",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint"
+   },
+   "tree": "1e9ee90bda6ab5cc29c83b151f1778e4f850e986dfffed75d1187d2238e74759"
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.project=tools,kensai.product=tools,kensai.document=ok-document,kensai.skill=ok-skill,kensai.provider=ok-provider,kensai.model=ok-model,kensai.effort=ok-effort,kensai.source=ok-source \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.project=tools,kensai.product=tools,kensai.document=ok-document,kensai.skill=ok-skill,kensai.provider=ok-provider,kensai.model=ok-model,kensai.effort=ok-effort,kensai.source=ok-source\"}}\n"
+ },
+ "c1ebfd13155552c0f66117a63163f4577d4ba61a95aaf69c446ac17965c64b61": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=skill",
+    "--label",
+    "skill=a",
+    "--label",
+    "role=valid-value"
+   ],
+   "cwd": "<TMP>/instance-root/example-instance",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint",
+    "INSTRUMENT_RUN_ROLE": "valid-value"
+   },
+   "tree": "1e9ee90bda6ab5cc29c83b151f1778e4f850e986dfffed75d1187d2238e74759"
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=a,kensai.role=valid-value \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=a,kensai.role=valid-value\"}}\n"
+ },
+ "c45264a20538a5c9d898858b63cccce5818ac294a606194aed75e0f404b52a7d": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=skill",
+    "--label",
+    "skill=a",
+    "--label",
+    "audit_target=valid-value"
+   ],
+   "cwd": "<TMP>/instance-root/example-instance",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_AUDIT_TARGET": "valid-value",
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint"
+   },
+   "tree": "1e9ee90bda6ab5cc29c83b151f1778e4f850e986dfffed75d1187d2238e74759"
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=a,kensai.audit_target=valid-value \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=a,kensai.audit_target=valid-value\"}}\n"
+ },
+ "c4ef095346974aeca67561bab1db3adfd0dd0f62d4d0b10c2350be840fa25dc2": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "model=50%",
+    "--label",
+    "skill=a"
+   ],
+   "cwd": "<TMP>/named/my dir",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_ARM": "a b",
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint"
+   },
+   "tree": "1e9ee90bda6ab5cc29c83b151f1778e4f850e986dfffed75d1187d2238e74759"
+  },
+  "status": 0,
+  "stderr": "          (kensai.instance 'my dir' contains a character OTEL_RESOURCE_ATTRIBUTES cannot carry \u2014 not attached)\n          Telemetry:    kensai.run_id=<UUID-0>,kensai.model=50%000025,kensai.skill=a \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.model=50%000025,kensai.skill=a\"}}\n"
+ },
+ "c6983378a39c2deec54c3558c2ba0eb6b704e37ac7d32a5112333e57d63e50ac": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=skill",
+    "--label",
+    "skill=a",
+    "--label",
+    "model=a\u0001b",
+    "--label",
+    "role=r\u0001"
+   ],
+   "cwd": "<TMP>/instance-root/example-instance",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint",
+    "INSTRUMENT_RUN_ROLE": "r\u0001"
+   },
+   "tree": "1e9ee90bda6ab5cc29c83b151f1778e4f850e986dfffed75d1187d2238e74759"
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=a,kensai.model=a\u0001b,kensai.role=r\u0001 \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=a,kensai.model=a\\u0001b,kensai.role=r\\u0001\"}}\n"
+ },
+ "cd3564c64a4338985075c748c025e99e56b09f9aa7b6ac265dda82f24ef844e8": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=skill",
+    "--label",
+    "skill=a",
+    "--label",
+    "project=tools",
+    "--label",
+    "product=tools"
+   ],
+   "cwd": "<TMP>/instance-root/example-instance",
+   "endpoint": "<DIRECTORY>",
+   "env": {
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint"
+   },
+   "tree": "1e9ee90bda6ab5cc29c83b151f1778e4f850e986dfffed75d1187d2238e74759"
+  },
+  "status": 0,
+  "stderr": "          (telemetry endpoint at <TMP>/endpoint is unreadable or malformed \u2014 run uninstrumented)\n",
+  "stdout": ""
+ },
+ "cf13c1e6b4240bd891c30c2db7b6d4a2f1af37ac4ec9d9e44b144543142e0161": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=companion-self-answer",
+    "--label",
+    "project=tools",
+    "--label",
+    "product=thing",
+    "--label",
+    "document=prd",
+    "--label",
+    "provider=claude",
+    "--label",
+    "model=claude-opus-5-5",
+    "--label",
+    "effort=high",
+    "--label",
+    "source=intelligence"
+   ],
+   "cwd": "<TMP>",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/published-endpoint"
+   },
+   "tree": ""
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.arm=companion-self-answer,kensai.project=tools,kensai.product=thing,kensai.document=prd,kensai.provider=claude,kensai.model=claude-opus-5-5,kensai.effort=high,kensai.source=intelligence \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.arm=companion-self-answer,kensai.project=tools,kensai.product=thing,kensai.document=prd,kensai.provider=claude,kensai.model=claude-opus-5-5,kensai.effort=high,kensai.source=intelligence\"}}\n"
+ },
+ "d054a8ba94a90b6948d479c47906329451cb28815ed4905b2282cb9c6171017c": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=skill",
+    "--label",
+    "skill=a"
+   ],
+   "cwd": "<TMP>/instance-root/example-instance",
+   "endpoint": "http://[::1]:4318\n",
+   "env": {},
+   "tree": "1e9ee90bda6ab5cc29c83b151f1778e4f850e986dfffed75d1187d2238e74759"
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=a \u2192 http://[::1]:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://[::1]:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=a\"}}\n"
+ },
+ "d3a4b51f1c21adb8dd0edd8cd01d05a8bc24464984beeceb9faada813c38cfc7": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=skill"
+   ],
+   "cwd": "<TMP>/instance-root/example-instance",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint"
+   },
+   "tree": "1e9ee90bda6ab5cc29c83b151f1778e4f850e986dfffed75d1187d2238e74759"
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill\"}}\n"
+ },
+ "d56d2ddd6b0abe39f0ac0fb8040eabef62e7810946cdd7a19aaa97758baca400": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "skill=a"
+   ],
+   "cwd": "<TMP>/instance-root/example-instance",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint"
+   },
+   "tree": "1e9ee90bda6ab5cc29c83b151f1778e4f850e986dfffed75d1187d2238e74759"
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.skill=a \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.skill=a\"}}\n"
+ },
+ "d75062f873a59dfd156e9c77cbad147151d8e647e2708a72a072c3b6c2034771": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=skill",
+    "--label",
+    "skill=a"
+   ],
+   "cwd": "<TMP>/instance-root/example-instance",
+   "endpoint": "http://localhost:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint"
+   },
+   "tree": "1e9ee90bda6ab5cc29c83b151f1778e4f850e986dfffed75d1187d2238e74759"
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=a \u2192 http://localhost:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://localhost:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=a\"}}\n"
+ },
+ "d9c0a3ac858920e0926e223ea87896066bb235a53318c9a01c27da761c2baf48": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "skill=a"
+   ],
+   "cwd": "<TMP>/instance-root/example-instance",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_ARM": ".",
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint"
+   },
+   "tree": "1e9ee90bda6ab5cc29c83b151f1778e4f850e986dfffed75d1187d2238e74759"
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.skill=a \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.skill=a\"}}\n"
+ },
+ "db83d263b65810fd81fdf1fc151ff4a089498357fcb000f27bed4398eb7cb046": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "skill=a"
+   ],
+   "cwd": "<TMP>/instance-root/example-instance",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_ARM": "..",
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint"
+   },
+   "tree": "1e9ee90bda6ab5cc29c83b151f1778e4f850e986dfffed75d1187d2238e74759"
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.skill=a \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.skill=a\"}}\n"
+ },
+ "dda8d3164ff461b0f2f25b2913a0184c13bbef26632d20f1450d88bc4937ca28": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=skill",
+    "--label",
+    "project=tools",
+    "--label",
+    "skill=a"
+   ],
+   "cwd": "<TMP>/named/product-instance",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint"
+   },
+   "tree": "2e2de26441b8c0c4c154360e09f1585dc544ea235479adb66e08bdc96a2fb955"
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.instance=product-instance,kensai.arm=skill,kensai.project=tools,kensai.skill=a \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.instance=product-instance,kensai.arm=skill,kensai.project=tools,kensai.skill=a\"}}\n"
+ },
+ "e3b04e8a820b4f9b731fb969afa557eac766dfac5192bc8726e9fa1f1d31ea62": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=skill",
+    "--label",
+    "skill=a",
+    "--label",
+    "model=a\u007fb",
+    "--label",
+    "role=r\u007f"
+   ],
+   "cwd": "<TMP>/instance-root/example-instance",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint",
+    "INSTRUMENT_RUN_ROLE": "r\u007f"
+   },
+   "tree": "1e9ee90bda6ab5cc29c83b151f1778e4f850e986dfffed75d1187d2238e74759"
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=a,kensai.model=a\u007fb,kensai.role=r\u007f \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=a,kensai.model=a\\u007fb,kensai.role=r\\u007f\"}}\n"
+ },
+ "e42a86dba893620eb7b452875c949adb62b1369670a729f19365447af53243b3": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=skill",
+    "--label",
+    "skill=a"
+   ],
+   "cwd": "<TMP>/instance-root/example-instance",
+   "endpoint": "http://localhost:4318\n",
+   "env": {},
+   "tree": "1e9ee90bda6ab5cc29c83b151f1778e4f850e986dfffed75d1187d2238e74759"
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=a \u2192 http://localhost:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://localhost:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=a\"}}\n"
+ },
+ "e5fb4c4cf3e200d0f676223c45ad5bc7a9565b2f2ee5b5afe920d1ccac6e672e": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=launch-skill-evals",
+    "--label",
+    "skill=demo-skill",
+    "--label",
+    "provider=claude",
+    "--label",
+    "model=sonnet",
+    "--label",
+    "source=tier"
+   ],
+   "cwd": "<TMP>",
+   "endpoint": null,
+   "env": {
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/published-endpoint"
+   },
+   "tree": ""
+  },
+  "status": 0,
+  "stderr": "          (no published telemetry endpoint at <TMP>/published-endpoint \u2014 run uninstrumented)\n",
+  "stdout": ""
+ },
+ "e73736f17475ec40ff65c27268459c21b35b42a2d0a14359d0a39962df5b299b": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=skill",
+    "--label",
+    "skill=development-specs",
+    "--label",
+    "project=tools",
+    "--label",
+    "product=tools",
+    "--label",
+    "provider=claude",
+    "--label",
+    "effort=high",
+    "--label",
+    "source=intelligence",
+    "--label",
+    "walk_id=w1",
+    "--label",
+    "role=architect"
+   ],
+   "cwd": "<TMP>/instance-root/example-instance",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint",
+    "INSTRUMENT_RUN_ROLE": "architect",
+    "INSTRUMENT_RUN_WALK_ID": "w1"
+   },
+   "tree": "1e9ee90bda6ab5cc29c83b151f1778e4f850e986dfffed75d1187d2238e74759"
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=development-specs,kensai.project=tools,kensai.product=tools,kensai.provider=claude,kensai.effort=high,kensai.source=intelligence,kensai.walk_id=w1,kensai.role=architect \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=development-specs,kensai.project=tools,kensai.product=tools,kensai.provider=claude,kensai.effort=high,kensai.source=intelligence,kensai.walk_id=w1,kensai.role=architect\"}}\n"
+ },
+ "e7573990fe744157427a8aef5418608f2d7b1a5934da34971b4f04e4ebbae229": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=skill",
+    "--label",
+    "skill=a"
+   ],
+   "cwd": "<TMP>/instance-root/example-instance",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_CHAIN": "v,w",
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint"
+   },
+   "tree": "1e9ee90bda6ab5cc29c83b151f1778e4f850e986dfffed75d1187d2238e74759"
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=a \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=a\"}}\n"
+ },
+ "e7dc34e8452c669de3d871fda597bbcbbcdbec3135fa923ee22bd2756fc094bf": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=skill",
+    "--label",
+    "skill=a"
+   ],
+   "cwd": "<TMP>/instance-root/example-instance",
+   "endpoint": "http://localhost\n",
+   "env": {},
+   "tree": "1e9ee90bda6ab5cc29c83b151f1778e4f850e986dfffed75d1187d2238e74759"
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=a \u2192 http://localhost\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://localhost\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=a\"}}\n"
+ },
+ "e8854d55dc618c30e6d32fd1cd8093772a3a1bf40e60b5d805b6f91946d2632c": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=skill",
+    "--label",
+    "skill=a"
+   ],
+   "cwd": "<TMP>/linked-worktree",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint"
+   },
+   "tree": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.instance=identity-checkout,kensai.arm=skill,kensai.skill=a \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.instance=identity-checkout,kensai.arm=skill,kensai.skill=a\"}}\n"
+ },
+ "e9d1de6dfd16dfcd2002ee8bca1508c6395253a26a8c90468cf71b0d056f043b": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=launch-eval-fix",
+    "--label",
+    "skill=demo-skill",
+    "--label",
+    "provider=claude",
+    "--label",
+    "source=default",
+    "--label",
+    "role=r%1"
+   ],
+   "cwd": "<TMP>",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/published-endpoint",
+    "INSTRUMENT_RUN_ROLE": "r%1"
+   },
+   "tree": ""
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.arm=launch-eval-fix,kensai.skill=demo-skill,kensai.provider=claude,kensai.source=default,kensai.role=r%0000251 \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.arm=launch-eval-fix,kensai.skill=demo-skill,kensai.provider=claude,kensai.source=default,kensai.role=r%0000251\"}}\n"
+ },
+ "eb8566b51f6055cef8e9f2de6ceb7f0e8c0c56bbb437a80f86f93f51eb0ce3b3": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=skill",
+    "--label",
+    "skill=a"
+   ],
+   "cwd": "<TMP>/instance-root/example-instance",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_CHAIN": "v\"w",
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint"
+   },
+   "tree": "1e9ee90bda6ab5cc29c83b151f1778e4f850e986dfffed75d1187d2238e74759"
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=a \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=a\"}}\n"
+ },
+ "f08f4379012694dbaf7994ef85c63d3c752bbc1b8e84a5a9f3cda7c7c56cecfd": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=skill",
+    "--label",
+    "project=tools",
+    "--label",
+    "skill=a"
+   ],
+   "cwd": "<TMP>/named/product-instance",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint"
+   },
+   "tree": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.instance=product-instance,kensai.arm=skill,kensai.project=tools,kensai.skill=a \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.instance=product-instance,kensai.arm=skill,kensai.project=tools,kensai.skill=a\"}}\n"
+ },
+ "f667bfd000ed9dbe1cc6363dc5803d1500e330fd702ca10781ca19e4e0b3e0f6": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=skill",
+    "--label",
+    "skill=a",
+    "--label",
+    "project=tools",
+    "--label",
+    "product=tools",
+    "--label",
+    "skill=b",
+    "--label",
+    "project=tools",
+    "--label",
+    "product=tools",
+    "--label",
+    "document=d",
+    "--label",
+    "skill=c"
+   ],
+   "cwd": "<TMP>/instance-root/example-instance",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint"
+   },
+   "tree": "1e9ee90bda6ab5cc29c83b151f1778e4f850e986dfffed75d1187d2238e74759"
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=a,kensai.project=tools,kensai.product=tools,kensai.skill=b,kensai.project=tools,kensai.product=tools,kensai.document=d,kensai.skill=c \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=a,kensai.project=tools,kensai.product=tools,kensai.skill=b,kensai.project=tools,kensai.product=tools,kensai.document=d,kensai.skill=c\"}}\n"
+ },
+ "f767c57e69c1cc5a6ca0aff8855386333d75b67d1b0c983341c1f65bc4a6ba95": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=cold-read",
+    "--label",
+    "skill=product-uxd",
+    "--label",
+    "project=demo-product",
+    "--label",
+    "product=.",
+    "--label",
+    "provider=claude",
+    "--label",
+    "source=default"
+   ],
+   "cwd": "<TMP>",
+   "endpoint": null,
+   "env": {
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/published-endpoint"
+   },
+   "tree": ""
+  },
+  "status": 0,
+  "stderr": "          (no published telemetry endpoint at <TMP>/published-endpoint \u2014 run uninstrumented)\n",
+  "stdout": ""
+ },
+ "fab8668495ba0fcce5b4908c904e6b9877acd63c8b5521c080fa85cdf96d4215": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=skill",
+    "--label",
+    "skill=a"
+   ],
+   "cwd": "<TMP>/named/a%b",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint"
+   },
+   "tree": "1e9ee90bda6ab5cc29c83b151f1778e4f850e986dfffed75d1187d2238e74759"
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.instance=a%b,kensai.arm=skill,kensai.skill=a \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.instance=a%b,kensai.arm=skill,kensai.skill=a\"}}\n"
+ },
+ "faf1eea050fef380c4d125e5b1d01fb7c6c3d884f6f085477dae91dfe425e9e4": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=launch-eval-fix",
+    "--label",
+    "skill=demo-skill",
+    "--label",
+    "provider=claude",
+    "--label",
+    "source=default"
+   ],
+   "cwd": "<TMP>",
+   "endpoint": null,
+   "env": {
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/published-endpoint"
+   },
+   "tree": ""
+  },
+  "status": 0,
+  "stderr": "          (no published telemetry endpoint at <TMP>/published-endpoint \u2014 run uninstrumented)\n",
+  "stdout": ""
+ },
+ "fdee4e1165b3d871ad71c32151470ea5f50bf4cb9cb16f04cd71aa6fc5147c31": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=skill",
+    "--label",
+    "project=tools",
+    "--label",
+    "product=tools",
+    "--label",
+    "skill=a"
+   ],
+   "cwd": "<TMP>/named/product-instance",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint"
+   },
+   "tree": "1e9ee90bda6ab5cc29c83b151f1778e4f850e986dfffed75d1187d2238e74759"
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.instance=product-instance,kensai.arm=skill,kensai.project=tools,kensai.product=tools,kensai.skill=a \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.instance=product-instance,kensai.arm=skill,kensai.project=tools,kensai.product=tools,kensai.skill=a\"}}\n"
+ },
+ "feab1f4900611ca1ab69e792a38a3d3b1ec23dd1c3cb9b37c0ecb885a517e3d9": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=skill",
+    "--label",
+    "skill=a",
+    "--label",
+    "project=tools",
+    "--label",
+    "product=tools"
+   ],
+   "cwd": "<TMP>/instance-root/example-instance",
+   "endpoint": "not an endpoint\n",
+   "env": {
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint"
+   },
+   "tree": "1e9ee90bda6ab5cc29c83b151f1778e4f850e986dfffed75d1187d2238e74759"
+  },
+  "status": 0,
+  "stderr": "          (telemetry endpoint at <TMP>/endpoint is unreadable or malformed \u2014 run uninstrumented)\n",
+  "stdout": ""
+ },
+ "ff54f1e1d22e49d98d588809bed49e8f51e961b9b74add5dca9622d46c7e95a3": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=skill",
+    "--label",
+    "skill=a"
+   ],
+   "cwd": "<TMP>/instance-root/example-instance",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_AUDIT_TARGET": "v w",
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint"
+   },
+   "tree": "1e9ee90bda6ab5cc29c83b151f1778e4f850e986dfffed75d1187d2238e74759"
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=a \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=a\"}}\n"
+ },
+ "ff6a371fb14d02c11916059b460fd724806b5a54e33b94faf3aa93c5cd011a70": {
+  "key": {
+   "argv": [
+    "turn-on",
+    "--print",
+    "--endpoint-file",
+    "<ENDPOINT-FILE>",
+    "--prefix",
+    "kensai",
+    "--label",
+    "arm=skill",
+    "--label",
+    "skill=a"
+   ],
+   "cwd": "<TMP>/instance-root/example-instance",
+   "endpoint": "http://127.0.0.1:4318\n",
+   "env": {
+    "INSTRUMENT_RUN_ENDPOINT_FILE": "<TMP>/endpoint",
+    "INSTRUMENT_RUN_ROLE": "v,w"
+   },
+   "tree": "1e9ee90bda6ab5cc29c83b151f1778e4f850e986dfffed75d1187d2238e74759"
+  },
+  "status": 0,
+  "stderr": "          Telemetry:    kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=a \u2192 http://127.0.0.1:4318\n",
+  "stdout": "{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"http://127.0.0.1:4318\",\"OTEL_RESOURCE_ATTRIBUTES\":\"kensai.run_id=<UUID-0>,kensai.instance=example-instance,kensai.arm=skill,kensai.skill=a\"}}\n"
+ }
+}

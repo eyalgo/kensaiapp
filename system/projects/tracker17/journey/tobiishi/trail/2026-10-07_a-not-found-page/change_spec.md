@@ -83,7 +83,7 @@ The paths below are relative to the product root, which is the directory `system
 
 ## Verified Claims
 
-All commands ran on 2026-10-07 against commit `9e915896e`, in a disposable copy of the product made with `git archive HEAD products/tracker17` (`<CORE>/roles/CROSS_ROLE.md` § *Every seat*), from its product root, under Python 3.14.
+All commands ran on 2026-10-07 against commit `<a commit not in the public history>`, in a disposable copy of the product made with `git archive HEAD products/tracker17` (`<CORE>/roles/CROSS_ROLE.md` § *Every seat*), from its product root, under Python 3.14.
 
 | Claim | Verified by | What came back |
 |---|---|---|

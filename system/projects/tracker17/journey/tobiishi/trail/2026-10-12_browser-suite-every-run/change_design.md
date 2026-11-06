@@ -168,7 +168,7 @@ instead (`change_spec.md:L17-L38`, § Invariants and § Structural Goal, in this
 | C6 | `pytest products/tracker17/tests/`, from the worktree root | Exit 0 with no changes to collected modules, including page-attribute and architecture/trace checks. The browser layer is separately collected by `tests/conftest.py:L33-L48`, `pytest_ignore_collect`. | I-1; I-10; I-11 |
 | C7 | Source and callable comparison against the pre-fix tree | Keep production exports and `main.start`, fixture/helper signatures, test names, module docstrings and existing assertions. No patch of a product module's internals. | I-2; I-4; I-10; I-11 |
 | C8 | Whole-folder run on a committed archive, with README setup | From the archived instance root, run the exact I-3 command twenty times. Record the commit SHA, environment/browser version, all 27 executed test names, each run's output and its actual exit status. Each of the twenty must exit 0; a nonzero status cannot be dropped from the record. | I-3; I-4 |
-| C9 | Added-line review from station-open SHA `530d0c214` | Apply I-6's search to added product lines, including comments; no matching plugin, option or added text. Do not treat a match confined to an unchanged line as a new addition. | I-6 |
+| C9 | Added-line review from station-open SHA `<a commit not in the public history>` | Apply I-6's search to added product lines, including comments; no matching plugin, option or added text. Do not treat a match confined to an unchanged line as a new addition. | I-6 |
 | C10 | Landing commit's causal account | Name failing tests, measured variation, and the evidence that the repair removes it. Preserve diagnostic evidence in the change's existing implementation record and commit body, rather than product comments. | I-7 |
 | C11 | Product-root Ruff and mypy commands | Run the three commands in I-9, each exiting 0. | I-9 |
 | C12 | Dependency/configuration diff | No dependency or configuration edit is designed, so I-12's conditional is inactive. Any justified pin change requires a fresh QC-39/QC-40 check and a placement revision. | I-12 |
@@ -205,9 +205,9 @@ The observation-only repair changes none of their contracts. Keep these records 
   (`products/tracker17/tests/e2e/test_people.py:L58-L67`, that helper).
 - **Placement revised after code-integrity stopped — owner-directed, 2026-10-12 (kind e):** the
   first design kept `test_labels.py` and `test_tasks.py` unchanged. Code-integrity's twenty-run proof
-  on `7ba95e221` then failed once in `test_labels.py`, with `Page.wait_for_function: EvalError ...
+  on `<a commit not in the public history>` then failed once in `test_labels.py`, with `Page.wait_for_function: EvalError ...
   'unsafe-eval' is not an allowed source of script: script-src 'none'` (`code-integrity-report.md`
-  at `486d5dbae`). Cause: Playwright 1.63.0's `waitForFunctionExpression` calls
+  at `<a commit not in the public history>`). Cause: Playwright 1.63.0's `waitForFunctionExpression` calls
   `globalThis.eval(expression)` in the page's main world on every poll (the bundled
   `playwright/driver/package/lib/coreBundle.js`, `waitForFunctionExpression`). The page policy is
   `script-src 'none'` (`products/tracker17/web/routes.py:L47`, `PAGE_POLICY`). A probe on a page

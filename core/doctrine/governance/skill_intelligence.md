@@ -1,5 +1,5 @@
 ---
-version: "2.5.0"
+version: "2.5.1"
 ---
 
 # Skill intelligence — the work sets the model and the effort, not the worker
@@ -78,9 +78,9 @@ declares one `**Model:**` and `**Effort:**` per provider, like every other produ
 ## Scope
 
 **Every skill a chain launches carries an intelligence file** — the product chain's document
-producers, the development and change chains' steps, and `build-idea`'s journey moves — except
+producers, the change and walk chains' steps, and `build-idea`'s journey moves — except
 `companion-self-answer`, which runs on its producer's (above). Which skills those are is the chains' own to state: `<CORE>/tools/chain.py`
-`DOCUMENT_REGISTRY`, `<CORE>/tools/chain_development.py` `DEVELOPMENT_STEPS` and `CHANGE_STEPS`, and
+`DOCUMENT_REGISTRY`, `<CORE>/tools/chain_development.py` `CHANGE_STEPS` and `WALK_STEPS`, and
 `<CORE>/tools/build_idea.py`. **Which provider a chain's run goes to is stated in one file per instance, `.providers.toml` at the instance root** — one entry per document, step and `build-idea` skill row, and a walk may be forced onto a provider over it. Its only reader, and the rule between the two, is
 `<CORE>/tools/providers.py`; an entry the file lacks is refused, never defaulted. This file's part is
 unchanged by it: the intelligence file read is the one for the provider the run goes to, and its

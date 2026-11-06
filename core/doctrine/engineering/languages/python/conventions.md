@@ -1,5 +1,5 @@
 ---
-version: "1.3.0"
+version: "1.4.0"
 ---
 
 # Python — conventions
@@ -93,11 +93,11 @@ Every measurement below was taken on 2026-08-21 over the house-authored Python �
   through — the filesystem, a subprocess, the environment, another tool's output, a notification
   channel — arrives as a constructor parameter, and the only place a concrete implementation is
   built is one wiring function at the bottom of the module. `core/tools/chain.py` is the worked
-  shape: four ports (`Files` `:237`, `Processes` `:278`, `Reports` `:293`, `Notifier` `:327`), an
-  engine that states the rule in its own docstring (`:1008`, *"Everything it uses is handed to it; it
-  constructs nothing"*), and `build_chain()` at `:1512` under the heading at `:1499` — *"The
+  shape: four ports (`Files` `:365`, `Processes` `:418`, `Reports` `:433`, `Notifier` `:473`), an
+  engine that states the rule in its own docstring (`:1385`, *"Everything it uses is handed to it; it
+  constructs nothing"*), and `build_chain()` at `:2221` under the heading at `:2202` — *"The
   composition root: the only place a concrete implementation is constructed"* — which `main()` at
-  `:1528` calls at `:1564` and `:1596`. **Do not reach a collaborator from a unit's body.** A module
+  `:2242` calls at `:2299`, `:2317` and `:2349`. **Do not reach a collaborator from a unit's body.** A module
   that opens its own file or starts its own subprocess can only be driven by monkeypatching itself,
   and a suite that patches its own subject proves the patch: `core/tools/test_chain.py:4-6` records
   the predecessor that was green over 161 functions while the engine ignored the spine it was handed.
@@ -112,24 +112,39 @@ Every measurement below was taken on 2026-08-21 over the house-authored Python �
   `languages/README.md` § Precedence settles that case and is the reason this bullet is written
   anyway: the packet outranks the surrounding code's habits, the packet wins, and the run records
   that it diverged from the file. The probe counts sites rather than violations — `chain.py`'s own
-  four are its port bodies and its wiring function (`:254`, `:260`, `:284`, `:1328`).
+  four are its port bodies and its wiring function (`:384`, `:390`, `:426`, `:2234`).
+- **The four layers, where a product's SDD draws them, take the package as their unit.**
+  `arch_defaults.md` § The four layers states them and the dependency rule. In a product, a port is
+  an abstraction in the `ports` package, spelled as `arch_defaults_python.md` § *Repository typing*
+  spells a repository, and an adapter is the class that implements it; only the composition root
+  imports an adapter. A `domain` or `ports` module reaches the machine through nothing but what it
+  is handed: it imports nothing such as `subprocess`, `socket`, `shutil`, `urllib`, `http` or
+  `time`, and reads or calls nothing such as `open`, a `pathlib.Path` read or write, `os.environ`,
+  `datetime.now` or `date.today`. House code, which no gate type-checks, keeps the plain class the
+  bullet *A port is a plain class, never `typing.Protocol`* below describes: one class is both the
+  port, by its methods, and its adapter, by its bodies. A house package of several modules splits
+  it: a plain class in a `ports` module names the methods, and the class that touches the machine,
+  in an `adapters` module, subclasses it. A one-file tool has one import list, so there only the
+  call half of the rule holds: the domain calls nothing that reaches the machine except through what
+  it was handed, as `chain.py`'s engine states of itself above. That tool's composition root,
+  `build_chain()`, called from `main()`, is the `entrypoints` layer.
 - **Several collaborators arrive keyword-only, and none carries a default.**
-  `core/tools/chain.py:880-882` is the form — a `*`, then seven required parameters (`store`,
-  `files`, `processes`, `reports`, `notifier`, `environ`, `engine_path`), each annotated and none
-  defaulted. Measured 2026-09-01 with
-  `grep -rn 'def __init__(self' core/tools/ core/launchers/ .claude/hooks/ | grep -v '/test_'`, the
-  corpus holds four non-test constructors and all four are in this one file: the three taking one or
-  two collaborators take them positionally (`:295`, `:323`, `:816`), and only the seven-parameter
+  `core/tools/chain.py:1400-1404` is the form — a `*`, then eleven required collaborators and values
+  (`store`, `files`, `processes`, `reports`, `notifier`, `id_source`, `environ`, `providers`,
+  `engine_path`, `process_table`, `checkout`, `lock` among them), each annotated and none defaulted
+  but one. Measured 2026-11-04 with `grep -rn 'def __init__(self' core/tools/ core/launchers/
+  .claude/hooks/ | grep -v '/test_' | wc -l`, the corpus holds 48 non-test constructors; in
+  `chain.py` those taking one or two collaborators take them positionally (`:437`, `:478`), and the
   engine is keyword-only. Keyword-only past two is this authoring run's call, 2026-09-01, on the
-  ground that a positional list of seven collaborators cannot be read at the call site and silently
-  tolerates a reordering. The one defaulted parameter beside them,
-  `cycle_cap: int = DEFAULT_CYCLE_CAP` (`:882`), is a plain value and not a collaborator; **a default
-  on a collaborator is what this rule forbids**, because it lets a caller omit the seam and get the
-  real implementation without saying so.
+  ground that a positional list of many collaborators cannot be read at the call site and silently
+  tolerates a reordering. The one defaulted parameter beside them, `cycle_cap: int =
+  DEFAULT_CYCLE_CAP` (`:1404`), is a plain value and not a collaborator; **a default on a
+  collaborator is what this rule forbids**, because it lets a caller omit the seam and get the real
+  implementation without saying so.
 - **A port is a plain class, never `typing.Protocol`.** `Files`, `Processes`, `Reports` and
   `Notifier` are ordinary classes whose real behaviour is their bodies, and a test's fake satisfies
-  one by having its methods — `core/tools/test_chain.py:24`, *"the fakes: one per port the engine
-  is given"*, with `FakeFiles` at `:27` inheriting nothing. Measured 2026-09-01,
+  one by having its methods — `core/tools/test_chain.py:49`, *"the fakes: one per port the engine
+  is given"*, with `FakeFiles` at `:52` inheriting nothing. Measured 2026-09-01,
   `grep -rn Protocol core/tools/ core/launchers/ .claude/hooks/ | grep -v '/test_'` returns nothing.
   Nothing type-checks here, so a `Protocol` buys no verification and only adds a class to keep in
   step — `quality_gates.md` § What is not installed, *"No formatter, no linter and no type checker

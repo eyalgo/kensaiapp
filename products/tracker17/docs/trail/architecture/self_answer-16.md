@@ -31,7 +31,7 @@
 
   *Check 1, the seat.* The change lands in `adr/` and `nfdr.md`, the documents this companion
   belongs to. It binds only their consistency with the settled SDD, so it is this seat's to answer.
-  The decision itself was the CTO's, settled in SDD version 11 (`9c7db2266`): § 4 RT-11, § 9 TO-8
+  The decision itself was the CTO's, settled in SDD version 11 (`<a commit not in the public history>`): § 4 RT-11, § 9 TO-8
   and § 11 R-12. The draft wanted to wait until `product-sdd` folded `SDD_open_issues.md` § 5.1.
   That fold has landed (`SDD.md:5`, `:386`, `:1158`, `:1423`).
 
@@ -68,7 +68,7 @@
   addition three is that the clause covers a move's responses and the tail names that test. I
   checked every locator the draft gives at `HEAD`. `web/routes.py` `_pending_status` is at
   L323-L333, and `_stored_as_asked` sets `no-store` when `move_task` is in the query. All five tests
-  the draft names exist. `git diff --stat 9b05680c7 HEAD -- products/tracker17
+  the draft names exist. `git diff --stat <a commit not in the public history> HEAD -- products/tracker17
   ':!products/tracker17/docs'` lists only `README.md`. I ran no suite.
 
   *Check 4, the failure paths.* *Absent*: a confirmation address whose task another tab deleted
@@ -102,15 +102,15 @@ None this run.
 ### 2.2 — RN-15 and RN-42 still call the EX-6 confirmation open, and SDD version 11 counts it verified
 
 - **What the document is owed:** RN-15 restated so that the EX-6 confirmation is verified, by the
-  four `tests/e2e/test_moves.py` tests SDD § 11 R-2 names, tied to `9b05680c7`, and so that
+  four `tests/e2e/test_moves.py` tests SDD § 11 R-2 names, tied to `<a commit not in the public history>`, and so that
   assistive-technology speech for EX-14 is the one case still open. A new Review Note records the
   change. RN-42 and ADR-0003 are not edited.
 - **Why it is worth a cycle:** *A fact in it is now false*, and *something upstream moved and it
   has not seen it* (`prompts/rich.md` § The items are not the whole of what a document is owed).
   `nfdr.md:746` reads "What stays open is two cases. The first is the confirmation of SDD § 4 EX-6",
   and `nfdr.md:1161-1162` reads "both stay: the EX-6 confirmation, which SDD § 6 `status-moves`
-  settles". SDD version 11 (`9c7db2266`) closed that case. `SDD.md:1325-1333` names the four tests
-  and their pass in a fresh clone at `9b05680c7`. `SDD.md:2332` § Open Questions holds only the
+  settles". SDD version 11 (`<a commit not in the public history>`) closed that case. `SDD.md:1325-1333` names the four tests
+  and their pass in a fresh clone at `<a commit not in the public history>`. `SDD.md:2332` § Open Questions holds only the
   VoiceOver case. A review reaching RN-15 through ADR-0003's `## Binds` and QC-34 is told a verified
   case is open. Item 2.1 already owes `product-architecture` a fold, so this rides the same round.
   It is raised as its own item and not left to that fold because no answer here would carry it, and

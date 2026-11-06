@@ -62,7 +62,7 @@ class Managed:
         if context:
             self.context.parent.mkdir(parents=True)
             self.context.write_text(CONTEXT)
-        (self.worktree / "system/projects/example/agari.md").write_text("# Example terminus\n")
+        (self.worktree / "system/projects/example/finish_line.md").write_text("# Example terminus\n")
         git(self.worktree, "add", "system")
         git(self.worktree, "commit", "-qm", "managed carving")
         self.recorded_tip = git(self.worktree, "rev-parse", "HEAD").stdout.strip()
@@ -102,7 +102,7 @@ class Managed:
                        "contract": self.scenario.contract, "merges": self.scenario.merges,
                        "bookkeeping": {"date": "2026-09-30", "deferred": list(deferred),
                                        "environment_line": ENVIRONMENT,
-                                       "directional": "Agari: example — progress: seal",
+                                       "directional": "Finish-line: example — progress: seal",
                                        "surface": "Codex", "co_authored_by": IDENTITY,
                                        "reasoning_effort": "high"}}
         for record in self.config["merges"].values():
@@ -1061,3 +1061,165 @@ def test_caller_checks_the_directional_before_the_first_merge(tmp_path, recipe):
         managed.config["bookkeeping"]["directional"]
     assert calls[check][calls[check].index("--repo") + 1] == \
         managed.config["contract"]["instance_worktree"]
+
+
+# The changelog declaration (`user_invisible`). These tests hand the adopted caller records that
+# were prepared independently per role, and prove their transport and their effect on real
+# repositories. They do not show that a model chose the right reason; Step 2's text carries that.
+
+NO_ENTRY_REASON = "the change earns no changelog entry: nothing a user sees changes"
+NO_CHANGELOG_REASON = "the product path keeps no changelog ; $(echo literal)"
+JOURNEY_REASON = "the instance merge carries only the change's journey record"
+CHANGELOG_REFUSAL = (
+    f"refusing to merge {KEY} into main — the branch adds no entry under ## [Unreleased]"
+)
+CHANGELOG_ENTRY = "# Changelog\n\n## [Unreleased]\n\n- an entry\n\n## [0.1.0]\n\n- first\n"
+
+
+def merge_calls(managed, role):
+    repo = str(managed.scenario.repos[role])
+    return [e["argv"] for e in managed.log() if "merge" in e["argv"] and e["argv"][1] == repo]
+
+
+def assert_declared(managed, role, reason):
+    """Both builder calls of a role carry the reason once, literally, and main records it."""
+    calls = merge_calls(managed, role)
+    assert any("--check-only" in argv for argv in calls)
+    assert any("--check-only" not in argv for argv in calls)
+    for argv in calls:
+        assert argv.count("--user-invisible") == 1
+        assert argv[argv.index("--user-invisible") + 1] == reason
+    body = git(managed.scenario.repos[role], "log", "-1", "--format=%B", "main").stdout
+    assert f"\nUser-invisible: {reason}\n" in body
+
+
+def assert_undeclared(managed, role):
+    assert not any("--user-invisible" in argv for argv in merge_calls(managed, role))
+    assert "User-invisible:" not in git(managed.scenario.repos[role], "log", "-1", "--format=%B",
+                                        "main").stdout
+
+
+def commit_entry(managed, role):
+    """A committed entry under ## [Unreleased] on the role's change branch."""
+    worktree = managed.scenario.worktrees[role]
+    (worktree / "CHANGELOG.md").write_text(CHANGELOG_ENTRY)
+    git(worktree, "add", "CHANGELOG.md")
+    git(worktree, "commit", "-qm", f"{role} changelog entry")
+    if role == "instance":
+        managed.recorded_tip = git(worktree, "rev-parse", "HEAD").stdout.strip()
+
+
+def assert_refused_before_effects(managed, outcome, prepared):
+    assert outcome["status"] == "halt"
+    assert outcome["halt_reason"] == "deliver-precondition-failed"
+    assert outcome["delivered"] == "none"
+    assert outcome["audit_cleanup_eligible"] is False
+    assert CHANGELOG_REFUSAL in outcome["observations"]["stderr"]
+    assert Path(outcome["halt_report"]).is_file()
+    assert not managed.effects()
+    assert not (prepared.directory / "seal-evidence.json").exists()
+    assert managed.active.is_dir() and not (managed.active.parent / "trail").exists()
+    for name, content in managed.payload.items():
+        assert (managed.active / name).read_bytes() == content
+    assert git(managed.worktree, "rev-parse", "HEAD").stdout.strip() == managed.recorded_tip
+    assert git(managed.worktree, "status", "--porcelain").stdout.split() == [
+        "??", str((managed.active / "halt_report.md").relative_to(managed.worktree))]
+    for role in managed.scenario.repos:
+        managed.scenario.assert_recovery(role)
+
+
+@pytest.mark.parametrize("fixed", [False, True])
+def test_changelog_caller_lands_report_reason(tmp_path, recipe, fixed):
+    managed = Managed(tmp_path, fixed=fixed)
+    reasons = {"instance": NO_ENTRY_REASON}
+    if fixed:
+        reasons["product"] = NO_CHANGELOG_REASON
+    for role, reason in reasons.items():
+        managed.config["merges"][role]["user_invisible"] = reason
+
+    outcome, prepared = managed.invoke(recipe)
+
+    managed.assert_landed(outcome, prepared)
+    for role, reason in reasons.items():
+        assert_declared(managed, role, reason)
+    # The records are the caller's, one per role: each reached its own repository's builder only.
+    assert len({reason for reason in reasons.values()}) == len(reasons)
+
+    # The control: the same delivery with no declaration is refused, so the reason let it land.
+    (tmp_path / "control").mkdir()
+    control = Managed(tmp_path / "control", fixed=fixed)
+    for record in control.config["merges"].values():
+        record.pop("user_invisible")
+    refused, control_prepared = control.invoke(recipe)
+    assert_refused_before_effects(control, refused, control_prepared)
+
+
+def test_changelog_caller_lands_journey_only_instance_reason(tmp_path, recipe):
+    managed = Managed(tmp_path, fixed=True, context=False)
+    worktree = managed.worktree
+    base = git(worktree, "merge-base", "main", "HEAD").stdout.strip()
+    git(worktree, "checkout", base, "--", "shared")
+    git(worktree, "rm", "-q", "system/projects/example/finish_line.md")
+    git(worktree, "commit", "-qm", "leave only the journey record")
+    # The directional resolves the project's finish line from the worktree, so main holds it instead.
+    primary = managed.scenario.repos["instance"]
+    (primary / "system/projects/example/finish_line.md").write_text("# Example terminus\n")
+    git(primary, "add", "system")
+    git(primary, "commit", "-qm", "main holds the finish line")
+    managed.scenario.tips["instance"] = git(primary, "rev-parse", "main").stdout.strip()
+    git(worktree, "merge", "-q", "--no-edit", "main")
+    base = git(worktree, "merge-base", "main", "HEAD").stdout.strip()
+    managed.recorded_tip = git(worktree, "rev-parse", "HEAD").stdout.strip()
+    changed = git(worktree, "diff", "--name-only", base, "HEAD").stdout.split()
+    assert changed and all(path.startswith("system/projects/example/journey/") for path in changed)
+    managed.config["merges"]["product"]["user_invisible"] = NO_CHANGELOG_REASON
+    managed.config["merges"]["instance"]["user_invisible"] = JOURNEY_REASON
+
+    outcome, prepared = managed.invoke(recipe)
+
+    managed.assert_landed(outcome, prepared)
+    assert_declared(managed, "product", NO_CHANGELOG_REASON)
+    assert_declared(managed, "instance", JOURNEY_REASON)
+    effects = [e for e in managed.log() if not read_only(e)]
+    assert ["seal" if "commit" in e["argv"] else
+            next(role for role, repo in managed.scenario.repos.items() if str(repo) == e["argv"][1])
+            for e in effects] == ["product", "seal", "instance"]
+    trail = managed.scenario.repos["instance"] / (
+        f"system/projects/example/journey/tobiishi/trail/{KEY}/change_request.md")
+    assert trail.is_file()
+    assert not managed.scenario.worktrees["instance"].exists()
+
+
+@pytest.mark.parametrize("fixed", [False, True])
+def test_changelog_caller_omitted_declaration_preserves_refusal(tmp_path, recipe, fixed):
+    # An entry-written report over a branch with no line, and an absent report, both supply nothing.
+    managed = Managed(tmp_path, fixed=fixed)
+    for record in managed.config["merges"].values():
+        record.pop("user_invisible")
+
+    outcome, prepared = managed.invoke(recipe)
+
+    assert_refused_before_effects(managed, outcome, prepared)
+    assert not any("--user-invisible" in e["argv"] for e in managed.log())
+
+
+@pytest.mark.parametrize("fixed", [False, True])
+def test_changelog_caller_qualifying_entry_needs_no_declaration(tmp_path, recipe, fixed):
+    managed = Managed(tmp_path, fixed=fixed)
+    for role, record in managed.config["merges"].items():
+        record.pop("user_invisible")
+        commit_entry(managed, role)
+
+    outcome, prepared = managed.invoke(recipe)
+
+    managed.assert_landed(outcome, prepared)
+    for role in managed.scenario.repos:
+        assert_undeclared(managed, role)
+
+    # The control: with neither an entry nor a declaration the same delivery is refused.
+    (tmp_path / "control").mkdir()
+    control = Managed(tmp_path / "control", fixed=fixed)
+    for record in control.config["merges"].values():
+        record.pop("user_invisible")
+    refused, control_prepared = control.invoke(recipe)
+    assert_refused_before_effects(control, refused, control_prepared)

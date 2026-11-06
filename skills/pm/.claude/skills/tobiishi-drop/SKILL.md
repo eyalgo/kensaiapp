@@ -20,7 +20,7 @@ description: |
 license: MIT
 metadata:
   author: Eyal Golan
-  version: "1.0.7"
+  version: "1.3.0"
   created: "2026-09-19"
   category: journey
   risk: safe
@@ -68,7 +68,7 @@ it a default: it is the commit's record of why work was set down, and only the c
 
 ## Workflow
 
-Run from the instance root. `<drop>` is `python3 <CORE>/../skills/pm/.claude/skills/tobiishi-drop/scripts/drop.py --root .`.
+Run from the instance root. `<drop>` is `"<CORE>/tools/locked_python.sh" <CORE>/../skills/pm/.claude/skills/tobiishi-drop/scripts/drop.py --root .`.
 
 ### Step 1 — Check, before anything changes
 
@@ -104,7 +104,7 @@ Per `<CORE>/docs/journey_move.md` § *The commit* and `<CORE>/doctrine/governanc
   through a file rather than the command line.
 - **`--actor pm`, and no `--skill`.** A move commits nothing a skill produced.
 - **`--directional`** is `Shukuba: <open station> — aside: dropped <key>` when a station is open at the
-  project's `journey/shukuba/` root, else `Agari: <project> — aside: dropped <key>`. A drop sets work
+  project's `journey/shukuba/` root, else `Finish-line: <project> — aside: dropped <key>`. A drop sets work
   down, and a set-down reads `aside:`, never `progress:`.
 
 Then eyeball `git show --stat`: one rename per file of the unit, plus `CONTEXT_PM.md` only when marked.
@@ -123,7 +123,7 @@ the journey stands.
 ### Step 5 — Say which pointers the move broke
 
 ```bash
-python3 "<CORE>/tools/check_journey_links.py" --repo .
+"<CORE>/tools/locked_python.sh" "<CORE>/tools/check_journey_links.py" --repo .
 ```
 
 Report whatever it names, per `<CORE>/docs/journey_move.md` § *After the move, say which pointers it broke*. **Do not

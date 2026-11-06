@@ -7,12 +7,12 @@ test was added and the code was not changed.
 
 ## Deferrals
 
-None. The closing marker `fa243757d` (`developer: 2026-10-11_add-and-list-tasks — implementation
+None. The closing marker `<a commit not in the public history>` (`developer: 2026-10-11_add-and-list-tasks — implementation
 complete`) carries no `Deferred:` line and reads `Suite: green`.
 
 ## What was reviewed
 
-Everything the change put under `products/tracker17/` in `main..fa243757d`:
+Everything the change put under `products/tracker17/` in `main..<a commit not in the public history>`:
 
 - `domain/` — `tasks.py`, `priorities.py` and `due_dates.py`, which are new, plus `state.py`,
   `refusals.py` and `__init__.py`.

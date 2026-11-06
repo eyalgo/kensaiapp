@@ -37,10 +37,14 @@ from pathlib import Path
 
 import pytest
 
+import test_support_instance_root
+
+from test_support_python3_stub import python3_calls_outside_uv, python3_that_only_fails
+
 _SCRIPT = Path(__file__).resolve().parent / "launch-fix-author.sh"
 _SKILL_PATH_PY = Path(__file__).resolve().parent / "skill_path.py"
 _TOOLS_DIR = Path(__file__).resolve().parent
-_PIN_TOOLS = ("pin.py", "pin_run.sh", "agent_run.py", "model_assignment.py", "task_context.py",
+_PIN_TOOLS = ("pin.py", "pin_run.sh", "locked_python.sh", "agent_run.py", "model_assignment.py", "task_context.py",
                "env_file.py", "hook_wiring.py")
 # The provider reader, the one file it reads, and the two modules the reader imports: the launcher
 # asks the reader for its `launch-fix-author` entry before it resolves the skill.
@@ -130,6 +134,7 @@ def run(tmp_path):
     # cwd resolves to) — the shape a real pin always has, so the adapter's own trailing
     # `--add-dir <pin root>` (Task 7) can never coincide with a repo path a test asserts about.
     pin_root_dir = tmp_path / "pin"
+    test_support_instance_root.give_python(pin_root_dir)
     tools_dir = pin_root_dir / "core" / "tools"   # this script lives in <CORE>/tools (Task 18)
     tools_dir.mkdir(parents=True)
 
@@ -854,3 +859,15 @@ def test_a_provider_file_outside_the_instance_is_not_read(run):
     assert str(run.providers_file) in result.stderr
     assert all(str(decoy) not in result.stderr for decoy in decoys)
     assert run.adapter_calls() == []
+
+
+def test_launch_fix_author_runs_no_python3(run, tmp_path):
+    run.round("1.0.0")
+    path, marker = python3_that_only_fails(tmp_path, run.env["PATH"])
+    run.env["PATH"] = path
+
+    result = run("thing", "1.0.0")
+
+    assert result.returncode == 0, result.stderr
+    assert run.launched_argv() != []
+    assert python3_calls_outside_uv(marker) == []

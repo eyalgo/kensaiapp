@@ -1,10 +1,10 @@
 ---
 name: product-architecture
-description: Principal Architect-posture skill that records a product's architecture decisions and binds its quality constraints — the append-only decision log under docs/adr/ and the constraint set docs/nfdr.md, written off the settled SRS, SDD and FDR as the second half of the foundation step. Requires Principal Architect posture (halts if invoked outside a principal-architect session or the principal-architect subagent). Non-interactive by design — it derives both records best-effort from the upstream documents, and instead of interviewing live it surfaces everything it can't settle into one companion open-issues file (open issues, choices to confirm) for the owner to answer async. On re-run it consumes the companion, retires the owner's answered file whole to a permanent trail, folds their answers in, and when nothing is left unresolved it clears the companion — its absence means both records are done. An accepted record is never rewritten; a reversal is a new record that supersedes it. The skill resolves where the files land from the project's Product path. Use when authoring, continuing, or revising a product's decision log or constraint set. Do not use for per-change specs (development-specs), per-change design (development-design), the PRD (product-prd), the SRS (product-srs), the SDD (product-sdd), the FDR (product-fdr), or the project's Agari (project-agari).
+description: Principal Architect-posture skill that records a product's architecture decisions and binds its quality constraints — the append-only decision log under docs/adr/ and the constraint set docs/nfdr.md, written off the settled SRS, SDD and FDR as the second half of the foundation step. Requires Principal Architect posture (halts if invoked outside a principal-architect session or the principal-architect subagent). Non-interactive by design — it derives both records best-effort from the upstream documents, and instead of interviewing live it surfaces everything it can't settle into one companion open-issues file (open issues, choices to confirm) for the owner to answer async. On re-run it consumes the companion, retires the owner's answered file whole to a permanent trail, folds their answers in, and when nothing is left unresolved it clears the companion — its absence means both records are done. An accepted record is never rewritten; a reversal is a new record that supersedes it. The skill resolves where the files land from the project's Product path. Use when authoring, continuing, or revising a product's decision log or constraint set. Do not use for per-change specs (development-specs), per-change design (development-design), the PRD (product-prd), the SRS (product-srs), the SDD (product-sdd), the FDR (product-fdr), or the project's finish line (project-finish-line).
 license: MIT
 metadata:
   author: Eyal Golan
-  version: "1.1.6"
+  version: "1.3.0"
   created: "2026-08-30"
   category: product-definition
   tags: adr, nfdr, principal-architect, foundation-step, decision-log, constraint-set
@@ -140,7 +140,7 @@ the skill's job; the owner never manages it.
   `<CORE>/doctrine/governance/unsettled_inputs.md`'s, for every document in the chain. What is this
   skill's: **no step here gates on `Locked`, on `Settled`, or on the absence of any marker.** The
   pre-flight asks whether the inputs *exist*, and nothing else about their content.
-- **`system/projects/<name>/agari.md`** — the project's 上がり Agari, beside the card below. Read it
+- **`system/projects/<name>/finish_line.md`** — the project's finish line, beside the card below. Read it
   in full; it is the scope boundary, not a source of constraint. **Its absence does not halt the
   run** — neither does a file still carrying the placeholder `project-stamp` stamps. The state
   reaches the owner through the companion.
@@ -199,7 +199,7 @@ Identify the target project and read:
 - `<Product path>/docs/trail/architecture/` — every answer the owner has already given, and their
   reasoning. Read it: a value the owner set in an earlier cycle is authorized, and changing it needs
   a fresh authorization. It also gives you the next cycle number.
-- `system/projects/<name>/agari.md` — the declared terminus, in full. Absent or still the
+- `system/projects/<name>/finish_line.md` — the declared terminus, in full. Absent or still the
   placeholder: record it as an open issue and derive best-effort; never halt.
 - `system/projects/<name>/doctrine/` — the project's own doctrine, if any is there.
 - the rest of `<Product path>/docs/` — **list the directory** and read what the bullets above have
@@ -300,11 +300,11 @@ named, `--role "Principal Architect" --skill product-architecture` instead. Both
 
 **And `--prompt product-architecture/rich`**, naming the body this skill is the carrier for. A thin skill over a fat prompt is recorded by both lines and neither implies the other (`<CORE>/doctrine/governance/commit_format.md` § *`Prompt-Version:` trailer*); it takes the bare name, never a path.
 
-**The directional** is `Agari:` or `Shukuba:`, resolved against
+**The directional** is `Finish-line:` or `Shukuba:`, resolved against
 `<CORE>/doctrine/governance/commit_format.md` § *Directional trailer*, whose rule is that the trailer
 follows the commit's **scope** rather than what produced it. These records are project-scoped and the
 foundation step runs upstream of the delivery loop, so a project with no open station resolves to its
-Agari. Read the rule there; this step does not restate it.
+finish line. Read the rule there; this step does not restate it.
 
 ### Step 4 — Close / report
 

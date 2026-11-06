@@ -23,7 +23,7 @@ when_to_use: >-
 license: MIT
 metadata:
   author: Eyal Golan
-  version: "2.6.0"
+  version: "2.8.0"
   created: "2026-09-02"
   category: journey
   tags: nemawashi, seeds, product-documents, sdd, principal-pm, journey
@@ -47,7 +47,7 @@ here.
 
 **The method is `prompts/rich.md`** — the one body this file points
 at. Read it in full at Step 3 and apply it. Everything about *what* to cut and *whether* to cut lives
-there: its § *Inputs — four you draw from, five you read against*, § *What the Agari and the Michi are doing here*,
+there: its § *Inputs — four you draw from, five you read against*, § *What the finish line and the Michi are doing here*,
 § *Four kinds of seed*, § *Every seed traces back to the documents it was drawn from*, § *Before you
 cut — the skeleton is not yours*, § *Priority and incremental slicing*, § *What the SDD's order and
 its slice→seed map bind you to*, § *Sweep the product's own seedbed, in all three positions* and
@@ -85,7 +85,7 @@ kind's work and skipped the companion it belongs on (the lens's § *Four kinds o
 **The invocation names a product, or the project that owns it, or a satellite-qualified pair.** All
 three resolve to the same two things, and the run needs both:
 
-- **The project** — `system/projects/<project>/`, whose `agari.md` is the cut's filter and its routing
+- **The project** — `system/projects/<project>/`, whose `finish_line.md` is the cut's filter and its routing
   key, and whose `journey/nemawashi/` is the seedbed the seeds land in and the one the sweep reads.
 - **The product** — the path `system/projects/<project>/project.md` names, which is where the
   documents are. It may sit inside the instance or outside it, so read it from `project.md` rather
@@ -116,7 +116,7 @@ rather than cutting against a shape that is about to move.
 
 Read `prompts/rich.md` in full, then the sibling lens it extends
 and `<CORE>/templates/journey-templates/nemawashi_template.md`. Apply them. Every judgment the cut
-makes — which document a candidate is drawn from, whether the Agari lets it through, which of the four
+makes — which document a candidate is drawn from, whether the finish line lets it through, which of the four
 kinds it is, what is worth landing first, how much of the draw this cut takes, and whether the cut can
 be made at all — is made there. One thing the lens fixes is not a judgment: **every run checks every FDR rule,
 ADR binding and NFDR obligation against the product before it orders anything**, whatever the SDD's
