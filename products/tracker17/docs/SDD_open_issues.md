@@ -82,7 +82,7 @@ None.
   `:2605-2607`, `:2940`, `:3008` and `:3386`. They were true on their dates. NFDR RN-72 treats its
   own dated notes the same way.
 - **If a document has to be written:** none. `product-sdd` folds the RT-4 sentence.
-- **Answer:** <the owner fills this in>
+- **Answer:** Fold as the item says. RT-4's sentence names `playwright==1.65.1` and the date its platform list was read (2026-11-13, from the driver commit 1.65.1 bundles). The list itself stands. The dated evidence lines (§ 11 R-2 and the Review Notes it names) are left as they are. Owner, 2026-11-13: the pin moves (the architecture companion's § 3.1, answer (a)).
 
 **How it closes.** `product-sdd` folds it on its next run like every other item in this file, and
 the trail copy and the delete-when-empty behaviour are unchanged.
