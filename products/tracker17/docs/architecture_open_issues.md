@@ -24,7 +24,48 @@ None.
 
 ## 2. Choices to confirm — the Principal Architect drafted a best-effort answer; confirm or override
 
-None.
+### 2.1 Once the SDD names the four layers and the verified fakes, § 1.2 names the layer each clause binds and a new entry binds one fake and one contract suite per port
+- **Lands in:** `nfdr.md` § 1.2 (QC-13 to QC-17, their trace tags) and one new `nfdr.md` entry under
+  § 1 with its row in § 10. No ADR moves: ADR-0001's five parts and direction of dependence stand as
+  written.
+- **Drafted into the records:** nothing yet — this run writes no record. The call, for the Principal
+  Architect's run to write: `products/tracker17/docs/SDD_open_issues.md` § 5.1 is answered in the CTO's
+  seat on 2026-11-12, and the SDD takes `<CORE>/doctrine/engineering/arch_defaults.md` § The four
+  layers with its five parts standing as the layers and no part added or renamed. The `domain` layer is
+  `domain/` and `application/`. The `ports` are the two contracts `application` states (SDD § 3 SM-3,
+  SM-7), sharing the `application` package with the flow. The `adapters` are `persistence/`, the real
+  clock `main` builds, and `web/`, the browser's adapter, routes included. `main.py` is the
+  `entrypoints` layer. On that answer the records gain two things. QC-13 to QC-17 keep every allowed and
+  forbidden set as written, and each names the layer its clause binds, with a trace to `arch_defaults.md`
+  § The four layers beside ADR-0001. A new entry binds `<CORE>/doctrine/engineering/testing_doctrine.md`
+  § A fake is verified against its port's contract: each of the two ports has one fake, written once in
+  one test-support module under `tests/`, in the Python form `<CORE>/doctrine/engineering/testing_python.md`
+  § 2 states ("the fakes live in a test-support module such as `tests/fakes.py`"), never redefined in a
+  test module; and one contract suite per port, run against the real implementation and against the
+  fake, both filed at layer 2 — *verified by:* the two suite modules passing in `pytest tests/`, and a
+  layer-6 walk over `tests/` that fails on a class outside the test-support module defining a `save` or
+  a `now` method *(traces to: SDD § 4 TS-1, TS-2; the two doctrine sections named)*.
+- **Rationale:** the dependency rule the four layers state is already held and verified in tracker17
+  (QC-13 to QC-24, QC-42 to QC-45), so the naming costs the records words and moves no obligation. The
+  fakes rule is the one obligation the choice adds, and it is not held today: from the product root,
+  `grep -rnE '^\s*class \w*(Clock|Saver)\b' tests --include='*.py' | grep -v /e2e/` listed 60 fake
+  clock and saver classes across 22 test modules on 2026-11-12, and no contract suite exists. The SDD's
+  seat chose the shape because § 3 already drew it and `arch_defaults.md` § The four layers binds a
+  product "only once that SDD has chosen it". What the records bind, and how the fakes rule is verified,
+  is this seat's call — which is why the slot below is left for it.
+- **If overridden:** with no layer names, QC-13 to QC-17 stand as they are and the records describe a
+  product outside the four-layer default while its SDD § 3 says it is inside it. With no fakes entry, the
+  60 per-module fakes stay unverified and `testing_doctrine.md`'s rule binds tracker17 with nothing in
+  § 10 that checks it.
+- **Confirm or override:** <"confirm", or "override: <what to do instead>">
+
+> **No producing run wrote this item.** A `companion-self-answer` run raised it on 2026-11-12 while
+> answering `products/tracker17/docs/SDD_open_issues.md` § 5.1 in the CTO's seat, after reading
+> `nfdr.md` §§ 1.2, 1.3, 1.4 and 9 against the answer it gave. `product-architecture` has no record of
+> writing it. The SDD's answer and its reasoning, `products/tracker17/docs/trail/sdd/self_answer-21.md`,
+> land in the commit after the one that carries this item, and `product-sdd` folds the answer on its
+> next run. The item is here so that the records follow the SDD whichever of the two folds runs first,
+> as they followed SDD § 4 RT-4 to uv through this companion's § 3.1 (NFDR RN-54).
 
 ## 3. Raised from downstream — an item from a seat that did not write these records
 
