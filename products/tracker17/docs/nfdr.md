@@ -2,8 +2,8 @@
 
 **Status:** Settled
 **Owner:** Principal Architect
-**Version:** 26 — the answers to companion §§ 2.2 and 2.3 folded in (`products/tracker17/docs/trail/architecture/cycle-24.md`): QC-39 names the product's two sets of test dependencies, the suite's in `pyproject.toml` and `uv.lock` and the Behave scenario folder's in `.behave/pyproject.toml` and `.behave/uv.lock`, holds both to one bar, and starts unmet in its test; QC-40 covers both lock files and each pinned browser-driving library's browser build; § 9's layer-7 row names Behave and `.behave/features/`; § 10's QC-39 lock row names both commands (RN-69). QC-2, QC-3, QC-4, QC-37, QC-42, QC-45 and QC-61 take the scope of test code, "outside `tests/` and `.behave/`", in their words and their tails (RN-70). No record is written or changed: RN-69 narrows ADR-0013's "one committed file" to the suite's set. Nothing is left open, so the companion is removed and this document is Settled. At 25: the answers to companion §§ 2.1 and 3.1 to 3.3 folded in (`products/tracker17/docs/trail/architecture/cycle-23.md`): § 1.2 names the layer of SDD § 3's four layers each clause binds, and QC-1 names why the root holds no `ports/` directory (RN-65). QC-64, in § 1.4, gives each contract `application/contracts.py` states one fake and one contract suite, and starts unmet (RN-65). QC-1 names `.behave/`, the Behave scenario folder, as test code outside the package unit; QC-19 and QC-43 exempt it, QC-43 `tests/` too, and the source walk skips both by name, not by a leading dot (RN-66). § 9 gains the Behave line, `behave` (RN-67). No record is written or changed. Companion § 2.2 stays open, and § 2.3 is raised, so this document is Draft. At 24: the answers to companion §§ 3.1 to 3.5 folded in (`products/tracker17/docs/trail/architecture/cycle-22.md`): QC-7 and QC-63 are scoped to a tracker serving its saved data, and QC-7 names the one answer of a tracker on unreadable data, 503 with one page (RN-63). ADR-0014, ADR-0015 and ADR-0016 supersede ADR-0011, ADR-0012 and ADR-0005, each carrying its predecessor whole with the mode qualified, and the entries those bound trace to them. QC-8 and § 10 do not move. Nothing is left open, so the companion is removed and this document is Settled.
-**Inputs read:** SRS Settled (version 7) · SDD Settled (version 21; no `products/tracker17/docs/SDD_open_issues.md` beside it) · FDR Settled (version 6) · PRD Settled (version 8) · UXD Settled (version 11) · DESIGN Settled (version 4) · CONTENT Settled (version 21) · finish line no Status line · tracker17 doctrine no Status line (stamped, unfilled)
+**Version:** 27 — the owner's answer to companion § 3.1 folded in (`products/tracker17/docs/trail/architecture/cycle-25.md`): the Playwright pin moved to `playwright==1.65.1`, which installs Chromium 158.0.8127.18, so QC-39, QC-40, QC-63 and § 9 name that pin and build, and QC-40 names no exception in force: RN-33's ended on 2026-11-07 (RN-72). § 9's Linux platform list stands, checked against 1.65.1's documentation. No record is written or changed. The SDD's § 4 RT-4 still names the old pin, raised on its own companion. Nothing is left open, so the companion is removed and this document is Settled. At 26: the answers to companion §§ 2.2 and 2.3 folded in (`products/tracker17/docs/trail/architecture/cycle-24.md`): QC-39 names the product's two sets of test dependencies, the suite's in `pyproject.toml` and `uv.lock` and the Behave scenario folder's in `.behave/pyproject.toml` and `.behave/uv.lock`, holds both to one bar, and starts unmet in its test; QC-40 covers both lock files and each pinned browser-driving library's browser build; § 9's layer-7 row names Behave and `.behave/features/`; § 10's QC-39 lock row names both commands (RN-69). QC-2, QC-3, QC-4, QC-37, QC-42, QC-45 and QC-61 take the scope of test code, "outside `tests/` and `.behave/`", in their words and their tails (RN-70). No record is written or changed: RN-69 narrows ADR-0013's "one committed file" to the suite's set. Nothing is left open, so the companion is removed and this document is Settled. At 25: the answers to companion §§ 2.1 and 3.1 to 3.3 folded in (`products/tracker17/docs/trail/architecture/cycle-23.md`): § 1.2 names the layer of SDD § 3's four layers each clause binds, and QC-1 names why the root holds no `ports/` directory (RN-65). QC-64, in § 1.4, gives each contract `application/contracts.py` states one fake and one contract suite, and starts unmet (RN-65). QC-1 names `.behave/`, the Behave scenario folder, as test code outside the package unit; QC-19 and QC-43 exempt it, QC-43 `tests/` too, and the source walk skips both by name, not by a leading dot (RN-66). § 9 gains the Behave line, `behave` (RN-67). No record is written or changed. Companion § 2.2 stays open, and § 2.3 is raised, so this document is Draft. At 24: the answers to companion §§ 3.1 to 3.5 folded in (`products/tracker17/docs/trail/architecture/cycle-22.md`): QC-7 and QC-63 are scoped to a tracker serving its saved data, and QC-7 names the one answer of a tracker on unreadable data, 503 with one page (RN-63). ADR-0014, ADR-0015 and ADR-0016 supersede ADR-0011, ADR-0012 and ADR-0005, each carrying its predecessor whole with the mode qualified, and the entries those bound trace to them. QC-8 and § 10 do not move. Nothing is left open, so the companion is removed and this document is Settled.
+**Inputs read:** SRS Settled (version 7) · SDD Settled (version 21; no `products/tracker17/docs/SDD_open_issues.md` beside it when read; this run raised one, RN-72) · FDR Settled (version 6) · PRD Settled (version 8) · UXD Settled (version 11) · DESIGN Settled (version 4) · CONTENT Settled (version 21) · finish line no Status line · tracker17 doctrine no Status line (stamped, unfilled)
 
 > The NFDR is the product's **standing obligations, consolidated and verifiable**: every quality
 > constraint a change is checked against, derived from the SRS, the SDD, the FDR and the ADR — never
@@ -144,15 +144,15 @@ module under `tests/architecture/`, which `pytest tests/` runs.
   `test_confirmation_is_loaded_afresh_after_confirming`, and `tests/e2e/test_delete_project.py`,
   `test_project_confirmation_is_loaded_afresh_after_confirming`, which fail when Back to a
   deletion's confirmation after confirming, or Forward then Back again, is restored from history
-  instead of loaded. Layer 5 proves the build the pinned library installs, Chromium 153.0.8010.12
-  under `playwright==1.63.0`, and not the operator's current stable Chrome. **The unreadable-data
+  instead of loaded. Layer 5 proves the build the pinned library installs, Chromium 158.0.8127.18
+  under `playwright==1.65.1`, and not the operator's current stable Chrome. **The unreadable-data
   clause:** layer 3, `tests/integration/test_unreadable_routes.py`,
   `test_checked_unreadable_reads_share_one_representation`, whose targets include `/tasks/1`,
   `/tasks/1/delete` and `/projects/1` *(traces to: ADR-0015;
   SDD § 4 RT-11, EX-6, EX-13, § 6 `delete-and-rename`, § 9 TO-8, § 11 R-12, RN-56, RN-59; SRS NFR-3,
   NFR-13, DR-2; UXD § 4, UX-F4, UX-I2, UX-I3, UX-S10; owner, `trail/architecture/cycle-12.md` § 2.1,
-  `trail/architecture/cycle-15.md` § 2.1, `trail/architecture/cycle-16.md` § 3.1; see RN-44, RN-50,
-  RN-52, RN-63)*
+  `trail/architecture/cycle-15.md` § 2.1, `trail/architecture/cycle-16.md` § 3.1; answer,
+  `trail/architecture/cycle-25.md` § 3.1; see RN-44, RN-50, RN-52, RN-63, RN-72)*
 - **QC-9:** The two maximum text lengths are stated once, in `domain`, and every text field's
   `maxlength` is written from them, as is the maximum the description field and the comment field
   state beside them. `web` turns each submitted CR LF pair, and each remaining CR, into
@@ -418,7 +418,7 @@ is checked by § 3's capability entries, named in each clause.
   beside its manifest fixes it and everything it pulls in, in step with that manifest. The product
   holds two such sets, and both are held to this bar. The suite's are declared in `pyproject.toml`
   and fixed by `uv.lock` beside it. The Behave scenario folder's, `behave==1.3.3`, `httpx==0.28.1`
-  and `playwright==1.63.0`, are declared in `.behave/pyproject.toml` and fixed by `.behave/uv.lock`,
+  and `playwright==1.65.1`, are declared in `.behave/pyproject.toml` and fixed by `.behave/uv.lock`,
   outside the suite's environment (QC-1).
   — *verified by:* layer 6, `tests/architecture/test_pins.py`, which reads each manifest with
   `tomllib` and fails on a test dependency not pinned with `==`, on a missing lock file, or on a
@@ -454,8 +454,8 @@ is checked by § 3's capability entries, named in each clause.
   carries a critical advisory may choose one; where that advisory is more than 30 days old, the
   change needs the owner's dated exception before it lands. A critical advisory against a test dependency either lock file of QC-39 fixes, or
   against the browser build each pinned browser-driving library installs, is fixed within **30 days
-  of the day the advisory is published**. Today both sets pin `playwright==1.63.0`, so that is one
-  build, Chromium 153.0.8010.12. A fix moves the pin; where none comes within the window, the
+  of the day the advisory is published**. Today both sets pin `playwright==1.65.1`, so that is one
+  build, Chromium 158.0.8127.18. A fix moves the pin; where none comes within the window, the
   dependency is replaced or removed, or the owner records a dated exception with its reason in a
   Review Note here, which is the only way to be past the window without being late. **The owner
   watches the advisories.** For the browser, which no manifest or lock file names, the feed is a
@@ -488,8 +488,9 @@ is checked by § 3's capability entries, named in each clause.
   owner, `trail/architecture/cycle-2.md` § 1.1, `trail/architecture/cycle-6.md` § 2.1,
   `trail/architecture/cycle-7.md` § 3.1, `trail/architecture/cycle-17.md` § 3.1,
   `trail/architecture/cycle-18.md` § 3.1; answer, `trail/architecture/cycle-21.md` § 3.1, and
-  `trail/architecture/cycle-24.md` § 2.2; SDD § 4 RT-4, RN-63; see RN-10, RN-18, RN-31, RN-54, RN-56,
-  RN-61, RN-69, and RN-33 for the dated exception in force)*
+  `trail/architecture/cycle-24.md` § 2.2, and `trail/architecture/cycle-25.md` § 3.1; SDD § 4 RT-4,
+  RN-63; see RN-10, RN-18, RN-31, RN-54, RN-56, RN-61, RN-69, and RN-72: no exception is in force,
+  and RN-33's, which named the build `playwright==1.63.0` installs, ended on 2026-11-07)*
 - **QC-41:** The product reads, holds and writes no secret: no account, no key, no credential, at
   setup or in use. A change that introduces one is out of bounds.
   — *verified by:* review at `development-design`. No secrets scanner exists for this product, and
@@ -701,8 +702,8 @@ names on the doctrine's seven.
   verified instead by the tests the SDD slices name at layers 2, 3 and 5, and by the owner's
   run-throughs for AC-1, AC-3, AC-4, AC-5, AC-8, AC-11 and AC-17.
 - **Layer 5 runs on fewer systems than the rest.** On macOS it runs where the tracker does. On Linux
-  it runs where the pinned browser-driving library does — for `playwright==1.63.0`, the Debian and
-  Ubuntu releases SDD § 4 RT-4 lists — with the browser's system libraries RT-4 names installed. On
+  it runs where the pinned browser-driving library does — for `playwright==1.65.1`, the Debian and
+  Ubuntu releases SDD § 4 RT-4 lists, which that release's documentation lists unchanged (RN-72) — with the browser's system libraries RT-4 names installed. On
   any other Linux the tracker and `uv run pytest tests/` run, and `uv run pytest tests/e2e/` is a
   missing prerequisite (SDD § 4 RT-3, RT-4). The list is the pin's and moves only when the pin does. Layers
   1 to 4 and 6 need neither the browser nor administrator rights (see RN-27).
@@ -1934,3 +1935,49 @@ QC-12, QC-25, QC-26, QC-27, QC-40, QC-41 and QC-60 are review gates and have no 
   `tests/architecture/test_pins.py` and every exception class, write and `print` under
   `.behave/features/` on disk. It ran no suite, because this round changes no code. No record was
   written or changed, so the index does not move. *(re: Version 26)*
+- **RN-72:** QC-40 names no exception in force, and the build both sets pin is Chromium
+  158.0.8127.18 under `playwright==1.65.1`, in QC-40, QC-39, QC-63's layer-5 sentence and § 9's
+  platform line — *because* the owner answered companion § 3.1 with (a), the pin moves
+  (`trail/architecture/cycle-25.md` § 3.1: "Move the pin"). The Architect raised the item on
+  2026-11-13: RN-33's exception ran to the end of 2026-11-07 and QC-40's trace tag still called it in
+  force. The pin moved on `main` at `c39e74abe`. This run checked it on disk: `pyproject.toml:17` and
+  `.behave/pyproject.toml:8` read `playwright==1.65.1`, both `uv.lock` files lock it, and
+  `tests/e2e/test_moves.py:515` reads `PINNED_BROWSER = "158.0.8127.18"`. The choice of release, the
+  advisory check behind it and the suite runs are the delegate's, at
+  `system/projects/tracker17/docs/playwright-pin-moves/delegate-report.md` § 2 and § 3: 1.65.1
+  installs 158.0.8127.18, the build's version is above every fix Chrome Releases published up to
+  2026-11-11, and `tests/e2e/` gave 122 passed at that commit. `git diff --stat c39e74abe HEAD --
+  products/tracker17 ':!products/tracker17/docs'` lists one line of `CHANGELOG.md` and no code, so the
+  count holds for the code on `main` now. This run ran no suite. **RN-33 is closed, not edited:** it is
+  a dated record, and its exception named the 1.63.0 build only, so a moved pin left it nothing to
+  cover. The build 158.0.8127.18 is checked afresh at each `development-design` review, as QC-40's
+  tail already says. It is a pre-stable build, so Chrome Releases rates no advisory against it yet.
+  The package feed is still down: the companion item read the alerts endpoint refusing as disabled on
+  2026-11-13, so QC-40's feed moment stays owed. **§ 9's platform list does not move.** The answer
+  named it unchecked. This run read the system requirements Playwright documents at the driver commit
+  1.65.1 bundles (`DRIVER_VERSION` in `microsoft/playwright-python` at `v1.65.1`,
+  `a1f35e1955976e84411f9c10358228a80b763ebe`, "chore: mark v1.65.0"). There, as at `v1.63.0`,
+  `docs/src/intro-python.md` lists "Debian 12 / 13, Ubuntu 22.04 / 24.04 / 26.04 (x86-64 or arm64)",
+  read 2026-11-13. **No record is written or changed.** ADR-0015's *Dependence* names Chromium
+  153.0.8010.12 under `playwright==1.63.0`. That was true when it was accepted, and the record itself
+  says a moved pin is where a Chromium change would show, as its history tests failing. They passed
+  under the new build, so the decision did not move, and a superseding record is for a decision that
+  moved (RN-35). ADR-0010 and ADR-0012 are superseded and are not touched. The dated Review Notes
+  that name 1.63.0, RN-15, RN-31, RN-32, RN-33, RN-35, RN-46 and RN-69, are counts and readings at the
+  commits they name, and stay as written. The answer also asked that the SDD's lines be raised on its
+  own companion. `SDD.md` § 4 RT-4 names `playwright==1.63.0` and the platform list read for it on
+  2026-10-08, and § 12 has § 4 win, so this run raised `products/tracker17/docs/SDD_open_issues.md`
+  § 5.1 for the CTO. RT-4's list is the same under 1.65.1, so § 9 does not wait on that fold. *(re:
+  QC-39, QC-40, QC-63, § 9, RN-33, ADR-0015; source: owner, `trail/architecture/cycle-25.md` § 3.1)*
+- **RN-73:** Version 27 was written on 2026-11-13. It read the answered companion as committed at
+  `16c43a047` and copied it whole to `trail/architecture/cycle-25.md` before the fold, with a
+  `companion-self-answer` run's report at `trail/architecture/self_answer-29.md`, which left the item
+  to this run. Its one item, § 3.1, came from the Architect, and the owner answered it. It is folded
+  here (RN-72), nothing is left open, and the companion is removed. Since version 26
+  (`git diff --stat d8d0f1d65 HEAD` over the product and the project's `finish_line.md`, `doctrine/`
+  and `project.md`), no definition document moved: the SRS, the SDD, the FDR, the PRD, the UXD,
+  `DESIGN.md` and `CONTENT.md` stand at the versions the header names. The changes are the pin move,
+  its two lock files, `tests/e2e/test_moves.py`'s build string, a comment in `tests/e2e/conftest.py`
+  and one `CHANGELOG.md` line. No obligation's words move beyond the pin and the build, and § 10 gains
+  no row: QC-40 is a review gate, and QC-39's and QC-63's rows name no version. No record was written
+  or changed, so the index does not move. *(re: Version 27)*
