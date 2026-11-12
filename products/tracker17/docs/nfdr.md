@@ -1,9 +1,9 @@
 # NFDR — tracker17
 
-**Status:** Settled
+**Status:** Draft
 **Owner:** Principal Architect
-**Version:** 24 — the answers to companion §§ 3.1 to 3.5 folded in (`products/tracker17/docs/trail/architecture/cycle-22.md`): QC-7 and QC-63 are scoped to a tracker serving its saved data, and QC-7 names the one answer of a tracker on unreadable data, 503 with one page (RN-63). ADR-0014, ADR-0015 and ADR-0016 supersede ADR-0011, ADR-0012 and ADR-0005, each carrying its predecessor whole with the mode qualified, and the entries those bound trace to them. QC-8 and § 10 do not move. Nothing is left open, so the companion is removed and this document is Settled.
-**Inputs read:** SRS Settled (version 6) · SDD Settled (version 18; `products/tracker17/docs/SDD_open_issues.md` beside it, § 2.1 answered and not folded) · FDR Settled (version 6) · PRD Settled (version 7) · UXD Settled (version 11) · DESIGN Settled (version 4) · CONTENT Settled (version 19) · finish line no Status line · tracker17 doctrine no Status line (stamped, unfilled)
+**Version:** 25 — the answers to companion §§ 2.1 and 3.1 to 3.3 folded in (`products/tracker17/docs/trail/architecture/cycle-23.md`): § 1.2 names the layer of SDD § 3's four layers each clause binds, and QC-1 names why the root holds no `ports/` directory (RN-65). QC-64, in § 1.4, gives each contract `application/contracts.py` states one fake and one contract suite, and starts unmet (RN-65). QC-1 names `.behave/`, the Behave scenario folder, as test code outside the package unit; QC-19 and QC-43 exempt it, QC-43 `tests/` too, and the source walk skips both by name, not by a leading dot (RN-66). § 9 gains the Behave line, `behave` (RN-67). No record is written or changed. Companion § 2.2 stays open, and § 2.3 is raised, so this document is Draft. At 24: the answers to companion §§ 3.1 to 3.5 folded in (`products/tracker17/docs/trail/architecture/cycle-22.md`): QC-7 and QC-63 are scoped to a tracker serving its saved data, and QC-7 names the one answer of a tracker on unreadable data, 503 with one page (RN-63). ADR-0014, ADR-0015 and ADR-0016 supersede ADR-0011, ADR-0012 and ADR-0005, each carrying its predecessor whole with the mode qualified, and the entries those bound trace to them. QC-8 and § 10 do not move. Nothing is left open, so the companion is removed and this document is Settled.
+**Inputs read:** SRS Settled (version 7) · SDD Settled (version 20; no `products/tracker17/docs/SDD_open_issues.md` beside it) · FDR Settled (version 6) · PRD Settled (version 8) · UXD Settled (version 11) · DESIGN Settled (version 4) · CONTENT Settled (version 21) · finish line no Status line · tracker17 doctrine no Status line (stamped, unfilled)
 
 > The NFDR is the product's **standing obligations, consolidated and verifiable**: every quality
 > constraint a change is checked against, derived from the SRS, the SDD, the FDR and the ADR — never
@@ -33,9 +33,18 @@ module under `tests/architecture/`, which `pytest tests/` runs.
 
 - **QC-1:** The product's code is five parts at the product root — the directories `domain/`,
   `application/`, `persistence/` and `web/`, and `main.py` — plus `errors.py` and `tests/`, in one
-  Python package unit. No other top-level code part exists.
+  Python package unit. The root may also hold `.behave/`, the Behave scenario folder: test code with
+  its own Python setup, `.behave/pyproject.toml` and `.behave/uv.lock`, outside that unit, and no
+  part of the tracker. No other top-level code part exists. The five parts stand as the four layers
+  SDD § 3 names, and the two ports are contracts `application/` states, so the root holds no `ports/`
+  directory.
   — *verified by:* layer 6, a test that lists the product root's Python packages and modules and
-  fails on one outside that set *(traces to: ADR-0001; SDD § 3, the parts and the units)*
+  fails on one outside that set. The source walk under it, which the import and reach walks of §§ 1.2, 1.3, 3 and 8 share, skips
+  `tests/`, `.behave/` and `.venv/` by name, and fails on any other root folder that holds a Python
+  module, whatever its name begins with. The entry starts unmet in its test: at `373ecc8a8`,
+  `SourceWalk._all` in `tests/conftest.py` skips every path piece that begins with a dot, so a
+  dot-folder holding code passes unseen *(traces to: ADR-0001; SDD § 3, the parts and the units, the
+  four layers; § 9 TO-10; answer, `trail/architecture/cycle-23.md` §§ 2.1, 3.1; see RN-65, RN-66)*
 - **QC-2:** `main.py` is the composition root. It is the only module that names a concrete
   `persistence` or `web` class, and it builds the real clock. No module imports `main`.
   — *verified by:* layer 6, an import and name walk over every module outside `tests/`
@@ -182,33 +191,49 @@ module under `tests/architecture/`, which `pytest tests/` runs.
 Each module appears once. "Third-party" means any module not in Python's standard library
 (`sys.stdlib_module_names`) and not part of tracker17. Every entry is verified by one layer-6 test
 that walks the imports of every module on disk, and that test fails when a directory it walks holds
-no module, so a walk rooted at the wrong path cannot pass by finding nothing (§ 9).
+no module, so a walk rooted at the wrong path cannot pass by finding nothing (§ 9). Each entry names
+the layer of `<CORE>/doctrine/engineering/arch_defaults.md` § The four layers its clause binds, as
+SDD § 3, the four layers, places the five parts on them. Naming the layers moves no allowed or
+forbidden set: the direction of dependence below was held before the layers were named.
 
-- **QC-13:** `domain/` may import `errors` and the standard library. It must not import from:
-  `application`, `persistence`, `web`, `main`, `tests`, or any third-party module.
-  — *verified by:* layer 6, import walk *(traces to: ADR-0001; SDD § 3, the direction of dependence)*
-- **QC-14:** `application/` may import `domain` and `errors`. It must not import from:
-  `persistence`, `web`, `main`, `tests`, or any third-party module.
-  — *verified by:* layer 6, import walk *(traces to: ADR-0001; SDD § 3 `application` row)*
-- **QC-15:** `persistence/` may import `domain` and `errors`. It must not import from:
-  `application`, `web`, `main`, `tests`, or any third-party module.
-  — *verified by:* layer 6, import walk *(traces to: ADR-0001; SDD § 3 `persistence` row)*
-- **QC-16:** `web/` may import `application` and `errors`. It must not import from: `domain`,
+- **QC-13:** `domain/`, the rules of the `domain` layer, may import `errors` and the standard
+  library. It must not import from: `application`, `persistence`, `web`, `main`, `tests`, or any
+  third-party module.
+  — *verified by:* layer 6, import walk *(traces to: ADR-0001; SDD § 3, the direction of dependence,
+  the four layers; `arch_defaults.md` § The four layers)*
+- **QC-14:** `application/`, the flow of the `domain` layer and the `ports`, which are the two
+  contracts it states, may import `domain` and `errors`. It must not import from: `persistence`,
+  `web`, `main`, `tests`, or any third-party module.
+  — *verified by:* layer 6, import walk *(traces to: ADR-0001; SDD § 3 `application` row, the four
+  layers; § 9 TO-10; `arch_defaults.md` § The four layers)*
+- **QC-15:** `persistence/`, the `adapters` layer's implementation of saving, may import `domain`
+  and `errors`. It must not import from: `application`, `web`, `main`, `tests`, or any third-party
+  module.
+  — *verified by:* layer 6, import walk *(traces to: ADR-0001; SDD § 3 `persistence` row, the four
+  layers; `arch_defaults.md` § The four layers)*
+- **QC-16:** `web/`, the browser's adapter in the `adapters` layer, routes and request handler
+  included, may import `application` and `errors`. It must not import from: `domain`,
   `persistence`, `main`, `tests`, or any third-party module. The refusal types `web` maps reach it
-  through `application` (QC-5).
-  — *verified by:* layer 6, import walk *(traces to: ADR-0001; SDD § 3, the direction of dependence
-  and `SM-1`; § 4 RT-10, "`web` receives them through `application`"; owner,
-  `trail/architecture/cycle-1.md` § 2.3; see RN-5)*
-- **QC-17:** `main.py` may import `domain`, `application`, `persistence`, `web` and `errors`. It must
-  not import from: `tests`, or any third-party module.
-  — *verified by:* layer 6, import walk *(traces to: ADR-0001; SDD § 3, "`main` imports all four")*
-- **QC-18:** `errors.py` imports no part of tracker17 — not `domain`, `application`, `persistence`,
-  `web` or `main` — and no third-party module.
+  through `application` (QC-5). The handler stays under this narrower rule, not the `entrypoints`
+  layer's.
+  — *verified by:* layer 6, import walk *(traces to: ADR-0001; SDD § 3, the direction of dependence,
+  `SM-1`, the four layers; § 4 RT-10, "`web` receives them through `application`";
+  `arch_defaults.md` § The four layers; owner, `trail/architecture/cycle-1.md` § 2.3; see RN-5)*
+- **QC-17:** `main.py`, the `entrypoints` layer, which also builds the real clock, the clock's
+  adapter, may import `domain`, `application`, `persistence`, `web` and `errors`. It must not import
+  from: `tests`, or any third-party module.
+  — *verified by:* layer 6, import walk *(traces to: ADR-0001; SDD § 3, "`main` imports all four",
+  the four layers; `arch_defaults.md` § The four layers)*
+- **QC-18:** `errors.py`, which SDD § 3 places in no layer, imports no part of tracker17 — not
+  `domain`, `application`, `persistence`, `web` or `main` — and no third-party module.
   — *verified by:* layer 6, import walk *(traces to: ADR-0001; SDD § 3, "Every part may import
   `errors.py`")*
-- **QC-19:** No module outside `tests/` imports a third-party module, and no module outside `tests/`
-  imports from `tests/`.
-  — *verified by:* layer 6, import walk *(traces to: ADR-0013; SDD § 4 RT-1, RT-4)*
+- **QC-19:** No module outside `tests/` and `.behave/` imports a third-party module, and no module
+  outside `tests/` imports from `tests/`. The second clause binds `.behave/`.
+  — *verified by:* layer 6, import walk, which skips `tests/` and `.behave/` by name (QC-1); and, for
+  the second clause over `.behave/`, a walk of that folder that fails on an import from `tests` and,
+  while the folder exists, on finding no module in it *(traces to: ADR-0013; SDD § 4 RT-1, RT-4;
+  answer, `trail/architecture/cycle-23.md` § 3.2; see RN-66)*
 
 ### 1.3 Layer isolation
 
@@ -288,6 +313,27 @@ is checked by § 3's capability entries, named in each clause.
   interrupt or fail it.
   — *verified by:* SRS AC-9's interrupted-save test and AC-18's failure test *(traces to: SDD § 4
   TS-2; § 2, force 4; FDR PD-15)*
+- **QC-64:** Each contract `application/contracts.py` states — saving the whole state and the clock
+  today — has one fake and one contract suite. The fake is written once, in one test-support module
+  under `tests/`, in the form `<CORE>/doctrine/engineering/testing_python.md` § 2 states ("the fakes
+  live in a test-support module such as `tests/fakes.py`"), and no other module under `tests/`,
+  `tests/e2e/` included, defines a class that stands in for a contract. A test that needs behaviour
+  the fake lacks adds it to the fake, with that behaviour's case in the suite. The suite states the
+  contract's behaviour once, against the contract alone, and runs twice: handed the real
+  implementation and handed the fake. Both runs are layer 2.
+  — *verified by:* the contract suites, at layer 2 in `pytest tests/`, where a fake that fails its
+  suite fails the run; and layer 6, a walk of every module under `tests/` that reads the method names
+  off the `Protocol` classes in `application/contracts.py` — `save` and `now` today — and fails when
+  it reads none. It fails on a class outside the test-support module that defines one of those
+  methods; on a class outside it whose base is a class that module defines, which catches a
+  test-local `OnlySaves(RecordingSaver)` that overrides nothing; on a missing test-support module; on
+  a contract with no fake in it; and on a contract with no suite run against both the real
+  implementation and the fake. The entry starts unmet: at `373ecc8a8` neither the test-support
+  module nor a contract suite exists, and 64 classes across 26 modules under `tests/`, `tests/e2e/`
+  included, stand in for the clock or the saver *(traces to: SDD § 3, the four layers; § 4 TS-6;
+  `<CORE>/doctrine/engineering/testing_doctrine.md` § A fake is verified against its port's
+  contract; `testing_python.md` § 2; QC-3; answer, `trail/architecture/cycle-23.md` § 2.1; see
+  RN-65)*
 
 ## 2. Security
 
@@ -453,11 +499,14 @@ accepts it. A second account on the machine in scope would be a change to SRS C-
   layer 2, a test that starts from another working directory and asserts the location is unchanged
   *(traces to: SDD § 4 SD-3, SD-6, OB-1; SRS FR-6; `<CORE>/doctrine/engineering/quality_defaults.md`
   § Capability)*
-- **QC-43:** Only `web` opens a socket, and only to listen. No module outside `web/` imports `socket`,
-  `socketserver` or `http.server`, and no module imports `http.client`, `urllib.request`, `ftplib` or
-  `smtplib`.
-  — *verified by:* layer 6, import walk *(traces to: ADR-0013; SDD § 4 RT-5, SEC-3;
-  `<CORE>/doctrine/engineering/quality_defaults.md` § Capability)*
+- **QC-43:** Outside `tests/` and `.behave/`: only `web` opens a socket, and only to listen. No
+  module outside `web/` imports `socket`, `socketserver` or `http.server`, and no module imports
+  `http.client`, `urllib.request`, `ftplib` or `smtplib`. Both folders are test code that serves
+  pages and opens client connections to drive the tracker; QC-35 binds the running tracker whatever
+  they do.
+  — *verified by:* layer 6, import walk, which skips `tests/` and `.behave/` by name (QC-1)
+  *(traces to: ADR-0013; SDD § 4 RT-5, SEC-3; `<CORE>/doctrine/engineering/quality_defaults.md`
+  § Capability; answer, `trail/architecture/cycle-23.md` § 3.3; see RN-66)*
 - **QC-44:** No module in `domain/`, `application/`, `persistence/` or `web/` reads the machine's
   clock. The real clock is built in `main.py` and handed in.
   — *verified by:* layer 6, a call walk that fails on `datetime.now`, `datetime.today`, `date.today`,
@@ -605,7 +654,7 @@ names on the doctrine's seven.
 | Level | Scope | Tool | Where it lives |
 |---|---|---|---|
 | 1 — Unit | `domain`: every rule, with no file and no clock; and QC-30's check of the address constant, which needs no file, socket or clock | pytest | `tests/`, one module per feature word |
-| 2 — Integration | `persistence` against real files in a test's own directory: AC-7, AC-9, AC-16, the restart tests | pytest with `tmp_path` | `tests/` |
+| 2 — Integration | `persistence` against real files in a test's own directory: AC-7, AC-9, AC-16, the restart tests; and each contract's suite (QC-64), handed the real implementation and the fake — the real clock's run reads the machine's clock and touches no file | pytest with `tmp_path` | `tests/` |
 | 3 — Application | `web` with `application` and `domain` in one process with no socket, the clock and the saver handed in: refusals, the request check, the page policy, the route test | pytest | `tests/` |
 | 4 — UI | the page `web` builds for a given state: escaping, `maxlength`, `autofocus` — asserted in the same in-process tests as layer 3 | pytest | `tests/` |
 | 5 — End-to-End | a tracker started by `main` on its own location and port, driven in Chromium | pytest with the browser-driving library SDD § 4 RT-4 pins (named by no upstream document) | `tests/e2e/` |
@@ -633,6 +682,12 @@ names on the doctrine's seven.
   `<CORE>/doctrine/engineering/languages/python/quality_gates.md` — compile and suite — apply as
   stated there, and QC-62 adds the three Ruff and mypy gates the same file names as the house default
   for a product that installs those tools.
+
+The Behave line below records whether this product needs its behaviour tested with Behave. `behave`
+means it does. tracker17 is a product this repository owns, with code, that a person — the operator
+— uses, so the first of the owner's criteria of 2026-11-10 makes it `behave` (see RN-67).
+
+**Behave:** behave
 
 ## 10. Verification map
 
@@ -715,6 +770,7 @@ the rest (owner, `trail/architecture/cycle-20.md` § 3.1; RN-60).
 | QC-62 | lint | `ruff check .` | the tree | suite |
 | QC-62 | types | `mypy main.py errors.py domain application persistence web` | the tree | suite |
 | QC-63 | confirmed actions' pages: 202 for a pending confirmation, `no-store`; the bare 404 | `pytest tests/` · layer 3; `pytest tests/e2e/` · layer 5 | the tree | suite |
+| QC-64 | one verified fake per contract | `pytest tests/` · layers 2 and 6 | the tree | suite |
 
 QC-12, QC-25, QC-26, QC-27, QC-40, QC-41 and QC-60 are review gates and have no row.
 
@@ -1728,3 +1784,62 @@ QC-12, QC-25, QC-26, QC-27, QC-40, QC-41 and QC-60 are review gates and have no 
   notes for the mode. The SRS, the PRD, the UXD, `DESIGN.md`, `what_left.md`, the finish line and the
   project's doctrine are unchanged since version 23. Nothing is left open, so the companion is removed
   and this document is Settled. *(re: Version 24)*
+- **RN-65:** § 1.2 names the layer each clause binds, QC-1 says why the root holds no `ports/`
+  directory, and QC-64 binds one fake and one contract suite per contract — *because* the answer to
+  companion § 2.1 settled it (`trail/architecture/cycle-23.md` § 2.1, with the reasoning at
+  `trail/architecture/self_answer-27.md`). A `companion-self-answer` run answered it; the owner has
+  not. The SDD took `<CORE>/doctrine/engineering/arch_defaults.md` § The four layers at version 20
+  (§ 3, the four layers; § 4 TS-6; § 9 TO-10), and the item waited on it. No allowed or forbidden set
+  moves: the layer names are words and traces. QC-18 names no layer, because SDD § 3 places
+  `errors.py` in none and naming one here would decide the design. QC-16 says the request handler
+  stays under `web`'s narrower rule, because SDD § 3 says so. QC-64 sits in § 1.4 beside QC-28 and
+  QC-29, names each contract `application/contracts.py` states rather than "the two", and reads its
+  method names off those `Protocol` classes, so a third contract is bound the day it lands; its walk
+  fails on finding none, as § 9 has every layer-6 walk do. **QC-64 starts unmet.** This run counted
+  64 classes whose names end in `Clock` or `Saver` in 26 modules under `tests/` at `373ecc8a8`, the
+  answer's count; the draft's 60 in 22 left out `tests/e2e/`. Until a change moves those fakes and
+  writes the suites, QC-64's walk fails, so it lands with that change, as QC-62's gate started red
+  (RN-22). **No record is written.** TO-10 is a real trade-off and surprising, but it is not hard to
+  reverse beyond what ADR-0001 already records: ADR-0001 fixes five parts and says a sixth needs a
+  superseding record, which is the whole of TO-10's cost of undoing. § 3's other alternative, the
+  handler in `entrypoints`, is cheap to reverse, because `web`'s import rule holds either way.
+  *(re: QC-1, QC-13 to QC-18, QC-64, § 9, § 10; source: `trail/architecture/cycle-23.md` § 2.1)*
+- **RN-66:** QC-1 names `.behave/`, QC-19 exempts it from its first clause, QC-43 opens "Outside
+  `tests/` and `.behave/`:", and the source walk skips `tests/`, `.behave/` and `.venv/` by name —
+  *because* the answers to companion §§ 3.1 to 3.3 settled it (`trail/architecture/cycle-23.md`
+  §§ 3.1 to 3.3, with the reasoning at `trail/architecture/self_answer-27.md`). The PM raised the
+  three items. A `companion-self-answer` run answered them; the owner has not. The words went false
+  while the tests passed because `SourceWalk._all` in `tests/conftest.py` skips every path piece that
+  begins with a dot, so QC-1's test is corrected to fail on any other root folder that holds code.
+  That test change has not landed: QC-1's tail says the entry starts unmet in its test. QC-43's
+  exemption covers the whole entry and `tests/` too, because `.behave/`'s page step listens and its
+  server way in connects through `httpx`, and this run counted 10 modules under `tests/` that import
+  `socket`, `socketserver`, `http.server` or `http.client`. One thing goes beyond the answers. QC-19's
+  answer says the second clause still binds `.behave/` and that the named skip makes the words and the
+  walk agree. They do not for that clause: a walk that skips `.behave/` cannot catch a module there
+  importing from `tests/`. So QC-19's tail names a walk of `.behave/` for that clause. It holds
+  today: no module under `.behave/features/` imports from `tests`. The same skip leaves seven other entries'
+  words reaching `.behave/` with no walk behind them, and QC-4's words are already false there:
+  `.behave/features/browser_way_in.py` defines `ChromiumMissing(AssertionError)`. That is raised as
+  companion § 2.3, not decided here. *(re: QC-1, QC-19, QC-43; source: `trail/architecture/cycle-23.md` §§ 3.1 to 3.3)*
+- **RN-67:** § 9 gains the line `**Behave:** behave` — *because* the authoring prompt has this seat
+  make the Behave call for each product, on the owner's criteria of 2026-11-10, and the line was
+  missing: the template that carries it moved after version 24 was written. tracker17 meets the
+  first criterion, a product we own, with code, that a person uses, so no reason for `none` is
+  weighed. The project card reads `Behave: behave` and `Test command:` is not `none`, so nothing
+  there contradicts it. The line is the call, and it does not settle companion § 2.2: § 9's layer-7
+  row and QC-39 stay as written until that item is answered. *(re: § 9)*
+- **RN-68:** Version 25 was written on 2026-11-12. It read the answered companion as committed at
+  `373ecc8a8` and copied it whole to `trail/architecture/cycle-23.md` before the fold. The PM opened
+  §§ 3.1 to 3.3; `companion-self-answer` runs raised §§ 2.1 and 2.2; no producing run wrote any of
+  them. §§ 2.1 and 3.1 to 3.3 are folded (RN-65, RN-66). § 2.2 has no answer and stays. Since version
+  24 (`git diff --stat 04c348675 HEAD` over the product and the project's `finish_line.md`,
+  `doctrine/` and `project.md`), the SDD moved to version 20, the SRS to 7, the PRD to 8 and
+  `CONTENT.md` to 21; the product gained `.behave/`, `CHANGELOG.md` and a change in how `main.py`
+  writes the saved-data location; and the project's terminus is renamed the finish line, a rename
+  this document and ADR-0009 already carry. This run read those changes. Beyond RN-65 to RN-67 they
+  move no entry: SRS version 7 adds no requirement, the location's display is wording QC-55 and
+  QC-58 do not bind, and the FDR changed only the terminus's name. It checked `tests/conftest.py`'s
+  source walk, `application/contracts.py`, and every import under `.behave/features/` on disk. It ran
+  no suite, because this round changes no code. No record was written or changed. § 2.2 stays open
+  and § 2.3 is raised, so this document is Draft. *(re: Version 25)*
