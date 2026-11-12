@@ -512,7 +512,7 @@ def test_address_refusal_shows_the_title_as_typed(
     assert saved_bytes(tracker) == before
 
 
-PINNED_BROWSER = "153.0.8010.12"
+PINNED_BROWSER = "158.0.8127.18"
 CONTROL_TITLE = "Control"
 PEOPLE = "/people"
 # Test-side only: every document records each pageshow it receives, so a fresh load reads [False]

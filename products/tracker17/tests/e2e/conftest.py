@@ -137,7 +137,7 @@ def browser(playwright_instance: Playwright) -> Iterator[Browser]:
 
 
 # The one launch default the driver sets that bears on history traversal: it turns the browser's
-# back/forward cache off. Read from the pinned driver's `chromiumSwitches` (playwright 1.63.0,
+# back/forward cache off. Read from the pinned driver's `chromiumSwitches` (playwright 1.65.1,
 # `--disable-back-forward-cache`); every other default is left in place. The headless shell the
 # default launch uses never restores a page from that cache even without the switch (measured with
 # a plain page: `pageshow.persisted` stayed false), so the history proof launches the full Chromium

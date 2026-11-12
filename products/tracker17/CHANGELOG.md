@@ -6,6 +6,7 @@ Each entry records a change to what a user of a fresh clone installs, runs, type
 
 ### Upgrading
 
+- **tracker17** — The tests and the Behave scenarios now run on Playwright 1.65.1, which drives Chromium 158.0.8127.18. Inside `products/tracker17`, type `uv sync --locked`, then `uv run playwright install chromium`. Inside `products/tracker17/.behave`, type `uv run --locked playwright install chromium`. (`c39e74abe`)
 - **tracker17** — The tests' dependencies are locked in `products/tracker17/uv.lock`, and `tests/requirements.txt` no longer exists. To run the tests, install uv, then type `uv sync --locked` and `uv run playwright install chromium` inside `products/tracker17`. Type each test command through `uv run`, such as `uv run pytest tests/`. The tracker itself still starts with `python3 main.py` and doesn't need uv. (`3553cf36d`, `a71d23637`)
 
 ### Added
