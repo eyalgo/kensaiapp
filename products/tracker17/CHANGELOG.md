@@ -19,6 +19,7 @@ Each entry records a change to what a user of a fresh clone installs, runs, type
 - **tracker17** — You can delete a project and all of its tasks after you confirm. You land on Projects with a line naming the project and how many tasks went with it. Afterwards the project's addresses show the not-found page, and an action sent for the project or one of its tasks changes nothing. (`ac09e56af`, `2600b3b5e`)
 - **tracker17** — A second tracker started on the same saved data is refused with the line "The tracker didn't start, because another tracker is already running on the same saved data. Stop that one first, then start this one." The first tracker carries on, and a tracker that was killed doesn't prevent the next start. The setup instructions describe both. (`281853622`)
 - **tracker17** — `products/tracker17/docs/adr/` holds six new decision records, ADR-0011 to ADR-0016. ADR-0013 to ADR-0016 are in force, and they supersede ADR-0002, ADR-0005, ADR-0006 and ADR-0010. ADR-0011 and ADR-0012 are superseded by ADR-0014 and ADR-0015. (`db16374d3`, `d459f69d9`, `909fc536c`, `04c348675`)
+- **product-development** — `products/tracker17/.behave` holds the Behave starter. Inside it, `uv run --locked behave` runs three scenarios that prove a command, a server and a browser can each be reached. Run `uv run --locked playwright install chromium` there once on each machine before the browser scenario can pass. The tracker's own `pyproject.toml` and `uv.lock` are unchanged. (`9537529ba`)
 
 ### Changed
 
