@@ -614,7 +614,7 @@ SUMMARY_CHECKING_TESTS = (
 
 
 def test_summary_entry_names_every_participant_and_check() -> None:
-    """QC-11, CP-504: the completed Summary entry names FR-38, FR-25, FR-35 and NFR-9, every
+    """QC-11, CP-504, CP-817: the Summary entry names FR-38, FR-25, FR-35, NFR-9 and AC-13, every
     application and web participant, the five new test files, the modified compatibility,
     architecture and timing checking modules and the timed run; `summary` is landed, every named
     path exists and every requirement resolves.

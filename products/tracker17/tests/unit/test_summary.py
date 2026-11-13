@@ -7,8 +7,9 @@ trace from the requirement to this code) and AC-13, AC-14 (the overdue boundary 
 test). Change spec rules CP-496 to CP-500, CP-505 to CP-507 and CP-508 are the ones each test
 names. The design rows T01 to T04 are the coverage references.
 
-The due-on-date count (AC-13, FR-38) is checked by the change spec rules CP-808 to CP-810 and CP-813:
-the summary carries the date it was worked out on, and counts the open tasks due on that date.
+The due-on-date count (AC-13, FR-38) is checked by the change spec rules CP-808 to CP-810 and
+CP-813: the summary carries the date it was worked out on, and counts the open tasks due on that
+date.
 """
 
 from __future__ import annotations

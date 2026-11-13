@@ -1,12 +1,15 @@
 """Integration tests of the timed harness at task volume (layer 3).
 
 Checks SRS NFR-1 (an action stays fast with 1,000 tasks of 20 comments each, editing a task's fields
-included, a label added or removed too, the operator's name saved, a comment added, a name added
-to or removed from the assignee list, a task moved from `todo` to `in-progress`, and a project
-list filtered by a status, which realizes FR-32, and sorted by priority, which realizes FR-36) and AC-15 (the response time). Change spec rules CP-143 (the add), CP-179 (the edit), CP-208 (the label add and
-remove), CP-237 (the name save), CP-276 to CP-289 (the comment add and the assignee add and remove)
-CP-812 and CP-821 (the Summary's due-on-date row), CP-371 to CP-392 (the status move), CP-418 to CP-423 (the status filter) and CP-451 to CP-456 (the sort), CP-543 (the task deletion, FR-17), CP-566 (the project rename, FR-12) and NFDR QC-48 are the ones each test names. The harness is
-tests/timed_run.py; it is loaded by its path and handed its own collaborators (a request site, a
+included, a label added or removed too, the operator's name saved, a comment added, a name added to
+or removed from the assignee list, a task moved from `todo` to `in-progress`, and a project list
+filtered by a status, which realizes FR-32, and sorted by priority, which realizes FR-36) and AC-15
+(the response time). Change spec rules CP-143 (the add), CP-179 (the edit), CP-208 (the label add
+and remove), CP-237 (the name save), CP-276 to CP-289 (the comment add and the assignee add and
+remove) CP-812 and CP-821 (the Summary's due-on-date row), CP-371 to CP-392 (the status move),
+CP-418 to CP-423 (the status filter) and CP-451 to CP-456 (the sort), CP-543 (the task deletion,
+FR-17), CP-566 (the project rename, FR-12) and NFDR QC-48 are the ones each test names. The harness
+is tests/timed_run.py; it is loaded by its path and handed its own collaborators (a request site, a
 timer, a location), so no product name is patched. A script that only exits 0 could time the wrong
 path, so these tests prove it exercises the real one and refuses a wrong one.
 """
