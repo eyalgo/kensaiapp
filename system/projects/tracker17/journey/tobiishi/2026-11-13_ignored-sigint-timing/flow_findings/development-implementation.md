@@ -1,0 +1,8 @@
+# Flow Findings — development-implementation  (audited 2026-11-13)
+
+Findings for this step's output only, produced by the `development-audit` skill.
+Change-local findings live here; skill-general findings are also raised as kaizen items.
+
+Checked and held: the language resolves to Python, matching `project.md` `Languages:` and the two test modules touched; the packet's seven concerns each have a line in the closing commit, and every quoted clause matches its source line; the Step 1b block carries both counts (added 0, not delivered 0) and the edge list matches the instruction's assertions; the diff is exactly the two test modules the plan names; no parts table covers test code, so lens 9 finds nothing misplaced and the code-integrity Placement section agrees.
+
+- **[non-blocking · change-local · evidence that could have failed]** The gate-environment line's verdict leans on an exception its quote does not contain. Where: closing commit `developer: 2026-11-13_ignored-sigint-timing — implementation complete`, `Language resolution:`, the `languages/python/environment.md:16` line. The quoted clause says Python's gates run in a Linux container at CI's Python version. The line concludes "not chosen by this run … no CI version for the clause to read", while the gates ran on the owner's Mac. What lets a no-CI product run there is `languages/README.md` § Gate environment defaults ("A product with no CI runs its gates on the owner's Mac"), which the line never quotes. Read by the verdict-against-quote check, the quoted words carry no exception, so the line reads as a silent divergence until the owner of the exception is cited. Direction: quote the README clause beside the environment clause.
