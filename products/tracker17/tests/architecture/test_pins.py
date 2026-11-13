@@ -11,7 +11,7 @@ import tomllib
 from pathlib import Path
 
 PRODUCT_ROOT = Path(__file__).resolve().parent.parent.parent
-EXACT = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*(\[[A-Za-z0-9,._-]+\])?==[^=<>!~,;\s]+")
+EXACT = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*(\[[A-Za-z0-9,._-]+\])?==[^=<>!~,;*\s]+")
 
 
 def manifest() -> dict:
