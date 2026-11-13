@@ -12,7 +12,7 @@ Cut from `products/tracker17/docs/nfdr.md` QC-39 and QC-40 ("QC-39 starts unmet 
 
 ## Stations — dynamic checklist
 
-- [ ] pins-over-behave — `test_pins.py` fails on a `.behave/` dependency not pinned with `==`, on a `.behave/` holding no manifest or no `uv.lock`, and on a `.behave/` declared dependency that `.behave/uv.lock` does not fix at that version, and reads nothing when `.behave/` is absent, each case held by a test in the suite that fails at the commit before; a mutation moving one pin in `.behave/pyproject.toml` fails it; the suite stays green
+- [x] pins-over-behave — `test_pins.py` fails on a `.behave/` dependency not pinned with `==`, on a `.behave/` holding no manifest or no `uv.lock`, and on a `.behave/` declared dependency that `.behave/uv.lock` does not fix at that version, and reads nothing when `.behave/` is absent, each case held by a test in the suite that fails at the commit before; a mutation moving one pin in `.behave/pyproject.toml` fails it; the suite stays green
 
 The route stays one station: one test file, one capability, one merge. Divergence: the bar now names the missing-manifest and absent-folder cases that the seed's `## What it is` states and the line omitted.
 Divergence, after the blind review (`docs/stations-blind-review/2026-11-13_the-pins-test-reads-the-behave-lock_review.md`): the lock clause and the mutation now name `.behave/`, since read over the root both already pass today; each case is held by a test in the suite. Readings settled: "QC-40's lock clause rides on it" is a note, not work, since QC-40 is a review gate with no test row (`docs/nfdr.md:L815`); "the same way" means QC-39's three checks (`docs/nfdr.md:L424-L425`).
