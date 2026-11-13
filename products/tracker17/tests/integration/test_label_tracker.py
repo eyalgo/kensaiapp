@@ -26,6 +26,7 @@ from application import (
     TrackerState,
 )
 from domain import Comment, restore_state, restore_task
+from tests.fakes import FakeSaver
 
 PROJECTS = [(1, "Alpha", "first"), (2, "Beta", "")]
 CREATED = datetime(2026, 10, 11, 12, 0, tzinfo=UTC)
@@ -74,33 +75,10 @@ def _all_tasks(tracker: Tracker) -> tuple[Task, ...]:
     return tuple(row.task for project_id in (1, 2) for row in tracker.project_tasks(project_id))
 
 
-class RecordingSaver:
-    """Keeps every state it was handed, and what the tracker showed at the moment of each save."""
-
-    def __init__(self) -> None:
-        self.saved: list[TrackerState] = []
-        self.held_during_save: list[tuple[Task, ...]] = []
-        self.tracker: Tracker | None = None
-
-    def save(self, state: TrackerState) -> None:
-        if self.tracker is not None:
-            self.held_during_save.append(_all_tasks(self.tracker))
-        self.saved.append(state)
-
-
-class FailingSaver:
-    def __init__(self) -> None:
-        self.calls = 0
-
-    def save(self, state: TrackerState) -> None:
-        self.calls += 1
-        raise PermissionError("the disk said no")
-
-
 def _tracker(saver) -> Tracker:
     tracker = Tracker(_state(), saver, FixedClock())
-    if isinstance(saver, RecordingSaver):
-        saver.tracker = tracker
+    if isinstance(saver, FakeSaver):
+        saver.watch = lambda: _all_tasks(tracker)
     return tracker
 
 
@@ -128,7 +106,7 @@ def test_the_label_names_web_needs_are_reexported():
 def test_label_action_saves_once_before_publication(act, label, expected):
     """CP-187, CP-192: the saver sees the candidate while the tracker still shows the old labels,
     and the saved result then becomes current."""
-    saver = RecordingSaver()
+    saver = FakeSaver()
     tracker = _tracker(saver)
     before = _all_tasks(tracker)
 
@@ -136,7 +114,7 @@ def test_label_action_saves_once_before_publication(act, label, expected):
 
     assert isinstance(outcome, TaskLabelOutcome) and outcome.changed is True
     assert len(saver.saved) == 1
-    assert saver.held_during_save == [before]
+    assert saver.seen == [before]
     assert saver.saved[0].tasks[0].labels == expected
     assert outcome.task == saver.saved[0].tasks[0] == tracker.task(1)
     assert _labels(tracker) == expected
@@ -145,7 +123,7 @@ def test_label_action_saves_once_before_publication(act, label, expected):
 def test_repeated_add_hands_saver_nothing():
     """CP-189, CP-204, QC-21: an exact repeat reports no change and sends no save; a different
     case or a surrounding space is a different label and is saved."""
-    saver = RecordingSaver()
+    saver = FakeSaver()
     tracker = _tracker(saver)
 
     outcome = tracker.add_task_label(1, "bug")
@@ -173,7 +151,7 @@ def test_repeated_add_hands_saver_nothing():
 def test_label_refusal_hands_saver_nothing(act, task_id, label, refusal):
     """CP-190, CP-191, CP-193, CP-194: each refusal propagates, leaves every task as it was and
     sends the saver nothing."""
-    saver = RecordingSaver()
+    saver = FakeSaver()
     tracker = _tracker(saver)
     before = _all_tasks(tracker)
 
@@ -188,7 +166,7 @@ def test_label_refusal_hands_saver_nothing(act, task_id, label, refusal):
 def test_failed_label_save_leaves_previous_state_current(act, label, expected):
     """QC-49: a failing saver propagates its failure, no outcome comes back, and every task
     keeps its labels and fields."""
-    saver = FailingSaver()
+    saver = FakeSaver(error=PermissionError("the disk said no"))
     tracker = _tracker(saver)
     before = _all_tasks(tracker)
 
@@ -204,7 +182,7 @@ def test_failed_label_save_leaves_previous_state_current(act, label, expected):
 def test_label_actions_preserve_unrelated_reads_and_fields(act, label, expected):
     """CP-199: the label rows, the edit context, the other task, the people and both counters stay
     consistent, and no field of the task other than its labels moves."""
-    saver = RecordingSaver()
+    saver = FakeSaver()
     tracker = _tracker(saver)
     before_task = tracker.task(1)
     before_context = tracker.task_edit_context(1)
