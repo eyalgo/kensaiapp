@@ -12,7 +12,7 @@ Cut from `products/tracker17/docs/nfdr.md` QC-64 ("The entry starts unmet: at `3
 
 ## Stations — dynamic checklist
 
-- [ ] saver-fake-and-suite — one `Saver` fake in a new test-support module under `tests/`; a layer-2 contract suite for `save` that passes handed `persistence`'s `SavedData` and handed the fake; no test module outside it defines a class with `save`, the five by other names (`Quiet`, `RecordingEverything`) included — `pytest tests/` passes
+- [x] saver-fake-and-suite — one `Saver` fake in a new test-support module under `tests/`; a layer-2 contract suite for `save` that passes handed `persistence`'s `SavedData` and handed the fake; no test module outside it defines a class with `save`, the five by other names (`Quiet`, `RecordingEverything`) included — `pytest tests/` passes
 - [ ] clock-fake-and-suite — one `Clock` fake in that module; a layer-2 contract suite for `now` that passes handed `main.SystemClock` and handed the fake; no test module outside it defines a class with `now` — `pytest tests/` and `pytest tests/e2e/` pass
 - [ ] the-qc-64-walk — the layer-6 walk reads `save` and `now` off the `Protocol` classes and passes on the tree; a test per case shows it fails on a stand-in outside the module, on a subclass of the module's fakes, on a missing module, on a contract with no fake, on a contract with no suite run both ways, and on reading no method; `pytest tests/` passes, so one module holds both fakes and nothing else stands in
 
