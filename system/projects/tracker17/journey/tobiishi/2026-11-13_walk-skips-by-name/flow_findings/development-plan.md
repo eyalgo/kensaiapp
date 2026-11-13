@@ -1,0 +1,9 @@
+# Flow Findings — development-plan  (audited 2026-11-13)
+
+Findings for this step's output only, produced by the `development-audit` skill.
+Change-local findings live here; skill-general findings are also raised as kaizen items.
+
+- **[non-blocking · change-local · divergence-record]** A full-suite failure at the base is named in the plan and recorded nowhere that outlives the change. Where: `tl_instruction.md §TL Review Notes` ("Gate command checked": `test_real_start_stops_when_pytest_launch_ignores_sigint` failed in the full run, passed alone, read as a timing failure); `deferred_decisions.md` holds only the QC-19 gap. Detail: the pass criterion demands no failed test on the last line of each suite (CP-795), so the developer may meet a red the plan already knows of with no instruction for it. The defect is a found-while-walking item, so it needs an owner-bearing entry for `shukuba-refine`, and the gate needs a line saying what to do if that test fails again.
+- **[non-blocking · change-local · coverage]** The `.behave` name is planted only at the root, never below it. Where: `tl_instruction.md §Task 1 Behaviours to verify` (inside-a-part case plants `domain/.venv` and `domain/tests`). Detail: CP-786 says a folder named `tests`, `.behave` or `.venv` below the root is walked as its part, and the design's inside-a-part row stops at two of the three names. A walk that skipped `.behave` at any depth would pass every planned test. Direction: add `domain/.behave/x.py` to that case.
+
+Lenses 3, 5, 6, 8, 9 and 10 raise nothing (9 and 10 are not this step's lenses). Category and Behaviour are copied from the spec and design verbatim. The one-task, merged-hint, mixed-red and held-by-review decisions are each recorded with their reason in `TL Review Notes`. The red/green split (four fail at the base, the CP-790 case passes) matches the base walk's behaviour. No sub-job is enacted from the design.
