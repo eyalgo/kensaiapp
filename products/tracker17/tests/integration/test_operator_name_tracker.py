@@ -24,6 +24,7 @@ from application import (
     TrackerState,
 )
 from domain import restore_state, restore_task
+from tests.fakes import FakeSaver
 
 PROJECTS = [(1, "Alpha", "first"), (2, "Beta", "")]
 NEXT_PROJECT_ID = 3
@@ -38,29 +39,6 @@ class CountingClock:
     def now(self) -> datetime:
         self.reads += 1
         return CREATED_AT
-
-
-class RecordingSaver:
-    """Keeps every state it was handed, and what the tracker reported at the moment of each save."""
-
-    def __init__(self) -> None:
-        self.saved: list[TrackerState] = []
-        self.reported_during_save: list[str | None] = []
-        self.tracker: Tracker | None = None
-
-    def save(self, state: TrackerState) -> None:
-        if self.tracker is not None:
-            self.reported_during_save.append(self.tracker.operator_name())
-        self.saved.append(state)
-
-
-class FailingSaver:
-    def __init__(self) -> None:
-        self.calls = 0
-
-    def save(self, state: TrackerState) -> None:
-        self.calls += 1
-        raise PermissionError("the disk said no")
 
 
 def _state(operator_name: str | None = None) -> TrackerState:
@@ -96,7 +74,7 @@ def _tracker(
 @pytest.mark.parametrize("starting", [None, "Sam", " Sam "], ids=["unset", "plain", "spaced"])
 def test_operator_name_reader_reports_unset_and_restored_name(starting):
     """CP-212, CP-226: the reader gives the current scalar exactly, with no save and no clock."""
-    saver = RecordingSaver()
+    saver = FakeSaver()
     clock = CountingClock()
     tracker = _tracker(saver, starting, clock)
 
@@ -111,16 +89,16 @@ def test_operator_name_reader_reports_unset_and_restored_name(starting):
 def test_name_change_saves_once_before_the_reader_publishes(starting):
     """FR-9, CP-216: the saver holds the whole candidate once, and the reader still shows the old
     name during that save and the new name afterwards."""
-    saver = RecordingSaver()
+    saver = FakeSaver()
     tracker = _tracker(saver, starting)
-    saver.tracker = tracker
+    saver.watch = tracker.operator_name
     before = _state(starting)
 
     outcome = tracker.set_operator_name("Sam Lee")
 
     assert outcome == OperatorNameOutcome(name="Sam Lee", changed=True)
     assert saver.saved == [dataclasses.replace(before, operator_name="Sam Lee")]
-    assert saver.reported_during_save == [starting]
+    assert saver.seen == [starting]
     assert tracker.operator_name() == "Sam Lee"
 
 
@@ -131,7 +109,7 @@ def test_name_change_saves_once_before_the_reader_publishes(starting):
 )
 def test_replacing_name_preserves_every_unrelated_value(starting, submitted):
     """CP-217, CP-226, CP-229: only the scalar differs, surrounding spaces and case included."""
-    saver = RecordingSaver()
+    saver = FakeSaver()
     tracker = _tracker(saver, starting)
 
     outcome = tracker.set_operator_name(submitted)
@@ -143,7 +121,7 @@ def test_replacing_name_preserves_every_unrelated_value(starting, submitted):
 
 def test_same_name_never_reaches_even_a_failing_saver():
     """CP-218: the exact saved name is not refused, not saved and not published."""
-    saver = FailingSaver()
+    saver = FakeSaver(error=PermissionError("the disk said no"))
     tracker = _tracker(saver, "Sam")
 
     outcome = tracker.set_operator_name("Sam")
@@ -156,7 +134,7 @@ def test_same_name_never_reaches_even_a_failing_saver():
 @pytest.mark.parametrize("starting", [None, "Sam"], ids=["unset", "saved"])
 def test_each_domain_name_refusal_propagates_without_a_save(starting):
     """CP-219 to CP-221, CP-230: each refusal is the domain's type and nothing is saved or kept."""
-    saver = RecordingSaver()
+    saver = FakeSaver()
     tracker = _tracker(saver, starting)
 
     for blank in BLANK_FORMS:
@@ -174,7 +152,7 @@ def test_each_domain_name_refusal_propagates_without_a_save(starting):
 @pytest.mark.parametrize("starting", [None, "Sam"], ids=["unset", "saved"])
 def test_failed_name_save_does_not_publish(starting):
     """NFR-8, CP-222: the saver's error propagates; the name stays and no outcome is returned."""
-    saver = FailingSaver()
+    saver = FakeSaver(error=PermissionError("the disk said no"))
     tracker = _tracker(saver, starting)
 
     with pytest.raises(PermissionError, match="the disk said no"):
@@ -186,7 +164,7 @@ def test_failed_name_save_does_not_publish(starting):
 
 def test_name_action_never_reads_clock_and_saver_receives_only_saves():
     """CP-235, QC-54: the clock is unused, and the saver's only calls are saves of whole states."""
-    saver = RecordingSaver()
+    saver = FakeSaver()
     clock = CountingClock()
     tracker = _tracker(saver, None, clock)
 
