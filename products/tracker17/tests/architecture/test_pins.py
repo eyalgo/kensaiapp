@@ -1,7 +1,9 @@
 """Layer-6 pin checks: every dependency is pinned exactly, and `uv.lock` fixes each at its pin.
 
-Checks SRS NFR-9 (the product can be rebuilt as it was). Change spec rule CP-28 and NFDR QC-39 and
-QC-59 are the ones each test names.
+Checks SRS NFR-9 (the product can be rebuilt as it was). Change spec rules CP-28 and CP-662, and
+NFDR QC-39 and QC-59, are the ones each root test names. CP-773 to CP-778 hold the same bar over
+the Behave folder's `.behave/pyproject.toml`, in `behave_findings`, and CP-779 runs each case on a
+copy of the product in `tmp_path`. `EXACT` refuses a wildcard version for both sets (CP-773).
 """
 
 from __future__ import annotations
@@ -42,6 +44,36 @@ def test_every_declared_dependency_is_pinned_exactly() -> None:
 def normalized(name: str) -> str:
     """A name as the packaging specification compares it: lowercase, with runs of `._-` as `-`."""
     return re.sub(r"[-_.]+", "-", name).lower()
+
+
+BEHAVE_FOLDER = ".behave"
+MANIFEST_UNREADABLE = "manifest missing or not readable TOML"
+NOTHING_DECLARED = "manifest declares no dependency"
+NOT_PINNED_EXACTLY = "requirement not pinned exactly"
+
+
+def read_toml(path: Path) -> dict | None:
+    """The file's TOML, or None when it is not a regular file or cannot be read as TOML."""
+    if not path.is_file():
+        return None
+    try:
+        return tomllib.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, tomllib.TOMLDecodeError):
+        return None
+
+
+def behave_findings(product: Path) -> list[str]:
+    """One finding per failure of QC-39's checks over the Behave folder under `product`."""
+    behave = product / BEHAVE_FOLDER
+    if not behave.exists():
+        return []
+    document = read_toml(behave / "pyproject.toml")
+    if document is None:
+        return [f"{MANIFEST_UNREADABLE}: {BEHAVE_FOLDER}/pyproject.toml"]
+    declared = declared_dependencies(document)
+    if not declared:
+        return [f"{NOTHING_DECLARED}: {BEHAVE_FOLDER}/pyproject.toml"]
+    return [f"{NOT_PINNED_EXACTLY}: {entry}" for entry in declared if not EXACT.fullmatch(entry)]
 
 
 def test_uv_lock_fixes_every_declared_dependency_at_its_declared_version():
