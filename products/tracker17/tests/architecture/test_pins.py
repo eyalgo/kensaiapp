@@ -7,8 +7,11 @@ QC-59 are the ones each test names.
 from __future__ import annotations
 
 import re
+import shutil
 import tomllib
 from pathlib import Path
+
+import pytest
 
 PRODUCT_ROOT = Path(__file__).resolve().parent.parent.parent
 EXACT = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*(\[[A-Za-z0-9,._-]+\])?==[^=<>!~,;*\s]+")
@@ -75,3 +78,101 @@ def test_the_exact_pattern_refuses_a_wildcard_version() -> None:
     assert EXACT.fullmatch("httpx==1.*") is None
     assert EXACT.fullmatch("httpx[http2]==1.*") is None
     assert EXACT.fullmatch("httpx==0.28.1")
+
+
+COPY_LEAVES_OUT = (".venv", ".pytest_cache", "__pycache__")
+
+
+@pytest.fixture
+def product_copy(tmp_path: Path) -> Path:
+    """A copy of the product in `tmp_path`, so a case edits only the copy's `.behave/`."""
+    copy = tmp_path / "product"
+    shutil.copytree(PRODUCT_ROOT, copy, ignore=shutil.ignore_patterns(*COPY_LEAVES_OUT))
+    return copy
+
+
+def write_manifest(product: Path, text: str) -> None:
+    (product / ".behave" / "pyproject.toml").write_text(text, encoding="utf-8")
+
+
+def test_the_behave_folder_of_the_product_holds_every_pin() -> None:
+    """QC-39, CP-773 and CP-774 on the product's own tree."""
+    assert behave_findings(PRODUCT_ROOT) == []
+
+
+@pytest.mark.parametrize(
+    ("manifest", "entry"),
+    [
+        pytest.param(
+            '[project]\nname = "x"\ndependencies = ["httpx>=0.28"]\n',
+            "httpx>=0.28",
+            id="floor-in-project-dependencies",
+        ),
+        pytest.param(
+            '[dependency-groups]\ndev = ["behave"]\n',
+            "behave",
+            id="bare-name-in-dependency-groups",
+        ),
+        pytest.param(
+            '[project.optional-dependencies]\nweb = ["httpx~=0.28.1"]\n',
+            "httpx~=0.28.1",
+            id="compatible-release-in-optional-dependencies",
+        ),
+        pytest.param(
+            '[project.optional-dependencies]\nweb = ["httpx==1.*"]\n',
+            "httpx==1.*",
+            id="wildcard-in-optional-dependencies",
+        ),
+        pytest.param(
+            '[build-system]\nrequires = ["hatchling==1.27.0,<2"]\n',
+            "hatchling==1.27.0,<2",
+            id="second-specifier-in-build-system-requires",
+        ),
+    ],
+)
+def test_a_requirement_not_pinned_exactly_is_found(
+    product_copy: Path, manifest: str, entry: str
+) -> None:
+    """CP-773: the finding names the entry that is not an exact pin."""
+    write_manifest(product_copy, manifest)
+    findings = behave_findings(product_copy)
+    assert any(NOT_PINNED_EXACTLY in finding and entry in finding for finding in findings)
+
+
+def make_manifest_absent(product: Path) -> None:
+    (product / ".behave" / "pyproject.toml").unlink()
+
+
+def make_behave_a_plain_file(product: Path) -> None:
+    shutil.rmtree(product / ".behave")
+    (product / ".behave").write_text("not a folder\n", encoding="utf-8")
+
+
+def make_manifest_unreadable(product: Path) -> None:
+    write_manifest(product, "dependencies = [unterminated\n")
+
+
+@pytest.mark.parametrize(
+    "damage",
+    [
+        pytest.param(make_manifest_absent, id="no-pyproject"),
+        pytest.param(make_behave_a_plain_file, id="behave-is-a-plain-file"),
+        pytest.param(make_manifest_unreadable, id="pyproject-is-not-toml"),
+    ],
+)
+def test_a_missing_or_unreadable_manifest_is_found(product_copy: Path, damage) -> None:
+    """CP-774: a manifest that cannot be read checks nothing, so it is a finding."""
+    damage(product_copy)
+    assert any(MANIFEST_UNREADABLE in finding for finding in behave_findings(product_copy))
+
+
+def test_a_manifest_declaring_nothing_is_found(product_copy: Path) -> None:
+    """CP-777: a manifest that declares no dependency would pass with nothing checked."""
+    write_manifest(product_copy, '[project]\nname = "x"\ndependencies = []\n')
+    assert any(NOTHING_DECLARED in finding for finding in behave_findings(product_copy))
+
+
+def test_an_absent_behave_folder_finds_nothing(product_copy: Path) -> None:
+    """CP-778: QC-1 lets the folder be absent, and then the Behave checks read nothing."""
+    shutil.rmtree(product_copy / ".behave")
+    assert behave_findings(product_copy) == []
