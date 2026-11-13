@@ -1745,7 +1745,8 @@ _PRIORITY_COUNT_LINKS = {
         "1 task with critical priority", "{count} tasks with critical priority"
     ),
 }
-# The label of the due-on-date row, from the change text; its one placeholder is the summary's date.
+# One string with the date as a placeholder, not words joined to a date in code: a translator may
+# move the placeholder, and the word order is not fixed here (change_text.md, CONTENT.md).
 _SUMMARY_DUE_ON_LABEL = "Due on {date}"
 _OVERDUE_COUNT_LINK = _CountLink(
     FilterField.OVERDUE, OVERDUE_VALUE, _CountName("1 overdue task", "{count} overdue tasks")
