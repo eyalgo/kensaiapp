@@ -351,14 +351,15 @@ def specs() -> list[Spec]:
     return [*ordinary, maximum]
 
 
-def timed_creates(site: Site, to_time: list[Spec]) -> list[Timed]:
-    """Create each project through the request path and time it. `created` is a 303 to its page."""
+def timed_creates(*, site: Site, to_time: list[Spec], timer: Callable[[], float]) -> list[Timed]:
+    """Create each project through the request path and time it on `timer`, two readings per
+    create. `created` is a 303 to its page."""
     results = []
     for spec in to_time:
         body = urlencode({"name": spec.name, "description": spec.description}).encode("utf-8")
-        started = time.perf_counter()
+        started = timer()
         response = site.handle("POST", "/projects", FORM_HEADERS, body)
-        seconds = time.perf_counter() - started
+        seconds = timer() - started
         location = dict(response.headers).get("Location", "")
         results.append(
             Timed(
@@ -1805,7 +1806,8 @@ def main(directory: Path | None = None, timer: Callable[[], float] = time.perf_c
             return main(Path(temporary), timer)
     saved_data = SavedData(directory / "data")
     project_site = Site(Tracker(empty_state(), saved_data, RealClock()), HOST)
-    status = verdict(timed_creates(project_site, specs()), LIMIT_SECONDS)
+    creates = timed_creates(site=project_site, to_time=specs(), timer=timer)
+    status = verdict(creates, LIMIT_SECONDS)
     task_data = SavedData(directory / "task-volume")
     task_site, seeded = open_task_volume(task_data)
     print(fixture_report(seeded))

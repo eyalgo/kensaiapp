@@ -412,6 +412,7 @@ def test_timed_run_fails_when_only_the_edit_fails(
     status = harness.main(
         tmp_path,
         Ticks(
+            *CREATES_QUICK,
             *add_ticks,
             *edit_ticks,
             *label_ticks,
@@ -721,6 +722,7 @@ def test_timed_run_fails_when_only_a_label_action_fails(
     quick = (0.0, 0.1, 0.2, 0.3)
     slow_total = (0.0, 0.5, 1.0, 1.5)
     ticks = Ticks(
+        *CREATES_QUICK,
         *quick,
         *quick,
         *slow_total,
@@ -765,6 +767,11 @@ def test_timed_label_fixtures_leave_product_data_untouched(
 
 
 QUICK = (0.0, 0.1, 0.2, 0.3)
+# The project creates' readings, taken first of all: two round each create's one POST, for the
+# ordinary creates and the create at both maximums, all under the limit. Pinned to the harness's
+# own list of creates by test_timed_run_reads_two_create_readings_per_spec.
+CREATES = 51
+CREATES_QUICK = (0.0, 0.1) * CREATES
 # The readings of the comment add and the two assignee actions: four each, all under the limit.
 NEW_ACTIONS_QUICK = (*QUICK, *QUICK, *QUICK)
 # The status move's four readings, taken after every earlier action's: all under the limit.
@@ -988,6 +995,7 @@ def test_full_timed_run_fails_when_only_name_measurement_fails(
         status = harness.main(
             tmp_path / str(position),
             Ticks(
+                *CREATES_QUICK,
                 *old,
                 *name_ticks,
                 *NEW_ACTIONS_QUICK,
@@ -2099,7 +2107,8 @@ OLD_ACTION_READINGS = (
 def _run_readings(**slow: tuple[float, ...]) -> Ticks:
     """The timer readings of one whole run: every action under the limit, except those named.
 
-    The five old actions read first, in the order the run times them, then the comment add, the
+    The project creates read first of all, two readings each (`creates` replaces all of them at
+    once). The five old actions read next, in the order the run times them, then the comment add, the
     assignee add, the assignee remove, the status move, the status filter and the sort, as the
     run appends them, then the Summary's one interval of two readings (CP-509), and last the
     deletion's four (CP-543), after the deletion the rename's four (CP-566) and, last of all, the
@@ -2111,7 +2120,9 @@ def _run_readings(**slow: tuple[float, ...]) -> Ticks:
     delete = slow.get("delete", DELETE_QUICK)
     rename = slow.get("rename", RENAME_QUICK)
     project_delete = slow.get("project_delete", PROJECT_DELETE_QUICK)
+    creates = slow.get("creates", CREATES_QUICK)
     return Ticks(
+        *creates,
         *QUICK * OLD_ACTION_READINGS,
         *[value for each in new for value in each],
         *summary,
@@ -2159,6 +2170,35 @@ def test_timed_run_appends_exactly_three_ordered_action_blocks(whole_run) -> Non
         *PROJECT_DELETE_RUN_LABELS,
     ]
     assert "over" not in "\n".join(lines) and "refused" not in "\n".join(lines)
+    assert "ordinary create 1: 100.0 ms" in lines
+    assert "create at both maximums: 100.0 ms" in lines
+
+
+def test_timed_run_reads_two_create_readings_per_spec(harness: ModuleType) -> None:
+    """QC-48: the whole-run readings script one interval for each create the harness makes."""
+    assert len(harness.specs()) == CREATES
+    assert len(CREATES_QUICK) == 2 * len(harness.specs())
+
+
+@pytest.mark.parametrize(
+    ("position", "label"), ((0, "ordinary create 1"), (CREATES - 1, "create at both maximums"))
+)
+def test_timed_run_fails_when_only_a_create_reaches_the_limit_on_its_timer(
+    harness: ModuleType,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    position: int,
+    label: str,
+) -> None:
+    """QC-48: a create is timed on the run's timer; one at exactly 1 s is the only row over."""
+    creates = list(CREATES_QUICK)
+    creates[2 * position + 1] = 1.0
+
+    status = harness.main(tmp_path, _run_readings(creates=tuple(creates)))
+
+    over = [line for line in capsys.readouterr().out.splitlines() if "over" in line]
+    assert over == [f"{label}: 1000.0 ms — at or over 1 s"]
+    assert status == 1
 
 
 def test_new_timed_fixtures_are_independent_and_preserve_name_save_precondition(
