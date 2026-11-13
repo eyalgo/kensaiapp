@@ -12,7 +12,7 @@ Cut from `products/tracker17/docs/nfdr.md` QC-1 and QC-19 ("The entry starts unm
 
 ## Stations — dynamic checklist
 
-- [ ] walk-skips-by-name — `SourceWalk` skips `tests/`, `.behave/` and `.venv/` by name, not by a leading dot; a test with a module in another dot-folder at the product root fails QC-1 (red at `97603d4f3`, where the walk skips every dot piece) and passes once the module is removed; both suites stay green
+- [x] walk-skips-by-name — `SourceWalk` skips `tests/`, `.behave/` and `.venv/` by name, not by a leading dot; a test with a module in another dot-folder at the product root fails QC-1 (red at `97603d4f3`, where the walk skips every dot piece) and passes once the module is removed; both suites stay green
 - [ ] behave-import-walk — a layer-6 walk of `.behave/` fails on an import from `tests` and on finding no module in it while the folder exists, reads nothing when the folder is absent; a mutation adding such an import to `.behave/features/*.py` fails it, and the QC-19 and QC-1 tests keep passing
 
 ## Relation to existing work
