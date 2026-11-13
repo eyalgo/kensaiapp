@@ -35,15 +35,20 @@ done". All three bars, the third included, were confirmed in
    interview the owner said there is "no SIMPLE example of a kensaiapp product", and that what they will
    do with it is "Look at the code, see if it works, and see if it's simple to set up on a machine"
    (`products/tracker17/docs/trail/prd/cycle-1.md` § 1.3 and § 1.4). The owner also runs this bar alone,
-   on their own machine, because the PRD makes them the only reader until they publish
-   (`products/tracker17/docs/PRD.md` § Assumptions). That fits "by myself". The trace half came into the
+   on their own machine. What carries "alone" is the owner's own answer, "by myself". The PRD supports
+   it: "Until there are outside readers, the owner's own reading and setup stand in for theirs"
+   (`products/tracker17/docs/PRD.md` § Assumptions). The trace half came into the
    PRD through a later round (`products/tracker17/docs/trail/prd/cycle-4.md` § 2.1). It is part of the
    settled PRD, so dropping it would mean revising the PRD, not this finish line.
 
 **What this finish line does not require.** It does not require tracker17 to be published or tried by an
-outside reader. On this reading the owner's answer says "by myself", and
-`products/tracker17/docs/PRD.md` § Assumptions says tracker17 "stays that way until the owner decides
-to publish it" and that "until then the owner is the only reader". Publishing is the owner's later
-decision, and it does not hold this project open. The PRD's re-check of the bars "again on every later
+outside reader. Done does not depend on tracker17 being public, and it already is:
+`products/tracker17/docs/PRD.md` § Assumptions reads "tracker17 is public. It ships as an example in
+kensaiapp's public release". What carries the exclusion is the owner's answer, "by myself". The PRD
+supports it: "Until there are outside readers, the owner's own reading and setup stand in for theirs".
+That support holds only until an outside reader arrives. The PRD says the bars "would need revisiting"
+then, and that is a revision of the PRD. It reaches this finish line through the PRD and does not
+reopen it on its own (`system/projects/tracker17/trail/finish_line/cycle-3.md` § 2.1, with the
+reasoning in `system/projects/tracker17/trail/finish_line/self_answer-2.md`). The PRD's re-check of the bars "again on every later
 release" (`products/tracker17/docs/PRD.md` § Success Metrics) is upkeep after done, not a condition of
 it.
