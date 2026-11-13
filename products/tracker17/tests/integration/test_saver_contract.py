@@ -103,33 +103,54 @@ def test_watch_answer_lands_in_seen_at_each_save() -> None:
     assert saver.seen == [0, 1, 2]
 
 
+class RecordedRelease:
+    """Stands in for the fake's `release` event, so a layer-1 check neither starts a thread nor
+    waits on the clock: each wait records its bound and what the fake held at that moment, and
+    answers as an event that was, or was not, set within the bound."""
+
+    def __init__(self, saver: FakeSaver, *, set_in_time: bool) -> None:
+        self.saver = saver
+        self.set_in_time = set_in_time
+        self.waits: list[tuple[float | None, bool, list[TrackerState]]] = []
+
+    def wait(self, timeout: float | None = None) -> bool:
+        self.waits.append((timeout, self.saver.entered.is_set(), list(self.saver.saved)))
+        return self.set_in_time
+
+
 def test_the_held_call_keeps_its_state_and_waits_for_release() -> None:
     saver = FakeSaver()
     saver.hold_save = 1
+    release = RecordedRelease(saver, set_in_time=True)
+    saver.release = release  # type: ignore[assignment]
     state = state_of("A")
 
-    thread = save_on_a_thread(saver, state)
-    assert saver.entered.wait(timeout=WAIT)
-    thread.join(timeout=0.3)
+    saver.save(state)
 
-    assert thread.is_alive()
-    assert saver.saved == [state]
-    saver.release.set()
-    thread.join(timeout=WAIT)
-    assert not thread.is_alive()
+    assert release.waits == [(10, True, [state])]
+
+
+def test_a_held_call_not_released_in_time_fails() -> None:
+    saver = FakeSaver()
+    saver.hold_save = 1
+    saver.release = RecordedRelease(saver, set_in_time=False)  # type: ignore[assignment]
+
+    with pytest.raises(AssertionError, match="never released"):
+        saver.save(state_of("A"))
+
+    assert saver.saved == [state_of("A")]
 
 
 def test_calls_other_than_the_held_one_are_not_held() -> None:
     saver = FakeSaver()
     saver.hold_save = 2
-    saver.save(state_of("A"))
+    release = RecordedRelease(saver, set_in_time=True)
+    saver.release = release  # type: ignore[assignment]
 
-    held = save_on_a_thread(saver, state_of("B"))
-    assert saver.entered.wait(timeout=WAIT)
-    saver.release.set()
-    held.join(timeout=WAIT)
-    saver.save(state_of("C"))
+    for name in ("A", "B", "C"):
+        saver.save(state_of(name))
 
+    assert release.waits == [(10, True, [state_of("A"), state_of("B")])]
     assert saver.saved == [state_of("A"), state_of("B"), state_of("C")]
     assert saver.calls == 3
 
