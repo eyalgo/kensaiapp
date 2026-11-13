@@ -14,8 +14,9 @@ from datetime import UTC, datetime
 
 import pytest
 
-from application import Priority, Project, ProjectSummary, TaskStatus, Tracker, TrackerState
+from application import Priority, Project, ProjectSummary, TaskStatus, Tracker
 from domain import restore_state
+from tests.fakes import FakeSaver
 
 PROJECTS = [(1, "Alpha", "first"), (2, "Beta", ""), (3, "Gamma", "empty")]
 NEXT_PROJECT_ID = 4
@@ -41,16 +42,6 @@ class SequenceClock:
         self.reads = 0
 
 
-class RecordingSaver:
-    """Keeps every state it was handed."""
-
-    def __init__(self) -> None:
-        self.saved: list[TrackerState] = []
-
-    def save(self, state: TrackerState) -> None:
-        self.saved.append(state)
-
-
 @pytest.fixture
 def utc_zone(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     """Set the machine's local zone to UTC, so a clock instant names the date it reads as."""
@@ -72,7 +63,7 @@ def local_zone(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
 
 
 def make_tracker(
-    saver: RecordingSaver,
+    saver: FakeSaver,
     clock: SequenceClock,
     projects: list[tuple[int, str, str]] = PROJECTS,
 ) -> Tracker:
@@ -80,7 +71,7 @@ def make_tracker(
     return Tracker(state, saver, clock)
 
 
-def seeded_tracker(saver: RecordingSaver, clock: SequenceClock) -> Tracker:
+def seeded_tracker(saver: FakeSaver, clock: SequenceClock) -> Tracker:
     """Alpha holds an overdue open task, a task due today, a done task and an unlisted name."""
     tracker = make_tracker(saver, clock)
     tracker.add_task(1, "late", "low", "ari", "2026-10-26")
@@ -98,7 +89,7 @@ def assignee_rows(summary: ProjectSummary) -> list[tuple[str | None, int]]:
 
 def test_summary_reads_the_injected_clock_once_per_call(utc_zone):
     """CP-497, T05: one clock read for a populated, an empty and a missing project, no save."""
-    saver = RecordingSaver()
+    saver = FakeSaver()
     clock = SequenceClock()
     tracker = seeded_tracker(saver, clock)
     saves_before = len(saver.saved)
@@ -114,7 +105,7 @@ def test_summary_reads_the_injected_clock_once_per_call(utc_zone):
 def test_summary_uses_the_machine_local_calendar_day(local_zone):
     """CP-497, T05: the instant is 27 October in UTC and 28 October at UTC+14; a task due the 27th
     is overdue on the local day, and an unconverted date would not count it."""
-    saver = RecordingSaver()
+    saver = FakeSaver()
     clock = SequenceClock()
     tracker = make_tracker(saver, clock)
     tracker.add_task(1, "due on the 27th", "medium", "", "2026-10-27")
@@ -130,7 +121,7 @@ def test_summary_uses_the_machine_local_calendar_day(local_zone):
 def test_summary_recomputes_after_midnight(utc_zone):
     """CP-494, T05: the next call, on the next day, counts the task overdue; the earlier result is
     the snapshot it was."""
-    saver = RecordingSaver()
+    saver = FakeSaver()
     clock = SequenceClock()
     tracker = make_tracker(saver, clock)
     tracker.add_task(1, "due on the 27th", "medium", "", "2026-10-27")
@@ -147,7 +138,7 @@ def test_summary_recomputes_after_midnight(utc_zone):
 
 def test_summary_reads_current_tasks_and_assignees_without_saving(utc_zone):
     """T05: counts follow the existing add, move and assignee actions, and a read saves nothing."""
-    saver = RecordingSaver()
+    saver = FakeSaver()
     clock = SequenceClock()
     tracker = seeded_tracker(saver, clock)
     clock.restart(NOON)
@@ -193,7 +184,7 @@ def test_summary_distinguishes_missing_empty_and_current_project_metadata(utc_zo
     """CP-493, T05, T07: absence is None, an empty project is zeros, and the project comes back
     exactly as saved; the same identity under a new name carries the new name."""
     clock = SequenceClock()
-    tracker = make_tracker(RecordingSaver(), clock)
+    tracker = make_tracker(FakeSaver(), clock)
 
     assert tracker.project_summary(99) is None
     empty = tracker.project_summary(3)
@@ -202,7 +193,7 @@ def test_summary_distinguishes_missing_empty_and_current_project_metadata(utc_zo
     assert empty.total == 0
 
     renamed = make_tracker(
-        RecordingSaver(), clock, [(1, "  Renamed  ", "first"), (2, "Beta", ""), (3, "Gamma", "")]
+        FakeSaver(), clock, [(1, "  Renamed  ", "first"), (2, "Beta", ""), (3, "Gamma", "")]
     )
     before = tracker.project_summary(1)
     after = renamed.project_summary(1)
