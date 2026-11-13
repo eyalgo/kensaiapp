@@ -22,6 +22,7 @@ from test_pages import Element, parse
 
 from application import Saver, Tracker, TrackerState
 from domain import empty_state
+from tests.fakes import FakeSaver
 from web import Response, Site, pages
 from web.routes import ROUTES
 
@@ -39,29 +40,8 @@ class FixedClock:
         return datetime(2026, 10, 7, 12, 0, tzinfo=UTC)
 
 
-class RecordingSaver:
-    def __init__(self) -> None:
-        self.saved: list[TrackerState] = []
-
-    def save(self, state: TrackerState) -> None:
-        self.saved.append(state)
-
-
-class FailingAfterFirstSaver(RecordingSaver):
-    """Saves the first state it is handed, then fails every save after it."""
-
-    def __init__(self, error: Exception) -> None:
-        super().__init__()
-        self.error = error
-
-    def save(self, state: TrackerState) -> None:
-        if self.saved:
-            raise self.error
-        super().save(state)
-
-
 def make_site(saver: Saver | None = None) -> tuple[Site, Tracker]:
-    tracker = Tracker(empty_state(), saver or RecordingSaver(), FixedClock())
+    tracker = Tracker(empty_state(), saver or FakeSaver(), FixedClock())
     return Site(tracker, HOST), tracker
 
 
@@ -93,7 +73,7 @@ def follow(site: Site, response: Response) -> str:
     return page(get(site, header(response, "Location") or ""))
 
 
-def restart(saver: RecordingSaver) -> Tracker:
+def restart(saver: FakeSaver) -> Tracker:
     state = saver.saved[-1] if saver.saved else empty_state()
     return Tracker(state, saver, FixedClock())
 
@@ -116,7 +96,7 @@ def test_a_blank_or_duplicate_name_answers_with_the_page_holding_the_reason_and_
     duplicate: bool,
 ) -> None:
     """CP-19, CP-21."""
-    saver = RecordingSaver()
+    saver = FakeSaver()
     site, _ = make_site(saver)
     if duplicate:
         post(site, name="Alpha", description="first")
@@ -148,7 +128,7 @@ def test_an_over_long_value_names_the_right_field_and_holds_none_of_the_sent_tex
     name: str, description: str, field: str
 ) -> None:
     """CP-20, CP-16."""
-    saver = RecordingSaver()
+    saver = FakeSaver()
     site, _ = make_site(saver)
     response = post(site, name=name, description=description)
     assert response.status == 303
@@ -165,7 +145,7 @@ def test_an_over_long_value_names_the_right_field_and_holds_none_of_the_sent_tex
 @pytest.mark.parametrize("mark", ["cross-site", "same-site", "none", None])
 def test_a_submission_not_marked_same_origin_is_refused(mark: str | None) -> None:
     """CP-22, AC-10."""
-    saver = RecordingSaver()
+    saver = FakeSaver()
     site, tracker = make_site(saver)
     marks = {"Host": HOST} if mark is None else {"Host": HOST, "Sec-Fetch-Site": mark}
     response = post(site, headers=marks, name="Alpha", description="")
@@ -207,9 +187,10 @@ def test_a_failed_save_names_the_action_and_error_on_stderr_and_shows_the_failur
     error: Exception, error_line: str, capsys: pytest.CaptureFixture[str]
 ) -> None:
     """CP-25, AC-18, QC-56, QC-57. The restart is built from the last state the saver kept."""
-    saver = FailingAfterFirstSaver(error)
+    saver = FakeSaver()
     site, tracker = make_site(saver)
     assert post(site, name="Beta", description="kept").status == 303
+    saver.error = error
     capsys.readouterr()
     response = post(site, name=" Alpha ", description="d")
     assert response.status == 303
@@ -230,14 +211,14 @@ def test_a_failed_save_names_the_action_and_error_on_stderr_and_shows_the_failur
 
 def test_line_breaks_in_a_description_are_saved_as_lf() -> None:
     """RT-10."""
-    saver = RecordingSaver()
+    saver = FakeSaver()
     site, _ = make_site(saver)
     post(site, name="Alpha", description="a\r\nb\rc\nd")
     assert saver.saved[-1].projects[0].description == "a\nb\nc\nd"
 
 
 def test_an_undecodable_body_answers_400_with_an_empty_body() -> None:
-    saver = RecordingSaver()
+    saver = FakeSaver()
     site, _ = make_site(saver)
     response = site.handle(
         "POST", "/projects", {**SAME_ORIGIN, **FORM}, b"name=\xff\xfe&description="
@@ -257,7 +238,7 @@ def test_a_percent_encoded_value_that_is_not_utf_8_answers_400_with_an_empty_bod
 ) -> None:
     """Design § 4 (form values, strict UTF-8) and QC-9: no typed value is changed, so a value
     whose bytes are not UTF-8 is not saved with a replacement character in their place."""
-    saver = RecordingSaver()
+    saver = FakeSaver()
     site, tracker = make_site(saver)
     response = site.handle("POST", "/projects", {**SAME_ORIGIN, **FORM}, body)
     assert response.status == 400
@@ -317,7 +298,7 @@ def test_every_route_leaves_state_and_headers_as_the_rules_say() -> None:
     and saved once like every other."""
     assert {route.pattern for route in ROUTES} == set(SAMPLE_ADDRESS)
     for route in ROUTES:
-        saver = RecordingSaver()
+        saver = FakeSaver()
         site, tracker = make_site(saver)
         post(site, name="Alpha", description="seed")
         tracker.add_assignee("Dana")
@@ -361,7 +342,7 @@ def test_every_route_leaves_state_and_headers_as_the_rules_say() -> None:
 def test_delete_first_press_lands_on_a_pending_view_and_confirm_on_the_project() -> None:
     """CP-544, CP-583, T14: the opening press is 303 to a 202 pending view with no save and no cookie;
     the confirming press saves once and lands on the owning project."""
-    saver = RecordingSaver()
+    saver = FakeSaver()
     site, tracker = make_site(saver)
     post(site, name="Alpha", description="seed")
     tracker.add_task(1, "Seed task", "", "", "")
@@ -384,7 +365,7 @@ def test_route_audit_accepts_and_saves_the_comment_sample() -> None:
     pattern = "/tasks/[0-9]+/comments"
     assert ("POST", pattern) in {(route.method, route.pattern) for route in ROUTES}
     target = SAMPLE_ADDRESS[pattern]
-    saver = RecordingSaver()
+    saver = FakeSaver()
     site, tracker = make_site(saver)
     post(site, name="Alpha", description="seed")
     tracker.add_task(1, "Seed task", "", "", "")
@@ -402,48 +383,30 @@ def test_route_audit_accepts_and_saves_the_comment_sample() -> None:
 
 def test_a_saver_held_open_makes_a_second_submission_wait() -> None:
     """QC-53, RT-6."""
-    entered = threading.Event()
-    release = threading.Event()
-    states: list[TrackerState] = []
-
-    class HeldSaver:
-        def save(self, state: TrackerState) -> None:
-            states.append(state)
-            if len(states) == 1:
-                entered.set()
-                assert release.wait(timeout=10)
-
-    site, tracker = make_site(HeldSaver())
+    saver = FakeSaver()
+    saver.hold_save = 1
+    site, tracker = make_site(saver)
     first = threading.Thread(target=post, args=(site,), kwargs={"name": "A", "description": ""})
     second = threading.Thread(target=post, args=(site,), kwargs={"name": "B", "description": ""})
     first.start()
-    assert entered.wait(timeout=10)
+    assert saver.entered.wait(timeout=10)
     second.start()
     second.join(timeout=0.5)
     assert second.is_alive(), "the second submission did not wait for the first"
-    assert len(states) == 1
-    release.set()
+    assert len(saver.saved) == 1
+    saver.release.set()
     first.join(timeout=10)
     second.join(timeout=10)
     assert not first.is_alive() and not second.is_alive()
     assert sorted(project.name for project in tracker.projects()) == ["A", "B"]
-    assert [project.id for project in states[-1].projects] == [1, 2]
+    assert [project.id for project in saver.saved[-1].projects] == [1, 2]
 
 
 def test_assignee_and_project_requests_serialize_through_the_save() -> None:
     """QC-53, RT-6: another assignee submission and a mixed project request wait for the first."""
-    entered = threading.Event()
-    release = threading.Event()
-    states: list[TrackerState] = []
-
-    class HeldSaver:
-        def save(self, state: TrackerState) -> None:
-            states.append(state)
-            if len(states) == 1:
-                entered.set()
-                assert release.wait(timeout=10)
-
-    site, tracker = make_site(HeldSaver())
+    saver = FakeSaver()
+    saver.hold_save = 1
+    site, tracker = make_site(saver)
 
     def assignee(name: str) -> None:
         site.handle(
@@ -454,22 +417,22 @@ def test_assignee_and_project_requests_serialize_through_the_save() -> None:
     second = threading.Thread(target=assignee, args=("Ari",))
     third = threading.Thread(target=post, args=(site,), kwargs={"name": "Alpha", "description": ""})
     first.start()
-    assert entered.wait(timeout=10)
+    assert saver.entered.wait(timeout=10)
     second.start()
     third.start()
     second.join(timeout=0.5)
     third.join(timeout=0.5)
     assert second.is_alive() and third.is_alive(), "a request did not wait for the first save"
-    assert len(states) == 1
-    release.set()
+    assert len(saver.saved) == 1
+    saver.release.set()
     for thread in (first, second, third):
         thread.join(timeout=10)
         assert not thread.is_alive()
     assert sorted(tracker.assignees()) == ["Ari", "Dana"]
     assert [project.name for project in tracker.projects()] == ["Alpha"]
-    assert len(states) == 3
-    assert set(states[-1].assignees) == {"Dana", "Ari"}
-    assert [project.name for project in states[-1].projects] == ["Alpha"]
+    assert len(saver.saved) == 3
+    assert set(saver.saved[-1].assignees) == {"Dana", "Ari"}
+    assert [project.name for project in saver.saved[-1].projects] == ["Alpha"]
 
 
 _connections: list[tuple[int, object]] = []
@@ -605,7 +568,7 @@ def test_a_project_identity_too_long_to_read_as_a_number_gets_the_not_found_page
 )
 def test_a_method_not_in_routes_gets_404_with_an_empty_body(method: str, target: str) -> None:
     """CP-32."""
-    saver = RecordingSaver()
+    saver = FakeSaver()
     site, tracker = make_site(saver)
     response = site.handle(method, target, {**SAME_ORIGIN, **FORM}, b"name=Alpha")
     assert response.status == 404
@@ -630,7 +593,7 @@ def test_requests_answered_with_the_not_found_page_change_nothing(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     """CP-36."""
-    saver = RecordingSaver()
+    saver = FakeSaver()
     site, tracker = make_site(saver)
     post(site, name="Alpha", description="d")
     saved_before = len(saver.saved)
@@ -686,7 +649,7 @@ def test_a_project_page_answers_with_the_project() -> None:
 
 def test_every_route_and_action_includes_accepted_edit() -> None:
     """QC-7, QC-8, QC-34, CP-177: an accepted changed-pair edit is one save and a plain 303."""
-    saver = RecordingSaver()
+    saver = FakeSaver()
     site, tracker = make_site(saver)
     post(site, name="Alpha", description="")
     tracker.add_task(1, "Seed", "", "", "")
@@ -701,18 +664,9 @@ def test_every_route_and_action_includes_accepted_edit() -> None:
 
 def test_task_edits_wait_for_held_save() -> None:
     """QC-53, RT-6: a second edit cannot save until the first is released, and sees its result."""
-    entered = threading.Event()
-    release = threading.Event()
-    states: list[TrackerState] = []
-
-    class HeldSaver:
-        def save(self, state: TrackerState) -> None:
-            states.append(state)
-            if len(states) == 3:
-                entered.set()
-                assert release.wait(timeout=10)
-
-    site, tracker = make_site(HeldSaver())
+    saver = FakeSaver()
+    saver.hold_save = 3
+    site, tracker = make_site(saver)
     post(site, name="Alpha", description="")
     tracker.add_task(1, "Seed", "", "", "")
 
@@ -722,29 +676,25 @@ def test_task_edits_wait_for_held_save() -> None:
     first = threading.Thread(target=edit, args=(b"title=First&shown_title=Seed",))
     second = threading.Thread(target=edit, args=(b"priority=low&shown_priority=medium",))
     first.start()
-    assert entered.wait(timeout=10)
+    assert saver.entered.wait(timeout=10)
     second.start()
     second.join(timeout=0.5)
     assert second.is_alive(), "the second edit did not wait for the first"
-    assert len(states) == 3
-    release.set()
+    assert len(saver.saved) == 3
+    saver.release.set()
     first.join(timeout=10)
     second.join(timeout=10)
     assert not first.is_alive() and not second.is_alive()
     task = tracker.task(1)
     assert task is not None and (task.title, task.priority.value) == ("First", "low")
-    assert len(states) == 4
-    assert [task.title for task in states[-1].tasks] == ["First"]
+    assert len(saver.saved) == 4
+    assert [task.title for task in saver.saved[-1].tasks] == ["First"]
 
 
 def test_an_edit_hands_a_recording_saver_only_saves() -> None:
     """QC-54, CP-177: edits and the pages that follow them give the saver whole states and no read."""
 
-    class OnlySaves(RecordingSaver):
-        def __getattr__(self, name: str) -> object:
-            raise AssertionError(f"the saver was asked for {name}, and it is only handed saves")
-
-    saver = OnlySaves()
+    saver = FakeSaver(only_save=True)
     site, tracker = make_site(saver)
     post(site, name="Alpha", description="")
     tracker.add_task(1, "Seed", "", "", "")
@@ -766,11 +716,7 @@ def test_label_actions_hand_recording_saver_only_saves() -> None:
     """QC-54, CP-206: label actions and the pages that follow them give the saver whole states and
     no read."""
 
-    class OnlySaves(RecordingSaver):
-        def __getattr__(self, name: str) -> object:
-            raise AssertionError(f"the saver was asked for {name}, and it is only handed saves")
-
-    saver = OnlySaves()
+    saver = FakeSaver(only_save=True)
     site, tracker = make_site(saver)
     post(site, name="Alpha", description="")
     tracker.add_task(1, "Seed", "", "", "")
@@ -800,7 +746,7 @@ def _name_post(site: Site, headers: dict[str, str], name: str = "Sam") -> Respon
 def test_operator_name_submission_origin_checks_run_before_action(mark: str | None) -> None:
     """CP-223, QC-32: a wrong or missing mark, or Host, gets the existing refusal and changes no
     state and no file; the same-origin mark succeeds."""
-    saver = RecordingSaver()
+    saver = FakeSaver()
     site, tracker = make_site(saver)
     tracker.set_operator_name("Sam")
     saves = len(saver.saved)
@@ -819,50 +765,31 @@ def test_operator_name_submission_origin_checks_run_before_action(mark: str | No
 def test_operator_name_route_hands_recording_saver_only_saves() -> None:
     """QC-54: a name action reaches the handed saver only as saves of whole states, and nothing
     but the state crosses application: no load, no request detail, no format knowledge."""
-    calls: list[tuple[str, tuple[object, ...]]] = []
-
-    class RecordingEverything:
-        def save(self, *arguments: object) -> None:
-            calls.append(("save", arguments))
-
-        def __getattr__(self, name: str) -> object:
-            calls.append((name, ()))
-            raise AssertionError(f"the saver was asked for {name}")
-
-    site, tracker = make_site(RecordingEverything())  # type: ignore[arg-type]
+    saver = FakeSaver(only_save=True)
+    site, tracker = make_site(saver)
     assert _name_post(site, SAME_ORIGIN, "Sam").status == 303
     assert _name_post(site, SAME_ORIGIN, "Sam").status == 303
     assert _name_post(site, SAME_ORIGIN, "").status == 303
     assert _name_post(site, SAME_ORIGIN, "Lee").status == 303
-    assert [name for name, _ in calls] == ["save", "save"]
-    assert all(len(arguments) == 1 for _, arguments in calls)
-    assert all(isinstance(arguments[0], TrackerState) for _, arguments in calls)
+    assert len(saver.saved) == 2 and saver.asked_for == []
+    assert all(isinstance(state, TrackerState) for state in saver.saved)
     assert tracker.operator_name() == "Lee"
 
 
 def test_recording_saver_comment_route_never_loads() -> None:
     """QC-54, CP-271: one successful comment submission reaches the saver only as a save of a
     whole state, and nothing is asked of it that reads saved data."""
-    calls: list[tuple[str, tuple[object, ...]]] = []
-
-    class RecordingEverything:
-        def save(self, *arguments: object) -> None:
-            calls.append(("save", arguments))
-
-        def __getattr__(self, name: str) -> object:
-            calls.append((name, ()))
-            raise AssertionError(f"the saver was asked for {name}")
-
-    site, tracker = make_site(RecordingEverything())  # type: ignore[arg-type]
+    saver = FakeSaver(only_save=True)
+    site, tracker = make_site(saver)
     tracker.create_project("Alpha", "")
     tracker.add_task(1, "Seed", "", "", "")
     tracker.set_operator_name("Sam")
-    calls.clear()
+    saves = len(saver.saved)
     response = site.handle("POST", "/tasks/1/comments", {**SAME_ORIGIN, **FORM}, b"text=Hi")
     assert response.status == 303 and header(response, "Location") == "/tasks/1?comment_added=1"
     get(site, "/tasks/1?comment_added=1")
-    assert [name for name, _ in calls] == ["save"]
-    assert all(isinstance(arguments[0], TrackerState) for _, arguments in calls)
+    assert len(saver.saved) == saves + 1 and saver.asked_for == []
+    assert all(isinstance(state, TrackerState) for state in saver.saved[saves:])
 
 
 # --- The confirming move route and the pages' cache headers (cancel-confirmation, CP-339) -------
@@ -870,25 +797,12 @@ def test_recording_saver_comment_route_never_loads() -> None:
 CONFIRMING = "/tasks/1/move/confirm"
 
 
-class SwitchedRecordingSaver(RecordingSaver):
-    """Records every state it is handed, or raises while switched to fail."""
-
-    def __init__(self) -> None:
-        super().__init__()
-        self.failing = False
-
-    def save(self, state: TrackerState) -> None:
-        if self.failing:
-            raise PermissionError("the disk said no")
-        super().save(state)
-
-
-def site_with_one_task(saver: Saver | None = None) -> tuple[Site, Tracker, RecordingSaver]:
-    recording = saver or RecordingSaver()
+def site_with_one_task(saver: Saver | None = None) -> tuple[Site, Tracker, FakeSaver]:
+    recording = saver or FakeSaver()
     site, tracker = make_site(recording)
     post(site, name="Alpha", description="seed")
     tracker.add_task(1, "Seed task", "", "", "")
-    assert isinstance(recording, RecordingSaver)
+    assert isinstance(recording, FakeSaver)
     return site, tracker, recording
 
 
@@ -948,7 +862,7 @@ STATUS_PATH = {
 }
 
 
-def site_with_two_tasks(status: str = "todo") -> tuple[Site, Tracker, RecordingSaver]:
+def site_with_two_tasks(status: str = "todo") -> tuple[Site, Tracker, FakeSaver]:
     """One project, the task the strip opens on in the given status, and a second task beside it."""
     site, tracker, saver = site_with_one_task()
     tracker.add_task(1, "Other task", "", "", "")
@@ -1115,9 +1029,9 @@ def test_move_responses_do_not_clear_site_data() -> None:
         confirming(site, SAME_ORIGIN),
     ]
     assert len(saver.saved) == saves
-    switched = SwitchedRecordingSaver()
+    switched = FakeSaver()
     failing, _, _ = site_with_one_task(switched)
-    switched.failing = True
+    switched.error = PermissionError("the disk said no")
     broken = [
         failing.handle("POST", "/tasks/1/move", form, b"status=in-progress"),
         failing.handle("POST", "/tasks/1/move/confirm", form, b"place=list"),
@@ -1157,7 +1071,7 @@ def test_filter_apply_reload_and_clear_are_pages_that_save_and_set_nothing() -> 
     """CP-417, QC-7, QC-8, QC-34: Apply, its reload and Clear are the one project GET route, so the
     enumeration already reaches them; each leaves state and saves as they were and answers with the
     page policy and no cookie."""
-    saver = RecordingSaver()
+    saver = FakeSaver()
     site, tracker = make_site(saver)
     post(site, name="Alpha", description="seed")
     tracker.add_task(1, "Seed task", "", "", "")
@@ -1184,27 +1098,18 @@ def test_filter_apply_reload_and_clear_are_pages_that_save_and_set_nothing() -> 
 def test_global_apply_and_move_hand_a_recording_saver_only_the_moves_save() -> None:
     """CP-485, T17: opening, applying, reloading and clearing All tasks ask the saver for nothing;
     a successful global move reaches it as one save of a whole state, and its landing reads none."""
-    calls: list[tuple[str, tuple[object, ...]]] = []
-
-    class RecordingEverything:
-        def save(self, *arguments: object) -> None:
-            calls.append(("save", arguments))
-
-        def __getattr__(self, name: str) -> object:
-            calls.append((name, ()))
-            raise AssertionError(f"the saver was asked for {name}")
-
-    site, tracker = make_site(RecordingEverything())  # type: ignore[arg-type]
+    saver = FakeSaver(only_save=True)
+    site, tracker = make_site(saver)
     tracker.create_project("Alpha", "")
     tracker.create_project("Beta", "")
     tracker.add_task(1, "Seed", "", "", "")
     tracker.add_task(2, "Other", "", "", "")
-    calls.clear()
+    saves = len(saver.saved)
     apply = "/tasks?filter_status=todo&sort_field=title&sort_direction=descending"
     for address in ("/tasks", apply, apply, "/tasks", "/tasks?filter_status=blocked"):
         answered = get(site, address)
         assert answered.status == 200 and header(answered, "Set-Cookie") is None
-    assert calls == []
+    assert len(saver.saved) == saves and saver.asked_for == []
     moved = site.handle(
         "POST",
         "/tasks/2/move",
@@ -1215,14 +1120,14 @@ def test_global_apply_and_move_hand_a_recording_saver_only_the_moves_save() -> N
     assert header(moved, "Location") is not None
     assert str(header(moved, "Location")).startswith("/tasks?")
     get(site, str(header(moved, "Location")))
-    assert [name for name, _ in calls] == ["save"]
-    assert all(isinstance(arguments[0], TrackerState) for _, arguments in calls)
+    assert len(saver.saved) == saves + 1 and saver.asked_for == []
+    assert all(isinstance(state, TrackerState) for state in saver.saved[saves:])
 
 
 def test_all_tasks_open_apply_reload_clear_and_refusal_leave_state_and_headers() -> None:
     """CP-485, T17: the All tasks address with no choice, an Apply, its reload, Clear and a refused
     choice each answer 200 with no redirect, the page policy and no cookie, and change nothing."""
-    saver = RecordingSaver()
+    saver = FakeSaver()
     site, tracker = make_site(saver)
     post(site, name="Alpha", description="seed")
     post(site, name="Beta", description="seed")

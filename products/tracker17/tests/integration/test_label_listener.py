@@ -16,8 +16,9 @@ from urllib.parse import urlencode
 
 import pytest
 
-from application import SHORT_TEXT_MAX, Tracker, TrackerState
+from application import SHORT_TEXT_MAX, Tracker
 from domain import empty_state
+from tests.fakes import FakeSaver
 from web import listen
 
 TITLE = "Set up CI"
@@ -28,19 +29,9 @@ class FixedClock:
         return datetime(2026, 10, 12, 12, 0, tzinfo=UTC)
 
 
-class HandedSaver:
-    """The saver the listener's tracker is handed: it keeps every state it is given."""
-
-    def __init__(self) -> None:
-        self.saved: list[TrackerState] = []
-
-    def save(self, state: TrackerState) -> None:
-        self.saved.append(state)
-
-
 @pytest.fixture
-def served() -> Iterator[tuple[tuple[str, int], Tracker, HandedSaver]]:
-    saver = HandedSaver()
+def served() -> Iterator[tuple[tuple[str, int], Tracker, FakeSaver]]:
+    saver = FakeSaver()
     tracker = Tracker(empty_state(), saver, FixedClock())
     tracker.create_project("Alpha", "")
     tracker.add_task(1, TITLE, "", "", "")
@@ -89,7 +80,7 @@ def submit_then_read(address: tuple[str, int], target: str, label: str) -> tuple
 
 
 def test_real_listener_serves_label_area_and_actions(
-    served: tuple[tuple[str, int], Tracker, HandedSaver],
+    served: tuple[tuple[str, int], Tracker, FakeSaver],
 ) -> None:
     """CP-187 to CP-194, CP-203: the area, an add, a repeat, a remove, each refusal and a stale
     remove, through redirects, and the list showing the result."""

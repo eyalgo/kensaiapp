@@ -21,11 +21,12 @@ from urllib.parse import parse_qs, urlencode, urlsplit
 import pytest
 from test_pages import Element, parse, textarea_value
 from test_routes import FORM, HOST, POLICY, SAME_ORIGIN, get, header, page
-from test_task_routes import MovableClock, SwitchedSaver, World, focused, follow, location
+from test_task_routes import MovableClock, World, focused, follow, location
 
-from application import LONG_TEXT_MAX, Comment, Tracker, TrackerState
+from application import LONG_TEXT_MAX, Comment, Tracker
 from domain import empty_state, restore_state, restore_task
 from persistence import SavedData
+from tests.fakes import FakeSaver
 from web import Response, Site, pages
 
 TITLE = "Set up CI"
@@ -81,7 +82,7 @@ def world_with(
     )
     inner = SavedData(location_on_disk)
     inner.save(state)
-    saver = SwitchedSaver(inner)
+    saver = FakeSaver(passes_to=inner)
     clock = ReadCountingClock()
     tracker = Tracker(state, saver, clock)
     return World(Site(tracker, HOST), tracker, saver, clock, location_on_disk)
@@ -112,7 +113,7 @@ def untouched(world: World) -> tuple[bytes, int, tuple[Comment, ...]]:
     comments."""
     task = world.tracker.task(1)
     assert task is not None
-    return world.bytes_on_disk(), world.saver.saves, task.comments
+    return world.bytes_on_disk(), len(world.saver.saved), task.comments
 
 
 def saved_comments(world: World) -> tuple[Comment, ...]:
@@ -157,7 +158,7 @@ def test_comment_post_saves_then_redirects_to_the_added_comment(tmp_path: Path) 
     assert after.tasks[0].comments == (*earlier, Comment("Looks good", "Sam", WRITTEN))
     assert replace(after.tasks[0], comments=()) == replace(before.tasks[0], comments=())
     assert replace(after, tasks=()) == replace(before, tasks=())
-    assert world.saver.saves == 1 and reads(world) == 1
+    assert len(world.saver.saved) == 1 and reads(world) == 1
     assert world.restarted().tracker.task(1) == world.tracker.task(1)
 
 
@@ -203,7 +204,7 @@ def test_comment_post_accepts_all_task_statuses_and_repeated_text(
     assert [item.text for item in saved_comments(world)] == ["same", "same"]
     task = world.tracker.task(1)
     assert task is not None and task.status.value == status
-    assert world.saver.saves == 2
+    assert len(world.saver.saved) == 2
 
 
 @pytest.mark.parametrize(
@@ -268,7 +269,7 @@ def test_comment_post_uses_length_blank_name_precedence(
     for absent_text in (text, "valid text", ""):
         answer = add_comment(world.site, absent_text, task=99)
         assert location(answer) == "/tasks/99"
-    assert world.saver.saves == 0
+    assert len(world.saver.saved) == 0
     assert saved_comments(world) == ()
 
 
@@ -324,7 +325,7 @@ def test_comment_failed_save_keeps_data_and_retains_the_field(
     text."""
     world = world_with(tmp_path, comments=(comment("earlier"),))
     before = untouched(world)
-    world.saver.failing = True
+    world.saver.error = PermissionError("the disk said no")
     capsys.readouterr()
     sent = " keep\nme "
     response = add_comment(world.site, sent)
@@ -345,7 +346,7 @@ def test_comment_failed_save_keeps_data_and_retains_the_field(
     assert description(target) == FAILURE_LINE
     assert textarea_value(comment_field(root)) == sent
     assert untouched(world) == before
-    world.saver.failing = False
+    world.saver.error = None
     assert world.restarted().tracker.task(1) == world.tracker.task(1)
     assert capsys.readouterr().err == ""
 
@@ -359,11 +360,7 @@ def test_comment_failure_before_the_title_is_read_uses_the_short_console_line(
         def add_task_comment(self, task_id: int, text: str):  # type: ignore[no-untyped-def]
             raise RuntimeError("boom")
 
-    class Quiet:
-        def save(self, state: TrackerState) -> None:
-            return None
-
-    site = Site(Breaking(empty_state(), Quiet(), MovableClock()), HOST)
+    site = Site(Breaking(empty_state(), FakeSaver(), MovableClock()), HOST)
     capsys.readouterr()
     response = add_comment(site, "Hi", task=5)
     assert capsys.readouterr().err.splitlines() == [
@@ -409,7 +406,7 @@ def test_comment_post_keeps_response_policy_for_success_refusal_and_failure(
     world = world_with(tmp_path)
     success = add_comment(world.site, "ok")
     refusal = add_comment(world.site, "")
-    world.saver.failing = True
+    world.saver.error = PermissionError("the disk said no")
     failure = add_comment(world.site, "ok")
     for response in (success, refusal, failure):
         assert response.status == 303
@@ -453,36 +450,24 @@ def test_comment_landing_get_and_history_never_repeat_the_add(tmp_path: Path) ->
 
 def test_comment_requests_serialize_through_the_save(tmp_path: Path) -> None:
     """QC-53, RT-6: a second add waits for the first one's save, and both are kept in order."""
-    entered, release = threading.Event(), threading.Event()
-    states: list[TrackerState] = []
-
-    class HeldSaver:
-        holding = False
-
-        def save(self, state: TrackerState) -> None:
-            states.append(state)
-            if self.holding:
-                entered.set()
-                assert release.wait(timeout=10)
-
-    saver = HeldSaver()
+    saver = FakeSaver()
     task = restore_task(1, 1, TITLE, "todo", "medium", None, [], None, CREATED, [])
     state = restore_state(
         [(1, "Alpha", "")], 2, (), tasks=[task], next_task_id=2, operator_name="Sam"
     )
     held = Site(Tracker(state, saver, ReadCountingClock()), HOST)
-    saver.holding = True
+    saver.hold_save = saver.calls + 1
     first = threading.Thread(target=add_comment, args=(held, "one"))
     second = threading.Thread(target=add_comment, args=(held, "two"))
     first.start()
-    assert entered.wait(timeout=10)
+    assert saver.entered.wait(timeout=10)
     second.start()
     second.join(timeout=0.5)
     assert second.is_alive(), "the second comment request did not wait for the first save"
-    assert len(states) == 1
-    release.set()
+    assert len(saver.saved) == 1
+    saver.release.set()
     first.join(timeout=10)
     second.join(timeout=10)
     assert not first.is_alive() and not second.is_alive()
-    assert sorted(item.text for item in states[-1].tasks[0].comments) == ["one", "two"]
-    assert len(states[-1].tasks[0].comments) == 2
+    assert sorted(item.text for item in saver.saved[-1].tasks[0].comments) == ["one", "two"]
+    assert len(saver.saved[-1].tasks[0].comments) == 2

@@ -15,11 +15,12 @@ from pathlib import Path
 
 import pytest
 from test_pages import Element, parse
-from test_routes import POLICY, RecordingSaver, get, header, page
+from test_routes import POLICY, get, header, page
 from test_task_routes import HOST, MovableClock, World, make_world, utc_zone  # noqa: F401
 
 from application import ProjectSummary, Tracker
 from domain import empty_state, restore_state
+from tests.fakes import FakeSaver
 from web import Response, Site
 from web.pages import NO_MATCH_LINE
 
@@ -43,8 +44,8 @@ class CountingTracker(Tracker):
         return super().project_summary(project_id)
 
 
-def counting_site() -> tuple[Site, CountingTracker, RecordingSaver]:
-    saver = RecordingSaver()
+def counting_site() -> tuple[Site, CountingTracker, FakeSaver]:
+    saver = FakeSaver()
     tracker = CountingTracker(empty_state(), saver, MovableClock())
     tracker.create_project("Alpha", "first")
     tracker.create_project("Gamma", "")
@@ -347,13 +348,13 @@ def test_count_get_and_reload_never_save(tmp_path: Path) -> None:
     """CP-520, T08: following each count link and reloading it changes no Tracker state, makes no
     save, leaves the saved bytes as they were and sets no cookie."""
     world = fixture_a(tmp_path)
-    saves, before = world.saver.saves, world.bytes_on_disk()
+    saves, before = len(world.saver.saved), world.bytes_on_disk()
     state = {pid: world.tracker.project_tasks(pid) for pid in (1, 2, 3)}
     for address, _, _ in NINE:
         for _ in range(2):
             response = get(world.site, address)
             assert response.status == 200 and header(response, "Set-Cookie") is None
-    assert world.saver.saves == saves and world.bytes_on_disk() == before
+    assert len(world.saver.saved) == saves and world.bytes_on_disk() == before
     assert {pid: world.tracker.project_tasks(pid) for pid in (1, 2, 3)} == state
 
 
@@ -429,7 +430,7 @@ def test_a_renamed_project_keeps_both_addresses_and_shows_the_new_name() -> None
     """CP-493, T07: successive states with one identity and another name, with no rename action."""
     for name in ("Alpha", "Beta"):
         state = restore_state([(1, name, "")], 2, ())
-        site = Site(Tracker(state, RecordingSaver(), MovableClock()), HOST)
+        site = Site(Tracker(state, FakeSaver(), MovableClock()), HOST)
         for address, view in ((TASKS, "Tasks"), (SUMMARY, "Summary")):
             root = parse(page(get(site, address)))
             assert root.find_all("h1")[0].text() == name

@@ -136,7 +136,7 @@ def test_delete_first_press_opens_confirmation_without_saving(tmp_path: Path) ->
     """CP-530, CP-531, T4: 303 to the pending address, then the strip in the trigger's place with
     the sentence, the confirming form and Back out in that order; nothing is saved."""
     world = world_with(tmp_path)
-    before, saves = world.bytes_on_disk(), world.saver.saves
+    before, saves = world.bytes_on_disk(), len(world.saver.saved)
     response = press_delete(world)
     assert location(response) == "/tasks/1?delete_confirm"
     assert header(response, "Cache-Control") is None
@@ -156,7 +156,7 @@ def test_delete_first_press_opens_confirmation_without_saving(tmp_path: Path) ->
     order = list(strip.walk())
     assert order.index(sentence) < order.index(first) < order.index(second)
     assert [f for f in root.find_all("form") if f.attrs["action"] == TRIGGER_ACTION] == []
-    assert world.bytes_on_disk() == before and world.saver.saves == saves
+    assert world.bytes_on_disk() == before and len(world.saver.saved) == saves
     assert world.tracker.task(1) is not None
 
 

@@ -155,7 +155,7 @@ def test_each_list_move_path_keeps_filter_choices(tmp_path: Path) -> None:
     assert query_of(refused)["move_refused"] == ["not-allowed"]
     assert query_of(refused)["filter_priority"] == ["high"]
 
-    world.saver.failing = True
+    world.saver.error = PermissionError("the disk said no")
     failed = press(world, 2, "in-progress", [("filter_priority", "medium")])
     assert query_of(failed)["move_failed"] == ["in-progress"]
     assert query_of(failed)["filter_priority"] == ["medium"]
@@ -249,7 +249,7 @@ def test_off_list_refusal_and_failure_remain_visible(
     assert "autofocus" not in line.attrs
 
     before = world.bytes_on_disk()
-    world.saver.failing = True
+    world.saver.error = PermissionError("the disk said no")
     failed = press(world, 2, "in-progress", [("filter_status", "in-progress")])
     capsys.readouterr()
     answered, root = landing(world, failed)
@@ -310,11 +310,11 @@ def test_invalid_carried_filters_prevent_ordinary_and_confirmed_moves(
     before any save, and the landing keeps the whole raw attempt and shows the field refusals."""
     world = world_of(tmp_path)
     before = world.bytes_on_disk()
-    saves = world.saver.saves
+    saves = len(world.saver.saved)
     response = confirm(world, 1, bad) if confirming else press(world, 1, "in-progress", bad)
     assert urlsplit(location(response)).path == "/projects/1"
     assert sorted(pairs_of(urlsplit(location(response)).query)) >= sorted(bad)
-    assert world.bytes_on_disk() == before and world.saver.saves == saves
+    assert world.bytes_on_disk() == before and len(world.saver.saved) == saves
     assert world.tracker.task(1).status.value == "todo"  # type: ignore[union-attr]
     answered, root = landing(world, response)
     assert answered.status == 200 and no_store(answered)
@@ -492,10 +492,10 @@ def test_all_offered_moves_return_to_global_choices(
             ALL_STATUS_LEFT.format(title=TITLE, status="in-progress"),
         )
     before = world.bytes_on_disk()
-    saves = world.saver.saves
+    saves = len(world.saver.saved)
     again = get(world.site, location(moved))
     assert again.status == 200 and no_store(again)
-    assert world.bytes_on_disk() == before and world.saver.saves == saves
+    assert world.bytes_on_disk() == before and len(world.saver.saved) == saves
 
     opened = all_press(world, 4, "cancelled", carried)
     assert urlsplit(location(opened)).path == "/tasks"
@@ -513,10 +513,10 @@ def test_global_cancellation_open_back_out_and_confirm_keep_choices(
     destination is /tasks with the choices intact."""
     world = all_world(tmp_path)
     before = world.bytes_on_disk()
-    saves = world.saver.saves
+    saves = len(world.saver.saved)
 
     opened = all_press(world, 4, "cancelled", carried)
-    assert world.bytes_on_disk() == before and world.saver.saves == saves
+    assert world.bytes_on_disk() == before and len(world.saver.saved) == saves
     answered, root = landing(world, opened)
     assert answered.status == 202 and no_store(answered)
     (strip,) = [e for e in root.walk() if "confirm-strip" in (e.attrs.get("class") or "")]
@@ -535,12 +535,12 @@ def test_global_cancellation_open_back_out_and_confirm_keep_choices(
     backed_root = parse(page(backed))
     assert [e for e in backed_root.walk() if "confirm-strip" in (e.attrs.get("class") or "")] == []
     assert [e for e in backed_root.walk() if "autofocus" in e.attrs] != []
-    assert world.bytes_on_disk() == before and world.saver.saves == saves
+    assert world.bytes_on_disk() == before and len(world.saver.saved) == saves
 
     confirmed = all_confirm(world, 4, carried)
     assert urlsplit(location(confirmed)).path == "/tasks"
     assert query_of(confirmed)["moved"] == ["cancelled"]
-    assert world.saver.saves == saves + 1
+    assert len(world.saver.saved) == saves + 1
     assert world.tracker.task(4).status.value == "cancelled"  # type: ignore[union-attr]
     for key, value in carried:
         assert value in query_of(confirmed)[key]
@@ -670,7 +670,7 @@ def test_global_stale_refused_and_failed_move_keep_state_and_context(
     assert query_of(bad)["move_refused"] == ["not-a-status"]
     assert world.bytes_on_disk() == before
 
-    world.saver.failing = True
+    world.saver.error = PermissionError("the disk said no")
     failed = all_press(world, 4, "in-progress", carried)
     out = capsys.readouterr()
     assert urlsplit(location(failed)).path == "/tasks"
@@ -685,11 +685,11 @@ def test_global_stale_refused_and_failed_move_keep_state_and_context(
     assert "Traceback" not in page(answered) and "Error" not in page(answered)
     assert "The tracker couldn't move 'Plan' to in-progress" in out.err + out.out
     assert world.bytes_on_disk() == before
-    world.saver.failing = False
-    saves = world.saver.saves
+    world.saver.error = None
+    saves = len(world.saver.saved)
     for address in (location(stale), location(bad), location(failed)):
         assert get(world.site, address).status == 200
-    assert world.saver.saves == saves and world.bytes_on_disk() == before
+    assert len(world.saver.saved) == saves and world.bytes_on_disk() == before
 
 
 @pytest.mark.parametrize(

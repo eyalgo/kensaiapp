@@ -146,7 +146,7 @@ def test_the_same_address_reopens_the_same_order_and_clear_restores_every_task(
     show current data in the same order; Clear drops every choice and count; Apply adds no
     completion message."""
     world = sort_world(tmp_path)
-    saves = world.saver.saves
+    saves = len(world.saver.saved)
     address = "filter_priority=low&sort_field=title&sort_direction=descending"
     assert listed(sorted_page(world, address)) == listed(sorted_page(world, address)) == [4, 2]
     world.tracker.add_task(1, "Beta", "low", "", "")
@@ -157,7 +157,7 @@ def test_the_same_address_reopens_the_same_order_and_clear_restores_every_task(
     assert selected(cleared, "sort_direction") == ["ascending"]
     assert "This project has" not in cleared.text() and "match this filter" not in cleared.text()
     assert "applied" not in sorted_page(world, address).text().lower()
-    assert world.saver.saves == saves + 1  # the one task this test added itself
+    assert len(world.saver.saved) == saves + 1  # the one task this test added itself
 
 
 REFUSING = [
@@ -186,13 +186,17 @@ def test_a_refused_sort_changes_nothing_on_disk_and_lists_nothing(
     and the answer is a 200 page with no result and no count. A valid filter that matches nothing
     does not hide a malformed sort."""
     world = sort_world(tmp_path)
-    state, saves, saved = world.tracker.project_tasks(1), world.saver.saves, world.bytes_on_disk()
+    state, saves, saved = (
+        world.tracker.project_tasks(1),
+        len(world.saver.saved),
+        world.bytes_on_disk(),
+    )
     root = sorted_page(world, query)
     assert root.find_all("table") == []
     assert root.by_id("filter-count") is None
     assert "No tasks match this filter" not in root.text()
     assert world.tracker.project_tasks(1) == state
-    assert world.saver.saves == saves and world.bytes_on_disk() == saved
+    assert len(world.saver.saved) == saves and world.bytes_on_disk() == saved
 
 
 def test_a_missing_project_stays_not_found_with_valid_or_invalid_sort_choices(
@@ -233,7 +237,7 @@ def test_header_links_are_projects_all_tasks_people_on_every_page_kind(tmp_path:
     from test_sort_pages import two_project_world
 
     world = two_project_world(tmp_path)
-    saves = world.saver.saves
+    saves = len(world.saver.saved)
     for target, status in (
         ("/", 200),
         ("/projects/1", 200),
@@ -249,7 +253,7 @@ def test_header_links_are_projects_all_tasks_people_on_every_page_kind(tmp_path:
         assert links == [("/", "Projects"), ("/tasks", "All tasks"), ("/people", "People")], target
     opened = get(world.site, "/tasks")
     assert opened.status == 200 and not [h for h in opened.headers if h[0] == "Location"]
-    assert world.saver.saves == saves
+    assert len(world.saver.saved) == saves
 
 
 def test_only_the_exact_tasks_address_is_the_global_page(tmp_path: Path) -> None:
@@ -312,7 +316,7 @@ def test_global_apply_sort_and_clear_are_stateless_reads(tmp_path: Path) -> None
     from test_sort_pages import all_tasks, table_rows, two_project_world
 
     world = two_project_world(tmp_path)
-    saves, before = world.saver.saves, world.bytes_on_disk()
+    saves, before = len(world.saver.saved), world.bytes_on_disk()
     address = "/tasks?filter_status=todo&sort_field=title&sort_direction=descending"
     first, second = get(world.site, address), get(world.site, address)
     assert first.status == 200 and first.body == second.body
@@ -326,7 +330,7 @@ def test_global_apply_sort_and_clear_are_stateless_reads(tmp_path: Path) -> None
     world.clock.instant = world.clock.instant.replace(year=2027)
     later = [cells[6].text() for cells in table_rows(all_tasks(world, "filter_status=todo"))]
     assert sum("Overdue" in text for text in later) == 3
-    assert (world.saver.saves, world.bytes_on_disk()) == (saves, before)
+    assert (len(world.saver.saved), world.bytes_on_disk()) == (saves, before)
 
 
 def test_global_apply_and_clear_carry_no_old_move_outcome(tmp_path: Path) -> None:

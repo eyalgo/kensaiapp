@@ -73,7 +73,7 @@ def test_first_project_delete_press_redirects_without_saving(tmp_path: Path) -> 
     """CP-570, CP-572, T8: 303 to the Tasks view with the confirmation marker and the filter and
     sort choices; nothing is saved; a forged target, name or count cannot choose anything."""
     world = two_projects(tmp_path)
-    before, saves = world.bytes_on_disk(), world.saver.saves
+    before, saves = world.bytes_on_disk(), len(world.saver.saved)
     forged = [("project_id", "2"), ("name", "Forged"), ("count", "99"), ("deleted_project", "x")]
     response = press(world, pairs=[*CHOICES, *forged])
     target = location(response)
@@ -88,7 +88,7 @@ def test_first_project_delete_press_redirects_without_saving(tmp_path: Path) -> 
         "sort_direction": [""],
     }
     assert header(response, "Cache-Control") is None and header(response, "Clear-Site-Data") is None
-    assert world.bytes_on_disk() == before and world.saver.saves == saves
+    assert world.bytes_on_disk() == before and len(world.saver.saved) == saves
     assert location(press(world)) == "/projects/1?project_delete_confirm"
 
 
@@ -101,18 +101,18 @@ def test_confirm_project_delete_saves_once_and_reports_current_outcome(tmp_path:
     assert sentence is not None and sentence.text() == sentence_for("Alpha", 4)
     world.tracker.rename_project(1, "Alpha Two")
     add_task(world.site, 1, title="Late task")
-    saves = world.saver.saves
+    saves = len(world.saver.saved)
     forged = [("project_id", "2"), ("name", "Forged"), ("count", "99")]
     response = press(world, confirming=True, pairs=[*CHOICES, *forged])
     assert location(response) == "/?deleted_project=Alpha+Two&deleted_project_tasks=5"
-    assert world.saver.saves == saves + 1
+    assert len(world.saver.saved) == saves + 1
     assert world.tracker.project(1) is None and world.tracker.project(2) is not None
-    after, saves = world.bytes_on_disk(), world.saver.saves
+    after, saves = world.bytes_on_disk(), len(world.saver.saved)
     shown = get(world.site, location(response))
     assert shown.status == 200 and header(shown, "Cache-Control") == "no-store"
     first = shown.body
     assert get(world.site, location(response)).body == first
-    assert world.bytes_on_disk() == after and world.saver.saves == saves
+    assert world.bytes_on_disk() == after and len(world.saver.saved) == saves
     assert "Alpha Two" not in parse(first.decode()).find_all("ul")[0].text()
 
 
@@ -126,7 +126,7 @@ def test_failed_project_delete_keeps_saved_and_visible_state(
     reads = ("/projects/1", "/projects/1/summary", "/tasks/1", "/tasks/2", "/tasks", "/")
     pages_before = {address: get(world.site, address).body for address in reads}
     before = world.bytes_on_disk()
-    world.saver.failing = True
+    world.saver.error = PermissionError("the disk said no")
     response = press(world, confirming=True, pairs=CHOICES)
     target = location(response)
     path, _, query = target.partition("?")
@@ -221,7 +221,7 @@ def test_deleted_project_submission_changes_nothing(tmp_path: Path, case: str) -
     assert location(press(world, confirming=True)).startswith("/?deleted_project=")
     if case == "confirm-again":
         assert location(press(world, confirming=True)) == "/projects/1"
-    before, saves = world.bytes_on_disk(), world.saver.saves
+    before, saves = world.bytes_on_disk(), len(world.saver.saved)
     projects_before = world.tracker.projects()
     survivor_before = world.tracker.project_tasks(2)
     response = submit_to_deleted_project(world, case)
@@ -229,7 +229,7 @@ def test_deleted_project_submission_changes_nothing(tmp_path: Path, case: str) -
     shown = get(world.site, "/projects/1")
     assert shown.status == 404 and heading_of(shown) == NOT_FOUND_PROJECT
     assert header(shown, "Cache-Control") is None
-    assert world.bytes_on_disk() == before and world.saver.saves == saves
+    assert world.bytes_on_disk() == before and len(world.saver.saved) == saves
     assert world.tracker.projects() == projects_before
     assert world.tracker.project_tasks(2) == survivor_before
 
@@ -254,7 +254,7 @@ def test_deleted_child_submission_changes_nothing(tmp_path: Path, case: str) -> 
     the missing target wins over invalid submitted values."""
     world = two_projects(tmp_path)
     assert location(press(world, confirming=True)).startswith("/?deleted_project=")
-    before, saves = world.bytes_on_disk(), world.saver.saves
+    before, saves = world.bytes_on_disk(), len(world.saver.saved)
     target, fields = CHILD_CASES[case]
     response = world.site.handle(
         "POST", target, {**SAME_ORIGIN, **FORM}, urlencode(fields).encode()
@@ -263,7 +263,7 @@ def test_deleted_child_submission_changes_nothing(tmp_path: Path, case: str) -> 
     shown = get(world.site, "/tasks/1")
     assert shown.status == 404 and heading_of(shown) == NOT_FOUND_TASK
     assert header(shown, "Cache-Control") is None
-    assert world.bytes_on_disk() == before and world.saver.saves == saves
+    assert world.bytes_on_disk() == before and len(world.saver.saved) == saves
 
 
 def test_project_delete_response_policy_matches_rendered_state(tmp_path: Path) -> None:
@@ -323,10 +323,10 @@ def test_project_delete_submissions_require_same_origin_and_own_host(
     """CP-588, T13: each new route refuses a cross-site, same-site, none, absent or foreign-host
     request with 403 and leaves the saved bytes as they were."""
     world = two_projects(tmp_path)
-    before, saves = world.bytes_on_disk(), world.saver.saves
+    before, saves = world.bytes_on_disk(), len(world.saver.saved)
     response = press(world, confirming=confirming, headers=headers)
     assert response.status == 403
-    assert world.bytes_on_disk() == before and world.saver.saves == saves
+    assert world.bytes_on_disk() == before and len(world.saver.saved) == saves
     assert world.tracker.project(1) is not None
 
 
@@ -335,11 +335,11 @@ def test_get_on_project_delete_action_addresses_never_deletes(tmp_path: Path, su
     """CP-575, T13: a GET on either action URL is not a submission; it saves nothing and gets the
     answer any unknown page gets."""
     world = two_projects(tmp_path)
-    before, saves = world.bytes_on_disk(), world.saver.saves
+    before, saves = world.bytes_on_disk(), len(world.saver.saved)
     shown = get(world.site, f"/projects/1{suffix}")
     unknown = get(world.site, "/projects/1/no-such-page")
     assert (shown.status, shown.body) == (unknown.status, unknown.body)
-    assert world.bytes_on_disk() == before and world.saver.saves == saves
+    assert world.bytes_on_disk() == before and len(world.saver.saved) == saves
     assert world.tracker.project(1) is not None
 
 
@@ -348,13 +348,13 @@ def test_overlong_numeric_project_target_is_missing(tmp_path: Path, confirming: 
     """CP-582, T13: a project number more digits than any identity can have redirects to its bare
     address, which shows the project 404; nothing is saved and nothing crashes."""
     world = two_projects(tmp_path)
-    before, saves = world.bytes_on_disk(), world.saver.saves
+    before, saves = world.bytes_on_disk(), len(world.saver.saved)
     digits = "9" * 5000
     response = press(world, digits, confirming=confirming)
     assert location(response) == f"/projects/{digits}"
     shown = get(world.site, location(response))
     assert shown.status == 404 and heading_of(shown) == NOT_FOUND_PROJECT
-    assert world.bytes_on_disk() == before and world.saver.saves == saves
+    assert world.bytes_on_disk() == before and len(world.saver.saved) == saves
 
 
 def test_the_landing_names_what_the_deletion_removed_when_the_project_was_empty(

@@ -23,6 +23,7 @@ from application import (
     TrackerState,
 )
 from domain import restore_state, restore_task
+from tests.fakes import FakeSaver
 
 CREATED_AT = datetime(2026, 10, 28, 12, 0, tzinfo=UTC)
 
@@ -32,48 +33,13 @@ class FixedClock:
         return CREATED_AT
 
 
-class ObservingSaver:
-    """Keeps every state it is handed, and what the tracker shows while each save is under way."""
-
-    def __init__(self) -> None:
-        self.saved: list[TrackerState] = []
-        self.shown_during_save: list[tuple[str | None, int]] = []
-        self.tracker: Tracker | None = None
-
-    def save(self, state: TrackerState) -> None:
-        if self.tracker is not None:
-            project = self.tracker.project(2)
-            self.shown_during_save.append(
-                (
-                    None if project is None else project.name,
-                    self.tracker.project_task_list(2, FilterInput()).task_count,
-                )
-            )
-        self.saved.append(state)
-
-
-class FailingSaver:
-    def __init__(self) -> None:
-        self.calls = 0
-
-    def save(self, state: TrackerState) -> None:
-        self.calls += 1
-        raise PermissionError("the disk said no")
-
-
-class CallRecordingSaver:
-    """A saver that answers save and records any other attribute the tracker reaches for."""
-
-    def __init__(self) -> None:
-        self.saves = 0
-        self.other_access: list[str] = []
-
-    def save(self, state: TrackerState) -> None:
-        self.saves += 1
-
-    def __getattr__(self, name: str):
-        self.other_access.append(name)
-        raise AttributeError(name)
+def _shown(tracker: Tracker) -> tuple[str | None, int]:
+    """The project's name and its task count as the tracker shows them right now."""
+    project = tracker.project(2)
+    return (
+        None if project is None else project.name,
+        tracker.project_task_list(2, FilterInput()).task_count,
+    )
 
 
 def _comments(count: int) -> list[Comment]:
@@ -126,14 +92,14 @@ def _everything_shown(tracker: Tracker):
 def test_delete_project_saves_once_before_publishing():
     """FR-9, CP-575: the saver sees the exact candidate while every read still shows the old
     project; afterwards the outcome is returned and every read shows the new state."""
-    saver = ObservingSaver()
+    saver = FakeSaver()
     tracker = _tracker(saver)
-    saver.tracker = tracker
+    saver.watch = lambda: _shown(tracker)
 
     outcome = tracker.delete_project(2)
 
     assert outcome == ProjectDeletionOutcome(project=Project(2, "Beta", "second"), task_count=4)
-    assert saver.shown_during_save == [("Beta", 4)]
+    assert saver.seen == [("Beta", 4)]
     assert len(saver.saved) == 1
     candidate = saver.saved[0]
     assert [project.id for project in candidate.projects] == [1, 3]
@@ -149,7 +115,7 @@ def test_delete_project_saves_once_before_publishing():
 def test_delete_project_refusal_never_calls_the_saver():
     """CP-582: a missing or already removed target raises ProjectNotFound, saves nothing and
     leaves the state as it was."""
-    saver = ObservingSaver()
+    saver = FakeSaver()
     tracker = _tracker(saver)
     before = _everything_shown(tracker)
 
@@ -171,7 +137,7 @@ def test_delete_project_refusal_never_calls_the_saver():
 def test_delete_project_failed_save_keeps_every_read_unchanged():
     """FR-9, NFR-8, CP-578: the saver's error propagates after one attempted save and every read
     keeps the old value, with no outcome returned."""
-    saver = FailingSaver()
+    saver = FakeSaver(error=PermissionError("the disk said no"))
     tracker = _tracker(saver)
     before = _everything_shown(tracker)
 
@@ -187,7 +153,7 @@ def test_delete_project_failed_save_keeps_every_read_unchanged():
 def test_delete_project_uses_state_at_confirm_time():
     """CP-576: the outcome reports the name and count held when the action runs, not those read
     when the confirmation was built."""
-    tracker = _tracker(ObservingSaver())
+    tracker = _tracker(FakeSaver())
     count_at_confirmation = tracker.project_task_list(2, FilterInput()).task_count
     assert count_at_confirmation == 4
 
@@ -201,7 +167,7 @@ def test_delete_project_uses_state_at_confirm_time():
 
 def test_delete_project_receives_saves_only():
     """QC-54, CP-591: the saver is handed whole-state saves for the action and never read."""
-    saver = CallRecordingSaver()
+    saver = FakeSaver(only_save=True)
     tracker = _tracker(saver)
 
     tracker.delete_project(2)
@@ -211,5 +177,5 @@ def test_delete_project_receives_saves_only():
     tracker.all_task_list(FilterInput())
     tracker.task(5)
 
-    assert saver.saves == 1
-    assert saver.other_access == []
+    assert saver.calls == 1
+    assert saver.asked_for == []

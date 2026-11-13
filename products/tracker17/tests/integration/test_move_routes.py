@@ -144,10 +144,10 @@ def test_a_row_press_saves_and_lands_on_the_project_page_at_the_rows_status(
     """R1, CP-296, CP-303, CP-305, CP-314: the press is saved once; the landing is the project's
     page, the row's status element is focused and the line describes it."""
     world = world_with(tmp_path)
-    saves = world.saver.saves
+    saves = len(world.saver.saved)
     response = press(world.site, 1, "in-progress", LIST)
     assert location(response).startswith("/projects/1?") and "#" not in location(response)
-    assert world.saver.saves == saves + 1 and status_of(world) == "in-progress"
+    assert len(world.saver.saved) == saves + 1 and status_of(world) == "in-progress"
     root = parse(follow(world.site, response))
     (target,) = focused(root)
     assert target.text() == "in-progress" and target.attrs["tabindex"] == "-1"
@@ -302,7 +302,7 @@ def test_an_unknown_task_and_an_unreadable_identity_get_the_not_found_page_and_n
     """R6, CP-310: task 999 is redirected to its own address, which answers not found; an identity
     of more digits than an int reads answers the not-found page at once."""
     world = world_with(tmp_path)
-    before = (world.bytes_on_disk(), world.saver.saves)
+    before = (world.bytes_on_disk(), len(world.saver.saved))
     unknown = press(world.site, 999, "in-progress")
     assert location(unknown) == "/tasks/999"
     missing = get(world.site, "/tasks/999")
@@ -311,7 +311,7 @@ def test_an_unknown_task_and_an_unreadable_identity_get_the_not_found_page_and_n
     unreadable = press(world.site, "9" * 5000, "in-progress")
     assert unreadable.status == 404
     assert unreadable.body == pages.task_not_found_page().encode("utf-8")
-    assert (world.bytes_on_disk(), world.saver.saves) == before
+    assert (world.bytes_on_disk(), len(world.saver.saved)) == before
 
 
 def test_a_failing_saver_reports_on_the_console_and_the_page_without_exception_text(
@@ -320,15 +320,15 @@ def test_a_failing_saver_reports_on_the_console_and_the_page_without_exception_t
     """R7, CP-311, QC-56, QC-57: the console's first line names the move, the next the error; the
     page's failure line has no exception text, and the state and the file are as they were."""
     world = world_with(tmp_path)
-    before = (world.bytes_on_disk(), world.saver.saves)
-    world.saver.failing = True
+    before = (world.bytes_on_disk(), len(world.saver.saved))
+    world.saver.error = PermissionError("the disk said no")
     response = press(world.site, 1, "in-progress", LIST)
     lines = capsys.readouterr().err.splitlines()
     assert (
         lines[0] == "The tracker couldn't move 'Set up CI' to in-progress, and nothing was changed."
     )
     assert lines[1] == "PermissionError: the disk said no"
-    world.saver.failing = False
+    world.saver.error = None
     shown = follow(world.site, response)
     root = parse(shown)
     (target,) = focused(root)
@@ -338,7 +338,7 @@ def test_a_failing_saver_reports_on_the_console_and_the_page_without_exception_t
     for leaked in ("PermissionError", "disk said no", "Traceback"):
         assert leaked not in shown
     assert status_of(world) == "todo"
-    assert (world.bytes_on_disk(), world.saver.saves) == before
+    assert (world.bytes_on_disk(), len(world.saver.saved)) == before
     assert buttons(rows(root)[0][MOVES_COLUMN]) == ["in-progress", "cancelled"]
 
 
@@ -357,10 +357,10 @@ def test_a_submission_not_marked_same_origin_is_refused_and_a_get_changes_nothin
     """R8, CP-314: only a same-origin submission is applied; a GET to the address changes
     nothing."""
     world = world_with(tmp_path)
-    before = (world.bytes_on_disk(), world.saver.saves)
+    before = (world.bytes_on_disk(), len(world.saver.saved))
     assert press(world.site, 1, "in-progress", LIST, headers=mark).status == 403
     assert get(world.site, "/tasks/1/move").status == 404
-    assert (world.bytes_on_disk(), world.saver.saves) == before and status_of(world) == "todo"
+    assert (world.bytes_on_disk(), len(world.saver.saved)) == before and status_of(world) == "todo"
 
 
 def test_reloading_the_landing_address_shows_the_same_line_and_saves_nothing(
@@ -369,11 +369,11 @@ def test_reloading_the_landing_address_shows_the_same_line_and_saves_nothing(
     """R9, CP-306: the landing address is read-only; each visit shows the same line."""
     world = world_with(tmp_path)
     landing = location(press(world.site, 1, "in-progress", LIST))
-    saves = world.saver.saves
+    saves = len(world.saver.saved)
     first, second, third = (page(get(world.site, landing)) for _ in range(3))
     assert first == second == third
     assert description(focused(parse(first))[0]) == "You moved 'Set up CI' to in-progress."
-    assert world.saver.saves == saves
+    assert len(world.saver.saved) == saves
 
 
 def test_overdue_clears_on_done_and_stays_on_todo_on_the_row(
@@ -426,10 +426,10 @@ def test_a_press_on_a_cancelled_task_is_refused_with_the_cancelled_reason(tmp_pa
     """CP-308, CP-359: the fourth saved status has its own line, and the task stays cancelled."""
     world = world_with(tmp_path)
     world.tracker.move_task(1, "cancelled")
-    before = (world.bytes_on_disk(), world.saver.saves)
+    before = (world.bytes_on_disk(), len(world.saver.saved))
     root = parse(follow(world.site, press(world.site, 1, "todo", TASK_PLACE)))
     assert description(focused(root)[0]) == SUBMISSION_FOR["cancelled"]
-    assert (world.bytes_on_disk(), world.saver.saves) == before
+    assert (world.bytes_on_disk(), len(world.saver.saved)) == before
 
 
 # --- The cancelled move and its in-place confirmation (cancel-confirmation, CP-321 to CP-334) ---
@@ -459,7 +459,7 @@ def confirm(
 
 def snapshot(world: World) -> tuple[bytes, int, object]:
     """Everything a read or a refusal must leave as it was: the file, the saves, the state."""
-    return world.bytes_on_disk(), world.saver.saves, world.tracker.project_tasks(1)
+    return world.bytes_on_disk(), len(world.saver.saved), world.tracker.project_tasks(1)
 
 
 def base_of(place: str) -> str:
@@ -566,10 +566,10 @@ def test_confirming_saves_once_and_only_the_status_changes(
     that differs, and the landing has one described completion and no moves."""
     world = world_with(tmp_path, status)
     before_document = json.loads(world.bytes_on_disk())
-    saves = world.saver.saves
+    saves = len(world.saver.saved)
     response = confirm(world.site, 1, place)
     assert location(response).startswith(f"{base_of(place)}?") and "#" not in location(response)
-    assert world.saver.saves == saves + 1 and status_of(world) == "cancelled"
+    assert len(world.saver.saved) == saves + 1 and status_of(world) == "cancelled"
     (changed,) = differing_values(before_document, json.loads(world.bytes_on_disk()))
     assert changed[-1] == "status"
     landing = follow(world.site, response)
@@ -580,9 +580,9 @@ def test_confirming_saves_once_and_only_the_status_changes(
     assert strips(root) == []
     assert len([e for e in root.walk() if e.attrs.get("id") == "move-line"]) == 1
     assert [b for b in root.find_all("button") if "move-button" in b.attrs.get("class", "")] == []
-    saves = world.saver.saves
+    saves = len(world.saver.saved)
     assert page(get(world.site, location(response))) == landing
-    assert world.saver.saves == saves
+    assert len(world.saver.saved) == saves
 
 
 def test_confirming_an_overdue_task_clears_the_row_marker(
@@ -651,10 +651,10 @@ def test_other_moves_keep_their_first_press_outcomes(tmp_path: Path) -> None:
     """CP-330: a move to any status but cancelled still takes effect on its first press, with no
     confirmation; invalid targets, an unknown task and the place fallback answer as they did."""
     world = world_with(tmp_path)
-    saves = world.saver.saves
+    saves = len(world.saver.saved)
     moved = location(press(world.site, 1, "in-progress", LIST))
     assert moved == "/projects/1?moved=in-progress&move_task=1" and "confirm" not in moved
-    assert world.saver.saves == saves + 1 and status_of(world) == "in-progress"
+    assert len(world.saver.saved) == saves + 1 and status_of(world) == "in-progress"
     done = location(press(world.site, 1, "done", None))
     assert done == "/tasks/1?moved=done&move_task=1" and status_of(world) == "done"
     before = snapshot(world)
@@ -714,7 +714,7 @@ def test_missing_confirmation_targets_answer_not_found_without_saving(tmp_path: 
     world = make_world(tmp_path, projects=("Alpha", "Beta"))
     world.tracker.add_task(1, "Here")
     world.tracker.add_task(2, "There")
-    before = (world.bytes_on_disk(), world.saver.saves)
+    before = (world.bytes_on_disk(), len(world.saver.saved))
     missing = pages.task_not_found_page().encode("utf-8")
     assert location(press(world.site, 999, "cancelled")) == "/tasks/999"
     assert location(confirm(world.site, 999)) == "/tasks/999"
@@ -729,7 +729,7 @@ def test_missing_confirmation_targets_answer_not_found_without_saving(tmp_path: 
     plain = page(get(world.site, "/projects/1"))
     for mode in ("move_confirm", "move_back"):
         assert page(get(world.site, f"/projects/1?move_task=2&{mode}=cancelled")) == plain
-    assert (world.bytes_on_disk(), world.saver.saves) == before
+    assert (world.bytes_on_disk(), len(world.saver.saved)) == before
 
 
 @pytest.mark.parametrize("place", PLACES)
@@ -741,11 +741,11 @@ def test_failed_confirming_save_preserves_data_and_reports_the_action(
     one focused status, with no exception text and no success line."""
     world = world_with(tmp_path)
     before = snapshot(world)
-    world.saver.failing = True
+    world.saver.error = PermissionError("the disk said no")
     response = confirm(world.site, 1, place)
     lines = capsys.readouterr().err.splitlines()
     assert lines == [FAILED_LINE, "PermissionError: the disk said no"]
-    world.saver.failing = False
+    world.saver.error = None
     shown = follow(world.site, response)
     root = parse(shown)
     (target,) = focused(root)
@@ -868,7 +868,7 @@ def test_global_missing_move_targets_keep_existing_not_found_handling(tmp_path: 
     world = make_world(tmp_path, projects=("Alpha", "Beta"))
     world.tracker.add_task(1, "Here")
     world.tracker.add_task(2, "There")
-    before = (world.bytes_on_disk(), world.saver.saves)
+    before = (world.bytes_on_disk(), len(world.saver.saved))
     missing = pages.task_not_found_page().encode("utf-8")
     assert location(press(world.site, 999, "in-progress", ALL_PLACE)) == "/tasks/999"
     assert location(press(world.site, 999, "cancelled", ALL_PLACE)) == "/tasks/999"
@@ -887,7 +887,7 @@ def test_global_missing_move_targets_keep_existing_not_found_handling(tmp_path: 
     plain = page(get(world.site, "/tasks"))
     for query in ("move_task=abc&move_confirm=cancelled", "move_task=1&moved=sideways"):
         assert page(get(world.site, "/tasks?" + query)) == plain
-    assert (world.bytes_on_disk(), world.saver.saves) == before
+    assert (world.bytes_on_disk(), len(world.saver.saved)) == before
 
 
 def test_project_and_task_move_destinations_remain_unchanged(tmp_path: Path) -> None:

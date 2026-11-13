@@ -33,6 +33,7 @@ from application import (
 )
 from domain import restore_state, restore_task
 from persistence import SavedData
+from tests.fakes import FakeSaver
 
 PROJECTS = [(1, "Alpha", "the first"), (2, "Beta", ""), (3, "gamma", "third")]
 NEXT_PROJECT_ID = 4
@@ -47,45 +48,6 @@ class CountingClock:
     def now(self) -> datetime:
         self.reads += 1
         return CREATED_AT
-
-
-class RecordingSaver:
-    """Keeps every state it was handed, and the project name the tracker showed during each save."""
-
-    def __init__(self) -> None:
-        self.saved: list[TrackerState] = []
-        self.shown_during_save: list[str | None] = []
-        self.tracker: Tracker | None = None
-
-    def save(self, state: TrackerState) -> None:
-        if self.tracker is not None:
-            project = self.tracker.project(1)
-            self.shown_during_save.append(None if project is None else project.name)
-        self.saved.append(state)
-
-
-class FailingSaver:
-    def __init__(self) -> None:
-        self.calls = 0
-
-    def save(self, state: TrackerState) -> None:
-        self.calls += 1
-        raise PermissionError("the disk said no")
-
-
-class CallRecordingSaver:
-    """A saver that answers save and records any other attribute the tracker reaches for."""
-
-    def __init__(self) -> None:
-        self.saves = 0
-        self.other_access: list[str] = []
-
-    def save(self, state: TrackerState) -> None:
-        self.saves += 1
-
-    def __getattr__(self, name: str):
-        self.other_access.append(name)
-        raise AttributeError(name)
 
 
 def _tasks():
@@ -127,6 +89,11 @@ def _tracker(saver, clock: CountingClock | None = None) -> Tracker:
     return Tracker(_state(), saver, clock or CountingClock())
 
 
+def _name_shown(tracker: Tracker) -> str | None:
+    project = tracker.project(1)
+    return None if project is None else project.name
+
+
 def _everything_shown(tracker: Tracker):
     """Every value the tracker shows for names and tasks, to compare before with after."""
     return (
@@ -141,10 +108,10 @@ def _everything_shown(tracker: Tracker):
 def test_rename_saves_once_before_publishing():
     """FR-9, CP-550: the saver holds the candidate once, readers still show the old name during
     that save, and readers and the outcome show the new name afterwards. The clock is not read."""
-    saver = RecordingSaver()
+    saver = FakeSaver()
     clock = CountingClock()
     tracker = _tracker(saver, clock)
-    saver.tracker = tracker
+    saver.watch = lambda: _name_shown(tracker)
     before = _state()
 
     outcome = tracker.rename_project(1, "Zed")
@@ -158,7 +125,7 @@ def test_rename_saves_once_before_publishing():
             before, projects=(expected_project, before.projects[1], before.projects[2])
         )
     ]
-    assert saver.shown_during_save == ["Alpha"]
+    assert saver.seen == ["Alpha"]
     assert tracker.project(1) == expected_project
     assert [project.name for project in tracker.projects()] == ["Beta", "gamma", "Zed"]
     assert clock.reads == 0
@@ -167,7 +134,7 @@ def test_rename_saves_once_before_publishing():
 def test_unchanged_rename_never_saves():
     """CP-553, QC-21: the exact saved name is not refused, not saved and not published, also after a
     rename that did save; the clock is not read."""
-    saver = RecordingSaver()
+    saver = FakeSaver()
     clock = CountingClock()
     tracker = _tracker(saver, clock)
 
@@ -204,7 +171,7 @@ def test_unchanged_rename_never_saves():
 def test_refused_rename_keeps_the_current_state(project_id, name, refusal):
     """CP-555, CP-558: each refusal is the domain's type, nothing is saved and every value the
     tracker shows is as it was."""
-    saver = RecordingSaver()
+    saver = FakeSaver()
     tracker = _tracker(saver)
     before = _everything_shown(tracker)
 
@@ -218,7 +185,7 @@ def test_refused_rename_keeps_the_current_state(project_id, name, refusal):
 def test_failed_rename_keeps_the_current_state():
     """FR-9, NFR-8, CP-557: the saver's error propagates after one attempted save, and every value
     the tracker shows is as it was."""
-    saver = FailingSaver()
+    saver = FakeSaver(error=PermissionError("the disk said no"))
     tracker = _tracker(saver)
     before = _everything_shown(tracker)
 
@@ -232,7 +199,7 @@ def test_failed_rename_keeps_the_current_state():
 def test_each_rename_uses_the_name_current_at_the_action():
     """CP-550, CP-553, CP-555: the previous name is the one saved when the rename ran, a name an
     earlier page showed can be renamed back to, and a name already current saves nothing."""
-    saver = RecordingSaver()
+    saver = FakeSaver()
     tracker = _tracker(saver)
 
     first = tracker.rename_project(1, "Zed")
@@ -262,15 +229,7 @@ def test_rename_preserves_tasks_and_survives_restart(tmp_path: Path):
     starting = _state()
     saved_data.save(starting)
 
-    class TeeSaver:
-        def __init__(self) -> None:
-            self.states: list[TrackerState] = []
-
-        def save(self, state: TrackerState) -> None:
-            self.states.append(state)
-            saved_data.save(state)
-
-    tee = TeeSaver()
+    tee = FakeSaver(passes_to=saved_data)
     keys_before = _stored_key_sets(tmp_path)
     tracker = Tracker(saved_data.load(), tee, CountingClock())
 
@@ -284,7 +243,7 @@ def test_rename_preserves_tasks_and_survives_restart(tmp_path: Path):
             Project(id=3, name="gamma", description="third"),
         ),
     )
-    assert tee.states == [expected]
+    assert tee.saved == [expected]
     reloaded = saved_data.load()
     assert reloaded == expected
     assert _stored_key_sets(tmp_path) == keys_before
@@ -320,7 +279,7 @@ def _stored_key_sets(location: Path):
 def test_rename_saver_receives_only_saves():
     """QC-54, CP-567: a rename and the reads that follow reach the saver with nothing but whole
     saves, never a read."""
-    saver = CallRecordingSaver()
+    saver = FakeSaver(only_save=True)
     tracker = _tracker(saver)
 
     tracker.rename_project(1, "Zed")
@@ -335,5 +294,5 @@ def test_rename_saver_receives_only_saves():
     tracker.assignees()
     tracker.operator_name()
 
-    assert saver.saves == 1
-    assert saver.other_access == []
+    assert saver.calls == 1
+    assert saver.asked_for == []

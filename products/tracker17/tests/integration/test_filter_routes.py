@@ -68,7 +68,7 @@ def test_reload_bookmark_and_back_recompute_without_saving(tmp_path: Path) -> No
     """CP-395, CP-399, CP-400, T6: the same address keeps its choices, a later load reflects the
     current state and clock, Clear returns every task, and no request saves."""
     world = three_task_world(tmp_path)
-    saves = world.saver.saves
+    saves = len(world.saver.saved)
     bytes_before = world.bytes_on_disk()
     address = "filter_status=todo&filter_overdue=on"
     first = project(world, address)
@@ -81,7 +81,7 @@ def test_reload_bookmark_and_back_recompute_without_saving(tmp_path: Path) -> No
     cleared = project(world)
     assert rows_of(cleared) == ["Write docs", "Fix bug", "Ship"]
     assert "this filter" not in cleared.text() and "applied" not in cleared.text().lower()
-    assert world.saver.saves == saves + 1  # the one move this test itself made
+    assert len(world.saver.saved) == saves + 1  # the one move this test itself made
     assert world.bytes_on_disk() != bytes_before
 
 
@@ -122,12 +122,16 @@ def test_a_refused_filter_changes_nothing_on_disk(tmp_path: Path, query: str) ->
     """CP-402 to CP-406, CP-413, T7: the state, the saver and the real saved bytes stay as they
     were, and the answer is a 200 page with no result."""
     world = three_task_world(tmp_path)
-    state, saves, saved = world.tracker.project_tasks(1), world.saver.saves, world.bytes_on_disk()
+    state, saves, saved = (
+        world.tracker.project_tasks(1),
+        len(world.saver.saved),
+        world.bytes_on_disk(),
+    )
     response = get(world.site, f"/projects/1?{query}")
     root = parse(page(response))
     assert root.find_all("table") == []
     assert world.tracker.project_tasks(1) == state
-    assert world.saver.saves == saves and world.bytes_on_disk() == saved
+    assert len(world.saver.saved) == saves and world.bytes_on_disk() == saved
 
 
 def test_address_builder_carries_repeated_pairs_and_keeps_its_callers() -> None:
@@ -161,14 +165,14 @@ def test_filter_get_preserves_route_security_and_state_contracts(tmp_path: Path)
     policy and no cookie, the recording saver receives no call, and Apply makes no connection."""
     assert {r.pattern for r in routes.ROUTES} >= {"/projects/[0-9]+"}
     world = three_task_world(tmp_path)
-    saves = world.saver.saves
+    saves = len(world.saver.saved)
     for query in ("filter_status=todo", "filter_status=todo", "", "filter_status=blocked"):
         response = get(world.site, f"/projects/1?{query}" if query else "/projects/1")
         assert response.status == 200
         assert header(response, "Content-Security-Policy") == POLICY
         assert header(response, "Set-Cookie") is None
         assert header(response, "Clear-Site-Data") is None
-    assert world.saver.saves == saves
+    assert len(world.saver.saved) == saves
     for mark in ("cross-site", "same-site"):
         assert (
             get(

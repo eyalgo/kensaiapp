@@ -175,7 +175,7 @@ def test_move_refusal_and_saver_failure_keep_sort_choices(
     assert sort_pairs(query_pairs(bad)) == carried
     assert world.bytes_on_disk() == before
 
-    world.saver.failing = True
+    world.saver.error = PermissionError("the disk said no")
     failed = press(world, 2, "in-progress", carried)
     capsys.readouterr()
     assert query_of(failed)["move_failed"] == ["in-progress"]
@@ -278,12 +278,12 @@ def test_refused_sort_blocks_ordinary_and_confirming_moves(
     the first refused field."""
     world = world_of(tmp_path)
     before = world.bytes_on_disk()
-    saves = world.saver.saves
+    saves = len(world.saver.saved)
     response = confirm(world, 1, bad) if confirming else press(world, 1, "in-progress", bad)
     assert urlsplit(location(response)).path == "/projects/1"
     assert sort_pairs(query_pairs(response)) == bad
     assert "move_confirm" not in query_of(response) and "moved" not in query_of(response)
-    assert world.bytes_on_disk() == before and world.saver.saves == saves
+    assert world.bytes_on_disk() == before and len(world.saver.saved) == saves
     assert world.tracker.task(1).status.value == "todo"  # type: ignore[union-attr]
     assert "move_confirm" not in query_of(press(world, 1, "cancelled", bad))
     answered, root = landing(world, response)
@@ -362,12 +362,12 @@ def test_bad_global_choices_prevent_both_move_posts(
     save, status change or confirmation; /tasks keeps the raw values and the ordered reasons."""
     world = all_world(tmp_path)
     before = world.bytes_on_disk()
-    saves = world.saver.saves
+    saves = len(world.saver.saved)
     response = all_confirm(world, 1, bad) if confirming else all_press(world, 1, "in-progress", bad)
     assert urlsplit(location(response)).path == "/tasks"
     assert pairs_of(urlsplit(location(response)).query)[1:] == bad
     assert "move_confirm" not in query_of(response) and "moved" not in query_of(response)
-    assert world.bytes_on_disk() == before and world.saver.saves == saves
+    assert world.bytes_on_disk() == before and len(world.saver.saved) == saves
     assert world.tracker.task(1).status.value == "todo"  # type: ignore[union-attr]
     assert "move_confirm" not in query_of(all_press(world, 1, "cancelled", bad))
     answered, root = landing(world, response)

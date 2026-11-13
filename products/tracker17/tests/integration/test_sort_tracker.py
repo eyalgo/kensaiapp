@@ -30,9 +30,9 @@ from application import (
     SortKey,
     TaskSort,
     Tracker,
-    TrackerState,
 )
 from domain import restore_state, sort_all_tasks
+from tests.fakes import FakeSaver
 
 PROJECTS = [(1, "Alpha", "first"), (2, "Beta", "")]
 NEXT_PROJECT_ID = 3
@@ -57,16 +57,6 @@ class SequenceClock:
         self.reads = 0
 
 
-class RecordingSaver:
-    """Keeps every state it was handed."""
-
-    def __init__(self) -> None:
-        self.saved: list[TrackerState] = []
-
-    def save(self, state: TrackerState) -> None:
-        self.saved.append(state)
-
-
 @pytest.fixture
 def utc_zone(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     """Set the machine's local zone to UTC, so a clock instant names the date it reads as."""
@@ -87,7 +77,7 @@ def local_zone(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     time.tzset()
 
 
-def make_tracker(saver: RecordingSaver, clock: SequenceClock | None = None) -> Tracker:
+def make_tracker(saver: FakeSaver, clock: SequenceClock | None = None) -> Tracker:
     state = restore_state(PROJECTS, NEXT_PROJECT_ID, ("dana", "ali"))
     return Tracker(state, saver, clock or SequenceClock())
 
@@ -103,9 +93,9 @@ def sort_of(field: str = "", direction: str = "") -> SortInput:
     )
 
 
-def seeded_tracker(saver: RecordingSaver | None = None) -> Tracker:
+def seeded_tracker(saver: FakeSaver | None = None) -> Tracker:
     """Project 1 holds tasks 1 to 4 (task 4 is `Done`, low); project 2 holds task 5."""
-    tracker = make_tracker(saver or RecordingSaver())
+    tracker = make_tracker(saver or FakeSaver())
     tracker.add_task(1, "beta", "high", "dana", "2026-10-10")
     tracker.add_task(1, "Alpha", "low", "ali", "2026-10-02")
     tracker.add_task(1, "alpha", "critical", "dana", "")
@@ -213,7 +203,7 @@ def test_sorted_read_projects_all_refusals_without_results():
 def test_sorted_read_distinguishes_empty_project_and_zero_matches():
     """CP-426, CP-435, CP-442, T4: an empty project ignores malformed choices and shows no count;
     a nonempty project whose valid filter matches nothing still checks the sort, and shows none."""
-    tracker = make_tracker(RecordingSaver())
+    tracker = make_tracker(FakeSaver())
     bad = SortInput(field=("colour",))
     empty = tracker.project_task_list(1, FilterInput(), sort_fields=bad)
     assert (empty.task_count, empty.rows, empty.problems, empty.count_requested) == (
@@ -243,7 +233,7 @@ def test_one_clock_read_serves_sorted_selection_and_row_marking(local_zone):
     late = datetime(2026, 10, 7, 12, 0, tzinfo=UTC)  # local date 2026-10-08
     early = datetime(2026, 10, 5, 12, 0, tzinfo=UTC)  # local date 2026-10-06
     clock = SequenceClock(CREATED)
-    tracker = make_tracker(RecordingSaver(), clock)
+    tracker = make_tracker(FakeSaver(), clock)
     task = tracker.add_task(1, "Edge", "low", "", "2026-10-07")
     clock.restart(late, early)
 
@@ -263,7 +253,7 @@ def test_one_clock_read_serves_sorted_selection_and_row_marking(local_zone):
 def test_sorted_reads_never_call_the_saver(utc_zone):
     """CP-447, CP-450, NFR-8, T4: a valid, an invalid, a repeated and a clear-equivalent read leave
     the recording saver with only the saves the setup made."""
-    saver = RecordingSaver()
+    saver = FakeSaver()
     tracker = seeded_tracker(saver)
     saved_before = len(saver.saved)
 
@@ -301,7 +291,7 @@ def test_all_task_list_projects_global_selection(utc_zone):
     """CP-462, CP-465, CP-469, CP-470, CP-480, T3: the whole-scope count, ordered rows from both
     projects, match count, validated and raw choices, options and count visibility are the global
     rule's own result."""
-    saver = RecordingSaver()
+    saver = FakeSaver()
     tracker = seeded_tracker(saver)
     fields = FilterInput()
     sort_fields = sort_of("title", "descending")
@@ -353,7 +343,7 @@ def test_all_task_list_uses_one_local_date_for_selection_and_marking(local_zone)
     late = datetime(2026, 10, 7, 12, 0, tzinfo=UTC)  # local date 2026-10-08
     early = datetime(2026, 10, 5, 12, 0, tzinfo=UTC)  # local date 2026-10-06
     clock = SequenceClock(CREATED)
-    tracker = make_tracker(RecordingSaver(), clock)
+    tracker = make_tracker(FakeSaver(), clock)
     first = tracker.add_task(1, "Edge", "low", "", "2026-10-07")
     second = tracker.add_task(2, "Other", "low", "", "2026-10-07")
     clock.restart(late, early)
@@ -373,7 +363,7 @@ def test_all_task_list_uses_one_local_date_for_selection_and_marking(local_zone)
 def test_all_task_list_recomputes_current_state_without_saving(utc_zone):
     """CP-473, CP-482, T9: empty, ordinary, filtered, sorted, refused and repeated reads call no
     saver, and a task changed afterwards appears on the next read."""
-    saver = RecordingSaver()
+    saver = FakeSaver()
     tracker = make_tracker(saver)
     tracker.all_task_list(FilterInput())
     tracker.all_task_list(FilterInput(status=("blocked",)))

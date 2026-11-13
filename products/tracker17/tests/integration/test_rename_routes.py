@@ -94,9 +94,9 @@ def test_a_successful_rename_lands_once_with_one_described_completion(tmp_path: 
     """CP-549, CP-550: one press saves once, lands on the unfiltered project address with the
     new heading and title, the field holding the new name and described by the one line."""
     world = make_world(tmp_path)
-    saves = world.saver.saves
+    saves = len(world.saver.saved)
     response = rename(world, name="Beta")
-    assert world.saver.saves == saves + 1
+    assert len(world.saver.saved) == saves + 1
     assert response.status == 303
     address = header(response, "Location") or ""
     parts = urlsplit(address)
@@ -116,17 +116,17 @@ def test_the_completion_and_a_refusal_reload_without_saving(tmp_path: Path) -> N
     world = make_world(tmp_path, projects=("Alpha", "Beta"))
     done = rename(world, name="Gamma")
     refused = rename(world, project_id=2, name="Gamma")
-    saves = world.saver.saves
+    saves = len(world.saver.saved)
     for response in (done, refused):
         address = header(response, "Location") or ""
         first = page(get(world.site, address))
         for _ in range(2):
             assert page(get(world.site, address)) == first
-    assert world.saver.saves == saves
+    assert len(world.saver.saved) == saves
     unchanged = rename(world, name="Gamma")
     assert header(unchanged, "Location") == "/projects/1"
     root = landed(world, unchanged)
-    assert world.saver.saves == saves
+    assert len(world.saver.saved) == saves
     assert focused(root) == [] and "aria-describedby" not in name_field(root).attrs
     assert "renamed" not in root.text() and name_field(root).attrs["value"] == "Gamma"
 
@@ -166,7 +166,7 @@ def test_blank_rename_keeps_saved_data_and_typed_text(tmp_path: Path, sent: str)
     """CP-555, CP-556, CP-563: the creation reason beside the field, the typed text kept and
     focused, the heading and title as they were, saved bytes and state unchanged, zero saves."""
     world = make_world(tmp_path)
-    before = (world.bytes_on_disk(), world.saver.saves, state_of(world))
+    before = (world.bytes_on_disk(), len(world.saver.saved), state_of(world))
     response = rename(world, name=sent)
     address = header(response, "Location") or ""
     assert parse_qs(urlsplit(address).query, keep_blank_values=True)["rename_refused"] == [
@@ -178,21 +178,21 @@ def test_blank_rename_keeps_saved_data_and_typed_text(tmp_path: Path, sent: str)
     assert line_of(field) == BLANK_REASON
     assert [h.text() for h in root.find_all("h1")] == [OLD_NAME]
     assert [t.text() for t in root.find_all("title")] == ["Alpha: Tasks - tracker17"]
-    assert (world.bytes_on_disk(), world.saver.saves, state_of(world)) == before
+    assert (world.bytes_on_disk(), len(world.saver.saved), state_of(world)) == before
 
 
 def test_duplicate_rename_keeps_saved_data_and_typed_text(tmp_path: Path) -> None:
     """CP-555, CP-556, CP-563: another project's exact name is refused with creation's reason,
     the typed text kept; a case or space variant is a different name and is accepted."""
     world = make_world(tmp_path, projects=("Alpha", "Beta"))
-    before = (world.bytes_on_disk(), world.saver.saves, state_of(world))
+    before = (world.bytes_on_disk(), len(world.saver.saved), state_of(world))
     response = rename(world, name="Beta")
     root = landed(world, response)
     field = name_field(root)
     assert focused(root) == [field] and field.attrs["value"] == "Beta"
     assert line_of(field) == "A project named 'Beta' already exists. Choose a different name."
     assert [h.text() for h in root.find_all("h1")] == [OLD_NAME]
-    assert (world.bytes_on_disk(), world.saver.saves, state_of(world)) == before
+    assert (world.bytes_on_disk(), len(world.saver.saved), state_of(world)) == before
     for variant in ("beta", "Beta "):
         assert "rename_saved" in (header(rename(world, name=variant), "Location") or "")
         rename(world, name="Alpha")
@@ -203,7 +203,7 @@ def test_an_overlong_rename_discards_all_submitted_text(tmp_path: Path, sent: st
     """CP-555, CP-556, CP-563: a request no page sends is refused as too long before blank, with
     the saved name in the field and none of the sent text in the page or the address."""
     world = make_world(tmp_path)
-    before = (world.bytes_on_disk(), world.saver.saves, state_of(world))
+    before = (world.bytes_on_disk(), len(world.saver.saved), state_of(world))
     response = rename(world, name=sent)
     address = header(response, "Location") or ""
     assert parse_qs(urlsplit(address).query, keep_blank_values=True) == {
@@ -220,7 +220,7 @@ def test_an_overlong_rename_discards_all_submitted_text(tmp_path: Path, sent: st
         and (not sent.strip() or sent.strip() not in shown)
     )
     assert [h.text() for h in root.find_all("h1")] == [OLD_NAME]
-    assert (world.bytes_on_disk(), world.saver.saves, state_of(world)) == before
+    assert (world.bytes_on_disk(), len(world.saver.saved), state_of(world)) == before
     exact = rename(world, name="ç" * 200)
     assert "rename_saved" in (header(exact, "Location") or "")
 
@@ -250,10 +250,10 @@ def test_missing_project_rename_redirects_without_saving(
     """CP-595, CP-597, CP-598, T2: a rename of an identity no project holds, whatever the form
     carries, is sent to the bare canonical project address and saves nothing."""
     world = make_world(tmp_path, projects=("Alpha", "Beta"))
-    before = (world.bytes_on_disk(), world.saver.saves, state_of(world))
+    before = (world.bytes_on_disk(), len(world.saver.saved), state_of(world))
     response = send_rename(world, project, RENAME_NAMES[sent])
     assert response.status == 303 and header(response, "Location") == f"/projects/{identity}"
-    assert (world.bytes_on_disk(), world.saver.saves, state_of(world)) == before
+    assert (world.bytes_on_disk(), len(world.saver.saved), state_of(world)) == before
 
 
 @pytest.mark.parametrize("sent", sorted(RENAME_NAMES))
@@ -262,10 +262,10 @@ def test_deleted_project_rename_redirects_without_saving(tmp_path: Path, sent: s
     confirmation makes; `Gamma` is a name no remaining project holds, `Beta` one that is in use."""
     world = make_world(tmp_path, projects=("Alpha", "Beta"))
     world.tracker.delete_project(1)
-    before = (world.bytes_on_disk(), world.saver.saves, world.tracker.projects())
+    before = (world.bytes_on_disk(), len(world.saver.saved), world.tracker.projects())
     response = send_rename(world, 1, RENAME_NAMES[sent])
     assert response.status == 303 and header(response, "Location") == "/projects/1"
-    assert (world.bytes_on_disk(), world.saver.saves, world.tracker.projects()) == before
+    assert (world.bytes_on_disk(), len(world.saver.saved), world.tracker.projects()) == before
 
 
 @pytest.mark.parametrize("name", ["Gamma", "", "x" * 201])
@@ -279,11 +279,11 @@ def test_rename_redirects_when_project_is_missing_at_action(
     vanishing = VanishingProjectTracker(world.saver, world.clock)
     vanishing.create_project("Alpha", "")
     world = World(Site(vanishing, HOST), vanishing, world.saver, world.clock, world.location)
-    before = (world.bytes_on_disk(), world.saver.saves, vanishing.projects())
+    before = (world.bytes_on_disk(), len(world.saver.saved), vanishing.projects())
     response = rename(world, project_id=project, name=name)
     assert vanishing.reached == [("rename_project", identity)]
     assert response.status == 303 and header(response, "Location") == f"/projects/{identity}"
-    assert (world.bytes_on_disk(), world.saver.saves, vanishing.projects()) == before
+    assert (world.bytes_on_disk(), len(world.saver.saved), vanishing.projects()) == before
 
 
 @pytest.mark.parametrize("sent", ["Beta", "", "x" * 201])
@@ -293,11 +293,11 @@ def test_unreadable_project_rename_keeps_not_found_without_saving(
     """CP-558, CP-563, CP-598, T2: a number too long to read as an identity keeps the existing
     project not-found page, no Location, nothing saved, and no refusal wording of its own."""
     world = make_world(tmp_path)
-    before = (world.bytes_on_disk(), world.saver.saves)
+    before = (world.bytes_on_disk(), len(world.saver.saved))
     response = rename(world, project_id="9" * 5000, name=sent)
     assert response.status == 404 and header(response, "Location") is None
     assert response.body == pages.not_found_page().encode("utf-8")
-    assert (world.bytes_on_disk(), world.saver.saves) == before
+    assert (world.bytes_on_disk(), len(world.saver.saved)) == before
 
 
 def test_a_stale_rename_checks_the_current_saved_state(tmp_path: Path) -> None:
@@ -314,9 +314,9 @@ def test_a_stale_rename_checks_the_current_saved_state(tmp_path: Path) -> None:
     assert "rename_from=Beta" in (header(back, "Location") or "")
     project = world.tracker.project(1)
     assert project is not None and project.name == "Alpha"
-    saves = world.saver.saves
+    saves = len(world.saver.saved)
     assert header(rename(world, name="Alpha"), "Location") == "/projects/1"
-    assert world.saver.saves == saves
+    assert len(world.saver.saved) == saves
 
 
 def test_a_failed_rename_retains_text_and_focuses_save(
@@ -329,7 +329,7 @@ def test_a_failed_rename_retains_text_and_focuses_save(
     world = make_world(tmp_path)
     add_task(world.site, title="One")
     before = (world.bytes_on_disk(), state_of(world))
-    world.saver.failing = True
+    world.saver.error = PermissionError("the disk said no")
     capsys.readouterr()
     response = rename(world, name="Beta")
     assert capsys.readouterr().err.splitlines() == [
@@ -357,7 +357,7 @@ def test_a_failed_rename_retains_text_and_focuses_save(
         elsewhere = page(get(world.site, other))
         assert OLD_NAME in elsewhere and "Beta" not in elsewhere, other
     assert (world.bytes_on_disk(), state_of(world)) == before
-    world.saver.failing = False
+    world.saver.error = None
     assert "rename_saved=Beta" in (header(rename(world, name="Beta"), "Location") or "")
 
 
@@ -375,11 +375,11 @@ def test_a_failed_rename_retains_text_and_focuses_save(
 def test_a_rename_passes_the_existing_request_checks(tmp_path: Path, marks: dict[str, str]) -> None:
     """CP-559, QC-31: refused before the body is read and before any action, nothing saved."""
     world = make_world(tmp_path)
-    before = (world.bytes_on_disk(), world.saver.saves, state_of(world))
+    before = (world.bytes_on_disk(), len(world.saver.saved), state_of(world))
     for body in (b"name=Sneaky", b"name=%FF"):
         response = rename(world, headers=marks, body=body)
         assert response.status == 403 and response.body == b""
-    assert (world.bytes_on_disk(), world.saver.saves, state_of(world)) == before
+    assert (world.bytes_on_disk(), len(world.saver.saved), state_of(world)) == before
     assert header(rename(world, name="Fine"), "Location") is not None
 
 
@@ -405,12 +405,12 @@ def test_a_rename_counts_its_length_on_the_name_as_saved(tmp_path: Path) -> None
     assert "rename_saved" in (header(response, "Location") or "")
     project = world.tracker.project(1)
     assert project is not None and project.name == saved
-    before = (world.bytes_on_disk(), world.saver.saves, state_of(world))
+    before = (world.bytes_on_disk(), len(world.saver.saved), state_of(world))
     refused = rename(world, name="c\r\n" * 100 + "c")
     assert parse_qs(urlsplit(header(refused, "Location") or "").query) == {
         "rename_refused": ["too-long"]
     }
-    assert (world.bytes_on_disk(), world.saver.saves, state_of(world)) == before
+    assert (world.bytes_on_disk(), len(world.saver.saved), state_of(world)) == before
 
 
 def test_a_rename_shows_hostile_text_literally(tmp_path: Path) -> None:

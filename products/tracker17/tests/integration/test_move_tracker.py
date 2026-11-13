@@ -27,6 +27,7 @@ from application import (
 )
 from domain import Comment, restore_state, restore_task
 from persistence.saved_data import FILE_NAME, SavedData
+from tests.fakes import FakeSaver
 
 PROJECTS = [(1, "Alpha", "first"), (2, "Beta", "")]
 CREATED = datetime(2026, 10, 11, 12, 0, tzinfo=UTC)
@@ -62,33 +63,10 @@ def _state(*tasks: Task) -> TrackerState:
     return restore_state(PROJECTS, 3, PEOPLE, tasks=tasks, next_task_id=len(tasks) + 1)
 
 
-class RecordingSaver:
-    """Keeps every state it was handed, and what the tracker showed at the moment of each save."""
-
-    def __init__(self) -> None:
-        self.saved: list[TrackerState] = []
-        self.shown_during_save: list[Task | None] = []
-        self.tracker: Tracker | None = None
-
-    def save(self, state: TrackerState) -> None:
-        if self.tracker is not None:
-            self.shown_during_save.append(self.tracker.task(1))
-        self.saved.append(state)
-
-
-class FailingSaver:
-    def __init__(self) -> None:
-        self.calls = 0
-
-    def save(self, state: TrackerState) -> None:
-        self.calls += 1
-        raise PermissionError("the disk said no")
-
-
 def _tracker(saver, *tasks: Task, clock: FixedClock | None = None) -> Tracker:
     tracker = Tracker(_state(*tasks), saver, clock or FixedClock())
-    if isinstance(saver, RecordingSaver):
-        saver.tracker = tracker
+    if isinstance(saver, FakeSaver):
+        saver.watch = lambda: tracker.task(1)
     return tracker
 
 
@@ -108,7 +86,7 @@ def test_the_move_is_saved_before_it_becomes_current():
 
     A refused move reaches no save and leaves the state.
     """
-    saver = RecordingSaver()
+    saver = FakeSaver()
     tracker = _tracker(saver, _task(1, "todo", "Set up CI"), _task(2, "done", "Other"))
     before = tracker.task(1)
 
@@ -116,7 +94,7 @@ def test_the_move_is_saved_before_it_becomes_current():
 
     assert moved.status is TaskStatus.IN_PROGRESS
     assert len(saver.saved) == 1
-    assert saver.shown_during_save == [before]
+    assert saver.seen == [before]
     assert saver.saved[0].tasks[0].status is TaskStatus.IN_PROGRESS
     assert tracker.task(1) == moved
     with pytest.raises(MoveNotAllowed):
@@ -169,7 +147,7 @@ def test_a_moved_task_survives_a_restart_and_only_its_status_differs_in_the_save
 
 def test_a_failing_saver_raises_and_leaves_the_current_state_as_it_was():
     """CP-311: the saver's error reaches the caller and the state is the old one."""
-    saver = FailingSaver()
+    saver = FakeSaver(error=PermissionError("the disk said no"))
     tracker = _tracker(saver, _task(1, "todo", "Set up CI"))
     before = tracker.task(1)
 
@@ -182,7 +160,7 @@ def test_a_failing_saver_raises_and_leaves_the_current_state_as_it_was():
 
 def test_allowed_moves_gives_the_domain_tuples():
     """CP-293, QC-21: the query hands the workflow's own tuples on, unchanged."""
-    tracker = _tracker(RecordingSaver())
+    tracker = _tracker(FakeSaver())
     assert tracker.allowed_moves(TaskStatus.TODO) == (TaskStatus.IN_PROGRESS, TaskStatus.CANCELLED)
     assert tracker.allowed_moves(TaskStatus.IN_PROGRESS) == (
         TaskStatus.DONE,
@@ -197,12 +175,8 @@ def test_a_task_due_yesterday_moved_to_done_is_not_overdue_and_moved_to_todo_sti
     """CP-307, QC-28: overdue follows the saved status; the clock is handed in, nothing patched."""
     clock = FixedClock(TODAY)
     due = "2026-10-18"
-    done_tracker = _tracker(
-        RecordingSaver(), _task(1, "in-progress", "A", due_date=due), clock=clock
-    )
-    todo_tracker = _tracker(
-        RecordingSaver(), _task(1, "in-progress", "B", due_date=due), clock=clock
-    )
+    done_tracker = _tracker(FakeSaver(), _task(1, "in-progress", "A", due_date=due), clock=clock)
+    todo_tracker = _tracker(FakeSaver(), _task(1, "in-progress", "B", due_date=due), clock=clock)
     assert done_tracker.project_tasks(1)[0].overdue is True
 
     done_tracker.move_task(1, "done")
@@ -214,7 +188,7 @@ def test_a_task_due_yesterday_moved_to_done_is_not_overdue_and_moved_to_todo_sti
 
 def test_move_is_checked_against_the_current_state_not_a_stale_page():
     """CP-308: the same todo to in-progress move asked twice is refused the second time."""
-    saver = RecordingSaver()
+    saver = FakeSaver()
     tracker = _tracker(saver, _task(1, "todo", "Set up CI"))
 
     tracker.move_task(1, "in-progress")

@@ -25,9 +25,10 @@ from test_pages import Element, parse, textarea_value
 from test_routes import HOST, get, page
 from test_task_pages import ALPHA, a_task, context_of
 
-from application import LONG_TEXT_MAX, Comment, Task, Tracker, TrackerState
+from application import LONG_TEXT_MAX, Comment, Task, Tracker
 from domain import restore_state
 from persistence import SavedData
+from tests.fakes import FakeSaver
 from web import Site, pages
 
 TITLE = "Set up CI"
@@ -80,24 +81,12 @@ class CountingClock:
         return WRITTEN
 
 
-class CountingSaver:
-    """Saves through the real SavedData and counts the saves; it has nothing to read."""
-
-    def __init__(self, inner: SavedData) -> None:
-        self._inner = inner
-        self.saves = 0
-
-    def save(self, state: TrackerState) -> None:
-        self._inner.save(state)
-        self.saves += 1
-
-
 @dataclass
 class World:
     site: Site
     tracker: Tracker
     clock: CountingClock
-    saver: CountingSaver
+    saver: FakeSaver
 
 
 def comment(text: str, author: str = "Sam", written: datetime = WRITTEN) -> Comment:
@@ -121,7 +110,7 @@ def world_with(
         next_task_id=2,
         operator_name=name,
     )
-    clock, saver = CountingClock(), CountingSaver(SavedData(tmp_path / "data"))
+    clock, saver = CountingClock(), FakeSaver(passes_to=SavedData(tmp_path / "data"))
     tracker = Tracker(state, saver, clock)
     return World(Site(tracker, HOST), tracker, clock, saver)
 
@@ -210,7 +199,7 @@ def test_comment_page_preserves_append_order_when_times_disagree(tmp_path: Path)
     first = page(get(world.site, "/tasks/1"))
     assert page(get(world.site, "/tasks/1")) == first
     assert [body_of(item) for item in items(parse(first))] == ["a", "b", "c", "a"]
-    assert (world.clock.reads, world.saver.saves) == (0, 0)
+    assert (world.clock.reads, len(world.saver.saved)) == (0, 0)
 
 
 def test_comment_time_is_machine_local_in_the_required_format(tmp_path: Path) -> None:
