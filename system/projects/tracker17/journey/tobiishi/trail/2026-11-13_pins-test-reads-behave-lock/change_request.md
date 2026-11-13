@@ -9,3 +9,6 @@ Sizing: one capability (the pins test holding the Behave folder's manifest and l
 **Category:** nfdr
 **Behaviour:** changing
 **Classified because:** the station's reached-when has the pins check gain rules over `.behave/` (a check that gains a rule changes what an enforcement command reports), and it is driven by NFDR QC-39.
+
+**Sealed:** 2026-11-13 — accepted; merged to `main` via `--no-ff`.
+Environment: owners-mac — no CI
