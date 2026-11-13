@@ -52,6 +52,16 @@ None.
   change has not landed" (`nfdr.md:L1858`) is a dated note and stays as written. QC-19's second clause
   over `.behave/` is still unmet and is not this item.
 - **If a document has to be written:** none. The record changes through `product-architecture`.
-- **Answer:** <the owner fills this in>
+- **Answer:** confirm, with one addition. QC-1's *verified by* says the entry is met: the source walk
+  skips `tests/`, `.behave/` and `.venv/` by name at the product root only, and `__pycache__` by name
+  at any depth, and `tests/architecture/test_source_walk.py` fails on a code-holding folder at the
+  root whatever its name begins with. The unmet half is dated as QC-39's is: it started unmet at
+  `97603d4f3`, where `SourceWalk._all` skipped every path piece beginning with a dot, and was verified
+  2026-11-13 in a disposable clone at `9e5d92a3d`: `test_source_walk.py` gave 7 passed, and with
+  `tests/conftest.py` put back to `97603d4f3`, 6 failed, 1 passed. The addition is the depth: the
+  three folders count at the root only, which `test_a_dot_or_named_folder_inside_a_part_is_walked_as_that_part`
+  asserts, and the entry's current words do not say. RN-66 and RN-76 are dated notes and stay as
+  written; QC-19's `.behave/` clause and QC-64 are not this item. Reasoning:
+  `trail/architecture/self_answer-32.md`.
 
 **How it closes.** `product-architecture` folds it on its next run like any other item here.
