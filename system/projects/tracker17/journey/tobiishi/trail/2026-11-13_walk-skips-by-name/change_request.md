@@ -9,3 +9,6 @@ Sizing: one capability (the source walk skipping by name as QC-1 states), one me
 **Category:** nfdr
 **Behaviour:** changing
 **Classified because:** the station's reached-when has the source walk decide its verdict on a different basis (named folders, not a leading dot), so a code-holding dot-folder now fails QC-1 where it passed; a check whose verdict changes is a changed enforcement report, and it is driven by NFDR QC-1.
+
+**Sealed:** 2026-11-13 — accepted; merged to `main` via `--no-ff`.
+Environment: owners-mac — no CI
