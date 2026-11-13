@@ -261,12 +261,16 @@ def test_deletion_disappears_from_every_list_and_summary_count(tmp_path: Path) -
                 summary.no_due_date,
             ]
             assert flat == counts_for(live, project)
-            page_counts = [
-                int(count)
+            rows = [
+                row
                 for group in groups(parse(page(get(world.site, f"/projects/{project}/summary"))))
-                for _, count in rows_of(group)
+                for row in rows_of(group)
             ]
+            # The due-on-date row sits between Overdue and No due date; it is read apart.
+            (due_on,) = [count for label, count in rows if label.startswith("Due on ")]
+            page_counts = [int(count) for label, count in rows if not label.startswith("Due on ")]
             assert page_counts[:11] == flat
+            assert int(due_on) == summary.due_today
         everything = parse(page(get(world.site, "/tasks")))
         assert sorted(row_titles(everything)) == sorted(spec[1] for spec in live)
         assert world.bytes_on_disk() == stored

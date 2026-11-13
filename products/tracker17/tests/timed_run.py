@@ -36,7 +36,8 @@ worked out here from the loaded fixture, under their count. The Summary comes ne
 fixture of its own that holds every status and priority, past-due and undated tasks and listed and
 unlisted assignees: it sends the one GET of the project's Summary and times only that request. It
 counts only when the response is the HTML page of that project's Summary, whose title, heading and
-every row (label and count, in order) match what is worked out here from the loaded fixture
+every row (label and count, in order, the due-on-date row dated by the day of the request among
+them) match what is worked out here from the loaded fixture
 alone, and the saved bytes are untouched (CP-509, FR-38, CP-527). A count is a bare numeral or, in
 the four status, four priority and overdue cells alone, one anchor holding the numeral; a link in
 the total, the no-due-date count, an assignee count or a label does not count. The deletion comes
@@ -190,7 +191,8 @@ PROJECTS_HEADING = "Projects</h1>"
 SUMMARY_PAST_DUE = date(2000, 1, 1)
 SUMMARY_HEADINGS = ("Tasks by status", "Tasks by priority", "Due dates", "Open tasks by assignee")
 # The rows of each group whose count cell may hold one anchor, by position in the group: the four
-# statuses after the total, the four priorities, and overdue before no due date. No other count
+# statuses after the total, the four priorities, and overdue, ahead of the due-on-date and
+# no-due-date rows, which stay bare. No other count
 # cell, and no label, may hold one; a row is told by its group and place, never by its words, so
 # an assignee spelled `todo` or `Overdue` is a plain cell.
 SUMMARY_LINKED_ROWS = {
@@ -1397,8 +1399,8 @@ def _summary_expected(state: TrackerState, today: date) -> list[tuple[str, int]]
 
     Worked out from the loaded fixture by a plain comparison of each task, never by the product's
     Summary, its project filter or its application read: the total, each status, each priority,
-    overdue, no due date, then the listed names, the unlisted names carried by open tasks in
-    case-folded order, and last the unassigned.
+    overdue, the open tasks due on the day, no due date, then the listed names, the unlisted names
+    carried by open tasks in case-folded order, and last the unassigned.
     """
     held = [task for task in state.tasks if task.project_id == SUMMARY_PROJECT_ID]
     open_tasks = [task for task in held if task.status in OPEN_STATUSES]
@@ -1406,7 +1408,12 @@ def _summary_expected(state: TrackerState, today: date) -> list[tuple[str, int]]
     rows += [(word, sum(task.status.value == word for task in held)) for word in SEED_STATUSES]
     rows += [(word, sum(task.priority.value == word for task in held)) for word in SEED_PRIORITIES]
     overdue = sum(1 for task in open_tasks if task.due_date is not None and task.due_date < today)
-    rows += [("Overdue", overdue), ("No due date", sum(task.due_date is None for task in held))]
+    due_on = sum(1 for task in open_tasks if task.due_date == today)
+    rows += [
+        ("Overdue", overdue),
+        (f"Due on {today.isoformat()}", due_on),
+        ("No due date", sum(task.due_date is None for task in held)),
+    ]
     listed = list(state.assignees)
     unlisted = sorted(
         {task.assignee for task in open_tasks if task.assignee is not None} - set(listed),
