@@ -12,7 +12,7 @@ Cut from `system/projects/tracker17/docs/seeds-from-idea/2026-11-13_the-ignored-
 
 ## Stations — dynamic checklist
 
-- [ ] the-ignored-sigint-cause — the timing dependence is named with a measurement that makes the proof test fail before the change and pass after it, without a raised wait limit, skip, retry or expected-fail mark; the test passes alone, and both suites of the card's test command pass in full
+- [x] the-ignored-sigint-cause — the timing dependence is named with a measurement that makes the proof test fail before the change and pass after it, without a raised wait limit, skip, retry or expected-fail mark; the test passes alone, and both suites of the card's test command pass in full
 
 Route kept at one station, reworded: the cutter's bar passed today by luck (the failure is intermittent), so it now names the reproducing measurement as the part that fails before and passes after; a separate find-the-cause station would only serve the fix (defect 3), and "both suites" is spelled as the two commands the card's test command runs.
 
