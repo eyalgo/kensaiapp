@@ -26,9 +26,10 @@ from test_task_routes import (
     make_world,
 )
 
-from application import SHORT_TEXT_MAX, Tracker, TrackerState
+from application import SHORT_TEXT_MAX, Tracker
 from domain import empty_state
 from persistence import SavedData
+from tests.fakes import FakeSaver
 from web import Response, Site, pages
 
 TITLE = "Set up CI"
@@ -267,11 +268,7 @@ def test_a_label_failure_before_the_title_is_read_uses_the_short_console_line(
         def remove_task_label(self, task_id: int, label: str):  # type: ignore[no-untyped-def]
             raise RuntimeError("boom")
 
-    class Quiet:
-        def save(self, state: TrackerState) -> None:
-            return None
-
-    site = Site(Breaking(empty_state(), Quiet(), MovableClock()), HOST)
+    site = Site(Breaking(empty_state(), FakeSaver(), MovableClock()), HOST)
     capsys.readouterr()
     response = (add_label if action == "add" else remove_label)(site, "ui", 5)
     assert capsys.readouterr().err.splitlines() == [
@@ -360,38 +357,26 @@ def test_label_routes_keep_request_and_response_policy(tmp_path: Path) -> None:
         assert response.status == 303 and header(response, "Location")
         assert header(response, "Content-Security-Policy") == POLICY
         assert header(response, "Set-Cookie") is None
-    entered, release = threading.Event(), threading.Event()
-    states: list[TrackerState] = []
-
-    class HeldSaver:
-        holding = False
-
-        def save(self, state: TrackerState) -> None:
-            states.append(state)
-            if self.holding:
-                entered.set()
-                assert release.wait(timeout=10)
-
-    saver = HeldSaver()
+    saver = FakeSaver()
     tracker = Tracker(empty_state(), saver, MovableClock())
     tracker.create_project("Alpha", "")
     tracker.add_task(1, "T", "", "", "")
     held = Site(tracker, HOST)
-    saver.holding = True
-    states.clear()
+    saver.hold_save = saver.calls + 1
+    saver.saved.clear()
     first = threading.Thread(target=add_label, args=(held, "one"))
     second = threading.Thread(target=add_label, args=(held, "two"))
     first.start()
-    assert entered.wait(timeout=10)
+    assert saver.entered.wait(timeout=10)
     second.start()
     second.join(timeout=0.5)
     assert second.is_alive(), "the second label request did not wait for the first save"
-    assert len(states) == 1
-    release.set()
+    assert len(saver.saved) == 1
+    saver.release.set()
     first.join(timeout=10)
     second.join(timeout=10)
     assert not first.is_alive() and not second.is_alive()
-    assert sorted(states[-1].tasks[0].labels) == ["one", "two"]
+    assert sorted(saver.saved[-1].tasks[0].labels) == ["one", "two"]
 
 
 def test_labels_cell_keeps_existing_rendering_after_actions(tmp_path: Path) -> None:
