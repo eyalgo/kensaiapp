@@ -20,7 +20,6 @@ from test_routes import HOST, get, page
 from test_task_routes import (
     NOON,
     MovableClock,
-    SwitchedSaver,
     add_task,
     chosen,
     control,
@@ -44,6 +43,7 @@ from application import (
 )
 from domain import Priority, restore_state, restore_task, task_edit_context
 from persistence import SavedData
+from tests.fakes import FakeSaver
 from web import Site, pages
 
 pytestmark = pytest.mark.usefixtures("utc_zone")
@@ -194,7 +194,7 @@ def test_project_list_shows_every_own_task_in_seven_columns(tmp_path: Path) -> N
         tasks=[first, second, other, *bulk],
         next_task_id=124,
     )
-    tracker = Tracker(state, SwitchedSaver(SavedData(location)), MovableClock(NOON))
+    tracker = Tracker(state, FakeSaver(passes_to=SavedData(location)), MovableClock(NOON))
     root = parse(page(get(Site(tracker, HOST), "/projects/1")))
     (table,) = root.find_all("table")
     headers = [th.text() for th in table.find_all("th")]
@@ -227,12 +227,12 @@ def test_the_invitation_shows_only_when_the_list_is_empty_even_after_failed_adds
     assert (
         "This project has no tasks yet. Give the first task a title and press Add." in empty.text()
     )
-    world.saver.failing = True
+    world.saver.error = PermissionError("the disk said no")
     add_task(world.site, title="Lost")
     still_empty = parse(page(get(world.site, "/projects/1")))
     assert still_empty.find_all("table") == []
     assert "Give the first task a title and press Add." in still_empty.text()
-    world.saver.failing = False
+    world.saver.error = None
     add_task(world.site, title="Kept")
     populated = parse(page(get(world.site, "/projects/1")))
     assert len(list_rows(populated)) == 1
@@ -417,7 +417,7 @@ def test_task_page_opens_edit_form_from_saved_values(tmp_path: Path) -> None:
     state = restore_state(
         [(1, "Alpha", "")], 2, ["Dana", " Ari"], tasks=tasks, next_task_id=len(tasks) + 1
     )
-    saver = SwitchedSaver(SavedData(tmp_path / "data"))
+    saver = FakeSaver(passes_to=SavedData(tmp_path / "data"))
     site = Site(Tracker(state, saver, MovableClock(NOON)), HOST)
     for index, status in enumerate(statuses, start=1):
         shown_page = page(get(site, f"/tasks/{index}"))

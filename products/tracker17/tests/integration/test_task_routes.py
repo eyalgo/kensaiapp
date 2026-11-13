@@ -32,10 +32,10 @@ from application import (
     Saver,
     TaskFields,
     Tracker,
-    TrackerState,
 )
 from domain import Task, empty_state
 from persistence import SavedData
+from tests.fakes import FakeSaver
 from web import Response, Site, pages
 
 NOON = datetime(2026, 10, 11, 12, 0, tzinfo=UTC)
@@ -63,26 +63,11 @@ class MovableClock:
         return self.instant
 
 
-class SwitchedSaver:
-    """Saves through the real SavedData, or raises while switched to fail."""
-
-    def __init__(self, inner: Saver) -> None:
-        self.inner = inner
-        self.failing = False
-        self.saves = 0
-
-    def save(self, state: TrackerState) -> None:
-        if self.failing:
-            raise PermissionError("the disk said no")
-        self.inner.save(state)
-        self.saves += 1
-
-
 @dataclass
 class World:
     site: Site
     tracker: Tracker
-    saver: SwitchedSaver
+    saver: FakeSaver
     clock: MovableClock
     location: Path
 
@@ -107,7 +92,7 @@ def make_world(
     projects: tuple[str, ...] = ("Alpha",),
 ) -> World:
     location = tmp_path / "data"
-    saver = SwitchedSaver(SavedData(location))
+    saver = FakeSaver(passes_to=SavedData(location))
     clock = MovableClock()
     tracker = Tracker(empty_state(), saver, clock)
     for name in projects:
@@ -212,10 +197,10 @@ def test_task_read_reload_and_history_never_save(tmp_path: Path) -> None:
     """CP-115, CP-125: both task GETs, repeated, and the project page leave state as it was."""
     world = make_world(tmp_path)
     add_task(world.site, title="Keep", priority="low")
-    before = (world.bytes_on_disk(), world.saver.saves, world.tracker.task(1))
+    before = (world.bytes_on_disk(), len(world.saver.saved), world.tracker.task(1))
     for target in ("/tasks/1?added", "/tasks/1?added", "/tasks/1", "/projects/1", "/tasks/1?added"):
         assert get(world.site, target).status == 200
-    assert (world.bytes_on_disk(), world.saver.saves, world.tracker.task(1)) == before
+    assert (world.bytes_on_disk(), len(world.saver.saved), world.tracker.task(1)) == before
     assert world.tracker.task(2) is None
 
 
@@ -388,7 +373,7 @@ def test_failed_add_retains_form_and_reports_one_failure(
     """CP-122, NFR-8, QC-56: one console report, a described form, and the file as it was."""
     world = make_world(tmp_path)
     before = (world.bytes_on_disk(), world.tracker.project_tasks(1))
-    world.saver.failing = True
+    world.saver.error = PermissionError("the disk said no")
     capsys.readouterr()
     response = add_task(
         world.site, title=" Lost ", priority="low", assignee=" Ari", due_date="2026-12-01"
@@ -415,7 +400,7 @@ def test_failed_add_retains_form_and_reports_one_failure(
         "What you typed is still in the form. Try again."
     )
     assert (world.bytes_on_disk(), world.tracker.project_tasks(1)) == before
-    world.saver.failing = False
+    world.saver.error = None
     assert location(add_task(world.site, title="Again")) == "/tasks/1?added"
     assert capsys.readouterr().err == ""
 
@@ -425,11 +410,11 @@ def test_missing_task_addresses_get_the_task_not_found_page(tmp_path: Path, targ
     """CP-125: a task-shaped address with no task gets the task page; nothing is saved."""
     world = make_world(tmp_path)
     add_task(world.site, title="Only")
-    before = (world.bytes_on_disk(), world.saver.saves)
+    before = (world.bytes_on_disk(), len(world.saver.saved))
     response = get(world.site, target)
     assert response.status == 404
     assert response.body == pages.task_not_found_page().encode("utf-8")
-    assert (world.bytes_on_disk(), world.saver.saves) == before
+    assert (world.bytes_on_disk(), len(world.saver.saved)) == before
     root = parse(response.body.decode("utf-8"))
     (main,) = root.find_all("main")
     assert [a.attrs["href"] for a in main.find_all("a")] == ["/", "/tasks"]
@@ -465,10 +450,10 @@ def test_missing_project_add_redirects_without_saving(
     """CP-594, CP-596, CP-597, CP-598, T2: an add to an identity no project holds, whatever the
     form carries, is sent to the bare canonical project address and saves nothing."""
     world = make_world(tmp_path)
-    before = (world.bytes_on_disk(), world.saver.saves, state_of(world))
+    before = (world.bytes_on_disk(), len(world.saver.saved), state_of(world))
     response = add_task(world.site, project_id=project, **ADD_FORMS[form])
     assert response.status == 303 and header(response, "Location") == f"/projects/{identity}"
-    assert (world.bytes_on_disk(), world.saver.saves, state_of(world)) == before
+    assert (world.bytes_on_disk(), len(world.saver.saved), state_of(world)) == before
 
 
 @pytest.mark.parametrize("form", sorted(ADD_FORMS))
@@ -477,10 +462,10 @@ def test_deleted_project_add_redirects_without_saving(tmp_path: Path, form: str)
     confirmation makes."""
     world = make_world(tmp_path, projects=("Alpha", "Beta"))
     world.tracker.delete_project(1)
-    before = (world.bytes_on_disk(), world.saver.saves, state_of(world))
+    before = (world.bytes_on_disk(), len(world.saver.saved), state_of(world))
     response = add_task(world.site, project_id=1, **ADD_FORMS[form])
     assert response.status == 303 and header(response, "Location") == "/projects/1"
-    assert (world.bytes_on_disk(), world.saver.saves, state_of(world)) == before
+    assert (world.bytes_on_disk(), len(world.saver.saved), state_of(world)) == before
 
 
 def state_of(world: World) -> tuple[object, ...]:
@@ -527,11 +512,11 @@ def test_add_redirects_when_project_is_missing_at_action(
     vanishing = VanishingProjectTracker(world.saver, world.clock)
     vanishing.create_project("Alpha", "")
     site = Site(vanishing, HOST)
-    before = (world.bytes_on_disk(), world.saver.saves, vanishing.projects())
+    before = (world.bytes_on_disk(), len(world.saver.saved), vanishing.projects())
     response = add_task(site, project_id=project, **form)
     assert vanishing.reached == [("add_task", identity)]
     assert response.status == 303 and header(response, "Location") == f"/projects/{identity}"
-    assert (world.bytes_on_disk(), world.saver.saves, vanishing.projects()) == before
+    assert (world.bytes_on_disk(), len(world.saver.saved), vanishing.projects()) == before
 
 
 @pytest.mark.parametrize("project", ["9" * 5000])
@@ -540,11 +525,11 @@ def test_unreadable_project_add_keeps_not_found_without_saving(
 ) -> None:
     """CP-598, Out of Scope, T2: a number too long to read as an identity keeps the direct 404."""
     world = make_world(tmp_path)
-    before = (world.bytes_on_disk(), world.saver.saves)
+    before = (world.bytes_on_disk(), len(world.saver.saved))
     response = add_task(world.site, project_id=project, title="Orphan")
     assert response.status == 404 and header(response, "Location") is None
     assert response.body == pages.not_found_page().encode("utf-8")
-    assert (world.bytes_on_disk(), world.saver.saves) == before
+    assert (world.bytes_on_disk(), len(world.saver.saved)) == before
 
 
 @pytest.mark.parametrize(
@@ -563,11 +548,11 @@ def test_every_task_submission_passes_existing_origin_guard_first(
 ) -> None:
     """NFR-4, QC-31: refused before the body is read, before any action, with nothing saved."""
     world = make_world(tmp_path)
-    before = (world.bytes_on_disk(), world.saver.saves)
+    before = (world.bytes_on_disk(), len(world.saver.saved))
     for body in (b"title=Sneaky", b"title=%FF"):
         response = add_task(world.site, headers=marks, body=body)
         assert response.status == 403 and response.body == b""
-    assert (world.bytes_on_disk(), world.saver.saves) == before
+    assert (world.bytes_on_disk(), len(world.saver.saved)) == before
     assert location(add_task(world.site, title="Welcome")) == "/tasks/1?added"
 
 
@@ -579,10 +564,10 @@ def test_every_task_submission_passes_existing_origin_guard_first(
 def test_task_form_uses_existing_strict_utf8_codec(tmp_path: Path, body: bytes) -> None:
     """QC-9: bytes that are not UTF-8 answer an empty 400 and save nothing."""
     world = make_world(tmp_path)
-    before = (world.bytes_on_disk(), world.saver.saves)
+    before = (world.bytes_on_disk(), len(world.saver.saved))
     response = add_task(world.site, body=body)
     assert response.status == 400 and response.body == b""
-    assert (world.bytes_on_disk(), world.saver.saves) == before
+    assert (world.bytes_on_disk(), len(world.saver.saved)) == before
 
 
 def test_task_form_normalizes_line_breaks_once(tmp_path: Path) -> None:
@@ -711,7 +696,7 @@ def test_task_edit_saves_all_fields_and_each_one_field(tmp_path: Path) -> None:
     values = loaded(world.site)
     sent = {**values, "title": " Ship it ", "priority": "critical", "assignee": " Ari"}
     sent["due_date"] = "2026-11-01"
-    saves = world.saver.saves
+    saves = len(world.saver.saved)
     response = edit(world.site, **sent)
     assert location(response) == "/tasks/1?saved"
     assert task_fields(world) == {
@@ -720,7 +705,7 @@ def test_task_edit_saves_all_fields_and_each_one_field(tmp_path: Path) -> None:
         "assignee": " Ari",
         "due_date": "2026-11-01",
     }
-    assert world.saver.saves == saves + 1
+    assert len(world.saver.saved) == saves + 1
     landing = parse(follow(world.site, response))
     assert edit_values(landing)["title"] == " Ship it "
     assert world.restarted().tracker.task(1) == world.tracker.task(1)
@@ -746,7 +731,7 @@ def test_task_edit_saves_all_fields_and_each_one_field(tmp_path: Path) -> None:
 def test_task_edit_preserves_absent_and_empty_pairs(tmp_path: Path) -> None:
     """CP-151: an absent submitted or shown value is unchanged; a present empty one is a value."""
     world = seeded(tmp_path)
-    before = (world.bytes_on_disk(), world.saver.saves)
+    before = (world.bytes_on_disk(), len(world.saver.saved))
     for body in (
         b"",
         b"title=Other",
@@ -755,33 +740,35 @@ def test_task_edit_preserves_absent_and_empty_pairs(tmp_path: Path) -> None:
         b"shown_priority=&shown_assignee=Other&shown_due_date=&shown_title=",
     ):
         assert location(edit(world.site, body=body)) == "/tasks/1", body
-    assert (world.bytes_on_disk(), world.saver.saves) == before
+    assert (world.bytes_on_disk(), len(world.saver.saved)) == before
     cleared = edit(
         world.site, body=b"assignee=&shown_assignee=Dana&due_date=&shown_due_date=2026-10-20"
     )
     assert location(cleared) == "/tasks/1?saved"
     assert task_fields(world)["assignee"] is None and task_fields(world)["due_date"] is None
-    kept = (world.bytes_on_disk(), world.saver.saves)
+    kept = (world.bytes_on_disk(), len(world.saver.saved))
     refused = edit(world.site, body=b"priority=&shown_priority=high")
     assert "edit_refused=invalid-priority" in location(refused)
-    assert (world.bytes_on_disk(), world.saver.saves) == kept
+    assert (world.bytes_on_disk(), len(world.saver.saved)) == kept
 
 
 def test_task_edit_normalizes_both_field_sets(tmp_path: Path) -> None:
     """CP-151, RT-10: line breaks are normalized in both sets, and nothing else is."""
     world = seeded(tmp_path)
-    before = (world.bytes_on_disk(), world.saver.saves)
+    before = (world.bytes_on_disk(), len(world.saver.saved))
     same = edit(world.site, body=b"title=a%0D%0Ab%0Dc&shown_title=a%0Ab%0Ac")
-    assert location(same) == "/tasks/1" and (world.bytes_on_disk(), world.saver.saves) == before
+    assert (
+        location(same) == "/tasks/1" and (world.bytes_on_disk(), len(world.saver.saved)) == before
+    )
     changed = edit(world.site, body=b"title=x%0D%0Ay&shown_title=x")
     assert location(changed) == "/tasks/1?saved" and task_fields(world)["title"] == "x\ny"
     trimmed = edit(world.site, body=b"title=x+&shown_title=x")
     assert location(trimmed) == "/tasks/1?saved" and task_fields(world)["title"] == "x "
-    before = (world.bytes_on_disk(), world.saver.saves)
+    before = (world.bytes_on_disk(), len(world.saver.saved))
     for shown_breaks in (b"title=p%0Aq&shown_title=p%0D%0Aq", b"title=p%0Aq&shown_title=p%0Dq"):
         unchanged = edit(world.site, body=shown_breaks)
         assert location(unchanged) == "/tasks/1", shown_breaks
-        assert (world.bytes_on_disk(), world.saver.saves) == before, shown_breaks
+        assert (world.bytes_on_disk(), len(world.saver.saved)) == before, shown_breaks
     cased = edit(world.site, body=b"priority=HIGH&shown_priority=high")
     assert "edit_refused=invalid-priority" in location(cased)
 
@@ -789,17 +776,17 @@ def test_task_edit_normalizes_both_field_sets(tmp_path: Path) -> None:
 def test_task_edit_no_change_has_no_save_or_completion(tmp_path: Path) -> None:
     """CP-155 to CP-157: a no-change save is a plain redirect; changed-to-current saves once."""
     world = seeded(tmp_path)
-    before = (world.bytes_on_disk(), world.saver.saves)
+    before = (world.bytes_on_disk(), len(world.saver.saved))
     unchanged = edit(world.site, **loaded(world.site))
     assert location(unchanged) == "/tasks/1"
-    assert (world.bytes_on_disk(), world.saver.saves) == before
+    assert (world.bytes_on_disk(), len(world.saver.saved)) == before
     plain = parse(follow(world.site, unchanged))
     assert "You saved changes" not in plain.text() and focused(plain) == []
     stale = loaded(world.site)
     world.tracker.edit_task(1, TaskFields(title="Elsewhere"), TaskFields(title="Set up CI"))
-    saves = world.saver.saves
+    saves = len(world.saver.saved)
     to_current = edit(world.site, **{**stale, "title": "Elsewhere"})
-    assert location(to_current) == "/tasks/1?saved" and world.saver.saves == saves + 1
+    assert location(to_current) == "/tasks/1?saved" and len(world.saver.saved) == saves + 1
     heading = parse(follow(world.site, to_current)).find_all("h1")[0]
     assert heading.described_by()[0].text() == "You saved changes to 'Elsewhere'."
 
@@ -871,7 +858,7 @@ def test_task_edit_rejects_assignee_removed_after_load(tmp_path: Path) -> None:
 def test_task_edit_blank_title_refusal_keeps_all_entered_values(tmp_path: Path) -> None:
     """CP-160, CP-161: nothing is saved, focus and the reason are on the title, both sets stay."""
     world = seeded(tmp_path)
-    before = (world.bytes_on_disk(), world.saver.saves)
+    before = (world.bytes_on_disk(), len(world.saver.saved))
     form = loaded(world.site)
     response = edit(
         world.site, **{**form, "title": " \t", "priority": "low", "due_date": "2026-12-01"}
@@ -884,7 +871,7 @@ def test_task_edit_blank_title_refusal_keeps_all_entered_values(tmp_path: Path) 
         "priority": "low",
         "due_date": "2026-12-01",
     }
-    assert (world.bytes_on_disk(), world.saver.saves) == before
+    assert (world.bytes_on_disk(), len(world.saver.saved)) == before
 
 
 @pytest.mark.parametrize("sent", ["x" * 201, " " * 201], ids=["characters", "spaces"])
@@ -926,20 +913,20 @@ def test_task_edit_too_long_discards_all_submission_text(tmp_path: Path, sent: s
 def test_task_edit_invalid_priority_refusal_changes_nothing(tmp_path: Path) -> None:
     """CP-164: a hand-built priority is refused beside the priority control."""
     world = seeded(tmp_path)
-    before = (world.bytes_on_disk(), world.saver.saves)
+    before = (world.bytes_on_disk(), len(world.saver.saved))
     response = edit(world.site, **{**loaded(world.site), "priority": "urgent", "title": "Moved"})
     shown = refused_page(world, response)
     assert reason_of(shown, "edit-priority") == (
         "A task's priority has to be low, medium, high or critical. Pick one of the four."
     )
     assert edit_values(shown)["title"] == "Moved"
-    assert (world.bytes_on_disk(), world.saver.saves) == before
+    assert (world.bytes_on_disk(), len(world.saver.saved)) == before
 
 
 def test_task_edit_invalid_due_date_refusal_changes_nothing(tmp_path: Path) -> None:
     """CP-164: a hand-built date is refused beside the date field."""
     world = seeded(tmp_path)
-    before = (world.bytes_on_disk(), world.saver.saves)
+    before = (world.bytes_on_disk(), len(world.saver.saved))
     response = edit(
         world.site, **{**loaded(world.site), "due_date": "2026-02-30", "title": "Moved"}
     )
@@ -948,7 +935,7 @@ def test_task_edit_invalid_due_date_refusal_changes_nothing(tmp_path: Path) -> N
         "A due date has to be a calendar date. Give one, or leave the due date empty."
     )
     assert edit_values(shown)["due_date"] == "2026-02-30"
-    assert (world.bytes_on_disk(), world.saver.saves) == before
+    assert (world.bytes_on_disk(), len(world.saver.saved)) == before
 
 
 @pytest.mark.parametrize(
@@ -970,24 +957,24 @@ def test_task_edit_multiple_refusals_show_only_first_reason(
 ) -> None:
     """CP-165: one reason, for the first refused field in the explicit order; nothing is saved."""
     world = seeded(tmp_path)
-    before = (world.bytes_on_disk(), world.saver.saves)
+    before = (world.bytes_on_disk(), len(world.saver.saved))
     shown = refused_page(world, edit(world.site, **{**loaded(world.site), **changes}))
     reason_of(shown, focus)
-    assert (world.bytes_on_disk(), world.saver.saves) == before
+    assert (world.bytes_on_disk(), len(world.saver.saved)) == before
 
 
 @pytest.mark.parametrize("target", ["99", "0", "9" * 5000])
 def test_task_edit_missing_identity_uses_task_not_found(tmp_path: Path, target: str) -> None:
     """CP-167: no task at the address saves nothing and shows the task not-found page."""
     world = seeded(tmp_path)
-    before = (world.bytes_on_disk(), world.saver.saves)
+    before = (world.bytes_on_disk(), len(world.saver.saved))
     response = edit(world.site, target, title="Ghost", shown_title="")
     if response.status == 303:
         assert location(response) == f"/tasks/{target}"
         response = get(world.site, location(response))
     assert response.status == 404
     assert response.body == pages.task_not_found_page().encode("utf-8")
-    assert (world.bytes_on_disk(), world.saver.saves) == before
+    assert (world.bytes_on_disk(), len(world.saver.saved)) == before
 
 
 def test_task_edit_retry_keeps_original_baseline(tmp_path: Path) -> None:
@@ -1030,10 +1017,10 @@ def test_task_edit_retry_keeps_a_field_the_request_did_not_send(
     world = seeded(tmp_path)
     world.tracker.edit_task(1, TaskFields(priority="medium"), TaskFields(priority="high"))
     typed = b"" if outcome == "refused" else b"Lost"
-    world.saver.failing = outcome == "failed"
+    world.saver.error = PermissionError("the disk said no") if outcome == "failed" else None
     first = edit(world.site, body=b"title=" + typed + b"&shown_title=Set+up+CI&shown_priority=high")
     assert f"edit_{outcome}=" in location(first)
-    world.saver.failing = False
+    world.saver.error = None
     retained = parse(follow(world.site, first))
     world.tracker.edit_task(1, TaskFields(priority="critical"), TaskFields(priority="medium"))
     retry = edit(world.site, **{**edit_values(retained), "title": "Fixed"})
@@ -1048,7 +1035,7 @@ def test_task_edit_failed_save_retains_form_without_python_error(
     world = seeded(tmp_path)
     form = loaded(world.site)
     before = (world.bytes_on_disk(), task_fields(world))
-    world.saver.failing = True
+    world.saver.error = PermissionError("the disk said no")
     capsys.readouterr()
     response = edit(world.site, **{**form, "title": "Lost", "priority": "low"})
     assert "edit_failed=" in location(response)
@@ -1069,7 +1056,7 @@ def test_task_edit_failed_save_retains_form_without_python_error(
     )
     assert edit_values(root) == {**form, "title": "Lost", "priority": "low"}
     assert (world.bytes_on_disk(), task_fields(world)) == before
-    world.saver.failing = False
+    world.saver.error = None
     assert location(edit(world.site, **edit_values(root))) == "/tasks/1?saved"
     assert task_fields(world)["title"] == "Lost" and task_fields(world)["priority"] == "low"
 
@@ -1088,10 +1075,10 @@ def test_task_edit_failed_save_retains_form_without_python_error(
 def test_task_edit_origin_gate_prevents_all_actions(tmp_path: Path, marks: dict[str, str]) -> None:
     """CP-169: refused before any action, with the saver untouched and the bytes the same."""
     world = seeded(tmp_path)
-    before = (world.bytes_on_disk(), world.saver.saves)
+    before = (world.bytes_on_disk(), len(world.saver.saved))
     response = edit(world.site, headers=marks, title="Sneaky", shown_title="Set up CI")
     assert response.status == 403 and response.body == b""
-    assert (world.bytes_on_disk(), world.saver.saves) == before
+    assert (world.bytes_on_disk(), len(world.saver.saved)) == before
 
 
 def test_task_edit_completion_describes_heading_after_save(tmp_path: Path) -> None:
@@ -1104,10 +1091,10 @@ def test_task_edit_completion_describes_heading_after_save(tmp_path: Path) -> No
     assert focused(root) == [heading] and heading.attrs["tabindex"] == "-1"
     (line,) = heading.described_by()
     assert line.text() == "You saved changes to '  New  '."
-    before = (world.bytes_on_disk(), world.saver.saves)
+    before = (world.bytes_on_disk(), len(world.saver.saved))
     for target in (location(response), location(response), "/tasks/1"):
         get(world.site, target)
-    assert (world.bytes_on_disk(), world.saver.saves) == before
+    assert (world.bytes_on_disk(), len(world.saver.saved)) == before
     plain = parse(page(get(world.site, "/tasks/1")))
     assert "You saved changes" not in plain.text() and focused(plain) == []
     added = parse(page(get(world.site, "/tasks/1?added")))
@@ -1126,9 +1113,9 @@ def test_task_edit_completion_describes_heading_after_save(tmp_path: Path) -> No
 def test_task_edit_ignores_unrecognized_outcome_query(tmp_path: Path, query: str) -> None:
     """RT-8: only a recognized retaining outcome rebuilds a retained form; nothing saves."""
     world = seeded(tmp_path)
-    before = (world.bytes_on_disk(), world.saver.saves)
+    before = (world.bytes_on_disk(), len(world.saver.saved))
     shown_page = page(get(world.site, "/tasks/1" + query))
     assert "Leak" not in shown_page
     root = parse(shown_page)
     assert edit_values(root)["title"] == "Set up CI"
-    assert (world.bytes_on_disk(), world.saver.saves) == before
+    assert (world.bytes_on_disk(), len(world.saver.saved)) == before

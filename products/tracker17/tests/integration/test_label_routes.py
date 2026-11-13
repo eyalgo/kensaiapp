@@ -112,10 +112,10 @@ def test_label_add_redirects_then_reads_saved_result(tmp_path: Path, value: str)
 def test_duplicate_add_redirects_plain_without_save_or_message(tmp_path: Path) -> None:
     """CP-189: nothing is saved, nothing is said, and the file's bytes are as they were."""
     world = world_with(tmp_path, "bug")
-    before = (world.bytes_on_disk(), world.saver.saves)
+    before = (world.bytes_on_disk(), len(world.saver.saved))
     response = add_label(world.site, "bug")
     assert location(response) == "/tasks/1"
-    assert (world.bytes_on_disk(), world.saver.saves) == before
+    assert (world.bytes_on_disk(), len(world.saver.saved)) == before
     root = parse(follow(world.site, response))
     assert focused(root) == [] and shown_labels(root) == ["bug"]
     assert "You added" not in root.text() and "can't be longer" not in root.text()
@@ -156,7 +156,7 @@ def test_each_label_refusal_preserves_saved_bytes_and_shows_reason(
     """CP-190, CP-191, CP-193: the right element takes focus with the reason, the file is as it
     was."""
     world = world_with(tmp_path, "ui")
-    before = (world.bytes_on_disk(), world.saver.saves, labels_of(world))
+    before = (world.bytes_on_disk(), len(world.saver.saved), labels_of(world))
     response = action(world.site, label)
     assert location(response) == expected
     root = parse(follow(world.site, response))
@@ -170,7 +170,7 @@ def test_each_label_refusal_preserves_saved_bytes_and_shows_reason(
         assert target is label_field(root) and target.attrs["value"] == field_value
         assert description(target) == (EMPTY_REASON if label == "" else TOO_LONG_REASON)
     assert shown_labels(root) == ["ui"]
-    assert (world.bytes_on_disk(), world.saver.saves, labels_of(world)) == before
+    assert (world.bytes_on_disk(), len(world.saver.saved), labels_of(world)) == before
 
 
 @pytest.mark.parametrize("action", [add_label, remove_label], ids=["add", "remove"])
@@ -180,12 +180,12 @@ def test_a_missing_task_gets_the_task_not_found_page_for_each_action(
     """CP-194: the redirect names the task, and its page is the not-found page that speaks of
     one."""
     world = world_with(tmp_path, "ui")
-    before = (world.bytes_on_disk(), world.saver.saves)
+    before = (world.bytes_on_disk(), len(world.saver.saved))
     response = action(world.site, "ui", 99)
     assert location(response) == "/tasks/99"
     answer = get(world.site, "/tasks/99")
     assert answer.status == 404 and answer.body == pages.task_not_found_page().encode("utf-8")
-    assert (world.bytes_on_disk(), world.saver.saves) == before
+    assert (world.bytes_on_disk(), len(world.saver.saved)) == before
 
 
 def test_overlong_label_is_absent_from_redirect_and_landing(tmp_path: Path) -> None:
@@ -229,7 +229,7 @@ def test_label_save_failure_reports_failure_without_publication(
     the published failure and shows no Python text and no success line."""
     world = world_with(tmp_path, "ui")
     before = (world.bytes_on_disk(), labels_of(world))
-    world.saver.failing = True
+    world.saver.error = PermissionError("the disk said no")
     capsys.readouterr()
     sent = " x " if action == "add" else "ui"
     response = (add_label if action == "add" else remove_label)(world.site, sent)
@@ -251,7 +251,7 @@ def test_label_save_failure_reports_failure_without_publication(
     )
     assert label_field(root).attrs["value"] == (" x " if action == "add" else "")
     assert (world.bytes_on_disk(), labels_of(world)) == before
-    world.saver.failing = False
+    world.saver.error = None
     assert capsys.readouterr().err == ""
 
 
@@ -282,7 +282,7 @@ def test_label_outcome_query_is_stateless_and_presence_based(tmp_path: Path) -> 
     """QC-8, ADR-0006: a blank value is not an absent one, and a reload or a back changes
     nothing."""
     world = world_with(tmp_path, "ui")
-    saves = world.saver.saves
+    saves = len(world.saver.saved)
     blank = parse(page(get(world.site, "/tasks/1?label_removed=")))
     assert description(focused(blank)[0]) == f"You removed the label '' from '{TITLE}'."
     absent = parse(page(get(world.site, "/tasks/1")))
@@ -304,21 +304,21 @@ def test_label_outcome_query_is_stateless_and_presence_based(tmp_path: Path) -> 
     for _ in range(3):
         get(world.site, "/tasks/1?label_added=ui")
         get(world.site, "/tasks/1?label_removed=ui")
-    assert (world.saver.saves, labels_of(world)) == (saves, ("ui",))
+    assert (len(world.saver.saved), labels_of(world)) == (saves, ("ui",))
 
 
 def test_stale_label_action_checks_current_state(tmp_path: Path) -> None:
     """CP-189, CP-193: a page shown earlier acts on the current labels, not on its own."""
     world = world_with(tmp_path, "x")
     assert location(remove_label(world.site, "x")).startswith("/tasks/1?label_removed=")
-    saves = world.saver.saves
+    saves = len(world.saver.saved)
     stale = remove_label(world.site, "x")
     assert location(stale) == "/tasks/1?label_refused=not-carried&label=x"
-    assert world.saver.saves == saves
+    assert len(world.saver.saved) == saves
     assert location(add_label(world.site, "y")).startswith("/tasks/1?label_added=")
-    saves = world.saver.saves
+    saves = len(world.saver.saved)
     assert location(add_label(world.site, "y")) == "/tasks/1"
-    assert world.saver.saves == saves and labels_of(world) == ("y",)
+    assert len(world.saver.saved) == saves and labels_of(world) == ("y",)
 
 
 @pytest.mark.parametrize("target", [ADD, REMOVE], ids=["add", "remove"])
@@ -338,10 +338,10 @@ def test_label_routes_refuse_a_request_before_any_action(
 ) -> None:
     """QC-7, QC-31, QC-34: the Host and fetch checks come first; the state is as it was."""
     world = world_with(tmp_path, "ui")
-    before = (world.bytes_on_disk(), world.saver.saves, labels_of(world))
+    before = (world.bytes_on_disk(), len(world.saver.saved), labels_of(world))
     response = send(world.site, target, headers=marks, label="ui")
     assert response.status == 403 and response.body == b""
-    assert (world.bytes_on_disk(), world.saver.saves, labels_of(world)) == before
+    assert (world.bytes_on_disk(), len(world.saver.saved), labels_of(world)) == before
 
 
 def test_label_routes_keep_request_and_response_policy(tmp_path: Path) -> None:

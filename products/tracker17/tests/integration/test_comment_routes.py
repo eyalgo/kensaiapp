@@ -21,7 +21,7 @@ from urllib.parse import parse_qs, urlencode, urlsplit
 import pytest
 from test_pages import Element, parse, textarea_value
 from test_routes import FORM, HOST, POLICY, SAME_ORIGIN, get, header, page
-from test_task_routes import MovableClock, SwitchedSaver, World, focused, follow, location
+from test_task_routes import MovableClock, World, focused, follow, location
 
 from application import LONG_TEXT_MAX, Comment, Tracker
 from domain import empty_state, restore_state, restore_task
@@ -82,7 +82,7 @@ def world_with(
     )
     inner = SavedData(location_on_disk)
     inner.save(state)
-    saver = SwitchedSaver(inner)
+    saver = FakeSaver(passes_to=inner)
     clock = ReadCountingClock()
     tracker = Tracker(state, saver, clock)
     return World(Site(tracker, HOST), tracker, saver, clock, location_on_disk)
@@ -113,7 +113,7 @@ def untouched(world: World) -> tuple[bytes, int, tuple[Comment, ...]]:
     comments."""
     task = world.tracker.task(1)
     assert task is not None
-    return world.bytes_on_disk(), world.saver.saves, task.comments
+    return world.bytes_on_disk(), len(world.saver.saved), task.comments
 
 
 def saved_comments(world: World) -> tuple[Comment, ...]:
@@ -158,7 +158,7 @@ def test_comment_post_saves_then_redirects_to_the_added_comment(tmp_path: Path) 
     assert after.tasks[0].comments == (*earlier, Comment("Looks good", "Sam", WRITTEN))
     assert replace(after.tasks[0], comments=()) == replace(before.tasks[0], comments=())
     assert replace(after, tasks=()) == replace(before, tasks=())
-    assert world.saver.saves == 1 and reads(world) == 1
+    assert len(world.saver.saved) == 1 and reads(world) == 1
     assert world.restarted().tracker.task(1) == world.tracker.task(1)
 
 
@@ -204,7 +204,7 @@ def test_comment_post_accepts_all_task_statuses_and_repeated_text(
     assert [item.text for item in saved_comments(world)] == ["same", "same"]
     task = world.tracker.task(1)
     assert task is not None and task.status.value == status
-    assert world.saver.saves == 2
+    assert len(world.saver.saved) == 2
 
 
 @pytest.mark.parametrize(
@@ -269,7 +269,7 @@ def test_comment_post_uses_length_blank_name_precedence(
     for absent_text in (text, "valid text", ""):
         answer = add_comment(world.site, absent_text, task=99)
         assert location(answer) == "/tasks/99"
-    assert world.saver.saves == 0
+    assert len(world.saver.saved) == 0
     assert saved_comments(world) == ()
 
 
@@ -325,7 +325,7 @@ def test_comment_failed_save_keeps_data_and_retains_the_field(
     text."""
     world = world_with(tmp_path, comments=(comment("earlier"),))
     before = untouched(world)
-    world.saver.failing = True
+    world.saver.error = PermissionError("the disk said no")
     capsys.readouterr()
     sent = " keep\nme "
     response = add_comment(world.site, sent)
@@ -346,7 +346,7 @@ def test_comment_failed_save_keeps_data_and_retains_the_field(
     assert description(target) == FAILURE_LINE
     assert textarea_value(comment_field(root)) == sent
     assert untouched(world) == before
-    world.saver.failing = False
+    world.saver.error = None
     assert world.restarted().tracker.task(1) == world.tracker.task(1)
     assert capsys.readouterr().err == ""
 
@@ -406,7 +406,7 @@ def test_comment_post_keeps_response_policy_for_success_refusal_and_failure(
     world = world_with(tmp_path)
     success = add_comment(world.site, "ok")
     refusal = add_comment(world.site, "")
-    world.saver.failing = True
+    world.saver.error = PermissionError("the disk said no")
     failure = add_comment(world.site, "ok")
     for response in (success, refusal, failure):
         assert response.status == 303

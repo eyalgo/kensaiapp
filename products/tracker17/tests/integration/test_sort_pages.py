@@ -384,7 +384,7 @@ def test_all_tasks_has_one_row_per_task_and_project_after_title(tmp_path: Path) 
     """CP-462, CP-463, CP-464, CP-465, T3: title, one h1, eight headers, every task once in the
     default order, the project as a plain link, the row's own cells and no project controls."""
     world = two_project_world(tmp_path)
-    saves = world.saver.saves
+    saves = len(world.saver.saved)
     root = all_tasks(world)
     assert [e.text() for e in root.find_all("title")] == ["All tasks - tracker17"]
     assert [e.text() for e in root.find_all("h1")] == ["All tasks"]
@@ -407,7 +407,7 @@ def test_all_tasks_has_one_row_per_task_and_project_after_title(tmp_path: Path) 
     text = root.text().lower()
     for absent in ("rename", "delete", "summary"):
         assert absent not in text, absent
-    assert world.saver.saves == saves
+    assert len(world.saver.saved) == saves
 
 
 def test_project_links_carry_no_choice_while_choices_are_applied(tmp_path: Path) -> None:
@@ -436,7 +436,7 @@ def test_global_empty_page_precedes_controls_and_refusals(tmp_path: Path) -> Non
     ]
     for projects in ((), ("Alpha", "Beta")):
         world = make_world(tmp_path / f"p{len(projects)}", projects=projects)
-        saves = world.saver.saves
+        saves = len(world.saver.saved)
         for query in queries:
             root = all_tasks(world, query)
             (main,) = root.find_all("main")
@@ -448,7 +448,7 @@ def test_global_empty_page_precedes_controls_and_refusals(tmp_path: Path) -> Non
             for tag in ("form", "table", "select", "input", "button"):
                 assert root.find_all(tag) == [], (query, tag)
             assert "filter" not in main.text().lower() and "match" not in main.text(), query
-        assert world.saver.saves == saves
+        assert len(world.saver.saved) == saves
 
 
 def test_all_tasks_controls_and_options_cover_the_whole_scope(tmp_path: Path) -> None:
@@ -506,7 +506,7 @@ def test_every_global_choice_refusal_keeps_raw_values_and_first_field_focus(
     """CP-474, T10: ordered reasons beside their fields, raw values kept, the first refused field
     owning the focus, no list, no count, Clear still offered, and nothing saved."""
     world = two_project_world(tmp_path)
-    saves = world.saver.saves
+    saves = len(world.saver.saved)
     root = all_tasks(
         world,
         "filter_due_from=2026-10-20&filter_due_to=2026-10-01&filter_status=nope"
@@ -531,7 +531,7 @@ def test_every_global_choice_refusal_keeps_raw_values_and_first_field_focus(
     assert reasons[4].startswith("Direction takes one value, not 2.")
     assert attempts(root, "filter-label") == ["a", "b"]
     assert any(a.text() == "Clear" for a in filter_form(root).find_all("a"))
-    assert world.saver.saves == saves
+    assert len(world.saver.saved) == saves
     repeated_assignee = all_tasks(world, "filter_assignee=Dana&filter_assignee=Dana")
     assert "The assignee filter takes one name, not 2." in repeated_assignee.text()
     unlisted = all_tasks(world, "filter_assignee=Zed&sort_field=title")

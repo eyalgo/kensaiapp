@@ -57,7 +57,7 @@ def test_confirmed_delete_lands_on_its_unfiltered_project(tmp_path: Path) -> Non
     add_comments(world, 3)
     world.tracker.add_task_label(1, "ui")
     expected = without_task(saved_state(world), 1)
-    saves = world.saver.saves
+    saves = len(world.saver.saved)
     body = urlencode(
         {
             "title": "Elsewhere",
@@ -70,7 +70,7 @@ def test_confirmed_delete_lands_on_its_unfiltered_project(tmp_path: Path) -> Non
     ).encode()
     response = confirm(world, 1, body)
     assert location(response) == "/projects/1?deleted_task=Set+up+CI"
-    assert world.saver.saves == saves + 1
+    assert len(world.saver.saved) == saves + 1
     assert saved_state(world) == expected
     assert saved_state(world).next_task_id == 4
     assert world.tracker.task(1) is None
@@ -117,11 +117,11 @@ def test_delete_completion_reads_never_repeat_the_action(tmp_path: Path) -> None
     """T6: repeated GETs of the landing keep the same line, with no further save."""
     world = world_with(tmp_path)
     target = location(confirm(world))
-    saves, stored = world.saver.saves, world.bytes_on_disk()
+    saves, stored = len(world.saver.saved), world.bytes_on_disk()
     first = page(get(world.site, target))
     for _ in range(3):
         assert page(get(world.site, target)) == first
-    assert world.saver.saves == saves and world.bytes_on_disk() == stored
+    assert len(world.saver.saved) == saves and world.bytes_on_disk() == stored
 
 
 @pytest.mark.parametrize("title", ["<b>x</b>", "A&B", 'say "hi"', "it's", "Ünï—☃", "a%2Fb+c"])
@@ -131,7 +131,7 @@ def test_deletion_titles_are_text_in_every_outcome(tmp_path: Path, title: str) -
     world = world_with(tmp_path, title=title)
     sentence = task_root(world, "?delete_confirm").by_id("confirm-sentence")
     assert sentence is not None and sentence.text() == f"Delete '{title}'? You can't undo this."
-    world.saver.failing = True
+    world.saver.error = PermissionError("the disk said no")
     failed = confirm(world)
     assert location(failed) == "/tasks/1?delete_failed"
     shown = task_root(world, "?delete_failed")
@@ -139,7 +139,7 @@ def test_deletion_titles_are_text_in_every_outcome(tmp_path: Path, title: str) -
     assert (
         line.text() == f"The tracker couldn't delete '{title}', and nothing was changed. Try again."
     )
-    world.saver.failing = False
+    world.saver.error = None
     done = parse(page(get(world.site, location(confirm(world)))))
     assert done.by_id("deleted-line").text() == f"You deleted '{title}'."  # type: ignore[union-attr]
     for root in (shown, done):
@@ -159,7 +159,7 @@ def test_failed_confirm_keeps_saved_bytes_and_current_pages(
         world.tracker.project_tasks(1),
         world.tracker.project_summary(1),
     )
-    world.saver.failing = True
+    world.saver.error = PermissionError("the disk said no")
     response = confirm(world)
     assert location(response) == "/tasks/1?delete_failed"
     assert world.bytes_on_disk() == before_bytes and saved_state(world) == before_state
@@ -292,13 +292,13 @@ def stale_world(tmp_path: Path, status: str = "todo") -> tuple[World, bytes]:
 
 
 def assert_refused_as_missing(world: World, response: Response, stored: bytes) -> None:
-    saves = world.saver.saves
+    saves = len(world.saver.saved)
     assert location(response) == "/tasks/1"
     assert world.bytes_on_disk() == stored
     missing = get(world.site, "/tasks/1")
     assert missing.status == 404 and header(missing, "Cache-Control") is None
     assert "There's no task at this address" in missing.body.decode()
-    assert world.saver.saves == saves and world.bytes_on_disk() == stored
+    assert len(world.saver.saved) == saves and world.bytes_on_disk() == stored
 
 
 def send(world: World, path: str, body: dict[str, str]) -> Response:
@@ -402,10 +402,10 @@ def test_each_refused_payload_is_accepted_for_a_held_task(
     """T10: the payloads the deleted-target tests send are whole and otherwise valid, so their
     refusal is the deleted target's and not the payload's: sent for the held task, each is accepted."""
     world = held_world(tmp_path, status)
-    before = world.saver.saves
+    before = len(world.saver.saved)
     where = location(send(world, path, body))
     assert landing in where and "refused=" not in where and "failed=" not in where, where
-    assert world.saver.saves == before + saves
+    assert len(world.saver.saved) == before + saves
 
 
 def test_a_deleted_identity_is_never_reissued(tmp_path: Path) -> None:
@@ -457,7 +457,7 @@ def test_live_delete_views_have_their_response_policy(tmp_path: Path) -> None:
         assert shown.status == status, query
         assert header(shown, "Cache-Control") == "no-store", query
         assert header(shown, "Clear-Site-Data") is None
-    stored, saves = world.bytes_on_disk(), world.saver.saves
+    stored, saves = world.bytes_on_disk(), len(world.saver.saved)
     for path in ("/tasks/1/delete", "/tasks/1/delete/confirm"):
         for marks in (
             {"Host": SAME_ORIGIN["Host"]},
@@ -467,7 +467,7 @@ def test_live_delete_views_have_their_response_policy(tmp_path: Path) -> None:
         ):
             refused = world.site.handle("POST", path, {**marks, **FORM}, b"")
             assert refused.status == 403 and refused.body == b"", (path, marks)
-    assert world.bytes_on_disk() == stored and world.saver.saves == saves
+    assert world.bytes_on_disk() == stored and len(world.saver.saved) == saves
     assert world.tracker.task(1) is not None
     opened = press_delete(world)
     assert header(opened, "Clear-Site-Data") is None
@@ -493,11 +493,11 @@ def test_task_delete_failure_wins_over_confirmation_for_response_status(tmp_path
 def test_first_press_for_a_held_task_never_saves_and_a_get_never_deletes(tmp_path: Path) -> None:
     """Design § 3 C: the first press saves nothing, and neither new address deletes on a GET."""
     world = world_with(tmp_path)
-    stored, saves = world.bytes_on_disk(), world.saver.saves
+    stored, saves = world.bytes_on_disk(), len(world.saver.saved)
     assert location(press_delete(world)) == "/tasks/1?delete_confirm"
     for path in ("/tasks/1/delete", "/tasks/1/delete/confirm"):
         assert get(world.site, path).status == 404
-    assert world.bytes_on_disk() == stored and world.saver.saves == saves
+    assert world.bytes_on_disk() == stored and len(world.saver.saved) == saves
     assert focused(task_root(world, "?delete_confirm")) != []
     assert len(strips(task_root(world, "?delete_confirm"))) == 1
 
