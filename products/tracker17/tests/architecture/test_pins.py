@@ -208,3 +208,69 @@ def test_an_absent_behave_folder_finds_nothing(product_copy: Path) -> None:
     """CP-778: QC-1 lets the folder be absent, and then the Behave checks read nothing."""
     shutil.rmtree(product_copy / ".behave")
     assert behave_findings(product_copy) == []
+
+
+def replace_in_manifest(product: Path, old: str, new: str) -> None:
+    manifest_path = product / BEHAVE_FOLDER / "pyproject.toml"
+    text = manifest_path.read_text(encoding="utf-8")
+    assert old in text, f"the copy's manifest holds no {old!r} to replace"
+    manifest_path.write_text(text.replace(old, new), encoding="utf-8")
+
+
+def make_lock_absent(product: Path) -> None:
+    (product / BEHAVE_FOLDER / "uv.lock").unlink()
+
+
+def make_lock_unreadable(product: Path) -> None:
+    (product / BEHAVE_FOLDER / "uv.lock").write_text("[[package]\nname = \n", encoding="utf-8")
+
+
+@pytest.mark.parametrize(
+    "damage",
+    [
+        pytest.param(make_lock_absent, id="no-uv-lock"),
+        pytest.param(make_lock_unreadable, id="uv-lock-is-not-toml"),
+    ],
+)
+def test_a_missing_or_unreadable_lock_is_found(product_copy: Path, damage) -> None:
+    """CP-775: a lock that cannot be read fixes nothing, so it is a finding."""
+    damage(product_copy)
+    assert any(LOCK_UNREADABLE in finding for finding in behave_findings(product_copy))
+
+
+def test_a_pin_the_lock_does_not_fix_is_found(product_copy: Path) -> None:
+    """CP-776: the manifest says 1.65.0 where the lock fixes 1.65.1, as CP-782 mutates it."""
+    replace_in_manifest(product_copy, "playwright==1.65.1", "playwright==1.65.0")
+    findings = behave_findings(product_copy)
+    assert any(
+        LOCK_DOES_NOT_FIX in finding and "playwright==1.65.0" in finding for finding in findings
+    )
+
+
+def test_a_lock_with_no_package_record_is_found(product_copy: Path) -> None:
+    """CP-776: a lock that holds no package record fixes nothing."""
+    (product_copy / BEHAVE_FOLDER / "uv.lock").write_text("version = 1\n", encoding="utf-8")
+    assert any(LOCK_HOLDS_NO_PACKAGE in finding for finding in behave_findings(product_copy))
+
+
+@pytest.mark.parametrize(
+    ("old", "new"),
+    [
+        pytest.param("behave==1.3.3", "Behave==1.3.3", id="capitalised-name"),
+        pytest.param("httpx==0.28.1", "httpx[http2]==0.28.1", id="extras-dropped"),
+    ],
+)
+def test_a_name_spelt_differently_is_still_fixed_by_the_lock(
+    product_copy: Path, old: str, new: str
+) -> None:
+    """CP-776: names compare as `normalized` compares them, with extras dropped."""
+    replace_in_manifest(product_copy, old, new)
+    assert behave_findings(product_copy) == []
+
+
+def test_a_missing_manifest_gives_no_lock_mismatch_finding(product_copy: Path) -> None:
+    """CP-774: with no manifest read there is no declared pin for the lock to miss."""
+    make_manifest_absent(product_copy)
+    findings = behave_findings(product_copy)
+    assert any(MANIFEST_UNREADABLE in finding for finding in findings)
+    assert not any(LOCK_DOES_NOT_FIX in finding for finding in findings)
