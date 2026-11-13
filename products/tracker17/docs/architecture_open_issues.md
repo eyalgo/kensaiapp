@@ -39,6 +39,6 @@ None.
   *Layer 7 — Specification*, and the sentence QC-64 quotes ("the fakes live in a test-support module
   such as `tests/fakes.py`") stands in § *Rules*. Both pointers should name § *Rules*.
 - **If a document has to be written:** none
-- **Answer:** <the owner fills this in>
+- **Answer:** Confirmed, with one addition. `testing_python.md` numbers no section, and the sentence QC-64 quotes stands word for word in its § Rules, so both pointers name § Rules: the *form* sentence reads "in the form `<CORE>/doctrine/engineering/testing_python.md` § Rules states" and the trace tail reads "`testing_python.md` § Rules". The addition is the form: write it plain, `§ Rules`, as QC-64's own `testing_doctrine.md` § A fake is verified against its port's contract and every other doctrine pointer in this document is written, not italic. The quote stays as it is, and no obligation, check, § 10 row or record moves. Reasoning: `docs/trail/architecture/self_answer-34.md`.
 
 **How it closes.** `product-architecture` folds it on its next run like any other item here.
