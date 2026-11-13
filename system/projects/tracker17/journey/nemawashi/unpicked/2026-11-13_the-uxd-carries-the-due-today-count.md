@@ -22,6 +22,8 @@ Cut from `products/tracker17/docs/SRS.md` § 3.11 FR-38 ("beside the overdue cou
 
 ## Out (later / elsewhere)
 
-The SDD, FDR, NFDR, `DESIGN.md` and `CONTENT.md` re-runs, and the seed that builds the count in the product, wait for the UXD to carry it. Each is swept or cut after this seed retires, not inside it.
+The SDD, FDR, NFDR, `DESIGN.md` and `CONTENT.md` re-runs waited for the UXD to carry it; the seed that builds the count in the product, `tracker17 · nemawashi · 2026-11-13_the-summary-shows-the-due-today-count`, was cut and walked without waiting, and the count is built (`e4209621a`). Each is swept or cut after this seed retires, not inside it.
 
 Divergence, 2026-11-13 (`nemawashi-refine`, answer to `tracker17 · nemawashi · 2026-11-13_the-ignored-sigint-test-holds-in-a-full-run`): the work this seed asks for is on disk — UXD version 12 (`59b5394da`), Settled, carries the count at UX-F6 and UX-S5 and its companion is gone — so the seed wants a pick and a close, not a second fold; § What it is records the state when the seed was cut.
+
+Divergence, 2026-11-13 (`shukuba-refine`, review of `tracker17 · tobiishi · 2026-11-13_summary-shows-due-today`): § Out no longer says the build seed waits for this one — the count is built on `main` (`e4209621a`) and `products/tracker17/docs/what_left.md` reads "Nothing is left to build."
