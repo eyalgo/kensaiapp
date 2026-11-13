@@ -2,7 +2,7 @@
 
 **Status:** Settled
 **Owner:** Principal Architect
-**Version:** 30 — the answer to companion § 3.1 folded in (`products/tracker17/docs/trail/architecture/cycle-28.md`): QC-1's *verified by* says the entry is met, says where each skip of the source walk counts, `tests/`, `.behave/` and `.venv/` at the product root only and `__pycache__` at any depth, names `test_source_walk.py` and the test that holds the depth, and dates the unmet half to `97603d4f3` with the mutation that fails it (RN-78). No record is written or changed, and § 10 does not move. Nothing is left open, so the companion is removed and this document is Settled. At 29: the answer to companion § 3.1 folded in (`products/tracker17/docs/trail/architecture/cycle-27.md`): QC-39's *verified by* says the scenario folder's set is met, names `behave_findings` and `test_the_behave_folder_of_the_product_holds_every_pin`, dates the half as started unmet at `<a commit not in the public history>`, and cites the pin-move mutation that fails it, and the forecast sentence about `declared_dependencies` goes (RN-76). No record is written or changed, and § 10 does not move. Nothing is left open, so the companion is removed and this document is Settled. At 28: the answer to companion § 3.1 folded in (`products/tracker17/docs/trail/architecture/cycle-26.md`): § 9 takes the line `**Behave way in:** browser` below `**Behave:** behave`, so tracker17's Behave scenarios reach it through a browser, its only interface (SRS C-3) (RN-74). No record is written or changed. `Inputs read:` names SDD version 22, whose one change, § 4 RT-4 naming `playwright==1.65.1`, folds what version 27 raised on the SDD's companion. Nothing is left open, so the companion is removed and this document is Settled. At 27: the owner's answer to companion § 3.1 folded in (`products/tracker17/docs/trail/architecture/cycle-25.md`): the Playwright pin moved to `playwright==1.65.1`, which installs Chromium 158.0.8127.18, so QC-39, QC-40, QC-63 and § 9 name that pin and build, and QC-40 names no exception in force: RN-33's ended on 2026-11-07 (RN-72). § 9's Linux platform list stands, checked against 1.65.1's documentation. No record is written or changed. The SDD's § 4 RT-4 still names the old pin, raised on its own companion. Nothing is left open, so the companion is removed and this document is Settled. At 26: the answers to companion §§ 2.2 and 2.3 folded in (`products/tracker17/docs/trail/architecture/cycle-24.md`): QC-39 names the product's two sets of test dependencies, the suite's in `pyproject.toml` and `uv.lock` and the Behave scenario folder's in `.behave/pyproject.toml` and `.behave/uv.lock`, holds both to one bar, and starts unmet in its test; QC-40 covers both lock files and each pinned browser-driving library's browser build; § 9's layer-7 row names Behave and `.behave/features/`; § 10's QC-39 lock row names both commands (RN-69). QC-2, QC-3, QC-4, QC-37, QC-42, QC-45 and QC-61 take the scope of test code, "outside `tests/` and `.behave/`", in their words and their tails (RN-70). No record is written or changed: RN-69 narrows ADR-0013's "one committed file" to the suite's set. Nothing is left open, so the companion is removed and this document is Settled. At 25: the answers to companion §§ 2.1 and 3.1 to 3.3 folded in (`products/tracker17/docs/trail/architecture/cycle-23.md`): § 1.2 names the layer of SDD § 3's four layers each clause binds, and QC-1 names why the root holds no `ports/` directory (RN-65). QC-64, in § 1.4, gives each contract `application/contracts.py` states one fake and one contract suite, and starts unmet (RN-65). QC-1 names `.behave/`, the Behave scenario folder, as test code outside the package unit; QC-19 and QC-43 exempt it, QC-43 `tests/` too, and the source walk skips both by name, not by a leading dot (RN-66). § 9 gains the Behave line, `behave` (RN-67). No record is written or changed. Companion § 2.2 stays open, and § 2.3 is raised, so this document is Draft. At 24: the answers to companion §§ 3.1 to 3.5 folded in (`products/tracker17/docs/trail/architecture/cycle-22.md`): QC-7 and QC-63 are scoped to a tracker serving its saved data, and QC-7 names the one answer of a tracker on unreadable data, 503 with one page (RN-63). ADR-0014, ADR-0015 and ADR-0016 supersede ADR-0011, ADR-0012 and ADR-0005, each carrying its predecessor whole with the mode qualified, and the entries those bound trace to them. QC-8 and § 10 do not move. Nothing is left open, so the companion is removed and this document is Settled.
+**Version:** 31 — the answer to companion § 3.1 folded in (`products/tracker17/docs/trail/architecture/cycle-29.md`): § 1.2's preamble says each entry is verified by a layer-6 import walk, and that QC-19's second clause over `.behave/` has a walk of its own, `BehaveWalk`; QC-1's *verified by* names `BehaveWalk` as the one walk that does not share the source walk; QC-19's *verified by* says the second clause is met, names `test_behave_imports.py` and `test_the_real_behave_folder_passes_and_is_present`, says that test also fails when the root holds no `.behave/`, and cites the mutation that fails it (RN-80). No record is written or changed, and § 10 does not move. Nothing is left open, so the companion is removed and this document is Settled. At 30: the answer to companion § 3.1 folded in (`products/tracker17/docs/trail/architecture/cycle-28.md`): QC-1's *verified by* says the entry is met, says where each skip of the source walk counts, `tests/`, `.behave/` and `.venv/` at the product root only and `__pycache__` at any depth, names `test_source_walk.py` and the test that holds the depth, and dates the unmet half to `97603d4f3` with the mutation that fails it (RN-78). No record is written or changed, and § 10 does not move. Nothing is left open, so the companion is removed and this document is Settled. At 29: the answer to companion § 3.1 folded in (`products/tracker17/docs/trail/architecture/cycle-27.md`): QC-39's *verified by* says the scenario folder's set is met, names `behave_findings` and `test_the_behave_folder_of_the_product_holds_every_pin`, dates the half as started unmet at `<a commit not in the public history>`, and cites the pin-move mutation that fails it, and the forecast sentence about `declared_dependencies` goes (RN-76). No record is written or changed, and § 10 does not move. Nothing is left open, so the companion is removed and this document is Settled. At 28: the answer to companion § 3.1 folded in (`products/tracker17/docs/trail/architecture/cycle-26.md`): § 9 takes the line `**Behave way in:** browser` below `**Behave:** behave`, so tracker17's Behave scenarios reach it through a browser, its only interface (SRS C-3) (RN-74). No record is written or changed. `Inputs read:` names SDD version 22, whose one change, § 4 RT-4 naming `playwright==1.65.1`, folds what version 27 raised on the SDD's companion. Nothing is left open, so the companion is removed and this document is Settled. At 27: the owner's answer to companion § 3.1 folded in (`products/tracker17/docs/trail/architecture/cycle-25.md`): the Playwright pin moved to `playwright==1.65.1`, which installs Chromium 158.0.8127.18, so QC-39, QC-40, QC-63 and § 9 name that pin and build, and QC-40 names no exception in force: RN-33's ended on 2026-11-07 (RN-72). § 9's Linux platform list stands, checked against 1.65.1's documentation. No record is written or changed. The SDD's § 4 RT-4 still names the old pin, raised on its own companion. Nothing is left open, so the companion is removed and this document is Settled. At 26: the answers to companion §§ 2.2 and 2.3 folded in (`products/tracker17/docs/trail/architecture/cycle-24.md`): QC-39 names the product's two sets of test dependencies, the suite's in `pyproject.toml` and `uv.lock` and the Behave scenario folder's in `.behave/pyproject.toml` and `.behave/uv.lock`, holds both to one bar, and starts unmet in its test; QC-40 covers both lock files and each pinned browser-driving library's browser build; § 9's layer-7 row names Behave and `.behave/features/`; § 10's QC-39 lock row names both commands (RN-69). QC-2, QC-3, QC-4, QC-37, QC-42, QC-45 and QC-61 take the scope of test code, "outside `tests/` and `.behave/`", in their words and their tails (RN-70). No record is written or changed: RN-69 narrows ADR-0013's "one committed file" to the suite's set. Nothing is left open, so the companion is removed and this document is Settled. At 25: the answers to companion §§ 2.1 and 3.1 to 3.3 folded in (`products/tracker17/docs/trail/architecture/cycle-23.md`): § 1.2 names the layer of SDD § 3's four layers each clause binds, and QC-1 names why the root holds no `ports/` directory (RN-65). QC-64, in § 1.4, gives each contract `application/contracts.py` states one fake and one contract suite, and starts unmet (RN-65). QC-1 names `.behave/`, the Behave scenario folder, as test code outside the package unit; QC-19 and QC-43 exempt it, QC-43 `tests/` too, and the source walk skips both by name, not by a leading dot (RN-66). § 9 gains the Behave line, `behave` (RN-67). No record is written or changed. Companion § 2.2 stays open, and § 2.3 is raised, so this document is Draft. At 24: the answers to companion §§ 3.1 to 3.5 folded in (`products/tracker17/docs/trail/architecture/cycle-22.md`): QC-7 and QC-63 are scoped to a tracker serving its saved data, and QC-7 names the one answer of a tracker on unreadable data, 503 with one page (RN-63). ADR-0014, ADR-0015 and ADR-0016 supersede ADR-0011, ADR-0012 and ADR-0005, each carrying its predecessor whole with the mode qualified, and the entries those bound trace to them. QC-8 and § 10 do not move. Nothing is left open, so the companion is removed and this document is Settled.
 **Inputs read:** SRS Settled (version 7) · SDD Settled (version 22; no `products/tracker17/docs/SDD_open_issues.md` beside it when read) · FDR Settled (version 6) · PRD Settled (version 8) · UXD Settled (version 11) · DESIGN Settled (version 4) · CONTENT Settled (version 21) · finish line no Status line · tracker17 doctrine no Status line (stamped, unfilled)
 
 > The NFDR is the product's **standing obligations, consolidated and verifiable**: every quality
@@ -43,14 +43,18 @@ module under `tests/architecture/`, which `pytest tests/` runs.
   `tests/`, `.behave/` and `.venv/` by name at the product root only, and `__pycache__` by name at
   any depth. Below the root, a folder with one of those three names is walked as part of the part
   that holds it, which `test_a_dot_or_named_folder_inside_a_part_is_walked_as_that_part` asserts.
+  One walk does not share the source walk: `BehaveWalk` in `tests/conftest.py`, the walk of QC-19's
+  second clause, reads `.behave/` by its own rule, skipping only `.behave/.venv/` and any
+  `__pycache__` folder.
   `tests/architecture/test_source_walk.py` fails on a folder at the root that holds a Python module,
   whatever its name begins with. The entry is met. It started unmet: at `97603d4f3`,
   `SourceWalk._all` in `tests/conftest.py` skipped every path piece that began with a dot, so a
   dot-folder holding code passed unseen. Verified 2026-11-13, in disposable clones at `9e5d92a3d`
   and `d91a081f4`: `test_source_walk.py` gave 7 passed; with `tests/conftest.py` put back to
   `97603d4f3`, 6 failed, 1 passed *(traces to: ADR-0001; SDD § 3, the parts and the units, the
-  four layers; § 9 TO-10; answer, `trail/architecture/cycle-23.md` §§ 2.1, 3.1, and
-  `trail/architecture/cycle-28.md` § 3.1; see RN-65, RN-66, RN-78)*
+  four layers; § 9 TO-10; answer, `trail/architecture/cycle-23.md` §§ 2.1, 3.1,
+  `trail/architecture/cycle-28.md` § 3.1 and `trail/architecture/cycle-29.md` § 3.1; see RN-65,
+  RN-66, RN-78, RN-80)*
 - **QC-2:** Outside `tests/` and `.behave/`: `main.py` is the composition root. It is the only
   module that names a concrete `persistence` or `web` class, and it builds the real clock. No module
   imports `main`.
@@ -199,9 +203,11 @@ module under `tests/architecture/`, which `pytest tests/` runs.
 ### 1.2 Forbidden imports
 
 Each module appears once. "Third-party" means any module not in Python's standard library
-(`sys.stdlib_module_names`) and not part of tracker17. Every entry is verified by one layer-6 test
-that walks the imports of every module on disk, and that test fails when a directory it walks holds
-no module, so a walk rooted at the wrong path cannot pass by finding nothing (§ 9). Each entry names
+(`sys.stdlib_module_names`) and not part of tracker17. Every entry is verified by a layer-6 import
+walk of the modules on disk, and a walk fails when a directory it walks holds no module, so a walk
+rooted at the wrong path cannot pass by finding nothing (§ 9). QC-19's second clause over `.behave/`
+has a walk of its own, `BehaveWalk` in `tests/conftest.py`, which fails as the others do when the
+folder holds no module. Each entry names
 the layer of `<CORE>/doctrine/engineering/arch_defaults.md` § The four layers its clause binds, as
 SDD § 3, the four layers, places the five parts on them. Naming the layers moves no allowed or
 forbidden set: the direction of dependence below was held before the layers were named.
@@ -241,9 +247,18 @@ forbidden set: the direction of dependence below was held before the layers were
 - **QC-19:** No module outside `tests/` and `.behave/` imports a third-party module, and no module
   outside `tests/` imports from `tests/`. The second clause binds `.behave/`.
   — *verified by:* layer 6, import walk, which skips `tests/` and `.behave/` by name (QC-1); and, for
-  the second clause over `.behave/`, a walk of that folder that fails on an import from `tests` and,
-  while the folder exists, on finding no module in it *(traces to: ADR-0013; SDD § 4 RT-1, RT-4;
-  answer, `trail/architecture/cycle-23.md` § 3.2; see RN-66)*
+  the second clause over `.behave/`, `BehaveWalk`, the folder's own walk (QC-1), which fails on
+  finding no module in the folder while it exists. The second clause is met:
+  `tests/architecture/test_behave_imports.py` fails on an import from `tests` in the folder, and
+  `test_the_real_behave_folder_passes_and_is_present` runs that check over the product. That test
+  also fails when the root holds no `.behave/`, so a change that removes the folder, which QC-1's
+  "may also hold" allows, changes that test with it. QC-39's pins checks, unlike it, read nothing
+  then. Verified 2026-11-13, in disposable clones at `1d7ac1a03` and `9c743330e`, whose code is
+  `69265afe1`'s: `tests/architecture/` gave 120 passed; with `import tests.conftest` appended to
+  `.behave/features/command_way_in.py`, 1 failed, 119 passed, the one failure that test; with
+  `.behave/` moved away, `test_behave_imports.py` gave 1 failed, 27 passed, the same test
+  *(traces to: ADR-0013; SDD § 4 RT-1, RT-4; answer, `trail/architecture/cycle-23.md` § 3.2 and
+  `trail/architecture/cycle-29.md` § 3.1; see RN-66, RN-80)*
 
 ### 1.3 Layer isolation
 
@@ -2096,3 +2111,39 @@ QC-12, QC-25, QC-26, QC-27, QC-40, QC-41 and QC-60 are review gates and have no 
   `tests/architecture/test_source_walk.py`, which holds it. The repository still tracks no CI
   configuration, so RN-55's reading stands. This run ran only `tests/architecture/`, for the
   mutation above. No record was written or changed, so the index does not move. *(re: Version 30)*
+- **RN-80:** § 1.2's preamble, QC-1's *verified by* and QC-19's *verified by* now say that QC-19's
+  second clause over `.behave/` has its own walk, and that the clause is met — *because* the answer
+  to companion § 3.1 confirmed the three changes the item asked for, with one addition
+  (`trail/architecture/cycle-29.md` § 3.1, with the reasoning at
+  `trail/architecture/self_answer-33.md`). A `companion-self-answer` run answered it; the owner has
+  not. The PM raised the item on 2026-11-13: the preamble said one test verifies every entry, QC-1
+  said every walk shares the source walk, and QC-19 named its `.behave/` walk as wanted when it
+  exists. The addition is the absent case: `BehaveWalk` reads nothing when `.behave/` is absent, but
+  `test_the_real_behave_folder_passes_and_is_present` fails then, so QC-19's "while the folder
+  exists" describes the walk, not the product's test. This run checked the answer's grounds on disk:
+  `tests/conftest.py:139` holds `class SourceWalk` and `:171` `class BehaveWalk`, whose skip at
+  `:195` is the folder's `.venv` at its top and `__pycache__` at any depth;
+  `tests/architecture/test_behave_imports.py` holds the named test and 27 others. It repeated the
+  measurements in a disposable clone at `9c743330e`: `tests/architecture/` gave 120 passed; with
+  `import tests.conftest` appended to `.behave/features/command_way_in.py`, 1 failed, 119 passed,
+  the failure that test; restored and with `.behave/` moved away, `test_behave_imports.py` gave 1
+  failed, 27 passed, the same test; restored, 120 passed. The obligations, their checks and their
+  traces do not move, beyond the traces naming this answer. § 10's QC-1 and QC-19 rows run
+  `pytest tests/`, which runs `test_behave_imports.py`, so they stay as written. RN-66's "So
+  QC-19's tail names a walk of `.behave/` for that clause" is a dated note, left as written.
+  **No record is written.** The change corrects a statement about a check, and decides nothing.
+  *(re: § 1.2, QC-1, QC-19; source: `trail/architecture/cycle-29.md` § 3.1)*
+- **RN-81:** Version 31 was written on 2026-11-13. It read the answered companion as committed at
+  `9c743330e` and copied it whole to `trail/architecture/cycle-29.md` before the fold. Its one item,
+  § 3.1, came from the PM, and a `companion-self-answer` run answered it. No producing run wrote it.
+  It is folded here (RN-80), nothing is left open, and the companion is removed. Since version 30
+  (`git diff --stat d09fb068c HEAD` over the product and the project's `finish_line.md`,
+  `doctrine/` and `project.md`), no definition document moved: the SRS, the SDD, the FDR, the PRD,
+  the UXD, `DESIGN.md` and `CONTENT.md` stand at the versions the header names. The changes are the
+  companion and its reasoning; `tests/conftest.py` and `tests/architecture/test_behave_imports.py`,
+  which add the walk of `.behave/`; and `tests/timed_run.py` with
+  `tests/integration/test_timed_run.py`, whose timed creates now read the timer `main` is given.
+  That last change leaves QC-48's obligation and its check, `python3 tests/timed_run.py` exiting 0,
+  as written. The repository still tracks no CI configuration, so RN-55's reading stands. This run
+  ran only `tests/architecture/`, for the measurements above. No record was written or changed, so
+  the index does not move. *(re: Version 31)*
