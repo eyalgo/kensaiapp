@@ -12,7 +12,7 @@ Cut from `products/tracker17/docs/SDD.md` § 6 S-6 *Reached when* → *Behaviour
 
 ## Stations — dynamic checklist
 
-- [ ] summary-shows-due-today — a project's summary shows the due-today count, an open task due on the summary's one date, directly after "Overdue", as a plain number, 0 on an empty project, labelled "Due on {date}"; a task due that day is never also overdue; one done or cancelled is in neither count; both commands of the card's test command pass
+- [ ] summary-shows-due-today — a project's summary shows the due-today count, an open task due on the summary's one date, directly after "Overdue", as a plain number (not a link), 0 on an empty project, labelled "Due on {date}"; new tests fail on `main` and pass after: AC-13's due-today side (a task due that day is in the due-today count and not overdue; one done or cancelled is in neither) and the summary test's count row on an empty project and a built one; both commands of the card's test command pass and `python3 tests/timed_run.py` exits 0
 
 ## Relation to existing work
 
@@ -23,3 +23,5 @@ The FDR carries the count: `products/tracker17/docs/fdr.md` version 8, Settled, 
 No "Due on" marker on list rows and no due-today filter: the PRD places the count in the summary only (SDD § 6 S-6 *Not in this slice*). No summary across projects. The count's link behaviour stays a plain number.
 
 Divergence, 2026-11-13 (`shukuba-refine`, review of `tracker17 · tobiishi · 2026-11-13_ignored-sigint-timing`): the FDR wait is removed from § Relation to existing work, because FDR version 8 (`243f1f6f6`) now states the count at R-129 to R-131.
+
+Divergence, 2026-11-13 (`stations-from-seed`): one station kept, not split — the count, its label and its AC-13 tests are one path through `domain/summary.py` to the page and split into nothing a merge could stand on. The bar now names the new tests as failing on `main`, because "both commands pass" is true today (`grep -rniE 'due.today|due_today' tests` finds no due-today test), and adds S-6's `timed_run.py` check, which S-6's *Command* requires and the line dropped.
