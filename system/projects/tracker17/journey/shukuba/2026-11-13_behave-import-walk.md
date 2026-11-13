@@ -4,7 +4,7 @@
 
 ## What it is
 
-NFDR QC-19's second clause, no module outside `tests/` imports from `tests/`, binds `.behave/`, and its *verified by* asks a layer-6 walk of that folder that fails on an import from `tests` and, while the folder exists, on finding no module in it. The product's source walk skips `.behave/` by name, so no test reads it today, and the clause is true and unchecked. This station adds that walk in `products/tracker17/tests/architecture/`, taking `.behave/` as its own root and reusing `SourceWalk` and `Module.imported()`. It is one test file's worth of change; the root-folder walk is already by name (item 1, sealed).
+NFDR QC-19's second clause, no module outside `tests/` imports from `tests/`, binds `.behave/`, and its *verified by* asks a layer-6 walk of that folder that fails on an import from `tests` and, while the folder exists, on finding no module in it. The product's source walk skips `.behave/` by name, so no test read it when this station opened, and the clause was true and unchecked. This station adds that walk in `products/tracker17/tests/architecture/`, taking `.behave/` as its own root and reading imports with `Module.imported()`. *Refine, 2026-11-13:* the walk landed as `BehaveWalk` in `tests/conftest.py`, its own class rather than `SourceWalk`, because the root walk given `.behave/` as its root skips `.behave/tests/`; `tests/architecture/test_behave_imports.py` now reads the folder. It is one test file's worth of change; the root-folder walk is already by name (item 1, sealed).
 
 ## Reached when
 
