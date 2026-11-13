@@ -26,8 +26,9 @@ that finds no module in the part it covers fails, so a wrong root cannot pass by
 
 The scenario folder has a walk of its own, the ``behave_walk_of`` fixture: it reads every module
 under ``.behave/`` and skips only ``.behave/.venv/`` and any ``__pycache__`` folder, each by exact
-name, so a module in a folder there named ``tests`` is read. It fails when the folder exists and it
-reads nothing, and reads nothing when the folder is absent.
+name, so a module in a folder there named ``tests`` is read. It fails when an entry by that name
+exists and it reads nothing, a link whose target is gone included, and reads nothing when the root
+holds no such entry.
 """
 
 from __future__ import annotations
@@ -182,7 +183,7 @@ class BehaveWalk:
 
     def modules(self) -> list[Module]:
         folder = self.root / _BEHAVE_FOLDER
-        if not folder.exists():
+        if not folder.exists() and not folder.is_symlink():
             return []
         found = list(self._all(folder)) if folder.is_dir() else []
         assert found, f"no module to walk in {_BEHAVE_FOLDER} under {self.root}"
@@ -192,6 +193,8 @@ class BehaveWalk:
         for path in sorted(folder.rglob("*.py")):
             inside = path.relative_to(folder).parts
             if inside[0] == _BEHAVE_ENVIRONMENT or _SKIPPED_AT_ANY_DEPTH in inside:
+                continue
+            if path.is_dir():
                 continue
             tree = ast.parse(path.read_text(encoding="utf-8"))
             yield Module(path.relative_to(self.root), _BEHAVE_FOLDER, tree)
