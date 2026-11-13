@@ -14,6 +14,13 @@ tests/integration/test_start.py, which starts the product's own start in a child
 it with a real SIGINT. That case passes only when the tracker stops, exits 0 and writes nothing to
 standard error. Without the fixture the tracker keeps running and the case fails on its stop
 deadline. The test patches no name in the product and starts no tracker itself.
+
+The second pytest gets a base folder of its own under the test's tmp_path. Started with none, a
+pytest takes its base from the temp root that every pytest session on the machine shares, and on
+exit deletes each earlier session folder that holds no live lock and is three or more numbers
+below the newest. How long that takes depends on what other sessions left behind, and it runs
+inside the outer deadline below, so a full run could fail this test while it passed alone.
+tests/integration/test_sigint_launch_temp_root.py measures that dependence.
 """
 
 from __future__ import annotations
@@ -39,7 +46,7 @@ OUTER_DEADLINE_SECONDS = 120
 ONE_CASE_PASSED = re.compile(r"^1 passed(, \d+ warnings?)? in ", re.MULTILINE)
 
 
-def test_real_start_stops_when_pytest_launch_ignores_sigint():
+def test_real_start_stops_when_pytest_launch_ignores_sigint(tmp_path: Path):
     """NFR-11: a real start stops on SIGINT in a pytest whose launch ignored SIGINT."""
     command = [
         "/bin/sh",
@@ -52,6 +59,8 @@ def test_real_start_stops_when_pytest_launch_ignores_sigint():
         "-q",
         "-p",
         "no:cacheprovider",
+        "--basetemp",
+        str(tmp_path / "launched-base"),
         SELECTED_CASE,
     ]
     launch = subprocess.Popen(
