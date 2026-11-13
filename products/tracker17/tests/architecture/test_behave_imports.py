@@ -79,6 +79,16 @@ def test_a_plain_file_named_behave_fails_naming_the_folder(behave_walk_of, tmp_p
         behave_walk_of(tmp_path).modules()
 
 
+def test_a_dangling_link_named_behave_fails_naming_the_folder(
+    behave_walk_of, tmp_path: Path
+) -> None:
+    """CP-797, CP-799: a link whose target is gone is still an entry, and it leaves nothing to
+    read, so it fails as a plain file does rather than passing as an absent entry."""
+    (tmp_path / _FOLDER).symlink_to(tmp_path / "gone")
+    with pytest.raises(AssertionError, match=_FOLDER):
+        behave_walk_of(tmp_path).modules()
+
+
 def test_the_virtual_environment_is_skipped_and_the_rest_read(
     behave_walk_of, tmp_path: Path
 ) -> None:
@@ -114,6 +124,31 @@ def test_near_names_and_nested_names_are_read(behave_walk_of, tmp_path: Path) ->
         ".behave/features/__pycache__2/b.py",
         ".behave/features/.venv/c.py",
     }
+
+
+def test_a_folder_whose_name_ends_in_py_is_read_as_a_folder(behave_walk_of, tmp_path: Path) -> None:
+    """CP-798: every subfolder is read whatever its name, one named like a module included, and
+    the folder itself is not taken for a module."""
+    _plant(tmp_path, ".behave/features/pkg.py/a.py")
+    assert _paths(behave_walk_of(tmp_path)) == [".behave/features/pkg.py/a.py"]
+
+
+def test_modules_come_back_sorted_by_path_from_any_depth(behave_walk_of, tmp_path: Path) -> None:
+    """The walk's contract: one module per file, sorted by path, a file directly in the folder
+    and one several folders down included."""
+    _plant(
+        tmp_path,
+        ".behave/z.py",
+        ".behave/features/steps/b.py",
+        ".behave/a.py",
+        ".behave/features/m.py",
+    )
+    assert _paths(behave_walk_of(tmp_path)) == [
+        ".behave/a.py",
+        ".behave/features/m.py",
+        ".behave/features/steps/b.py",
+        ".behave/z.py",
+    ]
 
 
 def test_every_module_path_begins_with_the_folder_and_its_part_is_the_folder(
