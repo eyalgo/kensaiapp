@@ -9,3 +9,6 @@
 **Classified because:** the station adds a new check (a layer-6 walk of `.behave/`) that decides pass or fail on QC-19's second clause, so what an enforcement command reports changes, which is `changing` for an `nfdr` change; reached-when 1 to 3 name the new failing cases.
 
 ---
+
+**Sealed:** 2026-11-13 — accepted; merged to `main` via `--no-ff`.
+Environment: owners-mac — no CI

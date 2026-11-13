@@ -23,6 +23,12 @@ each skipped by exact name, so the layer-6 tests in ``tests/architecture/`` walk
 it. A code-holding folder at the root under any other name, a dot-folder included, is walked. A walk
 that finds no module in the part it covers fails, so a wrong root cannot pass by finding nothing
 (docs/nfdr.md § 1.2).
+
+The scenario folder has a walk of its own, the ``behave_walk_of`` fixture: it reads every module
+under ``.behave/`` and skips only ``.behave/.venv/`` and any ``__pycache__`` folder, each by exact
+name, so a module in a folder there named ``tests`` is read. It fails when an entry by that name
+exists and it reads nothing, a link whose target is gone included, and reads nothing when the root
+holds no such entry.
 """
 
 from __future__ import annotations
@@ -158,11 +164,57 @@ class SourceWalk:
             yield Module(relative, part, ast.parse(path.read_text(encoding="utf-8")))
 
 
+_BEHAVE_FOLDER = ".behave"
+_BEHAVE_ENVIRONMENT = ".venv"
+
+
+class BehaveWalk:
+    """Every Python module under the product root's scenario folder, except what is skipped.
+
+    ``root`` is a product root, never the scenario folder. Skipped: a file whose first path piece
+    below the folder is ``.venv``, and a file with a piece named ``__pycache__``, both by exact
+    name. Every other folder is read, ``tests`` and a dot-named one included. A module's path runs
+    from the product root, and its part is the folder's own name, so a relative import in it is
+    never read as an import from a folder named ``tests``.
+    """
+
+    def __init__(self, root: Path) -> None:
+        self.root = root
+
+    def modules(self) -> list[Module]:
+        folder = self.root / _BEHAVE_FOLDER
+        if not folder.exists() and not folder.is_symlink():
+            return []
+        found = list(self._all(folder)) if folder.is_dir() else []
+        assert found, f"no module to walk in {_BEHAVE_FOLDER} under {self.root}"
+        return found
+
+    def _all(self, folder: Path) -> Iterator[Module]:
+        for path in sorted(folder.rglob("*.py")):
+            inside = path.relative_to(folder).parts
+            if inside[0] == _BEHAVE_ENVIRONMENT or _SKIPPED_AT_ANY_DEPTH in inside:
+                continue
+            if path.is_dir():
+                continue
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+            yield Module(path.relative_to(self.root), _BEHAVE_FOLDER, tree)
+
+
 @pytest.fixture
 def walk_of() -> Callable[[Path | None], SourceWalk]:
     """Build a walk over a root; with none given, over the product itself."""
 
     def build(root: Path | None = None) -> SourceWalk:
         return SourceWalk(root or TESTS_DIRECTORY.parent)
+
+    return build
+
+
+@pytest.fixture
+def behave_walk_of() -> Callable[[Path | None], BehaveWalk]:
+    """Build a scenario-folder walk over a root; with none given, over the product itself."""
+
+    def build(root: Path | None = None) -> BehaveWalk:
+        return BehaveWalk(root or TESTS_DIRECTORY.parent)
 
     return build
