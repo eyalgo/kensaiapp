@@ -25,3 +25,5 @@ Beside `tracker17 · nemawashi · 2026-11-13_the-sdd-carries-the-due-today-count
 ## Out (later / elsewhere)
 
 The seed that builds the count in the product waits for this seed and the SDD's. It is cut after both retire, not inside either.
+
+Divergence, 2026-11-13 (`shukuba-refine`, review of `tracker17 · tobiishi · 2026-11-13_ignored-sigint-timing`): the work this seed asks for is on disk — CONTENT version 22 (`f3749d5bf`), § Terminology row "Due on {date}", Settled, carries the count and its companion is gone — so the seed wants a pick and a close, not a second fold; the grep in § What it is records the state when the seed was cut.

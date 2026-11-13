@@ -23,3 +23,5 @@ Cut from `products/tracker17/docs/UXD.md` § 5.6 UX-F6 ("the due-today count ...
 ## Out (later / elsewhere)
 
 The FDR and NFDR re-runs, and the seed that builds the count in the product, wait for the SDD to carry it. Each is cut or swept after this seed retires, not inside it. The FDR is this seat's own, through `product-fdr`.
+
+Divergence, 2026-11-13 (`shukuba-refine`, review of `tracker17 · tobiishi · 2026-11-13_ignored-sigint-timing`): the work this seed asks for is on disk — SDD version 23 (`edd4235e1`), Settled, carries the count and its companion is gone — so the seed wants a pick and a close, not a second fold; the grep in § What it is records the state when the seed was cut.
