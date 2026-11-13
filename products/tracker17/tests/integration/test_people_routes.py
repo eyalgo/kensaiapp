@@ -27,7 +27,6 @@ from test_routes import (
     HOST,
     SAME_ORIGIN,
     FixedClock,
-    RecordingSaver,
     get,
     header,
     make_site,
@@ -37,6 +36,7 @@ from test_routes import (
 from application import SHORT_TEXT_MAX, Saver, Tracker
 from domain import empty_state
 from persistence import SavedData
+from tests.fakes import FakeSaver
 from web import Response, Site, listen
 
 LEGACY = {
@@ -94,7 +94,7 @@ def state_of(tracker: Tracker) -> tuple[object, ...]:
 
 def test_people_get_and_header_navigation_write_nothing() -> None:
     """CP-80, CP-81."""
-    saver = RecordingSaver()
+    saver = FakeSaver()
     site, tracker = make_site(saver)
     empty = parse(page(get(site, "/people")))
     assert [e.text() for e in empty.find_all("h1")] == ["People"]
@@ -114,7 +114,7 @@ def test_people_get_and_header_navigation_write_nothing() -> None:
 
 def test_assignee_submissions_redirect_to_people_and_do_not_repeat() -> None:
     """CP-86, CP-93."""
-    saver = RecordingSaver()
+    saver = FakeSaver()
     site, tracker = make_site(saver)
     added = add(site, "Dana")
     assert location(added) == "/people?added=Dana"
@@ -152,7 +152,7 @@ def test_assignee_requests_preserve_exact_matching_and_order() -> None:
 
 def test_stale_assignee_requests_check_current_state() -> None:
     """CP-92, CP-96."""
-    saver = RecordingSaver()
+    saver = FakeSaver()
     site, tracker = make_site(saver)
     add(site, "Eve")
     saves = len(saver.saved)
@@ -179,7 +179,7 @@ def test_stale_assignee_requests_check_current_state() -> None:
 @pytest.mark.parametrize("sent", [None, "", " \t ", "  "], ids=["absent", "empty", "ws", "uni"])
 def test_add_refusals_keep_the_field_and_focus_description(sent: str | None) -> None:
     """CP-89, CP-90."""
-    saver = RecordingSaver()
+    saver = FakeSaver()
     site, _ = make_site(saver)
     add(site, "Dana")
     saves = len(saver.saved)
@@ -199,7 +199,7 @@ def test_add_refusals_keep_the_field_and_focus_description(sent: str | None) -> 
 
 def test_a_duplicate_add_keeps_the_typed_name_and_the_reason() -> None:
     """CP-90."""
-    saver = RecordingSaver()
+    saver = FakeSaver()
     site, tracker = make_site(saver)
     add(site, "Dana ")
     saves = len(saver.saved)
@@ -220,7 +220,7 @@ def test_a_duplicate_add_keeps_the_typed_name_and_the_reason() -> None:
 )
 def test_length_refusal_wins_and_omits_all_submitted_text(filler: str, refused_filler: str) -> None:
     """CP-91."""
-    saver = RecordingSaver()
+    saver = FakeSaver()
     site, tracker = make_site(saver)
     assert location(add(site, filler * 200)) == f"/people?added={quote_plus(filler * 200)}"
     assert tracker.assignees() == (filler * 200,)
@@ -254,7 +254,7 @@ def test_length_refusal_wins_and_omits_all_submitted_text(filler: str, refused_f
 )
 def test_assignee_forms_reject_bad_utf8(path: str, body: bytes) -> None:
     """Design T11: no typed value is changed, so no action runs and nothing is saved."""
-    saver = RecordingSaver()
+    saver = FakeSaver()
     site, tracker = make_site(saver)
     add(site, "Dana")
     saves = len(saver.saved)
@@ -272,16 +272,6 @@ def test_assignee_forms_normalize_newlines_only() -> None:
     assert remove(site, " a\r\nb ").status == 303 and tracker.assignees() == ("c\nd",)
     assert location(remove(site, "c\rd")) == "/people?removed=c%0Ad"
     assert tracker.assignees() == ()
-
-
-class RaisingSaver:
-    def __init__(self, error: Exception) -> None:
-        self.error = error
-        self.calls = 0
-
-    def save(self, state: object) -> None:
-        self.calls += 1
-        raise self.error
 
 
 @pytest.mark.parametrize(
@@ -304,7 +294,7 @@ def test_failed_assignee_actions_keep_state_and_report_plain_failure(
     before = saved_file.read_bytes()
     state = SavedData(data).load()
     assert state is not None
-    failing = RaisingSaver(error)
+    failing = FakeSaver(error=error)
     site = Site(Tracker(state, failing, FixedClock()), HOST)
     capsys.readouterr()
 
@@ -345,7 +335,7 @@ def test_failed_assignee_actions_keep_state_and_report_plain_failure(
 @pytest.mark.parametrize("mark", ["cross-site", "same-site", "none", "", None])
 def test_assignee_submission_origin_checks_run_first(path: str, mark: str | None) -> None:
     """CP-98."""
-    saver = RecordingSaver()
+    saver = FakeSaver()
     site, tracker = make_site(saver)
     add(site, "Dana")
     saves = len(saver.saved)
@@ -358,7 +348,7 @@ def test_assignee_submission_origin_checks_run_first(path: str, mark: str | None
 @pytest.mark.parametrize("host", ["evil.example", "127.0.0.1:9999", "localhost:8017", None])
 def test_assignee_submissions_with_a_wrong_or_missing_host_are_refused(host: str | None) -> None:
     """QC-31."""
-    saver = RecordingSaver()
+    saver = FakeSaver()
     site, tracker = make_site(saver)
     add(site, "Dana")
     saves = len(saver.saved)
@@ -387,7 +377,7 @@ def _view(site: Site, target: str) -> Element:
 
 def test_people_outcome_queries_obey_precedence_without_mutation() -> None:
     """Design T18."""
-    saver = RecordingSaver()
+    saver = FakeSaver()
     site, tracker = make_site(saver)
     add(site, "Dana")
     saves, before = len(saver.saved), state_of(tracker)
@@ -522,7 +512,7 @@ def test_saved_operator_name_with_braces_is_shown_exactly(name: str) -> None:
     """CP-619, CP-621, CP-622, CP-624, CP-625: the redirect after a save shows the name as
     typed, braces and markup characters included, on the one line that describes the field."""
     assert len(BRACE_BOUNDARY) == SHORT_TEXT_MAX
-    saver = RecordingSaver()
+    saver = FakeSaver()
     site, tracker = named_site(saver)
     saves = len(saver.saved)
     response = set_name(site, name)
@@ -546,10 +536,10 @@ def test_failed_operator_name_with_braces_is_shown_exactly(
 ) -> None:
     """CP-620 to CP-622, CP-624, CP-625: a failed save shows the typed name as typed, the field
     keeps it, Save has the focus, and nothing of the error reaches the page."""
-    recorder = RecordingSaver()
+    recorder = FakeSaver()
     seeded = Tracker(empty_state(), recorder, FixedClock())
     seeded.set_operator_name("Sam")
-    failing = RaisingSaver(OSError("distinctive-disk-message-7731"))
+    failing = FakeSaver(error=OSError("distinctive-disk-message-7731"))
     tracker = Tracker(recorder.saved[-1], failing, FixedClock())
     site = Site(tracker, HOST)
     capsys.readouterr()
@@ -572,7 +562,7 @@ def test_failed_operator_name_with_braces_is_shown_exactly(
 def test_blank_operator_name_after_brace_name_shows_refusal() -> None:
     """CP-623, CP-624, CP-626: with `{x}` saved, a blank submission is refused on a page that
     carries no Python error text, and nothing is saved."""
-    saver = RecordingSaver()
+    saver = FakeSaver()
     site, tracker = named_site(saver, "{x}")
     saves = len(saver.saved)
     response = set_name(site, "")
@@ -592,7 +582,7 @@ def test_overlong_operator_name_after_brace_name_shows_refusal() -> None:
     """CP-623, CP-624, CP-626: with `{x}` saved, 201 characters are refused with the saved name
     back in the field, no sent text anywhere and nothing saved."""
     sent = "y" * (SHORT_TEXT_MAX + 1)
-    saver = RecordingSaver()
+    saver = FakeSaver()
     site, tracker = named_site(saver, "{x}")
     saves = len(saver.saved)
     response = set_name(site, sent)
@@ -614,7 +604,7 @@ def test_overlong_operator_name_after_brace_name_shows_refusal() -> None:
 def test_operator_name_post_sets_and_replaces_exact_text(starting: str | None) -> None:
     """CP-216, CP-217: a POST then the redirect shows the changed name and the quoted completion,
     case and surrounding spaces survive, and only line breaks are normalized."""
-    saver = RecordingSaver()
+    saver = FakeSaver()
     site, tracker = named_site(saver, starting)
     saves = len(saver.saved)
     for submitted in (" Sam Lee ", "sAm LEE"):
@@ -633,7 +623,7 @@ def test_operator_name_post_sets_and_replaces_exact_text(starting: str | None) -
 def test_same_saved_name_redirects_without_save_or_outcome() -> None:
     """CP-218: the exact saved name redirects to plain People and saves nothing; a trailing space
     still makes a different name."""
-    saver = RecordingSaver()
+    saver = FakeSaver()
     site, tracker = named_site(saver, "Sam")
     saves = len(saver.saved)
     same = set_name(site, "Sam")
@@ -651,7 +641,7 @@ def test_same_saved_name_redirects_without_save_or_outcome() -> None:
 def test_stale_people_name_submission_compares_with_current_name() -> None:
     """CP-218: two pages opened before another change compare with the name saved at the moment of
     the action; no shown-name value rides in the form."""
-    saver = RecordingSaver()
+    saver = FakeSaver()
     site, tracker = named_site(saver)
     older = parse(page(get(site, "/people")))
     (form,) = [f for f in older.find_all("form") if f.attrs.get("action") == "/operator-name"]
@@ -706,7 +696,7 @@ def test_whitespace_name_refusal_retains_text_and_saved_state(
 
 def test_missing_name_field_is_empty_refusal() -> None:
     """CP-220: a POST without the field follows the empty-name rule."""
-    saver = RecordingSaver()
+    saver = FakeSaver()
     site, tracker = named_site(saver, "Sam")
     saves = len(saver.saved)
     response = submit(site, "/operator-name", body=b"")
@@ -721,7 +711,7 @@ def test_overlong_name_refusal_omits_payload_and_keeps_fallback(
 ) -> None:
     """CP-221: 201 characters or 201 spaces get the too-long reason before blankness; neither the
     address nor the page carries the sent text; the field holds the saved name or nothing."""
-    saver = RecordingSaver()
+    saver = FakeSaver()
     site, tracker = named_site(saver, starting)
     saves = len(saver.saved)
     response = set_name(site, sent)
@@ -773,7 +763,7 @@ def test_failed_name_save_keeps_typed_text_and_reports_action(
         seeded.set_operator_name(starting)
     loaded = SavedData(data).load()
     before = (data / "tracker.json").read_bytes() if starting else None
-    failing = RaisingSaver(error)
+    failing = FakeSaver(error=error)
     site = Site(Tracker(loaded or empty_state(), failing, FixedClock()), HOST)
     capsys.readouterr()
     response = set_name(site, " Lee ")
@@ -801,7 +791,7 @@ def test_operator_query_presence_unknown_codes_and_precedence() -> None:
     name; unknown codes and forged too-long text are ignored; refusal, failure and completion, and
     operator against assignee outcomes, give exactly the designed outcome and focus; no GET
     saves."""
-    saver = RecordingSaver()
+    saver = FakeSaver()
     site, tracker = named_site(saver, "Sam")
     saves = len(saver.saved)
     plain = page(get(site, "/people"))
@@ -872,7 +862,7 @@ def test_operator_query_presence_unknown_codes_and_precedence() -> None:
 )
 def test_operator_name_form_rejects_malformed_utf8_without_saving(body: bytes) -> None:
     """CP-217, CP-223: invalid UTF-8 gets the existing 400 and runs no action."""
-    saver = RecordingSaver()
+    saver = FakeSaver()
     site, tracker = named_site(saver, "Sam")
     saves = len(saver.saved)
     response = submit(site, "/operator-name", body=body)
@@ -882,7 +872,7 @@ def test_operator_name_form_rejects_malformed_utf8_without_saving(body: bytes) -
 
 def test_name_landing_gets_never_repeat_save() -> None:
     """CP-216: repeated landing GETs, a reload and a history return save nothing again."""
-    saver = RecordingSaver()
+    saver = FakeSaver()
     site, tracker = named_site(saver)
     landing = location(set_name(site, "Sam"))
     saves = len(saver.saved)
@@ -942,7 +932,7 @@ def listener_name(address: tuple[str, int], name: str) -> tuple[Element, dict[st
 def test_real_listener_people_shows_and_sets_operator_name(starting: str | None) -> None:
     """CP-211, CP-216, CP-220, CP-232: over a real bound listener, People shows the section, a
     name is set and replaced, and the empty and whitespace refusals leave the saved name alone."""
-    saver = RecordingSaver()
+    saver = FakeSaver()
     _, tracker = named_site(saver, starting)
     with served(tracker) as address:
         status, _, shown = exchange(address, "GET", "/people")
