@@ -589,7 +589,7 @@ def test_list_entries_name_fr31_and_every_all_tasks_participant() -> None:
             assert participant in paths, (word, participant)
 
 
-SUMMARY_REQUIREMENTS = {"FR-38", "FR-25", "FR-35", "NFR-9"}
+SUMMARY_REQUIREMENTS = {"FR-38", "FR-25", "FR-35", "NFR-9", "AC-13"}
 SUMMARY_PARTICIPANTS = (
     "application/tracker.py",
     "application/__init__.py",
