@@ -16,7 +16,7 @@ Cut from `products/tracker17/docs/SDD.md` § 6 S-8 *Reached when / Behaviour*: "
 
 - [x] ready-start — a start on readable saved data at such a path prints the ready line with the path as `\xe9` and serves; a test fails today and passes after
 - [x] unreadable-start — a start on unreadable saved data at such a path prints the unreadable line and serves the unreadable-data page, each naming the path as `\xe9`; a test per surface fails today and passes after
-- [ ] failed-action-path — an action that fails at such a path prints its plain sentence, which names no path, then the underlying error text with the path exactly as the system reported it (`\udce9`), and the write does not raise; a test holds it
+- [x] failed-action-path — an action that fails at such a path prints its plain sentence, which names no path, then the underlying error text with the path exactly as the system reported it (`\udce9`), and the write does not raise; a test holds it
 
 Added `failed-action-path` (refine of `tracker17 · tobiishi · 2026-10-30_ready-start-non-text-path`, 2026-10-30): `CONTENT.md` § *A path the tracker prints* says "one form in every place a path is written", `products/tracker17/web/routes.py:1327-1332` writes `OSError: [Errno 92] Illegal byte sequence: '/tmp/caf\udce9'`, and the unit's deferred file left that work with no owner. Its own station because it is a different console site from either start.
 
