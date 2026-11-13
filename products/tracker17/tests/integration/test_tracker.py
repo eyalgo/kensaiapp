@@ -28,6 +28,7 @@ from application import (
     TrackerState,
 )
 from domain import empty_state
+from tests.fakes import FakeSaver
 
 
 class FixedClock:
@@ -35,47 +36,24 @@ class FixedClock:
         return datetime(2026, 10, 7, 12, 0, tzinfo=UTC)
 
 
-class RecordingSaver:
-    """Keeps every state it was handed, and what the tracker listed at the moment of each save."""
-
-    def __init__(self) -> None:
-        self.saved: list[TrackerState] = []
-        self.listed_during_save: list[tuple[Project, ...]] = []
-        self.tracker: Tracker | None = None
-
-    def save(self, state: TrackerState) -> None:
-        if self.tracker is not None:
-            self.listed_during_save.append(self.tracker.projects())
-        self.saved.append(state)
-
-
-class FailingSaver:
-    def __init__(self) -> None:
-        self.calls = 0
-
-    def save(self, state: TrackerState) -> None:
-        self.calls += 1
-        raise PermissionError("the disk said no")
-
-
 def _tracker(saver: Saver | None = None, state: TrackerState | None = None) -> Tracker:
-    return Tracker(state or empty_state(), saver or RecordingSaver(), FixedClock())
+    return Tracker(state or empty_state(), saver or FakeSaver(), FixedClock())
 
 
 def test_the_saver_gets_the_new_state_before_it_is_shown():
-    saver = RecordingSaver()
+    saver = FakeSaver()
     tracker = _tracker(saver)
-    saver.tracker = tracker
+    saver.watch = tracker.projects
 
     created = tracker.create_project("Alpha", "x")
 
-    assert saver.listed_during_save == [()]
+    assert saver.seen == [()]
     assert tracker.projects() == (created,)
     assert saver.saved[-1].projects == (created,)
 
 
 def test_a_failing_saver_leaves_the_state_unchanged():
-    saver = FailingSaver()
+    saver = FakeSaver(error=PermissionError("the disk said no"))
     tracker = _tracker(saver)
 
     with pytest.raises(PermissionError, match="the disk said no"):
@@ -87,7 +65,7 @@ def test_a_failing_saver_leaves_the_state_unchanged():
 
 
 def test_a_refusal_makes_no_save_call():
-    saver = RecordingSaver()
+    saver = FakeSaver()
     tracker = _tracker(saver)
     tracker.create_project("Alpha", "")
     saved_before = len(saver.saved)
@@ -104,21 +82,21 @@ def test_a_refusal_makes_no_save_call():
 
 
 def test_a_restart_lists_the_project():
-    saver = RecordingSaver()
+    saver = FakeSaver()
     first_run = _tracker(saver)
     created = first_run.create_project("Alpha", "x")
 
-    second_run = _tracker(RecordingSaver(), saver.saved[-1])
+    second_run = _tracker(FakeSaver(), saver.saved[-1])
 
     assert second_run.projects() == (created,)
 
 
 def test_an_identity_is_not_issued_twice_across_a_restart():
-    saver = RecordingSaver()
+    saver = FakeSaver()
     first_run = _tracker(saver)
     first = first_run.create_project("Alpha", "")
 
-    second_run = _tracker(RecordingSaver(), saver.saved[-1])
+    second_run = _tracker(FakeSaver(), saver.saved[-1])
     second = second_run.create_project("Beta", "")
 
     assert second.id != first.id
@@ -159,7 +137,7 @@ def test_a_filter_query_hands_the_recording_saver_no_call():
     """CP-413, CP-417: reading a project's task list, valid, refused or cleared, never saves."""
     from application import FilterInput
 
-    saver = RecordingSaver()
+    saver = FakeSaver()
     tracker = _tracker(saver)
     tracker.create_project("Alpha", "")
     tracker.add_task(1, "Seed")
@@ -182,7 +160,7 @@ def test_project_read_and_application_exports_remain_compatible():
 
     for name in ("Tracker", "ProjectTaskList", "TaskRow", "FilterInput", "SortInput"):
         assert name in application.__all__
-    tracker = Tracker(empty_state(), RecordingSaver(), FixedClock())
+    tracker = Tracker(empty_state(), FakeSaver(), FixedClock())
     project = tracker.create_project("Alpha", "")
     tracker.add_task(project.id, "Only", "", "", "")
 
