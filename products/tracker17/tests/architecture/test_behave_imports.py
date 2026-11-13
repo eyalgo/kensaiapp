@@ -37,6 +37,22 @@ def _paths(walk) -> list[str]:
     return [module.path.as_posix() for module in walk.modules()]
 
 
+def imports_from_tests(walk) -> list[str]:
+    """Every import in the scenario folder whose first dotted piece is exactly tests."""
+    return [
+        f"{module.path}: {name}"
+        for module in walk.modules()
+        for name in module.imported()
+        if name.split(".")[0] == "tests"
+    ]
+
+
+def check_behave_folder(walk) -> None:
+    """The real-product check: the folder is there, and nothing in it imports from tests."""
+    assert (walk.root / _FOLDER).is_dir(), f"no {_FOLDER} folder under {walk.root}"
+    assert imports_from_tests(walk) == []
+
+
 def test_a_root_without_a_behave_entry_reads_nothing(behave_walk_of, tmp_path: Path) -> None:
     """CP-797: an absent entry is not a failure of the walk, and nothing is read."""
     assert behave_walk_of(tmp_path).modules() == []
@@ -133,24 +149,24 @@ def test_the_walk_returns_the_existing_module_type(behave_walk_of, walk_of, tmp_
 
 def test_a_root_without_a_behave_entry_passes(behave_walk_of, tmp_path: Path) -> None:
     """CP-797: with no scenario folder the check reads nothing and lists nothing."""
-    assert tests_imports(behave_walk_of(tmp_path)) == []
+    assert imports_from_tests(behave_walk_of(tmp_path)) == []
 
 
 def test_an_import_from_tests_fails_listing_the_module(behave_walk_of, tmp_path: Path) -> None:
     """CP-800, CP-802: the site is listed, and the same file without the line is clean."""
     _plant(tmp_path, ".behave/features/x.py", text="from tests import conftest\n")
-    found = tests_imports(behave_walk_of(tmp_path))
+    found = imports_from_tests(behave_walk_of(tmp_path))
     assert (
         ".behave/features/x.py: tests" in found or ".behave/features/x.py: tests.conftest" in found
     )
     _plant(tmp_path, ".behave/features/x.py", text="x = 1\n")
-    assert tests_imports(behave_walk_of(tmp_path)) == []
+    assert imports_from_tests(behave_walk_of(tmp_path)) == []
 
 
 def test_an_import_inside_a_function_is_found(behave_walk_of, tmp_path: Path) -> None:
     """CP-800: the statement may sit anywhere in the module."""
     _plant(tmp_path, ".behave/features/a.py", text="def f():\n    import tests\n")
-    found = tests_imports(behave_walk_of(tmp_path))
+    found = imports_from_tests(behave_walk_of(tmp_path))
     assert ".behave/features/a.py: tests" in found
 
 
@@ -159,7 +175,7 @@ def test_the_remaining_forms_are_each_found(behave_walk_of, tmp_path: Path) -> N
     _plant(tmp_path, ".behave/features/a.py", text="import tests.x as y\n")
     _plant(tmp_path, ".behave/features/b.py", text="from tests.x import y\n")
     _plant(tmp_path, ".behave/features/c.py", text="if True:\n    import tests\n")
-    found = tests_imports(behave_walk_of(tmp_path))
+    found = imports_from_tests(behave_walk_of(tmp_path))
     for name in ("a", "b", "c"):
         assert any(entry.startswith(f".behave/features/{name}.py: tests") for entry in found), name
 
@@ -167,7 +183,7 @@ def test_the_remaining_forms_are_each_found(behave_walk_of, tmp_path: Path) -> N
 def test_a_multi_name_import_lists_the_tests_name_only(behave_walk_of, tmp_path: Path) -> None:
     """CP-800: the name that is not from tests is not listed."""
     _plant(tmp_path, ".behave/features/a.py", text="import os, tests.x\n")
-    found = tests_imports(behave_walk_of(tmp_path))
+    found = imports_from_tests(behave_walk_of(tmp_path))
     assert ".behave/features/a.py: tests.x" in found
     assert not any(entry.endswith(": os") for entry in found)
 
@@ -176,7 +192,7 @@ def test_every_site_in_one_run_is_listed(behave_walk_of, tmp_path: Path) -> None
     """CP-802: one call lists every module that imports from tests, not the first."""
     _plant(tmp_path, ".behave/features/a.py", text="import tests.x\n")
     _plant(tmp_path, ".behave/features/b.py", text="from tests.y import z\n")
-    found = tests_imports(behave_walk_of(tmp_path))
+    found = imports_from_tests(behave_walk_of(tmp_path))
     assert any(entry.startswith(".behave/features/a.py: ") for entry in found)
     assert any(entry.startswith(".behave/features/b.py: ") for entry in found)
 
@@ -185,14 +201,14 @@ def test_an_import_under_a_skipped_folder_is_not_listed(behave_walk_of, tmp_path
     """CP-798: the folder's virtual environment is not its code."""
     _plant(tmp_path, ".behave/.venv/lib/pkg.py", text="import tests\n")
     _plant(tmp_path, ".behave/features/a.py")
-    assert tests_imports(behave_walk_of(tmp_path)) == []
+    assert imports_from_tests(behave_walk_of(tmp_path)) == []
 
 
 def test_named_and_dot_folders_are_checked(behave_walk_of, tmp_path: Path) -> None:
     """CP-798, CP-800: a folder named tests and a dot folder inside the scenario folder count."""
     _plant(tmp_path, ".behave/tests/y.py", text="from tests import conftest\n")
     _plant(tmp_path, ".behave/.hidden/z.py", text="import tests\n")
-    found = tests_imports(behave_walk_of(tmp_path))
+    found = imports_from_tests(behave_walk_of(tmp_path))
     assert any(entry.startswith(".behave/tests/y.py: ") for entry in found)
     assert any(entry.startswith(".behave/.hidden/z.py: ") for entry in found)
 
@@ -207,7 +223,7 @@ def test_near_names_and_nested_names_are_checked(behave_walk_of, tmp_path: Path)
     )
     for relative in planted:
         _plant(tmp_path, relative, text="import tests\n")
-    found = tests_imports(behave_walk_of(tmp_path))
+    found = imports_from_tests(behave_walk_of(tmp_path))
     for relative in planted:
         assert any(entry.startswith(f"{relative}: ") for entry in found), relative
 
@@ -222,7 +238,7 @@ def test_near_names_and_relative_imports_are_not_imports_from_tests(
         text="import testsuite\nfrom tests_util import x\nfrom .tests import y\n",
     )
     _plant(tmp_path, ".behave/tests/w.py", text="from . import x\n")
-    assert tests_imports(behave_walk_of(tmp_path)) == []
+    assert imports_from_tests(behave_walk_of(tmp_path)) == []
 
 
 def test_third_party_standard_library_and_sibling_imports_pass(
@@ -234,7 +250,7 @@ def test_third_party_standard_library_and_sibling_imports_pass(
         "from server_way_in import request_page\n"
     )
     _plant(tmp_path, ".behave/features/a.py", text=text)
-    assert tests_imports(behave_walk_of(tmp_path)) == []
+    assert imports_from_tests(behave_walk_of(tmp_path)) == []
 
 
 def test_the_real_behave_folder_passes_and_is_present(behave_walk_of) -> None:
@@ -261,7 +277,7 @@ def test_the_root_walk_misses_a_planted_import_from_tests(
     for part in PARTS:
         assert violations(walk_of(tmp_path), part) == []
     assert top_level_parts(walk_of(tmp_path)) == PARTS
-    found = tests_imports(behave_walk_of(tmp_path))
+    found = imports_from_tests(behave_walk_of(tmp_path))
     assert any(entry.startswith(".behave/features/x.py: ") for entry in found)
 
 
@@ -275,4 +291,4 @@ def test_the_root_walk_misses_an_empty_behave_folder(
         assert violations(walk_of(tmp_path), part) == []
     assert top_level_parts(walk_of(tmp_path)) == PARTS
     with pytest.raises(AssertionError, match=_FOLDER):
-        tests_imports(behave_walk_of(tmp_path))
+        imports_from_tests(behave_walk_of(tmp_path))
