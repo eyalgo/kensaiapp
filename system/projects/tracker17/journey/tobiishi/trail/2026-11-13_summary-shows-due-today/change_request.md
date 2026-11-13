@@ -8,3 +8,6 @@
 **Classified because:** the station's reached-when 1 adds a new row, "Due on {date}", to the summary page, and 2 adds a count whose meaning the existing suite does not pin, so the contract grows (SDD § 6 S-6, SRS AC-13); a change that adds behaviour is `feature` and `changing`.
 
 **Sizing:** one capability, one honest merge. The acceptance boundary is the station's reached-when 1 to 5, sourced from SDD § 6 S-6 and SRS AC-13: the count, its label and its AC-13 tests are one path through `domain/summary.py` to the page, so they are not split. The seed's own cut kept it as one station for the same reason.
+
+**Sealed:** 2026-11-13 — accepted; merged to `main` via `--no-ff`.
+Environment: owners-mac — no CI

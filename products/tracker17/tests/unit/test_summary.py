@@ -6,6 +6,10 @@ overdue rule the count shares with the list and the filter), FR-35 (the overdue 
 trace from the requirement to this code) and AC-13, AC-14 (the overdue boundary and the summary
 test). Change spec rules CP-496 to CP-500, CP-505 to CP-507 and CP-508 are the ones each test
 names. The design rows T01 to T04 are the coverage references.
+
+The due-on-date count (AC-13, FR-38) is checked by the change spec rules CP-808 to CP-810 and
+CP-813: the summary carries the date it was worked out on, and counts the open tasks due on that
+date.
 """
 
 from __future__ import annotations
@@ -292,6 +296,60 @@ def test_summary_overdue_uses_the_supplied_date() -> None:
     assert summary_of(state, ALPHA, TODAY).overdue == 1
     assert summary_of(state, ALPHA, date(2026, 10, 29)).overdue == 2
     assert summary_of(state, ALPHA, YESTERDAY).overdue == 0
+
+
+def test_an_open_task_due_today_is_counted_and_not_overdue() -> None:
+    """CP-808, CP-810, FDR Example 1: a todo task due the date counts; a cancelled one does not."""
+    today = date(2026, 10, 6)
+    tasks = (
+        make_task(1, status=TaskStatus.TODO, due=today),
+        make_task(2, status=TaskStatus.CANCELLED, due=today),
+        make_task(3, status=TaskStatus.IN_PROGRESS, due=date(2026, 10, 5)),
+    )
+    summary = summary_of(make_state(*tasks), ALPHA, today)
+
+    assert summary.due_today == 1
+    assert summary.overdue == 1
+
+
+def test_in_progress_due_today_counts_and_done_due_today_does_not() -> None:
+    """CP-810: open membership is in-progress as well as todo; a done task is not open."""
+    tasks = (
+        make_task(1, status=TaskStatus.IN_PROGRESS, due=TODAY),
+        make_task(2, status=TaskStatus.DONE, due=TODAY),
+    )
+    summary = summary_of(make_state(*tasks))
+
+    assert summary.due_today == 1
+    assert summary.overdue == 0
+
+
+def test_tasks_due_tomorrow_or_undated_are_not_due_today() -> None:
+    """CP-808: only a due date equal to the date counts."""
+    tasks = (
+        make_task(1, status=TaskStatus.TODO, due=date(2026, 10, 29)),
+        make_task(2, status=TaskStatus.TODO, due=None),
+    )
+    summary = summary_of(make_state(*tasks))
+
+    assert summary.due_today == 0
+    assert summary.overdue == 0
+    assert summary.no_due_date == 1
+
+
+def test_another_projects_task_due_today_is_not_counted() -> None:
+    """CP-808: the count is of this project's tasks only."""
+    state = make_state(make_task(1, project_id=BETA, status=TaskStatus.TODO, due=TODAY))
+
+    assert summary_of(state, ALPHA).due_today == 0
+
+
+def test_an_empty_project_has_zero_due_today_and_carries_the_date() -> None:
+    """CP-809, CP-813: an empty project's summary carries the date it was handed."""
+    summary = summary_of(make_state(), ALPHA, TODAY)
+
+    assert summary.due_today == 0
+    assert summary.today == TODAY
 
 
 def test_summary_undated_count_includes_every_status() -> None:

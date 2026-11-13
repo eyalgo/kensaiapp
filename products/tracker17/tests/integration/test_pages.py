@@ -11,6 +11,7 @@ against whatever the content stage supplies.
 from __future__ import annotations
 
 import re
+from datetime import date
 from html.parser import HTMLParser
 
 import pytest
@@ -143,7 +144,7 @@ def all_pages() -> dict[str, str]:
         "people added": pages.people_page(["Dana"], added="Dana"),
         "project": pages.project_page(alpha, task_count=0),
         "summary": pages.summary_page(
-            ProjectSummary(alpha, 0, (), (), 0, 0, (AssigneeCount(None, 0),))
+            ProjectSummary(alpha, date(2026, 11, 13), 0, (), (), 0, 0, 0, (AssigneeCount(None, 0),))
         ),
         "created": pages.project_page(alpha, task_count=0, created=True),
         "not found": pages.not_found_page(),

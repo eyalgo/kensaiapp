@@ -4,6 +4,9 @@ Checks SRS FR-38 (a project's summary), FR-25 (today is the machine's local date
 overdue count is taken on) and NFR-8 (a read never reaches the saver). Change spec rules CP-493,
 CP-494 and CP-497 are the ones each test names; the design row is T05. No product name is patched:
 the real Tracker is handed each fake, and the machine's time zone is set through the environment.
+
+The due-on-date side of AC-13 (FR-38) is checked by the change spec rules CP-809 and CP-815: one
+date serves both counts, and it is the machine's local calendar day from the handed-in clock.
 """
 
 from __future__ import annotations
@@ -134,6 +137,51 @@ def test_summary_recomputes_after_midnight(utc_zone):
     assert (first.overdue, second.overdue) == (0, 1)
     assert first.overdue == 0
     assert first is not second
+
+
+def test_summary_due_today_side_of_ac13_through_a_handed_in_clock(utc_zone):
+    """CP-815: an open task due the clock's date is due today and not overdue; closed ones are
+    in neither count."""
+    tracker = make_tracker(FakeSaver(), SequenceClock(NOON))
+    tracker.add_task(1, "open", "medium", "", "2026-10-27")
+    tracker.add_task(1, "finished", "medium", "", "2026-10-27")
+    tracker.add_task(1, "dropped", "medium", "", "2026-10-27")
+    tracker.move_task(2, "in-progress")
+    tracker.move_task(2, "done")
+    tracker.move_task(3, "cancelled")
+
+    summary = tracker.project_summary(1)
+
+    assert summary is not None
+    assert (summary.due_today, summary.overdue) == (1, 0)
+
+
+def test_one_summary_uses_one_date_for_both_counts_across_midnight(utc_zone):
+    """CP-809, FDR Example 6: each summary reads the clock once, so the date, the due-on count and
+    the overdue count all come from that one read."""
+    clock = SequenceClock(NOON, NEXT_NOON)
+    tracker = make_tracker(FakeSaver(), clock)
+    tracker.add_task(1, "due on the 27th", "medium", "", "2026-10-27")
+    clock.restart(NOON, NEXT_NOON)
+
+    first = tracker.project_summary(1)
+    second = tracker.project_summary(1)
+
+    assert first is not None and second is not None
+    assert (first.today.isoformat(), first.due_today, first.overdue) == ("2026-10-27", 1, 0)
+    assert (second.today.isoformat(), second.due_today, second.overdue) == ("2026-10-28", 0, 1)
+
+
+def test_due_today_uses_the_machine_local_calendar_day(local_zone):
+    """CP-809: NOON is 28 October at UTC+14, so a task due the 28th is due today."""
+    tracker = make_tracker(FakeSaver(), SequenceClock(NOON))
+    tracker.add_task(1, "due on the 28th", "medium", "", "2026-10-28")
+
+    summary = tracker.project_summary(1)
+
+    assert summary is not None
+    assert summary.today.isoformat() == "2026-10-28"
+    assert summary.due_today == 1
 
 
 def test_summary_reads_current_tasks_and_assignees_without_saving(utc_zone):

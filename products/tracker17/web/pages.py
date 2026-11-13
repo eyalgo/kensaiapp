@@ -1745,6 +1745,9 @@ _PRIORITY_COUNT_LINKS = {
         "1 task with critical priority", "{count} tasks with critical priority"
     ),
 }
+# One string with the date as a placeholder, not words joined to a date in code: a translator may
+# move the placeholder, and the word order is not fixed here (change_text.md, CONTENT.md).
+_SUMMARY_DUE_ON_LABEL = "Due on {date}"
 _OVERDUE_COUNT_LINK = _CountLink(
     FilterField.OVERDUE, OVERDUE_VALUE, _CountName("1 overdue task", "{count} overdue tasks")
 )
@@ -1789,7 +1792,8 @@ def summary_page(summary: ProjectSummary) -> str:
     """One project's Summary: its counts as numbers, in the order and with the zeros handed in.
 
     The four status, four priority and overdue counts are links to the project's tasks filtered by
-    that one choice; the total, the no-due-date count and every assignee count stay plain.
+    that one choice; the total, the due-on-date count, the no-due-date count and every assignee
+    count stay plain. The due-on-date row is labelled with the summary's own date.
     Decides no count, no order and no membership. The no-tasks invitation is chosen by the total
     alone.
     """
@@ -1820,6 +1824,9 @@ def summary_page(summary: ProjectSummary) -> str:
     ]
     dates = [
         _SummaryRow("Overdue", summary.overdue, _OVERDUE_COUNT_LINK),
+        _SummaryRow(
+            _SUMMARY_DUE_ON_LABEL.format(date=summary.today.isoformat()), summary.due_today
+        ),
         _SummaryRow("No due date", summary.no_due_date),
     ]
     assignees = [
