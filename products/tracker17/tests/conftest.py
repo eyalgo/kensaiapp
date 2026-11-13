@@ -126,8 +126,8 @@ def dotted(node: ast.AST) -> str | None:
     return None
 
 
-SKIPPED_ROOT_FOLDERS = frozenset({"tests", ".behave", ".venv"})
-SKIPPED_AT_ANY_DEPTH = "__pycache__"
+_SKIPPED_ROOT_FOLDERS = frozenset({"tests", ".behave", ".venv"})
+_SKIPPED_AT_ANY_DEPTH = "__pycache__"
 
 
 class SourceWalk:
@@ -149,8 +149,8 @@ class SourceWalk:
     def _all(self) -> Iterator[Module]:
         for path in sorted(self.root.rglob("*.py")):
             relative = path.relative_to(self.root)
-            skipped = relative.parts[0] in SKIPPED_ROOT_FOLDERS or (
-                SKIPPED_AT_ANY_DEPTH in relative.parts
+            skipped = relative.parts[0] in _SKIPPED_ROOT_FOLDERS or (
+                _SKIPPED_AT_ANY_DEPTH in relative.parts
             )
             if skipped:
                 continue
