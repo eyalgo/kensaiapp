@@ -2,7 +2,7 @@
 
 **Status:** Settled
 **Owner:** CPO
-**Version:** 8 — the not-public assumption is corrected: tracker17 is public, shipped as an example in every kensaiapp release from v0.1.0. At 7: the not-public assumption says how tracker17 becomes public: with kensaiapp's public release, which ships it as an example. At 6: tracker17 has a second purpose, kensaiapp's own testing ground
+**Version:** 9 — the project summary also shows how many open tasks are due today. At 8: the not-public assumption is corrected: tracker17 is public, shipped as an example in every kensaiapp release from v0.1.0. At 7: the not-public assumption says how tracker17 becomes public: with kensaiapp's public release, which ships it as an example
 
 ---
 
@@ -160,6 +160,9 @@ exception is **Priorities**, which adds `critical`. *(confirmed: `trail/prd/cycl
   status, the count per priority, the overdue count, and the count of tasks with no due date. It also
   shows each assignee's open tasks (not `done` or `cancelled`), with unassigned tasks counted as
   "(unassigned)".
+  Beside the overdue count, it shows the count of tasks due today: tasks whose due date is today's
+  date and that are neither `done` nor `cancelled`. The overdue rule is unchanged, so a task due
+  today is counted as due today and not as overdue. *(confirmed: `trail/prd/cycle-7.md` § 1.1)*
 - **Tested throughout.** The product is built test-first and carries unit, integration and
   end-to-end tests. They are part of what the reader comes to read.
 
