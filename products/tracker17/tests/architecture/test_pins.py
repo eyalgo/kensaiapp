@@ -277,6 +277,29 @@ def test_a_pin_the_lock_does_not_fix_is_found(product_copy: Path) -> None:
     )
 
 
+def test_a_name_the_lock_does_not_hold_is_found(product_copy: Path) -> None:
+    """CP-776: the lock fixes the declared name, not only the declared version.
+
+    `0.28.1` is the version the lock fixes for `httpx`, so only the name tells the two apart.
+    """
+    replace_in_manifest(product_copy, "httpx==0.28.1", "requests==0.28.1")
+    findings = behave_findings(product_copy)
+    assert any(
+        LOCK_DOES_NOT_FIX in finding and "requests==0.28.1" in finding for finding in findings
+    )
+
+
+def test_a_separator_run_is_still_fixed_by_the_lock(product_copy: Path) -> None:
+    """CP-776: a run of `-`, `_` and `.` compares as one `-`.
+
+    So the lock's `typing-extensions` record fixes a declared `typing_.extensions`.
+    """
+    write_manifest(
+        product_copy, '[project]\nname = "x"\ndependencies = ["typing_.extensions==4.16.0"]\n'
+    )
+    assert behave_findings(product_copy) == []
+
+
 def test_a_lock_with_no_package_record_is_found(product_copy: Path) -> None:
     """CP-776: a lock that holds no package record fixes nothing."""
     (product_copy / BEHAVE_FOLDER / "uv.lock").write_text("version = 1\n", encoding="utf-8")
