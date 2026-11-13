@@ -1,0 +1,8 @@
+# Flow Findings — development-design  (audited 2026-11-13)
+
+Findings for this step's output only, produced by the `development-audit` skill.
+Change-local findings live here; skill-general findings are also raised as kaizen items.
+
+- **[non-blocking · change-local · contract-realized]** The "real guard" row says that under the spec's mutation (`_report_failure` rewrites the path to `\xe9`) "line 2 fails in both forms". For the errno form, the design's own §4 note says the text "is already escaped": `str(OSError(92, ..., path))` holds the path through `repr`, so it is the ASCII characters `\udce9`, not a surrogate. A mutation that rewrites the surrogate character to `\xe9` leaves that line untouched, and the errno case would pass under it. Where: `change_design.md §5` (the Structural Goal row) and `§Architect Review Notes (b) Both error forms`. The failing-in-both claim holds only if the mutation also rewrites the literal `\udce9` text, and nothing in the design says the mutation is that wide or that it was run. Direction: state which mutation each form is guarded by, or say that only the message form is mutation-guarded.
+
+Other lenses: Clean. Coverage (every spec invariant maps to a §5 assertion row), altitude, classification (`bug` / `preserving` copied verbatim), divergence record (no spec departure; the added errno-form case and the exact-equality choice are recorded with reasons), handed-down constraints (stated as properties; the developer names the test), and step-specific contract (no symbol moves, re-exports unchanged, `Publishes text: no`) held. The cited precedents (`Breaking(Tracker)`, `SwitchedSaver`, `MovableClock`) and the NFR-8 / AC-18 identifiers exist.
