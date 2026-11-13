@@ -9,3 +9,6 @@ Sizing: one capability (the failed-action console message on such a path, the te
 **Category:** bug
 **Behaviour:** preserving
 **Classified because:** the station's "What it is" says the site already behaves as RN-35 settles and "changes production code only if the test shows the write raises or the path is rewritten", so the gap is an unpinned contract (a quality gap, behaviour fine), not new or altered behaviour.
+
+**Sealed:** 2026-11-13 — accepted; merged to `main` via `--no-ff`.
+Environment: owners-mac — no CI
