@@ -28,9 +28,9 @@ from application import (
     TaskRow,
     TaskStatus,
     Tracker,
-    TrackerState,
 )
 from domain import filter_project_tasks, restore_state
+from tests.fakes import FakeSaver
 
 PROJECTS = [(1, "Alpha", "first"), (2, "Beta", "")]
 NEXT_PROJECT_ID = 3
@@ -49,16 +49,6 @@ class SequenceClock:
         index = min(self.reads, len(self._instants) - 1)
         self.reads += 1
         return self._instants[index]
-
-
-class RecordingSaver:
-    """Keeps every state it was handed."""
-
-    def __init__(self) -> None:
-        self.saved: list[TrackerState] = []
-
-    def save(self, state: TrackerState) -> None:
-        self.saved.append(state)
 
 
 @pytest.fixture
@@ -81,7 +71,7 @@ def local_zone(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     time.tzset()
 
 
-def make_tracker(saver: RecordingSaver, clock: SequenceClock | None = None) -> Tracker:
+def make_tracker(saver: FakeSaver, clock: SequenceClock | None = None) -> Tracker:
     state = restore_state(PROJECTS, NEXT_PROJECT_ID, ("dana", "ali"))
     return Tracker(state, saver, clock or SequenceClock())
 
@@ -97,7 +87,7 @@ def ids(listed: ProjectTaskList) -> list[int]:
 def test_project_task_list_projects_domain_selection(utc_zone):
     """CP-396, CP-397, CP-412, T4: rows, order, options and counts agree with the domain's own
     selection for a valid filter, an unfiltered query and an empty project."""
-    saver = RecordingSaver()
+    saver = FakeSaver()
     tracker = make_tracker(saver)
     tracker.add_task(1, "Late", "high", "dana", "2026-10-10")
     tracker.add_task(1, "Soon", "low", "ali", "2026-10-02")
@@ -125,14 +115,14 @@ def test_project_task_list_projects_domain_selection(utc_zone):
     assert unfiltered.match_count == 3
     other = tracker.project_task_list(2, FilterInput())
     assert other.task_count == 1
-    nobody = make_tracker(RecordingSaver()).project_task_list(1, one("status", "blocked", "x"))
+    nobody = make_tracker(FakeSaver()).project_task_list(1, one("status", "blocked", "x"))
     assert (nobody.task_count, nobody.rows, nobody.match_count, nobody.problems) == (0, (), 0, ())
 
 
 def test_refused_list_preserves_typed_problems_and_raw_choices():
     """CP-405, CP-406, T4: every typed refusal reaches the read model in control order, with the
     raw choices, the full-project options and no result rows or count."""
-    saver = RecordingSaver()
+    saver = FakeSaver()
     tracker = make_tracker(saver)
     tracker.add_task(1, "One", "", "", "")
     tracker.add_task_label(1, "ui")
@@ -170,7 +160,7 @@ def test_refused_list_preserves_typed_problems_and_raw_choices():
 def test_overdue_filter_and_row_marking_agree(utc_zone):
     """CP-415, AC-13: yesterday open, today open, yesterday done and yesterday cancelled give the
     same verdict through the filter and through the row marker on one date."""
-    tracker = make_tracker(RecordingSaver(), SequenceClock(CREATED))
+    tracker = make_tracker(FakeSaver(), SequenceClock(CREATED))
     yesterday, today = "2026-10-05", "2026-10-06"
     open_yesterday = tracker.add_task(1, "Open yesterday", "", "", yesterday).id
     open_today = tracker.add_task(1, "Open today", "", "", today).id
@@ -202,7 +192,7 @@ def test_one_local_date_snapshot_serves_the_whole_page(local_zone):
     before_local_midnight = datetime(2026, 10, 10, 9, 0, tzinfo=UTC)  # local 2026-10-10 23:00
     after_local_midnight = datetime(2026, 10, 10, 11, 0, tzinfo=UTC)  # local 2026-10-11 01:00
     clock = SequenceClock(CREATED, before_local_midnight, after_local_midnight)
-    tracker = make_tracker(RecordingSaver(), clock)
+    tracker = make_tracker(FakeSaver(), clock)
     tracker.add_task(1, "Due the tenth", "", "", "2026-10-10")
     assert clock.reads == 1
 
@@ -224,7 +214,7 @@ def test_one_local_date_snapshot_serves_the_whole_page(local_zone):
 def test_filter_queries_never_reach_the_saver():
     """CP-413, T4: valid, refused, clear and repeated reads leave the recording saver as it was
     and the current state unchanged."""
-    saver = RecordingSaver()
+    saver = FakeSaver()
     tracker = make_tracker(saver)
     tracker.add_task(1, "One", "high", "dana", "2026-10-01")
     tracker.add_task(1, "Two", "low", "", "")
@@ -247,7 +237,7 @@ def test_filter_queries_never_reach_the_saver():
 def test_existing_project_tasks_remains_compatible():
     """Design § 2 transitive check, T4: the old signature returns its ordered rows and flags, and
     they equal the unfiltered query's rows."""
-    tracker = make_tracker(RecordingSaver())
+    tracker = make_tracker(FakeSaver())
     undated = tracker.add_task(1, "Undated", "", "", "")
     late = tracker.add_task(1, "Late", "", "", "2026-10-01")
     soon = tracker.add_task(1, "Soon", "", "", "2026-10-20")
@@ -260,7 +250,7 @@ def test_existing_project_tasks_remains_compatible():
 
 def test_the_read_model_says_whether_the_filter_narrows(utc_zone):
     """CP-395, CP-398: an active filter, an unset one and a refused one, as the page reads them."""
-    tracker = make_tracker(RecordingSaver())
+    tracker = make_tracker(FakeSaver())
     tracker.add_task(1, "Late", "high", "dana", "2026-10-10")
 
     assert tracker.project_task_list(1, one("priority", "high")).narrowed is True
@@ -272,7 +262,7 @@ def test_the_read_model_says_whether_the_filter_narrows(utc_zone):
 def test_all_task_list_empty_and_no_match_are_distinct():
     """CP-466, CP-468, CP-471, T4, T5: no task anywhere returns the defaults whatever was chosen;
     tasks that match nothing keep their valid choices and the whole-scope options, with no count."""
-    tracker = make_tracker(RecordingSaver())
+    tracker = make_tracker(FakeSaver())
 
     empty = tracker.all_task_list(one("status", "blocked"))
     assert (empty.task_count, empty.rows, empty.match_count, empty.problems) == (0, (), 0, ())
