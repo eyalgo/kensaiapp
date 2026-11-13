@@ -1,8 +1,8 @@
 # FDR — tracker17
 
-**Status:** Draft
+**Status:** Settled
 **Owner:** Principal PM
-**Version:** 7 — the project summary shows the count of open tasks due today, a task due today is counted as due today and not as overdue, and one summary works out both counts against one "today". Only the summary carries the count. A filter or sort value no control can hold is refused while the tracker serves its saved data, and while the saved data is unreadable its address shows the one page. At 6: no rule, product decision, exclusion or example changed from version 5
+**Version:** 8 — the owner confirmed version 7's entries, and RN-16 and RN-17 now cite that answer. No rule, product decision, exclusion or example changed from version 7. At 7: the project summary shows the count of open tasks due today, a task due today is counted as due today and not as overdue, and one summary works out both counts against one "today". Only the summary carries the count. A filter or sort value no control can hold is refused while the tracker serves its saved data, and while the saved data is unreadable its address shows the one page
 **Inputs read:** PRD Settled (version 9) · SRS Settled (version 8) · SDD Settled (version 23) · finish line no Status line (`finish_line_template.md` carries none) · UXD Settled (version 12; no `products/tracker17/docs/UXD_open_issues.md` beside it; a sibling, read for collisions, not a source) · tracker17 doctrine no Status line (stamped, unfilled) · writing_bar Settled
 
 > The FDR is tracker17's behavioural contract: what the product does, and the product decisions every
@@ -683,13 +683,16 @@ finish line, `system/projects/tracker17/finish_line.md`.
   `products/tracker17/docs/trail/prd/cycle-7.md` § 1.1. SRS version 8 FR-38, AC-13 and RN-26 carry
   it. SRS FR-38 adds the one "today" for both counts that R-131 states, and SRS RN-26 says "FR-26 adds
   no due-today marking and FR-32 no due-today filter", which OOS-17 states. The four entries follow
-  an upstream change made after FDR version 6 read PRD version 7 and SRS version 6, and
-  `products/tracker17/docs/fdr_open_issues.md` § 2.1 carries them as a choice to confirm. *(re: R-129
+  an upstream change made after FDR version 6 read PRD version 7 and SRS version 6. They are a
+  confirmed choice, confirmed on 2026-11-13 in `products/tracker17/docs/trail/fdr/cycle-5.md` § 2.1,
+  with the reasoning in `products/tracker17/docs/trail/fdr/self_answer-5.md`. That answer's one
+  addition concerns the finish line, not this document, and moves no entry here. *(re: R-129
   to R-131, OOS-17; source: PRD § Core Features, Project summary; SRS § 3.11 FR-38, § 8 AC-13, RN-26)*
 - **RN-17:** *(changed)* R-128 is scoped to a tracker serving its saved data, with the unreadable case
   stated beside it — *because* SDD version 19 § 4 RT-8 says "While the saved data cannot be read, such
   a form's address answers as every address does (EX-13): its values are not read, no refusal
   arises". R-128 as version 6 wrote it was false of the tracker on unreadable data. The CTO seat
   settled that reading in `products/tracker17/docs/trail/sdd/cycle-16.md` § 2.1, and RN-14 scoped R-20
-  and R-105 the same way. `products/tracker17/docs/fdr_open_issues.md` § 2.1 carries the change as a
-  choice to confirm. *(re: R-128; source: SDD § 4 RT-8, EX-13)*
+  and R-105 the same way. The change is a confirmed choice, confirmed on 2026-11-13 in
+  `products/tracker17/docs/trail/fdr/cycle-5.md` § 2.1, with the reasoning in
+  `products/tracker17/docs/trail/fdr/self_answer-5.md`. *(re: R-128; source: SDD § 4 RT-8, EX-13)*
