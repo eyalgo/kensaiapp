@@ -54,4 +54,12 @@ None.
 - **If overridden:** the finish line keeps citing PRD words that are not in the PRD, so a reader who
   follows either citation finds that tracker17 is public. OOS-1 in `products/tracker17/docs/fdr.md`
   keeps tracing to a section whose stated reason is false, though its conclusion holds.
-- **Confirm or override:** <"confirm", or "override: <what to do instead>">
+- **Confirm or override:** confirm, with two additions. Make both corrections as drafted. (a) The
+  owner's "by myself" is the ground that carries "alone" in bar 3 and the exclusion of outside
+  readers. The PRD's "Until there are outside readers, the owner's own reading and setup stand in for
+  theirs" only supports it, because that sentence is bounded in time: once an outside reader arrives,
+  the PRD itself says the bars "would need revisiting", and that is a PRD revision, not something that
+  reopens this finish line. (b) Keep the heading "What this finish line does not require" word for
+  word, because `products/tracker17/docs/fdr.md` OOS-1 and OOS-2 cite it by that name. Done does not
+  depend on tracker17 being public. It already is. The reasoning is in
+  `system/projects/tracker17/trail/finish_line/self_answer-2.md`.
