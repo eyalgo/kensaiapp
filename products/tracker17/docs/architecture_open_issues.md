@@ -47,6 +47,6 @@ None.
   → `0`).
 - **If a document has to be written:** none; the pick is a line in § 9, made by `product-architecture`
   under its own rule.
-- **Answer:** <the owner fills this in>
+- **Answer:** `browser` — § 9 takes the line `**Behave way in:** browser` below `**Behave:** behave`. The browser is tracker17's only interface (SRS C-3: every operation is reached through its pages), and several behaviours the operator sees exist only in a browser: where focus lands, the completion line's accessible description, a double press that never confirms (SDD § 4 RT-9, UXD UX-I2). `server` reaches every request and page but none of those; `command` reaches nothing, since starting the tracker is its only command. The pick adds no dependency: `.behave/pyproject.toml` already pins `playwright==1.65.1`, and it inherits layer 5's platform limit (§ 9, SDD § 4 RT-4). Reasoning in `products/tracker17/docs/trail/architecture/self_answer-30.md`.
 
 **How it closes.** `product-architecture` folds it on its next run like any other item here.
