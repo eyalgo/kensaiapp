@@ -12,12 +12,14 @@ Cut from `products/tracker17/docs/nfdr.md` QC-1 and QC-19 ("The entry starts unm
 
 ## Stations — dynamic checklist
 
-- [ ] walk-skips-by-name — `SourceWalk` skips `tests/`, `.behave/` and `.venv/` by name; a test with a module in another dot-folder fails QC-1 and passes once the module is removed; the suite stays green
-- [ ] behave-import-walk — a layer-6 walk of `.behave/` fails on an import from `tests` and on finding no module in it while the folder exists, reads nothing when the folder is absent; a mutation adding such an import fails it
+- [ ] walk-skips-by-name — `SourceWalk` skips `tests/`, `.behave/` and `.venv/` by name, not by a leading dot; a test with a module in another dot-folder at the product root fails QC-1 (red at `97603d4f3`, where the walk skips every dot piece) and passes once the module is removed; both suites stay green
+- [ ] behave-import-walk — a layer-6 walk of `.behave/` fails on an import from `tests` and on finding no module in it while the folder exists, reads nothing when the folder is absent; a mutation adding such an import to `.behave/features/*.py` fails it, and the QC-19 and QC-1 tests keep passing
 
 ## Relation to existing work
 
 Independent of `tracker17 · nemawashi · 2026-11-13_one-fake-and-one-contract-suite-per-contract` and `tracker17 · nemawashi · 2026-11-13_the-pins-test-reads-the-behave-lock`.
+
+Route re-cut (PM, 2026-11-13): the two stations stand as cut and stay two, one per NFDR entry; the bars are sharpened and the order is risk, not dependency: the second walk takes `.behave/` as its own root and needs nothing from the first, so either may go first. The first goes first because it changes the walk every import and reach test shares.
 
 ## Out (later / elsewhere)
 
