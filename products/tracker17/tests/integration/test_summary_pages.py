@@ -9,6 +9,8 @@ page is built from values handed in, so no rule is recomputed here.
 
 from __future__ import annotations
 
+from datetime import date
+
 from test_pages import Element, parse
 
 from application import (
@@ -25,6 +27,7 @@ from web import pages
 HOSTILE = '<b>&"x"</b>'
 STATUS_WORDS = ("todo", "in-progress", "done", "cancelled")
 PRIORITY_WORDS = ("low", "medium", "high", "critical")
+SUMMARY_DATE = date(2026, 11, 13)
 GROUP_HEADINGS = ["Tasks by status", "Tasks by priority", "Due dates", "Open tasks by assignee"]
 
 
@@ -34,17 +37,21 @@ def make_summary(
     statuses: tuple[int, int, int, int] = (2, 1, 1, 1),
     priorities: tuple[int, int, int, int] = (1, 1, 1, 2),
     overdue: int = 1,
+    due_today: int = 0,
     undated: int = 2,
+    today: date = SUMMARY_DATE,
     assignees: tuple[tuple[str | None, int], ...] = (("ari", 1), ("bo", 0), ("eve", 1), (None, 1)),
 ) -> ProjectSummary:
     return ProjectSummary(
         project=project,
+        today=today,
         total=sum(statuses),
         status_counts=tuple(StatusCount(s, n) for s, n in zip(TaskStatus, statuses, strict=True)),
         priority_counts=tuple(
             PriorityCount(p, n) for p, n in zip(Priority, priorities, strict=True)
         ),
         overdue=overdue,
+        due_today=due_today,
         no_due_date=undated,
         assignee_counts=tuple(AssigneeCount(name, n) for name, n in assignees),
     )

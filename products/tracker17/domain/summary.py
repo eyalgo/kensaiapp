@@ -3,7 +3,9 @@
 Realizes SRS FR-38 (a project's summary: the total, each status and each priority with zero counts
 included, the overdue count, the tasks with no due date and the open tasks of every assignee), FR-25
 (the overdue rule, decided once for the list marking, the filter and this count), FR-35 (the overdue
-filter this count is taken through) and NFR-9 (the trace from the requirement to this code).
+filter this count is taken through), AC-13 (the summary's due-on-date count: the open tasks due on
+the summary's own date, none of which is also overdue) and NFR-9 (the trace from the requirement to
+this code).
 
 Taking part: application/tracker.py reads the clock once and works the summary out of the current
 state, application/__init__.py hands the values to the web part, web/routes.py answers the Summary
@@ -69,16 +71,19 @@ class AssigneeCount:
 class ProjectSummary:
     """One project's counts, in the order the page shows them.
 
-    The status rows follow the workflow's order and the priority rows run from low to critical,
-    each with a row even at zero. The assignee rows are the listed names in list order, then each
-    unlisted name an open task of the project carries, then the unassigned bucket.
+    `today` is the date every count was worked out against, and `due_today` is the number of open
+    tasks due on it. The status rows follow the workflow's order and the priority rows run from low
+    to critical, each with a row even at zero. The assignee rows are the listed names in list order,
+    then each unlisted name an open task of the project carries, then the unassigned bucket.
     """
 
     project: Project
+    today: date
     total: int
     status_counts: tuple[StatusCount, ...]
     priority_counts: tuple[PriorityCount, ...]
     overdue: int
+    due_today: int
     no_due_date: int
     assignee_counts: tuple[AssigneeCount, ...]
 
@@ -94,6 +99,7 @@ def summarize_project(state: TrackerState, project_id: int, today: date) -> Proj
     everything = filter_project_tasks(state, project_id, FilterInput(), today)
     return ProjectSummary(
         project=project,
+        today=today,
         total=everything.match_count,
         status_counts=tuple(
             StatusCount(status, _matching(state, project_id, today, status=(status.value,)))
@@ -104,6 +110,9 @@ def summarize_project(state: TrackerState, project_id: int, today: date) -> Proj
             for priority in Priority
         ),
         overdue=_matching(state, project_id, today, overdue=(OVERDUE_ON,)),
+        due_today=sum(
+            1 for task in everything.tasks if task.status.is_open and task.due_date == today
+        ),
         no_due_date=sum(1 for task in everything.tasks if task.due_date is None),
         assignee_counts=_assignee_counts(
             state, Counter(task.assignee for task in everything.tasks if task.status.is_open)
