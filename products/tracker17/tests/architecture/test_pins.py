@@ -68,3 +68,10 @@ def test_the_exact_pattern_refuses_a_range_and_accepts_a_pin() -> None:
         assert EXACT.fullmatch(loose) is None, loose
     assert EXACT.fullmatch("pytest==9.1.1")
     assert EXACT.fullmatch("typing_extensions==4.16.0")
+
+
+def test_the_exact_pattern_refuses_a_wildcard_version() -> None:
+    """CP-773: `==1.*` names a series, not one version, so it is no exact pin."""
+    assert EXACT.fullmatch("httpx==1.*") is None
+    assert EXACT.fullmatch("httpx[http2]==1.*") is None
+    assert EXACT.fullmatch("httpx==0.28.1")
