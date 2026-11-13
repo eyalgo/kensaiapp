@@ -49,7 +49,7 @@ def listing_of(root: Path) -> list[str]:
 
 
 def test_launched_pytest_leaves_the_shared_temp_root_alone(tmp_path: Path) -> None:
-    """NFR-11: the proof test's launched pytest makes and deletes nothing in the shared temp root."""
+    """NFR-11: the proof test's launched pytest makes and deletes nothing in the shared root."""
     temp_root = tmp_path / "shared-temp-root"
     user_folder = temp_root / f"pytest-of-{getpass.getuser()}"
     leftover = user_folder / "pytest-1"
