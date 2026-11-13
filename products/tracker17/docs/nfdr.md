@@ -2,8 +2,8 @@
 
 **Status:** Settled
 **Owner:** Principal Architect
-**Version:** 27 — the owner's answer to companion § 3.1 folded in (`products/tracker17/docs/trail/architecture/cycle-25.md`): the Playwright pin moved to `playwright==1.65.1`, which installs Chromium 158.0.8127.18, so QC-39, QC-40, QC-63 and § 9 name that pin and build, and QC-40 names no exception in force: RN-33's ended on 2026-11-07 (RN-72). § 9's Linux platform list stands, checked against 1.65.1's documentation. No record is written or changed. The SDD's § 4 RT-4 still names the old pin, raised on its own companion. Nothing is left open, so the companion is removed and this document is Settled. At 26: the answers to companion §§ 2.2 and 2.3 folded in (`products/tracker17/docs/trail/architecture/cycle-24.md`): QC-39 names the product's two sets of test dependencies, the suite's in `pyproject.toml` and `uv.lock` and the Behave scenario folder's in `.behave/pyproject.toml` and `.behave/uv.lock`, holds both to one bar, and starts unmet in its test; QC-40 covers both lock files and each pinned browser-driving library's browser build; § 9's layer-7 row names Behave and `.behave/features/`; § 10's QC-39 lock row names both commands (RN-69). QC-2, QC-3, QC-4, QC-37, QC-42, QC-45 and QC-61 take the scope of test code, "outside `tests/` and `.behave/`", in their words and their tails (RN-70). No record is written or changed: RN-69 narrows ADR-0013's "one committed file" to the suite's set. Nothing is left open, so the companion is removed and this document is Settled. At 25: the answers to companion §§ 2.1 and 3.1 to 3.3 folded in (`products/tracker17/docs/trail/architecture/cycle-23.md`): § 1.2 names the layer of SDD § 3's four layers each clause binds, and QC-1 names why the root holds no `ports/` directory (RN-65). QC-64, in § 1.4, gives each contract `application/contracts.py` states one fake and one contract suite, and starts unmet (RN-65). QC-1 names `.behave/`, the Behave scenario folder, as test code outside the package unit; QC-19 and QC-43 exempt it, QC-43 `tests/` too, and the source walk skips both by name, not by a leading dot (RN-66). § 9 gains the Behave line, `behave` (RN-67). No record is written or changed. Companion § 2.2 stays open, and § 2.3 is raised, so this document is Draft. At 24: the answers to companion §§ 3.1 to 3.5 folded in (`products/tracker17/docs/trail/architecture/cycle-22.md`): QC-7 and QC-63 are scoped to a tracker serving its saved data, and QC-7 names the one answer of a tracker on unreadable data, 503 with one page (RN-63). ADR-0014, ADR-0015 and ADR-0016 supersede ADR-0011, ADR-0012 and ADR-0005, each carrying its predecessor whole with the mode qualified, and the entries those bound trace to them. QC-8 and § 10 do not move. Nothing is left open, so the companion is removed and this document is Settled.
-**Inputs read:** SRS Settled (version 7) · SDD Settled (version 21; no `products/tracker17/docs/SDD_open_issues.md` beside it when read; this run raised one, RN-72) · FDR Settled (version 6) · PRD Settled (version 8) · UXD Settled (version 11) · DESIGN Settled (version 4) · CONTENT Settled (version 21) · finish line no Status line · tracker17 doctrine no Status line (stamped, unfilled)
+**Version:** 28 — the answer to companion § 3.1 folded in (`products/tracker17/docs/trail/architecture/cycle-26.md`): § 9 takes the line `**Behave way in:** browser` below `**Behave:** behave`, so tracker17's Behave scenarios reach it through a browser, its only interface (SRS C-3) (RN-74). No record is written or changed. `Inputs read:` names SDD version 22, whose one change, § 4 RT-4 naming `playwright==1.65.1`, folds what version 27 raised on the SDD's companion. Nothing is left open, so the companion is removed and this document is Settled. At 27: the owner's answer to companion § 3.1 folded in (`products/tracker17/docs/trail/architecture/cycle-25.md`): the Playwright pin moved to `playwright==1.65.1`, which installs Chromium 158.0.8127.18, so QC-39, QC-40, QC-63 and § 9 name that pin and build, and QC-40 names no exception in force: RN-33's ended on 2026-11-07 (RN-72). § 9's Linux platform list stands, checked against 1.65.1's documentation. No record is written or changed. The SDD's § 4 RT-4 still names the old pin, raised on its own companion. Nothing is left open, so the companion is removed and this document is Settled. At 26: the answers to companion §§ 2.2 and 2.3 folded in (`products/tracker17/docs/trail/architecture/cycle-24.md`): QC-39 names the product's two sets of test dependencies, the suite's in `pyproject.toml` and `uv.lock` and the Behave scenario folder's in `.behave/pyproject.toml` and `.behave/uv.lock`, holds both to one bar, and starts unmet in its test; QC-40 covers both lock files and each pinned browser-driving library's browser build; § 9's layer-7 row names Behave and `.behave/features/`; § 10's QC-39 lock row names both commands (RN-69). QC-2, QC-3, QC-4, QC-37, QC-42, QC-45 and QC-61 take the scope of test code, "outside `tests/` and `.behave/`", in their words and their tails (RN-70). No record is written or changed: RN-69 narrows ADR-0013's "one committed file" to the suite's set. Nothing is left open, so the companion is removed and this document is Settled. At 25: the answers to companion §§ 2.1 and 3.1 to 3.3 folded in (`products/tracker17/docs/trail/architecture/cycle-23.md`): § 1.2 names the layer of SDD § 3's four layers each clause binds, and QC-1 names why the root holds no `ports/` directory (RN-65). QC-64, in § 1.4, gives each contract `application/contracts.py` states one fake and one contract suite, and starts unmet (RN-65). QC-1 names `.behave/`, the Behave scenario folder, as test code outside the package unit; QC-19 and QC-43 exempt it, QC-43 `tests/` too, and the source walk skips both by name, not by a leading dot (RN-66). § 9 gains the Behave line, `behave` (RN-67). No record is written or changed. Companion § 2.2 stays open, and § 2.3 is raised, so this document is Draft. At 24: the answers to companion §§ 3.1 to 3.5 folded in (`products/tracker17/docs/trail/architecture/cycle-22.md`): QC-7 and QC-63 are scoped to a tracker serving its saved data, and QC-7 names the one answer of a tracker on unreadable data, 503 with one page (RN-63). ADR-0014, ADR-0015 and ADR-0016 supersede ADR-0011, ADR-0012 and ADR-0005, each carrying its predecessor whole with the mode qualified, and the entries those bound trace to them. QC-8 and § 10 do not move. Nothing is left open, so the companion is removed and this document is Settled.
+**Inputs read:** SRS Settled (version 7) · SDD Settled (version 22; no `products/tracker17/docs/SDD_open_issues.md` beside it when read) · FDR Settled (version 6) · PRD Settled (version 8) · UXD Settled (version 11) · DESIGN Settled (version 4) · CONTENT Settled (version 21) · finish line no Status line · tracker17 doctrine no Status line (stamped, unfilled)
 
 > The NFDR is the product's **standing obligations, consolidated and verifiable**: every quality
 > constraint a change is checked against, derived from the SRS, the SDD, the FDR and the ADR — never
@@ -718,6 +718,16 @@ means it does. tracker17 is a product this repository owns, with code, that a pe
 — uses, so the first of the owner's criteria of 2026-11-10 makes it `behave` (see RN-67).
 
 **Behave:** behave
+
+The way-in line below records how Behave reaches this product: exactly one of `command`, `server` or
+`browser`, the three ways in the Behave starter ships, each described in
+`<CORE>/templates/behave-starter/README.md` § *The three ways in*. tracker17's is `browser`. The
+browser is its only interface (SRS C-3), and where focus lands after an action (SDD § 4 RT-9) and a
+confirmation a double press never completes (UXD UX-I2) show only in a page a browser runs. A browser
+scenario runs where layer 5 runs, on the systems *Layer 5 runs on fewer systems* above names
+(see RN-74).
+
+**Behave way in:** browser
 
 ## 10. Verification map
 
@@ -1981,3 +1991,33 @@ QC-12, QC-25, QC-26, QC-27, QC-40, QC-41 and QC-60 are review gates and have no 
   and one `CHANGELOG.md` line. No obligation's words move beyond the pin and the build, and § 10 gains
   no row: QC-40 is a review gate, and QC-39's and QC-63's rows name no version. No record was written
   or changed, so the index does not move. *(re: Version 27)*
+- **RN-74:** § 9 takes the line `**Behave way in:** browser`, with the sentence above it saying why —
+  *because* the answer to companion § 3.1 picked `browser` (`trail/architecture/cycle-26.md` § 3.1,
+  with the reasoning at `trail/architecture/self_answer-30.md`). A `companion-self-answer` run
+  answered it; the owner has not. The PM raised the item on 2026-11-13: the authoring prompt has this
+  seat pick the way in once per product, on the first run that finds the Behave call `behave` and no
+  way in picked, and version 27 had the call and no line. This run checked the answer's grounds on
+  disk: SRS C-3 reads "The browser is the only interface"; SDD § 4 RT-9 sets keyboard focus at the
+  place of an action and UXD UX-I2 sets the confirmation a double press must not complete, and a page
+  shows both only in a browser; `.behave/features/browser_way_in.py` is in place; and
+  `.behave/pyproject.toml:8` pins `playwright==1.65.1`, which QC-39 and QC-40 already cover, so the
+  pick adds no dependency and moves no entry. `server` was the near miss: it reaches every request
+  and every whole page (SDD § 9 TO-2), but not focus. `command` reaches nothing, since starting the
+  tracker is its one command. The line is a pick, not an obligation, so it carries no QC number and
+  § 10 gains no row. It leaves "Layer 7 has no producer" (RN-69) as it stands: it says how scenarios
+  reach the product, not that any exist. **No record is written.** The pick fails the hard-to-reverse
+  gate: no scenario of tracker17 exists yet, so changing it rewrites nothing. It stands until a fresh
+  authorization changes it, and a later pin move changes layer 5's systems, not the pick. *(re: § 9;
+  source: `trail/architecture/cycle-26.md` § 3.1)*
+- **RN-75:** Version 28 was written on 2026-11-13. It read the answered companion as committed at
+  `044195d95` and copied it whole to `trail/architecture/cycle-26.md` before the fold. Its one item,
+  § 3.1, came from the PM, and a `companion-self-answer` run answered it. No producing run wrote it.
+  It is folded here (RN-74), nothing is left open, and the companion is removed. Since version 27
+  (`git diff --stat a48fbc2dc HEAD` over the product and the project's `finish_line.md`, `doctrine/`
+  and `project.md`), the SDD moved to version 22, whose one change is § 4 RT-4 naming
+  `playwright==1.65.1` and the platform list read for it on 2026-11-13 (SDD RN-80). So RT-4 and
+  QC-39, QC-40 and § 9 agree again, and the SDD companion version 27 raised is folded and gone. No
+  other definition document moved, and no code changed. The repository still tracks no CI
+  configuration, so RN-55's reading stands: the gates run on the owner's Mac and § 8 records no
+  environment. This run ran no suite, because this round changes no code. No record was written or
+  changed, so the index does not move. *(re: Version 28)*
