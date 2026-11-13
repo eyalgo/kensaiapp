@@ -1,17 +1,23 @@
 """Layer-6 pin checks: every dependency is pinned exactly, and `uv.lock` fixes each at its pin.
 
-Checks SRS NFR-9 (the product can be rebuilt as it was). Change spec rule CP-28 and NFDR QC-39 and
-QC-59 are the ones each test names.
+Checks SRS NFR-9 (the product can be rebuilt as it was). Change spec rules CP-28 and CP-662, and
+NFDR QC-39 and QC-59, are the ones each root test names. CP-773 to CP-778 hold the same bar over
+the Behave folder's `.behave/pyproject.toml` and `.behave/uv.lock`, in `behave_findings`, and
+CP-779 runs each case on a copy of the product in `tmp_path`. `EXACT` refuses a wildcard
+version for both sets (CP-773).
 """
 
 from __future__ import annotations
 
 import re
+import shutil
 import tomllib
 from pathlib import Path
 
+import pytest
+
 PRODUCT_ROOT = Path(__file__).resolve().parent.parent.parent
-EXACT = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*(\[[A-Za-z0-9,._-]+\])?==[^=<>!~,;\s]+")
+EXACT = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*(\[[A-Za-z0-9,._-]+\])?==[^=<>!~,;*\s]+")
 
 
 def manifest() -> dict:
@@ -41,6 +47,68 @@ def normalized(name: str) -> str:
     return re.sub(r"[-_.]+", "-", name).lower()
 
 
+def pinned_pair(entry: str) -> tuple[str, str]:
+    """An exact pin as the lock records it: its normalized name, without extras, and its version."""
+    name, version = entry.split("==", 1)
+    return normalized(name.partition("[")[0]), version
+
+
+def locked_pairs(lock: dict) -> set[tuple[str, str | None]]:
+    """Every (normalized name, version) the lock's package records fix."""
+    return {
+        (normalized(package.get("name", "")), package.get("version"))
+        for package in lock.get("package", [])
+    }
+
+
+BEHAVE_FOLDER = ".behave"
+MANIFEST_UNREADABLE = "manifest missing or not readable TOML"
+NOTHING_DECLARED = "manifest declares no dependency"
+NOT_PINNED_EXACTLY = "requirement not pinned exactly"
+LOCK_UNREADABLE = "lock missing or not readable TOML"
+LOCK_HOLDS_NO_PACKAGE = "lock holds no package record"
+LOCK_DOES_NOT_FIX = "declared pin the lock does not fix"
+
+
+def read_toml(path: Path) -> dict | None:
+    """The file's TOML, or None when it is not a regular file or cannot be read as TOML."""
+    if not path.is_file():
+        return None
+    try:
+        return tomllib.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, tomllib.TOMLDecodeError):
+        return None
+
+
+def behave_findings(product: Path) -> list[str]:
+    """One finding per failure of QC-39's checks over the Behave folder under `product`."""
+    behave = product / BEHAVE_FOLDER
+    if not behave.exists():
+        return []
+    document = read_toml(behave / "pyproject.toml")
+    if document is None:
+        return [f"{MANIFEST_UNREADABLE}: {BEHAVE_FOLDER}/pyproject.toml"]
+    declared = declared_dependencies(document)
+    if not declared:
+        return [f"{NOTHING_DECLARED}: {BEHAVE_FOLDER}/pyproject.toml"]
+    findings = [
+        f"{NOT_PINNED_EXACTLY}: {entry}" for entry in declared if not EXACT.fullmatch(entry)
+    ]
+    lock = read_toml(behave / "uv.lock")
+    if lock is None:
+        findings.append(f"{LOCK_UNREADABLE}: {BEHAVE_FOLDER}/uv.lock")
+    elif not lock.get("package"):
+        findings.append(f"{LOCK_HOLDS_NO_PACKAGE}: {BEHAVE_FOLDER}/uv.lock")
+    else:
+        locked = locked_pairs(lock)
+        findings += [
+            f"{LOCK_DOES_NOT_FIX}: {entry}"
+            for entry in declared
+            if EXACT.fullmatch(entry) and pinned_pair(entry) not in locked
+        ]
+    return findings
+
+
 def test_uv_lock_fixes_every_declared_dependency_at_its_declared_version():
     """QC-39, CP-662."""
     lock = PRODUCT_ROOT / "uv.lock"
@@ -50,10 +118,7 @@ def test_uv_lock_fixes_every_declared_dependency_at_its_declared_version():
     locked = {(normalized(package["name"]), package.get("version")) for package in packages}
     declared = declared_dependencies(manifest())
     assert [entry for entry in declared if not EXACT.fullmatch(entry)] == []
-    wanted = []
-    for entry in declared:
-        name, version = entry.split("==", 1)
-        wanted.append((normalized(name.partition("[")[0]), version))
+    wanted = [pinned_pair(entry) for entry in declared]
     assert [pair for pair in wanted if pair not in locked] == []
 
 
@@ -68,3 +133,197 @@ def test_the_exact_pattern_refuses_a_range_and_accepts_a_pin() -> None:
         assert EXACT.fullmatch(loose) is None, loose
     assert EXACT.fullmatch("pytest==9.1.1")
     assert EXACT.fullmatch("typing_extensions==4.16.0")
+
+
+def test_the_exact_pattern_refuses_a_wildcard_version() -> None:
+    """CP-773: `==1.*` names a series, not one version, so it is no exact pin."""
+    assert EXACT.fullmatch("httpx==1.*") is None
+    assert EXACT.fullmatch("httpx[http2]==1.*") is None
+    assert EXACT.fullmatch("httpx==0.28.1")
+
+
+COPY_LEAVES_OUT = (".venv", ".pytest_cache", "__pycache__")
+
+
+@pytest.fixture
+def product_copy(tmp_path: Path) -> Path:
+    """A copy of the product in `tmp_path`, so a case edits only the copy's `.behave/`."""
+    copy = tmp_path / "product"
+    shutil.copytree(PRODUCT_ROOT, copy, ignore=shutil.ignore_patterns(*COPY_LEAVES_OUT))
+    return copy
+
+
+def write_manifest(product: Path, text: str) -> None:
+    (product / ".behave" / "pyproject.toml").write_text(text, encoding="utf-8")
+
+
+def test_the_behave_folder_of_the_product_holds_every_pin() -> None:
+    """QC-39, CP-773 and CP-774 on the product's own tree."""
+    assert behave_findings(PRODUCT_ROOT) == []
+
+
+@pytest.mark.parametrize(
+    ("manifest", "entry"),
+    [
+        pytest.param(
+            '[project]\nname = "x"\ndependencies = ["httpx>=0.28"]\n',
+            "httpx>=0.28",
+            id="floor-in-project-dependencies",
+        ),
+        pytest.param(
+            '[dependency-groups]\ndev = ["behave"]\n',
+            "behave",
+            id="bare-name-in-dependency-groups",
+        ),
+        pytest.param(
+            '[project.optional-dependencies]\nweb = ["httpx~=0.28.1"]\n',
+            "httpx~=0.28.1",
+            id="compatible-release-in-optional-dependencies",
+        ),
+        pytest.param(
+            '[project.optional-dependencies]\nweb = ["httpx==1.*"]\n',
+            "httpx==1.*",
+            id="wildcard-in-optional-dependencies",
+        ),
+        pytest.param(
+            '[build-system]\nrequires = ["hatchling==1.27.0,<2"]\n',
+            "hatchling==1.27.0,<2",
+            id="second-specifier-in-build-system-requires",
+        ),
+    ],
+)
+def test_a_requirement_not_pinned_exactly_is_found(
+    product_copy: Path, manifest: str, entry: str
+) -> None:
+    """CP-773: the finding names the entry that is not an exact pin."""
+    write_manifest(product_copy, manifest)
+    findings = behave_findings(product_copy)
+    assert any(NOT_PINNED_EXACTLY in finding and entry in finding for finding in findings)
+
+
+def make_manifest_absent(product: Path) -> None:
+    (product / ".behave" / "pyproject.toml").unlink()
+
+
+def make_behave_a_plain_file(product: Path) -> None:
+    shutil.rmtree(product / ".behave")
+    (product / ".behave").write_text("not a folder\n", encoding="utf-8")
+
+
+def make_manifest_unreadable(product: Path) -> None:
+    write_manifest(product, "dependencies = [unterminated\n")
+
+
+@pytest.mark.parametrize(
+    "damage",
+    [
+        pytest.param(make_manifest_absent, id="no-pyproject"),
+        pytest.param(make_behave_a_plain_file, id="behave-is-a-plain-file"),
+        pytest.param(make_manifest_unreadable, id="pyproject-is-not-toml"),
+    ],
+)
+def test_a_missing_or_unreadable_manifest_is_found(product_copy: Path, damage) -> None:
+    """CP-774: a manifest that cannot be read checks nothing, so it is a finding."""
+    damage(product_copy)
+    assert any(MANIFEST_UNREADABLE in finding for finding in behave_findings(product_copy))
+
+
+def test_a_manifest_declaring_nothing_is_found(product_copy: Path) -> None:
+    """CP-777: a manifest that declares no dependency would pass with nothing checked."""
+    write_manifest(product_copy, '[project]\nname = "x"\ndependencies = []\n')
+    assert any(NOTHING_DECLARED in finding for finding in behave_findings(product_copy))
+
+
+def test_an_absent_behave_folder_finds_nothing(product_copy: Path) -> None:
+    """CP-778: QC-1 lets the folder be absent, and then the Behave checks read nothing."""
+    shutil.rmtree(product_copy / ".behave")
+    assert behave_findings(product_copy) == []
+
+
+def replace_in_manifest(product: Path, old: str, new: str) -> None:
+    manifest_path = product / BEHAVE_FOLDER / "pyproject.toml"
+    text = manifest_path.read_text(encoding="utf-8")
+    assert old in text, f"the copy's manifest holds no {old!r} to replace"
+    manifest_path.write_text(text.replace(old, new), encoding="utf-8")
+
+
+def make_lock_absent(product: Path) -> None:
+    (product / BEHAVE_FOLDER / "uv.lock").unlink()
+
+
+def make_lock_unreadable(product: Path) -> None:
+    (product / BEHAVE_FOLDER / "uv.lock").write_text("[[package]\nname = \n", encoding="utf-8")
+
+
+@pytest.mark.parametrize(
+    "damage",
+    [
+        pytest.param(make_lock_absent, id="no-uv-lock"),
+        pytest.param(make_lock_unreadable, id="uv-lock-is-not-toml"),
+    ],
+)
+def test_a_missing_or_unreadable_lock_is_found(product_copy: Path, damage) -> None:
+    """CP-775: a lock that cannot be read fixes nothing, so it is a finding."""
+    damage(product_copy)
+    assert any(LOCK_UNREADABLE in finding for finding in behave_findings(product_copy))
+
+
+def test_a_pin_the_lock_does_not_fix_is_found(product_copy: Path) -> None:
+    """CP-776: the manifest says 1.65.0 where the lock fixes 1.65.1, as CP-782 mutates it."""
+    replace_in_manifest(product_copy, "playwright==1.65.1", "playwright==1.65.0")
+    findings = behave_findings(product_copy)
+    assert any(
+        LOCK_DOES_NOT_FIX in finding and "playwright==1.65.0" in finding for finding in findings
+    )
+
+
+def test_a_name_the_lock_does_not_hold_is_found(product_copy: Path) -> None:
+    """CP-776: the lock fixes the declared name, not only the declared version.
+
+    `0.28.1` is the version the lock fixes for `httpx`, so only the name tells the two apart.
+    """
+    replace_in_manifest(product_copy, "httpx==0.28.1", "requests==0.28.1")
+    findings = behave_findings(product_copy)
+    assert any(
+        LOCK_DOES_NOT_FIX in finding and "requests==0.28.1" in finding for finding in findings
+    )
+
+
+def test_a_separator_run_is_still_fixed_by_the_lock(product_copy: Path) -> None:
+    """CP-776: a run of `-`, `_` and `.` compares as one `-`.
+
+    So the lock's `typing-extensions` record fixes a declared `typing_.extensions`.
+    """
+    write_manifest(
+        product_copy, '[project]\nname = "x"\ndependencies = ["typing_.extensions==4.16.0"]\n'
+    )
+    assert behave_findings(product_copy) == []
+
+
+def test_a_lock_with_no_package_record_is_found(product_copy: Path) -> None:
+    """CP-776: a lock that holds no package record fixes nothing."""
+    (product_copy / BEHAVE_FOLDER / "uv.lock").write_text("version = 1\n", encoding="utf-8")
+    assert any(LOCK_HOLDS_NO_PACKAGE in finding for finding in behave_findings(product_copy))
+
+
+@pytest.mark.parametrize(
+    ("old", "new"),
+    [
+        pytest.param("behave==1.3.3", "Behave==1.3.3", id="capitalised-name"),
+        pytest.param("httpx==0.28.1", "httpx[http2]==0.28.1", id="extras-dropped"),
+    ],
+)
+def test_a_name_spelt_differently_is_still_fixed_by_the_lock(
+    product_copy: Path, old: str, new: str
+) -> None:
+    """CP-776: names compare as `normalized` compares them, with extras dropped."""
+    replace_in_manifest(product_copy, old, new)
+    assert behave_findings(product_copy) == []
+
+
+def test_a_missing_manifest_gives_no_lock_mismatch_finding(product_copy: Path) -> None:
+    """CP-774: with no manifest read there is no declared pin for the lock to miss."""
+    make_manifest_absent(product_copy)
+    findings = behave_findings(product_copy)
+    assert any(MANIFEST_UNREADABLE in finding for finding in findings)
+    assert not any(LOCK_DOES_NOT_FIX in finding for finding in findings)
