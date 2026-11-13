@@ -12,7 +12,9 @@ Cut from `products/tracker17/docs/nfdr.md` QC-39 and QC-40 ("QC-39 starts unmet 
 
 ## Stations — dynamic checklist
 
-- [ ] pins-over-behave — `test_pins.py` fails on a `.behave/` dependency not pinned with `==`, on a missing `.behave/uv.lock`, and on a declared dependency its lock does not fix at that version; a mutation moving one pin fails it; the suite stays green
+- [ ] pins-over-behave — `test_pins.py` fails on a `.behave/` dependency not pinned with `==`, on a `.behave/` holding no manifest or no `uv.lock`, and on a declared dependency its lock does not fix at that version, and reads nothing when `.behave/` is absent; a mutation moving one pin fails it; the suite stays green
+
+The route stays one station: one test file, one capability, one merge. Divergence: the bar now names the missing-manifest and absent-folder cases that the seed's `## What it is` states and the line omitted.
 
 ## Relation to existing work
 
