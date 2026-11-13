@@ -17,8 +17,10 @@ two are separate suites (docs/nfdr.md § 10): the end-to-end one needs the brows
 installs, which the machine's own pytest does not have. ``pytest tests/e2e/`` names the directory
 and collects it.
 
-The source walk is the ``walk_of`` fixture: it reads every product module outside ``tests/`` as a
-syntax tree, so the layer-6 tests in ``tests/architecture/`` walk code and never run it. A walk
+The source walk is the ``walk_of`` fixture: it reads every product module as a syntax tree, except
+the ones under ``tests/``, ``.behave/`` and ``.venv/`` at the root and any ``__pycache__`` folder,
+each skipped by exact name, so the layer-6 tests in ``tests/architecture/`` walk code and never run
+it. A code-holding folder at the root under any other name, a dot-folder included, is walked. A walk
 that finds no module in the part it covers fails, so a wrong root cannot pass by finding nothing
 (docs/nfdr.md § 1.2).
 """
@@ -124,8 +126,17 @@ def dotted(node: ast.AST) -> str | None:
     return None
 
 
+_SKIPPED_ROOT_FOLDERS = frozenset({"tests", ".behave", ".venv"})
+_SKIPPED_AT_ANY_DEPTH = "__pycache__"
+
+
 class SourceWalk:
-    """Every Python module under a root that is not a test, a hidden folder or generated."""
+    """Every Python module under a root, except what is skipped by exact name.
+
+    Skipped: a file whose first path piece under the root is ``tests``, ``.behave`` or ``.venv``,
+    and a file with a piece named ``__pycache__`` at any depth. Nothing else is skipped: a folder
+    whose name begins with a dot is walked, and so is a near name such as ``.venvs``.
+    """
 
     def __init__(self, root: Path) -> None:
         self.root = root
@@ -138,8 +149,8 @@ class SourceWalk:
     def _all(self) -> Iterator[Module]:
         for path in sorted(self.root.rglob("*.py")):
             relative = path.relative_to(self.root)
-            skipped = relative.parts[0] == "tests" or any(
-                piece.startswith(".") or piece == "__pycache__" for piece in relative.parts
+            skipped = relative.parts[0] in _SKIPPED_ROOT_FOLDERS or (
+                _SKIPPED_AT_ANY_DEPTH in relative.parts
             )
             if skipped:
                 continue

@@ -1,0 +1,10 @@
+# Flow Findings — development-specs  (audited 2026-11-13)
+
+Findings for this step's output only, produced by the `development-audit` skill.
+Change-local findings live here; skill-general findings are also raised as kaizen items.
+
+Lenses 3 (Category `nfdr` / Behaviour `changing` copied verbatim), 4 (Gaps 1–8 each carry a reason), 5, 6 and 7 (`## Verified Claims` present, every verdict run, none read; the base-walk and model-walk claims name command, tree and conditions) found nothing.
+
+- **[non-blocking · change-local · coverage]** CP-786's rule-implied edges — a near name (`.venvs/`, `.behave2/`, `Tests/`), a root dot-file (`.x.py`), a dot-folder inside a part (`web/.hidden/y.py`), and a skip-named folder below the root (`domain/tests/x.py`, `domain/.venv/x.py`) — each have an Examples row, but CP-788 to CP-790 (the only tests the spec requires) plant none of them. The rules that widen the walk beyond the request's one `.other/` case have no required test row. Where: `change_spec.md §Rules` (CP-786 vs CP-788 to CP-790). Either require a case for them or state that the Examples rows are verified only by the model run; the exact-name match is the part a regression would quietly reopen. `Tests/` appears in the rule but in no Examples row.
+- **[non-blocking · change-local · altitude]** CP-786 names the mechanism in the rule: `SourceWalk._all`, `tests/conftest.py:141-143`, `piece.startswith(".")` (line 142). The rule's observable content (a dot-folder's module is walked) stands without it. Where: `change_spec.md §Rules` CP-786. The request itself names the function, which softens this; the line numbers will not survive the change and belong in Verified Claims, not in a rule.
+- **[non-blocking · change-local · handed-down constraint]** CP-793 and CP-794 say the requirement is "judged at `development-design` review" — naming the downstream step that checks it. The property (no part no requirement pays for; Python 3.11 only) is the spec's to state; who judges it is the design step's. Where: `change_spec.md §Rules` CP-793, CP-794, and Examples. Mitigated: the wording follows NFDR QC-12 and QC-60, so cite the NFDR rather than the step.
