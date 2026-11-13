@@ -2,8 +2,9 @@
 
 Checks SRS NFR-9 (the product can be rebuilt as it was). Change spec rules CP-28 and CP-662, and
 NFDR QC-39 and QC-59, are the ones each root test names. CP-773 to CP-778 hold the same bar over
-the Behave folder's `.behave/pyproject.toml`, in `behave_findings`, and CP-779 runs each case on a
-copy of the product in `tmp_path`. `EXACT` refuses a wildcard version for both sets (CP-773).
+the Behave folder's `.behave/pyproject.toml` and `.behave/uv.lock`, in `behave_findings`, and
+CP-779 runs each case on a copy of the product in `tmp_path`. `EXACT` refuses a wildcard
+version for both sets (CP-773).
 """
 
 from __future__ import annotations
@@ -46,10 +47,27 @@ def normalized(name: str) -> str:
     return re.sub(r"[-_.]+", "-", name).lower()
 
 
+def pinned_pair(entry: str) -> tuple[str, str]:
+    """An exact pin as the lock records it: its normalized name, without extras, and its version."""
+    name, version = entry.split("==", 1)
+    return normalized(name.partition("[")[0]), version
+
+
+def locked_pairs(lock: dict) -> set[tuple[str, str | None]]:
+    """Every (normalized name, version) the lock's package records fix."""
+    return {
+        (normalized(package.get("name", "")), package.get("version"))
+        for package in lock.get("package", [])
+    }
+
+
 BEHAVE_FOLDER = ".behave"
 MANIFEST_UNREADABLE = "manifest missing or not readable TOML"
 NOTHING_DECLARED = "manifest declares no dependency"
 NOT_PINNED_EXACTLY = "requirement not pinned exactly"
+LOCK_UNREADABLE = "lock missing or not readable TOML"
+LOCK_HOLDS_NO_PACKAGE = "lock holds no package record"
+LOCK_DOES_NOT_FIX = "declared pin the lock does not fix"
 
 
 def read_toml(path: Path) -> dict | None:
@@ -73,7 +91,22 @@ def behave_findings(product: Path) -> list[str]:
     declared = declared_dependencies(document)
     if not declared:
         return [f"{NOTHING_DECLARED}: {BEHAVE_FOLDER}/pyproject.toml"]
-    return [f"{NOT_PINNED_EXACTLY}: {entry}" for entry in declared if not EXACT.fullmatch(entry)]
+    findings = [
+        f"{NOT_PINNED_EXACTLY}: {entry}" for entry in declared if not EXACT.fullmatch(entry)
+    ]
+    lock = read_toml(behave / "uv.lock")
+    if lock is None:
+        findings.append(f"{LOCK_UNREADABLE}: {BEHAVE_FOLDER}/uv.lock")
+    elif not lock.get("package"):
+        findings.append(f"{LOCK_HOLDS_NO_PACKAGE}: {BEHAVE_FOLDER}/uv.lock")
+    else:
+        locked = locked_pairs(lock)
+        findings += [
+            f"{LOCK_DOES_NOT_FIX}: {entry}"
+            for entry in declared
+            if EXACT.fullmatch(entry) and pinned_pair(entry) not in locked
+        ]
+    return findings
 
 
 def test_uv_lock_fixes_every_declared_dependency_at_its_declared_version():
@@ -85,10 +118,7 @@ def test_uv_lock_fixes_every_declared_dependency_at_its_declared_version():
     locked = {(normalized(package["name"]), package.get("version")) for package in packages}
     declared = declared_dependencies(manifest())
     assert [entry for entry in declared if not EXACT.fullmatch(entry)] == []
-    wanted = []
-    for entry in declared:
-        name, version = entry.split("==", 1)
-        wanted.append((normalized(name.partition("[")[0]), version))
+    wanted = [pinned_pair(entry) for entry in declared]
     assert [pair for pair in wanted if pair not in locked] == []
 
 
