@@ -2,8 +2,8 @@
 
 **Status:** Settled
 **Owner:** CTO
-**Version:** 7 — PRD v8's corrected assumption, tracker17 is public, carried in RN-18 as no requirement: publishing stays outside done by § 2's terminus. At 6: PRD v6's second purpose, kensaiapp's own testing ground, folded in on the owner's answer (`products/tracker17/docs/trail/srs/cycle-5.md` § 3.1): § 1 names it, FR-41 has the README's opening paragraph name both purposes, AC-21 checks it, RN-18 narrows its § Purpose drop-line, and RN-25 records why
-**Inputs read:** PRD Settled (v6) · finish line no Status line (`finish_line_template.md` carries none) · UXD Settled (no companion; searched for the README and the product's purposes, not a source) · tracker17 doctrine no Status line (stamped, unfilled) · SDD Settled, DESIGN Settled, CONTENT Settled, fdr Settled and nfdr Settled (downstream; searched for the README and the product's purposes, not sources — none has a companion)
+**Version:** 8 — PRD v9's due-today count folded in on the owner's answer (`products/tracker17/docs/trail/srs/cycle-6.md` § 3.1): FR-38 shows the count of open tasks due today beside the overdue count, under FR-25's "today", AC-13 tests the due-today side of its boundary, and RN-26 records why. At 7: PRD v8's corrected assumption, tracker17 is public, carried in RN-18 as no requirement: publishing stays outside done by § 2's terminus. At 6: PRD v6's second purpose, kensaiapp's own testing ground, folded in on the owner's answer (`products/tracker17/docs/trail/srs/cycle-5.md` § 3.1): § 1 names it, FR-41 has the README's opening paragraph name both purposes, AC-21 checks it, RN-18 narrows its § Purpose drop-line, and RN-25 records why
+**Inputs read:** PRD Settled (v9) · finish line no Status line (`finish_line_template.md` carries none) · UXD Settled (no companion; searched for the due-today count, not a source) · tracker17 doctrine no Status line (stamped, unfilled) · SDD Settled, DESIGN Settled, CONTENT Settled, fdr Settled and nfdr Settled (downstream; searched for the due-today count, not sources — none has a companion)
 
 > The SRS is the technical source of truth: the system-level **what**, derived from the PRD and
 > read cold by the Principal PM (Delivery Plan / FDR) and the Principal Architect (ADR / NFDR).
@@ -263,14 +263,20 @@ finish line places two things outside done, and this SRS specifies neither:
   - the count for each of the four statuses, a zero count included
   - the count for each of the four priorities, a zero count included
   - the overdue count, under FR-25
+  - beside the overdue count, the due-today count: the project's tasks whose due date is today and
+    whose status is neither `done` nor `cancelled`, with "today" as FR-25 defines it, a zero count
+    included
   - the count of tasks with no due date
   - the open tasks (neither `done` nor `cancelled`) for each assignee
 
   The per-assignee part has one row for every name on the current assignee list, a zero count
   included. It has one more row for each name not on the list that an open task in the project still
-  carries. It always has one row for "(unassigned)". *(traces to: PRD § Core Features, Project
-  summary; § Key Use Cases 4)* *(confirmed: `trail/srs/cycle-1.md` § 2.6, for which rows appear)*
-  *(answered: `trail/srs/cycle-4.md` § 3.1, the four priority counts; why, RN-24)*
+  carries. It always has one row for "(unassigned)". A task due today is counted as due today and
+  not as overdue, and one summary uses one "today" for both counts, so no task is counted in both or
+  in neither. *(traces to: PRD § Core Features, Project summary; § Key Use Cases 4)* *(confirmed:
+  `trail/srs/cycle-1.md` § 2.6, for which rows appear)* *(answered: `trail/srs/cycle-4.md` § 3.1, the
+  four priority counts; why, RN-24)* *(answered: `trail/srs/cycle-6.md` § 3.1, the due-today count;
+  why, RN-26)*
 
 ### 3.12 Refusals
 
@@ -508,8 +514,10 @@ replaced by automated tests.
   FR-28, FR-34, FR-39, FR-40, NFR-3)*
 - **AC-13:** **Overdue boundary.** With today's date set by the test, an open task due yesterday is
   overdue. A task due today is not. A task due yesterday in `done` or `cancelled` is not. The list
-  marking, the overdue filter and the summary count agree on all three. Verified by automated tests.
-  *(covers: FR-25, FR-26, FR-35, FR-38)*
+  marking, the overdue filter and the summary count agree on all three. On the due-today side, an
+  open task due today is in the summary's due-today count and not overdue, and a task due today in
+  `done` or `cancelled` is in neither count. Verified by automated tests. *(covers: FR-25, FR-26,
+  FR-35, FR-38)* *(answered: `trail/srs/cycle-6.md` § 3.1, the due-today side; why, RN-26)*
 - **AC-14:** **Filtering, sorting and the summary.** Each filter field, the AND combination, both
   due-date range ends, and each sort field in both directions return the result FR-32 to FR-36 define.
   A range whose from-date is later than its to-date is refused with FR-34's reason. Two tasks carrying
@@ -742,3 +750,18 @@ C-5 is a sourcing constraint whose result is checked rule by rule in AC-12 to AC
   criterion. FR-41, AC-21 and the narrowed RN-18 line are the owner's answer,
   `products/tracker17/docs/trail/srs/cycle-5.md` § 3.1. *(re: § 1, FR-41, AC-21, RN-18; PRD source:
   § Blurb, § Purpose, § UX Notes, Arrival)*
+- **RN-26:** *(added)* FR-38's due-today count, its one-"today" rule, and AC-13's due-today side.
+  *Because* PRD § Core Features, Project summary has the summary show, beside the overdue count, "the
+  count of tasks due today: tasks whose due date is today's date and that are neither `done` nor
+  `cancelled`", and says "The overdue rule is unchanged, so a task due today is counted as due today
+  and not as overdue". The owner set the count in `products/tracker17/docs/trail/prd/cycle-7.md`
+  § 1.1. "Today" is FR-25's, which stays as written. The one-"today" rule is added so that a summary
+  produced across midnight cannot count one task as both overdue and due today, or as neither. The
+  zero count follows FR-38's other counts (RN-15). The count is worked out from the tasks, so DR-1 to
+  DR-6 and NFR-6 do not change and saved data written before it still loads. The PRD asks for the
+  count in the summary only, so FR-26 adds no due-today marking and FR-32 no due-today filter. AC-14
+  already checks the summary's counts against FR-38, so it covers the count unchanged. AC-13 tests
+  the boundary the count shares with the overdue rule. These are the owner's answer,
+  `products/tracker17/docs/trail/srs/cycle-6.md` § 3.1, with the reasoning in
+  `products/tracker17/docs/trail/srs/self_answer-6.md` § 3.1. *(re: FR-25, FR-26, FR-32, FR-38, DR-1
+  to DR-6, NFR-6, AC-13, AC-14; PRD source: § Core Features, Project summary)*
