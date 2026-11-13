@@ -96,3 +96,24 @@ def test_near_names_of_the_skipped_folders_are_walked(walk_of, tmp_path: Path) -
     parts = top_level_parts(walk_of(tmp_path))
     assert parts == PARTS | {".venvs", ".behave2", "Tests"}
     assert parts != PARTS
+
+
+def test_a_behave_folder_inside_a_part_is_walked_as_that_part(walk_of, tmp_path: Path) -> None:
+    """QC-1: the behave folder's name, like the other two, is skipped at the root only."""
+    _plant(tmp_path, *_THE_SIX_PARTS, "web/.behave/x.py")
+    walk = walk_of(tmp_path)
+    part_of = {str(module.path): module.part for module in walk.modules()}
+    assert part_of.get("web/.behave/x.py") == "web"
+    assert top_level_parts(walk) == PARTS
+
+
+def test_a_root_file_named_like_a_skipped_folder_is_walked_as_its_own_part(
+    walk_of, tmp_path: Path
+) -> None:
+    """QC-1: the skip matches a root folder's name, never the stem of a file at the root.
+
+    The root holds no folder named tests, so the file named after it cannot share its name with
+    one on a filesystem that ignores case.
+    """
+    _plant(tmp_path, *_THE_SIX_PARTS, "tests.py", ".behave.py", ".venv.py")
+    assert top_level_parts(walk_of(tmp_path)) == PARTS | {"tests", ".behave", ".venv"}
