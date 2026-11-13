@@ -32,6 +32,7 @@ from application import (
     TrackerState,
 )
 from domain import restore_state, restore_task
+from tests.fakes import FakeSaver
 
 PROJECTS = [(1, "Alpha", "first"), (2, "Beta", "")]
 CREATED = datetime(2026, 10, 11, 12, 0, tzinfo=UTC)
@@ -85,52 +86,14 @@ def _all_tasks(tracker: Tracker) -> tuple[Task | None, ...]:
     return tuple(tracker.task(task_id) for task_id in (1, 2))
 
 
-class RecordingSaver:
-    """Keeps every state it was handed, and what the tracker held at the moment of each save."""
-
-    def __init__(self) -> None:
-        self.saved: list[TrackerState] = []
-        self.held_during_save: list[tuple[Task | None, ...]] = []
-        self.tracker: Tracker | None = None
-
-    def save(self, state: TrackerState) -> None:
-        if self.tracker is not None:
-            self.held_during_save.append(_all_tasks(self.tracker))
-        self.saved.append(state)
-
-
-class FailingSaver:
-    def __init__(self) -> None:
-        self.calls = 0
-
-    def save(self, state: TrackerState) -> None:
-        self.calls += 1
-        raise PermissionError("the disk said no")
-
-
-class SaveOnlySaver:
-    """Offers save and nothing else: any other attribute it is asked for is recorded."""
-
-    def __init__(self) -> None:
-        self.saved: list[TrackerState] = []
-        self.other_attributes_asked_for: list[str] = []
-
-    def save(self, state: TrackerState) -> None:
-        self.saved.append(state)
-
-    def __getattr__(self, name: str):
-        self.other_attributes_asked_for.append(name)
-        raise AttributeError(name)
-
-
 def _tracker(
     saver: Saver,
     operator_name: str | None = "Sam",
     clock: ListClock | None = None,
 ) -> Tracker:
     tracker = Tracker(_state(operator_name), saver, clock or ListClock(WRITTEN, LATER))
-    if isinstance(saver, RecordingSaver):
-        saver.tracker = tracker
+    if isinstance(saver, FakeSaver):
+        saver.watch = lambda: _all_tasks(tracker)
     return tracker
 
 
@@ -142,7 +105,7 @@ def _comments(tracker: Tracker, task_id: int = 1) -> tuple[Comment, ...]:
 
 def test_comment_action_saves_once_before_publishing():
     """CP-249, CP-250: one instant, one whole new state saved while the old task is current."""
-    saver = RecordingSaver()
+    saver = FakeSaver()
     clock = ListClock(WRITTEN, LATER)
     tracker = _tracker(saver, "Sam", clock)
     before = _all_tasks(tracker)
@@ -151,7 +114,7 @@ def test_comment_action_saves_once_before_publishing():
 
     assert clock.reads == 1
     assert len(saver.saved) == 1
-    assert saver.held_during_save == [before]
+    assert saver.seen == [before]
     saved_task = next(task for task in saver.saved[0].tasks if task.id == 1)
     assert saved_task.comments == (
         EARLIER_COMMENT,
@@ -164,7 +127,7 @@ def test_comment_action_saves_once_before_publishing():
 
 def test_comment_action_uses_the_name_at_action_time():
     """CP-251: a name read earlier is not the author; the saved name at the add is."""
-    tracker = _tracker(RecordingSaver(), "Sam")
+    tracker = _tracker(FakeSaver(), "Sam")
     assert tracker.operator_name() == "Sam"
     tracker.set_operator_name("Lee")
 
@@ -172,7 +135,7 @@ def test_comment_action_uses_the_name_at_action_time():
 
     assert renamed.comments[-1].author == "Lee"
 
-    unset = _tracker(RecordingSaver(), None)
+    unset = _tracker(FakeSaver(), None)
     assert unset.operator_name() is None
     unset.set_operator_name("Sam")
 
@@ -183,7 +146,7 @@ def test_comment_action_uses_the_name_at_action_time():
 
 def test_rename_keeps_historical_comment_authors():
     """CP-252: earlier authors stay as written, and the next comment carries the saved new name."""
-    saver = RecordingSaver()
+    saver = FakeSaver()
     tracker = _tracker(saver, "Sam")
     tracker.add_task_comment(1, "As Sam")
     written_as_sam = _comments(tracker)
@@ -212,7 +175,7 @@ def test_comment_action_refusals_save_nothing_and_keep_current_state(
     task_id, text, operator_name, refusal
 ):
     """CP-249, CP-255 to CP-259: each typed refusal propagates, with no save and no new state."""
-    saver = RecordingSaver()
+    saver = FakeSaver()
     tracker = _tracker(saver, operator_name)
     before = _all_tasks(tracker)
 
@@ -227,7 +190,7 @@ def test_comment_action_refusals_save_nothing_and_keep_current_state(
 
 def test_failed_comment_save_keeps_the_previous_task_current():
     """CP-260: a saver failure is not a refusal; it propagates and nothing becomes current."""
-    saver = FailingSaver()
+    saver = FakeSaver(error=PermissionError("the disk said no"))
     tracker = _tracker(saver, "Sam")
     before = _all_tasks(tracker)
 
@@ -243,7 +206,7 @@ def test_failed_comment_save_keeps_the_previous_task_current():
 
 def test_comment_action_reaches_only_the_injected_saver_and_clock():
     """CP-271, QC-54: a successful add is one save and one instant, and no load is reached."""
-    saver = SaveOnlySaver()
+    saver = FakeSaver(only_save=True)
     clock = ListClock(WRITTEN)
     tracker = Tracker(_state("Sam"), saver, clock)
 
@@ -251,7 +214,7 @@ def test_comment_action_reaches_only_the_injected_saver_and_clock():
 
     assert len(saver.saved) == 1
     assert clock.reads == 1
-    assert saver.other_attributes_asked_for == []
+    assert saver.asked_for == []
     assert not hasattr(Saver, "load")
 
 
