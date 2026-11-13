@@ -2,8 +2,8 @@
 
 **Status:** Settled
 **Owner:** CDO
-**Version:** 11 — the ninth answered round folded in (`products/tracker17/docs/trail/uxd/cycle-9.md`): when the list's filter leaves a task off the list, a pressed move's refusal or failure sits above the results in UX-I4's line; a refusal names the task, its status and its moves, and names Clear unless the status is final; a failure names the task and the failed move, and names Clear (UX-F4, UX-S4, UX-I3, UX-A3, RN-37). PRD version 7 read, unchanged. At 10: the eighth answered round folded in (`products/tracker17/docs/trail/uxd/cycle-8.md`): when the list's filter leaves a task off the list, a refusal reached by an address sits above the results in UX-I4's line, naming the task and its status, with no action, reload or Clear, on a project's Tasks view and on All tasks (UX-F4, UX-S4, UX-I3, UX-A3, RN-36). PRD version 7 read, unchanged since version 8. At 9: a refusal states what holds when its page is built and claims no event before it (`products/tracker17/docs/trail/uxd/cycle-7.md`).
-**Inputs read:** PRD Settled (version 7) · SRS Settled · finish line no Status line (`finish_line_template.md` carries none) · visual_restrictions Settled · voice_restrictions Settled · tracker17 doctrine no Status line (stamped, unfilled) · CONTENT Settled (version 15) (downstream; read to check what the answered round cites, not a source)
+**Version:** 12 — the tenth answered round folded in (`products/tracker17/docs/trail/uxd/cycle-10.md`): the project summary shows the due-today count directly after the overdue count, as a plain number that always shows, 0 included, with one "today" for both counts; the summary is the only place it appears (UX-F6, UX-S5, RN-13, RN-38). PRD versions 8 and 9 read: UX-U2 quotes PRD § Assumptions in the words it holds from version 8, with its meaning unchanged (RN-39). At 11: the ninth answered round folded in (`products/tracker17/docs/trail/uxd/cycle-9.md`): when the list's filter leaves a task off the list, a pressed move's refusal or failure sits above the results in UX-I4's line; a refusal names the task, its status and its moves, and names Clear unless the status is final; a failure names the task and the failed move, and names Clear (UX-F4, UX-S4, UX-I3, UX-A3, RN-37). PRD version 7 read, unchanged. At 10: the eighth answered round folded in (`products/tracker17/docs/trail/uxd/cycle-8.md`): when the list's filter leaves a task off the list, a refusal reached by an address sits above the results in UX-I4's line, naming the task and its status, with no action, reload or Clear, on a project's Tasks view and on All tasks (UX-F4, UX-S4, UX-I3, UX-A3, RN-36). PRD version 7 read, unchanged since version 8. At 9: a refusal states what holds when its page is built and claims no event before it (`products/tracker17/docs/trail/uxd/cycle-7.md`).
+**Inputs read:** PRD Settled (version 9) · SRS Settled (version 8) (a sibling; read for collisions, not a source) · finish line no Status line (`finish_line_template.md` carries none) · visual_restrictions Settled · voice_restrictions Settled · tracker17 doctrine no Status line (stamped, unfilled) · CONTENT Settled (version 21) (downstream; read for its status, not a source)
 
 > The UXD is the experience source of truth: the experience-level **what**, derived from the
 > settled PRD, authored concurrent with the SRS, and consumed cold by the SDD (so
@@ -33,7 +33,8 @@ answer in `cycle-6.md` is `products/tracker17/docs/trail/uxd/self_answer-6.md`, 
 answer in `cycle-7.md` is `products/tracker17/docs/trail/uxd/self_answer-7.md`. An entry marked *(answered:
 `trail/uxd/cycle-N.md` § 3.n)* states an item a downstream seat raised and the round settled. The
 reasoning behind the answer in `cycle-8.md` is `products/tracker17/docs/trail/uxd/self_answer-8.md`, and the
-reasoning behind the answer in `cycle-9.md` is `products/tracker17/docs/trail/uxd/self_answer-9.md`. The
+reasoning behind the answer in `cycle-9.md` is `products/tracker17/docs/trail/uxd/self_answer-9.md`, and the
+reasoning behind the answer in `cycle-10.md` is `products/tracker17/docs/trail/uxd/self_answer-10.md`. The
 Review Note named beside a marker says why this document reads as it does.
 
 ---
@@ -72,7 +73,8 @@ reader has to read?
 - **UX-U2** — **The reader.** A developer evaluating how kensaiapp builds apps. Their experience
   starts in a terminal and the written setup instructions, then moves to the browser, where they
   act as the operator. Today the reader and the operator are the same person, the owner (PRD
-  § Assumptions, "Until then the owner is the only reader"). What they judge is how few steps and
+  § Assumptions, "Until there are outside readers, the owner's own reading and setup stand in for
+  theirs"; why the quote reads so, RN-39). What they judge is how few steps and
   how little reading it takes to get from a fresh copy to a working tracker. *(→ PRD § Target
   Users, The reader; § Key Use Cases 1)*
 
@@ -245,22 +247,35 @@ that page, and no area of the tracker is reachable until the data is dealt with.
 - Seeing what is overdue takes one action from any list: the overdue filter. Every listed task that
   is overdue also carries a visible "Overdue" marker in text, beside its due date (UX-A4).
 
-### 5.6 UX-F6 — Open a project's summary *(→ PRD § Key Use Cases 4; § Core Features, Project summary)*
+### 5.6 UX-F6 — Open a project's summary *(→ PRD § Key Use Cases 4; § Core Features, Project summary, Due dates)*
 
 - Steps: on a project, the Summary link → the summary shows the total, the count per status, the
-  count per priority, the overdue count, the count with no due date, and each assignee's open-task
-  count with unassigned tasks counted as "(unassigned)".
+  count per priority, the overdue count, the due-today count, the count with no due date, and each
+  assignee's open-task count with unassigned tasks counted as "(unassigned)".
+- The due-today count is the project's tasks whose due date is today and whose status is neither
+  `done` nor `cancelled`. It sits directly after the overdue count, where the overdue count sits, so
+  the two read together (PRD § Core Features, Project summary, "Beside the overdue count"). It is
+  labelled in words and never shown by colour alone, as UX-A4 holds for the overdue state. Only the
+  summary carries it, the one place the PRD names for it: no list row marks a task as due today, and
+  no filter narrows to it (PRD § Core Features, Project summary). *(answered: `trail/uxd/cycle-10.md` § 3.1; why, RN-38)*
 - Every status count, priority count and the overdue count is a link to the project's task list
-  filtered to exactly that value, so the summary is also a way into narrowing. The no-due-date count,
-  the per-assignee counts and "(unassigned)" are plain numbers. The filter fields the PRD defines
-  cannot express "no due date", "open" or "unassigned", so a link from those counts would land on a
-  list that does not match the number (PRD § Core Features, Filtering).
-- Data the UI needs: every count above, computed as of today's local date for the overdue count.
-  Every status and priority shows, a zero included. The per-assignee part shows every name on the
-  current assignee list, every name no longer on the list that an open task in the project still
-  carries, and "(unassigned)".
-- Failure/recovery: an empty project shows its counts as zeros, with the invitation to add a first
-  task.
+  filtered to exactly that value, so the summary is also a way into narrowing. The due-today count,
+  the no-due-date count, the per-assignee counts and "(unassigned)" are plain numbers. The filter
+  fields the PRD defines cannot express "no due date", "open" or "unassigned", so a link from those
+  counts would land on a list that does not match the number (PRD § Core Features, Filtering). For
+  the due-today count, the nearest filter, a due range from today to today, also lists the `done`
+  and `cancelled` tasks due today, and its address would carry today's date, so a bookmark or a Back
+  on a later day would show another day's tasks. *(answered: `trail/uxd/cycle-10.md` § 3.1; why,
+  RN-38)*
+- Data the UI needs: every count above, computed as of today's local date for the overdue count and
+  the due-today count, with one "today" for both counts in one summary. A task due today is counted
+  as due today and never as overdue (PRD § Core Features, Due dates, Project summary). *(answered:
+  `trail/uxd/cycle-10.md` § 3.1; why, RN-38)* Every status and priority shows, a zero included, and
+  the due-today count always shows, "0" included, because an absent count and a zero count would read
+  the same. The per-assignee part shows every name on the current assignee list, every name no
+  longer on the list that an open task in the project still carries, and "(unassigned)".
+- Failure/recovery: an empty project shows its counts as zeros, the due-today count included, with
+  the invitation to add a first task.
 
 ### 5.7 UX-F7 — Comment on a task *(→ PRD § Key Use Cases 5; § Core Features, Comments; § UX Notes, Refusals say why)*
 
@@ -363,7 +378,7 @@ from that.
 | UX-S2 | **Start command** — the console the tracker is started from. | n/a — the command takes no input. | The console shows nothing until the tracker is ready, then UX-S2 Success. | Plain, one-paragraph messages, each saying what is wrong and what to do: the address is in use by something else · another tracker is already running on the same saved data · the saved data cannot be read (its location named). Nothing is written to the saved data in any of them. | The address to open, and the saved data's location. |
 | UX-S3 | **Projects** (home) — every project by name, with its description, sorted by name, ignoring case; the create-project form, which says beside the description field that the description cannot be changed later, and the most characters it can hold (UX-F2). | First run: no projects. The page says there are none yet and invites a first project, with the create form in view. No sample data. | UX-I8. | A create refused under UX-I3 keeps the form filled and shows the reason by the field. A failure that is not a refusal shows UX-I5's message. | The list, and after a create, the new project's Tasks view (UX-F2). |
 | UX-S4 | **Project — Tasks** — the project's name and description, the Tasks / Summary links, the filter and sort controls with the match count, the task list, the add-task form, and the rename and delete controls. Each row: title (a link to the task), status, priority, assignee or "unassigned", labels, due date with the "Overdue" marker when it applies, and the moves allowed from the task's status. | Two distinct states. **No tasks yet:** the page says the project has no tasks and invites a first one, with the add-task form in view. **No match:** the filter matched nothing. The page says so, names that the filter is the reason, and shows Clear. Neither shows a blank list. | UX-I8. | Refusals under UX-I3 at the control used. A refusal reached by an address and no control sits beside the task's status in its row (UX-F4). When the filter leaves that task off the list, it sits above the results in UX-I4's line, naming the task and its status, above the no-match state when no rows are left, with no action, reload or Clear (UX-F4) *(answered: `trail/uxd/cycle-8.md` § 3.1; why, RN-36)*. A pressed move refused or failed when the filter leaves the task off the list takes the same line: a refusal names the task, its status and the moves that status allows, and names Clear unless the status is final; a failure names the task and the move that failed, says nothing was changed, and names Clear. Neither adds a control or offers a reload (UX-F4) *(answered: `trail/uxd/cycle-9.md` § 1.1; why, RN-37)*. A non-refusal failure shows UX-I5's message. A project that no longer exists shows UX-S10. | The list as filtered and sorted, with the count. After an action, UX-I4's confirmation. |
-| UX-S5 | **Project — Summary** — the counts and rows UX-F6 lists, with the status, priority and overdue counts as links. | A project with no tasks: every count shows as 0, and the page invites a first task with a link to the Tasks view. | UX-I8. | A project that no longer exists shows UX-S10. | The counts, as of today's local date. |
+| UX-S5 | **Project — Summary** — the counts and rows UX-F6 lists, the due-today count directly after the overdue count as a plain number, with the status, priority and overdue counts as links *(answered: `trail/uxd/cycle-10.md` § 3.1; why, RN-38)*. | A project with no tasks: every count shows as 0, the due-today count included, and the page invites a first task with a link to the Tasks view. | UX-I8. | A project that no longer exists shows UX-S10. | The counts, as of today's local date. |
 | UX-S6 | **Task** — the edit form (title, priority, assignee, due date), the task's project as text, its status with its allowed moves, its labels with Remove and Add, Delete task, and the comments list with the add-comment form, which says beside its text field the most characters a comment can hold (UX-F7). A task whose assignee has left the list shows that name as the assignee control's current choice, with UX-F9's sentence beside the control. | No labels: the label area says the task has none, with Add in view. No comments: the comment area says there are none yet, with the form in view. No operator name: UX-F7's notice above the comment form. | UX-I8. | Refusals under UX-I3 at the control used, keeping what was typed. A refusal reached by an address and no control sits beside the task's status (UX-F4). A non-refusal failure shows UX-I5's message. A task that no longer exists shows UX-S10. | The task as saved. After an action, UX-I4's confirmation. A task in `done` or `cancelled` shows its status with no move buttons. |
 | UX-S7 | **All tasks** — UX-S4's filter, sort and list, across every project, with a project column linking to each task's project. No add-task form, because a task is always created in a project. | **No tasks anywhere:** the page says there are no tasks yet and links to Projects. **No match:** as UX-S4. | UX-I8. | As UX-S4. | As UX-S4, across projects. |
 | UX-S8 | **People** — Your name, and the assignee list. | No name set: the section says no name is set and that a name is needed to comment. No assignees: the section says there are none and that tasks can be assigned only to names added here. | UX-I8. | Refusals under UX-I3. A non-refusal failure shows UX-I5's message. | The current name and the list. After a removal, the confirmation says the name stays on the tasks that carry it. |
@@ -593,7 +608,7 @@ What this UXD itself does not design:
 | UX-F3 | § Key Use Cases 3; § Core Features, Tasks, Priorities, Assignees, Labels, Due dates |
 | UX-F4 | § Key Use Cases 3; § UX Notes, What must feel effortless, The status workflow is visible, Refusals say why; § Core Features, Status workflow |
 | UX-F5 | § Key Use Cases 4; § UX Notes, What must feel effortless; § Core Features, Filtering, Sorting, Due dates |
-| UX-F6 | § Key Use Cases 4; § Core Features, Project summary |
+| UX-F6 | § Key Use Cases 4; § Core Features, Project summary, Due dates |
 | UX-F7 | § Key Use Cases 5; § Core Features, Comments; § UX Notes, Refusals say why |
 | UX-F8 | § Core Features, Assignees, Comments; § Key Use Cases 3, 5 |
 | UX-F9 | § Core Features, Tasks, Assignees, Labels, Projects |
@@ -701,9 +716,10 @@ requirement, that a reader learns both purposes from the first thing they read, 
   Filtering)*
 - **RN-13:** *(added)* Summary counts that link to a filtered list, and the counts that do not —
   *because* Key Use Case 4 moves from narrowing to the summary and back, and PRD § UX Notes asks that
-  narrowing feel effortless. The no-due-date, per-assignee and unassigned counts cannot link: the PRD's
-  filter fields cannot express them, and a link to a list that does not match its number would
-  mislead. *(re: UX-F6, UX-S5; PRD source: § Key Use Cases 4; § Core Features, Filtering, Project
+  narrowing feel effortless. The due-today, no-due-date, per-assignee and unassigned counts cannot
+  link: the PRD's filter fields cannot express them, and a link to a list that does not match its
+  number would mislead. *(answered for the due-today count: `trail/uxd/cycle-10.md` § 3.1; why,
+  RN-38)* *(re: UX-F6, UX-S5; PRD source: § Key Use Cases 4; § Core Features, Filtering, Project
   summary)*
 - **RN-14:** *(added)* The project list sorted by name, ignoring case — *because* project names are
   unique and are how the operator tells projects apart (PRD § Core Features, Projects), so name order
@@ -983,6 +999,34 @@ requirement, that a reader learns both purposes from the first thing they read, 
   (`products/tracker17/docs/trail/uxd/cycle-9.md` § 1.1). How each line is worded is
   `products/tracker17/docs/CONTENT.md`'s. *(re: UX-F4, UX-S4, UX-S7, UX-I3, UX-A3, RN-36; PRD source:
   § UX Notes, Refusals say why, Failure states; § Core Features, Status workflow, Filtering)*
+- **RN-38:** *(added)* The project summary shows the due-today count directly after the overdue
+  count, as a plain number that always shows, "0" included, and only the summary carries it. The
+  count is the project's tasks whose due date is today and whose status is neither `done` nor
+  `cancelled`; it is worked out from today's local date, with one "today" for it and the overdue
+  count in one summary, so a task due today is never also counted as overdue. *Because* PRD § Core
+  Features, Project summary puts the count "Beside the overdue count", and its Due dates rule makes a
+  task due today not overdue; one "today" for both keeps a summary built across midnight from
+  counting a task as both, or as neither. It is a plain number for RN-13's reason: "open" is two
+  statuses and the status filter takes one value (RN-12), so no filter expresses it. The nearest
+  filter, a due range from today to today, also lists the `done` and `cancelled` tasks due today and
+  lands on a list that does not match the number, and its address would carry today's date, so a
+  bookmark or a Back on a later day would show another day's tasks. The overdue count can link
+  because the overdue filter applies the same rule as the count. It always shows, like every other
+  count, because an absent count and a zero count would read the same. The summary is the one place
+  the PRD names for the count, so no list row carries a "Due today" marker and no filter narrows to
+  it. The count is a labelled number, so it reads without colour as UX-A4 holds for the overdue
+  state; its words are `products/tracker17/docs/CONTENT.md`'s. The count is worked
+  out when the page is built and is not a notification, as UX-I9 holds for every page. The answer
+  settled an item the Principal PM raised from the product
+  (`products/tracker17/docs/trail/uxd/cycle-10.md` § 3.1). *(re: UX-F6, UX-S5, RN-12, RN-13; PRD
+  source: § Core Features, Project summary, Due dates, Filtering)*
+- **RN-39:** *(added)* UX-U2 quotes PRD § Assumptions as it reads from PRD version 8: "Until there
+  are outside readers, the owner's own reading and setup stand in for theirs." *Because* PRD version 8
+  replaced the assumption UX-U2 used to quote, "Until then the owner is the only reader", with
+  "tracker17 is public", and the PRD no longer holds that sentence. UX-U2's meaning is unchanged:
+  PRD § Assumptions still says "No outside reader is known yet, so the owner's own reading still
+  stands in for theirs", so the owner is still both the reader and the operator. § 10's line on
+  publishing rests on the finish line, not on this assumption. *(re: UX-U2; PRD source: § Assumptions)*
 
 ---
 
