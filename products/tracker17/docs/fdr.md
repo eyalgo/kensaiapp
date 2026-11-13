@@ -1,9 +1,9 @@
 # FDR — tracker17
 
-**Status:** Settled
+**Status:** Draft
 **Owner:** Principal PM
-**Version:** 6 — no rule, product decision, exclusion or example changes from version 5. At 5: the saved data's unreadable mode is stated: an outside change stays and is read at the next start, and every address shows the one page. The README's opening paragraph names both purposes, the prerequisites name the tool the test suite needs, a return to a confirmation shows what the saved data allows, and a filter or sort value no control can hold is refused
-**Inputs read:** PRD Settled (version 7) · SRS Settled (version 6) · SDD Settled (version 18) · finish line no Status line (`finish_line_template.md` carries none) · UXD Settled (version 11; no `products/tracker17/docs/UXD_open_issues.md` beside it; a sibling, read for collisions, not a source) · tracker17 doctrine no Status line (stamped, unfilled) · writing_bar Settled
+**Version:** 7 — the project summary shows the count of open tasks due today, a task due today is counted as due today and not as overdue, and one summary works out both counts against one "today". Only the summary carries the count. A filter or sort value no control can hold is refused while the tracker serves its saved data, and while the saved data is unreadable its address shows the one page. At 6: no rule, product decision, exclusion or example changed from version 5
+**Inputs read:** PRD Settled (version 9) · SRS Settled (version 8) · SDD Settled (version 23) · finish line no Status line (`finish_line_template.md` carries none) · UXD Settled (version 12; no `products/tracker17/docs/UXD_open_issues.md` beside it; a sibling, read for collisions, not a source) · tracker17 doctrine no Status line (stamped, unfilled) · writing_bar Settled
 
 > The FDR is tracker17's behavioural contract: what the product does, and the product decisions every
 > change after it is built against. It is derived from `products/tracker17/docs/PRD.md`,
@@ -293,9 +293,11 @@ finish line, `system/projects/tracker17/finish_line.md`.
   § 3.10 FR-34)*
 - **R-87:** A range whose from-date is later than its to-date is refused, with a reason saying the
   dates are the wrong way round, and no result is shown in its place. *(traces to: SRS § 3.10 FR-34)*
-- **R-128:** A value in a task list's filter or sort choices that its control cannot hold, such as an
-  unknown status or a date that is not a calendar date, is refused with the reason, and no result is
-  shown in its place. *(traces to: SDD § 4 RT-8)*
+- **R-128:** While the tracker serves its saved data, a value in a task list's filter or sort choices
+  that its control cannot hold, such as an unknown status or a date that is not a calendar date, is
+  refused with the reason, and no result is shown in its place. While the saved data is unreadable,
+  that address shows R-25's page, as every address does, and nothing is refused. *(traces to: SDD § 4
+  RT-8, EX-13)*
 - **R-88:** The overdue filter shows only tasks that are overdue under R-68. *(traces to: SRS § 3.10
   FR-35)*
 - **R-89:** The operator sorts a task list by one field at a time: due date, priority, created time or
@@ -327,6 +329,13 @@ finish line, `system/projects/tracker17/finish_line.md`.
   always one row for "(unassigned)". *(traces to: SRS § 3.11 FR-38)*
 - **R-99:** The overdue state agrees across the list marking, the overdue filter and the summary's
   overdue count for the same task on the same day. *(traces to: SRS § 8 AC-13)*
+- **R-129:** For one project, the summary shows the due-today count: the number of the project's tasks
+  whose due date is today under R-69 and whose status is neither `done` nor `cancelled`. A zero count
+  is shown. *(traces to: SRS § 3.11 FR-38; PRD § Core Features, Project summary)*
+- **R-130:** A task due today is in the summary's due-today count and not in its overdue count.
+  *(traces to: SRS § 3.11 FR-38; § 8 AC-13; PRD § Core Features, Project summary)*
+- **R-131:** One summary works out its overdue count and its due-today count against the same "today",
+  even when the date changes while the summary is produced. *(traces to: SRS § 3.11 FR-38)*
 
 ### Refusals, stale pages and failures
 
@@ -455,6 +464,9 @@ finish line, `system/projects/tracker17/finish_line.md`.
   *(traces to: PRD § Core Features, Projects)*
 - **OOS-16:** Unreadable saved data found while the tracker runs. Saved data is read only at start
   (R-20), so no rule here covers a read failure mid-run. *(traces to: SDD § 9 TO-4)*
+- **OOS-17:** A due-today marking on a list's tasks, and a filter for tasks due today. The due-today
+  count is the summary's alone (R-129), and R-70 and R-82 stand as written. *(traces to: PRD § Core
+  Features, Project summary; SRS § 3.11 FR-38, RN-26)*
 
 ---
 
@@ -468,6 +480,9 @@ finish line, `system/projects/tracker17/finish_line.md`.
 | A task in `cancelled` | No move is offered for it. | R-54, R-56 |
 | A task in `done`, the operator changes its title | Accepted. The status stays `done`. | R-46 |
 | Today is 2026-10-06. Task A is due 2026-10-05 in `todo`, task B is due 2026-10-06 in `todo`, task C is due 2026-10-05 in `done` | Only A is overdue. The list marks only A, the overdue filter returns only A, and the summary's overdue count is 1. | R-68, R-99 |
+| Today is 2026-10-06. Task A is due 2026-10-06 in `todo`, task B is due 2026-10-06 in `cancelled`, task C is due 2026-10-05 in `in-progress` | The summary's due-today count is 1 and its overdue count is 1. A is due today and not overdue, C is overdue, and B is in neither count. | R-68, R-129, R-130 |
+| A project with no tasks | The summary shows a due-today count of 0. | R-129 |
+| An open task is due 2026-10-06, and the date changes from 2026-10-06 to 2026-10-07 while the summary is produced | The task is in exactly one of the two counts: due today when the summary's "today" is 2026-10-06, overdue when it is 2026-10-07. | R-131 |
 | Project `Alpha` exists, the operator creates `alpha` | Accepted. Names are compared exactly. | R-32 |
 | Project `Alpha` exists, the operator creates `Alpha ` with a trailing space | Accepted as a different name. The name is saved with its trailing space. | R-32, R-80 |
 | Project `Alpha` renamed to `Alpha` | Not refused. Nothing changes. | R-34 |
@@ -499,6 +514,7 @@ finish line, `system/projects/tracker17/finish_line.md`.
 | A task moved to `cancelled` after its confirmation, then the operator presses Back to the confirmation's address | No confirmation shows. The page says the task is `cancelled`. | R-127 |
 | A task deleted after its confirmation, then the operator presses Back to the confirmation's address | The not-found page shows. | R-105, R-127 |
 | A filter address asks for the status `nonsense` | Refused with the reason. No list shows. | R-128 |
+| While the saved data is unreadable, a filter address asks for the status `nonsense` | The unreadable-data page shows, and nothing is refused. | R-25, R-128 |
 
 ---
 
@@ -583,31 +599,37 @@ finish line, `system/projects/tracker17/finish_line.md`.
     operator at that volume, are quality bars rather than behaviour. They belong to the NFDR,
     `products/tracker17/docs/nfdr.md` (SDD § 12). PD-16 carries NFR-7's one-operator consequence.
   - SRS § 8's acceptance criteria are carried by the rules they cover. AC-8 and AC-13 also state
-    behaviour no FR states, and R-28 and R-99 carry it.
+    behaviour no FR states, and R-28 and R-99 carry it. AC-13's due-today side is carried by R-129
+    and R-130.
   - SDD § 4's experience conditions EX-1, EX-2, EX-4 to EX-6, EX-8 to EX-12 and EX-14 restate UXD
     entries — how a page appears, where focus lands, what is confirmed in place. They are the
     experience, which `products/tracker17/docs/UXD.md` owns, and this document restates none of them.
     R-26, R-56, R-94 and R-105 take behaviour from EX-12, EX-7, EX-3 and EX-13.
-  - SDD § 4 RT-5, RT-6, RT-9, SD-3, SD-6, OB-4, SEC-2, SEC-3 and TS-1 to TS-5 are mechanisms. The
+  - SDD § 4 RT-5, RT-6, RT-9, SD-3, SD-6, OB-4, SEC-2, SEC-3 and TS-1 to TS-6 are mechanisms. The
     behaviour each serves is the rule that cites its SRS source. RT-5's fixed address lands as R-4 and
     PD-10, which state that the address is fixed and leave its value to the SDD. SEC-2's refusals and
     SEC-3's policy, framing included, serve R-110. RT-7's form, which carries the values the page
     showed, is a mechanism too, and the save it serves is R-115 and R-48. RT-8's definition of a
     submission as a form sent with `method="post"` is a mechanism, and R-106 holds under it, because a
-    filter or sort form changes nothing. RT-11's status codes and cache headers are a mechanism, and
+    filter or sort form changes nothing. RT-8's unreadable-data mode lands as R-128's second sentence. RT-11's status codes and cache headers are a mechanism, and
     the behaviour they serve is R-127.
   - SDD § 3's `application` row, on which actions report no change and what each compares, is a
-    mechanism. R-62, R-65 and R-116 stand as written.
+    mechanism. R-62, R-65 and R-116 stand as written. SDD § 3's four layers name where the five parts
+    sit and move no seam, so PD-15 stands as written.
   - SDD § 4 RT-3 and RT-4's Linux statements land as R-119, R-120 and PD-8. RT-4's statements on the
     tool that makes the test suite's environment land as R-124 to R-126, which leave its name to the
     SDD as R-4 and PD-10 leave the address's value to it. RT-4's lock file, its commands and the
-    interpreter the suite runs on are mechanisms. SDD § 6 S-1's statement
+    interpreter the suite runs on are mechanisms. So are RT-4's Behave scenario folder, its own pins
+    and lock, and the two commands typed inside it. PD-7 holds over those pins, and R-11 stays true
+    of the suite, which RT-4 says the folder is not. SDD § 6 S-1's statement
     that the full suite needs the copy to be a Git repository is in a slice, under the bullet on SDD
     §§ 5 to 8 below, and no § 4 condition states it.
   - SDD § 9 TO-1, TO-3 and TO-5 have no consequence a user sees beyond the two-command start, which
     R-1 and R-13 bound. TO-2's consequence, a whole page answering every action, is the experience,
     under the previous bullet. TO-4, TO-6 and TO-7 land as R-20, OOS-16, PD-10 and PD-11. TO-8 lands
-    as R-127, and TO-9 as R-124 to R-126.
+    as R-127, and TO-9 as R-124 to R-126. TO-10's consequence falls on a reader of the code, who finds
+    the two contracts outside a package of their own. Where a part sits is structure, which the SDD
+    owns, and PD-14 and PD-15 stand as written.
   - SDD § 11's risks and SDD § Open Questions (whether assistive technology reads the completion line
     or the reason when a page opens on the element it describes) are technical and settle in the
     build. None moves a rule here. R-79
@@ -615,8 +637,9 @@ finish line, `system/projects/tracker17/finish_line.md`.
   - SDD §§ 5 to 8 and § 10 are the cut and its record, and a definition document never names the route
     (`<CORE>/doctrine/setup/setting_up_a_project.md` § *The definition set never names the journey*).
   - PRD § Why This, § Assumptions and § Risks set intent and conditions, and require no behaviour. SRS
-    RN-18 walks the same items. PRD § Assumptions' sentence on becoming public with kensaiapp's public
-    release leaves OOS-1 standing, because the finish line's done still does not require publishing.
+    RN-18 walks the same items. PRD § Assumptions now says tracker17 is public, shipped as an example in
+    kensaiapp's public release. OOS-1 stands, because the finish line's done still does not require
+    publishing or a trial by an outside reader, and SRS RN-18 adds no requirement for either.
   - PRD § Purpose's second purpose adds no behaviour to the tracker (SRS RN-18). The Description names
     it, and R-122 and R-123 carry its last sentence through SRS FR-41.
   - The default sort field of a list with no sort chosen, the order of the projects list, and whether a
@@ -624,7 +647,9 @@ finish line, `system/projects/tracker17/finish_line.md`.
     direction, and `products/tracker17/docs/UXD.md` § 5.5 UX-F5 and § 6 UX-S3 state the rest.
     `products/tracker17/docs/UXD.md` UX-F2 and UX-F7 have the project-description field and the
     comment field state their maximum, and SDD § 4 RT-10 takes that number from the field's own limit.
-    None of the three moves a rule here.
+    None of the three moves a rule here. PRD § Core Features, Project summary places the due-today
+    count "Beside the overdue count", and `products/tracker17/docs/UXD.md` UX-F6 and UX-S5 state
+    where it sits and how it reads, so R-129 states the count and not its place.
 - **RN-13:** *(added)* R-51, R-90, R-96, PD-5 and RN-6 name four priorities, and R-119, R-120 and
   PD-8 carry the Linux setup lines — confirmed choices, confirmed on 2026-10-11 in
   `products/tracker17/docs/trail/fdr/cycle-2.md` § 2.1 and § 2.2, with the reasoning in
@@ -650,3 +675,21 @@ finish line, `system/projects/tracker17/finish_line.md`.
   to R-126. SDD versions 11 and 13 RT-11 and TO-8 are the source of R-127. SDD version 12 RT-8 is the
   source of R-128. *(re: Description, R-121 to R-128; source: PRD § Purpose; SRS § 3.1 FR-41; SDD § 4
   RT-4, RT-8, RT-11; § 9 TO-8, TO-9)*
+- **RN-16:** *(added)* R-129, R-130, R-131 and OOS-17, and the Examples rows that show them: the
+  summary's due-today count — *because* PRD version 9 § Core Features, Project summary has the
+  summary show, beside the overdue count, "the count of tasks due today: tasks whose due date is
+  today's date and that are neither `done` nor `cancelled`", and says "a task due today is counted as
+  due today and not as overdue". The owner set the count in
+  `products/tracker17/docs/trail/prd/cycle-7.md` § 1.1. SRS version 8 FR-38, AC-13 and RN-26 carry
+  it. SRS FR-38 adds the one "today" for both counts that R-131 states, and SRS RN-26 says "FR-26 adds
+  no due-today marking and FR-32 no due-today filter", which OOS-17 states. The four entries follow
+  an upstream change made after FDR version 6 read PRD version 7 and SRS version 6, and
+  `products/tracker17/docs/fdr_open_issues.md` § 2.1 carries them as a choice to confirm. *(re: R-129
+  to R-131, OOS-17; source: PRD § Core Features, Project summary; SRS § 3.11 FR-38, § 8 AC-13, RN-26)*
+- **RN-17:** *(changed)* R-128 is scoped to a tracker serving its saved data, with the unreadable case
+  stated beside it — *because* SDD version 19 § 4 RT-8 says "While the saved data cannot be read, such
+  a form's address answers as every address does (EX-13): its values are not read, no refusal
+  arises". R-128 as version 6 wrote it was false of the tracker on unreadable data. The CTO seat
+  settled that reading in `products/tracker17/docs/trail/sdd/cycle-16.md` § 2.1, and RN-14 scoped R-20
+  and R-105 the same way. `products/tracker17/docs/fdr_open_issues.md` § 2.1 carries the change as a
+  choice to confirm. *(re: R-128; source: SDD § 4 RT-8, EX-13)*
