@@ -23,3 +23,5 @@ Cut from `products/tracker17/docs/SRS.md` § 3.11 FR-38 ("beside the overdue cou
 ## Out (later / elsewhere)
 
 The SDD, FDR, NFDR, `DESIGN.md` and `CONTENT.md` re-runs, and the seed that builds the count in the product, wait for the UXD to carry it. Each is swept or cut after this seed retires, not inside it.
+
+Divergence, 2026-11-13 (`nemawashi-refine`, answer to `tracker17 · nemawashi · 2026-11-13_the-ignored-sigint-test-holds-in-a-full-run`): the work this seed asks for is on disk — UXD version 12 (`59b5394da`), Settled, carries the count at UX-F6 and UX-S5 and its companion is gone — so the seed wants a pick and a close, not a second fold; § What it is records the state when the seed was cut.
