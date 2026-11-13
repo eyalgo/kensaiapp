@@ -3,7 +3,7 @@
 Checks SRS FR-38 (a project's summary), FR-25 and FR-35 (the overdue rule the list, the filter and
 the Summary share), NFR-4 (a request from another site is refused), NFR-8 (a read changes nothing),
 AC-13 and AC-14. Change spec rules CP-490 to CP-495, CP-497, CP-505, CP-508, CP-510 and CP-513 to
-CP-526 and NFDR QC-7, QC-8, QC-28, QC-33 and QC-34 are the ones each test names; the design rows are
+CP-526, CP-816 (the due-on-date row) and NFDR QC-7, QC-8, QC-28, QC-33 and QC-34 are the ones each test names; the design rows are
 T02 to T05, T07 to T10 and T12. The real Site, Tracker and SavedData are used with an injected
 clock; no product name is patched, and the one read count is a subclass handed to the Site.
 """
@@ -385,6 +385,34 @@ def test_overdue_mark_filter_and_summary_agree(tmp_path: Path) -> None:
     (overdue_link,) = [a for a in count_anchors(summary_root) if "overdue" in label_of(a)]
     followed = parse(page(get(world.site, overdue_link.attrs["href"] or "")))
     assert listed_titles(followed) == ["late"]
+
+
+def test_summary_of_a_built_project_counts_due_on_the_date_and_excludes_the_rest(
+    tmp_path: Path,
+) -> None:
+    """CP-816: open tasks due on the clock's date count in the due-on row, in todo and in
+    in-progress; done and cancelled ones, a task due the day before or after, an undated one and
+    another project's open task due that day do not."""
+    world = make_world(tmp_path, projects=("Alpha", "Beta"))
+    tracker = world.tracker
+    day = world.clock.instant.date()
+    today, before, after = (d.isoformat() for d in (day, day - timedelta(1), day + timedelta(1)))
+    tracker.add_task(1, "open", "medium", "", today)
+    tracker.add_task(1, "started", "medium", "", today)
+    tracker.add_task(1, "finished", "medium", "", today)
+    tracker.add_task(1, "dropped", "medium", "", today)
+    tracker.add_task(1, "late", "medium", "", before)
+    tracker.add_task(1, "early", "medium", "", after)
+    tracker.add_task(1, "undated", "medium", "", "")
+    tracker.add_task(2, "elsewhere", "medium", "", today)
+    tracker.move_task(2, "in-progress")
+    tracker.move_task(3, "in-progress")
+    tracker.move_task(3, "done")
+    tracker.move_task(4, "cancelled")
+
+    rows = summary_rows(parse(page(get(world.site, SUMMARY))))
+
+    assert [rows["Overdue"], rows[f"Due on {today}"], rows["No due date"]] == ["1", "2", "1"]
 
 
 def test_summary_get_is_a_read_of_the_requested_project() -> None:

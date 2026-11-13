@@ -5,7 +5,7 @@ included, a label added or removed too, the operator's name saved, a comment add
 to or removed from the assignee list, a task moved from `todo` to `in-progress`, and a project
 list filtered by a status, which realizes FR-32, and sorted by priority, which realizes FR-36) and AC-15 (the response time). Change spec rules CP-143 (the add), CP-179 (the edit), CP-208 (the label add and
 remove), CP-237 (the name save), CP-276 to CP-289 (the comment add and the assignee add and remove)
-CP-371 to CP-392 (the status move), CP-418 to CP-423 (the status filter) and CP-451 to CP-456 (the sort), CP-543 (the task deletion, FR-17), CP-566 (the project rename, FR-12) and NFDR QC-48 are the ones each test names. The harness is
+CP-812 and CP-821 (the Summary's due-on-date row), CP-371 to CP-392 (the status move), CP-418 to CP-423 (the status filter) and CP-451 to CP-456 (the sort), CP-543 (the task deletion, FR-17), CP-566 (the project rename, FR-12) and NFDR QC-48 are the ones each test names. The harness is
 tests/timed_run.py; it is loaded by its path and handed its own collaborators (a request site, a
 timer, a location), so no product name is patched. A script that only exits 0 could time the wrong
 path, so these tests prove it exercises the real one and refuses a wrong one.
@@ -3802,6 +3802,11 @@ def _local_today() -> date:
     return datetime.now().astimezone().date()
 
 
+def _due_on_label(day: date) -> str:
+    """The label of the Summary's due-on-date row, as the change's text gives it."""
+    return f"Due on {day.isoformat()}"
+
+
 def _summary_oracle(state, today: date) -> list[tuple[str, int]]:
     """The rows the Summary of project 1 must show, worked out here by plain comparison of each
     task: never by the product's Summary, its project filter or its application read."""
@@ -3811,6 +3816,7 @@ def _summary_oracle(state, today: date) -> list[tuple[str, int]]:
     rows += [(word, sum(t.status.value == word for t in held)) for word in STATUS_WORDS]
     rows += [(word, sum(t.priority.value == word for t in held)) for word in PRIORITY_WORDS]
     rows.append(("Overdue", sum(1 for t in open_tasks if t.due_date and t.due_date < today)))
+    rows.append((_due_on_label(today), sum(1 for t in open_tasks if t.due_date == today)))
     rows.append(("No due date", sum(1 for t in held if t.due_date is None)))
     listed = list(state.assignees)
     unlisted = sorted(
@@ -4011,10 +4017,15 @@ LOOKALIKE_LAYOUTS = {
     "todo and (unassigned) listed": ("todo", "(unassigned)"),
     "low and Overdue listed": ("low", "Overdue"),
 }
-OUTSIDE_THE_NINE = [
-    ("Tasks by status", "Total"),
-    ("Due dates", "No due date"),
-]
+
+
+def _outside_the_nine(today: date) -> list[tuple[str, str]]:
+    """The count cells that may hold no anchor and are not in an assignee group, for this day."""
+    return [
+        ("Tasks by status", "Total"),
+        ("Due dates", _due_on_label(today)),
+        ("Due dates", "No due date"),
+    ]
 
 
 @pytest.mark.parametrize("layout", LOOKALIKE_LAYOUTS)
@@ -4045,7 +4056,10 @@ def test_timed_summary_forbids_links_outside_selected_count_cells(
     def anchored(old: str) -> str:
         return f'<a href="/projects/1">{old}</a>'
 
-    cells = [*OUTSIDE_THE_NINE, *[("Open tasks by assignee", label) for label, _ in assignees]]
+    cells = [
+        *_outside_the_nine(_local_today()),
+        *[("Open tasks by assignee", label) for label, _ in assignees],
+    ]
     for heading, label in cells:
         edited = _edited(
             linked, lambda t, h=heading, label=label: _edit_cell(t, h, label, anchored, 0)
@@ -4057,7 +4071,7 @@ def test_timed_summary_forbids_links_outside_selected_count_cells(
         for heading, rows in (
             ("Tasks by status", ["Total", *STATUS_WORDS]),
             ("Tasks by priority", PRIORITY_WORDS),
-            ("Due dates", ["Overdue", "No due date"]),
+            ("Due dates", ["Overdue", _due_on_label(_local_today()), "No due date"]),
             ("Open tasks by assignee", [label for label, _ in assignees]),
         )
         for label in rows
@@ -4398,12 +4412,51 @@ def _measured_with_slow_readbacks(harness: ModuleType, served: Intercept, saved_
 
 
 @pytest.mark.parametrize("shape", SUMMARY_SHAPES)
+def test_timed_summary_check_holds_the_page_to_the_due_on_row(
+    harness: ModuleType, tmp_path: Path, shape: str
+) -> None:
+    """CP-812, CP-821: the real page, with its due-on row, passes the check, and a page with the
+    row dropped, a wrong date or count in it, or an anchor on its count or its label fails it."""
+    site, saved_data, loaded = _summary_fixture(harness, tmp_path)
+    real = _edited(_real_summary(harness, site), SUMMARY_SHAPES[shape])
+    label = _due_on_label(_local_today())
+    shown = dict(_summary_oracle(loaded, _local_today()))[label]
+
+    assert _created(harness, site, saved_data, real)
+    wrong = {
+        "the row dropped": lambda t: _drop_row(t, "Due dates", label),
+        "another date in the label": lambda t: _in_group(
+            t,
+            "Due dates",
+            lambda section: section.replace(label, _due_on_label(date(1999, 12, 31))),
+        ),
+        "a wrong count": lambda t: _set_count(t, "Due dates", label, shown + 1),
+        "an anchored count": lambda t: _edit_cell(
+            t, "Due dates", label, lambda old: f'<a href="/projects/1">{old}</a>'
+        ),
+        "an anchored label": lambda t: _in_group(
+            t,
+            "Due dates",
+            lambda section: section.replace(
+                f'class="pre-wrap">{label}</th>',
+                f'class="pre-wrap"><a href="/projects/1">{label}</a></th>',
+            ),
+        ),
+    }
+    for name, edit in wrong.items():
+        edited = _edited(real, edit)
+        assert edited.body != real.body, name
+        assert not _created(harness, site, saved_data, edited), name
+
+
+@pytest.mark.parametrize("shape", SUMMARY_SHAPES)
 def test_timed_summary_accepts_a_run_that_crosses_midnight(
     harness: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, shape: str
 ) -> None:
-    """T14, CP-497, CP-509, CP-527: the overdue row is counted on the local day, so a GET answered
-    on either of the two days that bracket the request passes with that day's row, and a row that
-    fits neither day fails. The edited cell is the overdue count, anchored in the linked shape."""
+    """T14, CP-497, CP-509, CP-527: the overdue row and the due-on row are counted on the local day,
+    so a GET answered on either of the two days that bracket the request passes with that day's
+    rows, and a row that fits neither day fails. The edited cells are the overdue count, anchored
+    in the linked shape, and the due-on label and count."""
     site, saved_data, loaded = _summary_fixture(harness, tmp_path)
     real = _edited(_real_summary(harness, site), SUMMARY_SHAPES[shape])
     first, next_day = date(2000, 1, 1), date(2000, 1, 2)
@@ -4411,22 +4464,33 @@ def test_timed_summary_accepts_a_run_that_crosses_midnight(
     overdue_next = dict(_summary_oracle(loaded, next_day))["Overdue"]
     assert overdue_first != overdue_next
 
-    shown_now = {
-        unescape(label): int(count)
-        for label, _, count, _ in SUMMARY_ROW.findall(real.body.decode("utf-8"))
-    }["Overdue"]
+    shown_now = _local_today()
 
-    def with_overdue(count: int) -> Response:
-        """The real page showing this overdue count; the page itself when it shows it already."""
-        if count == shown_now:
-            return real
-        edited = _edited(real, lambda t: _set_count(t, "Due dates", "Overdue", count))
+    def with_overdue(count: int, day: date) -> Response:
+        """The real page showing this overdue count, and the due-on row of this day with the count
+        the fixture gives it."""
+
+        def edit(text: str) -> str:
+            relabelled = _in_group(
+                text,
+                "Due dates",
+                lambda section: section.replace(_due_on_label(shown_now), _due_on_label(day)),
+            )
+            counted = _set_count(
+                relabelled,
+                "Due dates",
+                _due_on_label(day),
+                dict(_summary_oracle(loaded, day))[_due_on_label(day)],
+            )
+            return _set_count(counted, "Due dates", "Overdue", count)
+
+        edited = _edited(real, edit)
         assert edited.body != real.body
         return edited
 
-    earlier = with_overdue(overdue_first)
-    later = with_overdue(overdue_next)
-    neither = with_overdue(overdue_first + overdue_next + 1)
+    earlier = with_overdue(overdue_first, first)
+    later = with_overdue(overdue_next, next_day)
+    neither = with_overdue(overdue_first + overdue_next + 1, first)
     for page in (earlier, later, neither):
         shown = f'href="{_count_href("Overdue")}"'
         assert (shown in page.body.decode("utf-8")) == (shape == "linked")

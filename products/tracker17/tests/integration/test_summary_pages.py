@@ -3,12 +3,14 @@
 Checks SRS FR-38 (a project's summary as numbers, nine of them links), NFR-5 (typed text is shown
 as text) and NFR-12 (state is carried by words, every control has a name). Change spec rules
 CP-491, CP-492, CP-494, CP-496, CP-501, CP-502, CP-512 and CP-513 to CP-515 and CP-521 to CP-522,
+CP-811 to CP-813 (the due-on-date row),
 and NFDR QC-36, are the ones each test names; the design rows are T01, T06, T08, T09 and T18. The
 page is built from values handed in, so no rule is recomputed here.
 """
 
 from __future__ import annotations
 
+import re
 from datetime import date
 
 from test_pages import Element, parse
@@ -140,7 +142,7 @@ def test_summary_has_all_ordered_plain_rows_and_only_allowed_links() -> None:
     priority with its numeral, overdue, undated, the assignees last; one title; no form, script or
     refresh; the only links are the view pair and the nine count links, each holding only its
     numeral; no label, Total, no-due-date or assignee count sits inside a link or a control."""
-    page = pages.summary_page(make_summary(ALPHA))
+    page = pages.summary_page(make_summary(ALPHA, due_today=3))
     root = parse(page)
     assert page.startswith('<!doctype html>\n<html lang="en">')
     assert [e.text() for e in root.find_all("title")] == ["Alpha: Summary - tracker17"]
@@ -166,7 +168,7 @@ def test_summary_has_all_ordered_plain_rows_and_only_allowed_links() -> None:
     assert column_headers(priority) == ["Priority", "Tasks"]
     assert rows_of(priority) == [("low", "1"), ("medium", "1"), ("high", "1"), ("critical", "2")]
     assert column_headers(due) == ["Due date", "Tasks"]
-    assert rows_of(due) == [("Overdue", "1"), ("No due date", "2")]
+    assert rows_of(due) == [("Overdue", "1"), ("Due on 2026-11-13", "3"), ("No due date", "2")]
     assert column_headers(assignee) == ["Assignee", "Open tasks"]
     assert rows_of(assignee) == [("ari", "1"), ("bo", "0"), ("eve", "1"), ("(unassigned)", "1")]
     for tag in ("form", "script", "button", "input", "select", "textarea"):
@@ -192,6 +194,44 @@ def test_summary_has_all_ordered_plain_rows_and_only_allowed_links() -> None:
     for anchor in count_cell_anchors(root):
         assert [c for c in anchor.children if isinstance(c, Element)] == []
         assert anchor.text().isdecimal()
+
+
+def test_empty_summary_shows_due_on_zero_among_all_zero_rows() -> None:
+    """CP-811, CP-813, CP-816: a no-tasks summary dated 2026-11-13 reads 0 on every Due dates row,
+    the due-on row among them, and the invitation to add a first task shows."""
+    empty = make_summary(
+        Project(id=3, name="Gamma", description=""),
+        statuses=(0, 0, 0, 0),
+        priorities=(0, 0, 0, 0),
+        overdue=0,
+        due_today=0,
+        undated=0,
+        today=date(2026, 11, 13),
+        assignees=((None, 0),),
+    )
+    root = parse(pages.summary_page(empty))
+    assert rows_of(groups(root)[2]) == [
+        ("Overdue", "0"),
+        ("Due on 2026-11-13", "0"),
+        ("No due date", "0"),
+    ]
+    (invitation,) = root.find_all("p")
+    assert invitation.text() == "This project has no tasks yet. Open Tasks to add the first task."
+
+
+def test_due_on_cell_is_a_bare_numeral_with_no_link_or_name() -> None:
+    """CP-811, CP-812: the due-on cell holds no anchor and no accessible name, the page holds nine
+    count links as before, and no text on it says `today` as a whole word, in any case."""
+    page = pages.summary_page(make_summary(ALPHA, due_today=4))
+    root = parse(page)
+    (due_group,) = [g for g in groups(root) if "Due dates" in g.text()]
+    (due_on,) = [row for row in due_group.find_all("tr") if "Due on" in row.text()]
+    (cell,) = due_on.find_all("td")
+    assert cell.text() == "4"
+    assert cell.find_all("a") == [] and "aria-label" not in cell.attrs
+    assert [e for e in due_on.find_all("*") if "aria-label" in e.attrs] == []
+    assert len(count_cell_anchors(root)) == 9
+    assert re.search(r"\btoday\b", page, re.IGNORECASE) is None
 
 
 def test_zero_rows_are_kept_and_the_populated_summary_has_no_invitation() -> None:
