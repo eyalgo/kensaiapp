@@ -1,0 +1,8 @@
+# Flow Findings — development-design  (audited 2026-11-13)
+
+Findings for this step's output only, produced by the `development-audit` skill.
+Change-local findings live here; skill-general findings are also raised as kaizen items.
+
+- **[non-blocking · change-local · coverage]** CP-817 asks that every new or changed test module name the requirements or acceptance criteria it checks. The design's § 5 states a docstring update for only three of them: `test_summary.py`, `test_summary_tracker.py` and `test_summary_routes.py`. It states none for the other changed modules: `test_summary_pages.py` (new tests and a modified one), `test_pages.py`, `tests/timed_run.py` and `test_timed_run.py`. Where: `change_design.md §5 Test Additions` and its coverage line. The row for `domain/summary.py` also says only "adds the checking modules this change touches". Direction: say which changed modules need a docstring line, or say that their existing docstrings already name the requirements.
+
+Checked and clean (no finding): classification copied verbatim from the spec (feature / changing); altitude; every CP rule and rule-implied edge maps to a § 5 row (empty project, other project, no due date, due after or before the date, midnight, local zone, no-link cell); the one-date contract is realized by construction (`today` travels on `ProjectSummary`) and is recorded in the Architect Review Notes; the atomic-landing edge is stated as a property, with no downstream role named and no commits prescribed; the design's claims about the code (the `is_open` rule, `SequenceClock` and `MovableClock`, `_summary_expected`, `_summary_oracle`, the `test_pages.py` call) match the tree. No ADR, NFDR or FDR conflict surfaced.
