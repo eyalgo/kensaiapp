@@ -22,6 +22,7 @@ from application import (
     TrackerState,
 )
 from domain import restore_state
+from tests.fakes import FakeSaver
 
 PROJECTS = [(1, "Alpha", "first"), (2, "Beta", "")]
 NEXT_PROJECT_ID = 3
@@ -36,29 +37,6 @@ class CountingClock:
         return datetime(2026, 10, 11, 12, 0, tzinfo=UTC)
 
 
-class RecordingSaver:
-    """Keeps every state it was handed, and what the tracker listed at the moment of each save."""
-
-    def __init__(self) -> None:
-        self.saved: list[TrackerState] = []
-        self.listed_during_save: list[tuple[str, ...]] = []
-        self.tracker: Tracker | None = None
-
-    def save(self, state: TrackerState) -> None:
-        if self.tracker is not None:
-            self.listed_during_save.append(self.tracker.assignees())
-        self.saved.append(state)
-
-
-class FailingSaver:
-    def __init__(self) -> None:
-        self.calls = 0
-
-    def save(self, state: TrackerState) -> None:
-        self.calls += 1
-        raise PermissionError("the disk said no")
-
-
 def _state(*assignees: str) -> TrackerState:
     return restore_state(PROJECTS, NEXT_PROJECT_ID, assignees)
 
@@ -70,7 +48,7 @@ def _tracker(saver, *assignees: str, clock: CountingClock | None = None) -> Trac
 @pytest.mark.parametrize("starting", [(), ("Dana", " Ari", "Bo")], ids=["empty", "populated"])
 def test_assignee_query_does_not_save_or_read_the_clock(starting):
     """CP-81, CP-86: the list comes back in its order and nothing is written or timed."""
-    saver = RecordingSaver()
+    saver = FakeSaver()
     clock = CountingClock()
     tracker = _tracker(saver, *starting, clock=clock)
 
@@ -83,7 +61,7 @@ def test_assignee_query_does_not_save_or_read_the_clock(starting):
 
 def test_assignee_action_reports_the_exact_name_after_save():
     """FR-9, CP-86, CP-93: the exact value comes back, and the saver already holds the candidate."""
-    saver = RecordingSaver()
+    saver = FakeSaver()
     tracker = _tracker(saver, "Dana")
 
     added = tracker.add_assignee(" Ari ")
@@ -100,20 +78,20 @@ def test_assignee_action_reports_the_exact_name_after_save():
 
 def test_assignee_candidate_is_saved_before_becoming_current():
     """CP-97: during the save the tracker still shows the old list, and afterwards the new one."""
-    saver = RecordingSaver()
+    saver = FakeSaver()
     tracker = _tracker(saver, "Dana")
-    saver.tracker = tracker
+    saver.watch = tracker.assignees
 
     tracker.add_assignee("Ari")
     tracker.remove_assignee("Dana")
 
-    assert saver.listed_during_save == [("Dana",), ("Dana", "Ari")]
+    assert saver.seen == [("Dana",), ("Dana", "Ari")]
     assert tracker.assignees() == ("Ari",)
 
 
 def test_failed_assignee_save_leaves_the_old_state_current():
     """CP-97, NFR-8: the failure propagates and the names, projects and counter stay."""
-    saver = FailingSaver()
+    saver = FakeSaver(error=PermissionError("the disk said no"))
     tracker = _tracker(saver, "Dana", "Ari")
 
     with pytest.raises(PermissionError, match="the disk said no"):
@@ -125,7 +103,7 @@ def test_failed_assignee_save_leaves_the_old_state_current():
     assert tracker.assignees() == ("Dana", "Ari")
     assert [project.name for project in tracker.projects()] == ["Alpha", "Beta"]
 
-    recorder = RecordingSaver()
+    recorder = FakeSaver()
     healthy = Tracker(_state("Dana", "Ari"), recorder, CountingClock())
     assert healthy.create_project("Gamma", "").id == NEXT_PROJECT_ID
     assert recorder.saved[-1].next_project_id == NEXT_PROJECT_ID + 1
@@ -133,7 +111,7 @@ def test_failed_assignee_save_leaves_the_old_state_current():
 
 def test_refused_assignee_action_never_calls_the_saver():
     """CP-89 to CP-91, CP-96: each refusal propagates its type and the state stays as it was."""
-    saver = RecordingSaver()
+    saver = FakeSaver()
     tracker = _tracker(saver, "Dana")
 
     with pytest.raises(BlankName):
@@ -151,7 +129,7 @@ def test_refused_assignee_action_never_calls_the_saver():
 
 def test_assignee_actions_check_current_state_after_other_actions():
     """CP-92, CP-96: each action is decided by the list as it stands when the action is applied."""
-    saver = RecordingSaver()
+    saver = FakeSaver()
     tracker = _tracker(saver, "Dana")
 
     tracker.add_assignee("Eve")
@@ -170,7 +148,7 @@ def test_assignee_actions_check_current_state_after_other_actions():
 @pytest.mark.parametrize("starting", [(), ("Dana", "Ari")], ids=["empty", "populated"])
 def test_projects_and_assignees_preserve_each_other(starting):
     """CP-105: a project create keeps the list, and a list action keeps projects and counter."""
-    saver = RecordingSaver()
+    saver = FakeSaver()
     tracker = _tracker(saver, *starting)
 
     created = tracker.create_project("Gamma", "")
