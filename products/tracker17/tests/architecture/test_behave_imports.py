@@ -12,8 +12,18 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from test_imports import violations
+from test_shapes import PARTS, top_level_parts
 
 _FOLDER = ".behave"
+_THE_SIX_PARTS = (
+    "domain/model.py",
+    "application/service.py",
+    "persistence/store.py",
+    "web/site.py",
+    "main.py",
+    "errors.py",
+)
 
 
 def _plant(root: Path, *relatives: str, text: str = "x = 1\n") -> None:
@@ -119,3 +129,150 @@ def test_the_walk_returns_the_existing_module_type(behave_walk_of, walk_of, tmp_
     (existing,) = walk_of(tmp_path).modules()
     assert type(module) is type(existing)
     assert module.imported() == ["os"]
+
+
+def test_a_root_without_a_behave_entry_passes(behave_walk_of, tmp_path: Path) -> None:
+    """CP-797: with no scenario folder the check reads nothing and lists nothing."""
+    assert tests_imports(behave_walk_of(tmp_path)) == []
+
+
+def test_an_import_from_tests_fails_listing_the_module(behave_walk_of, tmp_path: Path) -> None:
+    """CP-800, CP-802: the site is listed, and the same file without the line is clean."""
+    _plant(tmp_path, ".behave/features/x.py", text="from tests import conftest\n")
+    found = tests_imports(behave_walk_of(tmp_path))
+    assert (
+        ".behave/features/x.py: tests" in found or ".behave/features/x.py: tests.conftest" in found
+    )
+    _plant(tmp_path, ".behave/features/x.py", text="x = 1\n")
+    assert tests_imports(behave_walk_of(tmp_path)) == []
+
+
+def test_an_import_inside_a_function_is_found(behave_walk_of, tmp_path: Path) -> None:
+    """CP-800: the statement may sit anywhere in the module."""
+    _plant(tmp_path, ".behave/features/a.py", text="def f():\n    import tests\n")
+    found = tests_imports(behave_walk_of(tmp_path))
+    assert ".behave/features/a.py: tests" in found
+
+
+def test_the_remaining_forms_are_each_found(behave_walk_of, tmp_path: Path) -> None:
+    """CP-800: an aliased import, a dotted from-import and one under a condition."""
+    _plant(tmp_path, ".behave/features/a.py", text="import tests.x as y\n")
+    _plant(tmp_path, ".behave/features/b.py", text="from tests.x import y\n")
+    _plant(tmp_path, ".behave/features/c.py", text="if True:\n    import tests\n")
+    found = tests_imports(behave_walk_of(tmp_path))
+    for name in ("a", "b", "c"):
+        assert any(entry.startswith(f".behave/features/{name}.py: tests") for entry in found), name
+
+
+def test_a_multi_name_import_lists_the_tests_name_only(behave_walk_of, tmp_path: Path) -> None:
+    """CP-800: the name that is not from tests is not listed."""
+    _plant(tmp_path, ".behave/features/a.py", text="import os, tests.x\n")
+    found = tests_imports(behave_walk_of(tmp_path))
+    assert ".behave/features/a.py: tests.x" in found
+    assert not any(entry.endswith(": os") for entry in found)
+
+
+def test_every_site_in_one_run_is_listed(behave_walk_of, tmp_path: Path) -> None:
+    """CP-802: one call lists every module that imports from tests, not the first."""
+    _plant(tmp_path, ".behave/features/a.py", text="import tests.x\n")
+    _plant(tmp_path, ".behave/features/b.py", text="from tests.y import z\n")
+    found = tests_imports(behave_walk_of(tmp_path))
+    assert any(entry.startswith(".behave/features/a.py: ") for entry in found)
+    assert any(entry.startswith(".behave/features/b.py: ") for entry in found)
+
+
+def test_an_import_under_a_skipped_folder_is_not_listed(behave_walk_of, tmp_path: Path) -> None:
+    """CP-798: the folder's virtual environment is not its code."""
+    _plant(tmp_path, ".behave/.venv/lib/pkg.py", text="import tests\n")
+    _plant(tmp_path, ".behave/features/a.py")
+    assert tests_imports(behave_walk_of(tmp_path)) == []
+
+
+def test_named_and_dot_folders_are_checked(behave_walk_of, tmp_path: Path) -> None:
+    """CP-798, CP-800: a folder named tests and a dot folder inside the scenario folder count."""
+    _plant(tmp_path, ".behave/tests/y.py", text="from tests import conftest\n")
+    _plant(tmp_path, ".behave/.hidden/z.py", text="import tests\n")
+    found = tests_imports(behave_walk_of(tmp_path))
+    assert any(entry.startswith(".behave/tests/y.py: ") for entry in found)
+    assert any(entry.startswith(".behave/.hidden/z.py: ") for entry in found)
+
+
+def test_near_names_and_nested_names_are_checked(behave_walk_of, tmp_path: Path) -> None:
+    """CP-798: a name is skipped only when it matches exactly."""
+    planted = (
+        ".behave/.venvs/a.py",
+        ".behave/features/__pycache__2/b.py",
+        ".behave/features/.venv/c.py",
+        ".behave/.behave/d.py",
+    )
+    for relative in planted:
+        _plant(tmp_path, relative, text="import tests\n")
+    found = tests_imports(behave_walk_of(tmp_path))
+    for relative in planted:
+        assert any(entry.startswith(f"{relative}: ") for entry in found), relative
+
+
+def test_near_names_and_relative_imports_are_not_imports_from_tests(
+    behave_walk_of, tmp_path: Path
+) -> None:
+    """CP-801: another module's name, and a relative import, are not an import from tests."""
+    _plant(
+        tmp_path,
+        ".behave/features/a.py",
+        text="import testsuite\nfrom tests_util import x\nfrom .tests import y\n",
+    )
+    _plant(tmp_path, ".behave/tests/w.py", text="from . import x\n")
+    assert tests_imports(behave_walk_of(tmp_path)) == []
+
+
+def test_third_party_standard_library_and_sibling_imports_pass(
+    behave_walk_of, tmp_path: Path
+) -> None:
+    """CP-803: the check applies no other clause to the scenario folder."""
+    text = (
+        "from behave import given\nimport httpx\nimport subprocess\n"
+        "from server_way_in import request_page\n"
+    )
+    _plant(tmp_path, ".behave/features/a.py", text=text)
+    assert tests_imports(behave_walk_of(tmp_path)) == []
+
+
+def test_the_real_behave_folder_passes_and_is_present(behave_walk_of) -> None:
+    """CP-804: the product's own scenario folder is read, and imports nothing from tests."""
+    walk = behave_walk_of()
+    check_behave_folder(walk)
+    assert walk.modules()
+
+
+def test_the_real_product_check_fails_when_the_root_holds_no_behave_folder(
+    behave_walk_of, tmp_path: Path
+) -> None:
+    """CP-804: a check aimed at a root with no scenario folder cannot pass by reading nothing."""
+    with pytest.raises(AssertionError):
+        check_behave_folder(behave_walk_of(tmp_path))
+
+
+def test_the_root_walk_misses_a_planted_import_from_tests(
+    behave_walk_of, walk_of, tmp_path: Path
+) -> None:
+    """CP-806: the product-root walk sees nothing wrong, and this walk lists the site."""
+    _plant(tmp_path, *_THE_SIX_PARTS)
+    _plant(tmp_path, ".behave/features/x.py", text="from tests import conftest\n")
+    for part in PARTS:
+        assert violations(walk_of(tmp_path), part) == []
+    assert top_level_parts(walk_of(tmp_path)) == PARTS
+    found = tests_imports(behave_walk_of(tmp_path))
+    assert any(entry.startswith(".behave/features/x.py: ") for entry in found)
+
+
+def test_the_root_walk_misses_an_empty_behave_folder(
+    behave_walk_of, walk_of, tmp_path: Path
+) -> None:
+    """CP-806: the product-root walk sees nothing wrong, and this walk fails naming the folder."""
+    _plant(tmp_path, *_THE_SIX_PARTS)
+    (tmp_path / _FOLDER).mkdir()
+    for part in PARTS:
+        assert violations(walk_of(tmp_path), part) == []
+    assert top_level_parts(walk_of(tmp_path)) == PARTS
+    with pytest.raises(AssertionError, match=_FOLDER):
+        tests_imports(behave_walk_of(tmp_path))
