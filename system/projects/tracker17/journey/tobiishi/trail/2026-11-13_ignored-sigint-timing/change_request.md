@@ -9,3 +9,6 @@
 **Category:** bug
 **Behaviour:** preserving
 **Classified because:** the station's reached-when 1 to 4 and guardrail ask the existing, already-pinned contract (a start launched with SIGINT ignored stops, exits 0, writes nothing to standard error) to hold in a full run, and the guardrail says the proof test may not assert less; the new measurement characterises that contract and adds no behaviour.
+
+**Sealed:** 2026-11-13 — accepted; merged to `main` via `--no-ff`.
+Environment: owners-mac — no CI
