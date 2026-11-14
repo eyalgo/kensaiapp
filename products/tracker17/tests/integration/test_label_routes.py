@@ -17,7 +17,7 @@ import pytest
 from test_pages import Element, parse
 from test_routes import FORM, HOST, POLICY, SAME_ORIGIN, get, header, page
 from test_task_routes import (
-    MovableClock,
+    NOON,
     World,
     add_task,
     focused,
@@ -29,7 +29,7 @@ from test_task_routes import (
 from application import SHORT_TEXT_MAX, Tracker
 from domain import empty_state
 from persistence import SavedData
-from tests.fakes import FakeSaver
+from tests.fakes import FakeClock, FakeSaver
 from web import Response, Site, pages
 
 TITLE = "Set up CI"
@@ -268,7 +268,7 @@ def test_a_label_failure_before_the_title_is_read_uses_the_short_console_line(
         def remove_task_label(self, task_id: int, label: str):  # type: ignore[no-untyped-def]
             raise RuntimeError("boom")
 
-    site = Site(Breaking(empty_state(), FakeSaver(), MovableClock()), HOST)
+    site = Site(Breaking(empty_state(), FakeSaver(), FakeClock(NOON)), HOST)
     capsys.readouterr()
     response = (add_label if action == "add" else remove_label)(site, "ui", 5)
     assert capsys.readouterr().err.splitlines() == [
@@ -358,7 +358,7 @@ def test_label_routes_keep_request_and_response_policy(tmp_path: Path) -> None:
         assert header(response, "Content-Security-Policy") == POLICY
         assert header(response, "Set-Cookie") is None
     saver = FakeSaver()
-    tracker = Tracker(empty_state(), saver, MovableClock())
+    tracker = Tracker(empty_state(), saver, FakeClock(NOON))
     tracker.create_project("Alpha", "")
     tracker.add_task(1, "T", "", "", "")
     held = Site(tracker, HOST)

@@ -19,7 +19,6 @@ from test_pages import HOSTILE, Element, parse
 from test_routes import HOST, get, page
 from test_task_routes import (
     NOON,
-    MovableClock,
     add_task,
     chosen,
     control,
@@ -43,7 +42,7 @@ from application import (
 )
 from domain import Priority, restore_state, restore_task, task_edit_context
 from persistence import SavedData
-from tests.fakes import FakeSaver
+from tests.fakes import FakeClock, FakeSaver
 from web import Site, pages
 
 pytestmark = pytest.mark.usefixtures("utc_zone")
@@ -194,7 +193,7 @@ def test_project_list_shows_every_own_task_in_seven_columns(tmp_path: Path) -> N
         tasks=[first, second, other, *bulk],
         next_task_id=124,
     )
-    tracker = Tracker(state, FakeSaver(passes_to=SavedData(location)), MovableClock(NOON))
+    tracker = Tracker(state, FakeSaver(passes_to=SavedData(location)), FakeClock(NOON))
     root = parse(page(get(Site(tracker, HOST), "/projects/1")))
     (table,) = root.find_all("table")
     headers = [th.text() for th in table.find_all("th")]
@@ -418,7 +417,7 @@ def test_task_page_opens_edit_form_from_saved_values(tmp_path: Path) -> None:
         [(1, "Alpha", "")], 2, ["Dana", " Ari"], tasks=tasks, next_task_id=len(tasks) + 1
     )
     saver = FakeSaver(passes_to=SavedData(tmp_path / "data"))
-    site = Site(Tracker(state, saver, MovableClock(NOON)), HOST)
+    site = Site(Tracker(state, saver, FakeClock(NOON)), HOST)
     for index, status in enumerate(statuses, start=1):
         shown_page = page(get(site, f"/tasks/{index}"))
         assert page(get(site, f"/tasks/{index}")) == shown_page
