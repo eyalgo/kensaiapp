@@ -1,11 +1,12 @@
-"""Layer-6 walk of the fakes: every contract has one fake and a suite run against the real one and the fake.
+"""Layer-6 walk of the fakes: each contract has one fake and a suite run against both sides.
 
 Checks SRS NFR-10 and NFR-11: the tests are plain enough to read cold, and each contract's stand-in
 is written once and verified. NFDR QC-64 and RN-65 are the clauses, and NFDR § 9 has a layer-6 walk
 fail on a directory that holds no module. The walk reads the method names off the `Protocol`
 classes in application/contracts.py, so a third contract is bound the day it lands. It reads every
 module under tests/, tests/e2e/ included, and the fakes in tests/fakes.py. The suites it asks for
-are the ones in tests/integration/test_saver_contract.py and tests/integration/test_clock_contract.py.
+are the ones in tests/integration/test_saver_contract.py and
+tests/integration/test_clock_contract.py.
 Each failure case builds a small product tree under a temporary directory, with a contract `Pinger`
 that has the one method `ping`, so the walk is shown to fail on exactly the departure it names.
 """
@@ -68,8 +69,8 @@ def methods_of(node: ast.ClassDef) -> set[str]:
 
 
 def contract_methods(walk: SourceWalk) -> set[str]:
-    """Method names, without a leading underscore, of every `Protocol` class in the contracts file."""
-    contracts = [module for module in walk.modules() if module.path == CONTRACTS_MODULE]
+    """Method names, without a leading underscore, of each `Protocol` in the contracts file."""
+    contracts = [m for m in walk.modules() if m.path == CONTRACTS_MODULE]
     return {
         method
         for module in contracts
@@ -102,7 +103,7 @@ def modules_under_tests(root: Path) -> list[WalkedModule]:
 
 
 def runs_both_ways(modules: list[WalkedModule], fakes: set[str], reals: set[str]) -> bool:
-    """A class with a `test_` method has one subclass naming a fake and another naming a real one."""
+    """A class with a `test_` method has one subclass naming a fake, another naming a real one."""
     every_class = [node for module in modules for node in module.classes()]
     for suite in every_class:
         if not any(name.startswith(TEST_PREFIX) for name in methods_of(suite)):
@@ -116,7 +117,7 @@ def runs_both_ways(modules: list[WalkedModule], fakes: set[str], reals: set[str]
 
 
 def contract_findings(root: Path, walk: SourceWalk) -> list[str]:
-    """Every departure from: one fake per contract, kept in `tests/fakes.py`, with a suite run both ways."""
+    """Every departure from: a fake per contract in `tests/fakes.py`, and a suite run both ways."""
     methods = contract_methods(walk)
     if not methods:
         return [f"{CONTRACTS_MODULE.as_posix()}: no `{PROTOCOL}` class defines a contract method"]
@@ -150,7 +151,7 @@ def contract_findings(root: Path, walk: SourceWalk) -> list[str]:
             findings.append(f"{SUPPORT_MODULE.as_posix()}: no fake defines `{method}`")
         elif not runs_both_ways(modules, fakes, real_implementations(walk, method)):
             findings.append(
-                f"{TESTS_FOLDER}/: no suite for `{method}` runs against both the fake and a real one"
+                f"{TESTS_FOLDER}/: no suite for `{method}` runs against the fake and a real one"
             )
     return findings
 
@@ -238,6 +239,25 @@ def test_a_contracts_file_with_no_method_is_a_finding(walk_of, tmp_path: Path) -
     empty = "from typing import Protocol\n\n\nclass Pinger(Protocol): ...\n"
 
     found = findings_of(plant(tmp_path, {"application/contracts.py": empty}), walk_of)
+
+    assert len(found) == 1
+    assert "contracts" in found[0]
+
+
+def test_a_missing_contracts_file_is_a_finding(walk_of, tmp_path: Path) -> None:
+    found = findings_of(plant(tmp_path, {"application/contracts.py": None}), walk_of)
+
+    assert len(found) == 1
+    assert "contracts" in found[0]
+
+
+def test_a_method_with_a_leading_underscore_is_no_contract_method(walk_of, tmp_path: Path) -> None:
+    private_only = (
+        "from typing import Protocol\n\n\n"
+        "class Pinger(Protocol):\n    def _ping(self) -> None: ...\n"
+    )
+
+    found = findings_of(plant(tmp_path, {"application/contracts.py": private_only}), walk_of)
 
     assert len(found) == 1
     assert "contracts" in found[0]
