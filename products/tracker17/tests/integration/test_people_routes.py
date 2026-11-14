@@ -17,6 +17,7 @@ import json
 import threading
 from collections.abc import Iterator
 from contextlib import contextmanager
+from datetime import UTC, datetime
 from pathlib import Path
 from urllib.parse import parse_qs, quote_plus, urlencode, urlsplit
 
@@ -26,7 +27,6 @@ from test_routes import (
     FORM,
     HOST,
     SAME_ORIGIN,
-    FixedClock,
     get,
     header,
     make_site,
@@ -36,8 +36,10 @@ from test_routes import (
 from application import SHORT_TEXT_MAX, Saver, Tracker
 from domain import empty_state
 from persistence import SavedData
-from tests.fakes import FakeSaver
+from tests.fakes import FakeClock, FakeSaver
 from web import Response, Site, listen
+
+NOW = datetime(2026, 10, 7, 12, 0, tzinfo=UTC)
 
 LEGACY = {
     "next_project_id": 3,
@@ -287,7 +289,7 @@ def test_failed_assignee_actions_keep_state_and_report_plain_failure(
 ) -> None:
     """CP-97, QC-56, QC-57: the file written before the failure is the one still there."""
     data = tmp_path / "data"
-    seeded = Tracker(empty_state(), SavedData(data), FixedClock())
+    seeded = Tracker(empty_state(), SavedData(data), FakeClock(NOW))
     seeded.add_assignee("Ari")
     seeded.add_assignee(" Dana ")
     saved_file = data / "tracker.json"
@@ -295,7 +297,7 @@ def test_failed_assignee_actions_keep_state_and_report_plain_failure(
     state = SavedData(data).load()
     assert state is not None
     failing = FakeSaver(error=error)
-    site = Site(Tracker(state, failing, FixedClock()), HOST)
+    site = Site(Tracker(state, failing, FakeClock(NOW)), HOST)
     capsys.readouterr()
 
     added = add(site, " Cy ")
@@ -406,7 +408,7 @@ def test_people_survives_real_save_and_restart(tmp_path: Path) -> None:
     """CP-99, CP-100; design T8."""
     data = tmp_path / "data"
     saved = SavedData(data)
-    site = Site(Tracker(empty_state(), saved, FixedClock()), HOST)
+    site = Site(Tracker(empty_state(), saved, FakeClock(NOW)), HOST)
     submit(site, "/projects", name="Alpha", description="")
     for name in ("Dana", " Ari ", "<b>A&B</b>", "Zoë"):
         add(site, name)
@@ -414,7 +416,7 @@ def test_people_survives_real_save_and_restart(tmp_path: Path) -> None:
     add(site, "Dana")
     state = saved.load()
     assert state is not None
-    restarted = Site(Tracker(state, SavedData(data), FixedClock()), HOST)
+    restarted = Site(Tracker(state, SavedData(data), FakeClock(NOW)), HOST)
     assert names(restarted) == [" Ari ", "<b>A&B</b>", "Zoë", "Dana"]
     assert "Alpha" in page(get(restarted, "/"))
 
@@ -425,7 +427,7 @@ def test_people_survives_real_save_and_restart(tmp_path: Path) -> None:
     before = legacy_file.read_bytes()
     loaded = SavedData(legacy_location).load()
     assert loaded is not None
-    legacy_site = Site(Tracker(loaded, SavedData(legacy_location), FixedClock()), HOST)
+    legacy_site = Site(Tracker(loaded, SavedData(legacy_location), FakeClock(NOW)), HOST)
     listed = page(get(legacy_site, "/"))
     assert "Alpha" in listed and "Beta" in listed
     assert names(legacy_site) == []
@@ -537,10 +539,10 @@ def test_failed_operator_name_with_braces_is_shown_exactly(
     """CP-620 to CP-622, CP-624, CP-625: a failed save shows the typed name as typed, the field
     keeps it, Save has the focus, and nothing of the error reaches the page."""
     recorder = FakeSaver()
-    seeded = Tracker(empty_state(), recorder, FixedClock())
+    seeded = Tracker(empty_state(), recorder, FakeClock(NOW))
     seeded.set_operator_name("Sam")
     failing = FakeSaver(error=OSError("distinctive-disk-message-7731"))
-    tracker = Tracker(recorder.saved[-1], failing, FixedClock())
+    tracker = Tracker(recorder.saved[-1], failing, FakeClock(NOW))
     site = Site(tracker, HOST)
     capsys.readouterr()
     response = set_name(site, name)
@@ -758,13 +760,13 @@ def test_failed_name_save_keeps_typed_text_and_reports_action(
     """CP-222, QC-56, QC-57: the state and file stay, the typed text stays, Save has focus and
     the failure line, the console names the action then the error, and the page shows no error."""
     data = tmp_path / "data"
-    seeded = Tracker(empty_state(), SavedData(data), FixedClock())
+    seeded = Tracker(empty_state(), SavedData(data), FakeClock(NOW))
     if starting is not None:
         seeded.set_operator_name(starting)
     loaded = SavedData(data).load()
     before = (data / "tracker.json").read_bytes() if starting else None
     failing = FakeSaver(error=error)
-    site = Site(Tracker(loaded or empty_state(), failing, FixedClock()), HOST)
+    site = Site(Tracker(loaded or empty_state(), failing, FakeClock(NOW)), HOST)
     capsys.readouterr()
     response = set_name(site, " Lee ")
     assert capsys.readouterr().err.splitlines() == [
@@ -961,7 +963,7 @@ def test_operator_name_survives_real_save_and_restart(tmp_path: Path) -> None:
     after a fresh tracker and listener start, with the rest of the saved data intact."""
     data = tmp_path / "data"
     saved = SavedData(data)
-    tracker = Tracker(empty_state(), saved, FixedClock())
+    tracker = Tracker(empty_state(), saved, FakeClock(NOW))
     tracker.create_project("Alpha", "first")
     tracker.add_assignee("Dana")
     tracker.add_task(1, "Write it", "high", "Dana", "2026-12-01")
@@ -970,7 +972,7 @@ def test_operator_name_survives_real_save_and_restart(tmp_path: Path) -> None:
         listener_name(address, " <b>Sam</b> ")
     state = SavedData(data).load()
     assert state is not None and state.operator_name == " <b>Sam</b> "
-    restarted = Tracker(state, SavedData(data), FixedClock())
+    restarted = Tracker(state, SavedData(data), FakeClock(NOW))
     with served(restarted) as address:
         status, _, shown = exchange(address, "GET", "/people")
         assert status == 200
