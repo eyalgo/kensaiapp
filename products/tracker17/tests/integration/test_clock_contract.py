@@ -21,7 +21,7 @@ FIRST = datetime(2026, 10, 11, 9, 30, tzinfo=UTC)
 SECOND = datetime(2026, 10, 11, 9, 45, tzinfo=UTC)
 THIRD = datetime(2026, 10, 11, 10, 0, tzinfo=UTC)
 LATER = datetime(2026, 10, 12, 8, 0, tzinfo=UTC)
-NAIVE = datetime(2026, 10, 11, 9, 30)
+NAIVE = FIRST.replace(tzinfo=None)
 PLUS_TWO_HOURS = datetime(2026, 10, 11, 9, 30, tzinfo=timezone(timedelta(hours=2)))
 MINUTE = timedelta(minutes=1)
 
