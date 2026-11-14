@@ -12,7 +12,7 @@ Cut from `products/tracker17/docs/SDD.md` § 6 S-6 *Reached when* → *Behaviour
 
 ## Stations — dynamic checklist
 
-- [ ] summary-shows-due-today — a project's summary shows the due-today count, an open task due on the summary's one date, directly after "Overdue", as a plain number (not a link), 0 on an empty project, labelled "Due on {date}"; new tests fail on `main` and pass after: AC-13's due-today side (a task due that day is in the due-today count and not overdue; one done or cancelled is in neither) and the summary test's count row on an empty project and a built one; both commands of the card's test command pass and `python3 tests/timed_run.py` exits 0
+- [x] summary-shows-due-today — a project's summary shows the due-today count, an open task due on the summary's one date, directly after "Overdue", as a plain number (not a link), 0 on an empty project, labelled "Due on {date}"; new tests fail on `main` and pass after: AC-13's due-today side (a task due that day is in the due-today count and not overdue; one done or cancelled is in neither) and the summary test's count row on an empty project and a built one; both commands of the card's test command pass and `python3 tests/timed_run.py` exits 0
 
 ## Relation to existing work
 
