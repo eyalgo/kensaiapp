@@ -32,25 +32,13 @@ from application import (
     TrackerState,
 )
 from domain import restore_state, restore_task
-from tests.fakes import FakeSaver
+from tests.fakes import FakeClock, FakeSaver
 
 PROJECTS = [(1, "Alpha", "first"), (2, "Beta", "")]
 CREATED = datetime(2026, 10, 11, 12, 0, tzinfo=UTC)
 WRITTEN = datetime(2026, 10, 12, 12, 32, tzinfo=UTC)
 LATER = WRITTEN + timedelta(minutes=5)
 EARLIER_COMMENT = Comment(text="first", author="Dana", created_at=CREATED)
-
-
-class ListClock:
-    """Gives the instants it was handed, one per read, and counts the reads."""
-
-    def __init__(self, *instants: datetime) -> None:
-        self._instants = list(instants)
-        self.reads = 0
-
-    def now(self) -> datetime:
-        self.reads += 1
-        return self._instants.pop(0)
 
 
 def _tasks() -> list[Task]:
@@ -89,9 +77,11 @@ def _all_tasks(tracker: Tracker) -> tuple[Task | None, ...]:
 def _tracker(
     saver: Saver,
     operator_name: str | None = "Sam",
-    clock: ListClock | None = None,
+    clock: FakeClock | None = None,
 ) -> Tracker:
-    tracker = Tracker(_state(operator_name), saver, clock or ListClock(WRITTEN, LATER))
+    tracker = Tracker(
+        _state(operator_name), saver, clock or FakeClock(WRITTEN, LATER, runs_out=True)
+    )
     if isinstance(saver, FakeSaver):
         saver.watch = lambda: _all_tasks(tracker)
     return tracker
@@ -106,7 +96,7 @@ def _comments(tracker: Tracker, task_id: int = 1) -> tuple[Comment, ...]:
 def test_comment_action_saves_once_before_publishing():
     """CP-249, CP-250: one instant, one whole new state saved while the old task is current."""
     saver = FakeSaver()
-    clock = ListClock(WRITTEN, LATER)
+    clock = FakeClock(WRITTEN, LATER, runs_out=True)
     tracker = _tracker(saver, "Sam", clock)
     before = _all_tasks(tracker)
 
@@ -207,7 +197,7 @@ def test_failed_comment_save_keeps_the_previous_task_current():
 def test_comment_action_reaches_only_the_injected_saver_and_clock():
     """CP-271, QC-54: a successful add is one save and one instant, and no load is reached."""
     saver = FakeSaver(only_save=True)
-    clock = ListClock(WRITTEN)
+    clock = FakeClock(WRITTEN, runs_out=True)
     tracker = Tracker(_state("Sam"), saver, clock)
 
     tracker.add_task_comment(1, "Hi")
