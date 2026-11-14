@@ -316,6 +316,59 @@ def test_a_contract_with_a_suite_run_only_against_the_fake_is_a_finding(
     assert "ping" in found[0]
 
 
+def test_a_contract_with_a_suite_run_only_against_the_real_one_is_a_finding(
+    walk_of, tmp_path: Path
+) -> None:
+    real_only = PINGER_SUITE.replace("FakePinger()", "RealPinger()")
+
+    found = findings_of(plant(tmp_path, {SUITE_PATH: real_only}), walk_of)
+
+    assert len(found) == 1
+    assert "ping" in found[0]
+
+
+def test_a_suite_whose_one_subclass_names_both_sides_is_a_finding(walk_of, tmp_path: Path) -> None:
+    one_subclass = (
+        "from application.real_pinger import RealPinger\n"
+        "from tests.fakes import FakePinger\n\n\n"
+        "class PingerContract:\n"
+        "    def make(self):\n        raise NotImplementedError\n\n"
+        "    def test_a_ping_is_accepted(self) -> None:\n"
+        "        assert self.make().ping() is None\n\n\n"
+        "class TestEitherPingerKeepsTheContract(PingerContract):\n"
+        "    def make(self):\n        return RealPinger() if self else FakePinger()\n"
+    )
+
+    found = findings_of(plant(tmp_path, {SUITE_PATH: one_subclass}), walk_of)
+
+    assert len(found) == 1
+    assert "ping" in found[0]
+
+
+def test_a_base_with_no_test_method_is_no_suite(walk_of, tmp_path: Path) -> None:
+    no_test_method = PINGER_SUITE.replace("def test_a_ping_is_accepted", "def a_ping_is_accepted")
+
+    found = findings_of(plant(tmp_path, {SUITE_PATH: no_test_method}), walk_of)
+
+    assert len(found) == 1
+    assert "ping" in found[0]
+
+
+def test_a_subclass_that_names_only_the_contract_is_no_real_side(walk_of, tmp_path: Path) -> None:
+    contract_named = PINGER_SUITE.replace(
+        "from application.real_pinger import RealPinger",
+        "from application.contracts import Pinger",
+    ).replace(
+        "    def make(self):\n        return RealPinger()",
+        "    def make(self) -> Pinger:\n        return FakePinger()",
+    )
+
+    found = findings_of(plant(tmp_path, {SUITE_PATH: contract_named}), walk_of)
+
+    assert len(found) == 1
+    assert "ping" in found[0]
+
+
 def test_a_tests_directory_with_no_module_is_a_finding(walk_of, tmp_path: Path) -> None:
     plant(tmp_path, {"tests/fakes.py": None, SUITE_PATH: None})
     (tmp_path / "tests").mkdir(exist_ok=True)

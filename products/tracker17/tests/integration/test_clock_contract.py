@@ -1,4 +1,4 @@
-"""The one `Clock` fake is checked on its own, and the contract for `now` is run against it (layers 1, 2).
+"""The one `Clock` fake checked on its own, and the contract for `now` run against it (layers 1, 2).
 
 Checks SRS NFR-10 and NFR-11: the tests are plain enough to read cold, and every test that needs a
 clock hands in the one fake, which these checks hold to its own reads and controls. NFDR QC-64 and
@@ -127,6 +127,19 @@ def test_restart_and_the_instant_setter_refuse_a_naive_instant_and_one_off_utc()
             clock.instant = refused
 
     assert clock.now() == FIRST
+
+
+def test_a_refused_instant_is_named_in_the_error() -> None:
+    clock = FakeClock(FIRST)
+
+    for refused in (NAIVE, PLUS_TWO_HOURS):
+        for refuse in (FakeClock, clock.restart):
+            with pytest.raises(ValueError) as raised:
+                refuse(refused)
+            assert repr(refused) in str(raised.value)
+        with pytest.raises(ValueError) as raised:
+            clock.instant = refused
+        assert repr(refused) in str(raised.value)
 
 
 def test_step_together_with_runs_out_is_refused() -> None:
