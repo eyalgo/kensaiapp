@@ -28,16 +28,15 @@ from application import (
     TrackerState,
 )
 from domain import empty_state
-from tests.fakes import FakeSaver
-
-
-class FixedClock:
-    def now(self) -> datetime:
-        return datetime(2026, 10, 7, 12, 0, tzinfo=UTC)
+from tests.fakes import FakeClock, FakeSaver
 
 
 def _tracker(saver: Saver | None = None, state: TrackerState | None = None) -> Tracker:
-    return Tracker(state or empty_state(), saver or FakeSaver(), FixedClock())
+    return Tracker(
+        state or empty_state(),
+        saver or FakeSaver(),
+        FakeClock(datetime(2026, 10, 7, 12, 0, tzinfo=UTC)),
+    )
 
 
 def test_the_saver_gets_the_new_state_before_it_is_shown():
@@ -160,7 +159,9 @@ def test_project_read_and_application_exports_remain_compatible():
 
     for name in ("Tracker", "ProjectTaskList", "TaskRow", "FilterInput", "SortInput"):
         assert name in application.__all__
-    tracker = Tracker(empty_state(), FakeSaver(), FixedClock())
+    tracker = Tracker(
+        empty_state(), FakeSaver(), FakeClock(datetime(2026, 10, 7, 12, 0, tzinfo=UTC))
+    )
     project = tracker.create_project("Alpha", "")
     tracker.add_task(project.id, "Only", "", "", "")
 

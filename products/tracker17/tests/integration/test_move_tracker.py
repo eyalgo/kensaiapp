@@ -27,20 +27,12 @@ from application import (
 )
 from domain import Comment, restore_state, restore_task
 from persistence.saved_data import FILE_NAME, SavedData
-from tests.fakes import FakeSaver
+from tests.fakes import FakeClock, FakeSaver
 
 PROJECTS = [(1, "Alpha", "first"), (2, "Beta", "")]
 CREATED = datetime(2026, 10, 11, 12, 0, tzinfo=UTC)
 TODAY = datetime(2026, 10, 19, 12, 0, tzinfo=UTC)
 PEOPLE = ("Dana", "Ari")
-
-
-class FixedClock:
-    def __init__(self, instant: datetime = CREATED) -> None:
-        self._instant = instant
-
-    def now(self) -> datetime:
-        return self._instant
 
 
 def _task(task_id: int, status: str, title: str, due_date: str | None = None) -> Task:
@@ -63,8 +55,8 @@ def _state(*tasks: Task) -> TrackerState:
     return restore_state(PROJECTS, 3, PEOPLE, tasks=tasks, next_task_id=len(tasks) + 1)
 
 
-def _tracker(saver, *tasks: Task, clock: FixedClock | None = None) -> Tracker:
-    tracker = Tracker(_state(*tasks), saver, clock or FixedClock())
+def _tracker(saver, *tasks: Task, clock: FakeClock | None = None) -> Tracker:
+    tracker = Tracker(_state(*tasks), saver, clock or FakeClock(CREATED))
     if isinstance(saver, FakeSaver):
         saver.watch = lambda: tracker.task(1)
     return tracker
@@ -130,7 +122,7 @@ def test_a_moved_task_survives_a_restart_and_only_its_status_differs_in_the_save
     saved_data = SavedData(location)
     saved_data.save(_state(written, other))
     before = json.loads((location / FILE_NAME).read_text(encoding="utf-8"))
-    tracker = Tracker(saved_data.load() or _state(), saved_data, FixedClock())
+    tracker = Tracker(saved_data.load() or _state(), saved_data, FakeClock(CREATED))
 
     tracker.move_task(1, "done")
 
@@ -140,7 +132,7 @@ def test_a_moved_task_survives_a_restart_and_only_its_status_differs_in_the_save
     assert after == before
     restarted = saved_data.load()
     assert restarted is not None
-    assert Tracker(restarted, saved_data, FixedClock()).task(1) == replace(
+    assert Tracker(restarted, saved_data, FakeClock(CREATED)).task(1) == replace(
         written, status=TaskStatus.DONE
     )
 
@@ -173,7 +165,7 @@ def test_allowed_moves_gives_the_domain_tuples():
 
 def test_a_task_due_yesterday_moved_to_done_is_not_overdue_and_moved_to_todo_still_is():
     """CP-307, QC-28: overdue follows the saved status; the clock is handed in, nothing patched."""
-    clock = FixedClock(TODAY)
+    clock = FakeClock(TODAY)
     due = "2026-10-18"
     done_tracker = _tracker(FakeSaver(), _task(1, "in-progress", "A", due_date=due), clock=clock)
     todo_tracker = _tracker(FakeSaver(), _task(1, "in-progress", "B", due_date=due), clock=clock)

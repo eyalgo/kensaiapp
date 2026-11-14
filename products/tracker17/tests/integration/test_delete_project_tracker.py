@@ -23,14 +23,9 @@ from application import (
     TrackerState,
 )
 from domain import restore_state, restore_task
-from tests.fakes import FakeSaver
+from tests.fakes import FakeClock, FakeSaver
 
 CREATED_AT = datetime(2026, 10, 28, 12, 0, tzinfo=UTC)
-
-
-class FixedClock:
-    def now(self) -> datetime:
-        return CREATED_AT
 
 
 def _shown(tracker: Tracker) -> tuple[str | None, int]:
@@ -72,7 +67,7 @@ def _state() -> TrackerState:
 
 
 def _tracker(saver) -> Tracker:
-    return Tracker(_state(), saver, FixedClock())
+    return Tracker(_state(), saver, FakeClock(CREATED_AT))
 
 
 def _everything_shown(tracker: Tracker):

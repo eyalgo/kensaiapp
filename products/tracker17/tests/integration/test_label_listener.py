@@ -18,21 +18,16 @@ import pytest
 
 from application import SHORT_TEXT_MAX, Tracker
 from domain import empty_state
-from tests.fakes import FakeSaver
+from tests.fakes import FakeClock, FakeSaver
 from web import listen
 
 TITLE = "Set up CI"
 
 
-class FixedClock:
-    def now(self) -> datetime:
-        return datetime(2026, 10, 12, 12, 0, tzinfo=UTC)
-
-
 @pytest.fixture
 def served() -> Iterator[tuple[tuple[str, int], Tracker, FakeSaver]]:
     saver = FakeSaver()
-    tracker = Tracker(empty_state(), saver, FixedClock())
+    tracker = Tracker(empty_state(), saver, FakeClock(datetime(2026, 10, 12, 12, 0, tzinfo=UTC)))
     tracker.create_project("Alpha", "")
     tracker.add_task(1, TITLE, "", "", "")
     tracker.add_task(1, "Second", "", "", "")
