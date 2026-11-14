@@ -15,6 +15,8 @@ from datetime import UTC, datetime, timedelta, timezone
 
 import pytest
 
+from application import Clock
+from main import SystemClock
 from tests.fakes import FakeClock
 
 FIRST = datetime(2026, 10, 11, 9, 30, tzinfo=UTC)
@@ -135,3 +137,53 @@ def test_step_together_with_runs_out_is_refused() -> None:
 def test_the_fake_has_no_base_class_and_defines_no_save() -> None:
     assert FakeClock.__bases__ == (object,)
     assert not hasattr(FakeClock, "save")
+
+
+CONFIGURATIONS = ["fixed", "sequence", "runs_out", "step", "moved", "restarted"]
+READS = 3
+
+
+class ClockContract:
+    """What `now` gives, stated once against `Clock` alone and run on each implementation."""
+
+    def make(self, configuration: str) -> Clock:
+        raise NotImplementedError
+
+    @pytest.mark.parametrize("configuration", CONFIGURATIONS)
+    def test_now_gives_a_datetime(self, configuration: str) -> None:
+        clock = self.make(configuration)
+
+        reads = [clock.now() for _ in range(READS)]
+
+        assert all(isinstance(read, datetime) for read in reads)
+
+    @pytest.mark.parametrize("configuration", CONFIGURATIONS)
+    def test_now_gives_an_aware_instant_at_utc(self, configuration: str) -> None:
+        clock = self.make(configuration)
+
+        reads = [clock.now() for _ in range(READS)]
+
+        assert all(read.utcoffset() is not None for read in reads)
+        assert all(read.utcoffset() == timedelta(0) for read in reads)
+
+
+class TestSystemClockKeepsTheClockContract(ClockContract):
+    def make(self, configuration: str) -> Clock:
+        return SystemClock()
+
+
+class TestFakeClockKeepsTheClockContract(ClockContract):
+    def make(self, configuration: str) -> Clock:
+        if configuration == "sequence":
+            return FakeClock(FIRST, SECOND)
+        if configuration == "runs_out":
+            return FakeClock(FIRST, SECOND, THIRD, runs_out=True)
+        if configuration == "step":
+            return FakeClock(FIRST, step=MINUTE)
+        clock = FakeClock(FIRST)
+        if configuration == "moved":
+            clock.instant = LATER
+        if configuration == "restarted":
+            clock.now()
+            clock.restart(SECOND, THIRD)
+        return clock
