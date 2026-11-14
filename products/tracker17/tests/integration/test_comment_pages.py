@@ -28,7 +28,7 @@ from test_task_pages import ALPHA, a_task, context_of
 from application import LONG_TEXT_MAX, Comment, Task, Tracker
 from domain import restore_state
 from persistence import SavedData
-from tests.fakes import FakeSaver
+from tests.fakes import FakeClock, FakeSaver
 from web import Site, pages
 
 TITLE = "Set up CI"
@@ -72,20 +72,11 @@ def utc_machine() -> Iterator[None]:
         yield
 
 
-class CountingClock:
-    def __init__(self) -> None:
-        self.reads = 0
-
-    def now(self) -> datetime:
-        self.reads += 1
-        return WRITTEN
-
-
 @dataclass
 class World:
     site: Site
     tracker: Tracker
-    clock: CountingClock
+    clock: FakeClock
     saver: FakeSaver
 
 
@@ -110,7 +101,7 @@ def world_with(
         next_task_id=2,
         operator_name=name,
     )
-    clock, saver = CountingClock(), FakeSaver(passes_to=SavedData(tmp_path / "data"))
+    clock, saver = FakeClock(WRITTEN), FakeSaver(passes_to=SavedData(tmp_path / "data"))
     tracker = Tracker(state, saver, clock)
     return World(Site(tracker, HOST), tracker, clock, saver)
 

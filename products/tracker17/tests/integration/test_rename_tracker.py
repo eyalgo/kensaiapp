@@ -33,21 +33,12 @@ from application import (
 )
 from domain import restore_state, restore_task
 from persistence import SavedData
-from tests.fakes import FakeSaver
+from tests.fakes import FakeClock, FakeSaver
 
 PROJECTS = [(1, "Alpha", "the first"), (2, "Beta", ""), (3, "gamma", "third")]
 NEXT_PROJECT_ID = 4
 CREATED_AT = datetime(2026, 10, 11, 12, 0, tzinfo=UTC)
 LATER = datetime(2026, 10, 12, 8, 30, tzinfo=UTC)
-
-
-class CountingClock:
-    def __init__(self) -> None:
-        self.reads = 0
-
-    def now(self) -> datetime:
-        self.reads += 1
-        return CREATED_AT
 
 
 def _tasks():
@@ -85,8 +76,8 @@ def _state() -> TrackerState:
     )
 
 
-def _tracker(saver, clock: CountingClock | None = None) -> Tracker:
-    return Tracker(_state(), saver, clock or CountingClock())
+def _tracker(saver, clock: FakeClock | None = None) -> Tracker:
+    return Tracker(_state(), saver, clock or FakeClock(CREATED_AT))
 
 
 def _name_shown(tracker: Tracker) -> str | None:
@@ -109,7 +100,7 @@ def test_rename_saves_once_before_publishing():
     """FR-9, CP-550: the saver holds the candidate once, readers still show the old name during
     that save, and readers and the outcome show the new name afterwards. The clock is not read."""
     saver = FakeSaver()
-    clock = CountingClock()
+    clock = FakeClock(CREATED_AT)
     tracker = _tracker(saver, clock)
     saver.watch = lambda: _name_shown(tracker)
     before = _state()
@@ -135,7 +126,7 @@ def test_unchanged_rename_never_saves():
     """CP-553, QC-21: the exact saved name is not refused, not saved and not published, also after a
     rename that did save; the clock is not read."""
     saver = FakeSaver()
-    clock = CountingClock()
+    clock = FakeClock(CREATED_AT)
     tracker = _tracker(saver, clock)
 
     unchanged = tracker.rename_project(1, "Alpha")
@@ -231,7 +222,7 @@ def test_rename_preserves_tasks_and_survives_restart(tmp_path: Path):
 
     tee = FakeSaver(passes_to=saved_data)
     keys_before = _stored_key_sets(tmp_path)
-    tracker = Tracker(saved_data.load(), tee, CountingClock())
+    tracker = Tracker(saved_data.load(), tee, FakeClock(CREATED_AT))
 
     tracker.rename_project(1, "Zed")
 
@@ -253,7 +244,7 @@ def test_rename_preserves_tasks_and_survives_restart(tmp_path: Path):
     assert [project["id"] for project in stored["projects"]] == [1, 2, 3]
     assert [task["id"] for task in stored["tasks"]] == [4, 5, 6, 7]
 
-    restarted = Tracker(saved_data.load(), tee, CountingClock())
+    restarted = Tracker(saved_data.load(), tee, FakeClock(CREATED_AT))
     assert restarted.project(1) == Project(id=1, name="Zed", description="the first")
     for original in starting.tasks:
         after = restarted.task(original.id)
