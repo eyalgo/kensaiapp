@@ -21,6 +21,7 @@ from test_moves import PINNED_BROWSER
 from application import Tracker
 from domain import empty_state
 from persistence import SavedData
+from tests.fakes import FakeClock
 
 if TYPE_CHECKING:
     from conftest import RunningTracker, TrackerFactory
@@ -43,14 +44,11 @@ RECORDER = (
 )
 
 
-class SeedClock:
-    def now(self) -> datetime:
-        return datetime(2026, 10, 28, 9, 0, tzinfo=UTC)
-
-
 def seed(location: Path, name: str = NAME, tasks: int = 1) -> None:
     """Save a project holding `tasks` tasks, so a long list needs no sixty page loads."""
-    tracker = Tracker(empty_state(), SavedData(location), SeedClock())
+    tracker = Tracker(
+        empty_state(), SavedData(location), FakeClock(datetime(2026, 10, 28, 9, 0, tzinfo=UTC))
+    )
     tracker.create_project(name, "")
     for number in range(1, tasks + 1):
         tracker.add_task(1, f"Row {number}", "", "", "")
