@@ -18,11 +18,11 @@ import pytest
 from test_pages import Element, parse
 from test_routes import POLICY, get, header, page
 from test_summary_pages import groups, rows_of
-from test_task_routes import HOST, MovableClock, World, make_world, utc_zone  # noqa: F401
+from test_task_routes import HOST, NOON, World, make_world, utc_zone  # noqa: F401
 
 from application import ProjectSummary, Tracker
 from domain import empty_state, restore_state
-from tests.fakes import FakeSaver
+from tests.fakes import FakeClock, FakeSaver
 from web import Response, Site
 from web.pages import NO_MATCH_LINE
 
@@ -48,7 +48,7 @@ class CountingTracker(Tracker):
 
 def counting_site() -> tuple[Site, CountingTracker, FakeSaver]:
     saver = FakeSaver()
-    tracker = CountingTracker(empty_state(), saver, MovableClock())
+    tracker = CountingTracker(empty_state(), saver, FakeClock(NOON))
     tracker.create_project("Alpha", "first")
     tracker.create_project("Gamma", "")
     tracker.add_assignee("ari")
@@ -463,7 +463,7 @@ def test_a_renamed_project_keeps_both_addresses_and_shows_the_new_name() -> None
     """CP-493, T07: successive states with one identity and another name, with no rename action."""
     for name in ("Alpha", "Beta"):
         state = restore_state([(1, name, "")], 2, ())
-        site = Site(Tracker(state, FakeSaver(), MovableClock()), HOST)
+        site = Site(Tracker(state, FakeSaver(), FakeClock(NOON)), HOST)
         for address, view in ((TASKS, "Tasks"), (SUMMARY, "Summary")):
             root = parse(page(get(site, address)))
             assert root.find_all("h1")[0].text() == name

@@ -41,6 +41,7 @@ from domain import (
     restore_task,
 )
 from persistence import DEFAULT_LOCATION, SavedData, UnreadableData
+from tests.fakes import FakeClock
 from web import Site
 
 PRODUCT_ROOT = Path(__file__).resolve().parents[2]
@@ -58,11 +59,6 @@ def _with_assignees(state: TrackerState, *names: str) -> TrackerState:
     for name in names:
         state = add_assignee(state, name)
     return state
-
-
-class _FixedClock:
-    def now(self) -> datetime:
-        return datetime(2026, 10, 11, 12, 0, tzinfo=UTC)
 
 
 def _write(location: Path, content: bytes) -> Path:
@@ -388,7 +384,7 @@ def test_first_successful_action_saves_the_complete_shape(tmp_path):
         saved = SavedData(location)
         state = saved.load()
         assert state is not None
-        tracker = Tracker(state, saved, _FixedClock())
+        tracker = Tracker(state, saved, FakeClock(datetime(2026, 10, 11, 12, 0, tzinfo=UTC)))
 
         if action == "add":
             tracker.add_assignee("Dana")
@@ -413,7 +409,7 @@ def test_refused_remove_on_legacy_empty_list_writes_nothing(tmp_path):
     saved = SavedData(location)
     state = saved.load()
     assert state is not None
-    tracker = Tracker(state, saved, _FixedClock())
+    tracker = Tracker(state, saved, FakeClock(datetime(2026, 10, 11, 12, 0, tzinfo=UTC)))
     before = _listing(location)
 
     with pytest.raises(AssigneeNotFound):
@@ -1021,7 +1017,7 @@ def test_task_edit_restart_preserves_format_and_protected_fields(tmp_path):
     state = saved.load()
     assert state == original
 
-    tracker = Tracker(state, saved, _FixedClock())
+    tracker = Tracker(state, saved, FakeClock(datetime(2026, 10, 11, 12, 0, tzinfo=UTC)))
     outcome = tracker.edit_task(
         1,
         TaskFields(title="Edited", due_date="2026-10-10"),
@@ -1039,7 +1035,9 @@ def test_task_edit_restart_preserves_format_and_protected_fields(tmp_path):
         assert edited[key] == before["tasks"][0][key], key
     assert document["tasks"][1:] == before["tasks"][1:]
 
-    restarted = Tracker(SavedData(location).load(), saved, _FixedClock())
+    restarted = Tracker(
+        SavedData(location).load(), saved, FakeClock(datetime(2026, 10, 11, 12, 0, tzinfo=UTC))
+    )
     rows = restarted.project_tasks(1)
     assert [row.task.title for row in rows] == ["Edited", "Tied", "Tied too", "Undated"]
     assert [row.overdue for row in rows] == [False, True, True, False]
@@ -1054,7 +1052,7 @@ def _restart(location: Path) -> Tracker:
     saved = SavedData(location)
     state = saved.load()
     assert state is not None
-    return Tracker(state, saved, _FixedClock())
+    return Tracker(state, saved, FakeClock(datetime(2026, 10, 11, 12, 0, tzinfo=UTC)))
 
 
 def test_labels_survive_add_reload_remove_reload(tmp_path):
@@ -1276,22 +1274,11 @@ PROJECT_KEYS = {"id", "name", "description"}
 COMMENT_KEYS = {"text", "author", "created_at"}
 
 
-class _SteppingClock:
-    """Gives an instant a minute after the one before: one for the task, then one per comment."""
-
-    def __init__(self) -> None:
-        self._next = NOW
-
-    def now(self) -> datetime:
-        instant, self._next = self._next, self._next + timedelta(minutes=1)
-        return instant
-
-
 def _acted_on_the_real_file(location: Path) -> Tracker:
     """AC-6's sequence through the tracker's actions: a project, an assignee, a task with every
     field, a label, the operator's own name, a comment, a rename and a second comment."""
     saved = SavedData(location)
-    tracker = Tracker(empty_state(), saved, _SteppingClock())
+    tracker = Tracker(empty_state(), saved, FakeClock(NOW, step=timedelta(minutes=1)))
     project = tracker.create_project("Alpha", "first project")
     tracker.add_assignee("Dana")
     task = tracker.add_task(project.id, "Set up CI", "high", "Dana", "2026-10-20")
@@ -1368,7 +1355,7 @@ def test_comment_restart_has_only_the_existing_saved_keys(tmp_path):
 def _populated_real_file(location: Path) -> Tracker:
     """Two projects, two assignees, three tasks of which the highest and the middle carry comments."""
     saved = SavedData(location)
-    tracker = Tracker(empty_state(), saved, _SteppingClock())
+    tracker = Tracker(empty_state(), saved, FakeClock(NOW, step=timedelta(minutes=1)))
     alpha = tracker.create_project("Alpha", "first project")
     beta = tracker.create_project("Beta", "")
     tracker.add_assignee("Dana")
@@ -1414,7 +1401,7 @@ def test_last_task_deletion_reloads_as_empty_without_resetting_identity(tmp_path
     assignees, operator name and both counters stay, and the next task is not the deleted identity."""
     location = tmp_path / "data"
     saved = SavedData(location)
-    tracker = Tracker(empty_state(), saved, _SteppingClock())
+    tracker = Tracker(empty_state(), saved, FakeClock(NOW, step=timedelta(minutes=1)))
     project = tracker.create_project("Alpha", "")
     tracker.add_assignee("Dana")
     tracker.set_operator_name("Sam")
@@ -1501,7 +1488,7 @@ def test_confirm_last_or_empty_project_delete_persists(tmp_path):
     route; each reloads with the others and the counters intact and lands with its own count."""
     location = tmp_path / "data"
     saved = SavedData(location)
-    tracker = Tracker(empty_state(), saved, _SteppingClock())
+    tracker = Tracker(empty_state(), saved, FakeClock(NOW, step=timedelta(minutes=1)))
     tracker.create_project("Empty", "")
     tracker.create_project("Only", "")
     tracker.add_assignee("Dana")

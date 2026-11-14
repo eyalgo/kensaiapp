@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import sys
 import threading
+from datetime import UTC, datetime
 from pathlib import Path
 from urllib.parse import urlencode
 
@@ -22,7 +23,7 @@ from test_pages import Element, parse
 
 from application import Saver, Tracker, TrackerState
 from domain import empty_state
-from tests.fakes import FakeSaver
+from tests.fakes import FakeClock, FakeSaver
 from web import Response, Site, pages
 from web.routes import ROUTES
 
@@ -33,15 +34,11 @@ POLICY = "default-src 'self'; script-src 'none'; form-action 'self'; frame-ances
 STYLESHEET = Path(__file__).resolve().parent.parent.parent / "web" / "style.css"
 
 
-class FixedClock:
-    def now(self):
-        from datetime import UTC, datetime
-
-        return datetime(2026, 10, 7, 12, 0, tzinfo=UTC)
+NOW = datetime(2026, 10, 7, 12, 0, tzinfo=UTC)
 
 
 def make_site(saver: Saver | None = None) -> tuple[Site, Tracker]:
-    tracker = Tracker(empty_state(), saver or FakeSaver(), FixedClock())
+    tracker = Tracker(empty_state(), saver or FakeSaver(), FakeClock(NOW))
     return Site(tracker, HOST), tracker
 
 
@@ -75,7 +72,7 @@ def follow(site: Site, response: Response) -> str:
 
 def restart(saver: FakeSaver) -> Tracker:
     state = saver.saved[-1] if saver.saved else empty_state()
-    return Tracker(state, saver, FixedClock())
+    return Tracker(state, saver, FakeClock(NOW))
 
 
 def test_a_create_answers_303_to_the_project_page_and_a_reload_changes_nothing() -> None:

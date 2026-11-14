@@ -24,12 +24,12 @@ from urllib.parse import urlencode
 import pytest
 from test_comment_routes import add_comment
 from test_routes import HOST
-from test_task_routes import MovableClock, location
+from test_task_routes import NOON, location
 
 from application import Tracker, TrackerState
 from domain import empty_state
 from persistence import SavedData
-from tests.fakes import FakeSaver
+from tests.fakes import FakeClock, FakeSaver
 from web import Response, Site
 
 PATH = os.fsdecode(b"/tmp/caf\xe9")
@@ -58,7 +58,7 @@ class CommentAddFails(Tracker):
     """A Tracker whose comment add raises the error it was given, as a failed write would."""
 
     def __init__(
-        self, failure: OSError, state: TrackerState, saver: FakeSaver, clock: MovableClock
+        self, failure: OSError, state: TrackerState, saver: FakeSaver, clock: FakeClock
     ) -> None:
         super().__init__(state, saver, clock)
         self._failure = failure
@@ -70,7 +70,7 @@ class CommentAddFails(Tracker):
 def fail_comment_add(tmp_path: Path, error_args: tuple[object, ...]) -> tuple[Response, bytes]:
     """Post a comment add that fails with the error; answer the response and the stream's bytes."""
     saver = FakeSaver(passes_to=SavedData(tmp_path / "data"))
-    tracker = CommentAddFails(OSError(*error_args), empty_state(), saver, MovableClock())
+    tracker = CommentAddFails(OSError(*error_args), empty_state(), saver, FakeClock(NOON))
     buffer = io.BytesIO()
     stream = io.TextIOWrapper(buffer, encoding="utf-8", errors="backslashreplace")
     with contextlib.redirect_stderr(stream):

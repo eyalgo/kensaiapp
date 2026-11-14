@@ -22,34 +22,27 @@ from application import (
     TrackerState,
 )
 from domain import restore_state
-from tests.fakes import FakeSaver
+from tests.fakes import FakeClock, FakeSaver
 
 PROJECTS = [(1, "Alpha", "first"), (2, "Beta", "")]
 NEXT_PROJECT_ID = 3
-
-
-class CountingClock:
-    def __init__(self) -> None:
-        self.reads = 0
-
-    def now(self) -> datetime:
-        self.reads += 1
-        return datetime(2026, 10, 11, 12, 0, tzinfo=UTC)
 
 
 def _state(*assignees: str) -> TrackerState:
     return restore_state(PROJECTS, NEXT_PROJECT_ID, assignees)
 
 
-def _tracker(saver, *assignees: str, clock: CountingClock | None = None) -> Tracker:
-    return Tracker(_state(*assignees), saver, clock or CountingClock())
+def _tracker(saver, *assignees: str, clock: FakeClock | None = None) -> Tracker:
+    return Tracker(
+        _state(*assignees), saver, clock or FakeClock(datetime(2026, 10, 11, 12, 0, tzinfo=UTC))
+    )
 
 
 @pytest.mark.parametrize("starting", [(), ("Dana", " Ari", "Bo")], ids=["empty", "populated"])
 def test_assignee_query_does_not_save_or_read_the_clock(starting):
     """CP-81, CP-86: the list comes back in its order and nothing is written or timed."""
     saver = FakeSaver()
-    clock = CountingClock()
+    clock = FakeClock(datetime(2026, 10, 11, 12, 0, tzinfo=UTC))
     tracker = _tracker(saver, *starting, clock=clock)
 
     assert tracker.assignees() == starting
@@ -104,7 +97,9 @@ def test_failed_assignee_save_leaves_the_old_state_current():
     assert [project.name for project in tracker.projects()] == ["Alpha", "Beta"]
 
     recorder = FakeSaver()
-    healthy = Tracker(_state("Dana", "Ari"), recorder, CountingClock())
+    healthy = Tracker(
+        _state("Dana", "Ari"), recorder, FakeClock(datetime(2026, 10, 11, 12, 0, tzinfo=UTC))
+    )
     assert healthy.create_project("Gamma", "").id == NEXT_PROJECT_ID
     assert recorder.saved[-1].next_project_id == NEXT_PROJECT_ID + 1
 

@@ -24,21 +24,12 @@ from application import (
     TrackerState,
 )
 from domain import restore_state, restore_task
-from tests.fakes import FakeSaver
+from tests.fakes import FakeClock, FakeSaver
 
 PROJECTS = [(1, "Alpha", "first"), (2, "Beta", "")]
 NEXT_PROJECT_ID = 3
 CREATED_AT = datetime(2026, 10, 11, 12, 0, tzinfo=UTC)
 BLANK_FORMS = ("", "   ", "\t", " ", "　")
-
-
-class CountingClock:
-    def __init__(self) -> None:
-        self.reads = 0
-
-    def now(self) -> datetime:
-        self.reads += 1
-        return CREATED_AT
 
 
 def _state(operator_name: str | None = None) -> TrackerState:
@@ -65,17 +56,15 @@ def _state(operator_name: str | None = None) -> TrackerState:
     )
 
 
-def _tracker(
-    saver, operator_name: str | None = None, clock: CountingClock | None = None
-) -> Tracker:
-    return Tracker(_state(operator_name), saver, clock or CountingClock())
+def _tracker(saver, operator_name: str | None = None, clock: FakeClock | None = None) -> Tracker:
+    return Tracker(_state(operator_name), saver, clock or FakeClock(CREATED_AT))
 
 
 @pytest.mark.parametrize("starting", [None, "Sam", " Sam "], ids=["unset", "plain", "spaced"])
 def test_operator_name_reader_reports_unset_and_restored_name(starting):
     """CP-212, CP-226: the reader gives the current scalar exactly, with no save and no clock."""
     saver = FakeSaver()
-    clock = CountingClock()
+    clock = FakeClock(CREATED_AT)
     tracker = _tracker(saver, starting, clock)
 
     assert tracker.operator_name() == starting
@@ -165,7 +154,7 @@ def test_failed_name_save_does_not_publish(starting):
 def test_name_action_never_reads_clock_and_saver_receives_only_saves():
     """CP-235, QC-54: the clock is unused, and the saver's only calls are saves of whole states."""
     saver = FakeSaver()
-    clock = CountingClock()
+    clock = FakeClock(CREATED_AT)
     tracker = _tracker(saver, None, clock)
 
     tracker.set_operator_name("Sam")

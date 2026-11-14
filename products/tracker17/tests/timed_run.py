@@ -91,6 +91,7 @@ from domain import (
     restore_state,
     restore_task,
 )
+from main import SystemClock
 from persistence import SavedData
 from web import Site
 
@@ -338,11 +339,6 @@ class Timed:
     created: bool
 
 
-class RealClock:
-    def now(self) -> datetime:
-        return datetime.now(UTC)
-
-
 def specs() -> list[Spec]:
     """Ordinary lengths (a short name and a short description), then each maximum."""
     ordinary = [
@@ -434,7 +430,7 @@ def _open_volume(saved_data: SavedData, state: TrackerState) -> tuple[Site, Trac
     saved_data.save(state)
     loaded = saved_data.load()
     assert loaded is not None
-    return Site(Tracker(loaded, saved_data, RealClock()), HOST), loaded
+    return Site(Tracker(loaded, saved_data, SystemClock()), HOST), loaded
 
 
 def _summary_task(number: int) -> Task:
@@ -1812,7 +1808,7 @@ def main(directory: Path | None = None, timer: Callable[[], float] = time.perf_c
         with tempfile.TemporaryDirectory() as temporary:
             return main(Path(temporary), timer)
     saved_data = SavedData(directory / "data")
-    project_site = Site(Tracker(empty_state(), saved_data, RealClock()), HOST)
+    project_site = Site(Tracker(empty_state(), saved_data, SystemClock()), HOST)
     creates = timed_creates(site=project_site, to_time=specs(), timer=timer)
     status = verdict(creates, LIMIT_SECONDS)
     task_data = SavedData(directory / "task-volume")

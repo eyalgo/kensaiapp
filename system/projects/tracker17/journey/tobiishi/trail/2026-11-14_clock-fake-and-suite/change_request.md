@@ -9,3 +9,6 @@
 **Category:** nfdr
 **Behaviour:** preserving
 **Classified because:** the station is driven by NFDR QC-64 (a test-support fake and contract suite, "tooling, observability, build, or a change an NFDR row drives"); it changes only test code, adds no product behaviour, and no enforcement command's verdict changes yet: the layer-6 walk that would report on it is the seed's third station, not this one.
+
+**Sealed:** 2026-11-14 — accepted; merged to `main` via `--no-ff`.
+Environment: owners-mac — no CI

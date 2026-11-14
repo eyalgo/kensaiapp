@@ -26,16 +26,11 @@ from application import (
     TrackerState,
 )
 from domain import Comment, restore_state, restore_task
-from tests.fakes import FakeSaver
+from tests.fakes import FakeClock, FakeSaver
 
 PROJECTS = [(1, "Alpha", "first"), (2, "Beta", "")]
 CREATED = datetime(2026, 10, 11, 12, 0, tzinfo=UTC)
 PEOPLE = ("Dana", "Ari")
-
-
-class FixedClock:
-    def now(self) -> datetime:
-        return CREATED
 
 
 def _tasks() -> list[Task]:
@@ -76,7 +71,7 @@ def _all_tasks(tracker: Tracker) -> tuple[Task, ...]:
 
 
 def _tracker(saver) -> Tracker:
-    tracker = Tracker(_state(), saver, FixedClock())
+    tracker = Tracker(_state(), saver, FakeClock(CREATED))
     if isinstance(saver, FakeSaver):
         saver.watch = lambda: _all_tasks(tracker)
     return tracker

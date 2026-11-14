@@ -35,7 +35,7 @@ from application import (
 )
 from domain import Task, empty_state
 from persistence import SavedData
-from tests.fakes import FakeSaver
+from tests.fakes import FakeClock, FakeSaver
 from web import Response, Site, pages
 
 NOON = datetime(2026, 10, 11, 12, 0, tzinfo=UTC)
@@ -55,20 +55,12 @@ def utc_zone() -> Iterator[None]:
     time.tzset()
 
 
-class MovableClock:
-    def __init__(self, instant: datetime = NOON) -> None:
-        self.instant = instant
-
-    def now(self) -> datetime:
-        return self.instant
-
-
 @dataclass
 class World:
     site: Site
     tracker: Tracker
     saver: FakeSaver
-    clock: MovableClock
+    clock: FakeClock
     location: Path
 
     @property
@@ -93,7 +85,7 @@ def make_world(
 ) -> World:
     location = tmp_path / "data"
     saver = FakeSaver(passes_to=SavedData(location))
-    clock = MovableClock()
+    clock = FakeClock(NOON)
     tracker = Tracker(empty_state(), saver, clock)
     for name in projects:
         tracker.create_project(name, "")
@@ -479,7 +471,7 @@ def state_of(world: World) -> tuple[object, ...]:
 class VanishingProjectTracker(Tracker):
     """A tracker whose project lookup succeeds and whose actions then report the project gone."""
 
-    def __init__(self, saver: Saver, clock: MovableClock) -> None:
+    def __init__(self, saver: Saver, clock: FakeClock) -> None:
         super().__init__(empty_state(), saver, clock)
         self.reached: list[tuple[str, int]] = []
 

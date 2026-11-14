@@ -32,29 +32,11 @@ from application import (
     Tracker,
 )
 from domain import restore_state, sort_all_tasks
-from tests.fakes import FakeSaver
+from tests.fakes import FakeClock, FakeSaver
 
 PROJECTS = [(1, "Alpha", "first"), (2, "Beta", "")]
 NEXT_PROJECT_ID = 3
 CREATED = datetime(2026, 10, 6, 12, 0, tzinfo=UTC)
-
-
-class SequenceClock:
-    """Returns each instant it was given, then the last one again; counts every read."""
-
-    def __init__(self, *instants: datetime) -> None:
-        self._instants = list(instants) or [CREATED]
-        self.reads = 0
-
-    def now(self) -> datetime:
-        index = min(self.reads, len(self._instants) - 1)
-        self.reads += 1
-        return self._instants[index]
-
-    def restart(self, *instants: datetime) -> None:
-        """Hand out these instants from now on, with the read count back at zero."""
-        self._instants = list(instants)
-        self.reads = 0
 
 
 @pytest.fixture
@@ -77,9 +59,9 @@ def local_zone(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     time.tzset()
 
 
-def make_tracker(saver: FakeSaver, clock: SequenceClock | None = None) -> Tracker:
+def make_tracker(saver: FakeSaver, clock: FakeClock | None = None) -> Tracker:
     state = restore_state(PROJECTS, NEXT_PROJECT_ID, ("dana", "ali"))
-    return Tracker(state, saver, clock or SequenceClock())
+    return Tracker(state, saver, clock or FakeClock(CREATED))
 
 
 def ids(listed: ProjectTaskList) -> list[int]:
@@ -232,7 +214,7 @@ def test_one_clock_read_serves_sorted_selection_and_row_marking(local_zone):
     selection and every row's overdue flag use the first local date, the next list the second."""
     late = datetime(2026, 10, 7, 12, 0, tzinfo=UTC)  # local date 2026-10-08
     early = datetime(2026, 10, 5, 12, 0, tzinfo=UTC)  # local date 2026-10-06
-    clock = SequenceClock(CREATED)
+    clock = FakeClock(CREATED)
     tracker = make_tracker(FakeSaver(), clock)
     task = tracker.add_task(1, "Edge", "low", "", "2026-10-07")
     clock.restart(late, early)
@@ -342,7 +324,7 @@ def test_all_task_list_uses_one_local_date_for_selection_and_marking(local_zone)
     on a non-UTC date line, with a clock that would cross midnight if read twice."""
     late = datetime(2026, 10, 7, 12, 0, tzinfo=UTC)  # local date 2026-10-08
     early = datetime(2026, 10, 5, 12, 0, tzinfo=UTC)  # local date 2026-10-06
-    clock = SequenceClock(CREATED)
+    clock = FakeClock(CREATED)
     tracker = make_tracker(FakeSaver(), clock)
     first = tracker.add_task(1, "Edge", "low", "", "2026-10-07")
     second = tracker.add_task(2, "Other", "low", "", "2026-10-07")

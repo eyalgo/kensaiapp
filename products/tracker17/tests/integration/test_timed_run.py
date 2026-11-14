@@ -34,6 +34,7 @@ import pytest
 
 from application import Tracker
 from domain import Comment, Priority, TaskStatus, find_task, restore_state
+from main import SystemClock
 from persistence import SavedData
 from web import Response, Site
 
@@ -1061,7 +1062,7 @@ def _site_over(harness: ModuleType, saved_data: SavedData, state):
     saved_data.save(state)
     loaded = saved_data.load()
     assert loaded is not None
-    return Site(Tracker(loaded, saved_data, harness.RealClock()), SITE_HOST), loaded
+    return Site(Tracker(loaded, saved_data, SystemClock()), SITE_HOST), loaded
 
 
 def _comment(text: str, author: str) -> Comment:

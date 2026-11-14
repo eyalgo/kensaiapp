@@ -38,24 +38,11 @@ from application import (
     Tracker,
 )
 from domain import Comment, restore_state, restore_task, task_edit_context
-from tests.fakes import FakeSaver
+from tests.fakes import FakeClock, FakeSaver
 
 PROJECTS = [(1, "Alpha", "first"), (2, "Beta", "")]
 NEXT_PROJECT_ID = 3
 CREATED = datetime(2026, 10, 11, 12, 0, tzinfo=UTC)
-
-
-class SequenceClock:
-    """Returns each instant it was given, then the last one again; counts every read."""
-
-    def __init__(self, *instants: datetime) -> None:
-        self._instants = list(instants) or [CREATED]
-        self.reads = 0
-
-    def now(self) -> datetime:
-        index = min(self.reads, len(self._instants) - 1)
-        self.reads += 1
-        return self._instants[index]
 
 
 def _all_tasks(tracker: Tracker) -> tuple[Task, ...]:
@@ -63,9 +50,9 @@ def _all_tasks(tracker: Tracker) -> tuple[Task, ...]:
     return tuple(row.task for project_id in (1, 2) for row in tracker.project_tasks(project_id))
 
 
-def _tracker(saver, *assignees: str, clock: SequenceClock | None = None) -> Tracker:
+def _tracker(saver, *assignees: str, clock: FakeClock | None = None) -> Tracker:
     state = restore_state(PROJECTS, NEXT_PROJECT_ID, assignees)
-    return Tracker(state, saver, clock or SequenceClock())
+    return Tracker(state, saver, clock or FakeClock(CREATED))
 
 
 @pytest.fixture
@@ -100,7 +87,7 @@ def test_add_task_saves_once_before_publishing():
 def test_refused_task_add_never_calls_the_saver():
     """FR-39, CP-111 to CP-113: each refusal propagates, leaves every read as it was, no identity."""
     saver = FakeSaver()
-    clock = SequenceClock()
+    clock = FakeClock(CREATED)
     tracker = _tracker(saver, "Dana", clock=clock)
     tracker.add_task(1, "Kept", "", "", "")
     saved_before = len(saver.saved)
@@ -138,7 +125,7 @@ def test_failed_save_keeps_tasks_and_counter():
     assert tracker.task(1) is None
 
     recorder = FakeSaver()
-    healthy = Tracker(restore_state(PROJECTS, NEXT_PROJECT_ID), recorder, SequenceClock())
+    healthy = Tracker(restore_state(PROJECTS, NEXT_PROJECT_ID), recorder, FakeClock(CREATED))
     assert healthy.add_task(1, "First", "", "", "").id == 1
 
 
@@ -176,7 +163,7 @@ def test_project_and_people_actions_retain_tasks():
 def test_task_lookup_and_project_rows_return_complete_values():
     """CP-114, CP-124, CP-125: lookup, isolation, domain order, flags, and no read saves."""
     saver = FakeSaver()
-    clock = SequenceClock(CREATED)
+    clock = FakeClock(CREATED)
     tracker = _tracker(saver, clock=clock)
     undated = tracker.add_task(1, "Undated", "", "", "")
     late = tracker.add_task(1, "Late", "", "", "2026-10-10")
@@ -201,7 +188,7 @@ def test_project_page_uses_one_injected_local_date(local_zone):
     # 10th is overdue by local date but would not be by the UTC date.
     before_local_midnight = datetime(2026, 10, 10, 9, 0, tzinfo=UTC)  # local 2026-10-10 23:00
     after_local_midnight = datetime(2026, 10, 10, 11, 0, tzinfo=UTC)  # local 2026-10-11 01:00
-    clock = SequenceClock(CREATED, before_local_midnight, after_local_midnight)
+    clock = FakeClock(CREATED, before_local_midnight, after_local_midnight)
     tracker = _tracker(FakeSaver(), clock=clock)
     tracker.add_task(1, "Due the tenth", "", "", "2026-10-10")
     assert clock.reads == 1
@@ -218,7 +205,7 @@ def test_project_page_uses_one_injected_local_date(local_zone):
 def test_add_records_the_injected_creation_instant():
     """CP-111: the task holds the one instant the clock supplied, read once for the add."""
     instant = datetime(2026, 3, 4, 5, 6, 7, tzinfo=UTC)
-    clock = SequenceClock(instant)
+    clock = FakeClock(instant)
     tracker = _tracker(FakeSaver(), clock=clock)
 
     task = tracker.add_task(1, "Timed", "", "", "")
@@ -252,7 +239,7 @@ def _tracker_holding(saver, *tasks: Task, assignees=("Dana", "Ari"), clock=None)
         tasks=tasks,
         next_task_id=max(task.id for task in tasks) + 1,
     )
-    return Tracker(state, saver, clock or SequenceClock())
+    return Tracker(state, saver, clock or FakeClock(CREATED))
 
 
 SAVED = TaskFields(title="Set up CI", priority="high", assignee="Dana", due_date="2026-10-20")
@@ -341,7 +328,7 @@ def test_tracker_failed_edit_keeps_current_state():
 def test_tracker_edit_never_reads_clock_or_saved_data():
     """CP-171: no clock read for an edit or a context lookup; the saver is only ever saved to."""
     saver = FakeSaver()
-    clock = SequenceClock()
+    clock = FakeClock(CREATED)
     tracker = _tracker_holding(saver, _stored_task(), clock=clock)
 
     tracker.edit_task(1, TaskFields(title="Renamed"), SAVED)
@@ -394,7 +381,7 @@ def test_tracker_task_edit_context_delegates_saved_values():
 def test_tracker_edited_due_date_updates_list_order_and_overdue():
     """CP-171: the list recomputes order and the overdue flag from the edited date, no clock write."""
     saver = FakeSaver()
-    clock = SequenceClock(CREATED)
+    clock = FakeClock(CREATED)
     tracker = _tracker_holding(
         saver,
         _stored_task(id=1, title="A", due_date="2026-10-20"),
@@ -523,7 +510,7 @@ def test_failed_delete_preserves_every_application_read():
 
 def test_deletion_needs_no_clock_read():
     """Design B: a successful, a refused and a failed deletion never ask the clock for an instant."""
-    clock = SequenceClock()
+    clock = FakeClock(CREATED)
     tracker = _holding_two_tasks(FakeSaver(), clock=clock)
     with pytest.raises(TaskNotFound):
         tracker.delete_task(99)

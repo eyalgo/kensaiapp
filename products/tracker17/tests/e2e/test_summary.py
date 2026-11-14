@@ -17,6 +17,7 @@ from playwright.sync_api import Browser, Page, expect
 from application import Tracker
 from domain import empty_state
 from persistence import SavedData
+from tests.fakes import FakeClock
 
 FULL_WIDTH = 1280
 ZOOM_FACTOR = 4
@@ -59,17 +60,14 @@ def count_link(page: Page, accessible_name: str):  # type: ignore[no-untyped-def
     return page.get_by_role("link", name=accessible_name, exact=True)
 
 
-class FixedClock:
-    def now(self) -> datetime:
-        return datetime(2026, 10, 28, 12, 0, tzinfo=UTC)
-
-
 def seeded(
     location: Path, *, project: str = "Alpha", assignee: str = "Dana", crowd: int = 0
 ) -> None:
     """Alpha holds an overdue task, an undated task, a done task and an unlisted name, and Gamma
     is empty. `crowd` adds that many more tasks so the Tasks page needs scrolling."""
-    tracker = Tracker(empty_state(), SavedData(location), FixedClock())
+    tracker = Tracker(
+        empty_state(), SavedData(location), FakeClock(datetime(2026, 10, 28, 12, 0, tzinfo=UTC))
+    )
     tracker.create_project(project, "")
     tracker.create_project("Gamma", "")
     tracker.add_assignee(assignee)

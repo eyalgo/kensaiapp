@@ -23,7 +23,7 @@ import pytest
 from application import Tracker
 from domain import empty_state
 from errors import AppError
-from tests.fakes import FakeSaver
+from tests.fakes import FakeClock, FakeSaver
 from web import AddressTaken, Listener, listen, listen_unreadable, pages
 from web.routes import CSS_TYPE, HTML_TYPE, PAGE_POLICY, STYLESHEET_FILE
 
@@ -37,14 +37,11 @@ PYTHON_TEXT = (
 )
 
 
-class FixedClock:
-    def now(self) -> datetime:
-        return datetime(2026, 10, 7, 12, 0, tzinfo=UTC)
-
-
 @pytest.fixture
 def served() -> Iterator[tuple[str, int]]:
-    tracker = Tracker(empty_state(), FakeSaver(), FixedClock())
+    tracker = Tracker(
+        empty_state(), FakeSaver(), FakeClock(datetime(2026, 10, 7, 12, 0, tzinfo=UTC))
+    )
     listener = listen(("127.0.0.1", 0), tracker)
     thread = threading.Thread(target=listener.serve_forever, daemon=True)
     thread.start()
@@ -135,7 +132,9 @@ def test_a_malformed_request_line_gets_no_python_text(
 
 
 def test_the_listener_stops_on_server_close() -> None:
-    tracker = Tracker(empty_state(), FakeSaver(), FixedClock())
+    tracker = Tracker(
+        empty_state(), FakeSaver(), FakeClock(datetime(2026, 10, 7, 12, 0, tzinfo=UTC))
+    )
     listener = listen(("127.0.0.1", 0), tracker)
     thread = threading.Thread(target=listener.serve_forever, daemon=True)
     thread.start()
@@ -179,7 +178,9 @@ def _serve_one(held: socket.socket) -> None:
 @pytest.mark.parametrize("reuse", [False, True], ids=["plain-holder", "reuse-address-holder"])
 def test_listen_raises_address_taken_when_a_holder_has_the_address(reuse: bool) -> None:
     """CP-39, CP-42: the holder keeps the address and still answers afterwards."""
-    tracker = Tracker(empty_state(), FakeSaver(), FixedClock())
+    tracker = Tracker(
+        empty_state(), FakeSaver(), FakeClock(datetime(2026, 10, 7, 12, 0, tzinfo=UTC))
+    )
     held = _holder("127.0.0.1", 0, reuse=reuse)
     try:
         address = held.getsockname()
@@ -192,7 +193,9 @@ def test_listen_raises_address_taken_when_a_holder_has_the_address(reuse: bool) 
 
 def test_listen_leaves_another_cause_unchanged() -> None:
     """CP-42, Gap 5: an address no machine owns is a bind failure that is not an address taken."""
-    tracker = Tracker(empty_state(), FakeSaver(), FixedClock())
+    tracker = Tracker(
+        empty_state(), FakeSaver(), FakeClock(datetime(2026, 10, 7, 12, 0, tzinfo=UTC))
+    )
     with pytest.raises(OSError) as caught:
         listen(("192.0.2.1", 0), tracker)
     assert not isinstance(caught.value, AddressTaken)
@@ -200,7 +203,9 @@ def test_listen_leaves_another_cause_unchanged() -> None:
 
 def test_listen_takes_the_address_a_zero_address_holder_leaves_free() -> None:
     """CP-42: the expectation comes from a probe bind, never from the platform's name."""
-    tracker = Tracker(empty_state(), FakeSaver(), FixedClock())
+    tracker = Tracker(
+        empty_state(), FakeSaver(), FakeClock(datetime(2026, 10, 7, 12, 0, tzinfo=UTC))
+    )
     held = _holder("0.0.0.0", 0, reuse=False)
     try:
         port = held.getsockname()[1]
@@ -231,7 +236,9 @@ def test_address_taken_is_not_an_oserror() -> None:
 
 def test_address_taken_carries_the_original_error_as_its_cause() -> None:
     """CP-39: the operating system's error stays on the chain for a reader of the code."""
-    tracker = Tracker(empty_state(), FakeSaver(), FixedClock())
+    tracker = Tracker(
+        empty_state(), FakeSaver(), FakeClock(datetime(2026, 10, 7, 12, 0, tzinfo=UTC))
+    )
     held = _holder("127.0.0.1", 0, reuse=False)
     try:
         address = held.getsockname()
@@ -287,7 +294,10 @@ class Serving:
 
 
 def _cooperative_listener() -> Listener:
-    return listen(("127.0.0.1", 0), Tracker(empty_state(), FakeSaver(), FixedClock()))
+    return listen(
+        ("127.0.0.1", 0),
+        Tracker(empty_state(), FakeSaver(), FakeClock(datetime(2026, 10, 7, 12, 0, tzinfo=UTC))),
+    )
 
 
 def _address_of(listener: Listener) -> tuple[str, int]:

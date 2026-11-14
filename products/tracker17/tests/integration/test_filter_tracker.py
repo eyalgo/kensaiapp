@@ -30,25 +30,12 @@ from application import (
     Tracker,
 )
 from domain import filter_project_tasks, restore_state
-from tests.fakes import FakeSaver
+from tests.fakes import FakeClock, FakeSaver
 
 PROJECTS = [(1, "Alpha", "first"), (2, "Beta", "")]
 NEXT_PROJECT_ID = 3
 CREATED = datetime(2026, 10, 6, 12, 0, tzinfo=UTC)
 TODAY = date(2026, 10, 6)
-
-
-class SequenceClock:
-    """Returns each instant it was given, then the last one again; counts every read."""
-
-    def __init__(self, *instants: datetime) -> None:
-        self._instants = list(instants) or [CREATED]
-        self.reads = 0
-
-    def now(self) -> datetime:
-        index = min(self.reads, len(self._instants) - 1)
-        self.reads += 1
-        return self._instants[index]
 
 
 @pytest.fixture
@@ -71,9 +58,9 @@ def local_zone(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     time.tzset()
 
 
-def make_tracker(saver: FakeSaver, clock: SequenceClock | None = None) -> Tracker:
+def make_tracker(saver: FakeSaver, clock: FakeClock | None = None) -> Tracker:
     state = restore_state(PROJECTS, NEXT_PROJECT_ID, ("dana", "ali"))
-    return Tracker(state, saver, clock or SequenceClock())
+    return Tracker(state, saver, clock or FakeClock(CREATED))
 
 
 def one(field: str, *values: str) -> FilterInput:
@@ -160,7 +147,7 @@ def test_refused_list_preserves_typed_problems_and_raw_choices():
 def test_overdue_filter_and_row_marking_agree(utc_zone):
     """CP-415, AC-13: yesterday open, today open, yesterday done and yesterday cancelled give the
     same verdict through the filter and through the row marker on one date."""
-    tracker = make_tracker(FakeSaver(), SequenceClock(CREATED))
+    tracker = make_tracker(FakeSaver(), FakeClock(CREATED))
     yesterday, today = "2026-10-05", "2026-10-06"
     open_yesterday = tracker.add_task(1, "Open yesterday", "", "", yesterday).id
     open_today = tracker.add_task(1, "Open today", "", "", today).id
@@ -191,7 +178,7 @@ def test_one_local_date_snapshot_serves_the_whole_page(local_zone):
     query, every result uses its first local date, and the next query recomputes."""
     before_local_midnight = datetime(2026, 10, 10, 9, 0, tzinfo=UTC)  # local 2026-10-10 23:00
     after_local_midnight = datetime(2026, 10, 10, 11, 0, tzinfo=UTC)  # local 2026-10-11 01:00
-    clock = SequenceClock(CREATED, before_local_midnight, after_local_midnight)
+    clock = FakeClock(CREATED, before_local_midnight, after_local_midnight)
     tracker = make_tracker(FakeSaver(), clock)
     tracker.add_task(1, "Due the tenth", "", "", "2026-10-10")
     assert clock.reads == 1

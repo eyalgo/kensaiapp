@@ -20,6 +20,7 @@ from playwright.sync_api import Browser, Page, expect
 from application import Tracker
 from domain import empty_state
 from persistence import SavedData
+from tests.fakes import FakeClock
 
 TITLES = ("Write docs", "Fix bug", "Ship")
 MAXIMUM_TABS = 60
@@ -27,15 +28,12 @@ FULL_WIDTH = 1280
 ZOOM_FACTOR = 4
 
 
-class FixedClock:
-    def now(self) -> datetime:
-        return datetime(2026, 10, 11, 12, 0, tzinfo=UTC)
-
-
 def seeded(location: Path, long_title: str = "", extra_rows: int = 0) -> None:
     """Save a project of three tasks before the tracker process starts, as a past run left it.
     Extra tasks are dated, so they list before the undated last one."""
-    tracker = Tracker(empty_state(), SavedData(location), FixedClock())
+    tracker = Tracker(
+        empty_state(), SavedData(location), FakeClock(datetime(2026, 10, 11, 12, 0, tzinfo=UTC))
+    )
     tracker.create_project("Alpha", "")
     tracker.add_assignee("Dana")
     tracker.add_task(1, long_title or TITLES[0], "high", "Dana", "2000-01-01")

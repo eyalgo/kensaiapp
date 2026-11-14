@@ -21,12 +21,12 @@ from urllib.parse import parse_qs, urlencode, urlsplit
 import pytest
 from test_pages import Element, parse, textarea_value
 from test_routes import FORM, HOST, POLICY, SAME_ORIGIN, get, header, page
-from test_task_routes import MovableClock, World, focused, follow, location
+from test_task_routes import NOON, World, focused, follow, location
 
 from application import LONG_TEXT_MAX, Comment, Tracker
 from domain import empty_state, restore_state, restore_task
 from persistence import SavedData
-from tests.fakes import FakeSaver
+from tests.fakes import FakeClock, FakeSaver
 from web import Response, Site, pages
 
 TITLE = "Set up CI"
@@ -43,18 +43,6 @@ FAILURE_LINE = (
 )
 FAILURE_CONSOLE = f"The tracker couldn't add your comment to '{TITLE}', and nothing was changed."
 STATUSES = ("todo", "in-progress", "done", "cancelled")
-
-
-class ReadCountingClock(MovableClock):
-    """The instant it was given, and a count of the reads."""
-
-    def __init__(self, instant: datetime = WRITTEN) -> None:
-        super().__init__(instant)
-        self.reads = 0
-
-    def now(self) -> datetime:
-        self.reads += 1
-        return super().now()
 
 
 def comment(text: str, author: str = "Sam") -> Comment:
@@ -83,7 +71,7 @@ def world_with(
     inner = SavedData(location_on_disk)
     inner.save(state)
     saver = FakeSaver(passes_to=inner)
-    clock = ReadCountingClock()
+    clock = FakeClock(WRITTEN)
     tracker = Tracker(state, saver, clock)
     return World(Site(tracker, HOST), tracker, saver, clock, location_on_disk)
 
@@ -104,7 +92,7 @@ def add_comment(site: Site, text: str, task: int | str = 1, **extra: str) -> Res
 
 
 def reads(world: World) -> int:
-    assert isinstance(world.clock, ReadCountingClock)
+    assert isinstance(world.clock, FakeClock)
     return world.clock.reads
 
 
@@ -360,7 +348,7 @@ def test_comment_failure_before_the_title_is_read_uses_the_short_console_line(
         def add_task_comment(self, task_id: int, text: str):  # type: ignore[no-untyped-def]
             raise RuntimeError("boom")
 
-    site = Site(Breaking(empty_state(), FakeSaver(), MovableClock()), HOST)
+    site = Site(Breaking(empty_state(), FakeSaver(), FakeClock(NOON)), HOST)
     capsys.readouterr()
     response = add_comment(site, "Hi", task=5)
     assert capsys.readouterr().err.splitlines() == [
@@ -455,7 +443,7 @@ def test_comment_requests_serialize_through_the_save(tmp_path: Path) -> None:
     state = restore_state(
         [(1, "Alpha", "")], 2, (), tasks=[task], next_task_id=2, operator_name="Sam"
     )
-    held = Site(Tracker(state, saver, ReadCountingClock()), HOST)
+    held = Site(Tracker(state, saver, FakeClock(WRITTEN)), HOST)
     saver.hold_save = saver.calls + 1
     first = threading.Thread(target=add_comment, args=(held, "one"))
     second = threading.Thread(target=add_comment, args=(held, "two"))
