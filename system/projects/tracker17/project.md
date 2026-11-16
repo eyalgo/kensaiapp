@@ -1,5 +1,10 @@
 # Project Context — tracker17
 
+> **SETTLED — finish line reached, signed off by the owner 2026-11-16.**
+> Nothing is open on its journey and nothing is left to build. The folder is kept in place as the
+> record (`finish_line.md` § *Reached*); it is not active work. The product at `products/tracker17`
+> stays where it is and keeps shipping as kensaiapp's public example.
+
 **Product path:** products/tracker17   <!-- relative → internal product (recommend under products/) · absolute → external (recommended overall). development-specs/design/planning resolve fdr/adr/nfdr by appending docs/ to this path. -->
 **Source material:** the owner's answers to the project-setup interview, 2026-10-05 — docs/PRD_open_issues.md until the first PRD run folds it, docs/trail/prd/cycle-1.md after; tracker16-X — the CLI task tracker whose code tracker17 prefers to reuse: task-tracker-X (code in tasktracker16x/ and tests/, definition in docs/fdr.md, docs/adr.md, docs/nfdr.md)   <!-- optional; read by product-prd at PRD time. Point at the product-intent source — proposal/brief docs, a legacy repo, links — or leave blank if the intent is supplied in conversation. Free-form; the scaffolder fills it from --source-material, else leaves <blank>. -->
 **Type:** software                    <!-- software | no-code — what the product is: an app or tool with code, or something without (a profile, a body of writing, a public presence). -->

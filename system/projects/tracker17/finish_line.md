@@ -52,3 +52,21 @@ reopen it on its own (`system/projects/tracker17/trail/finish_line/cycle-3.md` �
 reasoning in `system/projects/tracker17/trail/finish_line/self_answer-2.md`). The PRD's re-check of the bars "again on every later
 release" (`products/tracker17/docs/PRD.md` § Success Metrics) is upkeep after done, not a condition of
 it.
+
+---
+
+## Reached — signed off by the owner, 2026-11-16
+
+The owner used tracker17 and signed it off in session on 2026-11-16: all three bars pass. It is the
+first project in this galaxy to settle at its finish line rather than be taken out of service.
+
+**The one piece of feedback, recorded and not acted on — the owner's ruling.** A task's labels cannot
+be set when the task is created; they are added afterwards, on the task's own page. That is the
+settled design (`products/tracker17/docs/UXD.md` UX-S6 puts the label area on the task page, and the
+add form carries none), though `products/tracker17/docs/PRD.md` § Key Use Cases 3 reads "adds tasks
+with a priority, a due date, labels and an assignee" as one step. No seed is cut for it.
+
+**The folder stays here — the owner's ruling, 2026-11-16.** `kensaiapp_structure.md` § *When a project
+stops* sends a stopped project to the galaxy archive, and leaves an entangled one to the owner per
+project. Core's tests and many records name this folder, and the product keeps shipping as the public
+example, so it is kept in place, marked settled on its card.
