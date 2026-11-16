@@ -31,7 +31,7 @@ Owed: the pool is empty, and NFDR QC-40 states work no candidate carries. That w
 
 | Defect | Where | What was done | Source |
 |---|---|---|---|
-| A dead journey pointer: the three-part key named <another product built with KensaiApp>'s change, which lives in `<another instance of Eyal's>` | `docs/findings/2026-11-09_a-raised-item-is-not-carried-when-main-has-no-companion.md:L5-L6` | repaired to the four-part key at `<a commit not in the public history>` | `check_journey_links.py` before, 2 dead; the unit sits in that instance's `journey/tobiishi/trail/` |
+| A dead journey pointer: the three-part key named a change of a product in another instance of Eyal's, which lives in that instance | `docs/findings/2026-11-09_a-raised-item-is-not-carried-when-main-has-no-companion.md:L5-L6` | repaired to the four-part key at `<a commit not in the public history>` | `check_journey_links.py` before, 2 dead; the unit sits in that instance's `journey/tobiishi/trail/` |
 | The same, for the QA finding | `docs/findings/2026-11-14_qa-is-sent-a-check-only-change-no-way-in-can-reach.md:L5-L6` | repaired to the four-part key at `<a commit not in the public history>` | the same check; the unit sits at that instance's `journey/tobiishi/` root |
 | Two malformed triples (the check does not count them as dead) | `docs/findings/2026-10-03_a-satellite-triple-is-reported-malformed.md`; `product-development · nemawashi · 2026-11-03_shukuba-open-is-given-its-collaborators` | none: the first is the subject of that finding, which is already filed. The second is in another project's picked seed, and this run repairs only dead pointers there | `check_journey_links.py` after the repair: every pointer resolves, 2 malformed |
 
