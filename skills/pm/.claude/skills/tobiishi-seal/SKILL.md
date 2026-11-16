@@ -11,7 +11,7 @@ description: |
   Do not use for an earlier stage or an interactive hand-driven merge.
 license: MIT
 metadata:
-  version: "4.11.0"
+  version: "4.13.0"
   category: delivery
   risk: safe
 ---
@@ -30,9 +30,10 @@ A real developer deferral is recorded verbatim as *sealed with deferrals*. Step 
 is real; it does not decide whether it is right. The bookkeeping seal travels into instance `main`
 through its delivery merge. Make no further commit on `main` after delivery.
 
-**Produces:** the sealed carving and findings on instance `main`, delivery merges and proved
-worktree/ref absence, followed by joined-audit cleanup on success; an existing-folder
-`halt_report.md` with retained terminal and recovery evidence on halt.
+**Produces:** the sealed carving and findings on instance `main` (with `close_verdict.md` in the
+sealed folder when the chain handed this run the passing line of the close it ran before this seal),
+delivery merges and proved worktree/ref absence, followed by joined-audit cleanup on success; an
+existing-folder `halt_report.md` with retained terminal and recovery evidence on halt.
 
 ## Input
 
@@ -263,43 +264,32 @@ worktree, on branch `<key>`), **before** Step 2's folder move — every
 path (`$TOBIISHI/<key>/flow_findings/<step>.md`); joining after the move would land it at a path that
 no longer exists on the change branch.
 
-Glob the set from the key alone — nothing is handed to this step that it cannot recompute (the same
-convention `development-audit`'s own Step 0 names):
-
-```bash
-AUDIT_BRANCHES=$(git -C "$WORKTREE" for-each-ref --format='%(refname:short)' "refs/heads/<key>__audit-*")
-```
-
 **A missing audit branch is not a failure.** `development-audit is not a gate`
-(`<CORE>/tools/chain_development.py` `gates=False`, `:157`) — an auditor may have died and `AUDIT_BRANCHES` may glob fewer than the audit launched (or
-none). Join whatever the glob finds; an empty set skips this step entirely.
+(`<CORE>/tools/chain_development.py` `gates=False`, `:157`) — an auditor may have died and the join may
+find fewer branches than the audit launched (or none). Join whatever branches the join finds; an empty
+set joins nothing and the step goes on.
 
-For **each** branch in `$AUDIT_BRANCHES`, merge it into `<key>` through the builder — one call per
-branch (`commit_builder.py merge` takes one `--branch`; one sequential call per branch is the shape, never an
-octopus merge, never a cherry-pick):
+One call joins them. The tool takes the set from the key alone — every local branch named
+`<key>__audit-` plus at least one more character — and merges each into `<key>` through the builder,
+one merge per branch, never an octopus merge and never a cherry-pick. It reports the joined list. Write
+its standard output to `audit-join.json` and its standard error to `audit-join.err`, in the stable
+directory Step 2 names, outside every delivery worktree:
 
 ```bash
-git -C "$WORKTREE" log <key>..<branch> --oneline   # branch commits for the merge body
-
-"<CORE>/tools/locked_python.sh" "<CORE>/tools/commit_builder.py" --repo "$WORKTREE" merge \
-  --branch "<branch>" --target-branch "<key>" \
-  --description "development-audit findings — <step audited>" \
-  --branch-commits "<commit line 1>" ... \
-  --actor pm \
-  --merge-context "tobiishi-seal <key> — audit fan-out join" \
+"<CORE>/tools/locked_python.sh" "<CORE>/tools/seal_audits.py" join \
+  --worktree "$WORKTREE" --key "<key>" --builder "<CORE>/tools/commit_builder.py" --actor pm \
   --surface "<supplied surface>" --co-authored-by "<supplied model identity>" \
-  --reasoning-effort "<resolved runtime effort>"
+  --reasoning-effort "<resolved runtime effort>" \
+  > "/absolute/stable/audit-join.json" 2> "/absolute/stable/audit-join.err"
 ```
 
-**No `--bump` on any of these merges.** The target is the change branch `<key>`, never `main` — a
+**No join merge carries a bump.** The tool merges into the change branch `<key>`, never `main` — a
 branch never edits a version marker (`<CORE>/doctrine/governance/doctrine_structure.md`
 §Versioning); the commit that lands a version bump on `main` is the executable's delivery merge, not this one.
 
-A merge conflict here is not expected — each auditor writes only its own `flow_findings/<step>.md`
-(`development-audit`'s own Critical Rules) — but is handled like any other merge failure:
-`git -C "$WORKTREE" merge --abort`, then **halt** (`merge-conflict` / `merge-hook-failed`) — write
-`halt_report.md`, leave every worktree and branch intact, return `status: halt`. Do **not** proceed to
-Step 2 on a failed join.
+A non-zero exit halts the seal with the code at the head of `audit-join.err` (`merge-conflict`,
+`merge-hook-failed` or `deliver-precondition-failed`): write `halt_report.md` quoting that line, leave
+every worktree and branch intact, return `status: halt`, and do **not** go on to Step 2.
 
 ### Step 2 — Prepare the common delivery invocation
 
@@ -371,10 +361,12 @@ run supplies one. Resolve `directional` under `<CORE>/doctrine/governance/commit
 `check-directional` before the tool runs, because the seal commits only after a product merge: a
 line the builder would refuse halts `deliver-precondition-failed` with nothing merged.
 
-Invoke the materialized block with the configuration path as one literal argument:
+Invoke the materialized block with the configuration path as one literal argument, and keep its
+standard output as `delivery-outcome.json` in the stable directory, for Step 4:
 
 ```bash
-"<CORE>/tools/locked_python.sh" "/absolute/stable/caller-delivery.py" "/absolute/stable/configuration.json"
+"<CORE>/tools/locked_python.sh" "/absolute/stable/caller-delivery.py" "/absolute/stable/configuration.json" \
+  > "/absolute/stable/delivery-outcome.json"
 ```
 
 The script creates and retains one absolute temporary directory. It copies the complete contract
@@ -387,18 +379,26 @@ from the stable temporary directory. Keep that directory, its input/configuratio
 No caller value is shell source.
 
 The `caller-seal-action` block owns bookkeeping only: refuse a missing or empty `environment_line`
-before it creates or moves anything, create the trail parent if absent, move the
-whole folder before appending the result to the destination request — the `**Sealed:**` line, the
-`environment_line` directly after it, then any deferral lines — retain every carving/finding,
-mark only the existing current PM-context item Sealed, and use the builder to commit on the instance
-branch. It declares both move prefixes and adds the edited request and existing context. It creates
-no context when one is absent. The action emits the actual clean seal commit SHA. The executable
-verifies that it extends the recorded instance tip before merging
+before it creates or moves anything, create the trail parent if absent, move the whole folder before
+appending the result to the destination request — the `**Sealed:**` line, the `environment_line`
+directly after it, then any deferral lines — retain every carving/finding, mark only the existing
+current PM-context item Sealed, and use the builder to commit on the instance branch. It declares
+both move prefixes and adds the edited request and existing context. It creates no context when one
+is absent. The close is the chain's own run of every scenario the product holds, on the change's
+finished code, before the audit and this seal. When it passes on a project card reading `**Behave:**
+behave`, the chain hands this run the close's passing line, `close passed — <n> scenarios passed at
+<short sha>` (`1 scenario` when there is one), in the run's launch environment. The action then
+writes that line, unchanged and followed by one newline, to `close_verdict.md` in the sealed folder
+under `trail/<key>/`, and adds the file to the same seal commit. That line replaces any
+`close_verdict.md` that came across in the move. A run handed no line, or a blank one, writes no
+`close_verdict.md` and seals as it otherwise would, with no refusal. That covers a seal the chain
+launched on any other card, and a seal launched by hand. The action emits the actual clean seal
+commit SHA. The executable verifies that it extends the recorded instance tip before merging
 (`<CORE>/tools/deliver_change.md` § Supply merge metadata and a literal seal action).
 
 ### Step 3 — Read the terminal result and retained recovery state
 
-Read `result.json` and the returned JSON outcome from the actual process. Success requires exit zero
+Read `result.json` and the returned JSON outcome, the `delivery-outcome.json` file Step 2 wrote, from the actual process. Success requires exit zero
 and the exact topology-appropriate three-line block from `<CORE>/tools/deliver_change.md`
 § Read the terminal result and retained recovery state. For a product in its own repository, one
 second complete result is also proved: the four-line block `delivery: complete` /
@@ -424,95 +424,21 @@ after product landing. Advance and audit-join failure policy remains confined to
 
 ### Step 4 — Clean up joined audits only after proved delivery success
 
-The executable has proved delivery worktree/ref absence. Remove only the exact audit branches
-successfully joined in Step 1b; keep that list through delivery, never rediscover it with a glob.
-Save the executable recipe below in the stable invocation directory and start it with
-`"<CORE>/tools/locked_python.sh"`, giving the recipe's path and then `REPO_ROOT`, `<key>`, and that
-joined list as separate argv elements. It reads literal registered paths, including
-spaces and nested checkouts. It validates the entire set before removing anything, and rechecks each
-entry immediately before removal. No joined audits means an empty list and no cleanup effects.
+The executable has proved delivery worktree/ref absence. Remove only the audit branches the join
+reported in Step 1b: the removal reads that report, `audit-join.json`, and never finds a set again by
+name. It removes nothing unless the delivery outcome from Step 3 shows proved success, validates the
+entire set before removing anything, and rechecks each entry immediately before removal. An empty
+report means no cleanup effects.
 
-<!-- caller-audit-cleanup -->
-```python
-#!/usr/bin/env python3
-from __future__ import annotations
-
-import subprocess
-import sys
-
-__version__ = "1.0.0"
-
-
-def git(repo: str, *args: str) -> str:
-    result = subprocess.run(["git", "-C", repo, *args], capture_output=True,
-                            text=True, encoding="utf-8", errors="surrogateescape")
-    if result.returncode:
-        raise ValueError(f"{repo}: git {args!r}: {result.stderr.strip()}")
-    return result.stdout
-
-
-def registrations(repo: str) -> list[dict[str, str]]:
-    records = []
-    for block in git(repo, "worktree", "list", "--porcelain", "-z").split("\0\0"):
-        if block:
-            records.append(dict(field.partition(" ")[::2] for field in block.split("\0")
-                                if field))
-    return records
-
-
-def checked_path(repo: str, branch: str) -> str:
-    matches = [record for record in registrations(repo)
-               if record.get("branch") == f"refs/heads/{branch}"]
-    if len(matches) != 1 or any(flag in matches[0] for flag in ("locked", "prunable")):
-        raise ValueError(f"{branch}: expected one usable registered audit worktree")
-    path = matches[0]["worktree"]
-    if git(path, "symbolic-ref", "--quiet", "HEAD").strip() != f"refs/heads/{branch}":
-        raise ValueError(f"{path}: audit branch identity changed")
-    if git(path, "status", "--porcelain", "--untracked-files=all"):
-        raise ValueError(f"{path}: audit worktree has uncommitted changes")
-    git(repo, "merge-base", "--is-ancestor", f"refs/heads/{branch}", "refs/heads/main")
-    return path
-
-
-def cleanup(repo: str, key: str, branches: list[str]) -> None:
-    if len(set(branches)) != len(branches) or any(
-        not branch.startswith(f"{key}__audit-") for branch in branches
-    ):
-        raise ValueError("expected unique joined audit branches for this change")
-    if git(repo, "symbolic-ref", "--quiet", "HEAD").strip() != "refs/heads/main":
-        raise ValueError("audit cleanup requires the delivered main checkout")
-    paths = [(branch, checked_path(repo, branch)) for branch in branches]
-    for branch, path in paths:
-        if checked_path(repo, branch) != path:
-            raise ValueError(f"{branch}: registered path changed before cleanup")
-        git(repo, "worktree", "remove", path)
-        git(repo, "branch", "-d", branch)
-        if any(record.get("worktree") == path or
-               record.get("branch") == f"refs/heads/{branch}" for record in registrations(repo)):
-            raise ValueError(f"{branch}: audit registration survived cleanup")
-        if git(repo, "for-each-ref", "--format=%(refname)", f"refs/heads/{branch}"):
-            raise ValueError(f"{branch}: audit ref survived cleanup")
-
-
-def main(argv: list[str] | None = None) -> int:
-    arguments = sys.argv[1:] if argv is None else argv
-    try:
-        if len(arguments) < 2:
-            raise ValueError("supply the main checkout, change key and joined audit branches")
-        cleanup(arguments[0], arguments[1], arguments[2:])
-        return 0
-    except (OSError, ValueError, KeyError) as error:
-        print(f"error: teardown-failed: {error}", file=sys.stderr)
-        return 1
-
-
-if __name__ == "__main__":
-    sys.exit(main())
+```bash
+"<CORE>/tools/locked_python.sh" "<CORE>/tools/seal_audits.py" remove \
+  --repo "$REPO_ROOT" --key "<key>" \
+  --joined "/absolute/stable/audit-join.json" --outcome "/absolute/stable/delivery-outcome.json"
 ```
 
-A nonzero exit halts `teardown-failed`; record stderr and observed survivors in the halt report.
-Preserve already-delivered history and remaining audit state; never force deletion. Delivery-worktree
-cleanup is never repeated here. This recipe replaces the reconstructed-path shell loop.
+A nonzero exit halts `teardown-failed`; record stderr and the surviving audit branches in the halt
+report. Preserve already-delivered history and remaining audit state; never force deletion.
+Delivery-worktree cleanup is never repeated here.
 
 ### Step 5 — Return the outcome
 
@@ -539,6 +465,7 @@ refuses before the executable runs.
 | Main's advance and suite result on the branch | Relative path, Step 1a |
 | Audit findings joined on the instance branch | Both topologies, Step 1b |
 | Whole-folder seal, acceptance or verbatim deferrals, existing PM item Sealed, clean new branch commit | Caller action invoked by the executable |
+| `close_verdict.md` in the sealed folder, holding the close's passing line, in the same seal commit | Caller action, only when the chain handed this run the close's passing line (Step 2) |
 | Delivery merges and proved delivery disk/registration/ref absence | Executable complete result |
 | Joined audit cleanup | Proved delivery success only, Step 4 |
 | Existing-folder halt report, raw terminal observations and read-only recovery evidence | Any halt; delivery halts perform no automatic recovery or audit cleanup |
@@ -555,6 +482,9 @@ refuses before the executable runs.
 - Keep supplied runtime attribution, optional absence, role-specific values and ordered entries.
 - Caller bookkeeping moves the whole carving before editing the destination; it commits only on
   the instance branch and emits its actual seal SHA. It performs no delivery merge or cleanup.
+  It writes `close_verdict.md` only from the close's passing line the chain handed this run,
+  unchanged, and no other step of this skill writes one. A run handed no line writes none and
+  refuses nothing for its absence.
 - Delivery merges and delivery-worktree/ref removal belong exclusively to the executable.
 - Read the complete terminal block together with process exit. Keep every public halt code distinct
   and preserve raw unproved results and unavailable evidence.
@@ -902,12 +832,19 @@ if __name__ == "__main__":
 from __future__ import annotations
 
 import json
+import os
 import re
 import subprocess
 import sys
 from pathlib import Path
 
 __version__ = "1.0.0"
+
+# The close's passing line, handed to this run by the chain on a `behave` card
+# (`chain_development.py` names the same variable), and the file it is written to in the sealed
+# folder.
+CLOSE_VERDICT_VARIABLE = "KENSAIAPP_CLOSE_VERDICT"
+CLOSE_VERDICT_FILE = "close_verdict.md"
 
 
 class Processes:
@@ -930,9 +867,10 @@ class Files:
 
 
 class SealAction:
-    def __init__(self, *, files: Files, processes: Processes) -> None:
+    def __init__(self, *, files: Files, processes: Processes, environ: dict[str, str]) -> None:
         self.files = files
         self.processes = processes
+        self.environ = environ
 
     def _run(self, worktree: Path, argv: list[str]) -> str:
         result = self.processes.run(argv, cwd=worktree)
@@ -962,6 +900,11 @@ class SealAction:
         record += "".join(line + "\n" for line in deferred)
         self.files.write(worktree / request, self.files.read(worktree / request) + record)
         edited = [str(request)]
+        close_line = self.environ.get(CLOSE_VERDICT_VARIABLE, "")
+        if close_line.strip():
+            record_path = destination / CLOSE_VERDICT_FILE
+            self.files.write(worktree / record_path, close_line.rstrip("\n") + "\n")
+            edited.append(str(record_path))
         context = Path("system/projects") / project / "contexts/CONTEXT_PM.md"
         if self.files.exists(worktree / context):
             content = self.files.read(worktree / context)
@@ -999,7 +942,7 @@ def main(argv: list[str] | None = None) -> int:
         print("error: supply the action configuration JSON path", file=sys.stderr)
         return 1
     try:
-        action = SealAction(files=Files(), processes=Processes())
+        action = SealAction(files=Files(), processes=Processes(), environ=dict(os.environ))
         print(json.dumps(action.seal(Path(arguments[0]))))
         return 0
     except (OSError, ValueError, KeyError, TypeError) as error:

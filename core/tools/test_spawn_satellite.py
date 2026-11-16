@@ -811,6 +811,17 @@ def test_a_spawned_satellite_is_born_with_the_content_editor_overlay(host: Path)
     assert "<CORE>/roles/loaders/content_editor_global.md" in text
 
 
+def test_a_spawned_satellite_is_born_with_the_qa_overlay(host: Path):
+    # QA is a prefix-invoked seat with an overlay, so a satellite is born with it: its title names
+    # QA, and it extends the seat's own global loader.
+    plan = _plan(host)
+    spawn_satellite.spawn(plan, check=False)
+
+    text = (plan.satellite / "system" / "loaders" / "qa.md").read_text(encoding="utf-8")
+    title_line = next(line for line in text.splitlines() if line.startswith("# "))
+    assert "QA" in title_line
+    assert "<CORE>/roles/loaders/qa_global.md" in text
+
 
 def test_a_stamped_overlay_names_its_posture_by_title_not_by_filename(host: Path):
     # `<role>` is the filename stem, so a closing line built from it read "the global
@@ -1485,13 +1496,50 @@ def test_a_refusal_exits_non_zero_at_the_process_level(host: Path, tmp_path: Pat
 def test_consumer_mode_links_no_skills_layer(host: Path):
     """Task 6: link_satellite.py is invoked with 'the answered --skills-mode'. The two answers
     produce observably different skills layers; asserting only that linking happened (a hooks
-    symlink) would pass just as well if the mode were hardcoded. A consumer gets none."""
+    symlink) would pass just as well if the mode were hardcoded. The case here is a host with no
+    seat group: a consumer is owed no link, so it gets no skills layer and no agents folder."""
     _relocate_project_stamp_to_group(host)
     plan = _plan(host, skills_mode="consumer")
     spawn_satellite.spawn(plan, check=False)
 
     assert not os.path.lexists(plan.satellite / ".claude" / "skills")
+    assert not os.path.lexists(plan.satellite / ".claude" / "agents")
     assert not os.path.lexists(plan.satellite / "skills")
+
+
+def _give_the_host_seat_groups(host: Path) -> None:
+    """The three journey-seat groups: an agent file each, and 10 + 5 + 2 skill directories."""
+    for seat, count in {"pm": 10, "principal-pm": 5, "scrum-master": 2}.items():
+        group = host / "skills" / seat / ".claude"
+        (group / "agents").mkdir(parents=True)
+        (group / "agents" / f"{seat}.md").write_text(f"agent {seat}\n", encoding="utf-8")
+        for number in range(count):
+            skill = group / "skills" / f"{seat}-skill-{number:02d}"
+            skill.mkdir(parents=True)
+            (skill / "SKILL.md").write_text("skill\n", encoding="utf-8")
+
+
+def test_a_spawned_consumer_holds_the_twenty_seat_links_and_commits_them(host: Path):
+    """CP-1486: the spawn already calls the linker with the plan's mode and verifies with its
+    `--check`, so a consumer of a host holding the seat groups comes out with the 20 seat links and
+    the genesis commit carries each as a symlink."""
+    _relocate_project_stamp_to_group(host)
+    _give_the_host_seat_groups(host)
+    plan = _plan(host, skills_mode="consumer")
+
+    spawn_satellite.spawn(plan, check=False)
+
+    claude = plan.satellite / ".claude"
+    held = [
+        entry for folder in ("agents", "skills") for entry in (claude / folder).iterdir()
+    ]
+    assert len(held) == 20 and all(entry.is_symlink() for entry in held)
+    staged = subprocess.run(
+        ["git", "-C", str(plan.satellite), "ls-files", "-s", ".claude/agents", ".claude/skills"],
+        check=True, capture_output=True, text=True,
+    ).stdout.splitlines()
+    assert len(staged) == 20
+    assert all(line.split()[0] == "120000" for line in staged)
 
 
 def test_producer_mode_is_forwarded_and_yields_real_directories(host: Path):
@@ -1671,3 +1719,22 @@ def test_every_file_the_stamper_creates_under_system_is_tracked_by_git(host: Pat
     )
     assert created_under_system, "the stamper created nothing under system/ — fixture is wrong"
     assert [path for path in created_under_system if path not in tracked] == []
+
+
+CONSUMER_HELP = (
+    "consumer = links the pm, principal-pm and scrum-master agents and their groups' skills into "
+    ".claude/ (launchers find every other grouped skill in the host)"
+)
+PRODUCER_HELP = (
+    "producer = the host's root skills/ mirrored as real dirs, for skill-evals output"
+)
+
+
+def test_help_states_what_a_consumer_gets_and_the_producer_half_is_unchanged(capsys):
+    with pytest.raises(SystemExit) as stop:
+        spawn_satellite.main(["--help"])
+    assert stop.value.code == 0
+
+    out = " ".join(capsys.readouterr().out.split())
+    assert CONSUMER_HELP in out
+    assert PRODUCER_HELP in out

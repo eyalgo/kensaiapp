@@ -14,8 +14,10 @@ Two inputs, always: the instance root (passed in by the caller — never derived
 module's own location, the same posture `written_forward.py` and `watch_agent.py` hold) and a
 skill name. One output: the skill's absolute directory, wrapped in a `Resolution` so the three
 outcomes — found, not found, ambiguous — are never conflated. Flat wins whenever the flat
-directory exists; otherwise exactly one grouped match resolves, zero is not-found, and two or
-more is ambiguous (and never guesses). A name containing `/` or starting with `.` is a path, not
+directory exists, with one exception: a flat entry that is itself a link into the same name's
+grouped directory under the same root answers as that group, so the host's flat links into its
+own groups change no answer. A flat link to anywhere else answers flat. Otherwise exactly one
+grouped match resolves, zero is not-found, and two or more is ambiguous (and never guesses). A name containing `/` or starting with `.` is a path, not
 a name, and is refused as `invalid_name` — never a not-found.
 
 `resolve_skill_dir` never raises, on any input.
@@ -41,7 +43,7 @@ import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
-__version__ = "1.0.2"
+__version__ = "1.1.0"
 
 FOUND = "found"
 NOT_FOUND = "not_found"
@@ -77,9 +79,36 @@ def _is_invalid_name(name: str) -> bool:
     return False
 
 
+def _grouped_candidates(root_abs: str, name: str) -> list[Path]:
+    """Every grouped directory for `name` under `root_abs`, sorted. Only the group segment is a
+    wildcard. The root and the name are literals the caller handed in, so both are escaped — an
+    unescaped name holding a glob metacharacter would match some *other* skill's directory (the
+    flat branch, being an `isdir` check, already answers such a name literally), and an
+    unescaped root would fail to find a skill under a directory legitimately named `inst[1]`."""
+    pattern = os.path.join(
+        glob.escape(root_abs), "skills", "*", ".claude", "skills", glob.escape(name)
+    )
+    return sorted(Path(p) for p in glob.glob(pattern) if os.path.isdir(p))
+
+
+def _group_the_flat_link_points_at(flat: str, candidates: list[Path]) -> Path | None:
+    """The grouped candidate a flat entry is a link to, or `None`. Only the flat entry itself
+    being a link counts: a root whose whole `.claude/skills` is a link has a real entry in it,
+    and that entry keeps its flat answer. Both sides are compared by real path; the returned
+    path is the candidate as the caller's root spells it."""
+    if not os.path.islink(flat):
+        return None
+    target = os.path.realpath(flat)
+    for candidate in candidates:
+        if os.path.realpath(candidate) == target:
+            return candidate
+    return None
+
+
 def resolve_skill_dir(root: str | os.PathLike, name: str) -> Resolution:
-    """Resolve `name` to its directory under `root` — flat first, then the single grouped
-    match. Never raises."""
+    """Resolve `name` to its directory under `root` — flat first, except that a flat link into
+    the same name's grouped directory answers as that group, then the single grouped match.
+    Never raises."""
     if _is_invalid_name(name):
         return Resolution(status=INVALID_NAME)
 
@@ -87,20 +116,10 @@ def resolve_skill_dir(root: str | os.PathLike, name: str) -> Resolution:
         root_abs = os.path.abspath(os.fspath(root))
 
         flat = os.path.join(root_abs, ".claude", "skills", name)
+        candidates = _grouped_candidates(root_abs, name)
         if os.path.isdir(flat):
-            return Resolution(status=FOUND, path=Path(flat))
-
-        # Only the group segment is a wildcard. The root and the name are literals the caller
-        # handed in, so both are escaped — an unescaped name holding a glob metacharacter would
-        # match some *other* skill's directory (the flat branch above, being an `isdir` check,
-        # already answers such a name literally), and an unescaped root would fail to find a
-        # skill under a directory legitimately named `inst[1]`.
-        pattern = os.path.join(
-            glob.escape(root_abs), "skills", "*", ".claude", "skills", glob.escape(name)
-        )
-        candidates = sorted(
-            Path(p) for p in glob.glob(pattern) if os.path.isdir(p)
-        )
+            group = _group_the_flat_link_points_at(flat, candidates)
+            return Resolution(status=FOUND, path=group if group is not None else Path(flat))
     except OSError:
         return Resolution(status=NOT_FOUND)
 

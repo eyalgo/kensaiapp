@@ -11,6 +11,140 @@ clone of the release before must act, the release says so first, under *Upgradin
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-16
+
+### Upgrading from 0.5.1
+
+- Add `red-behaviour = "claude"` under `[steps]` in your `.providers.toml`, as `.providers.toml.example`
+  now has it. Every `change` and `walk` has a `red-behaviour` step, and a walk whose `.providers.toml`
+  has no entry for it refuses at `--describe` and at start, naming `steps.red-behaviour`.
+- Give each project card one `**Behave:**` line: `**Behave:** behave`, or `**Behave:** none — `
+  followed by the reason the product does not need Behave. A launch that names a project reads that
+  line before its agent starts, and stops with status 1 when the card has no such line or still reads
+  the template's `behave | none — <reason>`. A `product-card`, `product-docs` or `prd-and-finish-line`
+  launch is not checked, because those runs make the call.
+- On a card that reads `behave`, the launch installs the Behave starter as `.behave` directly under the
+  product folder, when it is missing, and commits only its files on `main`, with `Surface:
+  behave-check`. Run `uv run --locked playwright install chromium` inside that `.behave` once on each
+  machine before its browser scenario can pass. Behave is not installed in the instance root's
+  environment: inside a product's `.behave`, type `uv run --locked behave`.
+- Install `osv-scanner`, `semgrep` and `gitleaks` on the machine that runs the security step, for
+  example with `brew install osv-scanner semgrep gitleaks`. None of the three needs an account or a
+  login. Where one is missing, the security report says that scanner did not run and its verdict
+  reads `reported`.
+- For each consumer satellite you already stood up, run `link_satellite.py --skills-mode consumer`
+  against it and commit the links in that satellite. Until then `check_satellites.py` reports it as
+  drifted and exits 1.
+- KensaiApp's own suite opens Chromium through Playwright, in the Behave starter's browser scenario.
+  On each machine that runs it, type `uv run --locked playwright install chromium` once, inside a
+  `.behave` folder such as `products/tracker17/.behave`. On a bare Linux machine, also type
+  `uv run --locked playwright install-deps chromium` there once, as root.
+- **tracker17.** The tests and the Behave scenarios now run on Playwright 1.65.1, which drives
+  Chromium 158.0.8127.18. Inside `products/tracker17`, type `uv sync --locked`, then
+  `uv run playwright install chromium`. Inside `products/tracker17/.behave`, type
+  `uv run --locked playwright install chromium`.
+
+### Added
+
+- **QA is a step of every change.** `change` and `walk` run QA's skill, `red-behaviour`, after
+  `specs` and before `design`, where the project's card reads `**Behave:** behave` and the change's
+  spec reads `**Behaviour:** changing`. Otherwise the walk passes it and records the line that
+  decided it. QA writes the change's Behave scenarios into the product's `.behave` folder and commits
+  them as the change's red. The chain accepts that red only when each new or changed scenario fails
+  on the code before the change and every other scenario passes. QA then writes `qa_record.md` in the
+  change folder. Where the product's recorded way in reaches none of the change's behaviours, QA
+  commits the record alone, with a `No reach:` line saying why. A walk can stop with
+  `qa-red-refused`, `qa-record-refused`, `qa-main-red`, `behave-unavailable`, `missing-qa-red` or
+  `no-way-in`.
+- **The developer and the Architect may each send the walk back to QA once**, saying why, when the
+  run cannot go on without a change to a scenario or a step definition. An accepted ask runs QA's
+  step again and nothing else, and the walk then returns to the step that asked. QA's step runs at
+  most six times on one change, and a walk that would start a seventh stops with `qa-runs-spent`.
+- **The close.** After the security review and before the audit and the seal, on a card reading
+  `**Behave:** behave`, the chain runs every scenario under the product's `.behave` on the tip of the
+  change branch, in a throwaway copy. It stops the walk with `close-red` when a scenario does not pass
+  or Behave reports none, with `close-refused` when a developer commit changed the scenario folder,
+  and with `behave-unavailable` when Behave gives no report. When it passes, the seal writes its line,
+  `close passed — <n> scenarios passed at <short sha>`, to `close_verdict.md` in the sealed folder.
+  On any other card the close passes at once.
+- The `qa:` prefix opens a session as QA, on its own overlay. A commit can carry `Role: QA`, and a QA
+  merge to `main` is refused.
+- **A session runs a journey move when asked.** A Claude Code session started at the instance root,
+  with no directory added, reaches the `pm`, `principal-pm` and `scrum-master` agents and the
+  seventeen journey skills those seats own. Asked for a journey move, it runs it through the agent of
+  the seat that owns it without first asking you, and then tells you which seat ran it and what the
+  run did. A move that ends in your own answer stays yours. `session-close` still names each move it
+  owes and starts none until you say so.
+- A consumer satellite is linked to those three agents and to every skill in their groups, by
+  `link_satellite.py --skills-mode consumer` and `spawn_satellite.py`, and `check_satellites.py`
+  reports a consumer missing a link as drifted.
+- `stations-blind-review` is a PM skill that reads a seed's route as a fresh run that did not cut it,
+  and writes what no station's bar carries, what a bar contradicts, what cannot be checked and what
+  cannot be met.
+- `core/tools/security_bookkeeping.py` does a security run's bookkeeping, one subcommand per job: it
+  reads the audit's and `osv-scanner`'s output, computes each exception's lapse date, writes the
+  exception record and its upkeep row, and checks the report's verdict line. It decides nothing.
+- `core/tools/seal_audits.py` joins a change's audit branches into it before the seal delivers, and
+  removes them, with their worktrees, only after a proved delivery.
+- `commit_builder.py commit --only` commits the declared paths and nothing else, and leaves every
+  other staged entry staged.
+- `/bin/bash core/tools/doctor.sh` also checks for the Chromium KensaiApp's own suite opens. It prints
+  `chromium: present`, or `chromium: missing` with the command that installs it, and exits 1 when it
+  is missing.
+- **tracker17.** `products/tracker17/.behave` holds the Behave starter: three scenarios that prove a
+  command, a server and a browser can each be reached.
+- **tracker17.** A project's Summary shows how many of its open tasks are due on the date its counts
+  are worked out against, in a "Due on" row right after Overdue. A task due on that date isn't also
+  counted as overdue.
+
+### Changed
+
+- **The security step runs three scanners.** `development-security` runs `osv-scanner`, Semgrep CE and
+  `gitleaks` on every run, beside the dependency audit the NFDR names. `osv-scanner`'s advisories are
+  answered as the audit's are. Semgrep's and `gitleaks`' findings are judged with the code review's
+  other candidates. `security-report.md` has a `## Scanners` section, and a `gitleaks` finding is
+  named by file, line and rule id, never by the secret. `development-security` and
+  `dependency-repair` keep their records through `security_bookkeeping.py`.
+- `product-architecture` makes the Behave call for each product on the NFDR's `**Behave:**` line: a
+  product with code that a person uses is `behave`, any other is `none — ` with its reason. For a
+  `behave` product it also picks how the scenarios reach it, a command, a server or a browser, on the
+  `**Behave way in:**` line. `product-card` copies the call onto the card. A change design that alters
+  behaviour says how it is tested through that way in.
+- On a `records-owed` halt, the chain carries a raised item onto `main` even when `main` has no
+  companion for it, or one with no *Raised from downstream* section: it creates the companion from its
+  template, or adds the section, so `product-docs` can fold the item.
+- The Behave starter's browser scenario fails, rather than errors, when Playwright's driver or
+  Chromium cannot load the system libraries they need, and names
+  `uv run --locked playwright install-deps chromium`. A product's `.behave` installed before keeps its
+  old copy.
+- `stations-from-seed` checks its route against every ruling the seed records, and a station's line
+  names each piece a ruling lists.
+- The PM's sizing states that a change ends green: it is never cut so that a case stays red for a
+  later change.
+- The doctrine places QA's step between the Product Owner's and the Architect's, and the close after
+  the security review, with the halts each adds. It counts QA among the roles with a prefix and an
+  overlay, lists `QA` as a `Role:` value and `behave-check` as a `Surface:` value, and describes the
+  Behave starter, the start-of-run check and the satellite links.
+- **Front door.** The README and its guides lead seed, station and change with plain names, a piece
+  of work, a step and a fix. They describe QA's step, the close and the security step's scanners, a
+  session that runs a journey move when asked, tracker17 signed off at its finish line, and what is
+  being worked on now. The installation names the scanners.
+
+### Removed
+
+- QA's on-demand acceptance prompt, `core/prompts/qa_create_acceptance.md`, is deleted. QA works as a
+  step of the change.
+
+### Fixed
+
+- `tobiishi-seal` joins the change's audit branches before it delivers, so the sealed change folder
+  holds the audits' findings. Before, a seal could skip the join, and the findings never reached
+  `main`.
+- A `product-skeleton` or `companion-self-answer` launch started by `product-card` is no longer
+  stopped on the card's `**Behave:**` line when a flag comes before the project.
+- `security_bookkeeping.py write-record renewal --help` no longer says a missing record is created.
+- `product-architecture` names the NFDR's verification map as § 10, where the template has it.
+
 ## [0.5.1] - 2026-11-06
 
 ### Fixed

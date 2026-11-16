@@ -703,6 +703,40 @@ def test_resolve_skill_version_format_and_full_sha(tmp_path):
     assert re.match(r"^development-design@\d+\.\d+\.\d+ [0-9a-f]{40}$", result)
 
 
+def test_resolve_skill_version_for_a_grouped_skill_with_a_flat_link_carries_the_group_version(
+    tmp_path,
+):
+    # A host that links a grouped skill into its flat `.claude/skills/` must keep the
+    # skill's `Skill-Version:` — the flat link answers as the group's directory, so the
+    # trailer names the group's version and the group directory's last commit.
+    _init_repo(tmp_path)
+    group_skills = tmp_path / "skills" / "pm" / ".claude" / "skills"
+    skill_dir = group_skills / "seed-pick"
+    skill_dir.mkdir(parents=True)
+    (skill_dir / "SKILL.md").write_text(
+        '---\nname: seed-pick\nmetadata:\n  version: "2.3.4"\n---\n\n# seed-pick\n'
+    )
+    flat = tmp_path / ".claude" / "skills"
+    flat.mkdir(parents=True, exist_ok=True)
+    os.symlink("../../skills/pm/.claude/skills/seed-pick", flat / "seed-pick")
+    for args in (
+        ["add", "skills", ".claude/skills"],
+        ["commit", "-q", "-m", "fixture: grouped skill with a flat link"],
+    ):
+        subprocess.run(
+            ["git", "-C", str(tmp_path), *args], check=True, capture_output=True, text=True
+        )
+    group_sha = subprocess.run(
+        ["git", "-C", str(tmp_path), "log", "-1", "--format=%H", "--",
+         "skills/pm/.claude/skills/seed-pick"],
+        check=True, capture_output=True, text=True,
+    ).stdout.strip()
+
+    result = commit_builder.resolve_skill_version(str(tmp_path), "seed-pick")
+
+    assert result == f"seed-pick@2.3.4 {group_sha}"
+
+
 def test_resolve_skill_version_no_skill_name_returns_none(tmp_path):
     # Explicit-only: with no skill_name the value is None regardless of what
     # skill sources exist on disk — the skill-less commit path (--role, or a
@@ -1606,6 +1640,64 @@ def test_a_content_editor_merge_is_refused_through_the_cli(tmp_path, capsys):
     assert exit_code == 1
     assert capsys.readouterr().err.strip() == (
         "commit_builder: unknown merge actor 'content-editor' has no MERGE_AUTHORIZER mapping — "
+        "refusing to build a merge with no derivable Merge-Authorized:"
+    )
+    assert git("rev-parse", "HEAD") == head_before  # no merge was made
+    assert not (tmp_path / ".git" / "MERGE_HEAD").exists()
+
+
+def test_a_qa_commit_lands_its_role_through_the_cli(tmp_path):
+    # QA is a seat that may originate a commit: the CLI, not only the table, lands a real commit
+    # whose trailer names the seat. On the base commit the same call exits 1 with the unknown-actor
+    # line, because `AGENT_ROLE` holds no `qa` key.
+    _init_repo(tmp_path)
+
+    exit_code = commit_builder.main([
+        "--repo", str(tmp_path),
+        "commit",
+        "--subject", "qa: the change's scenarios",
+        "--actor", "qa",
+        "--allow-empty",
+        "--directional", "Shukuba: proto — progress: x",
+        "--surface", "Claude Code",
+        "--co-authored-by", CO_AUTHORED_BY,
+    ])
+
+    assert exit_code == 0
+    assert "Role: QA" in _commit_body(tmp_path).splitlines()
+
+
+def test_qa_is_a_commit_actor_but_not_a_merge_authorizer():
+    # Pinned explicitly because the parametrized AGENT_ROLE test would pass for any spelling of the
+    # value, and the exclusion from MERGE_AUTHORIZER is a policy an omission cannot state on its own.
+    assert commit_builder.AGENT_ROLE["qa"] == "QA"
+    assert "qa" not in commit_builder.MERGE_AUTHORIZER
+
+
+def test_a_qa_merge_is_refused_through_the_cli(tmp_path, capsys):
+    # The refusal as it stands today, pinned in the commit that seats QA: the exact line on stderr,
+    # exit 1, and no merge made. It passes on the base commit too, as a characterization.
+    main_branch = _init_repo(tmp_path)
+
+    def git(*args: str) -> str:
+        return subprocess.run(
+            ["git", "-C", str(tmp_path), *args], capture_output=True, text=True, check=True,
+        ).stdout.strip()
+
+    git("checkout", "-qb", "feature")
+    git("commit", "-q", "--allow-empty", "-m", "feature: work")
+    git("checkout", "-q", main_branch)
+    head_before = git("rev-parse", "HEAD")
+    argv = _merge_argv(tmp_path, main_branch)
+    argv[argv.index("--actor") + 1] = "qa"
+    bump = argv.index("--bump")
+    del argv[bump:bump + 2]
+
+    exit_code = commit_builder.main(argv)
+
+    assert exit_code == 1
+    assert capsys.readouterr().err.strip() == (
+        "commit_builder: unknown merge actor 'qa' has no MERGE_AUTHORIZER mapping — "
         "refusing to build a merge with no derivable Merge-Authorized:"
     )
     assert git("rev-parse", "HEAD") == head_before  # no merge was made
@@ -9483,3 +9575,121 @@ def test_changelog_help_explains_one_line_reason(capsys):
         "validate merge metadata, bumps, the --user-invisible reason and, for a merge into main, "
         "the changelog entry, without any repository effects"
     ) in help_text
+
+
+# ── commit --only: the declared paths and nothing else ───────────────────────
+
+def _staged_set(repo: Path) -> set[str]:
+    return set(_git_raw(repo, "diff", "--cached", "--name-only").split())
+
+
+def _only_argv(repo: Path, *extra: str) -> list[str]:
+    return _commit_argv(repo, "--only", *extra)
+
+
+def test_only_commits_the_declared_path_and_leaves_another_staged_path_staged(tmp_path):
+    _init_repo(tmp_path)
+    (tmp_path / "foreign.txt").write_text("someone else's work\n")
+    _git_raw(tmp_path, "add", "foreign.txt")
+    declared = _new_file(tmp_path, "own.txt")
+
+    exit_code = commit_builder.main(_only_argv(tmp_path, "--add", declared))
+
+    assert exit_code == 0
+    assert _name_status(tmp_path).split() == ["A", "own.txt"]
+    assert _staged_set(tmp_path) == {"foreign.txt"}
+    assert "foreign.txt" not in _tracked_paths(tmp_path)
+
+
+def test_only_commit_tree_differs_from_head_by_the_declared_paths_only(tmp_path):
+    _init_repo(tmp_path)
+    (tmp_path / "foreign.txt").write_text("someone else's work\n")
+    _git_raw(tmp_path, "add", "foreign.txt")
+    tip = _head(tmp_path)
+    first, second = _new_file(tmp_path, "one.txt"), _new_file(tmp_path, "two.txt")
+
+    exit_code = commit_builder.main(_only_argv(tmp_path, "--add", first, second))
+
+    assert exit_code == 0
+    assert _git_raw(tmp_path, "rev-parse", "HEAD~1").strip() == tip
+    changed = _git_raw(tmp_path, "diff", "--name-only", tip, "HEAD").split()
+    assert sorted(changed) == ["one.txt", "two.txt"]
+
+
+def test_only_commits_a_declared_removal(tmp_path):
+    _init_repo(tmp_path)
+    (tmp_path / "foreign.txt").write_text("someone else's work\n")
+    _git_raw(tmp_path, "add", "foreign.txt")
+
+    exit_code = commit_builder.main(_only_argv(tmp_path, "--rm", "seed.txt"))
+
+    assert exit_code == 0
+    assert _name_status(tmp_path).split() == ["D", "seed.txt"]
+    assert _staged_set(tmp_path) == {"foreign.txt"}
+
+
+def test_only_commits_a_declared_staged_path(tmp_path):
+    _init_repo(tmp_path)
+    (tmp_path / "foreign.txt").write_text("someone else's work\n")
+    (tmp_path / "mine.txt").write_text("mine\n")
+    _git_raw(tmp_path, "add", "foreign.txt", "mine.txt")
+
+    exit_code = commit_builder.main(_only_argv(tmp_path, "--staged", "mine.txt"))
+
+    assert exit_code == 0
+    assert _name_status(tmp_path).split() == ["A", "mine.txt"]
+    assert _staged_set(tmp_path) == {"foreign.txt"}
+
+
+def test_only_with_take_index_is_refused_and_makes_no_commit(tmp_path, capsys):
+    _init_repo(tmp_path)
+    declared = _new_file(tmp_path)
+    before = _head(tmp_path)
+
+    exit_code = commit_builder.main(_only_argv(tmp_path, "--add", declared, "--take-index"))
+
+    assert exit_code != 0
+    err = capsys.readouterr().err
+    assert "--only" in err and "--take-index" in err
+    assert _head(tmp_path) == before
+    assert _staged_set(tmp_path) == set()
+
+
+def test_only_without_a_declared_path_is_refused_and_makes_no_commit(tmp_path, capsys):
+    _init_repo(tmp_path)
+    (tmp_path / "foreign.txt").write_text("someone else's work\n")
+    _git_raw(tmp_path, "add", "foreign.txt")
+    before = _head(tmp_path)
+
+    exit_code = commit_builder.main(_only_argv(tmp_path))
+
+    assert exit_code != 0
+    assert "--only" in capsys.readouterr().err
+    assert _head(tmp_path) == before
+    assert _staged_set(tmp_path) == {"foreign.txt"}
+
+
+def test_only_refused_by_a_hook_exits_non_zero_makes_no_commit_and_keeps_add_staging(tmp_path):
+    _init_repo(tmp_path)
+    hooks = tmp_path / "refusing-hooks"
+    hooks.mkdir()
+    hook = hooks / "commit-msg"
+    hook.write_text("#!/bin/sh\nexit 1\n")
+    hook.chmod(0o755)
+    _git_raw(tmp_path, "config", "core.hooksPath", str(hooks))
+    declared = _new_file(tmp_path)
+    before = _head(tmp_path)
+
+    exit_code = commit_builder.main(_only_argv(tmp_path, "--add", declared))
+
+    assert exit_code != 0
+    assert _head(tmp_path) == before
+    assert _staged_set(tmp_path) == {declared}
+
+
+def test_commit_help_describes_only(capsys):
+    with pytest.raises(SystemExit) as exited:
+        commit_builder.main(["commit", "--help"])
+
+    assert exited.value.code == 0
+    assert "--only" in capsys.readouterr().out

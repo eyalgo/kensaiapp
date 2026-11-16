@@ -19,7 +19,7 @@ when_to_use: >-
 license: MIT
 metadata:
   author: Eyal Golan
-  version: "1.2.0"
+  version: "1.3.0"
   created: "2026-10-24"
   category: execution
   tags: dependencies, advisories, repair, main, senior-engineer
@@ -100,11 +100,17 @@ product with no NFDR names no audit.
 
 The branch is `main` as it stands. **The red is the audit's** — the red this skill exists for is the
 audit reporting advisories, whether or not the product's suite runs the audit. Run the audit the shared
-file's § *The audit command is the product's, not yours* names, in the `code_worktree`, and keep its
-output. **No audit named, an audit that cannot run, or no advisory it has not already answered** — an
-exception within its window is answered — → there is no red of the audit's.
+file's § *The audit command is the product's, not yours* names, in the `code_worktree`, with its standard
+output and its standard error each captured to its own file in `<scratch>`, a folder made with
+`mktemp -d` outside the worktrees. Give both files to `normalise`, then give its list and the product's
+exception record to `find-lapsed`, with the NFDR's window as `--window` where it names one. The calls are
+the shared file's § *The bookkeeping goes through one tool*. An advisory whose entry comes back
+**holding** is answered. Output that `normalise` refuses counts as an audit that cannot run, and the
+closing message quotes the refusal. **No audit named, an audit that cannot run, or no advisory it has not
+already answered** — an exception within its window is answered — → there is no red of the audit's.
 
-Then there is nothing this skill repairs: nothing has been committed, so remove the worktrees
+Then there is nothing this skill repairs: nothing has been committed, so remove `<scratch>`
+(`rm -rf "<scratch>"`, in a command of its own), remove the worktrees
 and delete branch `<key>` (Step 6's clean-up), write no report, and say in the closing message
 `nothing-to-repair` and which case it was. Otherwise go on.
 
@@ -113,10 +119,12 @@ and delete branch `<key>` (Step 6's clean-up), write no report, and say in the c
 Apply `<CORE>/prompts/senior_engineer_repair_dependencies.md` to every advisory, in its order — except
 an advisory the owner's answer on a relaunch settles: **allowed** → take that move, the owner's answer
 lifting the rule that forbade it for that move only, and note the answer in the report; **declined** →
-report it for the PM. Make
-the fixes and the exceptions in the `code_worktree`, and each exception's upkeep row in
-`system/upkeep.md` in the `pipeline_worktree`. A forbidden move is noted as a question and the run
-carries on. Commit the changes in the `code_worktree` (§ *Commit*, the `dependencies` row).
+report it for the PM. Make the fixes in the `code_worktree`. Write each exception through the tool, as
+the shared file's § *The exception record* says: `lapse-date` for its lapse date, `write-record entry`
+or `write-record renewal` for the entry in the `code_worktree`, then `write-upkeep` for its row in
+`system/upkeep.md` in the `pipeline_worktree`. A refusal from the tool is never made up for by hand.
+Once every advisory is answered, remove `<scratch>` (`rm -rf "<scratch>"`, in a command of its own).
+A forbidden move is noted as a question and the run carries on. Commit the changes in the `code_worktree` (§ *Commit*, the `dependencies` row).
 
 ### 4. Run the suite, and go back for a major bump it turns red
 
@@ -139,9 +147,17 @@ The outcome is decided now, before anything merges, the first that applies:
 - **`merged`** — the suite is green and nothing is asked.
 
 Write `system/projects/<project>/docs/dependency-repair/<key>_report.md` in the `pipeline_worktree`
-(§ *The report*) with that verdict, and commit it with the upkeep rows (§ *Commit*, the `report` row).
-On `unmerged` stop here: the branch and its worktrees stay for the owner, and the report on it says
-what is still red.
+(§ *The report*) with that verdict, then check its verdict line with the tool:
+
+```sh
+"<CORE>/tools/locked_python.sh" "<CORE>/tools/security_bookkeeping.py" check-verdict \
+  --report "<pipeline_worktree>/system/projects/<project>/docs/dependency-repair/<key>_report.md"
+```
+
+Where the tool refuses the line, correct it to the bare form § *The report* gives and check again. The
+report is never committed with a verdict line the tool refuses. Then commit it with the upkeep rows
+(§ *Commit*, the `report` row). On `unmerged` stop here: the branch and its worktrees stay for the owner,
+and the report on it says what is still red.
 
 ### 6. Merge, then clean up
 

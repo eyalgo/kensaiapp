@@ -543,6 +543,52 @@ def test_scratch_core_copies_the_tools_without_their_tests_and_borrows_the_rest(
     assert (core / "prompts").resolve() == _TOOLS.parent / "prompts"
 
 
+def _listing_that_names_entries_already_gone(source: Path, gone: list[str]):
+    """A listing of the real folder that also names `gone` at `source` — what another test's
+    scratch entry looks like when it is listed and then removed before the copy reaches it."""
+
+    def list_names(path: Path) -> list[str]:
+        names = sorted(os.listdir(path))
+        return names + gone if path == source else names
+
+    return list_names
+
+
+def test_a_copy_leaves_out_an_entry_that_is_gone_by_the_time_it_is_copied(tmp_path):
+    source = tmp_path / "tools"
+    (source / "kept").mkdir(parents=True)
+    (source / "kept" / "inner.py").write_text("inner\n")
+    (source / "tool.sh").write_text("#!/bin/sh\n")
+    (source / "tool.sh").chmod(0o755)
+    (source / "test_tool.py").write_text("a test\n")
+    destination = tmp_path / "copy" / "tools"
+
+    support.copy_tree_as_it_stands(
+        source,
+        destination,
+        ignore=shutil.ignore_patterns("test_*"),
+        list_names=_listing_that_names_entries_already_gone(source, ["gone_probe", "gone.py"]),
+    )
+
+    assert sorted(path.name for path in destination.iterdir()) == ["kept", "tool.sh"]
+    assert (destination / "kept" / "inner.py").read_text() == "inner\n"
+    assert os.access(destination / "tool.sh", os.X_OK)
+
+
+def test_a_copy_still_fails_on_an_entry_that_is_there_and_cannot_be_copied(tmp_path):
+    source = tmp_path / "tools"
+    source.mkdir()
+    (source / "dangling").symlink_to(tmp_path / "nothing-here")
+
+    with pytest.raises(FileNotFoundError):
+        support.copy_tree_as_it_stands(
+            source,
+            tmp_path / "copy",
+            ignore=shutil.ignore_patterns(),
+            list_names=_listing_that_names_entries_already_gone(source, []),
+        )
+
+
 def test_a_pin_is_a_scratch_core_with_a_manifest_naming_its_source_host(tmp_path):
     host = tmp_path / "host"
     host.mkdir()

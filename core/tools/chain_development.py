@@ -65,6 +65,52 @@ THE CONTENT STEP
     writes one — and moves aside again once the verdict is settled, so the delivery's clean-tree
     check never meets it. A change already past the step is never entered there (`entry_step`).
 
+THE QA STEP
+    `red-behaviour` runs the QA seat directly after `specs` on a change `qa_step_applies` says it
+    concerns, and is passed with no launch on every other. That one function decides it, from the
+    project card on `main` and the spec on the branch, so nothing else in this module reads the
+    two lines it reads. The gate is the content step's door: `DiskReader.run_verdict` answers RUN
+    or PASS for it, never UNSETTLED, `_gate_lets_through` records `red-behaviour passed — <what
+    was read>` and walks on, and `entry_step` never enters a change already past it. Its
+    evidence, once it ran, is QA's record committed on the change branch. That record is a red
+    record or a no-reach record, whose `No reach:` line says why the recorded way in reaches none
+    of the change's behaviours. `qa_red_verdict` passes the step on a no-reach record it accepts,
+    at the place it would answer `missing-qa-red`, so its earlier answers keep their order, and
+    the walk records `red-behaviour passed — "<the No reach: line>"` with no retry. No later step
+    reads QA's files, and the audit does not cover the step.
+
+    A run of `implementation` or `design` may leave an ask of QA's step: a reason, uncommitted, at
+    `ChangeLayout.qa_ask`, which `--qa-ask-place` prints. When any run ends, `_answer_an_ask`
+    reads it before the run's own evidence is judged and answers it once. It is turned down for
+    the first of four reasons (another step, the gate passed QA's step with no launch, no reason,
+    the seat's ask already accepted), and the end then settles as with no ask. An accepted ask
+    launches `red-behaviour` and nothing else. The re-run is judged by the same `qa_red_verdict`,
+    after two checks that read only the commits made since the ask (`_rerun_stalled`). A re-run
+    passes on a no-reach record only when a commit made since the ask changed QA's record, and
+    one that made a red over a record it did not change is refused as a red record. An
+    accepted red returns the walk to the asker as `red-behaviour landed — back to <asker>`, an
+    accepted no-reach record as `red-behaviour passed — "<the No reach: line>" — back to
+    <asker>`, and the asker's landing closes the ask. The record of it, `QaAsks`, is per change
+    and across walks: it also counts QA's runs, and a seventh is refused, `qa-runs-spent`. A walk
+    with an ask open is entered at the step the ask owes, which `_key_and_entry` chooses, not
+    `entry_step`, so a change already past QA's step on disk is entered there while an ask it
+    accepted has not returned.
+
+THE CLOSE
+    Before it launches the audit or the seal, a walk runs the close: every scenario the product
+    holds, on the change's final code, in a throwaway copy. It is no row of `CHANGE_STEPS` or
+    `WALK_STEPS` but a guard at the top of `_launch_step`, the one door both walks reach `audit`
+    and `seal` through, keyed on `WalkState.close_passed`; a start builds a fresh state, so no
+    verdict survives a walk and a walk entered at either step runs the close first. A card on
+    `main` that does not say `behave` passes it with the card's own reading. On one that does,
+    `close_verdict` refuses a `Role: Developer` commit that touched the scenario folder
+    (`close-refused`), then runs Behave at the branch tip and judges its report by the one reading
+    QA's base run uses (`close-red`, `behave-unavailable`). A stop ends the walk halted at
+    `close` through the writer every halt shares. The close launches nothing, writes nothing,
+    needs no provider entry, and `--describe` runs no Behave. A pass on a `behave` card keeps its
+    history line as `WalkState.close_line`, and `_launch_run` hands it to the seal launch alone
+    as `CLOSE_VERDICT_VARIABLE`; the seal's action writes it into the sealed folder.
+
 THE CHANGELOG STEP
     `changelog` runs the Content Editor's `changelog-line` on every change, directly after
     `implementation` and before `code-integrity`, whether or not the earlier content step ran. The
@@ -151,17 +197,31 @@ A RECORDS-OWED HALT
     it is what reads the halt and launches the sweep. It copies the item's lines as the step wrote
     them, its number included, to the end of the main checkout's *Raised from downstream* section,
     so no line already there changes. An item the main checkout already holds is not copied again.
-    An item the main checkout has no companion or no such section for is not carried, because
-    creating either is `product-docs`' own work. That item ends `not folded` after the sweep.
+    Where the main checkout has no companion for an item, the carry creates one from that
+    companion's template, the file in the templates layer's `product-templates/` folder of the core
+    the walk runs on whose name is the companion's with `_template` before `.md`, the two compared
+    without regard to case. The created companion holds the template's title with its `<…>` token
+    replaced by the project's name, the template's lines before its first `## ` heading, every `## `
+    heading of the template in order, `None.` under each heading but *Raised from downstream*, and
+    the carried items under *Raised from downstream*. Nothing else of the template is copied. Its
+    frontmatter, comments, example items and guidance paragraphs are written for the run that
+    authors a companion, and none of them survives into what that run writes. Left in a created
+    companion, the template's example items would read as open items. Where the main checkout's
+    companion has no *Raised from downstream* section, the carry adds the template's heading for
+    that section at the end of the file, so no line already there changes either. An item whose
+    companion has no template stays off the main checkout. The carry writes nothing for it and does
+    not halt on it, because a halt before the sweep would stop the other items from folding too.
+    That item ends `not folded` after the sweep.
 
     The carry lands as one commit on the main checkout's `main`, made through `commit_builder.py`
-    with the halting step's seat as its `Role:`, because the words are that seat's and the engine
-    is no seat. Before it writes anything, the carry halts when that checkout does not have `main`
-    out, when a companion it would write holds an uncommitted change, or when git cannot read a
+    with the halting step's seat as its `Role:`, because the words are that seat's and the engine is
+    no seat. Before it writes anything, the carry halts when that checkout does not have `main` out,
+    when a companion it would write holds an uncommitted change, or when git cannot read a
     companion's status. Committing in any of those states would put the item on another branch, or
     sweep someone else's edit into the carry's commit. When the builder refuses the commit, each
-    companion is written back byte for byte and unstaged, because a half-carried item left on
-    `main` would look carried to the next walk.
+    companion the carry found is written back byte for byte and unstaged, and each companion the
+    carry created is removed from disk and unstaged, because a half-carried item left on `main`
+    would look carried to the next walk.
 
     The sweep's end comes back as an ordinary `--advance`, through this walk's own completion
     shim, and never through a command that advances the walk directly. The launcher runs the
@@ -218,12 +278,13 @@ import shlex
 import subprocess
 import sys
 import traceback
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from dataclasses import asdict, dataclass, field, fields
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 
+import behave_run
 import completion_shim
 import development_path
 import gate_suite
@@ -235,7 +296,7 @@ from chain import (PROVIDERS, FileLock, Files, IdSource, Notifier, Processes, ru
                    with_provider)
 from providers import ProviderFiles, ProvidersRefused
 
-__version__ = "4.3.0"
+__version__ = "4.9.0"
 
 
 class ChainRefused(Exception):
@@ -331,6 +392,118 @@ _PUBLISHES_TEXT = RunsWhen(
     artifact="change_design.md", prefix=record_declarations.PUBLISHES_TEXT.prefix, runs="yes",
     passes="no")
 
+@dataclass(frozen=True)
+class QaDecision:
+    """Whether QA's step applies to a change, and the line or the absence that decided it."""
+
+    applies: bool
+    read: str
+
+
+@dataclass(frozen=True)
+class BehaveCard:
+    """What the project card on `main` says about scenarios: `says_behave` is whether its one
+    Behave line reads `behave`, and `read` is the line or the absence that decided it."""
+
+    says_behave: bool
+    read: str
+
+
+def behave_card_reading(card: str | None) -> BehaveCard:
+    """The card half of QA's decision, and the one reader of the card's Behave line. Pure: it
+    reads the text it is given. The card says `behave` when it holds exactly one Behave line
+    whose value, cut at an inline comment and trimmed, is `behave`. Every other reading says
+    what it read, in the words QA's step pass names for that card."""
+    card_label = "**Behave:**"
+    if card is None:
+        return BehaveCard(False, "no project.md on main")
+    card_lines = [line for line in card.splitlines() if line.startswith(card_label)]
+    if not card_lines:
+        return BehaveCard(False, f"project.md has no {card_label} line")
+    if len(card_lines) > 1:
+        return BehaveCard(False, f"project.md has {len(card_lines)} {card_label} lines")
+    value = card_lines[0][len(card_label):].split("<!--")[0].strip()
+    if value.startswith("none — "):
+        return BehaveCard(False, f"{card_label} {value}")
+    if value != "behave":
+        return BehaveCard(False, f"project.md's {card_label} line reads \"{value}\"")
+    return BehaveCard(True, f"{card_label} behave")
+
+
+def qa_step_applies(card: str | None, spec: str | None) -> QaDecision:
+    """The one decision on whether QA's step applies. Pure: it reads the two texts it is given.
+
+    The step applies when the card on main says `behave` (`behave_card_reading`) and the spec's
+    Behaviour line starts with `changing`. Every other reading passes the step and says what it
+    read. The spec's line label is written here and nowhere else in this module's decision."""
+    spec_label = "**Behaviour:**"
+    reading = behave_card_reading(card)
+    if not reading.says_behave:
+        return QaDecision(False, reading.read)
+    if spec is None:
+        return QaDecision(False, "no change_spec.md on the branch")
+    spec_lines = [line for line in spec.splitlines() if line.startswith(spec_label)]
+    if not spec_lines:
+        return QaDecision(False, f"change_spec.md has no {spec_label} line")
+    words = spec_lines[0][len(spec_label):].split()
+    word = words[0].strip(_EMPHASIS) if words else ""
+    if word == "changing":
+        return QaDecision(True, f"{reading.read} and {spec_label} changing")
+    return QaDecision(False, f"{spec_label} {word}".rstrip())
+
+
+# The close is a guard at `_launch_step`, not a row of either table. Its id names it in every
+# history and stop line, and `Evidence.AUDIT_FINDINGS` and `Evidence.SEALED` are the two steps it
+# stands in front of.
+CLOSE = "close"
+_BEHIND_THE_CLOSE = frozenset({Evidence.AUDIT_FINDINGS, Evidence.SEALED})
+_MISSING_QA_RED = "missing-qa-red"
+# The two steps whose runs may ask QA's step to run again.
+_ASKERS = frozenset({"implementation", "design"})
+# QA's step runs at most this many times on one change, counted across every walk of it; every way
+# into a QA launch passes the one check in `_launch_run`.
+QA_RUN_CEILING = 6
+_QA_RUNS_SPENT = "qa-runs-spent — QA's step has run {ceiling} times on {key}"
+_MAIN_IS_RED = "main is red — "
+_QA_MAIN_RED = "qa-main-red"
+_THE_THREE_WAYS_IN = ("command", "server", "browser")
+_NO_WAY_IN_ADVICE = "the product's architecture run (product-architecture) records the way in"
+
+
+def qa_way_in(nfdr: str | None) -> str | None:
+    """What `docs/nfdr.md` held when it records no way in for QA's scenarios, and `None` when it
+    records one. Pure: it reads the text it is given, `None` standing for an absent file.
+
+    The four states `red-behaviour`'s rich prompt names are no file, a Behave line that does not
+    read `behave`, a way-in line that still holds its three forms, and `behave` with no way-in
+    line; a way-in line with no value is the same answer, because it names nothing."""
+    behave_label, way_in_label = "**Behave:**", "**Behave way in:**"
+    if nfdr is None:
+        return "docs/nfdr.md is absent"
+    lines = nfdr.splitlines()
+    behave_lines = [line for line in lines if line.startswith(behave_label)]
+    if not behave_lines:
+        return f"docs/nfdr.md has no {behave_label} line"
+    behave = behave_lines[0][len(behave_label):].split("<!--")[0].strip()
+    if behave != "behave":
+        return f"docs/nfdr.md has a {behave_label} line that reads {behave}"
+    way_in_lines = [line for line in lines if line.startswith(way_in_label)]
+    if not way_in_lines:
+        return f"docs/nfdr.md has a {behave_label} line that reads behave and no Behave way in line"
+    held = way_in_lines[0][len(way_in_label):].split("<!--")[0].strip().strip(_EMPHASIS).strip()
+    if not held:
+        return "docs/nfdr.md has a Behave way in line with no value"
+    if all(form in held for form in _THE_THREE_WAYS_IN):
+        return "docs/nfdr.md has a Behave way in line that still holds its three forms"
+    return None
+
+
+# QA's step. It runs the QA seat on a change `qa_step_applies` says it concerns and is passed, with
+# no launch, on every other. Its evidence is QA's record committed on the change branch, which is
+# also what a step that ran leaves behind (`DiskReader.run_verdict`, `_gate_lets_through`).
+_QA_STEP = Step("red-behaviour", "red-behaviour", "qa", Evidence.COMMITTED_CHANGE_FILE,
+                development_path.QA_RECORD)
+
 # The report `changelog-line` commits on the change branch, whatever it did to the product
 # (`skills/content-editor/.claude/skills/changelog-line/SKILL.md`): its committed presence is the
 # step landing, including a run that wrote no product file.
@@ -339,6 +512,7 @@ _CHANGELOG_REPORT = "changelog-report.md"
 CHANGE_STEPS: tuple[Step, ...] = (
     Step("specs", "development-specs", "product-owner", Evidence.CHANGE_FILE, "change_spec.md",
          takes_key=False),
+    _QA_STEP,
     Step("design", "development-design", "architect", Evidence.CHANGE_FILE, "change_design.md"),
     Step("plan", "development-plan", "tech-lead", Evidence.CHANGE_FILE, "tl_instruction.md"),
     Step("content", "development-content", "content-editor", Evidence.CHANGE_FILE,
@@ -527,6 +701,10 @@ _CONTEXT_CAP_VARIABLE = "KENSAIAPP_CONTEXT_CAP"
 # The owner's ask to run the gates' suites on their own Mac. Set for the four steps that run a
 # card's suite, and only when this walk's owner start carried the ask (`WalkState.gate_owners_mac`).
 _GATE_OWNERS_MAC_VARIABLE = gate_suite.OWNERS_MAC_VARIABLE
+# The close's passing line on a `behave` card, handed to the seal launch alone (the seal's action
+# writes it into the sealed folder). The name carries no `KEY`, `SECRET` or `TOKEN`, which some
+# providers' shells drop from a run's environment by default.
+CLOSE_VERDICT_VARIABLE = "KENSAIAPP_CLOSE_VERDICT"
 _GATE_CONSUMER_STEPS = frozenset({"implementation", "code-integrity", "security", "seal"})
 
 # The two stops the environment check can end an implementation launch with. The words are
@@ -559,6 +737,10 @@ _SEED_HOMES = ("", "unpicked", "trail", "drop")
 # Where a station file sits under `journey/shukuba/`: open at the root, reached in `trail/`, or
 # parked — the three homes `shukuba-refine` looks in for the file naming a unit (`SKILL.md` Step 2).
 _STATION_HOMES = ("", "trail", "parked")
+
+
+# The file an ask of QA's step is left in, inside the change folder of the change worktree.
+QA_ASK = "qa_ask.md"
 
 
 @dataclass(frozen=True)
@@ -607,6 +789,12 @@ class ChangeLayout:
         under `trail/` — where a seal that halts after the move writes its report."""
         return os.path.join(self.worktree, "system", "projects", self.project, "journey",
                             "tobiishi", "trail", self.key)
+
+    @property
+    def qa_ask(self) -> str:
+        """Where a run of `implementation` or `design` leaves its ask of QA's step: one file in
+        the change folder of the change worktree, which `--qa-ask-place` prints."""
+        return os.path.join(self.branch_change_folder, QA_ASK)
 
     @property
     def main_change_folder(self) -> str:
@@ -760,6 +948,8 @@ class DiskReader:
         return keys[0]
 
     def is_done(self, change: ChangeLayout, step: Step) -> bool:
+        if self.run_verdict(change, step) is RunVerdict.PASS:
+            return True
         if step.evidence is Evidence.STATION_FILE:
             return self.open_station(change.instance_root, change.project) is not None
         if step.evidence is Evidence.CHANGE_OPEN:
@@ -767,11 +957,7 @@ class DiskReader:
             # walk needs the key next, and `discover_key` owns that refusal and its wording.
             return bool(self.open_change_keys(change.instance_root, change.project))
         if step.evidence is Evidence.CHANGE_FILE:
-            if self.files.is_file(os.path.join(change.branch_change_folder, step.artifact)):
-                return True
-            # A step the change's own records pass is done with no artifact: that is how a
-            # walk's restart, and `describe`, find it behind them.
-            return self.run_verdict(change, step) is RunVerdict.PASS
+            return self.files.is_file(os.path.join(change.branch_change_folder, step.artifact))
         if step.evidence is Evidence.COMMITTED_CHANGE_FILE:
             return self.git.branch_has_path(change.instance_root, change.key,
                                             f"{change.change_rel}/{step.artifact}")
@@ -788,6 +974,8 @@ class DiskReader:
         step with no such line always runs. The verdict is the value's first word and must be
         exactly the step's `runs` or `passes` word: `Yes` and `maybe` are unsettled, never
         coerced, and a missing file or line is unsettled too."""
+        if step == _QA_STEP:
+            return RunVerdict.RUN if self.qa_decision(change).applies else RunVerdict.PASS
         gate = step.runs_when
         if gate is None:
             return RunVerdict.RUN
@@ -797,6 +985,31 @@ class DiskReader:
         if word == gate.passes:
             return RunVerdict.PASS
         return RunVerdict.UNSETTLED
+
+    def qa_decision(self, change: ChangeLayout) -> QaDecision:
+        """Whether QA's step applies to this change: `main`'s card and the branch's spec, handed
+        to the one decision. Neither is read for anything else here."""
+        return qa_step_applies(self._card(change), self.files.read_text(
+            os.path.join(change.branch_change_folder, "change_spec.md")))
+
+    def behave_card(self, change: ChangeLayout) -> BehaveCard:
+        """What `main`'s project card says about scenarios, through the card half of QA's
+        decision. The close reads this and nothing else of the card."""
+        return behave_card_reading(self._card(change))
+
+    def qa_way_in(self, change: ChangeLayout) -> str | None:
+        """What the product's `docs/nfdr.md` on `main` held when it records no way in, else
+        `None` (CP-1321). A card that names no product holds no NFDR, so the file is absent."""
+        product = self._product_directory(change)
+        return qa_way_in(None if product is None
+                         else self.files.read_text(os.path.join(product, "docs", "nfdr.md")))
+
+    def pass_line(self, change: ChangeLayout, step: Step) -> str:
+        """The history line for a gated step the walk goes by with no launch."""
+        if step == _QA_STEP:
+            return f"{step.id} passed — {self.qa_decision(change).read}"
+        gate = step.runs_when
+        return f"{step.id} passed — {gate.prefix} {gate.passes}"
 
     def branch_has_halt_report(self, change: ChangeLayout) -> bool:
         """Whether the change branch carries a committed `halt_report.md` in its change folder."""
@@ -1227,6 +1440,19 @@ class DiskReader:
         product = self._product_directory(change)
         return None if product is None else _under_docs(product, companion)
 
+    def companion_template(self, core_dir: str, companion: str) -> str | None:
+        """The text of `companion`'s template (CP-1425): the file in `<core_dir>/templates/
+        product-templates/` named for the companion's file name with `_template` put before `.md`,
+        the two compared without regard to case. `None` for a name with a directory part, when
+        no file matches, and when the match cannot be read."""
+        if "/" in companion:
+            return None
+        wanted = companion.casefold().removesuffix(".md") + "_template.md"
+        folder = os.path.join(core_dir, "templates", "product-templates")
+        name = next((entry for entry in self.files.list_dir(folder)
+                     if entry.casefold() == wanted), None)
+        return None if name is None else self.files.read_text(os.path.join(folder, name))
+
     def carry_repository(self, change: ChangeLayout) -> str | None:
         """The repository whose main checkout holds the companion (CP-1126): git's top level for
         the card's product directory. `None` when the card names no product or the directory is
@@ -1443,7 +1669,7 @@ class DiskReader:
             # A step the records can skip is never the entry of a change that is already past it:
             # a later gating step on disk says the walk went by, and it resumes where it would
             # have before the step existed (CP-442).
-            if candidate.runs_when is not None and any(
+            if (candidate.runs_when is not None or candidate == _QA_STEP) and any(
                     later.gates and self.is_done(change, later) for later in steps[position + 1:]):
                 continue
             return candidate
@@ -1606,6 +1832,23 @@ class WalkState:
     sweeps: int = 0
     sweep_step: str = ""
     sweep_items: list = field(default_factory=list)
+    # QA's step: how many times it was run once more for a missing red commit (CP-1319: one),
+    # the step whose red the repair answers (empty reads as the closing marker's), and the
+    # scenarios `main` was red on when it did. All defaulted, so an older state file still loads.
+    qa_retries: int = 0
+    repair_step: str = ""
+    qa_main_red: str = ""
+    # The re-run an accepted ask starts has one retry of its own for a missing red commit,
+    # whether or not QA's first run spent its own. Defaulted, so an older state file still loads.
+    qa_rerun_retries: int = 0
+    # Whether the close has passed in this walk (CP-1379). No verdict survives a walk: a start
+    # builds a fresh state, so a walk entered at `audit` or `seal` runs the close first. Defaulted,
+    # so an older state file still loads.
+    close_passed: bool = False
+    # The exact `close passed — …` history line the close recorded on a `behave` card, handed to the
+    # seal launch (`CLOSE_VERDICT_VARIABLE`) and to no other. Empty on every other card, and for a
+    # state written before it existed.
+    close_line: str = ""
     schema_version: int = STATE_SCHEMA
 
     def to_json(self) -> dict:
@@ -1655,6 +1898,95 @@ class StateStore:
         self.files.write_text(temporary,
                               json.dumps(state.to_json(), indent=2, sort_keys=True) + "\n")
         self.files.replace(temporary, self.path)
+
+
+def ask_reason(text: str) -> str:
+    """An ask's reason: its text with every run of whitespace collapsed to one space, and trimmed.
+    Nothing else in the ask file is read."""
+    return " ".join(text.split())
+
+
+class QaAskPhase(str, Enum):
+    """Where an accepted ask is: QA's step is being run again, or the walk has returned to the
+    seat that asked. A closed set that is written to disk and read back."""
+
+    RE_RUN = "re-run"
+    RETURN = "return"
+
+
+QA_ASK_ACCEPTED = "accepted"
+
+
+@dataclass
+class QaAsks:
+    """What one change keeps across every walk of it: how many runs of QA's step it has had, every
+    ask the engine has answered, and the accepted ask not yet returned to its asker."""
+
+    runs: int = 0
+    answered: list = field(default_factory=list)
+    open: dict | None = None
+
+    def accepted(self, step_id: str) -> bool:
+        return any(entry["step"] == step_id and entry["answer"] == QA_ASK_ACCEPTED
+                   for entry in self.answered)
+
+    def step_owed(self) -> str | None:
+        """The step an open ask owes the walk: QA's while its re-run is owed, the asker's once the
+        re-run has landed. `None` when no ask is open."""
+        if self.open is None:
+            return None
+        if self.open["phase"] == QaAskPhase.RE_RUN.value:
+            return _QA_STEP.id
+        return self.open["asker"]
+
+    def to_json(self) -> dict:
+        return asdict(self)
+
+    @classmethod
+    def from_json(cls, data: dict) -> "QaAsks":
+        """Unknown keys ignored, as `WalkState.from_json` does."""
+        names = {entry.name for entry in fields(cls)}
+        return cls(**{name: value for name, value in data.items() if name in names})
+
+
+
+class QaAskStore:
+    """The per-change record behind a seam, kept beside the walks' state files so the `change` and
+    `walk` walks of one project share it. Reaches the disk only through `files`."""
+
+    def __init__(self, files, directory: str):
+        self.files = files
+        self.directory = directory
+
+    def path(self, project: str, key: str) -> str:
+        return os.path.join(self.directory, f"chain-qa-{project}-{key}.json")
+
+    def load(self, project: str, key: str) -> QaAsks:
+        """An absent or unreadable record reads as an empty one, as `StateStore.raw` reads a bad
+        state file; the record is only ever written whole."""
+        text = self.files.read_text(self.path(project, key))
+        if text is None:
+            return QaAsks()
+        try:
+            data = json.loads(text)
+        except ValueError:
+            return QaAsks()
+        return QaAsks.from_json(data) if isinstance(data, dict) else QaAsks()
+
+    def save(self, project: str, key: str, asks: QaAsks) -> None:
+        path = self.path(project, key)
+        self.files.make_dirs(os.path.dirname(path))
+        temporary = f"{path}.tmp"
+        text = json.dumps(asks.to_json(), indent=2, sort_keys=True)
+        self.files.write_text(temporary, text + "\n")
+        self.files.replace(temporary, path)
+
+    def keep(self, project: str, key: str, number: int, ask_path: str) -> str:
+        """Move the answered ask out of the change folder to a numbered file beside the record, so
+        it is never read again and no untracked file is left for the delivery's clean-tree check."""
+        kept = os.path.join(self.directory, f"chain-qa-{project}-{key}.ask-{number}.md")
+        self.files.replace(ask_path, kept)
+        return kept
 
 
 @dataclass(frozen=True)
@@ -1729,7 +2061,7 @@ _NO_BRANCH = "detached"
 _SWEEP_REMOVED_VARIABLES = (
     "DETACH_WATCHER_ON_COMPLETE", "INSTRUMENT_RUN_CHAIN", "INSTRUMENT_RUN_WALK_ID",
     "INSTRUMENT_RUN_ROLE", "INSTRUMENT_RUN_AUDIT_TARGET", _CONTEXT_CAP_VARIABLE,
-    _GATE_OWNERS_MAC_VARIABLE)
+    _GATE_OWNERS_MAC_VARIABLE, CLOSE_VERDICT_VARIABLE)
 
 
 def engine_report_marker(step: Step) -> str:
@@ -1790,12 +2122,12 @@ def _raised_section(visible: list[str]) -> tuple[int, int] | None:
 @dataclass(frozen=True)
 class _CarriedFile:
     """One main-checkout companion the carry writes: where it is, its name as the raised items
-    give it, its path in the repository, what it holds before the carry and after it, and the
-    raised items going into it, in report order."""
+    give it, its path in the repository, what it holds before the carry (`None` where the carry
+    creates the file) and after it, and the raised items going into it, in report order."""
     path: str
     companion: str
     relative: str
-    before: str
+    before: str | None
     after: str
     values: tuple[str, ...]
 
@@ -1869,6 +2201,68 @@ def _append_items(text: str, blocks: list[str]) -> str | None:
     return "".join(lines[:last] + [closed_last] + added + lines[last + 1:])
 
 
+_TITLE_TOKEN = re.compile(r"<[^<>]*>")
+_NONE_UNDER_SECTION = "None."
+
+
+def _without_frontmatter(template: str) -> str:
+    """`template` with a leading frontmatter block removed: a first line `---` through the next
+    `---`. A text that does not open with one is returned as it is."""
+    lines = template.split("\n")
+    if lines[0].strip() != "---":
+        return template
+    end = next((index for index in range(1, len(lines)) if lines[index].strip() == "---"), None)
+    return template if end is None else "\n".join(lines[end + 1:])
+
+
+def _raised_heading(template: str) -> str | None:
+    """The first `## ` heading of a companion template, comments not read, whose text contains
+    `Raised from downstream`, as the template writes it; `None` when it has none."""
+    for line in _report_lines(_HTML_COMMENT.sub("", template)):
+        if line.startswith("## ") and _RAISED_SECTION in line:
+            return line.rstrip()
+    return None
+
+
+def _companion_from_template(template: str, project: str, blocks: list[str]) -> str:
+    """The text of a companion the carry creates from `template` (CP-1427): the template's `# `
+    title with its `<...>` token replaced by `project`, the lines between the title and the first
+    `## ` heading, every `## ` heading in the template's order, `None.` under each heading but
+    the one holding `Raised from downstream`, and `blocks` under that one. Nothing else of the
+    template survives: not its frontmatter, comments, example items or guidance. Ends with one
+    line ending. A template with no such heading cannot hold `blocks` and raises."""
+    lines = _report_lines(_HTML_COMMENT.sub("", _without_frontmatter(template)))
+    title = next(index for index, line in enumerate(lines) if line.startswith("# "))
+    headings = [index for index in range(title + 1, len(lines)) if lines[index].startswith("## ")]
+    preamble_end = headings[0] if headings else len(lines)
+    preamble = "\n".join(lines[title + 1:preamble_end]).strip("\n")
+    parts = [_TITLE_TOKEN.sub(lambda _: project, lines[title].rstrip())]
+    if preamble.strip():
+        parts.append(preamble)
+    parts += [heading if _RAISED_SECTION in heading else f"{heading}\n\n{_NONE_UNDER_SECTION}"
+              for heading in (lines[index].rstrip() for index in headings)]
+    skeleton = "\n\n".join(parts) + "\n"
+    placed = _append_items(skeleton, blocks)
+    if placed is None:
+        raise ValueError(f"the template has no `## ` heading containing {_RAISED_SECTION!r}")
+    return placed
+
+
+def _with_raised_section(text: str, heading: str) -> str:
+    """A companion's `text` with `heading` added after its last non-blank line, one blank line
+    between, and no items (CP-1429). That line is closed first when it has no line ending, and
+    the added lines take the ending of the last line that has one, else `\n`. Trailing blank
+    lines stay after the addition, so every earlier byte is as it was."""
+    lines = _lines_keeping_ends(text)
+    last = next((index for index in range(len(lines) - 1, -1, -1) if lines[index].strip()), None)
+    if last is None:
+        return heading + "\n"
+    ending = next(("\r\n" if line.endswith("\r\n") else "\n"
+                  for line in reversed(lines[:last + 1]) if line.endswith("\n")), "\n")
+    closed_last = lines[last] if lines[last].endswith("\n") else lines[last] + ending
+    return "".join(lines[:last] + [closed_last, ending, heading + ending] + lines[last + 1:])
+
+
 def _missing_verdict_report(step: Step, found: str) -> str:
     gate = step.runs_when
     return "\n".join([
@@ -1939,6 +2333,10 @@ def _real_contract(change: "ChangeLayout") -> dict:
     return development_path.resolve_from_paths(
         change.worktree, change.project, change.key,
         development_path.GitRepos(development_path.Git()))
+
+
+def _real_qa_places(change: "ChangeLayout") -> dict:
+    return development_path.target(_real_contract(change), "qa")
 
 
 def _real_tracked_files(root: str) -> list[str]:
@@ -2038,6 +2436,350 @@ def commit_shape_verdict(reader: DiskReader, change: ChangeLayout,
     return "missing-red-commit — " + ", ".join(f"task {number}" for number in failing)
 
 
+# QA's record and the commits it judges. A QA commit is one whose body carries the QA seat's own
+# `Role:` line, and the red is whichever of them changes the scenario folder.
+_QA_ROLE_LINE = "Role: QA"
+_DEVELOPER_ROLE_LINE = "Role: Developer"
+_SCENARIO_FIELD_SEPARATOR = " — "
+_SCENARIO_OUTCOMES = frozenset({"failed", "passed"})
+_RED_COMMIT_VALUE = re.compile(r"^[0-9a-fA-F]{7,40}$")
+
+
+class QaKind(str, Enum):
+    """What a record says about a scenario: written or changed for this change, or already on
+    `main` and kept."""
+
+    NEW_OR_CHANGED = "new or changed"
+    KEPT = "kept"
+
+
+@dataclass(frozen=True)
+class QaScenario:
+    """One `Scenario:` line of QA's record: `<location> — <kind> — <rule> — <outcome>`."""
+
+    location: str
+    kind: QaKind
+    rule: str
+    outcome: str
+
+
+def _qa_scenario(value: str) -> QaScenario | None:
+    """The scenario a `Scenario:` line's value says, or `None` when it does not read as
+    location — kind — rule — outcome with a kind and an outcome from the two closed sets."""
+    parts = [part.strip() for part in value.split(_SCENARIO_FIELD_SEPARATOR)]
+    if len(parts) < 4 or not parts[0]:
+        return None
+    rule = _SCENARIO_FIELD_SEPARATOR.join(parts[2:-1])
+    kinds = {kind.value: kind for kind in QaKind}
+    if parts[1] not in kinds or parts[-1] not in _SCENARIO_OUTCOMES or not rule:
+        return None
+    return QaScenario(parts[0], kinds[parts[1]], rule, parts[-1])
+
+
+@dataclass(frozen=True)
+class QaRedVerdict:
+    """What judging QA's red answered. `refusal` is `None` when the red is accepted; `base` is the
+    commit it was judged against and `outcomes` are the red run's `(location, status)`, for the
+    record. `no_reach` is the record's undressed `No reach:` line, `No reach:` included, on a
+    no-reach pass — `refusal` is `None` and no red was judged — and `None` on every other
+    answer."""
+
+    refusal: str | None
+    base: str
+    outcomes: tuple[tuple[str, str], ...]
+    no_reach: str | None = None
+
+
+def _not_passed(outcomes: tuple[tuple[str, str], ...]) -> str:
+    return ", ".join(f"{location}: {status}" for location, status in outcomes
+                     if status != "passed")
+
+
+def _commits_with_role(git: Git, repo: str, key: str, role_line: str) -> list[tuple[str, str]]:
+    """Each commit of `main..<key>` in `repo` whose body carries `role_line`, newest first."""
+    found = []
+    for sha, subject in git.commits_ahead(repo, _MAIN, key):
+        lines = record_declarations.parse(git.commit_body(repo, sha)).lines
+        if any(line.text == role_line for line in lines):
+            found.append((sha, subject))
+    return found
+
+
+def _qa_commits(git: Git, repo: str, key: str) -> list[tuple[str, str]]:
+    """Each commit of `main..<key>` in `repo` whose body carries the QA seat's `Role:` line,
+    newest first."""
+    return _commits_with_role(git, repo, key, _QA_ROLE_LINE)
+
+
+def _resolved_red(git, repo: str, key: str, value: str) -> str | None:
+    """The commit of `main..<key>` in `repo` whose sha opens with the record's `Red commit:`
+    value, or `None` when the value is not a sha prefix or names no such commit."""
+    if not _RED_COMMIT_VALUE.match(value):
+        return None
+    for sha, _subject in git.commits_ahead(repo, _MAIN, key):
+        if sha.startswith(value.lower()):
+            return sha
+    return None
+
+
+def qa_red_verdict(reader: DiskReader, behave: behave_run.ThrowawayBehave, change: ChangeLayout,
+                   places: dict, *, environ: dict, draft: bool) -> QaRedVerdict:
+    """Whether QA's red is accepted, by running it: `QaRedVerdict.refusal` is `None` or the first
+    check that holds, in a fixed order that is the contract — Behave unavailable, `main` red,
+    a no-reach record (below), no QA commit of the scenario folder, the red run unavailable, a
+    kept scenario failing, the record's own defects, a library outside the red commit, then what
+    the new scenarios did (CP-1313 to CP-1319). A commit's subject, the record's outcome column
+    and a plan's lane are read for nothing: only Behave's own report is.
+
+    A record that declares a `No reach:` line is judged in its own form, at the place the verdict
+    would answer `missing-qa-red`: `_no_reach_refusal`'s refusal as `qa-record-refused — …`, or,
+    when it holds none, a pass with `QaRedVerdict.no_reach` set and no red judged. The record
+    decides the form, not the commits (CP-1406, CP-1407); a record with no such line is judged
+    exactly as before.
+
+    `draft` judges the scenario folder and record as the change's working tree holds them, before
+    anything is committed, and skips the checks that need a commit."""
+    git, repo, key = reader.git, places["repo"], places["branch"]
+    folder = os.path.relpath(places["scenario_folder"], places["worktree"])
+    base = git.merge_base(repo, _MAIN, key)
+    if base is None:
+        return QaRedVerdict(
+            f"behave-unavailable — no merge base of main and {key} in {repo}", "", ())
+    record_text = _qa_record_text(reader, change, places, draft=draft)
+    record = record_declarations.parse(record_text or "")
+    scenarios = [scenario for scenario in (
+        _qa_scenario(line.text[len(record_declarations.QA_SCENARIO.prefix):].strip())
+        for line in record.read(record_declarations.QA_SCENARIO)) if scenario]
+    red_line = record.one(record_declarations.QA_RED)
+    red_sha = None if draft or red_line is None else _resolved_red(
+        git, repo, key, red_line.text[len(record_declarations.QA_RED.prefix):].strip())
+    overlay = (behave_run.Overlay.tree(places["worktree"]) if draft
+               else red_sha and behave_run.Overlay.commit(red_sha))
+    base_report, red_report = behave.base_and_red(
+        repo=repo, base=base, folder=folder, red=overlay or None, environ=environ)
+    outcomes = () if red_report is None or red_report.outcomes is None else red_report.outcomes
+
+    def verdict(refusal: str | None) -> QaRedVerdict:
+        return QaRedVerdict(refusal, base, outcomes)
+
+    if base_report.unavailable is not None:
+        return verdict(f"behave-unavailable — {base_report.unavailable}")
+    if _not_passed(base_report.outcomes):
+        return verdict(f"main is red — {_not_passed(base_report.outcomes)}")
+    no_reach = record.one(record_declarations.QA_NO_REACH)
+    if no_reach is not None:
+        in_no_reach = _no_reach_refusal(record, change, draft=draft)
+        if in_no_reach:
+            return verdict(f"qa-record-refused — {in_no_reach}")
+        return QaRedVerdict(None, base, outcomes, no_reach=no_reach.text)
+    qa_commits = [] if draft else _qa_commits(git, repo, key)
+    if not draft and not any(
+            any(path.startswith(folder + "/") for path in git.changed_paths(repo, sha))
+            for sha, _subject in qa_commits):
+        return verdict(_MISSING_QA_RED)
+    if red_report is not None and red_report.unavailable is not None:
+        return verdict(f"behave-unavailable — {red_report.unavailable}")
+    red_status = dict(outcomes)
+    kept_failing = ", ".join(f"{scenario.location}: failed" for scenario in scenarios
+                             if scenario.kind is QaKind.KEPT
+                             and red_status.get(scenario.location) == "failed")
+    if kept_failing:
+        return verdict(f"main is red — {kept_failing}")
+    in_record = _record_refusal(record, record_text, change, red_sha, red_status, draft=draft)
+    if in_record:
+        return verdict(f"qa-record-refused — {in_record}")
+    if not draft:
+        library = _library_refusal(git, qa_commits, places, folder, red_sha)
+        if library:
+            return verdict(f"qa-red-refused — a library outside the red commit: {library}")
+    return verdict(_outcome_refusal(scenarios, red_status))
+
+
+@dataclass(frozen=True)
+class CloseVerdict:
+    """What the close answered. `refusal` is `None` on a pass; `commit` is the branch tip the
+    scenarios ran at (`""` when none was resolved) and `scenarios` the count Behave reported."""
+
+    refusal: str | None
+    commit: str
+    scenarios: int
+
+
+def _touches(folder: str, path: str) -> bool:
+    return path == folder or path.startswith(folder + "/")
+
+
+def close_verdict(*, git: Git, behave: behave_run.ThrowawayBehave, places: dict,
+                  environ: dict) -> CloseVerdict:
+    """Whether every scenario the product holds passes on the change's final code. The order of
+    the checks is the contract (CP-1381 to CP-1386): a developer commit that touched the scenario
+    folder, no branch tip, Behave unavailable, no scenario, a scenario not passed, then the pass.
+    Behave's own report is read for nothing but pass or fail, by the reading QA's base run uses
+    (`_not_passed`); a commit's subject, a note, a plan's lane and QA's own commit and record are
+    read for nothing, and the only commit data read is the paths and `Role:` lines of
+    `main..<key>`."""
+    repo, key = places["repo"], places["branch"]
+    folder = os.path.relpath(places["scenario_folder"], places["worktree"])
+    short = behave_run.SHORT_HASH_LENGTH
+    refused, unreadable = [], []
+    for sha, _subject in _commits_with_role(git, repo, key, _DEVELOPER_ROLE_LINE):
+        paths = git.touched_paths(repo, sha)
+        if paths is None:
+            unreadable.append(sha)
+        elif any(_touches(folder, path) for path in paths):
+            refused.append(f"{sha[:short]} ({', '.join(paths)})")
+    if refused:
+        return CloseVerdict(
+            f"close-refused — the scenario folder is QA's to change, and the developer changed it "
+            f"in {'; '.join(refused)}", "", 0)
+    if unreadable:
+        return CloseVerdict(
+            f"behave-unavailable — git could not list the paths commit {unreadable[0][:short]} "
+            f"changed in {repo}", "", 0)
+    tip = git.branch_tip(repo, key)
+    if tip is None:
+        return CloseVerdict(f"behave-unavailable — no branch {key} in {repo}", "", 0)
+    report, _unused = behave.base_and_red(repo=repo, base=tip, folder=folder, red=None,
+                                          environ=environ)
+    if report.unavailable is not None:
+        return CloseVerdict(f"behave-unavailable — {report.unavailable}", tip, 0)
+    if not report.outcomes:
+        return CloseVerdict(
+            f"close-red — Behave reported no scenario in the scenario folder at {tip[:short]}",
+            tip, 0)
+    failing = _not_passed(report.outcomes)
+    if failing:
+        return CloseVerdict(f"close-red — {failing}", tip, len(report.outcomes))
+    return CloseVerdict(None, tip, len(report.outcomes))
+
+
+def _qa_record_text(reader: DiskReader, change: ChangeLayout, places: dict, *,
+                    draft: bool) -> str | None:
+    """QA's record as the change holds it: the working-tree file for a draft, else the file
+    committed on the instance's change branch — never anything else on disk."""
+    if draft:
+        return reader.files.read_text(places["record"])
+    return reader.git.show(change.instance_root, places["branch"],
+                           f"{change.change_rel}/{development_path.QA_RECORD}")
+
+
+# The slots a draft is exempt from: the commits they name do not exist until the red is committed.
+_QA_SLOTS_OF_A_COMMIT = (record_declarations.QA_BASE, record_declarations.QA_RED)
+_QA_LIBRARY_FILES = ("pyproject.toml", "uv.lock")
+
+
+def _slot_value(line: record_declarations.Line, field: record_declarations.Field) -> str:
+    return line.text[len(field.prefix):].strip()
+
+
+def _slot_refusal(record: record_declarations.ParsedRecord,
+                  slots: tuple[record_declarations.Field, ...], change: ChangeLayout, *,
+                  draft: bool) -> str | None:
+    """The first of `slots` that is missing or empty (the two commit slots exempt in a draft), in
+    the table's order, else the `Change:` line when it holds another change's key; `None` when the
+    record's slots read clean."""
+    for field in slots:
+        if draft and field in _QA_SLOTS_OF_A_COMMIT:
+            continue
+        lines = record.read(field)
+        if not lines:
+            return f"the record has no {field.prefix} line"
+        if not all(_slot_value(line, field) for line in lines):
+            return f"the record's {field.prefix} line is empty"
+    held = _slot_value(record.one(record_declarations.QA_CHANGE), record_declarations.QA_CHANGE)
+    if held != change.key:
+        return f"the record's Change: line reads {held}, not {change.key}"
+    return None
+
+
+def _no_reach_refusal(record: record_declarations.ParsedRecord, change: ChangeLayout, *,
+                      draft: bool) -> str | None:
+    """CP-1403: why a record that declares a `No reach:` line is not an accepted no-reach record,
+    or `None` when it is. The first defect in this order is the answer, so a record with two
+    always gives one: the `No reach:` value empty, a `Red commit:` or `Scenario:` line beside it,
+    then the form's other slots in the table's order (`Base commit:` exempt in a draft) and last
+    the `Change:` key, the last two in the red record's own words."""
+    no_reach = record.one(record_declarations.QA_NO_REACH)
+    if not _slot_value(no_reach, record_declarations.QA_NO_REACH):
+        return "the record's No reach: line is empty"
+    if record.read(record_declarations.QA_RED) or record.read(record_declarations.QA_SCENARIO):
+        return "the record carries a No reach: line beside a red"
+    others = tuple(field for field in record_declarations.QA_NO_REACH_RECORD
+                   if field is not record_declarations.QA_NO_REACH)
+    return _slot_refusal(record, others, change, draft=draft)
+
+
+def _record_refusal(record: record_declarations.ParsedRecord, text: str | None,
+                    change: ChangeLayout, red_sha: str | None, red_status: dict[str, str], *,
+                    draft: bool) -> str | None:
+    """CP-1316: why QA's record cannot be checked against the branch, or `None` when it can —
+    absent, empty, a slot missing or empty (the two commit slots exempt in a draft), another
+    change's key, a red commit that is not the branch's, a `Scenario:` line that does not parse,
+    or a location the red run did not report. The slots checked are the red record's
+    (`QA_RED_RECORD`); a record with no `No reach:` line is checked exactly so."""
+    path = f"{change.change_rel}/{development_path.QA_RECORD}"
+    if text is None:
+        return f"no record at {path}"
+    if text == "":
+        return f"the record at {path} is empty"
+    in_slots = _slot_refusal(record, record_declarations.QA_RED_RECORD, change, draft=draft)
+    if in_slots:
+        return in_slots
+    if not draft and red_sha is None:
+        red_value = _slot_value(record.one(record_declarations.QA_RED), record_declarations.QA_RED)
+        return (f"the record's Red commit: {red_value} is not a commit of the branch "
+                f"{change.key} in the product's repository")
+    for line in record.read(record_declarations.QA_SCENARIO):
+        value = _slot_value(line, record_declarations.QA_SCENARIO)
+        scenario = _qa_scenario(value)
+        if scenario is None:
+            return ("the record's Scenario: line does not read as "
+                    f"location — kind — rule — outcome: {value}")
+        if scenario.location not in red_status:
+            return (f"the record names {scenario.location}, which Behave did not report for "
+                    "the red commit's scenarios")
+    return None
+
+
+def _library_refusal(git, qa_commits: list[tuple[str, str]], places: dict, folder: str,
+                     red_sha: str) -> str | None:
+    """CP-1315, as the design reads it: the first of the scenario folder's library files that a
+    QA commit newer than the red commit changed, or that the worktree holds uncommitted. A QA
+    commit that is the red commit or one of its ancestors is not refused: the red run uses the
+    red commit's tree, which already holds what such a commit changed."""
+    files = [f"{folder}/{name}" for name in _QA_LIBRARY_FILES]
+    repo = places["repo"]
+    for sha, _subject in qa_commits:
+        if sha == red_sha or git.is_ancestor(repo, sha, red_sha):
+            continue
+        changed = git.changed_paths(repo, sha)
+        for file in files:
+            if file in changed:
+                return file
+    for file in files:
+        if git.path_status(places["worktree"], file):
+            return file
+    return None
+
+
+def _outcome_refusal(scenarios: list[QaScenario], red_status: dict[str, str]) -> str | None:
+    """CP-1314: `qa-red-refused — <reason>` when the red run does not show a red that belongs to
+    this change, else `None`. A new or changed scenario must fail, and a kept one must pass or
+    fail; Behave's own word for any other outcome is named as it was reported."""
+    if not any(scenario.kind is QaKind.NEW_OR_CHANGED for scenario in scenarios):
+        return "qa-red-refused — the record names no new or changed scenario"
+    for scenario in scenarios:
+        status = red_status[scenario.location]
+        if scenario.kind is QaKind.NEW_OR_CHANGED:
+            if status == "passed":
+                return f"qa-red-refused — {scenario.location} passes before the change"
+            if status != "failed":
+                return f"qa-red-refused — {scenario.location}: {status}"
+        elif status not in _SCENARIO_OUTCOMES:
+            return f"qa-red-refused — {scenario.location}: {status}"
+    return None
+
+
 class DevelopmentChain:
     """The walk. Everything it uses is handed to it; it constructs nothing."""
 
@@ -2046,8 +2788,14 @@ class DevelopmentChain:
                  steps: tuple[Step, ...],
                  providers: ProviderFiles, process_table: walk_stop.ProcessTable,
                  checkout: product_checkout.Checkout, environment_check,
+                 behave: behave_run.ThrowawayBehave, qa_places, qa_asks: QaAskStore,
                  chain_name: str = ""):
         self.store = store
+        # The per-change record of QA's runs and the asks answered, shared by every walk.
+        self.qa_asks = qa_asks
+        self.behave = behave
+        # `qa_places(change)` is where QA's run writes and commits: the path tool's `qa` target.
+        self.qa_places = qa_places
         self.environment_check = environment_check
         self.checkout = checkout
         self.process_table = process_table
@@ -2111,6 +2859,7 @@ class DevelopmentChain:
             refined = (" and its route refined"
                        if any(c.evidence is Evidence.REFINED for c in self.steps) else "")
             raise ChainRefused(f"{key} is already sealed{refined} — {change.trail_folder} exists.")
+        entry = self._earlier_when_an_ask_is_open(project, key, entry)
         for candidate in self.steps[self.reader.resume_index(change, self.steps):]:
             if candidate.id == entry.id:
                 break
@@ -2125,8 +2874,21 @@ class DevelopmentChain:
                         return key, candidate.id
                     developer = self.steps[self._marker_step_index()]
                     return key, developer.id
+                if candidate == _QA_STEP and not reason.startswith("behave-unavailable"):
+                    # A refused red is QA's to run again, and nothing is wrong with the walk.
+                    return key, candidate.id
                 raise ChainRefused(f"stopped at {candidate.id}: {reason}")
         return key, entry.id
+
+    def _earlier_when_an_ask_is_open(self, project: str, key: str, entry: Step) -> Step:
+        """The step an open ask owes the walk (CP-1343, CP-1344), when it comes earlier in the table
+        than the disk's entry. The ask is the engine's own record, so only this choice reads it:
+        `DiskReader.entry_step`, which the recoveries also call, is left as the disk says."""
+        owed = self.qa_asks.load(project, key).step_owed() if key else None
+        steps = [candidate.id for candidate in self.steps]
+        if owed is None or owed not in steps or steps.index(owed) >= steps.index(entry.id):
+            return entry
+        return self.steps[steps.index(owed)]
 
     def _resolve_key(self, instance_root: str, project: str) -> str:
         """The active change's key, or `""` for a walk that has not opened one yet.
@@ -2187,6 +2949,11 @@ class DevelopmentChain:
             gate_owners_mac=gate_owners_mac)
         if self.steps.index(entry) > self._marker_step_index():
             self._record_marker(state, change)
+        previous = self.store.raw()
+        if (isinstance(previous, dict) and previous.get("ended") == Ended.STOPPED.value
+                and previous.get("key") == key):
+            state.qa_retries = previous.get("qa_retries", 0)
+            state.qa_rerun_retries = previous.get("qa_rerun_retries", 0)
         self.store.save(state)
         self.log.append(self._log_path(state),
                         f"chain_development: started walk={state.walk_id} "
@@ -2273,7 +3040,12 @@ class DevelopmentChain:
             return AdvanceResult(acted=True, ended=state.ended)
         step = next(candidate for candidate in (*self.steps, _REPAIR_STEP)
                     if candidate.id == entry["step"])
+        if step == _QA_STEP:
+            self._count_a_qa_run(state)
         if self._left_the_checkout_dirty(state, step, entry):
+            self.store.save(state)
+            return AdvanceResult(acted=True, ended=state.ended)
+        if state.key and self._answer_an_ask(state, change, step):
             self.store.save(state)
             return AdvanceResult(acted=True, ended=state.ended)
         if step is _REPAIR_STEP:
@@ -2284,6 +3056,62 @@ class DevelopmentChain:
             self._settle_audit(state, change, step, entry["audited"], outcome)
         self.store.save(state)
         return AdvanceResult(acted=True, ended=state.ended)
+
+    def _answer_an_ask(self, state: WalkState, change: ChangeLayout, step: Step) -> bool:
+        """Read the ask the ended run left at `ChangeLayout.qa_ask`, if any, and answer it once
+        (CP-1329 to CP-1335): the answer is saved before the ask is moved out of the change folder,
+        so a crash between the two leaves an answered ask in place rather than an ask lost
+        unanswered. `True` when the ask was accepted and QA's step launched, so the ended run's own
+        end is not settled; a turned-down ask returns `False`, and the end settles as with no
+        ask."""
+        text = self.files.read_text(change.qa_ask)
+        if text is None:
+            return False
+        asks = self.qa_asks.load(state.project, state.key)
+        reason = ask_reason(text)
+        why = self._reason_to_turn_down(change, step, reason, asks)
+        asks.answered.append({"step": step.id, "reason": reason,
+                              "answer": QA_ASK_ACCEPTED if why is None else f"turned down: {why}"})
+        places = self.qa_places(change) if why is None else None
+        if why is None:
+            asks.open = {"asker": step.id,
+                         "since": self.reader.branch_tip(places["repo"], places["branch"]) or "",
+                         "phase": QaAskPhase.RE_RUN.value}
+            record_since = self.reader.branch_tip(change.instance_root, places["branch"])
+            if record_since:
+                asks.open["record_since"] = record_since
+        self.qa_asks.save(state.project, state.key, asks)
+        self.qa_asks.keep(state.project, state.key, len(asks.answered), change.qa_ask)
+        if why is not None:
+            state.history.append(f"{step.id} asked QA — turned down: {why}")
+            return False
+        state.qa_rerun_retries = 0
+        state.history.append(f"{step.id} asked QA — {reason} — running {_QA_STEP.id} again")
+        self._launch_step(state, change, _QA_STEP)
+        return True
+
+    def _reason_to_turn_down(self, change: ChangeLayout, step: Step, reason: str,
+                             asks: QaAsks) -> str | None:
+        """The first of CP-1332's four reasons that holds, in its order, or `None` for an ask that
+        is accepted."""
+        if step.id not in _ASKERS:
+            return "only implementation and design may ask"
+        decision = self.reader.qa_decision(change)
+        if not decision.applies:
+            return f"QA's step passed this change — {decision.read}"
+        if not reason:
+            return "no reason given"
+        if asks.accepted(step.id):
+            return f"{step.id} has spent its one ask"
+        return None
+
+    def _count_a_qa_run(self, state: WalkState) -> None:
+        """A run of QA's step that ended is counted on the change. Counted here, at its end, so a
+        launch the stop command ended, which never reaches this, and a launcher that refused,
+        which left no pending run, are not runs."""
+        asks = self.qa_asks.load(state.project, state.key)
+        asks.runs += 1
+        self.qa_asks.save(state.project, state.key, asks)
 
     @staticmethod
     def _checkout_path(state: WalkState) -> str:
@@ -2319,6 +3147,9 @@ class DevelopmentChain:
                 return
             self._halt(state, step, "no new developer closing marker after the run ended")
             return
+        if step == _QA_STEP:
+            self._settle_qa(state, change, step)
+            return
         # The artifact is read before any halt report: a pre-worktree report stays on main
         # after the owner repairs the change, and reading it first would stop every later walk
         # at a step that has since succeeded.
@@ -2352,7 +3183,151 @@ class DevelopmentChain:
         if step.evidence is Evidence.MARKER_COMMIT:
             self._record_marker(state, change)
         state.history.append(f"{step.id} landed")
+        self._close_the_return(state, step)
         self._after(state, change, step)
+
+    def _close_the_return(self, state: WalkState, step: Step) -> None:
+        """The asker has landed after QA's re-run returned the walk to it: the ask is closed, so a
+        later start enters where the disk says (CP-1340). Any other landing, and an ask whose
+        re-run is still owed, leaves the record as it is."""
+        if not state.key:
+            return
+        asks = self.qa_asks.load(state.project, state.key)
+        if (asks.open is not None and asks.open["phase"] == QaAskPhase.RETURN.value
+                and asks.open["asker"] == step.id):
+            asks.open = None
+            self.qa_asks.save(state.project, state.key, asks)
+
+    def _settle_qa(self, state: WalkState, change: ChangeLayout, step: Step) -> None:
+        """QA's run has finished: ask the red verdict and act on it (CP-1313 to CP-1319). An
+        accepted red lands the step, and an accepted no-reach record passes it with no retry and
+        the line `red-behaviour passed — "<the No reach: line>"` (CP-1408, CP-1409); every other
+        refusal halts with the verdict's own words, and QA is not run again. While an ask is open
+        the run is its re-run, which two checks of the chain's own precede, and an accepted red
+        returns the walk to the asker (CP-1336 to CP-1340)."""
+        asks = self.qa_asks.load(state.project, state.key)
+        places = self.qa_places(change)
+        if asks.open is not None and self._rerun_stalled(state, change, step, asks, places):
+            return
+        verdict = qa_red_verdict(self.reader, self.behave, change, places,
+                                 environ=self.environ, draft=False)
+        if verdict.refusal == _MISSING_QA_RED and state.qa_retries == 0:
+            state.qa_retries += 1
+            state.history.append(f"{step.id} ended with no red commit — running it once more")
+            self._launch_step(state, change, step)
+            return
+        if verdict.refusal is not None and verdict.refusal.startswith(_MAIN_IS_RED):
+            scenarios = verdict.refusal[len(_MAIN_IS_RED):]
+            if self._launch_repair(state, change, step, scenarios):
+                return
+            self._halt(state, step, f"{_QA_MAIN_RED} — {scenarios}")
+            return
+        if verdict.refusal is not None:
+            self._halt(state, step, verdict.refusal)
+            return
+        passed = (f"{step.id} landed" if verdict.no_reach is None
+                  else f'{step.id} passed — "{verdict.no_reach}"')
+        if asks.open is not None:
+            self._return_to_the_asker(state, change, step, asks, passed)
+            return
+        state.history.append(passed)
+        self._after(state, change, step)
+
+    def _rerun_stalled(self, state: WalkState, change: ChangeLayout, step: Step, asks: QaAsks,
+                       places: dict) -> bool:
+        """The two checks a re-run gets before the verdict, each reading only the commits made
+        since the ask (CP-1337, CP-1338). Counted by membership in `since..<key>`, so
+        `_qa_commits` and every check the verdict calls stay as they are (CP-1347). A no-reach
+        record counts as the re-run's only when a commit since the ask changed it (CP-1411,
+        CP-1412): one that did reaches the verdict with no red, and one that did not, beside a red,
+        is refused (`_stale_claim_refusal`). `True` once one has launched QA's retry or halted the
+        walk."""
+        git, repo, key = self.reader.git, places["repo"], places["branch"]
+        since = asks.open["since"] or _MAIN
+        after_the_ask = {sha for sha, _subject in git.commits_ahead(repo, since, key)}
+        folder = os.path.relpath(places["scenario_folder"], places["worktree"])
+        red_made = any(sha in after_the_ask and any(path.startswith(folder + "/")
+                                                    for path in git.changed_paths(repo, sha))
+                       for sha, _subject in _qa_commits(git, repo, key))
+        if not red_made:
+            if self._claim_made_since_the_ask(change, places, asks):
+                return False
+            if state.qa_rerun_retries != 0:
+                self._halt(state, step, _MISSING_QA_RED)
+                return True
+            state.qa_rerun_retries += 1
+            state.history.append(f"{step.id} ended with no red commit — running it once more")
+            self._launch_step(state, change, step)
+            return True
+        named = self._red_commit_named_in_the_record(change, places)
+        resolved = None if named is None else _resolved_red(git, repo, key, named)
+        if resolved is not None and resolved not in after_the_ask:
+            self._halt(state, step, f"qa-record-refused — the record's Red commit: {named} "
+                                    "was made before the ask")
+            return True
+        stale = self._stale_claim_refusal(change, places, asks)
+        if stale:
+            self._halt(state, step, f"qa-record-refused — {stale}")
+            return True
+        return False
+
+    def _stale_claim_refusal(self, change: ChangeLayout, places: dict,
+                             asks: QaAsks) -> str | None:
+        """A re-run that made a red since the ask, over a committed no-reach record no commit since
+        the ask changed: that record makes no claim (CP-1412), so the re-run is not passed on it
+        and its record is held to the red record's slots. The first of them it lacks, or `None`
+        when the record declares no `No reach:` line, the claim was made since the ask, or the
+        record holds every red slot, which leaves the verdict to refuse it as a claim beside a
+        red."""
+        record = record_declarations.parse(
+            _qa_record_text(self.reader, change, places, draft=False) or "")
+        if record.one(record_declarations.QA_NO_REACH) is None:
+            return None
+        if self._claim_made_since_the_ask(change, places, asks):
+            return None
+        return _slot_refusal(record, record_declarations.QA_RED_RECORD, change, draft=False)
+
+    def _claim_made_since_the_ask(self, change: ChangeLayout, places: dict, asks: QaAsks) -> bool:
+        """A commit the instance change branch gained since the ask changed QA's record, and the
+        committed record declares a `No reach:` line (CP-1411, CP-1412). Read against
+        `record_since`, the instance branch's tip when the ask was accepted: `since` ranges the
+        product repository, which holds QA's record only when the product is in the instance. An
+        entry with no `record_since` reads as no claim."""
+        record_since = asks.open.get("record_since")
+        if not record_since:
+            return False
+        git = self.reader.git
+        record_path = f"{change.change_rel}/{development_path.QA_RECORD}"
+        changed = any(record_path in git.changed_paths(change.instance_root, sha)
+                      for sha, _subject in git.commits_ahead(
+                          change.instance_root, record_since, places["branch"]))
+        if not changed:
+            return False
+        record = record_declarations.parse(
+            _qa_record_text(self.reader, change, places, draft=False) or "")
+        return record.one(record_declarations.QA_NO_REACH) is not None
+
+    def _red_commit_named_in_the_record(self, change: ChangeLayout, places: dict) -> str | None:
+        """The committed record's `Red commit:` value as the record writes it, or `None` when it
+        names none."""
+        record = record_declarations.parse(
+            _qa_record_text(self.reader, change, places, draft=False) or "")
+        line = record.one(record_declarations.QA_RED)
+        return None if line is None else _slot_value(line, record_declarations.QA_RED)
+
+    def _return_to_the_asker(self, state: WalkState, change: ChangeLayout, step: Step,
+                             asks: QaAsks, passed: str) -> None:
+        """The re-run's red, or its no-reach record, is accepted: the asker's step is launched
+        next and nothing between (CP-1340). `passed` is the history line the pass earns, which
+        the way back is appended to. The developer's step is entered as a start enters it, at the
+        first unfinished task, and the plan is not read or written."""
+        asks.open["phase"] = QaAskPhase.RETURN.value
+        self.qa_asks.save(state.project, state.key, asks)
+        asker = next(candidate for candidate in self.steps if candidate.id == asks.open["asker"])
+        state.history.append(f"{passed} — back to {asker.id}")
+        after = (self.reader.resume_after(change, state.product_path)
+                 if asker.evidence is Evidence.MARKER_COMMIT else None)
+        self._launch_step(state, change, asker, after=after)
 
     def _answer_records_owed(self, state: WalkState, change: ChangeLayout, step: Step,
                              report: str) -> bool:
@@ -2390,7 +3365,8 @@ class DevelopmentChain:
         `False` once it has halted. Nothing carried means nothing is asked of the provider and
         nothing is written."""
         repository = self.reader.carry_repository(change)
-        files = [] if repository is None else self._files_to_carry(change, repository, named)
+        files = ([] if repository is None
+                 else self._files_to_carry(state, change, repository, named))
         if not files:
             return True
         provider = self._provider_or_halt(state, step)
@@ -2406,6 +3382,8 @@ class DevelopmentChain:
             self._halt(state, step, _CARRY_REFUSED.format(owed=_RECORDS_OWED, why=why))
             return False
         for carried in files:
+            if carried.before is None:
+                self.files.make_dirs(os.path.dirname(carried.path))
             self.exact_files.write_text(carried.path, carried.after)
         exit_code = self.processes.run(
             self._carry_command(state, change, step, repository, surface, files),
@@ -2437,30 +3415,42 @@ class DevelopmentChain:
         return None
 
     def _restore(self, repository: str, files: list[_CarriedFile], provider: str) -> list[str]:
-        """Put every file the carry wrote back as it read it, and unstage it, because the builder
-        may have staged it before it refused (CP-1127). Safe, since the checks ahead of the write
-        showed none of them held an uncommitted change. Every file is restored, one failing
-        included; what names each unstaging that exited non-zero, in the order written."""
+        """Put every file the carry wrote back as it found it, and unstage it, because the builder
+        may have staged it before it refused (CP-1127, CP-1434): a file that existed is written
+        back as it read, and a file the carry created is removed, not written back. Safe, since
+        the checks ahead of the write showed none of them held an uncommitted change. Every file
+        is restored, one failing included; what names each unstaging that exited non-zero, in
+        the order written."""
         failed = []
         for carried in files:
-            self.exact_files.write_text(carried.path, carried.before)
+            if carried.before is None:
+                self.files.remove(carried.path)
+                unstage = ["rm", "--cached", "--ignore-unmatch", "--quiet"]
+            else:
+                self.exact_files.write_text(carried.path, carried.before)
+                unstage = ["restore", "--staged"]
             exit_code = self.processes.run(
-                ["git", "-C", repository, "restore", "--staged", "--", carried.relative],
+                ["git", "-C", repository, *unstage, "--", carried.relative],
                 cwd=repository, env=with_provider(self.environ, provider))
             if exit_code != 0:
                 failed.append(_CARRY_RESTORE_FAILED.format(companion=carried.companion,
                                                            code=exit_code))
         return failed
 
-    def _files_to_carry(self, change: ChangeLayout, repository: str,
+    def _files_to_carry(self, state: WalkState, change: ChangeLayout, repository: str,
                         named: list[tuple[str, tuple[str, str] | None]]) -> list[_CarriedFile]:
         """The main-checkout companions the carry writes, in the order their first item was named,
-        each with what it holds now, what it will hold and the items going into it (CP-1124). An
-        item is carried when the main checkout's companion exists with a *Raised from downstream*
-        section and does not hold it open, and the change worktree's companion does. Two items with
-        one companion and one title are one."""
+        each with what it holds now (`None` where the carry creates it), what it will hold and the
+        items going into it (CP-1124, CP-1426, CP-1429). An item is carried when the change
+        worktree's companion holds it, the main checkout does not hold it open, and the main
+        checkout's companion either has a *Raised from downstream* section, lacks the section
+        (the template's heading is added), or does not exist (it is created from the template).
+        A companion that exists but cannot be read, and one that needs a template that has none
+        or has no such heading, carry nothing. Two items with one companion and one title are
+        one."""
         blocks: dict[str, dict[str, tuple[str, str]]] = {}
-        before: dict[str, str] = {}
+        before: dict[str, str | None] = {}
+        builders: dict[str, Callable[[list[str]], str]] = {}
         companions: dict[str, str] = {}
         for value, parts in named:
             companion, title = parts
@@ -2468,21 +3458,44 @@ class DevelopmentChain:
             if path is None or self.reader.item_held_open(change, companion, title):
                 continue
             worktree_path = self.reader.worktree_companion_path(change, companion)
-            main_text = self.exact_files.read_text(path)
             worktree_text = (None if worktree_path is None
                              else self.exact_files.read_text(worktree_path))
             block = None if worktree_text is None else _extract_item(worktree_text, title)
-            if main_text is None or block is None or _append_items(main_text, []) is None:
+            if block is None:
+                continue
+            main_text = self.exact_files.read_text(path)
+            builder = self._companion_builder(state, companion, path, main_text)
+            if builder is None:
                 continue
             before[path] = main_text
+            builders[path] = builder
             companions.setdefault(path, companion)
             blocks.setdefault(path, {}).setdefault(title, (value, block))
         root = os.path.realpath(repository)
         return [_CarriedFile(path, companions[path], os.path.relpath(os.path.realpath(path), root),
-                             before[path],
-                             _append_items(before[path], [block for _, block in held.values()]),
+                             before[path], builders[path]([block for _, block in held.values()]),
                              tuple(value for value, _ in held.values()))
                 for path, held in blocks.items()]
+
+    def _companion_builder(self, state: WalkState, companion: str, path: str,
+                           main_text: str | None) -> Callable[[list[str]], str] | None:
+        """What the carry makes of main's companion at `path`, which reads `main_text` (`None`:
+        it did not read): a function from the carried items to the text it will hold. Where it has
+        the section, the items are appended; where it lacks the section, the template's heading
+        is added first; where there is no file and no directory, it is created from the
+        template. `None` when nothing may be written there: the path exists and does not read,
+        or the template is missing or has no *Raised from downstream* heading."""
+        if main_text is not None and _append_items(main_text, []) is not None:
+            return lambda items: _append_items(main_text, items)
+        if main_text is None and (self.files.is_file(path) or self.files.is_dir(path)):
+            return None
+        template = self.reader.companion_template(state.core_dir, companion)
+        heading = None if template is None else _raised_heading(template)
+        if heading is None:
+            return None
+        if main_text is not None:
+            return lambda items: _append_items(_with_raised_section(main_text, heading), items)
+        return lambda items: _companion_from_template(template, state.project, items)
 
     def _carry_command(self, state: WalkState, change: ChangeLayout, step: Step, repository: str,
                        surface: str, files: list[_CarriedFile]) -> list[str]:
@@ -2632,12 +3645,14 @@ class DevelopmentChain:
 
     def _launch_repair(self, state: WalkState, change: ChangeLayout, step: Step,
                        reason: str) -> bool:
-        """Launch `dependency-repair` in place of halting `red-suite`, and say whether it did
-        (CP-860, CP-861). The engine runs no tests, so it cannot tell a red that is `main`'s from
-        the change's own; the repair's audit on `main` is what does, and it writes no report when
-        the red is not `main`'s (CP-865). Only a marker's `red-suite`, only a product whose NFDR is
-        on `main`, and only the walk's first."""
-        if (reason != _RED_SUITE or step.evidence is not Evidence.MARKER_COMMIT
+        """Launch `dependency-repair` in place of halting, and say whether it did (CP-860, CP-861,
+        CP-1317). The engine runs no tests, so it cannot tell a red that is `main`'s from the
+        change's own; the repair's audit on `main` is what does, and it writes no report when the
+        red is not `main`'s (CP-865). Two reds are answered: a marker's `red-suite`, and QA's
+        step finding scenarios failing on `main` (`reason` is then the scenarios). Only a product
+        whose NFDR is on `main`, and only the walk's first."""
+        for_qa = step == _QA_STEP
+        if (not for_qa and (reason != _RED_SUITE or step.evidence is not Evidence.MARKER_COMMIT)
                 or state.repairs != 0 or not self.reader.has_nfdr(change)):
             return False
         provider = self._repair_provider_or_halt(state)
@@ -2645,9 +3660,13 @@ class DevelopmentChain:
             return True
         state.repair_reports_before = self.reader.repair_reports(change)
         state.repairs += 1
-        state.history.append(f"{step.id} red — launching {_REPAIR_STEP.skill}")
-        self.notifier.send(f"{self._headline(state)} — {step.id} red — launching "
-                           f"{_REPAIR_STEP.skill}")
+        if for_qa:
+            state.repair_step, state.qa_main_red = step.id, reason
+            said = f"{step.id} found main red — launching {_REPAIR_STEP.skill}"
+        else:
+            said = f"{step.id} red — launching {_REPAIR_STEP.skill}"
+        state.history.append(said)
+        self.notifier.send(f"{self._headline(state)} — {said}")
         self._launch_run(state, change, _REPAIR_STEP, audited=None, run=_REPAIR_STEP.id,
                          provider=provider)
         return True
@@ -2660,24 +3679,29 @@ class DevelopmentChain:
         return self._provider_or_halt(state, seat)
 
     def _settle_repair(self, state: WalkState, change: ChangeLayout, outcome: str) -> None:
-        """The repair has ended (CP-862–CP-866). It is the marker step's red the walk is
-        answering, so every halt is named at that step."""
-        marker_step = next(candidate for candidate in self.steps
-                           if candidate.evidence is Evidence.MARKER_COMMIT)
+        """The repair has ended (CP-862–CP-866, CP-1317). It answers the red the walk launched it
+        for, so every halt is named at that step: the marker step's `red-suite`, or QA's step's
+        `qa-main-red`."""
+        for_qa = state.repair_step == _QA_STEP.id
+        halted_step = _QA_STEP if for_qa else next(
+            candidate for candidate in self.steps
+            if candidate.evidence is Evidence.MARKER_COMMIT)
+        code = _QA_MAIN_RED if for_qa else _RED_SUITE
+        bare = f"{code} — {state.qa_main_red}" if for_qa else code
         if outcome not in _FINISHED:
-            self._halt(state, marker_step, _RED_SUITE)
+            self._halt(state, halted_step, bare)
             return
         before = set(state.repair_reports_before)
         new = [path for path in self.reader.repair_reports(change) if path not in before]
         if not new:
-            self._halt(state, marker_step, _RED_SUITE)
+            self._halt(state, halted_step, bare)
             return
         # One run writes one report. Should several be new, none is trusted over another: the
         # repair is merged only if every one says so, and the halt names the first that does not.
         for report in new:
             word = self.reader.repair_verdict(report)
             if word != _MERGED:
-                self._halt(state, marker_step, f"{_RED_SUITE} — {_REPAIR_STEP.skill} "
+                self._halt(state, halted_step, f"{code} — {_REPAIR_STEP.skill} "
                                                f"{word or 'declared no verdict'}: {report}")
                 return
         provider = self._repair_provider_or_halt(state)
@@ -2685,13 +3709,19 @@ class DevelopmentChain:
             return
         refusal = self._advance_onto_main(state, change, provider)
         if refusal is not None:
-            self._halt(state, marker_step, f"{_RED_SUITE} — main's advance refused after "
+            self._halt(state, halted_step, f"{code} — main's advance refused after "
                                            f"{_REPAIR_STEP.skill} {_MERGED} ({refusal})")
+            return
+        if for_qa:
+            said = f"{_REPAIR_STEP.id} {_MERGED} — asking {_QA_STEP.id}'s verdict again"
+            state.history.append(said)
+            self.notifier.send(f"{self._headline(state)} — {said}")
+            self._settle_qa(state, change, _QA_STEP)
             return
         state.history.append(f"{_REPAIR_STEP.id} {_MERGED} — re-closing")
         self.notifier.send(f"{self._headline(state)} — {_REPAIR_STEP.skill} {_MERGED} — "
-                           f"{marker_step.id} re-closing")
-        self._launch_run(state, change, marker_step, audited=None)
+                           f"{halted_step.id} re-closing")
+        self._launch_run(state, change, halted_step, audited=None)
 
     def _advance_onto_main(self, state: WalkState, change: ChangeLayout,
                            provider: str) -> str | None:
@@ -2818,6 +3848,8 @@ class DevelopmentChain:
         read (`_commit_shape_verdict`), on the repo `product_path` puts the per-task commits in.
         `missing-environment` is last, for the marker and for the report alike: only a record that
         passed everything above it is read for the environment it names."""
+        if step == _QA_STEP:
+            return self._qa_landed_refusal(change)
         if step.declared_prefix == _SECURITY_PREFIX:
             verdict = self.reader.declared_verdict(change, step)
             if verdict == "stopped":
@@ -2852,6 +3884,16 @@ class DevelopmentChain:
                     or self._environment_verdict(change,
                                                  self.reader.marker_environment_kinds(change)))
         return None
+
+    def _qa_landed_refusal(self, change: ChangeLayout) -> str | None:
+        """QA's red verdict over a step that already landed, for a start to read (CP-1320,
+        CP-1322). Asked only when the step applies and its record is committed on the branch: a
+        refused run can leave that record behind, and no later step reads QA's files, so this is
+        the one place a refused red is not walked past. `None` is accepted, or nothing to judge."""
+        if not self.reader.qa_decision(change).applies or not self.reader.is_done(change, _QA_STEP):
+            return None
+        return qa_red_verdict(self.reader, self.behave, change, self.qa_places(change),
+                              environ=self.environ, draft=False).refusal
 
     def _environment_verdict(self, change: ChangeLayout, kinds: list[str]) -> str | None:
         """`missing-environment` unless a record that passed every other check declares at least
@@ -2904,7 +3946,11 @@ class DevelopmentChain:
 
     def _launch_step(self, state: WalkState, change: ChangeLayout, step: Step,
                      after: int | None = None) -> None:
-        if step.runs_when is not None and not self._gate_lets_through(state, change, step):
+        if (step.evidence in _BEHIND_THE_CLOSE and not state.close_passed
+                and not self._run_the_close(state, change)):
+            return
+        if ((step.runs_when is not None or step == _QA_STEP)
+                and not self._gate_lets_through(state, change, step)):
             return
         if not step.fans_out_over:
             self._launch_run(state, change, step, audited=None, after=after)
@@ -2918,21 +3964,54 @@ class DevelopmentChain:
         if not self._pending_for(state, step):
             self._after(state, change, step)
 
+    def _run_the_close(self, state: WalkState, change: ChangeLayout) -> bool:
+        """Run the close in front of the audit or the seal: whether the walk may go on. It is no
+        run: it launches no seat or provider, writes no `halt_report.md`, makes no pending entry,
+        shim or commit, and tells the owner nothing on a pass. A card that does not say `behave`
+        passes it with the card's own reading and asks the path tool nothing. On a `behave` card
+        the verdict decides, and any refusal ends the walk halted at `close`."""
+        card = self.reader.behave_card(change)
+        if not card.says_behave:
+            state.history.append(f"close passed — {card.read}")
+            state.close_passed = True
+            return True
+        try:
+            places = self.qa_places(change)
+        except development_path.ToolError as error:
+            self._halt_at(state, CLOSE, f"behave-unavailable — {error.message}")
+            return False
+        verdict = close_verdict(git=self.reader.git, behave=self.behave, places=places,
+                                environ=self.environ)
+        if verdict.refusal is not None:
+            self._halt_at(state, CLOSE, verdict.refusal)
+            return False
+        count = "1 scenario" if verdict.scenarios == 1 else f"{verdict.scenarios} scenarios"
+        line = f"close passed — {count} passed at {verdict.commit[:behave_run.SHORT_HASH_LENGTH]}"
+        state.history.append(line)
+        state.close_line = line
+        state.close_passed = True
+        return True
+
     def _gate_lets_through(self, state: WalkState, change: ChangeLayout, step: Step) -> bool:
         """The one gate every way into a step with a `RunsWhen` line shares, because `_start` and
         `_after` both reach a step through `_launch_step`. `True` launches the step. A pass calls
         `_after` on the step, so the walk past it is the walk past any landed step, and returns
         `False`."""
-        gate = step.runs_when
         verdict = self.reader.run_verdict(change, step)
         if verdict is RunVerdict.UNSETTLED:
             self._halt_for_missing_verdict(state, change, step)
             return False
-        self._clear_own_report(change, step)
+        if step.runs_when is not None:
+            self._clear_own_report(change, step)
         if verdict is RunVerdict.PASS:
-            state.history.append(f"{step.id} passed — {gate.prefix} {gate.passes}")
+            state.history.append(self.reader.pass_line(change, step))
             self._after(state, change, step)
             return False
+        if step == _QA_STEP:
+            held = self.reader.qa_way_in(change)
+            if held is not None:
+                self._halt(state, step, f"no-way-in — {held} — {_NO_WAY_IN_ADVICE}")
+                return False
         return True
 
     def _clear_own_report(self, change: ChangeLayout, step: Step) -> None:
@@ -2995,6 +4074,10 @@ class DevelopmentChain:
                     run: str | None = None, provider: str | None = None) -> None:
         """Launch one run of `step`. `provider` is the fan-out's one read; every other launch
         reads the file here, before its shim or its pending entry is written."""
+        if step == _QA_STEP and (self.qa_asks.load(state.project, state.key).runs
+                                 >= QA_RUN_CEILING):
+            self._halt(state, step, _QA_RUNS_SPENT.format(ceiling=QA_RUN_CEILING, key=state.key))
+            return
         if step.evidence is Evidence.MARKER_COMMIT and not self._environment_allows(
                 state, change, step):
             return
@@ -3035,6 +4118,12 @@ class DevelopmentChain:
             env[_GATE_OWNERS_MAC_VARIABLE] = "1"
         else:
             env.pop(_GATE_OWNERS_MAC_VARIABLE, None)
+        # The close's line is the seal's alone and is removed from every other launch, for the same
+        # reason: a seal reached by `--advance` inherits the last audit's environment.
+        if step.evidence is Evidence.SEALED and state.close_line:
+            env[CLOSE_VERDICT_VARIABLE] = state.close_line
+        else:
+            env.pop(CLOSE_VERDICT_VARIABLE, None)
         # The engine's own environment is the previous run's: an `--advance` is fired by that
         # run's shim, which inherits its launch environment. So a non-audit launch removes the
         # target rather than merely not setting it, or the seal inherits the last audit's.
@@ -3104,7 +4193,11 @@ class DevelopmentChain:
     # -- ending: the one place a walk writes `ended` and tells the owner ---------------------
 
     def _halt(self, state: WalkState, step: Step, reason: str) -> None:
-        self._end(state, Ended.HALTED, f"stopped at {step.id}: {reason}")
+        self._halt_at(state, step.id, reason)
+
+    def _halt_at(self, state: WalkState, stopped_at: str, reason: str) -> None:
+        """The one writer of `stopped at <id>: <reason>`; `stopped_at` is a step's id, or `close`."""
+        self._end(state, Ended.HALTED, f"stopped at {stopped_at}: {reason}")
 
     def _end(self, state: WalkState, ended: Ended, what: str) -> str:
         """Write the end, tell the owner, and return what was sent."""
@@ -3131,6 +4224,7 @@ class DevelopmentChain:
         # here as at every launch that is not a suite step: the ask never outlives its walk.
         env = with_provider(self.environ, forced_provider)
         env.pop(_GATE_OWNERS_MAC_VARIABLE, None)
+        env.pop(CLOSE_VERDICT_VARIABLE, None)
         run_end_hook(hook, end, cwd=cwd, processes=self.processes, notifier=self.notifier,
                      headline=headline, env=env)
 
@@ -3243,6 +4337,54 @@ class Git:
             capture_output=True, text=True)
         sha = result.stdout.strip()
         return sha if result.returncode == 0 and sha else None
+
+    def merge_base(self, repo: str, a: str, b: str) -> str | None:
+        """The commit where branch `b` leaves `a`, or `None` when either does not exist or git
+        cannot answer — the same absence-as-a-value shape."""
+        result = subprocess.run(["git", "-C", repo, "merge-base", a, b],
+                                capture_output=True, text=True)
+        sha = result.stdout.strip()
+        return sha if result.returncode == 0 and sha else None
+
+    def show(self, repo: str, ref: str, path: str) -> str | None:
+        """The text of `path` at `ref`, or `None` when the file is absent there, the ref does not
+        exist or git cannot answer."""
+        result = subprocess.run(["git", "-C", repo, "show", f"{ref}:{path}"],
+                                capture_output=True, text=True)
+        return result.stdout if result.returncode == 0 else None
+
+    def changed_paths(self, repo: str, sha: str) -> list[str]:
+        """The paths one commit changes (a root commit's included), or `[]` when the commit does
+        not exist or git cannot answer."""
+        result = subprocess.run(
+            ["git", "-C", repo, "diff-tree", "--root", "--no-commit-id", "--name-only", "-r", sha],
+            capture_output=True, text=True)
+        if result.returncode != 0:
+            return []
+        return [line for line in result.stdout.splitlines() if line]
+
+    def touched_paths(self, repo: str, sha: str) -> list[str] | None:
+        """The repo-relative paths one commit touches, a root commit's included, or `None` when
+        git cannot answer — never `[]` for a failure, so a commit git cannot read is told apart
+        from one that touches nothing. A merge lists only the paths whose content differs from
+        every parent (the combined-diff form), and with no rename detection a rename lists both
+        its old and its new path. `changed_paths` is left as it is: QA's verdict reads it.
+
+        `-z` because without it git C-quotes a path outside ASCII or holding a quote, and a quoted
+        path under the scenario folder no longer starts with the folder, so the close would pass
+        a commit that changed a scenario."""
+        result = subprocess.run(
+            ["git", "-C", repo, "diff-tree", "--root", "--no-commit-id", "--name-only", "-r", "-c",
+             "-z", sha], capture_output=True, encoding="utf-8", errors="surrogateescape")
+        if result.returncode != 0:
+            return None
+        return [path for path in result.stdout.split("\0") if path]
+
+    def is_ancestor(self, repo: str, older: str, newer: str) -> bool:
+        """Whether `older` is an ancestor of `newer`, read by `merge-base --is-ancestor`'s exit
+        status; `False` for an unknown commit, never an exception."""
+        return subprocess.run(["git", "-C", repo, "merge-base", "--is-ancestor", older, newer],
+                              capture_output=True).returncode == 0
 
     def toplevel(self, path: str) -> str | None:
         """The top level of the repository `path` is in, as git gives it, or `None` when `path`
@@ -3368,6 +4510,9 @@ def build_chain(state_path: str, *, notifier_command: str, engine_path: str,
             files=files, gate_files=gate_suite.ReadOnlyFiles(), contract=_real_contract,
             tracked_files=_real_tracked_files, record_reader=gate_suite.GitRecordReader(),
             guest_job=gate_suite.GuestJob(Path.home() / gate_suite.GUEST_JOB, str(Path.home()))),
+        behave=behave_run.ThrowawayBehave(),
+        qa_places=_real_qa_places,
+        qa_asks=QaAskStore(files, os.path.dirname(os.path.abspath(state_path))),
         chain_name=name,
     )
 
@@ -3452,7 +4597,93 @@ def check_commit_shape(args, *, files, git, home: str, out, err) -> int:
     return 1
 
 
+def _named_change(args, flag: str, *, files, err) -> ChangeLayout | None:
+    """What the QA commands share: the change they are asked about, or `None` after saying on
+    `err` why it cannot be named (the caller exits 2). Like `--check-commit-shape`, they refuse
+    rather than answer of a change they cannot find."""
+    missing = [name for name, value in (("--instance-root", args.instance_root),
+                                        ("--project", args.project)) if not value]
+    if missing:
+        print(f"chain_development: {flag} requires {', '.join(missing)}", file=err)
+        return None
+    key = getattr(args, flag[2:].replace("-", "_"))
+    change = ChangeLayout(args.instance_root, args.project, key)
+    if not files.is_dir(change.worktree):
+        print(f"chain_development: no change worktree {change.worktree} — --instance-root is "
+              f"the main checkout that holds it, and {key} must be the change's key", file=err)
+        return None
+    return change
+
+
+def _qa_command_change(args, flag: str, *, files, places, err) -> tuple[ChangeLayout, dict] | None:
+    """What `--qa-applies` and `--check-qa-red` share: the change they are asked about and QA's
+    places, or `None` after saying on `err` why neither can be named (the caller exits 2)."""
+    change = _named_change(args, flag, files=files, err=err)
+    if change is None:
+        return None
+    try:
+        return change, places(change)
+    except development_path.ToolError as exc:
+        print(f"chain_development: {exc.code} — {exc.message}", file=err)
+        return None
+
+
+def qa_ask_place(args, *, files, out, err) -> int:
+    """`--qa-ask-place`: where a run of `implementation` or `design` leaves its ask of QA's step
+    in change KEY's worktree. Prints that path and exits 0; exits 2 when the change cannot be
+    named. The place comes from the layout alone, so no product is resolved. Writes, launches and
+    sends nothing."""
+    change = _named_change(args, "--qa-ask-place", files=files, err=err)
+    if change is None:
+        return 2
+    print(change.qa_ask, file=out)
+    return 0
+
+
+def qa_applies(args, *, files, git, places, out, err) -> int:
+    """`--qa-applies`: whether QA's step applies to the change, asked of the one decision
+    (CP-1302). Prints `red-behaviour applies — <read>` and exits 0, or `red-behaviour does not
+    apply — <read>` and exits 1; exits 2 when the change cannot be named. Writes, launches and
+    sends nothing."""
+    found = _qa_command_change(args, "--qa-applies", files=files, places=places, err=err)
+    if found is None:
+        return 2
+    decision = DiskReader(files=files, git=git).qa_decision(found[0])
+    verb = "applies" if decision.applies else "does not apply"
+    print(f"{_QA_STEP.id} {verb} — {decision.read}", file=out)
+    return 0 if decision.applies else 1
+
+
+def check_qa_red(args, *, files, git, behave, places, environ: dict, out, err) -> int:
+    """`--check-qa-red`: the chain's verdict on QA's red, asked before QA commits it. Prints
+    `qa red: accepted`, `qa red: no reach — "<the No reach: line>"` or the refusal on line 1,
+    then `Base commit: <sha>`, then a `Scenario: <location> — <status>` line for each scenario
+    the red run reported; exits 0 accepted or no reach, 1 refused, 2 when the change cannot be
+    named. `--draft` judges the working tree. Writes nothing outside the throwaway run's own
+    directory."""
+    found = _qa_command_change(args, "--check-qa-red", files=files, places=places, err=err)
+    if found is None:
+        return 2
+    change, where = found
+    verdict = qa_red_verdict(DiskReader(files=files, git=git), behave, change, where,
+                             environ=environ, draft=args.draft)
+    if verdict.no_reach is not None:
+        first_line = f'qa red: no reach — "{verdict.no_reach}"'
+    else:
+        first_line = verdict.refusal or "qa red: accepted"
+    print(first_line, file=out)
+    print(f"Base commit: {verdict.base}", file=out)
+    for location, status in verdict.outcomes:
+        print(f"Scenario: {location} — {status}", file=out)
+    return 0 if verdict.refusal is None else 1
+
+
 def main(argv: list[str] | None = None) -> int:
+    """`--start <state>` is the launcher's entry; `--advance <state> <run> <outcome>` is what a
+    per-run shim fires; `--describe <state>` is what the launcher's `--dry-run` asks. None ever
+    lets a traceback out as the whole answer: the advance runs detached from a hook nobody watches,
+    so stderr goes to the chain's log and the owner's channel is the only place a stop can be seen
+    — and the describe, which answers at a terminal, sends to that channel nothing at all."""
     try:
         from dotenv import load_dotenv
         from pathlib import Path
@@ -3461,11 +4692,6 @@ def main(argv: list[str] | None = None) -> int:
     except ImportError:
         pass
 
-    """`--start <state>` is the launcher's entry; `--advance <state> <run> <outcome>` is what a
-    per-run shim fires; `--describe <state>` is what the launcher's `--dry-run` asks. None ever
-    lets a traceback out as the whole answer: the advance runs detached from a hook nobody watches,
-    so stderr goes to the chain's log and the owner's channel is the only place a stop can be seen
-    — and the describe, which answers at a terminal, sends to that channel nothing at all."""
     parser = argparse.ArgumentParser(description="walk the change pipeline as a chain of launchers")
     parser.add_argument("--start", metavar="STATE_PATH")
     parser.add_argument("--advance", nargs=3, metavar=("STATE_PATH", "RUN", "OUTCOME"))
@@ -3484,6 +4710,26 @@ def main(argv: list[str] | None = None) -> int:
                              "is committed; needs --instance-root (the main checkout) and "
                              "--project, reads the product path off the card, and writes, "
                              "launches and sends nothing")
+    parser.add_argument("--qa-applies", metavar="KEY",
+                        help="whether QA's step applies to change KEY, asked of the chain's one "
+                             "decision: exit 0 and `red-behaviour applies — <read>`, or exit 1 "
+                             "and `red-behaviour does not apply — <read>`; needs --instance-root "
+                             "(the main checkout) and --project, and writes, launches and sends "
+                             "nothing")
+    parser.add_argument("--check-qa-red", metavar="KEY",
+                        help="the verdict the chain would give change KEY's QA red, asked by "
+                             "running Behave on a throwaway copy: `qa red: accepted`, "
+                             "`qa red: no reach — \"<the No reach: line>\"` or the refusal, "
+                             "then the base commit and each red-run scenario; exit 0 accepted "
+                             "or no reach, 1 refused; needs --instance-root and --project")
+    parser.add_argument("--qa-ask-place", metavar="KEY",
+                        help="the place in change KEY's folder, in its change worktree, where a "
+                             "run of implementation or design leaves an ask of QA's step: the "
+                             "reason, in plain text, left uncommitted; prints that path and "
+                             "exits 0; needs --instance-root (the main checkout) and --project, "
+                             "and writes, launches and sends nothing")
+    parser.add_argument("--draft", action="store_true",
+                        help="with --check-qa-red, judge the working tree rather than commits")
     parser.add_argument("--draft-body", metavar="FILE",
                         help="the closing marker's draft body, for --check-commit-shape")
     parser.add_argument("--instance-root")
@@ -3517,17 +4763,31 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     chosen = [entry for entry in (args.start, args.advance, args.describe, args.stop,
-                                  args.list_open_changes, args.check_commit_shape) if entry]
+                                  args.list_open_changes, args.check_commit_shape,
+                                  args.qa_applies, args.check_qa_red,
+                                  args.qa_ask_place) if entry]
     if len(chosen) > 1:
         print("chain_development: --start, --advance, --describe, --stop, "
-              "--list-open-changes and --check-commit-shape are mutually exclusive",
-              file=sys.stderr)
+              "--list-open-changes, --check-commit-shape, --qa-applies, --check-qa-red and "
+              "--qa-ask-place are mutually exclusive", file=sys.stderr)
         return 2
     if not chosen:
         print("chain_development: one of --start, --advance, --describe, --stop, "
-              "--list-open-changes or --check-commit-shape is required",
-              file=sys.stderr)
+              "--list-open-changes, --check-commit-shape, --qa-applies, --check-qa-red or "
+              "--qa-ask-place is required", file=sys.stderr)
         return 2
+
+    if args.qa_ask_place:
+        return qa_ask_place(args, files=Files(), out=sys.stdout, err=sys.stderr)
+
+    if args.qa_applies:
+        return qa_applies(args, files=Files(), git=Git(), places=_real_qa_places,
+                          out=sys.stdout, err=sys.stderr)
+
+    if args.check_qa_red:
+        return check_qa_red(args, files=Files(), git=Git(), behave=behave_run.ThrowawayBehave(),
+                            places=_real_qa_places, environ=dict(os.environ),
+                            out=sys.stdout, err=sys.stderr)
 
     if args.check_commit_shape:
         return check_commit_shape(args, files=Files(), git=Git(), home=os.path.expanduser("~"),

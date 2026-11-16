@@ -366,7 +366,7 @@ def run(tmp_path, warm_executables):
         station-file basenames (e.g. `["2026-08-01_uxd-prompt-and-skill.md"]`); default: one."""
         project_dir = tmp_path / "system" / "projects" / name
         project_dir.mkdir(parents=True, exist_ok=True)
-        (project_dir / "project.md").write_text(f"# {name}\n\n**Product path:** .\n")
+        (project_dir / "project.md").write_text(f"# {name}\n\n**Product path:** .\n**Behave:** none — a test card\n")
         shukuba = project_dir / "journey" / "shukuba"
         shukuba.mkdir(parents=True, exist_ok=True)
         (shukuba / "README.md").write_text("# readme\n")
@@ -765,7 +765,7 @@ def test_the_round_is_reported_before_anything_launches(run):
 def test_project_path_escaping_the_instance_root_is_refused(run):
     outside = run.root.parent / "outside-project"
     outside.mkdir()
-    (outside / "project.md").write_text("# outside\n\n**Product path:** .\n")
+    (outside / "project.md").write_text("# outside\n\n**Product path:** .\n**Behave:** none — a test card\n")
     run.skill("product-uxd")
     project_dir = run.root / "system" / "projects" / "demo-product"
     project_dir.parent.mkdir(parents=True, exist_ok=True)

@@ -13,7 +13,10 @@ WHY THIS EXISTS
     `FIELDS` states each field's prefix, where in a record its lines may appear (`Place`) and how
     many are read (`Count`). A field's lines are read either from anywhere in the record or only
     from its first run of consecutive matching lines, so a sentence further down that opens with a
-    quoted prefix is not a declaration of a field read that way.
+    quoted prefix is not a declaration of a field read that way. QA's record is a file of declared
+    lines too: its seven slots are rows here, `QA_RECORD_SLOTS` in the order its template lays
+    them out, and a record takes one of two forms — a red record (`QA_RED_RECORD`) or a no-reach
+    record (`QA_NO_REACH_RECORD`), each a sub-tuple of the slots.
 
 HOW A LINE IS READ
     Both bodies the scan reads are markdown written by a model, and every place the skills name a
@@ -37,7 +40,7 @@ import types
 from dataclasses import dataclass
 from enum import Enum, auto
 
-__version__ = "1.2.1"
+__version__ = "1.4.0"
 
 EMPHASIS = "*_`"
 
@@ -89,9 +92,31 @@ PUBLISHES_TEXT = Field("PUBLISHES_TEXT", "Publishes text:", Place.ANYWHERE, Coun
 PLANNED_BY = Field("PLANNED_BY", "Planned by:", Place.ANYWHERE, Count.FIRST)
 REPAIR = Field("REPAIR", "Repair:", Place.ANYWHERE, Count.FIRST)
 
+# QA's record: seven slots, each a declared line, in the order the record's template lays them out.
+# A record carries either the red's `Red commit:` and `Scenario:` lines or one `No reach:` line.
+QA_CHANGE = Field("QA_CHANGE", "Change:", Place.ANYWHERE, Count.FIRST)
+QA_WAY_IN = Field("QA_WAY_IN", "Way in:", Place.ANYWHERE, Count.FIRST)
+QA_BASE = Field("QA_BASE", "Base commit:", Place.ANYWHERE, Count.FIRST)
+QA_RED = Field("QA_RED", "Red commit:", Place.ANYWHERE, Count.FIRST)
+QA_SCENARIO = Field("QA_SCENARIO", "Scenario:", Place.ANYWHERE, Count.ALL)
+QA_NO_REACH = Field("QA_NO_REACH", "No reach:", Place.ANYWHERE, Count.FIRST)
+QA_REVIEW = Field("QA_REVIEW", "Review notes:", Place.ANYWHERE, Count.FIRST)
+
+QA_RECORD_SLOTS: tuple[Field, ...] = (
+    QA_CHANGE, QA_WAY_IN, QA_BASE, QA_RED, QA_SCENARIO, QA_NO_REACH, QA_REVIEW,
+)
+
+# The slots each form of the record carries, in the table's order.
+QA_RED_RECORD: tuple[Field, ...] = (
+    QA_CHANGE, QA_WAY_IN, QA_BASE, QA_RED, QA_SCENARIO, QA_REVIEW,
+)
+QA_NO_REACH_RECORD: tuple[Field, ...] = (
+    QA_CHANGE, QA_WAY_IN, QA_BASE, QA_NO_REACH, QA_REVIEW,
+)
+
 FIELDS: tuple[Field, ...] = (
     SUITE, LANGUAGE_RESOLUTION, ENVIRONMENT, DEFERRED, FAILING, RELANE_NOTE, INTEGRITY, SECURITY,
-    PUBLISHES_TEXT, PLANNED_BY, REPAIR,
+    PUBLISHES_TEXT, PLANNED_BY, REPAIR, *QA_RECORD_SLOTS,
 )
 
 BY_PREFIX = types.MappingProxyType({field.prefix: field for field in FIELDS})

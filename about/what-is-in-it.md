@@ -30,17 +30,21 @@ role that did not write the code. Two of them check the product. The third check
 | Check | Role | What it checks | Can it stop the change? |
 |---|---|---|---|
 | Prove | Senior engineer | The product: that the code does what the change intends. It adds the tests nobody wrote, corrects a test read off the code instead of the intent, and fixes the code where a correct test fails | Yes. A change whose proof fails does not reach the seal |
-| Security | Senior engineer | The product: its dependency audit, and the change's code read for security holes. It fixes what its rules allow and reports the rest | Only when a fix needs a move it is not allowed to make. It then stops once, with every such question for you |
+| Security | Senior engineer | The product: its dependency audit, three scanners, `osv-scanner`, Semgrep and `gitleaks`, and the change's code read for security holes. It fixes what its rules allow and reports the rest | Only when a fix needs a move it is not allowed to make. It then stops once, with every such question for you |
 | Audit | Auditor | KensaiApp: how well each step of the pipeline did its job on this change. It reviews the spec, the design, the plan, the content where it ran, and the code, each in a run of its own, all at the same time. It looks for gaps a step left, a step working at the wrong level of detail, a departure nobody recorded, or new logic placed outside the part that owns it. It lists what it finds and never fixes it | No. It judges the pipeline's work, not the product, so the product's own checks decide whether the change goes on |
 
 Each audit finding is graded `blocking` or `non-blocking`, and tagged by what it is about:
 `change-local`, this change's output, or `skill-general`, a weakness in the skill that produced it. A
 `blocking` finding does not stop the change either. It is the first thing the PM's review deals with.
 
-The security check is a first iteration. It leaves `security-report.md`, whose first line says
+On a product with code that a person uses, one more check runs after security: the close. Every
+behaviour scenario QA wrote runs on the change's final code, and one that fails stops the walk
+before the audit.
+
+The security check leaves `security-report.md`, whose first line says
 `clean`, `fixed`, `reported` or `stopped`. For an advisory in a dependency the product does not reach,
-it writes an exception, with a reminder to look at it again. Planned next: its bookkeeping moves into
-a tested tool, and the check always runs `osv-scanner`, Semgrep's community edition and `gitleaks`.
+it writes an exception, with a reminder to look at it again. Its bookkeeping runs in a tested tool.
+Where a scanner is not installed, the report says it did not run, and reads `reported`.
 
 ## Where what the checks find goes
 

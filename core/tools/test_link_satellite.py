@@ -106,6 +106,54 @@ def _add_root_skills_layer(host: Path, *, group: str = "g", skill: str = "x") ->
     return host / "skills"
 
 
+SEAT_SKILLS = {
+    "pm": [
+        "product-prd", "seed-pick", "seed-cut", "shukuba-open", "shukuba-refine",
+        "shukuba-park", "tobiishi-open", "tobiishi-seal", "nemawashi-pick", "nemawashi-unpick",
+    ],
+    "principal-pm": ["product-fdr", "seeds-from-idea", "fdr-refine", "seed-retire", "seed-answer"],
+    "scrum-master": ["shukuba-close", "shukuba-retire"],
+}
+SEAT_NAMES = tuple(SEAT_SKILLS)
+
+
+def _add_seat_groups(
+    host: Path,
+    *,
+    skills: dict[str, list[str]] | None = None,
+    agent_files: tuple[str, ...] = SEAT_NAMES,
+) -> Path:
+    """Give the host the three journey-seat groups (`skills/<seat>/.claude/{agents,skills}/`), the
+    default being three agent files and 10 + 5 + 2 skill directories, plus a non-seat group
+    (`interactive-product`, two skills) and a non-seat agent file (`product-owner.md`) that the
+    set must never list. `skills` replaces a seat's skill names; `agent_files` names the seats
+    whose agent file is written. `_make_host`'s own `pm` skill is replaced, not added to."""
+    names = {**SEAT_SKILLS, **(skills or {})}
+    root = host / "skills"
+    for seat, skill_names in names.items():
+        group = root / seat / ".claude"
+        existing = group / "skills"
+        if existing.exists():
+            shutil.rmtree(existing)
+        for name in skill_names:
+            (group / "skills" / name).mkdir(parents=True)
+            (group / "skills" / name / "SKILL.md").write_text(f"{seat} {name}\n")
+        if seat in agent_files:
+            (group / "agents").mkdir(parents=True, exist_ok=True)
+            (group / "agents" / f"{seat}.md").write_text(f"agent {seat}\n")
+    other = root / "interactive-product" / ".claude"
+    for name in ("product-card", "project-stamp"):
+        (other / "skills" / name).mkdir(parents=True)
+        (other / "skills" / name / "SKILL.md").write_text("not a seat skill\n")
+    (root / "product-owner" / ".claude" / "agents").mkdir(parents=True)
+    (root / "product-owner" / ".claude" / "agents" / "product-owner.md").write_text("not a seat\n")
+    return host
+
+
+def _seat_pairs(links) -> list[tuple[str, str]]:
+    return [(link.folder.value, link.name) for link in links]
+
+
 # --------------------------------------------------------------------------------------------
 # The three always-linked layers
 # --------------------------------------------------------------------------------------------
@@ -113,8 +161,9 @@ def _add_root_skills_layer(host: Path, *, group: str = "g", skill: str = "x") ->
 
 @pytest.mark.parametrize("mode", ["consumer", "producer"])
 def test_no_toolchain_link_is_made_in_either_mode(pair, mode):
-    """CP-460: nothing under `.claude/` is linked. The host still holds `hooks/`, `workflows/` and
-    `agents/`, and the satellite gets no path at any of them but the written `settings.json`."""
+    """No hooks, workflows or settings link, and no agents folder for a host with no seat agent
+    file. The host still holds `hooks/`, `workflows/` and `agents/`, and the satellite gets no path
+    at any of them but the written `settings.json`."""
     sat, host = pair
     link_satellite.link_satellite(sat, host, skills_mode=mode)
 
@@ -211,14 +260,19 @@ def test_a_relative_host_path_is_refused(pair, monkeypatch):
 # --------------------------------------------------------------------------------------------
 
 
-def test_consumer_gets_no_skills_link(pair):
-    """Every host skill lives in a group and a consumer's launchers grant the group from the host,
-    so a consumer is given no skills layer at all — neither the flat `.claude/skills` nor the root
-    `skills/`."""
+def test_consumer_gets_no_root_skills_and_its_skills_folder_holds_only_seat_skills(pair):
+    """Every host skill lives in a group, and a consumer is linked to the three journey seats'
+    groups only: no root `skills/`, and a `.claude/skills/` holding the `pm` group's `product-prd`
+    link."""
     sat, host = pair
     link_satellite.link_satellite(sat, host, skills_mode="consumer")
-    assert not os.path.lexists(sat / ".claude" / "skills")
     assert not os.path.lexists(sat / "skills")
+    skills = sat / ".claude" / "skills"
+    assert sorted(entry.name for entry in skills.iterdir()) == ["product-prd"]
+    link = skills / "product-prd"
+    assert link.is_symlink() and os.path.isabs(os.readlink(link))
+    pm_skills = host / "skills" / "pm" / ".claude" / "skills"
+    assert link.resolve() == (pm_skills / "product-prd").resolve()
 
 
 def test_producer_skills_directories_are_real_so_artifacts_stay_local(pair):
@@ -308,7 +362,7 @@ def test_check_reports_the_written_file_correct_and_no_conflicts(pair, capsys):
 
     assert link_satellite.main(_argv(sat, host, "--check")) == 0
     out = capsys.readouterr().out
-    assert "already correct: 1" in out
+    assert "already correct: 2" in out  # settings.json and the fixture's one seat-group link
     assert "conflicts: 0" in out
 
 
@@ -386,7 +440,7 @@ def test_rerun_is_idempotent(pair):
     assert second.created == []
     assert second.repointed == [], "the form it just wrote is the form it wants"
     assert second.written == [] and second.removed == []
-    assert len(second.already) == 1  # settings.json
+    assert len(second.already) == 2  # settings.json and the fixture's one seat-group link
 
 
 def test_rerun_adds_a_skill_created_in_the_host_after_the_first_run(pair):
@@ -657,8 +711,9 @@ def test_root_skills_producer_mirrors_real_dirs_and_file_symlinks(pair):
 
 def test_the_two_skills_layers_are_pinned_by_what_they_resolve_to(tmp_path):
     """Condition 6 / trap 4: `.claude/skills` and the root `skills/` are the same word at two
-    paths. The flat one is linked in neither mode; the root one is the producer's alone, mirrored
-    from the host's root. Linking the wrong one fails exactly this test. The host is given a flat
+    paths. The host's flat folder is linked to no satellite; a consumer's `.claude/skills` holds
+    the journey seats' links and nothing else; the root one is the producer's alone, mirrored from
+    the host's root. Linking the wrong one fails exactly this test. The host is given a flat
     folder holding something, so a flat link in either mode would have something to show."""
     host = _make_host(tmp_path)
     _add_root_skills_layer(host)
@@ -672,7 +727,9 @@ def test_the_two_skills_layers_are_pinned_by_what_they_resolve_to(tmp_path):
     link_satellite.link_satellite(consumer, host, skills_mode="consumer")
     link_satellite.link_satellite(producer, host, skills_mode="producer")
 
-    assert not os.path.lexists(consumer / ".claude" / "skills")
+    consumer_skills = consumer / ".claude" / "skills"
+    assert sorted(entry.name for entry in consumer_skills.iterdir()) == ["product-prd"]
+    assert not os.path.lexists(consumer / "skills")
     assert not os.path.lexists(producer / ".claude" / "skills")
     grouped = Path("g") / ".claude" / "skills" / "x" / "SKILL.md"
     assert os.readlink(producer / "skills" / grouped) == str(host / "skills" / grouped)
@@ -1244,7 +1301,7 @@ def test_the_settings_write_leaves_no_staging_file_behind(pair):
 
     _level(sat, host)
 
-    assert sorted(p.name for p in (sat / ".claude").iterdir()) == ["settings.json"]
+    assert sorted(p.name for p in (sat / ".claude").iterdir()) == ["settings.json", "skills"]
 
 
 def test_check_writes_and_removes_nothing(pair):
@@ -1547,3 +1604,536 @@ def test_a_host_settings_file_that_is_not_an_object_is_refused(pair):
         link_satellite.link_satellite(sat, host, skills_mode="consumer")
 
     assert "is not a JSON object" in str(refused.value)
+
+
+# --------------------------------------------------------------------------------------------
+# The seat-link set
+# --------------------------------------------------------------------------------------------
+
+
+def test_seat_links_lists_agents_first_then_skills_seat_by_seat_in_byte_order(tmp_path):
+    host = _add_seat_groups(_make_host(tmp_path), skills={"scrum-master": ["b-skill", "Z-skill"]})
+
+    links = link_satellite.seat_links(host)
+
+    agents = [link for link in links if link.folder is link_satellite.SeatFolder.AGENTS]
+    skills = [link for link in links if link.folder is link_satellite.SeatFolder.SKILLS]
+    assert links == tuple(agents) + tuple(skills)
+    assert [link.name for link in agents] == ["pm.md", "principal-pm.md", "scrum-master.md"]
+    assert len(agents) == 3 and len(skills) == 10 + 5 + 2
+    assert [link.name for link in skills[:10]] == sorted(SEAT_SKILLS["pm"], key=str.encode)
+    principal_pm_names = sorted(SEAT_SKILLS["principal-pm"], key=str.encode)
+    assert [link.name for link in skills[10:15]] == principal_pm_names
+    assert [link.name for link in skills[15:]] == ["Z-skill", "b-skill"]  # uppercase first
+
+
+def test_seat_links_targets_are_absolute_host_paths(tmp_path):
+    host = _add_seat_groups(_make_host(tmp_path))
+
+    for link in link_satellite.seat_links(host):
+        assert link.target.is_absolute() and link.target.exists()
+        group = host / "skills" / link.target.parents[2].name
+        if link.folder is link_satellite.SeatFolder.AGENTS:
+            assert link.target == group / ".claude" / "agents" / link.name and link.target.is_file()
+        else:
+            assert link.target == group / ".claude" / "skills" / link.name and link.target.is_dir()
+
+
+def test_seat_links_names_the_set_from_the_host_on_every_call(tmp_path):
+    host = _add_seat_groups(_make_host(tmp_path))
+    before = {link.name for link in link_satellite.seat_links(host)}
+
+    (host / "skills" / "pm" / ".claude" / "skills" / "brand-new").mkdir()
+
+    after = {link.name for link in link_satellite.seat_links(host)}
+    assert after - before == {"brand-new"}
+
+
+def test_seat_links_leaves_out_cache_dot_and_non_directory_entries(tmp_path):
+    host = _add_seat_groups(_make_host(tmp_path))
+    skills = host / "skills" / "pm" / ".claude" / "skills"
+    for name in ("__pycache__", ".pytest_cache", ".hidden"):
+        (skills / name).mkdir()
+    (skills / "README.md").write_text("not a skill\n")
+
+    names = {link.name for link in link_satellite.seat_links(host)}
+
+    assert names.isdisjoint({"__pycache__", ".pytest_cache", ".hidden", "README.md"})
+    assert names >= set(SEAT_SKILLS["pm"])
+
+
+def test_seat_links_keeps_the_first_seat_for_a_skill_name_two_groups_hold(tmp_path):
+    host = _add_seat_groups(
+        _make_host(tmp_path), skills={"pm": ["shared", "only-pm"], "scrum-master": ["shared"]}
+    )
+
+    shared = [link for link in link_satellite.seat_links(host) if link.name == "shared"]
+
+    assert len(shared) == 1
+    assert shared[0].target == host / "skills" / "pm" / ".claude" / "skills" / "shared"
+
+
+def _drop_agent_file(host: Path) -> None:
+    (host / "skills" / "principal-pm" / ".claude" / "agents" / "principal-pm.md").unlink()
+
+
+def _drop_skills_folder(host: Path) -> None:
+    shutil.rmtree(host / "skills" / "principal-pm" / ".claude" / "skills")
+
+
+def _drop_skills_root(host: Path) -> None:
+    shutil.rmtree(host / "skills")
+
+
+@pytest.mark.parametrize(
+    ("break_host", "missing"),
+    [
+        (_drop_agent_file, {("agents", "principal-pm.md")}),
+        (_drop_skills_folder, {("skills", name) for name in SEAT_SKILLS["principal-pm"]}),
+    ],
+    ids=["no-agent-file", "no-skills-folder"],
+)
+def test_seat_links_skips_what_the_host_lacks(tmp_path, break_host, missing):
+    host = _add_seat_groups(_make_host(tmp_path))
+    full = set(_seat_pairs(link_satellite.seat_links(host)))
+
+    break_host(host)
+
+    assert set(_seat_pairs(link_satellite.seat_links(host))) == full - missing
+
+
+def test_seat_links_of_a_host_with_no_skills_root_is_empty(tmp_path):
+    host = _add_seat_groups(_make_host(tmp_path))
+    _drop_skills_root(host)
+
+    assert link_satellite.seat_links(host) == ()
+
+
+def test_seat_links_ignores_groups_that_are_not_seats(tmp_path):
+    host = _add_seat_groups(_make_host(tmp_path))
+
+    names = {link.name for link in link_satellite.seat_links(host)}
+
+    assert names.isdisjoint({"product-card", "project-stamp", "product-owner.md"})
+
+
+# --------------------------------------------------------------------------------------------
+# A consumer's seat links
+# --------------------------------------------------------------------------------------------
+
+
+@pytest.fixture
+def seat_pair(tmp_path: Path) -> tuple[Path, Path]:
+    """A satellite and a host that holds the three journey-seat groups."""
+    return _make_satellite(tmp_path), _add_seat_groups(_make_host(tmp_path))
+
+
+def _every_reported_path(report: link_satellite.Report) -> list[str]:
+    return [
+        *report.created, *report.repointed, *report.written, *report.removed, *report.already,
+        *report.dangling, *report.conflicts, *report.dir_links, *report.skipped,
+    ]
+
+
+def _owed_by_the_fixture(
+    sat: Path, host: Path, skills: dict[str, list[str]] = SEAT_SKILLS
+) -> dict[Path, Path]:
+    """Every seat link the spec says a consumer is owed for `_add_seat_groups`' host, path to
+    target, written from the fixture's own names (CP-1470, CP-1471) and never read off
+    `seat_links`, whose answer is what the tests that use this check."""
+    owed: dict[Path, Path] = {}
+    for seat, names in skills.items():
+        group = host / "skills" / seat / ".claude"
+        if (group / "agents" / f"{seat}.md").is_file():
+            owed[sat / ".claude" / "agents" / f"{seat}.md"] = group / "agents" / f"{seat}.md"
+        for name in names:
+            owed[sat / ".claude" / "skills" / name] = group / "skills" / name
+    return owed
+
+
+def test_consumer_gets_the_seat_agent_links_and_one_link_per_seat_skill(seat_pair, capsys):
+    sat, host = seat_pair
+
+    assert link_satellite.main(_argv(sat, host)) == 0
+
+    out = capsys.readouterr().out
+    assert "linked: 20" in out
+    assert out.count("  [linked] ") == 20
+    expected = _owed_by_the_fixture(sat, host)
+    assert len(expected) == 20
+    for path, target in expected.items():
+        assert path.is_symlink(), path
+        assert os.path.isabs(os.readlink(path))
+        assert path.resolve() == target.resolve()
+
+
+def test_consumer_check_after_a_run_reports_nothing_to_link(seat_pair, capsys):
+    sat, host = seat_pair
+    link_satellite.link_satellite(sat, host, skills_mode="consumer")
+    capsys.readouterr()
+
+    assert link_satellite.main(_argv(sat, host, "--check")) == 0
+
+    out = capsys.readouterr().out
+    assert "would link: 0" in out
+    assert "already correct: 21" in out  # twenty links and settings.json
+
+
+def test_consumer_check_on_a_fresh_satellite_names_twenty_links_and_creates_nothing(
+    seat_pair, capsys
+):
+    sat, host = seat_pair
+
+    assert link_satellite.main(_argv(sat, host, "--check")) == 1
+
+    out = capsys.readouterr().out
+    assert "would link: 20" in out
+    assert out.count("  [would link] ") == 20
+    assert not os.path.lexists(sat / ".claude" / "agents")
+    assert not os.path.lexists(sat / ".claude" / "skills")
+
+
+def test_consumer_gets_no_link_beyond_the_three_seats(seat_pair):
+    sat, host = seat_pair
+
+    link_satellite.link_satellite(sat, host, skills_mode="consumer")
+
+    sat_skills = sat / ".claude" / "skills"
+    seat_skill_names = sorted(name for names in SEAT_SKILLS.values() for name in names)
+    assert len(seat_skill_names) == 17
+    assert sorted(entry.name for entry in sat_skills.iterdir()) == seat_skill_names
+    assert not os.path.lexists(sat / ".claude" / "skills" / "product-card")
+    assert not os.path.lexists(sat / ".claude" / "skills" / "project-stamp")
+    assert not os.path.lexists(sat / ".claude" / "agents" / "product-owner.md")
+    assert sorted(entry.name for entry in (sat / ".claude" / "agents").iterdir()) == [
+        "pm.md", "principal-pm.md", "scrum-master.md",
+    ]
+    assert not os.path.lexists(sat / "skills")
+
+
+def test_a_regular_agent_file_at_a_seat_name_is_kept_and_is_no_conflict(seat_pair, capsys):
+    sat, host = seat_pair
+    agents = sat / ".claude" / "agents"
+    agents.mkdir(parents=True)
+    own = {
+        f"{name}.md": f"the satellite's own {name}\n"
+        for name in (*SEAT_NAMES, *(f"agent-{n}" for n in range(12)))
+    }
+    for filename, text in own.items():
+        (agents / filename).write_text(text)
+
+    report = link_satellite.link_satellite(sat, host, skills_mode="consumer")
+
+    for filename, text in own.items():
+        assert not (agents / filename).is_symlink()
+        assert (agents / filename).read_text() == text
+    assert report.conflicts == []
+    for seat in SEAT_NAMES:
+        assert str(agents / f"{seat}.md") not in _every_reported_path(report)
+    assert len(report.created) == 17
+    assert link_satellite.main(_argv(sat, host)) == 0
+    assert "[conflict]" not in capsys.readouterr().out
+
+
+def _link_outside_the_host(link: Path, tmp_path: Path, host: Path) -> None:
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    link.symlink_to(outside)
+
+
+def _link_to_another_place_in_the_host(link: Path, tmp_path: Path, host: Path) -> None:
+    link.symlink_to(host / ".claude" / "hooks")
+
+
+def _real_directory(link: Path, tmp_path: Path, host: Path) -> None:
+    link.mkdir()
+
+
+def _real_file(link: Path, tmp_path: Path, host: Path) -> None:
+    link.write_text("the satellite's own\n")
+
+
+@pytest.mark.parametrize(
+    "make_obstacle",
+    [_link_outside_the_host, _link_to_another_place_in_the_host, _real_directory, _real_file],
+    ids=["link-outside-the-host", "link-elsewhere-in-the-host", "real-directory", "real-file"],
+)
+def test_a_link_at_a_seat_path_that_resolves_elsewhere_is_a_conflict_and_is_left_alone(
+    seat_pair, tmp_path, capsys, make_obstacle
+):
+    """CP-1475: a link that resolves anywhere but its target, and a real file or directory at a
+    seat skill's path, are each a conflict and left as they are."""
+    sat, host = seat_pair
+    (sat / ".claude" / "skills").mkdir(parents=True)
+    path = sat / ".claude" / "skills" / "seed-pick"
+    make_obstacle(path, tmp_path, host)
+    before = os.readlink(path) if path.is_symlink() else None
+
+    assert link_satellite.main(_argv(sat, host)) == 1
+
+    assert f"[conflict] {path}" in capsys.readouterr().out
+    assert (os.readlink(path) if path.is_symlink() else None) == before
+    if make_obstacle is _real_file:
+        assert path.is_file() and path.read_text() == "the satellite's own\n"
+    else:
+        assert path.is_dir() and not (path / "SKILL.md").exists()
+
+
+def _agent_link_to_another_seats_file(agent: Path, tmp_path: Path, host: Path) -> None:
+    agent.symlink_to(host / "skills" / "principal-pm" / ".claude" / "agents" / "principal-pm.md")
+
+
+def _agent_link_outside_the_host(agent: Path, tmp_path: Path, host: Path) -> None:
+    outside = tmp_path / "outside-agent.md"
+    outside.write_text("an agent kept elsewhere\n")
+    agent.symlink_to(outside)
+
+
+@pytest.mark.parametrize(
+    "make_link",
+    [_agent_link_to_another_seats_file, _agent_link_outside_the_host],
+    ids=["another-seats-file", "outside-the-host"],
+)
+def test_a_link_at_a_seat_agent_path_that_resolves_elsewhere_is_a_conflict_not_an_override(
+    seat_pair, tmp_path, capsys, make_link
+):
+    """CP-1474 keeps only a regular file at a seat's agent path as the satellite's own. A symlink
+    there that resolves to a file other than the seat's own is CP-1475's conflict, left as it is,
+    even though it resolves to a file."""
+    sat, host = seat_pair
+    agents = sat / ".claude" / "agents"
+    agents.mkdir(parents=True)
+    pm = agents / "pm.md"
+    make_link(pm, tmp_path, host)
+    before = os.readlink(pm)
+
+    assert link_satellite.main(_argv(sat, host)) == 1
+
+    assert f"[conflict] {pm}" in capsys.readouterr().out
+    assert pm.is_symlink() and os.readlink(pm) == before
+
+
+def _listing(folder: Path) -> list[str]:
+    return sorted(entry.name for entry in folder.iterdir())
+
+
+def test_nothing_is_written_through_a_symlinked_agents_folder(seat_pair):
+    sat, host = seat_pair
+    host_agents = host / ".claude" / "agents"
+    before = _listing(host_agents)
+    (sat / ".claude").mkdir()
+    (sat / ".claude" / "agents").symlink_to(host_agents)
+
+    report = link_satellite.link_satellite(sat, host, skills_mode="consumer")
+
+    assert _listing(host_agents) == before
+    reported = _every_reported_path(report)
+    assert not any(path.startswith(str(sat / ".claude" / "agents") + "/") for path in reported)
+    assert len(report.created) == 17
+
+
+def test_nothing_is_written_through_a_dangling_agents_folder_link(seat_pair, tmp_path):
+    sat, host = seat_pair
+    gone = tmp_path / "gone"
+    (sat / ".claude").mkdir()
+    (sat / ".claude" / "agents").symlink_to(gone)
+
+    report = link_satellite.link_satellite(sat, host, skills_mode="consumer")
+
+    assert report.dangling == [str(sat / ".claude" / "agents")]
+    assert not gone.exists()
+    assert len(report.created) == 17
+
+
+def test_nothing_is_written_through_a_symlinked_skills_folder(seat_pair):
+    sat, host = seat_pair
+    flat = host / ".claude" / "skills"
+    (flat / "stray").mkdir(parents=True)
+    before = _listing(flat)
+    (sat / ".claude").mkdir()
+    (sat / ".claude" / "skills").symlink_to(flat)
+
+    report = link_satellite.link_satellite(sat, host, skills_mode="consumer")
+
+    assert _listing(flat) == before
+    reported = _every_reported_path(report)
+    assert not any(path.startswith(str(sat / ".claude" / "skills") + "/") for path in reported)
+    assert len(report.created) == 3
+
+
+def test_nothing_is_written_through_a_dangling_skills_folder_link(seat_pair, tmp_path):
+    sat, host = seat_pair
+    gone = tmp_path / "gone"
+    (sat / ".claude").mkdir()
+    (sat / ".claude" / "skills").symlink_to(gone)
+
+    report = link_satellite.link_satellite(sat, host, skills_mode="consumer")
+
+    assert report.dangling == [str(sat / ".claude" / "skills")]
+    assert not gone.exists()
+    assert len(report.created) == 3
+
+
+@pytest.mark.parametrize(
+    ("folder", "links_made"), [("agents", 17), ("skills", 3)], ids=["agents", "skills"]
+)
+def test_a_non_directory_at_a_seat_folder_is_one_conflict_and_nothing_is_linked_beneath(
+    seat_pair, capsys, folder, links_made
+):
+    sat, host = seat_pair
+    (sat / ".claude").mkdir()
+    blocker = sat / ".claude" / folder
+    blocker.write_text("the satellite's own file\n")
+
+    report = link_satellite.link_satellite(sat, host, skills_mode="consumer", check=True)
+    assert report.conflicts == [str(blocker)]
+    assert len(report.created) == links_made
+
+    assert link_satellite.main(_argv(sat, host)) == 1
+    assert blocker.read_text() == "the satellite's own file\n"
+    assert blocker.is_file() and not blocker.is_symlink()
+    assert f"[conflict] {blocker}" in capsys.readouterr().out
+
+
+def test_a_skill_added_to_a_seat_group_after_a_run_is_linked_by_the_next_run(seat_pair, capsys):
+    sat, host = seat_pair
+    link_satellite.link_satellite(sat, host, skills_mode="consumer")
+    (host / "skills" / "pm" / ".claude" / "skills" / "brand-new").mkdir()
+    capsys.readouterr()
+
+    assert link_satellite.main(_argv(sat, host, "--check")) == 1
+    assert f"[would link] {sat / '.claude' / 'skills' / 'brand-new'}" in capsys.readouterr().out
+
+    assert link_satellite.main(_argv(sat, host)) == 0
+    assert (sat / ".claude" / "skills" / "brand-new").is_symlink()
+
+
+def test_a_seat_skill_removed_from_the_host_is_reported_dangling_once_and_not_removed(
+    seat_pair, capsys
+):
+    sat, host = seat_pair
+    link_satellite.link_satellite(sat, host, skills_mode="consumer")
+    shutil.rmtree(host / "skills" / "pm" / ".claude" / "skills" / "seed-pick")
+    link = sat / ".claude" / "skills" / "seed-pick"
+    capsys.readouterr()
+
+    assert link_satellite.main(_argv(sat, host)) == 1
+
+    assert link.is_symlink()
+    assert capsys.readouterr().out.count(f"[dangling] {link}") == 1
+
+
+def _partial_no_agent_file(host: Path) -> None:
+    (host / "skills" / "pm" / ".claude" / "agents" / "pm.md").unlink()
+
+
+def _partial_no_skills_folder(host: Path) -> None:
+    shutil.rmtree(host / "skills" / "scrum-master" / ".claude" / "skills")
+
+
+@pytest.mark.parametrize(
+    ("break_host", "missing"),
+    [
+        (_partial_no_agent_file, [Path("agents") / "pm.md"]),
+        (
+            _partial_no_skills_folder,
+            [Path("skills") / name for name in SEAT_SKILLS["scrum-master"]],
+        ),
+    ],
+    ids=["no-agent-file", "no-skills-folder"],
+)
+def test_a_partial_host_links_only_what_exists_and_reports_nothing_about_the_rest(
+    seat_pair, capsys, break_host, missing
+):
+    sat, host = seat_pair
+    break_host(host)
+
+    assert link_satellite.main(_argv(sat, host)) == 0
+
+    out = capsys.readouterr().out
+    assert f"linked: {20 - len(missing)}" in out
+    assert "skipped (host source not created yet): 0" in out
+    assert "dangling: 0" in out and "conflicts: 0" in out
+    for relative in missing:
+        path = sat / ".claude" / relative
+        assert not os.path.lexists(path)
+        assert str(path) not in out
+
+
+def test_a_host_with_no_seat_groups_gives_a_consumer_no_agents_or_skills_folder(tmp_path, capsys):
+    sat, host = _make_satellite(tmp_path), _make_host(tmp_path, grouped=False)
+
+    assert link_satellite.main(_argv(sat, host)) == 0
+
+    assert "skipped (host source not created yet): 0" in capsys.readouterr().out
+    assert not os.path.lexists(sat / ".claude" / "agents")
+    assert not os.path.lexists(sat / ".claude" / "skills")
+
+
+def test_a_seat_link_with_relative_text_is_repointed_to_absolute(seat_pair, capsys):
+    sat, host = seat_pair
+    link_satellite.link_satellite(sat, host, skills_mode="consumer")
+    link = sat / ".claude" / "skills" / "seed-pick"
+    target = host / "skills" / "pm" / ".claude" / "skills" / "seed-pick"
+    _relink_relative(link, target)
+    capsys.readouterr()
+
+    assert link_satellite.main(_argv(sat, host, "--check")) == 1
+    assert not os.path.isabs(os.readlink(link))
+    assert f"would repoint (relative -> absolute): 1" in capsys.readouterr().out
+
+    report = link_satellite.link_satellite(sat, host, skills_mode="consumer")
+    assert report.repointed == [str(link)]
+    assert os.path.isabs(os.readlink(link))
+
+
+def test_a_producer_run_makes_no_agents_or_skills_link_for_the_seat_groups(seat_pair, capsys):
+    sat, host = seat_pair
+
+    report = link_satellite.link_satellite(sat, host, skills_mode="producer")
+
+    assert not os.path.lexists(sat / ".claude" / "agents")
+    assert not os.path.lexists(sat / ".claude" / "skills")
+    own = (str(sat / ".claude" / "agents"), str(sat / ".claude" / "skills"))
+    assert not any(path.startswith(own) for path in _every_reported_path(report))
+    pm_agent = sat / "skills" / "pm" / ".claude" / "agents"
+    assert pm_agent.is_dir() and not pm_agent.is_symlink()
+    assert (pm_agent / "pm.md").is_symlink()
+    assert link_satellite.main(
+        ["--satellite", str(sat), "--host", str(host), "--skills-mode", "producer"]
+    ) == 0
+
+
+# --------------------------------------------------------------------------------------------
+# The help and the description
+# --------------------------------------------------------------------------------------------
+
+CONSUMER_HELP = (
+    "consumer = links the pm, principal-pm and scrum-master agents and their groups' skills into "
+    ".claude/ (launchers find every other grouped skill in the host)"
+)
+PRODUCER_HELP = (
+    "producer = the host's root skills/ mirrored as real dirs + file symlinks, so evals/evidence "
+    "land in the satellite"
+)
+
+
+def _help_text(capsys) -> str:
+    with pytest.raises(SystemExit) as stop:
+        link_satellite.main(["--help"])
+    assert stop.value.code == 0
+    return " ".join(capsys.readouterr().out.split())
+
+
+def test_help_states_what_a_consumer_gets(capsys):
+    out = _help_text(capsys)
+
+    assert CONSUMER_HELP in out
+    assert PRODUCER_HELP in out
+
+
+def test_help_description_no_longer_says_nothing_under_claude_is_linked(capsys):
+    out = _help_text(capsys)
+
+    assert "Nothing under .claude/ is linked" not in out
+    assert "For a consumer, link the host's pm, principal-pm and scrum-master agents" in out

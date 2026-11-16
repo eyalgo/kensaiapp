@@ -44,4 +44,19 @@ None.
   is the record owner's choice.
 - **Answer:** <the owner fills this in>
 
+### 3.2 ADR-0001's "exactly two dependencies" holds again, and this item closes with no edit to the record
+- **Raised by:** Product Owner — 2026-11-10; revised by PM — 2026-11-12
+- **Which record:** `adr/0001-lock-the-tools-suite-with-uv.md` § Decision, lines 28–30
+- **What it blocks:** nothing is blocked, and nothing in the record is now false.
+- **Where it shows:** § Decision reads "declares exactly two dependencies under
+  `[project.dependencies]`, pytest and pytest-xdist, each pinned to an exact version with `==`".
+  For a while the instance root's `pyproject.toml` pinned a third, `behave==1.3.3`, for
+  `core/tools/test_behave_starter.py`. It pins two again: `pytest==9.0.3` and `pytest-xdist==3.8.0`
+  (`pyproject.toml` lines 5–8). Behave is now pinned in the Behave starter's own
+  `core/templates/behave-starter/pyproject.toml`, beside its own `uv.lock`, so the record reads true
+  as written.
+- **If a document has to be written:** none. The item closes on the next `product-architecture` run,
+  with ADR-0001 left as it stands.
+- **Answer:** <the owner fills this in>
+
 **How it closes.** `product-architecture` folds it on its next run like any other item here.

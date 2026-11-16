@@ -84,7 +84,7 @@ def run(tmp_path, _session_pin):
         project_dir = tmp_path / "system" / "projects" / name
         project_dir.mkdir(parents=True, exist_ok=True)
         if card is None:
-            lines = [f"# {name}", "", f"**Product path:** {product_path}"]
+            lines = [f"# {name}", "", f"**Product path:** {product_path}", "**Behave:** none — a test card"]
             if languages is not None:
                 lines.append(f"**Languages:** {languages}")
             if roots is not None:
@@ -501,7 +501,7 @@ def test_unknown_project_dies_naming_the_address_it_looked_at(run):
 
 
 def test_project_card_without_product_path_is_refused(run):
-    run.project("example-product", card="# example-product\n\nno binding line here\n")
+    run.project("example-product", card="# example-product\n\nno binding line here\n**Behave:** none — a test card\n")
 
     result = run("example-product")
 
@@ -512,7 +512,7 @@ def test_project_card_without_product_path_is_refused(run):
 def test_the_product_path_is_read_through_the_trailing_html_comment(run):
     (run.root / "system" / "projects" / "example-product").mkdir(parents=True)
     (run.root / "system" / "projects" / "example-product" / "project.md").write_text(
-        "# example-product\n\n**Product path:** products/thing   <!-- set at scaffold -->\n"
+        "# example-product\n\n**Product path:** products/thing   <!-- set at scaffold -->\n**Behave:** none — a test card\n"
         "**Languages:** pylang\n**Package slug:** examplepkg\n"
     )
     run.sdd("products/thing")
@@ -1859,7 +1859,7 @@ def test_the_bash_half_creates_nothing_before_the_python_half_is_reached():
 
 
 def _fix_card_without_product_path(run):
-    run.project("example-product", card="# example-product\n\n**Languages:** pylang\n**Package slug:** thing\n")
+    run.project("example-product", card="# example-product\n\n**Languages:** pylang\n**Package slug:** thing\n**Behave:** none — a test card\n")
 
 
 def _fix_nothing(run):

@@ -1,7 +1,7 @@
 """Tests for `written_forward_guard.py` — the `PreToolUse` `Edit|Write` guard.
 
 Runs the real entry point — JSON on stdin, JSON or silence on stdout — exactly as Claude Code
-does with it, following `test_development_bash_approve.py`'s shape.
+does with it, the shape of the entry-point cases in `test_development_bash_approve.py`.
 
 Each test resolves its `file_path` inside a fabricated instance repo (a real git repo carrying a
 copy of `core/tools/written_forward.py`), because the guard imports that module through

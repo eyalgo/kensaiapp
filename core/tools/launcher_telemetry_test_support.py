@@ -21,6 +21,9 @@ WHAT IT PROVIDES
     `scratch_core` `make_pin` `bind_satellite` `write_host_setting`
                         the trees a launcher is run in: a core of its own (the real tools, minus
                         their tests), a pin of it, and a satellite that binds it.
+    `copy_tree_as_it_stands`
+                        the copy `scratch_core` makes of the real tools: an entry gone by the time
+                        it is copied is left out, as `pin.make` leaves one out of a pin.
     `ordinary_launch` `assert_ordinary_launch_is_instrumented`
                         the four ordinary launches of CP-692 and what each must print and hand over.
     `failure_scenario` `assert_failure_scenario`
@@ -41,18 +44,19 @@ from __future__ import annotations
 
 import base64
 import json
+import os
 import re
 import shlex
 import shutil
 import subprocess
-from collections.abc import Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 
 import telemetry_recording_test_support
 import test_support_instance_root
 
-__version__ = "2.0.0"
+__version__ = "2.1.0"
 
 COMMAND_VARIABLE = "KENSAIAPP_TELEMETRY_COMMAND"
 SETTINGS_NAME = "INSTRUMENT_RUN_SETTINGS"
@@ -417,6 +421,46 @@ _LAUNCHER_IGNORE = shutil.ignore_patterns("test_*", "__pycache__", "*.pyc", "con
 _BORROWED = ("tools", "launchers")
 
 
+def copy_tree_as_it_stands(
+    source: Path,
+    destination: Path,
+    *,
+    ignore: Callable[[str, list[str]], Iterable[str]],
+    list_names: Callable[[Path], list[str]],
+) -> None:
+    """Copy `source` to `destination` as `shutil.copytree` does — links followed, each file's mode
+    and times kept, `ignore` applied in each folder — except that an entry `list_names` named and
+    that is gone by the time it is copied is left out, as `pin.make` leaves one out of a pin. An
+    entry that is still there and cannot be copied fails the copy, as before."""
+    try:
+        names = list_names(source)
+    except FileNotFoundError:
+        if source.exists(follow_symlinks=False):
+            raise
+        return
+    destination.mkdir(parents=True, exist_ok=True)
+    left_out = set(ignore(str(source), names))
+    for name in names:
+        if name in left_out:
+            continue
+        entry = source / name
+        try:
+            if entry.is_dir():
+                copy_tree_as_it_stands(
+                    entry, destination / name, ignore=ignore, list_names=list_names
+                )
+            else:
+                shutil.copy2(entry, destination / name)
+        except FileNotFoundError:
+            if entry.exists(follow_symlinks=False):
+                raise
+    try:
+        shutil.copystat(source, destination)
+    except FileNotFoundError:
+        if source.exists(follow_symlinks=False):
+            raise
+
+
 def scratch_core(root: Path, script: Path, *, siblings: Iterable[str] = ()) -> Path:
     """A core at `root/core` holding a copy of the real tools and of the launcher at `script`
     (plus each sibling launcher named, for a launcher that runs another), so a comparison can put
@@ -426,7 +470,10 @@ def scratch_core(root: Path, script: Path, *, siblings: Iterable[str] = ()) -> P
     core = Path(root) / "core"
     core.mkdir(parents=True)
     test_support_instance_root.give_python(root)
-    shutil.copytree(_TOOLS, core / "tools", ignore=_TOOLS_IGNORE)
+    # Not `shutil.copytree`: another test makes and removes its own probe folder under the real
+    # `core/tools/` while this copy runs (`test_pytest_guardrails.py`, the connect probe), and
+    # `copytree` fails on an entry it listed and then found gone.
+    copy_tree_as_it_stands(_TOOLS, core / "tools", ignore=_TOOLS_IGNORE, list_names=os.listdir)
     for entry in sorted(_CORE_DIR.iterdir()):
         if entry.name not in _BORROWED and not entry.name.startswith("."):
             (core / entry.name).symlink_to(entry)

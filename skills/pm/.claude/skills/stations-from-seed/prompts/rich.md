@@ -1,5 +1,5 @@
 ---
-version: "1.8.0"
+version: "1.10.0"
 ---
 
 # stations-from-seed — the PM's seed-splitting lens
@@ -26,7 +26,10 @@ here.
 Read them in this order, and where two disagree the earlier one wins:
 
 1. **The picked seed** — the one file at `journey/nemawashi/`'s root. Its `## What it is` says what
-   the work is; its `## Stations — dynamic checklist`, where it has one, is the proposal you are
+   the work is, and every ruling it records is a decided part of that work. A ruling is a call the
+   seed attributes to the owner with a date — a numbered item under any rulings heading, or an
+   owner's line quoted under `## Source` that answers what the work does; a quote that only says
+   where the idea came from is provenance, not a ruling. Its `## Stations — dynamic checklist`, where it has one, is the proposal you are
    re-cutting; its `## Out (later / elsewhere)` fences what is not yours to route.
 2. **`system/projects/<name>/finish_line.md`** — the terminus. Every station you write moves toward it, and
    a station that advances no finish line is not a station you have found, it is one you have invented.
@@ -39,6 +42,13 @@ Read them in this order, and where two disagree the earlier one wins:
    not.** A missing FDR is the normal starting case, not a mode and not an error.
 5. **The product's current state** — what already exists, and what the last sealed change delivered.
    A station whose reached-when is already true is not work.
+6. **The seed's blind review, while it describes the route as it stands** — written by
+   `stations-blind-review`, at the path `<CORE>/doctrine/setup/kensaiapp_structure.md` § 2 Per-project
+   names, and naming in its first lines the commit it read. It describes the route as it stands when no
+   later commit changed the seed: `git log --oneline <that commit>..HEAD -- <the seed>` prints nothing.
+   Then every finding in it is fixed in the route or answered with a divergence line that says why it
+   stands, and every reading it left open is left to the owner, not settled here. A review older than
+   the seed's last change describes a route that is gone; do not read it.
 
 **The seed is the subject and the finish line is the judge.** Where the seed proposes a station the finish line
 does not want, the station goes; where the finish line wants something the seed does not carry, that is a
@@ -121,7 +131,13 @@ the split item reaches its cut. A missing SDD is not a reason to raise an item.
 
 **The last station carries the seed's own bar.** When it is reached, the seed is finished and
 is retired. If walking every station you wrote still leaves the seed's
-`## What it is` unmet, the route is short by a station and you have not finished cutting.
+`## What it is` or any ruling it records unmet, the route is short and you have not finished cutting.
+Walk the rulings one by one and name, to yourself, the station whose bar proves each. A ruling that
+names its parts — lists the pieces the work must have, as a series or a numbered list — is met
+only by a bar that names each part: a bar that names the whole where the
+ruling lists the pieces (*"its own skill"*, where the ruling says a skill, two prompts, a loader, a
+launch file and an intelligence file) has dropped them, and a station closed on it closes on less
+than was decided.
 
 ## Every station carries a reached-when that can be checked against the world
 
@@ -233,3 +249,6 @@ belongs to another seat.
 Terse. The seed's checklist is a working note, not a document — one line per station, the slug and what
 it reaches in a clause. `<CORE>/templates/journey-templates/nemawashi_template.md` fixes the shape and
 holds the bar. A station line that runs to a paragraph is describing work instead of naming it.
+Terseness cuts words, never a part a ruling names: where the parts do not fit in a clause, the parts
+win, and the bar is as long as the parts it has to name — still one line, still no description of
+the work.

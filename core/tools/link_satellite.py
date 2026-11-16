@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
-"""Bring a shared-core satellite level with its host instance — write its `.claude/settings.json`
-from the host's hook wiring, and, for a producer, link the host's root `skills/` layer, where every
+"""Bring a shared-core satellite level with its host instance. Write its `.claude/settings.json`
+from the host's hook wiring, link a consumer to the `pm`, `principal-pm` and `scrum-master` agents
+and those three groups' skills, and link a producer to the host's root `skills/` layer, where every
 host skill lives in its group.
 
 WHAT IT IS FOR
     A satellite (a local instance that reads the host's core — see
-    `<CORE>/doctrine/setup/shared_core_instance.md`) runs the host's hook scripts by absolute
-    path, and a producer reads the host's skill files through absolute symlinks, so an edit to
-    either in the host is seen instantly. The one copy a satellite holds is its
+    `<CORE>/doctrine/setup/shared_core_instance.md`) runs the host's hook scripts by absolute path,
+    and reads the host's agent and skill files it is linked to through absolute symlinks, so an edit
+    to any of them in the host is seen instantly. The one copy a satellite holds is its
     `.claude/settings.json`, written from the host's hook wiring, and that copy goes out of date
     when a hook is wired into the host.
     `spawn_satellite.py` calls this at creation; anyone can call it again later to bring a drifted
@@ -18,7 +19,7 @@ WHAT IT IS FOR
     is what replaces the hand-resync.
 
 WHAT IT LINKS, AND WHAT IT WRITES
-    Nothing under `.claude/` is linked. One file there is written:
+    One file under `.claude/` is written, for either kind:
 
         .claude/settings.json   the host's `hooks` key and nothing else, with every
                                 `${CLAUDE_PROJECT_DIR}/.claude/hooks/` replaced by
@@ -41,35 +42,57 @@ WHAT IT LINKS, AND WHAT IT WRITES
     host, is a conflict and is left untouched. A launched run takes the host's workflows from its
     pin, so a satellite needs no `workflows` link.
 
-    `.claude/agents` is not linked, because a satellite's agents folder is its own. It holds a
-    real `<name>.md` only for an agent the satellite overrides, and a launched run takes that
-    file in place of the agent file of the same name in the host's groups. An `agents` link an
-    earlier run made is left as it is. Removing it is a commit in the satellite, and
-    `check_satellites.py` reports it as drift.
+    `.claude/agents` itself is never linked, because a satellite's agents folder is its own. It
+    holds a real `<name>.md` for an agent the satellite overrides, and a launched run takes that
+    file in place of the agent file of the same name in the host's groups. A consumer's folder also
+    holds a link for each journey seat whose agent file the host holds: `pm.md`, `principal-pm.md`
+    and `scrum-master.md`, each to `skills/<seat>/.claude/agents/<seat>.md` in the host. A real file
+    the satellite holds at one of those names is its own override. It is kept byte for byte, no link
+    is made over it, and it is reported in no category. A producer's folder gets no link. A
+    `.claude/agents` that is itself a link, which an earlier run made, is left as it is, and nothing
+    is written through it, because a write through it lands in the link's target. Removing it is a
+    commit in the satellite, and `check_satellites.py` reports it as drift.
 
     The skills are answered by what the satellite DOES rather than by which satellite it is. Every
     host skill lives in a group, `skills/<group>/.claude/skills/<name>/`, and the host's flat
-    `.claude/skills/` holds none — so the flat layer is linked in neither mode:
+    `.claude/skills/` holds only links into the host's own groups, never a skill of its own, so the
+    flat layer is linked in neither mode:
 
-      consumer  — it only reads skills. Nothing is linked: the launchers a consumer runs look a
-                  grouped skill up under the host root (`<CORE>/..`) and grant its group from
-                  there, so a consumer holds no skills of its own and needs no link to reach them.
-                  A `.claude/skills` link an earlier run made is left as it is — removing it is a
-                  commit in the satellite, not this script's — and once the host's flat folder is
-                  gone it is reported as a dangling link, which is the cue to remove it.
+      consumer  — it is linked to the three journey seats, `pm`, `principal-pm` and `scrum-master`,
+                  as the host is linked for itself, so a session started at its root reaches their
+                  agents and skills with no directory added. Each skill directory directly inside
+                  `skills/<seat>/.claude/skills/` in those three groups gets a link
+                  `.claude/skills/<name>`. The set is read from the host on every run, and no skill
+                  name is written here, so a skill added to one of those groups is linked on the
+                  next run. A cache directory and a name starting with `.` are not skills. Where two
+                  of the three groups hold a skill of the same name, the first seat's, in the order
+                  above, is linked. Nothing else is linked: no other seat's agent, no skill of
+                  another group and no root `skills/`. The launchers a consumer runs find every
+                  other grouped skill under the host root (`<CORE>/..`) and grant its group from
+                  there. `.claude/agents/` and `.claude/skills/` are created only when a link is
+                  made inside them, and `--check` creates nothing. A `.claude/skills` that is itself
+                  a link, which an earlier run made, is left as it is, and nothing is written
+                  through it. Removing it is a commit in the satellite, not this script's, and
+                  `check_satellites.py` names it, as it names a root `skills` and any entry in
+                  `.claude/skills/` that is no journey seat's skill. A seat link whose host target
+                  is gone is reported dangling, and is not removed. A regular file where
+                  `.claude/agents` or `.claude/skills` should be is one conflict, and nothing is
+                  linked beneath it. Where the host lacks a seat's group, its agent file or its
+                  skills folder, nothing is linked for what is missing, and nothing is reported
+                  about it.
       producer  — it runs `skill-evals` / holds per-skill evidence. Those artifacts land INSIDE
                   the skill folder (`<skill>/evals/workspace/iteration-N/`), so the folder must be
                   real or the write silently lands in the HOST. The host's root `skills/` is
                   therefore mirrored: every directory recreated as a real directory and every file
                   inside it symlinked, at any depth — so each content file is still single-source
                   with the host, while every possible write path resolves inside the satellite.
-                  A `.claude/skills` tree an earlier run mirrored is left as it is too, and its
-                  links are reported dangling once the host's flat files are gone.
+                  A `.claude/skills` tree an earlier run mirrored is left as it is too, and a link
+                  in it is reported dangling when its target is gone from the host.
 
-    A host with no root `skills/` — one that has created no group — is not drift. So for a
-    producer an absent host `skills/` is a no-op: nothing is written, nothing dangles, the run
-    still exits 0, and the report names the layer it skipped and the host path it looked for,
-    rather than staying silent about it.
+    A host with no root `skills/` — one that has created no group — is not drift. So for a producer
+    an absent host `skills/` is a no-op: nothing is written, nothing dangles, the run still exits 0,
+    and the report names the layer it skipped and the host path it looked for, rather than staying
+    silent about it. For a consumer nothing is owed, so nothing is linked and nothing is reported.
 
     The producer shape is the reason this script recurses rather than linking only `SKILL.md`.
     Linking the top-level files alone is what the hand-built satellites did, and it is why one of
@@ -80,7 +103,10 @@ WHAT IT NEVER TOUCHES
     the stamped instance files, and any per-instance data (a producer's `evals/` and `evidence/`
     output). Where a real file already sits at a path this script would link, or a real file or
     directory sits at `.claude/hooks` or `.claude/workflows`, it reports a CONFLICT and leaves it
-    alone. Deciding that a real file should become a link is a judgement, and this script does
+    alone. A real agent file at a journey seat's name in a consumer's `.claude/agents/` is not a
+    conflict: it is the satellite's own override, so it is kept byte for byte and reported in no
+    category.
+    Deciding that a real file should become a link is a judgement, and this script does
     not make it. `.claude/settings.json` is not the satellite's own: it is this script's output,
     and a regular file there that differs from what this script writes is rewritten.
 
@@ -131,11 +157,12 @@ import json
 import os
 import sys
 from dataclasses import dataclass, field
+from enum import Enum
 from pathlib import Path
 
 import hook_wiring
 
-__version__ = "1.5.0"
+__version__ = "1.6.0"
 
 # The file this script writes in a satellite, and the two links an earlier version made there that
 # it now removes when they point into the host. `settings.json` was a third; it is replaced by the
@@ -152,6 +179,71 @@ SKILLS_MODES = ("consumer", "producer")
 # would hand it another instance's measurements as if they were its own.
 SKIP_NAMES = ("__pycache__", ".pytest_cache", ".DS_Store")
 SKIP_UNDER = {"workspace": "evals"}  # name -> the parent name that makes it the write target
+
+
+# The seats whose agents and skills a consumer is linked to, in the order their links are made.
+# Each is also its group's folder under the host's `skills/` and the name of that group's agent
+# file.
+JOURNEY_SEATS = ("pm", "principal-pm", "scrum-master")
+
+
+class SeatFolder(str, Enum):
+    """The two folders of a satellite's `.claude/` that hold seat links; the value is the folder."""
+
+    AGENTS = "agents"
+    SKILLS = "skills"
+
+
+@dataclass(frozen=True)
+class SeatLink:
+    """One link a consumer is owed: `name` inside `<satellite>/.claude/<folder>/`, to `target`."""
+
+    folder: SeatFolder
+    name: str
+    target: Path
+
+    def path_in(self, satellite: Path) -> Path:
+        return satellite / ".claude" / self.folder.value / self.name
+
+
+def _seat_group(host: Path, seat: str) -> Path:
+    return host / "skills" / seat / ".claude"
+
+
+def _is_cache_or_dot_name(name: str) -> bool:
+    return name.startswith(".") or name in SKIP_NAMES
+
+
+def _seat_skill_dirs(host: Path, seat: str) -> list[Path]:
+    """The skill directories directly inside a seat's group, by byte order of name; none when the
+    group or its skills folder is missing."""
+    skills = _seat_group(host, seat) / "skills"
+    if not skills.is_dir():
+        return []
+    entries = [
+        entry for entry in skills.iterdir()
+        if not _is_cache_or_dot_name(entry.name) and entry.is_dir()
+    ]
+    return sorted(entries, key=lambda entry: entry.name.encode("utf-8"))
+
+
+def seat_links(host: Path) -> tuple[SeatLink, ...]:
+    """The links a consumer is owed for the three journey seats, read from the host on disk on
+    every call: each seat's agent file, then each skill directory in each seat's group, seat by
+    seat and by name within a seat. A seat whose group, agent file or skills folder is missing
+    contributes nothing for what is missing. A skill name two groups share is kept for the first
+    seat only."""
+    agents = []
+    for seat in JOURNEY_SEATS:
+        agent_file = _seat_group(host, seat) / "agents" / f"{seat}.md"
+        if agent_file.is_file():
+            agents.append(SeatLink(SeatFolder.AGENTS, agent_file.name, agent_file))
+    skills: dict[str, SeatLink] = {}
+    for seat in JOURNEY_SEATS:
+        for skill_dir in _seat_skill_dirs(host, seat):
+            link = SeatLink(SeatFolder.SKILLS, skill_dir.name, skill_dir)
+            skills.setdefault(skill_dir.name, link)
+    return tuple(agents) + tuple(skills.values())
 
 
 @dataclass
@@ -455,6 +547,38 @@ def _report_dangling_below(root: Path, report: Report, *, handled: set[str]) -> 
         dirnames[:] = [d for d in dirnames if not (Path(dirpath) / d).is_symlink()]
 
 
+def _folder_blocks_links(folder: Path, report: Report) -> bool:
+    """Whether a satellite's `.claude/agents` or `.claude/skills` must be left unwritten, and
+    nothing linked beneath it. Tested with `is_symlink()` before anything that follows a link, so a
+    symlinked folder is decided before whatever lies beneath it is probed. A symlinked folder is
+    skipped here (a dangling one is reported by the walk of `.claude/`); a folder that exists and is
+    not a directory is one conflict at the folder."""
+    if folder.is_symlink():
+        return True
+    if folder.exists(follow_symlinks=False) and not folder.is_dir():
+        report.conflicts.append(str(folder))
+        return True
+    return False
+
+
+def _link_seat_links(satellite: Path, host: Path, report: Report, *, check: bool) -> None:
+    """Give a consumer the journey seats' links. A consumer is owed the journey seats' links. A
+    folder that is itself a link is never written through, because the write would land in its
+    target, which is the host for a link an earlier run made. A real agent file at a seat's name is
+    the satellite's own override, and it is kept and reported in no category."""
+    blocked: dict[SeatFolder, bool] = {}
+    for seat_link in seat_links(host):
+        folder = seat_link.folder
+        if folder not in blocked:
+            blocked[folder] = _folder_blocks_links(satellite / ".claude" / folder.value, report)
+        if blocked[folder]:
+            continue
+        link_path = seat_link.path_in(satellite)
+        if folder is SeatFolder.AGENTS and not link_path.is_symlink() and link_path.is_file():
+            continue
+        _link_one(link_path, seat_link.target, report, check=check)
+
+
 def _host_problem(host: Path) -> str | None:
     """Why the host cannot be linked to, as the `error:` line that says so; None if it can."""
     host_claude = host / ".claude"
@@ -492,11 +616,14 @@ def link_satellite(
     for name in RETIRED_LINKS:
         _remove_retired_link(sat_claude / name, host, report, check=check)
 
-    # The host's flat `.claude/skills/` holds no skill, so it is linked in neither mode; the root
-    # skills/ layer is a producer's only: a consumer's launchers find grouped skills under the
-    # host root, so it is given no link (see WHAT IT LINKS).
+    # The host's flat `.claude/skills/` holds only links into the host's own groups, so it is
+    # linked in neither mode. A consumer is linked to the three journey seats' agents and skills in
+    # their groups, read from the host on every run. A producer gets the root skills/ layer instead
+    # (see WHAT IT LINKS).
     host_skills_root = host / "skills"
     sat_skills_root = satellite / "skills"
+    if skills_mode == "consumer":
+        _link_seat_links(satellite, host, report, check=check)
     if skills_mode == "producer":
         # `_link_tree` is already safe on an absent host_skills_root (its own early return), and
         # it never creates a symlink that could dangle — so the same call handles both cases;
@@ -518,9 +645,11 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="link_satellite.py",
         description=(
-            "Write a shared-core satellite's .claude/settings.json from its host's hook wiring, "
-            "and link a producer's root skills/ layer to the host's if the host has one. Nothing "
-            "under .claude/ is linked. Idempotent — re-run it to bring a drifted satellite level."
+            "Write a shared-core satellite's .claude/settings.json from its host's hook wiring. "
+            "For a consumer, link the host's pm, principal-pm and scrum-master agents and those "
+            "three groups' skills into the satellite's .claude/. For a producer, link its root "
+            "skills/ layer to the host's if the host has one. Idempotent — re-run it to bring a "
+            "drifted satellite level."
         ),
     )
     parser.add_argument("--satellite", required=True, help="the satellite instance root")
@@ -530,7 +659,8 @@ def main(argv: list[str] | None = None) -> int:
         required=True,
         choices=SKILLS_MODES,
         help=(
-            "consumer = no skills layer is linked (launchers find grouped skills in the host); "
+            "consumer = links the pm, principal-pm and scrum-master agents and their groups' "
+            "skills into .claude/ (launchers find every other grouped skill in the host); "
             "producer = the host's root skills/ mirrored as real dirs + file symlinks, so "
             "evals/evidence land in the satellite"
         ),

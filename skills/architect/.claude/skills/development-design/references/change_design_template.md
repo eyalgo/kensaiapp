@@ -1,5 +1,5 @@
 ---
-version: "2.6.0"
+version: "2.8.0"
 ---
 <!-- The version above is template-file metadata; it is not copied into the instantiated document. -->
 
@@ -70,6 +70,16 @@ After B + C: Sub-job D
 | Sub-job | Test file | Layer | Fakes handed in | What to add / modify |
 |---|---|---|---|---|
 | ... | ... | ... | ... | ... |
+
+---
+
+## Testing the change from outside the code
+
+<!-- Always present. State how this change's new or changed behaviour is made testable from outside the code, through the way in the product's NFDR records. The way in is read from the `Behave way in` line of § 9 in the product's `docs/nfdr.md`. This section picks no way in and offers no choice of one: it uses the way in that line records. Write the zero form where the record holds no way in: no `docs/nfdr.md`, a `**Behave:**` line that does not read `behave`, a way-in line still holding its three forms written together, or a `**Behave:**` line that reads `behave` with no `Behave way in` line at all. -->
+
+- <the behaviour this change adds or changes> — reached through <the way in the NFDR records>: <what a scenario does through that way in to see the behaviour>.
+
+(or: `None — no way in is recorded (<what was read and what it held>), and this design picks none.`)
 
 ---
 

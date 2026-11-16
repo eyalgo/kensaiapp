@@ -2,7 +2,9 @@
 except `delegate`, which `interactive` holds beside `agent-invoke`, the skill that spawns it.
 
 These read the real tree, because the property is about where the files are. The flat
-`.claude/agents/` stays as a tracked, empty folder: an instance's own override lives there.
+`.claude/agents/` is a tracked folder: an instance's own override lives there, and the host's own
+three entries are links to the seat agents `pm`, `principal-pm` and `scrum-master`, which a
+Claude Code session started at the host root reaches through them.
 """
 
 from __future__ import annotations
@@ -12,10 +14,12 @@ from pathlib import Path
 
 _REPO = Path(__file__).resolve().parents[2]
 _AGENT_COUNT = 19
-_AGENT_ONLY_GROUPS = ("kaizen-fix-author", "kaizen-fixer", "qa")
+_AGENT_ONLY_GROUPS = ("kaizen-fix-author", "kaizen-fixer")
 _DOCS_GRANT_SHAPE = "mcp__[a-z-]+-api-docs"
 # An agent kept in a group not named for it, mapped to that group.
 _HELD_ELSEWHERE = {"delegate": "interactive"}
+# The agents the host's flat `.claude/agents/` links to, by name, and no other.
+_LINKED_SEATS = ("pm", "principal-pm", "scrum-master")
 
 
 def _git(*args):
@@ -32,10 +36,15 @@ def _group_of(agent: Path) -> str:
     return agent.parent.parent.parent.name
 
 
-def test_flat_agents_dir_holds_no_md_but_is_tracked():
+def test_flat_agents_dir_holds_only_the_three_seat_links_and_is_tracked():
     flat = _REPO / ".claude" / "agents"
 
-    assert list(flat.glob("*.md")) == []
+    held = sorted(flat.glob("*.md"))
+    assert [path.stem for path in held] == sorted(_LINKED_SEATS)
+    for path in held:
+        group_file = _REPO / "skills" / path.stem / ".claude" / "agents" / path.name
+        assert path.is_symlink(), f"{path.name} is a copy, not a link into its group"
+        assert path.resolve() == group_file.resolve()
     assert _git("ls-files", ".claude/agents").split() != [], "a fresh clone would lose the folder"
 
 

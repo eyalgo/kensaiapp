@@ -38,7 +38,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 
-__version__ = "1.6.1"
+__version__ = "1.7.0"
 
 _TREES = ("core", ".claude", "skills")
 # Each is copied only where the host has it; a host missing one still pins, without that file.
@@ -116,15 +116,29 @@ def tree_files(root: Path) -> list[str]:
     """Every file under the three trees of `root`, and each of the three root files `root` has, no
     ignore rule applied — the listing for a host that is not a git work tree, where the whole of
     each tree that exists is copied, and for a pin root, which is a plain copy with no git behind
-    it. Nothing else at `root` is listed: a pin root's `.venv/` is not part of the pin."""
+    it. Nothing else at `root` is listed: a pin root's `.venv/` is not part of the pin. A link is
+    listed once, by its own relpath, whether it points at a file, a directory or nothing, and
+    nothing beneath a link to a directory is listed — a copy of the listing holds the link and
+    not a second copy of what it points at."""
     relpaths: list[str] = []
     for tree in _TREES:
         tree_root = root / tree
         if not tree_root.exists():
             continue
-        for path in tree_root.rglob("*"):
-            if path.is_file():
-                relpaths.append(str(path.relative_to(root)))
+        # `os.walk` does not descend into a link to a directory and names it among the
+        # directories, which is where it is taken from. `rglob("*")` yielded no such link on
+        # the interpreter this was written on (Python 3.15.2), whatever an older one did.
+        for dirpath, dirnames, filenames in os.walk(tree_root):
+            here = Path(dirpath)
+            for name in filenames:
+                path = here / name
+                if path.is_symlink() or path.is_file():
+                    relpaths.append(str(path.relative_to(root)))
+            relpaths.extend(
+                str((here / name).relative_to(root))
+                for name in dirnames
+                if (here / name).is_symlink()
+            )
     relpaths.extend(name for name in _ROOT_FILES if (root / name).is_file())
     return relpaths
 
@@ -156,7 +170,8 @@ def _host_head(host_root: Path) -> str | None:
 def make(host_root: Path, pins_home: Path) -> Pin:
     """Copy `host_root`'s `core/`, `.claude/` and `skills/` trees and its root `.python-version`,
     `pyproject.toml` and `uv.lock` (each only where the host has it), as they stand right now, into
-    a new directory under `pins_home`. Each file's mode travels with it. `pin.json` is written
+    a new directory under `pins_home`. Each file's mode travels with it, and a link is copied as
+    a link with its target text unchanged. `pin.json` is written
     last — a pin without it is incomplete, and neither `of_core` nor `inherited` will find one.
 
     Also records the host's `HEAD` at this moment as `source_head` — the revision a later `git
@@ -178,7 +193,10 @@ def make(host_root: Path, pins_home: Path) -> Pin:
         dst = root / relpath
         dst.parent.mkdir(parents=True, exist_ok=True)
         try:
-            shutil.copy2(src, dst)
+            # A link is copied as a link, its target text unchanged, so a relative link
+            # resolves inside the pin. Following it would put a second copy of its target
+            # where the host holds one, and fails outright on a link to a directory.
+            shutil.copy2(src, dst, follow_symlinks=False)
         except FileNotFoundError:
             # Gone between the listing above and this copy — another live process's own
             # scratch file, deleted after `git ls-files` saw it and before this line ran. The
@@ -237,7 +255,8 @@ class Kind(str, Enum):
     """The three things `owned_entries` and `agent_file` decide ownership of. Each value is the
     directory name they live under: flat under `.claude/<kind>/`, and grouped under
     `skills/*/.claude/<kind>/` for skills and for agents. An agent is a `*.md` file; the host's
-    agents all live in groups, and a flat `.claude/agents/<name>.md` is an instance's own."""
+    agents all live in groups. A flat `.claude/agents/<name>.md` in an instance is its own, and one
+    the host holds is a link into a group, served as that group's file."""
 
     SKILLS = "skills"
     AGENTS = "agents"
@@ -349,10 +368,10 @@ def granted_groups(pin: Pin, skills: Iterable[str]) -> frozenset[str]:
 
 
 def _pin_names(pin: Pin, kind: Kind, groups: frozenset[str]) -> dict[str, Path]:
-    """Every name the pin itself holds for `kind`: the flat `.claude/<kind>/*` entries, plus,
-    for skills, the grouped `skills/<group>/.claude/skills/*` entries of the granted `groups`
-    only, and, for agents, the grouped `skills/<group>/.claude/agents/*.md` entries of every
-    group, whatever the grant."""
+    """Every name the pin itself holds for `kind`: the flat `.claude/<kind>/*` entries, except a
+    flat skill that is a link into a group, plus, for skills, the grouped
+    `skills/<group>/.claude/skills/*` entries of the granted `groups` only, and, for agents, the
+    grouped `skills/<group>/.claude/agents/*.md` entries of every group, whatever the grant."""
     names: dict[str, Path] = {}
 
     flat_dir = pin.root / ".claude" / kind.value
@@ -360,7 +379,14 @@ def _pin_names(pin: Pin, kind: Kind, groups: frozenset[str]) -> dict[str, Path]:
         names.update(_agent_entries(flat_dir))
         names.update(_grouped_agents(pin.root))
     elif flat_dir.is_dir():
+        # A flat skills entry that is a link into the pin's own `skills/` tree is a group's
+        # skill, not a flat one: it is served only when its group is granted, at the grouped
+        # path below. Both sides are resolved, because a temporary folder on macOS is itself a
+        # link and `_is_under` answers false for an unresolved root, which skips nothing.
+        group_tree = (pin.root / "skills").resolve()
         for entry in sorted(flat_dir.iterdir()):
+            if kind is Kind.SKILLS and _is_under(entry, group_tree):
+                continue
             names[entry.stem] = entry
 
     if kind is Kind.SKILLS:

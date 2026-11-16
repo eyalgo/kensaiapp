@@ -23,7 +23,7 @@ Prose the parser must ignore, including a stray table:
 
 | kind | what it is for | signature |
 |---|---|---|
-| consumer | builds its own product | **no skills layer** |
+| consumer | builds its own product | **the three journey seats' links** |
 | producer | its output is evidence | a root `skills/` that is a **real directory** |
 
 ## Consumers — build their own product here; nothing flows back
@@ -259,6 +259,29 @@ def test_a_producer_whose_skills_root_is_a_symlink_is_named_as_that(instance, tm
     assert "skills root is a symlink" in out
 
 
+SHAPE_ROOT_SKILLS = (
+    "skills is present, and a consumer holds no root skills/ — its .claude/skills holds only the "
+    "journey seats' links; removing the root skills is a commit in the satellite"
+)
+SHAPE_SKILLS_LINK = (
+    ".claude/skills is a symlink, and a consumer's must be a real directory holding only the "
+    "journey seats' links — removing it is a commit in the satellite"
+)
+SHAPE_EXTRA = (
+    ".claude/skills/{name} is present, and a consumer's .claude/skills holds only the journey "
+    "seats' links — removing it is a commit in the satellite"
+)
+SHAPE_STEMS = (
+    "holds no root skills/",
+    "must be a real directory holding only",
+    "is present, and a consumer's .claude/skills holds only",
+)
+SHAPE_PRODUCER = (
+    "skills root is a symlink, and a producer's must be a real directory — every eval/evidence "
+    "write through it lands in the host"
+)
+
+
 def test_a_consumer_holding_a_root_skills_directory_is_named_as_that(instance, tmp_path, capsys):
     """The inverse signature. `satellites.md` § The two kinds states both, so both are checkable."""
     _link(instance, tmp_path / "kensaiapp-two", "producer")
@@ -272,7 +295,7 @@ def test_a_consumer_holding_a_root_skills_directory_is_named_as_that(instance, t
     assert code == 1
     # The root layer is the one named — the shape line is indented six spaces, so this cannot
     # be satisfied by a `.claude/skills` line.
-    assert "      skills is present, and a consumer holds no skills layer" in out
+    assert f"      {SHAPE_ROOT_SKILLS}" in out.splitlines()
 
 
 def test_a_consumer_left_with_its_old_claude_skills_link_is_named(instance, tmp_path, capsys):
@@ -289,7 +312,7 @@ def test_a_consumer_left_with_its_old_claude_skills_link_is_named(instance, tmp_
     out = capsys.readouterr().out
 
     assert code == 1
-    assert ".claude/skills is present, and a consumer holds no skills layer" in out
+    assert f"      {SHAPE_SKILLS_LINK}" in out.splitlines()
 
 
 def test_a_correctly_shaped_roster_carries_no_shape_line(instance, tmp_path, capsys):
@@ -300,7 +323,8 @@ def test_a_correctly_shaped_roster_carries_no_shape_line(instance, tmp_path, cap
     assert check_satellites.main(["--instance-root", str(instance), "--quiet"]) == 0
     out = capsys.readouterr().out
     assert "skills root is" not in out
-    assert "holds no skills layer" not in out
+    for stem in SHAPE_STEMS:
+        assert stem not in out
 
 
 # --------------------------------------------------------------------------------------------
@@ -617,3 +641,347 @@ def test_leftover_link_line_comes_before_the_linkers_detail(instance, tmp_path, 
     drift = _first(lines, lambda line: line.startswith("DRIFT kensaiapp-one"))
     assert lines[drift + 1] == LEFTOVER_LINK
     assert drift + 1 < _first(lines, _is_detail)
+
+
+# --------------------------------------------------------------------------------------------
+# The entries a consumer's `.claude/skills/` holds that are no journey seat's skill
+# --------------------------------------------------------------------------------------------
+
+
+def test_extras_leave_out_seat_names_and_dot_names():
+    extras = check_satellites._consumer_skills_extras(
+        ["seed-pick", "product-prd", ".hidden", "stray", ".DS_Store"], ["seed-pick", "other-seat"]
+    )
+
+    assert extras == ("product-prd", "stray")
+
+
+def test_extras_come_back_in_utf8_byte_order():
+    extras = check_satellites._consumer_skills_extras(["beta", "Zeta", "alpha", "épsilon"], [])
+
+    assert extras == ("Zeta", "alpha", "beta", "épsilon")
+
+
+@pytest.mark.parametrize(
+    ("entry_names", "seat_skill_names"),
+    [([], ["seed-pick"]), (["seed-pick", "seed-cut"], ["seed-cut", "seed-pick"]), ([".a"], [])],
+)
+def test_extras_of_nothing_is_the_empty_tuple(entry_names, seat_skill_names):
+    assert check_satellites._consumer_skills_extras(entry_names, seat_skill_names) == ()
+
+
+# --------------------------------------------------------------------------------------------
+# A consumer's skills folders — what is wrong with them, one line each
+# --------------------------------------------------------------------------------------------
+
+
+def _give_the_host_seat_groups(host: Path) -> None:
+    """The three journey-seat groups on the host: an agent file each, and a few skills."""
+    skills = {
+        "pm": ["seed-pick", "seed-cut"],
+        "principal-pm": ["seed-retire"],
+        "scrum-master": ["shukuba-close"],
+    }
+    for seat, names in skills.items():
+        group = host / "skills" / seat / ".claude"
+        (group / "agents").mkdir(parents=True)
+        (group / "agents" / f"{seat}.md").write_text(f"agent {seat}\n")
+        for name in names:
+            (group / "skills" / name).mkdir(parents=True)
+            (group / "skills" / name / "SKILL.md").write_text("skill\n")
+
+
+@pytest.fixture
+def seated(instance: Path, tmp_path: Path) -> Path:
+    """The `instance` host given the seat groups, both rostered satellites linked level."""
+    _give_the_host_seat_groups(instance)
+    _link(instance, tmp_path / "kensaiapp-one", "consumer")
+    _link(instance, tmp_path / "kensaiapp-two", "producer")
+    return instance
+
+
+def _replace_skills_folder_with(consumer: Path, make) -> Path:
+    folder = consumer / ".claude" / "skills"
+    shutil.rmtree(folder)
+    make(folder)
+    return folder
+
+
+def _shape_lines(out: str, name: str = "kensaiapp-one") -> list[str]:
+    """The shape lines — those indented six spaces beneath one satellite's headline, the agent
+    overrides line aside, up to the next headline."""
+    lines = out.splitlines()
+    start = next(
+        i for i, line in enumerate(lines) if f" {name} (" in line and not line.startswith(" ")
+    )
+    found: list[str] = []
+    for line in lines[start + 1:]:
+        if not line.startswith("      "):
+            break
+        if not line.startswith(f"      {check_satellites.AGENT_OVERRIDES_PREFIX}"):
+            found.append(line)
+    return found
+
+
+def test_a_fully_linked_consumer_reads_ok_with_no_unlinked_and_no_shape_line(seated, capsys):
+    assert check_satellites.main(["--instance-root", str(seated)]) == 0
+
+    lines = capsys.readouterr().out.splitlines()
+    assert OK_ONE in lines
+    assert not lines[lines.index(OK_ONE) + 1].startswith("      ")
+
+
+@pytest.mark.parametrize("make", [Path.mkdir, Path.touch, None], ids=["directory", "file", "link"])
+def test_shape_line_one_names_a_root_skills_directory_file_or_link(seated, tmp_path, capsys, make):
+    root_skills = tmp_path / "kensaiapp-one" / "skills"
+    if make is None:
+        root_skills.symlink_to(seated / "skills")
+    else:
+        make(root_skills)
+
+    assert check_satellites.main(["--instance-root", str(seated), "--quiet"]) == 1
+
+    out = capsys.readouterr().out
+    assert _shape_lines(out)[0] == f"      {SHAPE_ROOT_SKILLS}"
+    assert out.splitlines()[0].startswith("DRIFT kensaiapp-one")
+
+
+@pytest.mark.parametrize("target", ["resolving", "dangling"])
+def test_shape_line_two_names_a_symlinked_claude_skills_resolving_or_dangling(
+    seated, tmp_path, capsys, target
+):
+    consumer = tmp_path / "kensaiapp-one"
+    pointed_at = tmp_path / "somewhere"
+    if target == "resolving":
+        (pointed_at / "an-extra-entry").mkdir(parents=True)
+
+    def make(folder: Path) -> None:
+        folder.symlink_to(pointed_at)
+
+    _replace_skills_folder_with(consumer, make)
+
+    assert check_satellites.main(["--instance-root", str(seated), "--quiet"]) == 1
+
+    shape = _shape_lines(capsys.readouterr().out)
+    assert shape == [f"      {SHAPE_SKILLS_LINK}"]
+
+
+def test_shape_line_three_names_each_extra_entry_in_byte_order(seated, tmp_path, capsys):
+    skills = tmp_path / "kensaiapp-one" / ".claude" / "skills"
+    (skills / "product-prd").symlink_to(seated / "skills" / "g" / ".claude" / "skills" / "a-skill")
+    (skills / "b-extra").mkdir()
+    (skills / ".hidden").mkdir()
+
+    assert check_satellites.main(["--instance-root", str(seated), "--quiet"]) == 1
+
+    out = capsys.readouterr().out
+    assert _shape_lines(out) == [
+        f"      {SHAPE_EXTRA.format(name='b-extra')}",
+        f"      {SHAPE_EXTRA.format(name='product-prd')}",
+    ]
+    assert out.splitlines()[0].startswith("DRIFT kensaiapp-one")
+
+
+def test_shape_lines_come_in_order_one_then_two(seated, tmp_path, capsys):
+    consumer = tmp_path / "kensaiapp-one"
+    (consumer / "skills").mkdir()
+
+    def make(folder: Path) -> None:
+        folder.symlink_to(tmp_path / "somewhere")
+
+    _replace_skills_folder_with(consumer, make)
+
+    assert check_satellites.main(["--instance-root", str(seated), "--quiet"]) == 1
+
+    assert _shape_lines(capsys.readouterr().out) == [
+        f"      {SHAPE_ROOT_SKILLS}",
+        f"      {SHAPE_SKILLS_LINK}",
+    ]
+
+
+def test_a_non_directory_at_dot_claude_skills_is_drift_with_no_shape_line(seated, tmp_path, capsys):
+    consumer = tmp_path / "kensaiapp-one"
+    _replace_skills_folder_with(consumer, lambda folder: folder.write_text("the satellite's own\n"))
+
+    assert check_satellites.main(["--instance-root", str(seated), "--quiet"]) == 1
+
+    out = capsys.readouterr().out
+    assert out.splitlines()[0].startswith("DRIFT kensaiapp-one (consumer)")
+    assert " 1 conflicts," in out.splitlines()[0]
+    for line in _shape_lines(out):
+        assert " is present" not in line and "is a symlink" not in line
+
+
+def test_a_consumer_with_no_claude_skills_and_no_root_skills_prints_no_shape_line(
+    instance, tmp_path, capsys
+):
+    _link(instance, tmp_path / "kensaiapp-one", "consumer")
+    _link(instance, tmp_path / "kensaiapp-two", "producer")
+    assert not (tmp_path / "kensaiapp-one" / ".claude" / "skills").exists()
+
+    assert check_satellites.main(["--instance-root", str(instance), "--quiet"]) == 0
+
+    out = capsys.readouterr().out
+    assert OK_ONE in out.splitlines()
+    assert _shape_lines(out) == []
+
+
+def test_an_empty_real_claude_skills_prints_no_shape_line(instance, tmp_path, capsys):
+    """CP-1482: a real `.claude/skills/` holding nothing prints no shape line. The host has no seat
+    group, so the consumer is owed no seat link and the row stays `ok`."""
+    _link(instance, tmp_path / "kensaiapp-one", "consumer")
+    _link(instance, tmp_path / "kensaiapp-two", "producer")
+    (tmp_path / "kensaiapp-one" / ".claude" / "skills").mkdir()
+
+    assert check_satellites.main(["--instance-root", str(instance), "--quiet"]) == 0
+
+    out = capsys.readouterr().out
+    assert OK_ONE in out.splitlines()
+    assert _shape_lines(out) == []
+
+
+def test_producer_shape_line_is_unchanged(seated, tmp_path, capsys):
+    producer = tmp_path / "kensaiapp-two"
+    shutil.rmtree(producer / "skills")
+    (producer / "skills").symlink_to(seated / "skills")
+
+    assert check_satellites.main(["--instance-root", str(seated), "--quiet"]) == 1
+
+    assert _shape_lines(capsys.readouterr().out, "kensaiapp-two")[0] == f"      {SHAPE_PRODUCER}"
+
+
+# --------------------------------------------------------------------------------------------
+# A consumer's seat links are no agent override
+# --------------------------------------------------------------------------------------------
+
+
+def _beneath(lines: list[str], headline: str) -> list[str]:
+    """The indented lines that follow one headline."""
+    found: list[str] = []
+    for line in lines[lines.index(headline) + 1:]:
+        if not line.startswith("      "):
+            break
+        found.append(line)
+    return found
+
+
+def test_a_consumer_holding_only_the_three_seat_links_prints_no_agent_overrides_line(
+    seated, capsys
+):
+    assert check_satellites.main(["--instance-root", str(seated)]) == 0
+
+    lines = _lines(capsys)
+    assert _beneath(lines, OK_ONE) == []
+
+
+def test_fifteen_regular_agent_files_seat_names_included_are_all_listed_and_the_row_is_ok(
+    seated, tmp_path, capsys
+):
+    agents = tmp_path / "kensaiapp-one" / ".claude" / "agents"
+    for seat in ("pm", "principal-pm", "scrum-master"):
+        (agents / f"{seat}.md").unlink()
+    names = ["pm", "principal-pm", "scrum-master"] + [f"agent-{n:02d}" for n in range(12)]
+    for name in names:
+        (agents / f"{name}.md").write_text("own\n")
+
+    assert check_satellites.main(["--instance-root", str(seated)]) == 0
+
+    lines = _lines(capsys)
+    assert _beneath(lines, OK_ONE) == [f"      agent overrides: {', '.join(sorted(names))}"]
+
+
+def test_a_symlink_at_pm_resolving_to_principal_pms_group_file_is_listed_as_pm(
+    seated, tmp_path, capsys
+):
+    pm = tmp_path / "kensaiapp-one" / ".claude" / "agents" / "pm.md"
+    pm.unlink()
+    pm.symlink_to(seated / "skills" / "principal-pm" / ".claude" / "agents" / "principal-pm.md")
+
+    check_satellites.main(["--instance-root", str(seated), "--quiet"])
+
+    assert "      agent overrides: pm" in _lines(capsys)
+
+
+def test_a_producer_pm_symlink_to_the_hosts_seat_file_still_lists_pm(seated, tmp_path, capsys):
+    agents = _agents_dir(tmp_path, "kensaiapp-two")
+    (agents / "pm.md").symlink_to(seated / "skills" / "pm" / ".claude" / "agents" / "pm.md")
+
+    assert check_satellites.main(["--instance-root", str(seated)]) == 0
+
+    assert _beneath(_lines(capsys), OK_TWO) == ["      agent overrides: pm"]
+
+
+# --------------------------------------------------------------------------------------------
+# The drift report — what a levelled consumer reports, and what has not changed
+# --------------------------------------------------------------------------------------------
+
+
+def _headline_of(out: str, name: str) -> str:
+    return next(
+        line for line in out.splitlines() if f" {name} (" in line and not line.startswith(" ")
+    )
+
+
+def test_a_consumer_missing_one_seat_link_is_drift_with_one_unlinked_and_a_would_link_line(
+    seated, tmp_path, capsys
+):
+    link = tmp_path / "kensaiapp-one" / ".claude" / "skills" / "seed-pick"
+    link.unlink()
+
+    assert check_satellites.main(["--instance-root", str(seated)]) == 1
+
+    out = capsys.readouterr().out
+    headline = _headline_of(out, "kensaiapp-one")
+    assert headline.startswith("DRIFT kensaiapp-one (consumer) — 1 unlinked, ")
+    assert f"[would link] {link}" in out
+
+
+def test_a_consumer_with_a_link_outside_the_host_is_drift_with_a_conflict(seated, tmp_path, capsys):
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    link = tmp_path / "kensaiapp-one" / ".claude" / "skills" / "seed-pick"
+    link.unlink()
+    link.symlink_to(outside)
+
+    assert check_satellites.main(["--instance-root", str(seated), "--quiet"]) == 1
+
+    headline = _headline_of(capsys.readouterr().out, "kensaiapp-one")
+    assert headline.startswith("DRIFT") and " 1 conflicts," in headline
+
+
+def test_a_seat_skill_removed_from_the_host_is_drift_with_a_dangling_link(seated, tmp_path, capsys):
+    shutil.rmtree(seated / "skills" / "pm" / ".claude" / "skills" / "seed-pick")
+
+    assert check_satellites.main(["--instance-root", str(seated), "--quiet"]) == 1
+
+    headline = _headline_of(capsys.readouterr().out, "kensaiapp-one")
+    assert headline.startswith("DRIFT") and " 1 dangling," in headline
+
+
+def test_a_symlinked_agents_folder_next_to_seat_skill_links_is_named_and_drift(
+    seated, tmp_path, capsys
+):
+    agents = tmp_path / "kensaiapp-one" / ".claude" / "agents"
+    shutil.rmtree(agents)
+    agents.symlink_to(seated / ".claude" / "agents")
+
+    assert check_satellites.main(["--instance-root", str(seated), "--quiet"]) == 1
+
+    out = capsys.readouterr().out
+    assert _headline_of(out, "kensaiapp-one").startswith("DRIFT")
+    assert LEFTOVER_LINK in out.splitlines()
+
+
+def test_a_producer_row_on_a_host_holding_the_seat_groups_reads_as_before(seated, capsys):
+    assert check_satellites.main(["--instance-root", str(seated)]) == 0
+
+    lines = capsys.readouterr().out.splitlines()
+    assert OK_TWO in lines
+    assert _beneath(lines, OK_TWO) == []
+
+
+def test_check_flag_is_refused_by_the_argument_parser():
+    with pytest.raises(SystemExit) as stop:
+        check_satellites.main(["--check"])
+
+    assert stop.value.code == 2

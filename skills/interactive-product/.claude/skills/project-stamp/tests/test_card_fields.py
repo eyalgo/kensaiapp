@@ -1,8 +1,13 @@
-"""The card's Type:, Definition:, Manages: and Source material: lines — what project-setup passes the stamper.
+"""The card's Type:, Definition:, Manages:, Source material: and Behave: lines.
 
-Intent source: core/templates/project_template.md (the two fields and their comments) and
+The first four are what project-setup passes the stamper. Behave: is the one it passes nothing for:
+the stamper copies the template's line unchanged and offers no option for it.
+
+Intent source: core/templates/project_template.md (the fields and their comments) and
 project-setup's screen 1, whose answers land here.
 """
+
+from __future__ import annotations
 
 from pathlib import Path
 
@@ -40,6 +45,26 @@ def test_the_three_flags_land_on_the_card_and_keep_each_comment(run):
     for label in ("Type", "Manages", "Source material"):
         line = next(l for l in card.splitlines() if l.startswith(f"**{label}:**"))
         assert "<!--" in line, f"{label}: lost its comment"
+
+
+def test_a_stamped_card_carries_the_template_behave_line_after_test_command(run):
+    result = run("demo", "--placement", "internal")
+    assert result.returncode == 0, result.stderr
+    template = (run.core / "templates" / "project_template.md").read_text(encoding="utf-8")
+    template_behave = next(
+        line for line in template.splitlines() if line.startswith("**Behave:**")
+    )
+    card_lines = _card(run.root).splitlines()
+    test_command_at = next(
+        i for i, line in enumerate(card_lines) if line.startswith("**Test command:**")
+    )
+    assert card_lines[test_command_at + 1] == template_behave
+
+
+def test_the_scaffolder_offers_no_behave_option(run):
+    result = run("--help")
+    assert result.returncode == 0, result.stderr
+    assert "behave" not in (result.stdout + result.stderr).lower()
 
 
 def test_an_unknown_type_is_refused(run):

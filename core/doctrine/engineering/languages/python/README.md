@@ -1,5 +1,5 @@
 ---
-version: "1.3.0"
+version: "1.3.1"
 ---
 
 # Python — packet router
@@ -17,7 +17,7 @@ and the packet lifecycle are one level up, in `languages/README.md`.
 | Quality gates | `quality_gates.md` |
 | Conventions | `conventions.md` |
 | Errors and logging | `errors_logging.md` |
-| Testing | `testing_python.md` — outside this folder; layers 1–6 answered there, layer 7 routed |
+| Testing | `testing_python.md` — outside this folder; layers 1–7 answered there, the way in a product's scenarios use routed to its NFDR |
 | Gate environment | `environment.md` |
 
 Six destinations sit beside this file. **Testing's does not.** `testing_python.md` already
@@ -26,8 +26,9 @@ layout" and fixes the file location and the run command for layers 1 through 5, 
 four of those five: layer 4 has no standing Python tool (`testing_python.md:20`, "no standing tool
 — see the rule below"; `testing_python.md:30`, "Layer 4 has no standing Python tool."). It answers
 layer 6 as well — `testing_python.md:36` heads "Layer 6 — Architecture" over a filled table and four
-rules — and it routes layer 7 rather than answering it: `:66-70`, "**Not answered here.**… A Python
-product writing them today records its runner in `docs/nfdr.md` § 9." A `testing.md` here would
+rules — and it answers layer 7 too: its § Layer 7 says the scenarios are Behave scenarios in the
+product's `.behave` folder, run by `uv run --locked behave`, and routes the way a product's scenarios
+reach it to `docs/nfdr.md` § 9. A `testing.md` here would
 carry a pointer and nothing else, which `languages/README.md` § The packet router puts in this table
 instead.
 

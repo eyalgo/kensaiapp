@@ -31,7 +31,7 @@ WHAT IT DOES, IN ORDER
        satellite's own name —
        `kensaiapp_structure.md`'s own note on why: inferring the name from the instance produced
        the `tracker_doctrine.md` bug).
-    4. Stamps the role layer — the fourteen per-role overlays plus `system/CROSS_ROLE.md` — from
+    4. Stamps the role layer — the fifteen per-role overlays plus `system/CROSS_ROLE.md` — from
        `<CORE>/templates/role-templates/`. These are exactly the files the withdrawn skill copied
        from a sibling; here they can only come from a template, and every leading HTML comment
        block (template metadata) is stripped, never carried into the stamped file.
@@ -39,13 +39,14 @@ WHAT IT DOES, IN ORDER
        the host (a mature host's copy carries dozens of grants that are not this satellite's to
        inherit).
     6. Delegates to the two tools that already own their jobs: `link_satellite.py` writes the
-       satellite's `.claude/settings.json` from the host's hook wiring, and for a producer links
-       the root `skills/` layer back to the host if the host has one,
+       satellite's `.claude/settings.json` from the host's hook wiring, links a consumer to the
+       `pm`, `principal-pm` and `scrum-master` agents and those three groups' skills, and links a
+       producer's root `skills/` layer back to the host if the host has one,
        and `project-stamp`'s `stamp_project.py` stamps the first project, when `--project`
        is given. Neither is reimplemented here.
     7. Verifies what it produced — `link_satellite.py --check` returns 0, no `core/` directory
        exists, no core-referencing file it authored (the role layer) carries a literal `core/…` or
-       `~/.claude/…` path, the fourteen overlays name the satellite, not the host — and commits the
+       `~/.claude/…` path, the fifteen overlays name the satellite, not the host — and commits the
        result through `commit_builder.py` as the satellite's own genesis commit.
 
 WHAT IT NEVER TOUCHES
@@ -106,7 +107,7 @@ import link_satellite
 import skill_path
 from typing import Callable
 
-__version__ = "1.13.2"
+__version__ = "1.14.1"
 
 SKILLS_MODES = ("consumer", "producer")
 
@@ -116,7 +117,7 @@ SKILLS_MODES = ("consumer", "producer")
 GENERIC_DOMAIN_WORD = "kensaiapp"
 
 # role token (== its global loader's filename stem, == `system/loaders/<role>.md`'s stem) -> title.
-# The thirteen roles that read no context — `pm` has its own template and title, handled separately,
+# The fourteen roles that read no context — `pm` has its own template and title, handled separately,
 # because its on-invocation context read is structural, not a substitution.
 ROLE_TITLES: dict[str, str] = {
     "architect": "Architect",
@@ -129,6 +130,7 @@ ROLE_TITLES: dict[str, str] = {
     "principal_architect": "Principal Architect",
     "principal_pm": "Principal PM",
     "product_owner": "Product Owner",
+    "qa": "QA",
     "scrum_master": "Scrum Master",
     "senior_engineer": "Senior Engineer",
     "tech_lead": "Tech Lead",
@@ -194,7 +196,8 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--skills-mode", required=True, choices=SKILLS_MODES,
         help=(
-            "consumer = no skills layer is linked (launchers find grouped skills in the host); "
+            "consumer = links the pm, principal-pm and scrum-master agents and their groups' "
+            "skills into .claude/ (launchers find every other grouped skill in the host); "
             "producer = the host's root skills/ mirrored as real dirs, for skill-evals output"
         ),
     )
@@ -689,12 +692,13 @@ def _write_settings_local(plan: SpawnPlan, report: Report, *, check: bool) -> No
 
 
 def _invoke_link_satellite(plan: SpawnPlan) -> link_satellite.Report:
-    """Call the linker in-process rather than as a subprocess, so its own `Report` — what it
-    created, and what it repointed — comes back structured. `_commit_satellite` reads it to know
-    which top-level path(s) the linker created that the spawn's own record never mentions (a
-    producer's root `skills/` layer is the one that exists today; the linker writes the satellite's
-    `.claude/settings.json` and links nothing else under `.claude/`). Never reimplements the linker's logic — only calls the function
-    it already exposes."""
+    """Call the linker in-process rather than as a subprocess, so its own report — what it created,
+    and what it repointed — comes back structured. The spawn's commit step reads it to know which
+    top-level path(s) the linker created that the spawn's own record never mentions (a producer's
+    root `skills/` layer is the one that exists today). Everything else the linker writes sits under
+    `.claude/`: the satellite's `.claude/settings.json`, and a consumer's journey-seat links. The
+    spawn already stages `.claude/`, so those reach the first commit with it. Never reimplements the
+    linker's logic — only calls the function it already exposes."""
     try:
         return link_satellite.link_satellite(
             plan.satellite, plan.host, skills_mode=plan.skills_mode, check=False,

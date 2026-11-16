@@ -149,6 +149,116 @@ def test_symlinked_grouped_layer_resolves_under_the_satellite_root(tmp_path):
     assert not str(result.path).startswith(str(host))
 
 
+def _link_flat_to_group(root, group, name, *, flat_name=None):
+    """A relative flat link, `<root>/.claude/skills/<flat_name>`, to `<group>/<name>`."""
+    flat_name = flat_name or name
+    parent = root / ".claude" / "skills"
+    parent.mkdir(parents=True, exist_ok=True)
+    os.symlink(
+        os.path.join("..", "..", "skills", group, ".claude", "skills", name),
+        parent / flat_name,
+    )
+    return parent / flat_name
+
+
+def test_flat_link_to_the_same_names_group_answers_the_grouped_path(tmp_path):
+    grouped = _make_grouped(tmp_path, "g", "x")
+    _link_flat_to_group(tmp_path, "g", "x")
+
+    result = resolve_skill_dir(tmp_path, "x")
+
+    assert result.status == skill_path.FOUND
+    assert result.path == grouped
+
+
+def test_answer_is_not_canonicalized_when_root_is_reached_through_a_link(tmp_path):
+    real = tmp_path / "real"
+    grouped = _make_grouped(real, "g", "x")
+    _link_flat_to_group(real, "g", "x")
+    reached = tmp_path / "reached"
+    os.symlink(real, reached)
+
+    result = resolve_skill_dir(reached, "x")
+
+    assert result.status == skill_path.FOUND
+    assert result.path == reached / "skills" / "g" / ".claude" / "skills" / "x"
+    assert result.path != grouped
+
+
+def test_real_flat_directory_still_wins_when_both_layouts_hold_the_name(tmp_path):
+    flat = _make_flat(tmp_path, "x")
+    _make_grouped(tmp_path, "g", "x")
+    _make_grouped(tmp_path, "h", "x")
+
+    result = resolve_skill_dir(tmp_path, "x")
+
+    assert result.status == skill_path.FOUND
+    assert result.path == flat
+
+
+def test_flat_link_to_another_roots_group_answers_flat(tmp_path):
+    other = tmp_path / "other"
+    _make_grouped(other, "g", "x")
+    root = tmp_path / "root"
+    _make_grouped(root, "g", "x")
+    (root / ".claude" / "skills").mkdir(parents=True)
+    os.symlink(
+        other / "skills" / "g" / ".claude" / "skills" / "x", root / ".claude" / "skills" / "x"
+    )
+
+    result = resolve_skill_dir(root, "x")
+
+    assert result.status == skill_path.FOUND
+    assert result.path == root / ".claude" / "skills" / "x"
+
+
+def test_flat_link_to_a_different_name_answers_flat(tmp_path):
+    _make_grouped(tmp_path, "g", "x")
+    _make_grouped(tmp_path, "g", "y")
+    flat = _link_flat_to_group(tmp_path, "g", "y", flat_name="x")
+
+    result = resolve_skill_dir(tmp_path, "x")
+
+    assert result.status == skill_path.FOUND
+    assert result.path == flat
+
+
+def test_satellite_shaped_root_with_a_whole_directory_link_answers_flat(tmp_path):
+    host = tmp_path / "host"
+    _make_grouped(host, "g", "x")
+    _link_flat_to_group(host, "g", "x")
+    sat = tmp_path / "sat"
+    (sat / ".claude").mkdir(parents=True)
+    os.symlink(host / ".claude" / "skills", sat / ".claude" / "skills")
+
+    result = resolve_skill_dir(sat, "x")
+
+    assert result.status == skill_path.FOUND
+    assert result.path == sat / ".claude" / "skills" / "x"
+
+
+def test_flat_link_picks_the_group_it_points_at_when_two_groups_hold_the_name(tmp_path):
+    _make_grouped(tmp_path, "a", "x")
+    pointed_at = _make_grouped(tmp_path, "b", "x")
+    _link_flat_to_group(tmp_path, "b", "x")
+
+    result = resolve_skill_dir(tmp_path, "x")
+
+    assert result.status == skill_path.FOUND
+    assert result.path == pointed_at
+
+
+def test_dangling_flat_link_falls_through_to_the_grouped_lookup(tmp_path):
+    grouped = _make_grouped(tmp_path, "g", "x")
+    (tmp_path / ".claude" / "skills").mkdir(parents=True)
+    os.symlink("../../gone/x", tmp_path / ".claude" / "skills" / "x")
+
+    result = resolve_skill_dir(tmp_path, "x")
+
+    assert result.status == skill_path.FOUND
+    assert result.path == grouped
+
+
 def test_a_regular_file_at_the_flat_path_falls_through_to_the_grouped_scan(tmp_path):
     flat_parent = tmp_path / ".claude" / "skills"
     flat_parent.mkdir(parents=True)

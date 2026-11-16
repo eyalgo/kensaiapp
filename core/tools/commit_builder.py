@@ -169,7 +169,7 @@ import pin
 import record_declarations
 import skill_path
 
-__version__ = "1.32.1"
+__version__ = "1.36.0"
 
 Op = Literal["commit", "merge", "advance"]
 
@@ -196,6 +196,7 @@ AGENT_ROLE = {
     "senior-engineer": "Senior Engineer",
     "content-manager": "Content Manager",
     "content-editor": "Content Editor",
+    "qa": "QA",
     "pm": "PM",
     "principal-pm": "Principal PM",
     "principal-architect": "Principal Architect",
@@ -1141,14 +1142,47 @@ def _run_git_add(repo: str, paths: list[str]) -> int:
     return subprocess.run(["git", "-C", repo, "add", *paths]).returncode
 
 
+_ONLY_HELP = (
+    "commit exactly the declared paths (--add ∪ --rm ∪ --staged) and nothing else: the commit "
+    "is HEAD plus those paths, and every other staged entry stays staged and outside it. "
+    "Because nothing undeclared can ride along, the staged-set guard is not consulted. The "
+    "commit hooks run as on any commit. For a caller that commits its own files into an index "
+    "another writer may share. Refused with --take-index."
+)
+
+
+def _only_refusal(
+    take_index: bool, add_paths: Sequence[str], rm_paths: Sequence[str],
+    staged_paths: Sequence[str],
+) -> str | None:
+    """Why `--only` cannot run, or None. Judged before anything is staged."""
+    if take_index:
+        return (
+            "commit_builder: refusing — --only keeps every undeclared staged entry out of the "
+            "commit and --take-index takes the whole index in; pass one of them, not both"
+        )
+    if not (add_paths or rm_paths or staged_paths):
+        return (
+            "commit_builder: refusing — --only commits the declared paths and nothing else, "
+            "and none is declared; pass --add, --rm or --staged with the paths to commit"
+        )
+    return None
+
+
 def _run_git_commit(
-    repo: str, message: str, allow_empty: bool = False, verbatim: bool = False
+    repo: str, message: str, allow_empty: bool = False, verbatim: bool = False,
+    only_paths: Sequence[str] = (),
 ) -> int:
     cmd = ["git", "-C", repo, "commit", "-m", message]
     if allow_empty:
         cmd.append("--allow-empty")
     if verbatim:
         cmd.append(_VERBATIM_CLEANUP)
+    if only_paths:
+        # `git commit --only -- <paths>` builds the commit from HEAD plus those paths on a
+        # temporary index, runs the hooks on it, and updates the real index for those paths
+        # alone. Not `commit-tree`, which would skip the `commit-msg` hook.
+        cmd += ["--only", "--", *only_paths]
     return subprocess.run(cmd).returncode
 
 
@@ -2876,6 +2910,11 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         ),
     )
     commit_parser.add_argument(
+        "--only",
+        action="store_true",
+        help=_ONLY_HELP,
+    )
+    commit_parser.add_argument(
         "--copied-from",
         nargs=2,
         action="append",
@@ -3136,6 +3175,13 @@ def _main(
         if directional_refusal is not None:
             print(directional_refusal, file=sys.stderr)
             return 1
+        if args.only:
+            only_refusal = _only_refusal(
+                args.take_index, args.add_paths, args.rm_paths, args.staged_paths
+            )
+            if only_refusal is not None:
+                print(only_refusal, file=sys.stderr)
+                return 1
         # A closing marker is held to the gate run made for this change, before the copy
         # declaration is recorded or anything is staged — --take-index waives nothing here. With
         # no gate run on record, or any other subject, the commit goes on as it always did.
@@ -3170,7 +3216,7 @@ def _main(
         rc = _run_git_add(args.repo, args.add_paths)
         if rc != 0:
             return rc
-        if not args.take_index:
+        if not args.take_index and not args.only:
             refusal = _staged_set_guard_refusal(
                 args.repo, args.add_paths, args.rm_paths, args.staged_paths
             )
@@ -3183,7 +3229,10 @@ def _main(
         if marker_refusal is not None:
             print(marker_refusal, file=sys.stderr)
             return 1
-        committed = _run_git_commit(args.repo, message, allow_empty=args.allow_empty)
+        only_paths = [*args.rm_paths, *args.add_paths, *args.staged_paths] if args.only else ()
+        committed = _run_git_commit(
+            args.repo, message, allow_empty=args.allow_empty, only_paths=only_paths
+        )
         if committed == 0 and args.body_file is not None:
             _remove_body_file(args.body_file)
         return committed

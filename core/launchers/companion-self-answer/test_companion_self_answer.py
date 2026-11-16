@@ -203,7 +203,7 @@ def run(tmp_path, warm_executables):
         project_dir = tmp_path / "system" / "projects" / name
         project_dir.mkdir(parents=True)
         if card is None:
-            card = f"# {name}\n\n**Product path:** {product_path}\n"
+            card = f"# {name}\n\n**Product path:** {product_path}\n**Behave:** none — a test card\n"
         (project_dir / "project.md").write_text(card)
         product_dir = _resolve_product_dir(product_path)
         (product_dir / "docs").mkdir(parents=True, exist_ok=True)
@@ -379,7 +379,7 @@ def test_unknown_project_dies_naming_the_project_card_path(run):
 def test_project_card_without_product_path_dies(run):
     project_dir = run.root / "system" / "projects" / "example-product"
     project_dir.mkdir(parents=True)
-    (project_dir / "project.md").write_text("# example-product\n\nno binding line here\n")
+    (project_dir / "project.md").write_text("# example-product\n\nno binding line here\n**Behave:** none — a test card\n")
 
     result = run("example-product", "fdr")
 
@@ -734,7 +734,7 @@ def test_the_product_path_is_read_through_the_trailing_html_comment_every_card_c
     project_dir = run.root / "system" / "projects" / "example-product"
     project_dir.mkdir(parents=True)
     (project_dir / "project.md").write_text(
-        "# example-product\n\n**Product path:** products/thing   <!-- set at scaffold -->\n"
+        "# example-product\n\n**Product path:** products/thing   <!-- set at scaffold -->\n**Behave:** none — a test card\n"
     )
     (run.root / "products" / "thing" / "docs").mkdir(parents=True)
     run.document(run.root / "products" / "thing", "fdr")

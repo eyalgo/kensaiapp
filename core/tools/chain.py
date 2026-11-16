@@ -142,7 +142,7 @@ import walk_stop
 from providers import ProviderFiles, ProvidersRefused
 from run_intelligence import PROVIDERS
 
-__version__ = "5.14.0"
+__version__ = "5.14.1"
 
 # The state file's own shape. `StateStore.load` refuses anything else by name rather than
 # raising out of the completion hook, because the hook's traceback is what killed a live
@@ -383,7 +383,7 @@ class Files:
         try:
             with open(path, encoding="utf-8") as handle:
                 return handle.read()
-        except OSError:
+        except (OSError, UnicodeDecodeError):
             return None
 
     def write_text(self, path: str, text: str) -> None:

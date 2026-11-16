@@ -1,5 +1,5 @@
 ---
-version: "1.2.3"
+version: "1.2.4"
 ---
 
 # Shell — toolchain
@@ -88,8 +88,8 @@ Three tiers, all visible in the corpus:
    `command -v` pair until it was retired — `product-design`'s on 2026-09-17, `experience-visual`'s on
    2026-09-30.
 3. **Optional, guarded and skipped** — a program whose absence degrades the run rather than ending it.
-   `caffeinate` is the case: `core/tools/detach_watcher.sh` wraps it in
-   `if command -v caffeinate >/dev/null 2>&1; then` and, when it is missing, prints
+   `caffeinate` is the case: `core/tools/detach_watcher.sh` guards it in its real hold starter with
+   `command -v caffeinate >/dev/null 2>&1 || return 0` and, when it is missing, prints
    `(keep-awake: caffeinate not found — not macOS? — skipped)` and carries on.
 
 **A new external program is admitted by choosing tier 2 or tier 3 explicitly and writing the guard.**

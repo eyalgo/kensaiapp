@@ -17,5 +17,5 @@ field** — the project is implied by which project's `journey/tobiishi/` this s
 ---
 
 > **PLACEHOLDER — the PM fills this when opening the Tobiishi.** One change = one `change_request.md`.
-> The chain finds the single active `journey/tobiishi/<key>/` and carries it: spec → design → plan →
-> content → implement → code-integrity → security → audit → seal (sealed to `journey/tobiishi/trail/` on merge).
+> The chain finds the single active `journey/tobiishi/<key>/` and carries it: specs → red-behaviour → design → plan → content →
+> implementation → changelog → code-integrity → security → close → audit → seal (sealed to `journey/tobiishi/trail/` on merge).

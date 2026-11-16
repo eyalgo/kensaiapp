@@ -3,7 +3,7 @@ name: product-card
 description: >-
   Principal PM-posture skill that writes what a product turned out to be, once
   its foundation has settled — the project card's architecture-determined fields
-  (Languages:, Language roots:, Test command:) and the product's README.md, both
+  (Languages:, Language roots:, Test command:, Behave:) and the product's README.md, both
   derived from the settled document set. Requires Principal PM posture (halts if
   invoked outside a principal-pm session or the principal-pm subagent). It runs
   after the FDR, ADR and NFDR have landed and before anything is built, and it is
@@ -21,7 +21,7 @@ description: >-
 license: MIT
 metadata:
   author: Eyal Golan
-  version: "1.5.0"
+  version: "1.6.0"
   created: "2026-09-05"
   category: product-definition
   tags: card, readme, principal-pm, foundation-step, language-roots, product-card
@@ -65,7 +65,7 @@ begins is the Principal PM loader stack's to say; take the boundary from there.
 
 | File | What this skill writes in it |
 |---|---|
-| `system/projects/<name>/project.md` | `Languages:`, `Language roots:`, `Test command:` — and nothing else on the card, comments included. A field the card lacks arrives as a whole line, its comment copied from the template. |
+| `system/projects/<name>/project.md` | `Languages:`, `Language roots:`, `Test command:`, `Behave:` — and nothing else on the card, comments included. A field the card lacks arrives as a whole line, its comment copied from the template. |
 | `<Product path>/README.md` | the product's front door, corrected against the settled set. Created if absent. |
 
 **These two can sit in different repositories, and usually do.** The card is in the instance repo —

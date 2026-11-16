@@ -1,14 +1,17 @@
 #!/usr/bin/env bash
 #
 # doctor.sh — reports whether this machine has the six tools kensaiapp runs on, each at its
-# minimum version: uv, git, podman, tart, gh and claude (Claude Code's command).
+# minimum version: uv, git, podman, tart, gh and claude (Claude Code's command); and the Chromium
+# its suite opens through Playwright.
 #
+# Version: 1.1.0 — the doctor checks for the Chromium core's suite opens, and the starter's browser way in names missing system libraries
 # Version: 1.0.1 — tests read nothing of the machine; the launcher suites run again; a violation is fixed where it is seen
 # Version: 1.0.0 — the report, --help, and the source-safe version comparison
 #
 # USAGE
-#   /bin/bash <CORE>/tools/doctor.sh            one line per tool on stdout; exit 0 when all six
-#                                               are present, 1 when any is missing or too old
+#   /bin/bash <CORE>/tools/doctor.sh            one line per tool, then one for Chromium, on stdout;
+#                                               exit 0 when all are present, 1 when any is missing
+#                                               or too old
 #   /bin/bash <CORE>/tools/doctor.sh --help     the minimum versions; runs no version query
 #   Any other argument prints a usage message to stderr and exits 2.
 #   Reports only: installs, upgrades and edits nothing, and never runs brew.
@@ -73,6 +76,18 @@ DOCTOR_INVENTORY=(
   "claude 2.1.169"
 )
 
+# --- the browser: Chromium for Playwright -------------------------------------------------------
+# The Behave starter's browser way in (core/templates/behave-starter/features/browser_way_in.py)
+# opens headless Chromium through Playwright, and core's own suite runs it (test_behave_starter.py,
+# test_behave_run.py), so a machine that runs the suite needs the browser. uv.lock does not carry
+# it: the command below, run inside a .behave folder, puts it in Playwright's browser folder. That
+# folder is PLAYWRIGHT_BROWSERS_PATH when set, else Playwright's default, the user's cache folder
+# (core/tools/empty_home.py's _playwright_browsers names the same three places). A headless launch
+# uses the chromium_headless_shell build, so that build is what counts as present.
+# Whether the system libraries Chromium loads are there is not checked: the browser way in names
+# them when they are missing.
+DOCTOR_BROWSER_INSTALL='uv run --locked playwright install chromium'
+
 DOCTOR_USAGE='doctor: usage: <CORE>/tools/doctor.sh [--help]'
 DOCTOR_DOTTED_NUMBER='[0-9]+(\.[0-9]+)+'
 
@@ -133,6 +148,32 @@ _read_version() {
   version="${BASH_REMATCH[0]}"
 }
 
+# _browsers_folder: sets browsers to Playwright's browser folder on this machine.
+_browsers_folder() {
+  if [ -n "${PLAYWRIGHT_BROWSERS_PATH-}" ]; then
+    browsers="$PLAYWRIGHT_BROWSERS_PATH"
+  else
+    case "${OSTYPE-}" in
+      darwin*) browsers="${HOME-}/Library/Caches/ms-playwright" ;;
+      *) browsers="${XDG_CACHE_HOME:-${HOME-}/.cache}/ms-playwright" ;;
+    esac
+  fi
+}
+
+# _report_browser: one line for Chromium; 0 when a headless build is in the browser folder.
+_report_browser() {
+  local browsers build
+  _browsers_folder
+  for build in "$browsers"/chromium_headless_shell-*; do
+    if [ -d "$build" ]; then
+      echo "chromium: present"
+      return 0
+    fi
+  done
+  echo "chromium: missing (run once, inside a .behave folder: $DOCTOR_BROWSER_INSTALL)"
+  return 1
+}
+
 # --- the report and --help ---------------------------------------------------------------------
 
 # _report: one line per tool, in inventory order, whatever an earlier tool returned.
@@ -155,6 +196,7 @@ _report() {
       gaps=1
     fi
   done
+  _report_browser || gaps=1
   return "$gaps"
 }
 
@@ -162,12 +204,13 @@ _help() {
   local entry
   echo 'usage: <CORE>/tools/doctor.sh [--help]'
   echo
-  echo 'Checks whether this machine has the six tools kensaiapp runs on, each at its minimum version.'
-  echo 'Prints one line per tool: present, missing or too old.'
+  echo 'Checks whether this machine has the six tools kensaiapp runs on, each at its minimum version,'
+  echo 'and the Chromium its suite opens through Playwright.'
+  echo 'Prints one line per tool: present, missing or too old; then one for Chromium: present or missing.'
   echo 'Each tool is named by its command, and claude is Claude Code.'
   echo 'A tool is checked where your PATH finds it first, so a tool outside your PATH is reported missing.'
   echo 'Nothing is installed, upgraded or changed.'
-  echo 'Exits 0 when all six are present, 1 when any is missing or too old, and 2 for any argument other than --help.'
+  echo 'Exits 0 when all are present, 1 when any is missing or too old, and 2 for any argument other than --help.'
   echo
   echo 'Minimum versions:'
   for entry in "${DOCTOR_INVENTORY[@]}"; do

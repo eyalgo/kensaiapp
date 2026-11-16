@@ -4,7 +4,7 @@
 
 <p align="center">
 <img alt="Runs on Claude Code" src="https://img.shields.io/badge/runs%20on-Claude%20Code-d97757?style=flat-square">
-<img alt="Version 0.5.1" src="https://img.shields.io/badge/version-0.5.1-2da44e?style=flat-square">
+<img alt="Version 0.6.0" src="https://img.shields.io/badge/version-0.6.0-2da44e?style=flat-square">
 <img alt="Runs through uv" src="https://img.shields.io/badge/runs%20through-uv-de5fe9?style=flat-square">
 <img alt="Python 3.14, which uv installs" src="https://img.shields.io/badge/python-3.14%20via%20uv-3776ab?style=flat-square">
 <img alt="Licence: MIT" src="https://img.shields.io/badge/licence-MIT-0969da?style=flat-square">
@@ -20,7 +20,7 @@
 KensaiApp is built and maintained by one contributor, [eyalgo](https://github.com/eyalgo).
 
 KensaiApp runs a product's work the way a team of roles would: a PM, a product owner, an architect,
-a tech lead, a developer, a senior engineer, an auditor. Each is its own agent run, with one job and
+a tech lead, QA, a developer, a senior engineer, an auditor. Each is its own agent run, with one job and
 only the context that job needs. **A program, not a model, decides what runs next**, and every step
 leaves a file in git. You write the goal once. The roles take it from there, and come back to you
 only for the calls that are yours.
@@ -65,6 +65,9 @@ not.
 Quality and security come first. When the Principal PM orders the seeds and the PM picks the next
 one, work that makes the product sounder goes ahead of the next feature.
 
+- **QA** writes the product's behaviour scenarios from the spec, before the design, and they fail
+  first. After the security step, every scenario runs on the change's final code, and one that fails
+  stops the walk. It runs for a product with code that a person uses.
 - **The developer** writes a failing test first, then the code that passes it, then the refactor. A
   task that skips its failing test halts the walk. It works from the sources it was given, not from
   memory, and it does not say done until it has run the check that proves it.
@@ -73,8 +76,9 @@ one, work that makes the product sounder goes ahead of the next feature.
   Rust, Swift and shell.
 - **The senior engineer** proves the change against the spec, not against itself. It adds the tests
   nobody wrote, and fixes the code where a correct test fails.
-- **Security.** After the proof, the senior engineer runs the product's dependency audit, reads the
-  change for holes, fixes what its rules allow and reports the rest to the PM. A first iteration.
+- **Security.** After the proof, the senior engineer runs the product's dependency audit and three
+  scanners, for dependencies, code and secrets: `osv-scanner`, Semgrep and `gitleaks`. It reads the
+  change for holes, fixes what its rules allow and reports the rest to the PM.
 - **The auditor** reviews how well each step did its job. What it finds goes to the PM's review of
   the route, and to the improvement of the skills themselves.
 
@@ -193,9 +197,10 @@ Seven words. Everything else is built on them.
 - **Satellite.** An instance with no core of its own. It reads its host's.
 - **Project.** One product, in the instance or in a repository of its own, with code or without.
 - **Finish line.** What done means for the product, after its PRD. It judges every move.
-- **Seed.** A path through the product that leaves something working. Cut from the documents.
-- **Station.** One stop on a seed's route. Reached when its own done holds.
-- **Change.** One unit of work, built on its own branch in its own worktree, sealed onto `main`.
+- **Seed.** A piece of work: a path through the product that leaves something working. Cut from the
+  documents.
+- **Station.** A step on a seed's route. Reached when its own done holds.
+- **Change.** One fix or addition, built on its own branch in its own worktree, sealed onto `main`.
 
 The journey's words also have Japanese names, Nemawashi, Shukuba and Tobiishi. The
 [architecture overview](about/architecture.md) says why.
@@ -209,10 +214,13 @@ brings the Python KensaiApp runs on, so you do not install Python yourself.
 
 ```bash
 brew install uv          # or: curl -LsSf https://astral.sh/uv/install.sh | sh
+brew install osv-scanner semgrep gitleaks   # the security step's scanners
 git clone https://github.com/eyalgo/kensaiapp.git
 cd kensaiapp
 cp .providers.toml.example .providers.toml
 ```
+
+The security step runs without a scanner too. Its report then says that scanner did not run.
 
 Open Claude Code in the clone. The first session switches on KensaiApp's commit hooks. If the clone
 already has hooks of its own, they are kept, and KensaiApp's commit check then runs only in runs a
@@ -306,7 +314,7 @@ Ask the session why a walk or a change stopped. It tells you what to do.
 ```text
 > why did the walk on my-app stop?
 
-  It stopped at build-idea, waiting on you. The station's change is sealed, but its done says a
+  It stopped at build-idea, waiting on you. The fix for this step is in, but its done says a
   person must see the app's window follow the files on disk. Open the app, check that, then say
   "resume build idea for my-app".
 
@@ -338,28 +346,37 @@ Each is `core/launchers/<name>/launcher.sh`. For example:
 core/launchers/skill/launcher.sh seed-pick <project>
 ```
 
-`seed-pick` is the PM's skill: it picks the next seed to walk. The launcher gives the run the PM's
-group of skills itself. To run it in a session instead, add the group first:
+`seed-pick` is the PM's skill: it picks the next piece of work to walk. In a session, just ask. The
+session starts the PM, the PM runs the skill, and the session tells you which role did what:
 
 ```text
-/add-dir skills/pm
-> pm: /seed-pick
+> pick the next piece of work for my-app
+
+  The PM ran seed-pick for my-app and picked "the tree follows the disk". Next: cut it into steps.
 ```
+
+<sub>An example of the shape of a session, not a transcript.</sub>
 
 ### Interactive session
 
-Some work is best done with you in the room. Give the session a group of skills with `/add-dir`.
+Some work is best done with you in the room.
+
+The journey's own moves need nothing added. Cut an idea, pick the next piece of work, open or close a
+step: ask in plain words, and the session starts the PM, the Principal PM or the Scrum Master to run
+it, then tells you which role did what. A call that is yours stays yours: the session asks you.
+
+For the rest, give the session a group of skills with `/add-dir`.
 A session sees only the skills you give it, so its context holds what the work needs and nothing
 else. [Context](about/under-the-hood.md#context) under the hood explains why.
 
 ```text
 /add-dir skills/interactive        # hand work to a background agent, answer what a run left open, close the session
-/add-dir skills/principal-pm       # seeds-from-idea
 /add-dir skills/tech-lead          # ad-hoc-plan
 ```
 
-- **`seeds-from-idea`** cuts an idea into seeds the PM can pick. The session drafts a short brief
-  from your own words, you confirm it, and the cut runs from it.
+- **`seeds-from-idea`**, the Principal PM's, needs no group. It cuts an idea, or a note such as a
+  report of issues, into pieces of work the PM can pick. The session drafts a short brief from your
+  own words, you confirm it, and the cut runs from it.
 - **`ad-hoc-plan`** plans a change you opened yourself, in one pass: a short spec, a short design and
   a full plan for the developer. Here too, you confirm the brief first. The walk then builds it
   from implementation on. Every run leaves a report beside the brief: what it did with each line of
@@ -421,7 +438,8 @@ For software and AI engineers, the details: [Under the hood](about/under-the-hoo
 KensaiApp comes with two examples.
 
 - **tracker17**, a simple task tracker. `Definition: full`: every product document, then the code.
-  Built with KensaiApp, and used to build it.
+  Built with KensaiApp, and used to build it. Its owner signed it off at its finish line on
+  2026-11-16, the first project to get there.
 - **swe-benchmark-poc**, issues from SWE-bench Verified, chosen from those KensaiApp worked on
   2026-10-10 and 2026-10-11. `Definition: none`: KensaiApp was given only
   the repository before the fix and the issue's text. Each issue keeps its patch and its trail.
@@ -462,13 +480,13 @@ KensaiApp is young, and honest about it. Here is what to expect.
 
 ### Currently working on
 
-- **Security, step two.** The security step gains scanners for dependencies, code and secrets, with
-  its bookkeeping in a tested tool.
-- **QA in the pipeline.**
-- **A red `main` opens its own repair.** Today an advisory that turns `main` red is repaired once.
-  Next, any red `main` opens the change that fixes it, instead of stopping the walk.
-- **A usage report with each release**: what building it cost, by step and by model.
-- **Refactoring**: improving code that was written earlier.
+- **A red `main` is repaired off `main`.** Today an advisory that turns `main` red is repaired once.
+  Next, a skill of its own repairs any red that is `main`'s, on a branch, and lands the fix.
+- **A short lane for a small change.** The PM marks a change small when it opens it, and the walk
+  skips the spec, the design and the plan. The checks and the seal stay.
+- **One way in for an app you already have.** Give KensaiApp your app's folder and a report of its
+  issues. It sets up the project, cuts the report into pieces of work, shows you the plan in plain
+  words and starts the walk.
 
 ### Docs
 

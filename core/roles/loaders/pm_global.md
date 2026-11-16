@@ -1,5 +1,5 @@
 ---
-version: "5.16.0"
+version: "5.19.0"
 ---
 
 # PM role loader
@@ -88,7 +88,9 @@ its shape. What is yours in it:
 1. **Pick the seed that is worked now.** One file moves, `unpicked/` → the seedbed root, and only
    into an empty root. No other candidate moves — `seed-pick`.
 2. **Cut the picked seed into its stations** and write them as its checklist — `stations-from-seed`.
-   The checklist the seed arrived with is the cutter's proposal, and re-cutting it is this move.
+   The checklist the seed arrived with is the cutter's proposal, and re-cutting it is this move. A
+   fresh run then reviews the route blind — `stations-blind-review` — and you fix what it finds in the
+   route before the first station opens.
 3. **Open the current station** — one file at `journey/shukuba/`'s root, carrying what it is, its
    reached-when and its guardrail, and naming the seed item it was opened from — `shukuba-open`,
    which writes it from `<CORE>/templates/journey-templates/shukuba_template.md`, or takes a parked
@@ -182,6 +184,8 @@ should be walked at all is theirs, and so is every ratification along the way.
   removes its line from the Principal PM's context.
 - `stations-from-seed` — splits the picked seed into the stations that will be walked, rewriting its
   `## Stations — dynamic checklist` in place.
+- `stations-blind-review` — a fresh run reads that route against every ruling the seed records and
+  writes what the bars fail to prove to the project's `docs/`; it edits no journey file.
 - `shukuba-refine` — after a unit lands or halts, re-reads the route against what the unit left and
   what moved upstream, makes the route's moves, and writes a report and recommendations with the seed.
 - `tobiishi-drop` — drops an **unsealed** change unit: moves it to `tobiishi/drop/`, closes its
@@ -197,14 +201,12 @@ itself. `nemawashi-retire` (retires a
 all, which is the route rather than the walking of it. You reach both by naming what is owed
 (responsibility 7).
 
-**All nine above are gated to you** — `seed-pick`, `shukuba-open`, `tobiishi-open`,
-`stations-from-seed`, `shukuba-refine` and `tobiishi-drop` halt outside a `pm:` session or the `pm` subagent, because each
+**All ten above are gated to you** — `seed-pick`, `shukuba-open`, `tobiishi-open`,
+`stations-from-seed`, `stations-blind-review`, `shukuba-refine` and `tobiishi-drop` halt outside a `pm:` session or the `pm` subagent, because each
 acts on its own judgment with no owner in the room; `tobiishi-seal` halts there as the flow's terminal
 seal and merge; and `nemawashi-unpick` halts there too, because setting an idea down frees the slot your
 traverse fills (the owner's call, 2026-09-17); `shukuba-park` halts there for the same reason, a
-station set down unreached freeing the same slot (the owner's call, 2026-10-03). All nine are grouped
-under `skills/pm/`, so a session reaches them only after `--add-dir` / `/add-dir` on `skills/pm/`, and a
-run started by `<CORE>/launchers/skill/launcher.sh` is granted that group by the launcher. The
+station set down unreached freeing the same slot (the owner's call, 2026-10-03). All ten are grouped under `skills/pm/`, so a session reaches them after `--add-dir` / `/add-dir` on `skills/pm/`. A Claude Code session started at an instance's root reaches them with no directory added where that instance's `.claude/skills/` links them, and a run started by `<CORE>/launchers/skill/launcher.sh` is granted that group by the launcher. A session asked for a journey move that is yours runs it through the `pm` subagent without first asking the user whether to, and then tells the user that the PM ran it and what the run did. Where a move ends in the owner's own answer, that answer stays the owner's. The session puts the question to the owner, and neither the session nor the `pm` subagent answers it in the owner's place (`<CORE>/doctrine/setup/authoring_layers.md` § *A skill that acts unattended gates to its seat*, the skill that ends in an owner pick). The
 close is the **Scrum Master**'s, not a seat running on your behalf — your park's reached-station close
 is the one exception (responsibility 6); a seat that is not you
 still cannot pick a seed, un-pick one, open a station, park one, open a change unit, cut a route, or

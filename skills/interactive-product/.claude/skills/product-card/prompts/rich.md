@@ -1,5 +1,5 @@
 ---
-version: "2.4.0"
+version: "2.5.0"
 ---
 
 # product-card — reading a settled product into its card and its README
@@ -15,7 +15,7 @@ contributor reads the README having never seen the documents you derived it from
 anything, which is why every rule below is about what the two files say on their own.
 
 This prompt is the **thinking** — § *Inputs you work from* and the authority order in it, § *The
-card's two derived fields*, § *The README*, § *What you must not touch*, and § *When the documents
+card's three derived fields*, § *The README*, § *What you must not touch*, and § *When the documents
 do not determine a field*. The **posture** (the Principal PM-required halt), the **path resolution**
 (the card's repository and the product's, which are usually two), and the **commit** are the
 `product-card` skill's — `skills/interactive-product/.claude/skills/product-card/SKILL.md`. Neither file restates the other
@@ -46,7 +46,7 @@ day it does.
 |---|---|
 | `<product>/docs/adr/` | the physical module set — which units exist, and what language each is written in. The highest authority for structure, because a unit's language and location are what an ADR decides. |
 | `<product>/docs/SDD.md` § 3 | the parts and units tables; the latter already owns each unit's language, kind and placement. |
-| `<product>/docs/nfdr.md` | the quality constraints, and the toolchains a gate has to run. |
+| `<product>/docs/nfdr.md` | the quality constraints, the toolchains a gate has to run, and the Behave call on the `**Behave:**` line of § 9. |
 | `<product>/docs/SRS.md`, `<product>/docs/PRD.md` | what the product is and does — the README's substance. |
 | `<product>/docs/fdr.md`, `UXD.md`, `DESIGN.md`, `CONTENT.md` | behaviour, experience and words, where the README describes any of them. |
 | `system/projects/<name>/project.md` | what the card already declares, and its stamp-time fields. |
@@ -67,9 +67,9 @@ written for someone arriving at the repository, not for this pipeline.
 
 ---
 
-## The card's two derived fields
+## The card's three derived fields
 
-These two are yours. Every other field on the card is stamp-time or upstream, and § *What you must
+These three are yours to write. Every other field on the card is stamp-time or upstream, and § *What you must
 not touch* below names them.
 
 ### `Languages:`
@@ -118,6 +118,27 @@ Where the card already carries a command that the settled set still supports, **
 byte** and say in your report that you checked it. A hand-written gate often carries the reasoning
 for each half in its inline comment, and re-deriving it into a shorter equivalent destroys that
 reasoning while changing nothing a machine runs.
+
+### `Behave:`
+
+**Copied from the NFDR, never decided here.** The Principal Architect makes the Behave call in the
+NFDR, on the `**Behave:**` line of § 9 *Test strategy*, and the card's `**Behave:**` line carries the
+same answer.
+
+The value is everything after `**Behave:**` on that line, trimmed. The NFDR has made the call only
+when § 9 holds exactly one such line and its value is `behave`, or `none — ` followed by a reason that
+is neither empty nor the literal `<reason>`. Then copy the value onto the card's `**Behave:**` line as
+written, reason included, word for word, and leave the line's inline comment as it is.
+
+In every other case the call is not made. That includes a § 9 with no `**Behave:**` line, and a line
+still reading `behave | none — <reason>`. The field is then one the documents do not determine, and
+§ *When the documents do not determine a field* says what to do.
+
+**Never write a Behave value the NFDR does not carry.** Do not derive one from `Test command:`, from
+`Languages:`, from the product's code, or from anything else. The call is the Principal Architect's,
+and a value inferred here would be this run making it.
+
+A card with no `**Behave:**` line is handled as `SKILL.md` Step 3 handles any field a card lacks.
 
 ---
 

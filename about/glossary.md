@@ -423,10 +423,11 @@ reads with one lens. Its agent is `kensaiapp-auditor`.
 
 ## QA
 
-QA checks delivered work against what was asked, in a context separate from the role that produced
-it. It derives acceptance checks from the spec, the design or the plan, and reports the gaps without
-redesigning anything. It is started on demand, on committed work, and is not a step in the
-pipeline.
+QA writes a change's behaviour scenarios, after the spec and before the design, with
+`red-behaviour`. It runs on a product whose card reads `Behave: behave`, one with code that a
+person uses, and on a change whose spec changes behaviour. The scenarios fail first. The developer
+and the Architect may each send the walk back to QA once, saying why. After security, the close runs
+every scenario on the final code. A session opens as QA with the `qa:` prefix.
 
 ## Teacher
 
@@ -590,9 +591,11 @@ reason, such as `settled`, `sealed` or `stopped`.
 
 ## Pipeline
 
-The pipeline is the fixed sequence every change goes through: specs, design, plan, content,
-implementation, changelog, code-integrity, security, audit and seal. Each step is a separate agent run, in its own role,
-and a program, not a model, decides which step runs next. The section
+The pipeline is the fixed sequence every change goes through: specs, red-behaviour, design, plan,
+content, implementation, changelog, code-integrity, security, the close, audit and seal. Each step is
+a separate agent run, in its own role, except the close, which the program runs itself. A program,
+not a model, decides which step runs next. Red-behaviour and the close only do work on a product with
+code that a person uses ([QA](#qa)). The section
 [The change](under-the-hood.md#the-change) of Under the hood names implementation Build and
 code-integrity Prove, with each step's role.
 
@@ -650,7 +653,8 @@ and reads the change's code for security holes, with `development-security`. It 
 allow, writes an exception for an advisory the product does not reach, and reports the rest for the
 PM. It leaves `security-report.md`, whose first line is `clean`, `fixed`, `reported` or `stopped`.
 Only `stopped` halts the walk: a fix needs a move the step may not make, and the questions go to you.
-It is a first iteration ([What is in it](what-is-in-it.md#three-checks-on-every-change)).
+On every run it also runs `osv-scanner`, Semgrep CE and `gitleaks`
+([What is in it](what-is-in-it.md#three-checks-on-every-change)).
 
 ## Audit
 

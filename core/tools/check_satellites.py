@@ -13,9 +13,10 @@ WHAT IT IS FOR
     satellite behaves like it is a version behind.
 
 WHAT IT REUSES, AND WHY THAT IS THE POINT
-    Everything about what "correct" means comes from `link_satellite`: the layer list, the link
-    form, the consumer/producer split, and the created / repointed / dangling / conflict
-    distinctions. This file imports it and calls `link_satellite(..., check=True)`.
+    Everything about what "correct" means comes from `link_satellite.py`: the layer list, the
+    journey seats' links a consumer is owed, the link form, the consumer/producer split, and the
+    created / repointed / dangling / conflict distinctions. This file imports it and calls
+    `link_satellite(..., check=True)`.
 
     A checker with its own opinion of correct would be the same defect one level up — two
     definitions that agree today and drift the first time either moves. The one thing it may
@@ -34,13 +35,18 @@ WHERE THE ROSTER COMES FROM
     circular — a satellite that drifted into the wrong shape would define its own correctness.
 
 THE ONE LINE THE LINKER CANNOT PRINT
-    `satellites.md` § The two kinds states each kind's on-disk signature: a consumer holds no
-    skills layer at all — neither `.claude/skills` nor a root `skills/` — and a producer's root
-    `skills/` is a real directory. This compares the rostered kind against what is there.
+    `satellites.md` § The two kinds states each kind's on-disk signature. A consumer holds no root
+    `skills/`, and its `.claude/skills`, where it has one, is a real directory holding only the
+    journey seats' links. A producer's root `skills/` is a real directory. This compares the
+    rostered kind against what is there.
 
-    For a consumer it is a detection the linker cannot make: the linker never removes what an
-    earlier run linked (removing it is a commit in the satellite), so a `.claude/skills` link left
-    from before every host skill was grouped would otherwise go unnamed while it still resolves.
+    For a consumer it is a detection the linker cannot make. The linker reports only the links it
+    owes, and never removes what an earlier run linked or what the satellite put there itself
+    (removing it is a commit in the satellite). So a root `skills`, a `.claude/skills` that is
+    itself a link, and an entry in `.claude/skills/` that is no journey seat's skill would otherwise
+    go unnamed. Each gets one line, in that order, with the entries in byte order of name. An entry
+    whose name starts with a dot is not read, and nothing inside a `.claude/skills` link is read. A
+    missing seat link is not one of these lines: the linker's own `--check` counts it as unlinked.
 
     For a producer it is a diagnosis, not a detection. A producer whose skills root is a symlink is already
     caught — `_link_tree` recurses through the link, every host file resolves to a real file, and
@@ -70,23 +76,28 @@ THE OVERLAYS
     only a reader catches it.
 
 THE AGENTS FOLDER
-    The fourth check of this file's own. A satellite's `.claude/agents/` is its own: it holds a
-    real `<name>.md` only for an agent the satellite overrides, and a launched run takes that
-    file in place of the agent file of the same name in the host's groups. The linker no longer
-    links the folder and has no opinion of it, so the check of it is this file's alone.
+    The fourth check of this file's own. A satellite's `.claude/agents/` is its own: it holds a real
+    `<name>.md` for an agent the satellite overrides, and a launched run takes that file in place of
+    the agent file of the same name in the host's groups. A consumer's folder also holds the journey
+    seats' links, which the linker makes and checks. The linker has no opinion of the rest of the
+    folder, so the check of it is this file's alone.
 
     The folder is in one of four states: absent, a real directory, a symlink that resolves, or a
     symlink that dangles. The state is decided from the path itself, before anything inside it is
     read.
 
     A real directory is read for agent files. An agent file is an entry directly inside it whose
-    name ends in `.md` and does not start with a dot, and which is a file once links are followed.
-    A link to a file counts. A subdirectory, another extension and a dangling link do not, and the
+    name ends in `.md` and does not start with a dot, and which is a file once links are followed. A
+    link to a file counts. A subdirectory, another extension and a dangling link do not, and the
     linker still reports a dangling one. Each agent file is an override, and one line beneath the
-    headline lists them by name in byte order: `agent overrides: architect, pm`.
+    headline lists them by name in byte order: `agent overrides: architect, pm`. A consumer's
+    journey-seat link is not an override and is not listed. That is a link at `<seat>.md` that
+    resolves to that seat's own agent file in the host. A real file at a seat's name is listed, and
+    so is a link to any other file. A producer's folder is listed in full, seat names included,
+    because a producer is owed no seat link.
 
     An override is not drift. It changes neither the satellite's mark, nor the counts on its
-    headline, nor the exit code. An absent folder, or a real one holding no agent file, prints
+    headline, nor the exit code. An absent folder, or a real one holding no override, prints
     nothing.
 
     A symlink, resolving or dangling, is drift, and one line beneath the headline says so. It is
@@ -108,12 +119,13 @@ import argparse
 import os
 import re
 import sys
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
 import link_satellite
 
-__version__ = "1.6.0"
+__version__ = "1.7.0"
 
 # The roster's section heading -> the `--skills-mode` that section's rows were spawned with.
 # `satellites.md` § The two kinds states the pair; this maps the headings that carry them.
@@ -172,7 +184,8 @@ class Verdict:
     satellite: Satellite
     report: link_satellite.Report | None
     absent: bool = False
-    shape: str | None = None  # the skills root's shape, when it contradicts the rostered kind
+    # what is wrong with its skills folders for its rostered kind, one line each
+    shapes: tuple[str, ...] = ()
     instructions: tuple[str, ...] = ()  # what is wrong with its instruction files, one line each
     overlays: tuple[str, ...] = ()  # what is wrong with its role overlays, one line each
     agent_overrides: tuple[str, ...] = ()  # the agents it overrides, by name; never drift
@@ -180,7 +193,7 @@ class Verdict:
 
     @property
     def drifted(self) -> bool:
-        if self.absent or self.shape or self.instructions or self.overlays or self.agents_link:
+        if self.absent or self.shapes or self.instructions or self.overlays or self.agents_link:
             return True
         return bool(self.report and (self.report.would_change or self.report.needs_attention))
 
@@ -198,9 +211,7 @@ class Verdict:
         )
         mark = "DRIFT" if self.drifted else "ok   "
         line = f"{mark} {self.satellite.name} ({self.satellite.kind}) — {counts}"
-        if self.shape:
-            line += f"\n      {self.shape}"
-        for problem in self.instructions + self.overlays:
+        for problem in self.shapes + self.instructions + self.overlays:
             line += f"\n      {problem}"
         if self.agent_overrides:
             line += f"\n      {AGENT_OVERRIDES_PREFIX}{', '.join(self.agent_overrides)}"
@@ -217,8 +228,21 @@ AGENTS_LINK_PROBLEM = (
 )
 
 
-def _agents_folder(satellite: Path) -> tuple[tuple[str, ...], str | None]:
-    """The satellite's agent-override names and its leftover-link problem; never both set.
+def _is_seat_link(entry: Path, seat_agents: Mapping[str, Path]) -> bool:
+    """Whether `entry` is a link at a seat's name that resolves to that seat's own agent file.
+    Both sides are resolved, because a `/var` -> `/private/var` detour makes their texts differ."""
+    target = seat_agents.get(entry.name)
+    return target is not None and entry.is_symlink() and entry.resolve() == target.resolve()
+
+
+def _agents_folder(
+    satellite: Path, seat_agents: Mapping[str, Path]
+) -> tuple[tuple[str, ...], str | None]:
+    """The satellite's agent-override names and its leftover-link problem; never both set. A
+    consumer's journey-seat link is no override, and is left out.
+
+    `seat_agents` maps a seat's agent file name to the host file its link must resolve to: the
+    consumer's seat links, and empty for a producer, which is owed none.
 
     The folder's state is decided on the path itself, before anything inside it is read:
     `Path.is_dir` follows a link, so a symlink into the host would otherwise be read as a real
@@ -231,31 +255,64 @@ def _agents_folder(satellite: Path) -> tuple[tuple[str, ...], str | None]:
     names = {
         entry.name[: -len(".md")]
         for entry in agents.iterdir()
-        if entry.name.endswith(".md") and not entry.name.startswith(".") and entry.is_file()
+        if entry.name.endswith(".md")
+        and not entry.name.startswith(".")
+        and entry.is_file()
+        and not _is_seat_link(entry, seat_agents)
     }
     return tuple(sorted(names, key=lambda name: name.encode("utf-8"))), None
 
 
-def _shape_mismatch(satellite: Satellite) -> str | None:
-    """The skills layout, when it contradicts the kind the roster gives this satellite, per
-    `satellites.md` § The two kinds. The kind is read from the roster and the shape from disk,
-    never the reverse: deriving the kind from the shape would let a satellite that drifted define
-    its own correctness."""
+def _consumer_skills_extras(
+    entry_names: Iterable[str], seat_skill_names: Iterable[str]
+) -> tuple[str, ...]:
+    """The entries a consumer's `.claude/skills/` holds that are no journey seat's skill, in byte
+    order of name. A name starting with a dot is not read."""
+    seat_names = set(seat_skill_names)
+    extras = {name for name in entry_names if not name.startswith(".") and name not in seat_names}
+    return tuple(sorted(extras, key=lambda name: name.encode("utf-8")))
+
+
+SHAPE_ROOT_SKILLS = (
+    "skills is present, and a consumer holds no root skills/ — its .claude/skills holds only the "
+    "journey seats' links; removing the root skills is a commit in the satellite"
+)
+SHAPE_SKILLS_LINK = (
+    ".claude/skills is a symlink, and a consumer's must be a real directory holding only the "
+    "journey seats' links — removing it is a commit in the satellite"
+)
+SHAPE_EXTRA_SKILL = (
+    ".claude/skills/{name} is present, and a consumer's .claude/skills holds only the journey "
+    "seats' links — removing it is a commit in the satellite"
+)
+SHAPE_PRODUCER_ROOT_LINK = (
+    "skills root is a symlink, and a producer's must be a real directory — every "
+    "eval/evidence write through it lands in the host"
+)
+
+
+def _shape_mismatches(satellite: Satellite, seat_skill_names: Iterable[str]) -> tuple[str, ...]:
+    """Every way the skills layout contradicts the kind the roster gives this satellite, one line
+    each, per `satellites.md` § The two kinds. The kind is read from the roster and the shape from
+    disk, never the reverse: deriving the kind from the shape would let a satellite that drifted
+    define its own correctness."""
     if satellite.kind == "producer":
         if (satellite.path / "skills").is_symlink():
-            return (
-                "skills root is a symlink, and a producer's must be a real directory — every "
-                "eval/evidence write through it lands in the host"
-            )
-        return None
-    if satellite.kind == "consumer":
-        for layer in (Path(".claude") / "skills", Path("skills")):
-            if os.path.lexists(satellite.path / layer):
-                return (
-                    f"{layer} is present, and a consumer holds no skills layer — its launchers "
-                    "grant each group from the host; removing it is a commit in the satellite"
-                )
-    return None
+            return (SHAPE_PRODUCER_ROOT_LINK,)
+        return ()
+    if satellite.kind != "consumer":
+        return ()
+    lines: list[str] = []
+    if (satellite.path / "skills").exists(follow_symlinks=False):
+        lines.append(SHAPE_ROOT_SKILLS)
+    skills = satellite.path / ".claude" / "skills"
+    if skills.is_symlink():
+        lines.append(SHAPE_SKILLS_LINK)
+    elif skills.is_dir():
+        entry_names = (entry.name for entry in skills.iterdir())
+        extras = _consumer_skills_extras(entry_names, seat_skill_names)
+        lines.extend(SHAPE_EXTRA_SKILL.format(name=name) for name in extras)
+    return tuple(lines)
 
 
 # The template-owned root files: name, its template under `<CORE>/templates/`, and what its
@@ -319,11 +376,20 @@ def check_one(satellite: Satellite, host: Path) -> Verdict:
     report = link_satellite.link_satellite(
         satellite.path, host, skills_mode=satellite.kind, check=True
     )
-    overrides, agents_link = _agents_folder(satellite.path)
+    seat_links = link_satellite.seat_links(host)
+    seat_skill_names = [
+        link.name for link in seat_links if link.folder is link_satellite.SeatFolder.SKILLS
+    ]
+    seat_agents = {
+        link.name: link.target
+        for link in seat_links
+        if link.folder is link_satellite.SeatFolder.AGENTS and satellite.kind == "consumer"
+    }
+    overrides, agents_link = _agents_folder(satellite.path, seat_agents)
     return Verdict(
         satellite=satellite,
         report=report,
-        shape=_shape_mismatch(satellite),
+        shapes=_shape_mismatches(satellite, seat_skill_names),
         instructions=instruction_problems(satellite.path, host),
         overlays=overlay_problems(satellite.path, host),
         agent_overrides=overrides,

@@ -1,0 +1,1 @@
+../../skills/pm/.claude/agents/pm.md

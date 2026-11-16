@@ -1,5 +1,5 @@
 ---
-version: "1.5.0"
+version: "1.6.2"
 ---
 
 # Python — toolchain
@@ -77,11 +77,9 @@ machine: `python3 -c "import yaml"` fails with `ModuleNotFoundError: No module n
 comes from the standard library.
 
 **The test suite is the exception, and it is declared.** 42 tracked files carry `import pytest`
-(`git grep -l '^import pytest' -- '*.py' | wc -l`, 2026-08-21). `pyproject.toml` at the instance
-root names pytest and its plugin `pytest-xdist` as its only two dependencies, each pinned to an exact
-version with `==`. The `core/` suites need `pytest-xdist` beside pytest: `core/pytest.ini` sets
+(`git grep -l '^import pytest' -- '*.py' | wc -l`, 2026-08-21). `pyproject.toml` at the instance root names two dependencies, each a test tool pinned to an exact version with `==`: pytest and its plugin `pytest-xdist`. Behave is pinned in the Behave starter's own `pyproject.toml` and `uv.lock` in `core/templates/behave-starter/`, and `core/tools/test_behave_starter.py` runs the starter from that lock. The `core/` suites need `pytest-xdist` beside pytest: `core/pytest.ini` sets
 `addopts = -n 32`, and without the plugin pytest stops with `unrecognized arguments: -n` before
-running a test. `-n 0` runs serially and still needs the plugin installed. The `core/tools/` and `core/launchers/` suites run on the pinned pair through
+running a test. `-n 0` runs serially and still needs the plugin installed. The `core/tools/` and `core/launchers/` suites run on these pinned tools through
 `uv run --locked pytest core/tools/ core/launchers/`, the test command on the `tools` project card. A suite run with a bare `pytest` still gets whatever pytest the machine has.
 
 ### Adding one

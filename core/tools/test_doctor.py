@@ -22,6 +22,13 @@ DOCTOR = Path(__file__).resolve().parent / "doctor.sh"
 LABELS = ("uv", "git", "podman", "tart", "gh", "claude")
 USAGE = "doctor: usage: <CORE>/tools/doctor.sh [--help]\n"
 SCRATCH_HOME_VARIABLE = "DOCTOR_TEST_SCRATCH_HOME"
+SCRATCH_BROWSERS_VARIABLE = "DOCTOR_TEST_SCRATCH_BROWSERS"
+BROWSER_PRESENT = "chromium: present"
+BROWSER_MISSING = (
+    "chromium: missing (run once, inside a .behave folder: uv run --locked playwright install chromium)"
+)
+HEADLESS_BUILD = "chromium_headless_shell-1"
+DEFAULT = object()
 FLOOR_ROW = re.compile(r"^(uv|git|podman|tart|gh|claude): (\d+(?:\.\d+)+)$")
 
 # Each tool's own first version line, as the tool prints it (change_spec.md § Verified Claims).
@@ -37,12 +44,13 @@ NATIVE_FIRST_LINE = {
 HELP_TEMPLATE = """\
 usage: <CORE>/tools/doctor.sh [--help]
 
-Checks whether this machine has the six tools kensaiapp runs on, each at its minimum version.
-Prints one line per tool: present, missing or too old.
+Checks whether this machine has the six tools kensaiapp runs on, each at its minimum version,
+and the Chromium its suite opens through Playwright.
+Prints one line per tool: present, missing or too old; then one for Chromium: present or missing.
 Each tool is named by its command, and claude is Claude Code.
 A tool is checked where your PATH finds it first, so a tool outside your PATH is reported missing.
 Nothing is installed, upgraded or changed.
-Exits 0 when all six are present, 1 when any is missing or too old, and 2 for any argument other than --help.
+Exits 0 when all are present, 1 when any is missing or too old, and 2 for any argument other than --help.
 
 Minimum versions:
 {rows}
@@ -76,11 +84,18 @@ def make_stub(
 
 
 def run_doctor(
-    *args: str, path: str, cwd: Path | None = None
+    *args: str, path: str, cwd: Path | None = None, browsers=DEFAULT, **extra: str
 ) -> subprocess.CompletedProcess[str]:
+    """Run the doctor. `browsers` is its PLAYWRIGHT_BROWSERS_PATH: by default a scratch folder
+    holding a headless Chromium build, so a tool case reads Chromium as present; None sets none."""
+    environment = {"PATH": path, "HOME": os.environ[SCRATCH_HOME_VARIABLE], **extra}
+    if browsers is DEFAULT:
+        browsers = os.environ[SCRATCH_BROWSERS_VARIABLE]
+    if browsers is not None:
+        environment["PLAYWRIGHT_BROWSERS_PATH"] = str(browsers)
     return subprocess.run(
         [BASH, str(DOCTOR), *args],
-        env={"PATH": path, "HOME": os.environ[SCRATCH_HOME_VARIABLE]},
+        env=environment,
         cwd=str(cwd) if cwd else None,
         capture_output=True,
         text=True,
@@ -94,6 +109,9 @@ def scratch_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     home = tmp_path / "scratch-home"
     home.mkdir()
     monkeypatch.setenv(SCRATCH_HOME_VARIABLE, str(home))
+    browsers = tmp_path / "scratch-browsers"
+    (browsers / HEADLESS_BUILD).mkdir(parents=True)
+    monkeypatch.setenv(SCRATCH_BROWSERS_VARIABLE, str(browsers))
 
 
 @pytest.fixture
@@ -147,7 +165,7 @@ def test_all_tools_at_floor_are_present_in_order(tmp_path: Path, floors: dict[st
     stubs_at(bin_dir, floors)
     elsewhere = tmp_path / "unrelated"
     elsewhere.mkdir()
-    expected = [present(label, floors[label]) for label in LABELS]
+    expected = [*(present(label, floors[label]) for label in LABELS), BROWSER_PRESENT]
 
     for cwd in (None, elsewhere):
         result = run_doctor(path=str(bin_dir), cwd=cwd)
@@ -171,8 +189,8 @@ def test_removed_tool_is_missing_with_real_tool_links(tmp_path: Path, removed: s
     result = run_doctor(path=str(links))
 
     lines = result.stdout.splitlines()
-    assert len(lines) == 6
-    assert [line.split(":")[0] for line in lines] == list(LABELS)
+    assert len(lines) == 7
+    assert [line.split(":")[0] for line in lines] == [*LABELS, "chromium"]
     assert lines[LABELS.index(removed)] == f"{removed}: missing"
     assert result.returncode == 1
 
@@ -186,7 +204,9 @@ def test_empty_tool_directory_needs_no_uv_python_or_bash_on_path(tmp_path: Path)
 
     result = run_doctor(path=str(empty))
 
-    assert result.stdout.splitlines() == [f"{label}: missing" for label in LABELS]
+    assert result.stdout.splitlines() == [
+        *(f"{label}: missing" for label in LABELS), BROWSER_PRESENT
+    ]
     assert result.returncode == 1
     assert result.stderr == ""
 
@@ -203,7 +223,7 @@ def test_each_tool_below_floor_is_too_old(tmp_path: Path, floors: dict[str, str]
 
     result = run_doctor(path=str(bin_dir))
 
-    expected = [present(label, floors[label]) for label in LABELS]
+    expected = [*(present(label, floors[label]) for label in LABELS), BROWSER_PRESENT]
     expected[LABELS.index(old)] = too_old(old, versions[old], floors[old])
     assert result.stdout.splitlines() == expected
     assert result.returncode == 1
@@ -283,7 +303,7 @@ def test_unreadable_version_does_not_stop_later_reports(
 
     result = run_doctor(path=str(bin_dir))
 
-    expected = [present(other, floors[other]) for other in LABELS]
+    expected = [*(present(other, floors[other]) for other in LABELS), BROWSER_PRESENT]
     expected[LABELS.index(label)] = unreadable(label, floors[label])
     assert result.stdout.splitlines() == expected
     assert result.returncode == 1
@@ -303,9 +323,73 @@ def test_valid_stdout_decides_and_probe_noise_stays_out_of_the_report(
 
     result = run_doctor(path=str(bin_dir))
 
-    assert result.stdout.splitlines() == [present(l, floors[l]) for l in LABELS]
+    assert result.stdout.splitlines() == [*(present(l, floors[l]) for l in LABELS), BROWSER_PRESENT]
     assert result.returncode == 0
     assert result.stderr == ""
+
+
+# --- the browser ------------------------------------------------------------------------------
+
+
+def test_a_browser_folder_without_a_headless_build_is_missing_and_exits_one(
+    tmp_path: Path, floors: dict[str, str]
+) -> None:
+    bin_dir = tmp_path / "bin"
+    stubs_at(bin_dir, floors)
+    browsers = tmp_path / "browsers"
+    (browsers / "chromium-1").mkdir(parents=True)
+    (browsers / "ffmpeg-1").mkdir()
+
+    result = run_doctor(path=str(bin_dir), browsers=browsers)
+
+    assert result.stdout.splitlines() == [
+        *(present(label, floors[label]) for label in LABELS), BROWSER_MISSING
+    ]
+    assert result.returncode == 1
+    assert result.stderr == ""
+
+
+def test_a_browser_folder_that_does_not_exist_is_missing(tmp_path: Path) -> None:
+    empty = tmp_path / "empty"
+    empty.mkdir()
+
+    result = run_doctor(path=str(empty), browsers=tmp_path / "nowhere")
+
+    assert result.stdout.splitlines()[-1] == BROWSER_MISSING
+    assert result.returncode == 1
+
+
+@pytest.mark.parametrize(
+    ("ostype", "home_folder", "extra"),
+    [
+        ("darwin25", "Library/Caches/ms-playwright", {}),
+        ("linux-gnu", ".cache/ms-playwright", {}),
+        ("linux-gnu", "xdg/ms-playwright", {"XDG_CACHE_HOME": "xdg"}),
+    ],
+    ids=["macos", "linux", "linux-xdg"],
+)
+def test_without_a_browsers_path_chromium_is_looked_for_in_playwrights_default_folder(
+    tmp_path: Path, ostype: str, home_folder: str, extra: dict[str, str]
+) -> None:
+    home = Path(os.environ[SCRATCH_HOME_VARIABLE])
+    if "XDG_CACHE_HOME" in extra:
+        extra = {"XDG_CACHE_HOME": str(home / extra["XDG_CACHE_HOME"])}
+    empty = tmp_path / "empty"
+    empty.mkdir()
+    report = [BASH, "-c", 'OSTYPE="$1"; source "$2"; _report_browser', "caller", ostype, str(DOCTOR)]
+
+    def run() -> subprocess.CompletedProcess[str]:
+        return subprocess.run(
+            report, env={"PATH": str(empty), "HOME": str(home), **extra},
+            capture_output=True, text=True, check=False,
+        )
+
+    before = run()
+    (home / home_folder / HEADLESS_BUILD).mkdir(parents=True)
+    after = run()
+
+    assert (before.stdout, before.returncode) == (BROWSER_MISSING + "\n", 1)
+    assert (after.stdout, after.returncode) == (BROWSER_PRESENT + "\n", 0)
 
 
 # --- T7 ---------------------------------------------------------------------------------------

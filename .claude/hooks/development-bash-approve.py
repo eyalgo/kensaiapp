@@ -13,7 +13,9 @@ is in the safe set defers when its arguments make it open-ended or
 destructive, or are computed (a `$` parameter, a substitution) so the hook
 cannot read them: Python given code any way but a script file or a listed
 module; pip doing anything but read; every `npx` call except the two pinned
-`@google/design.md` invocations the design-language flow runs; an `awk` or
+`@google/design.md` invocations the design-language flow runs; every call to the
+walk launcher except its dry run, `core/launchers/walk/launcher.sh <project>
+--dry-run`, which starts nothing and must be the whole command; an `awk` or
 `sed` program that can run a command or write a file, or one read from a
 file; a git subcommand off its allowed list (reads, and the changes the flows
 make and git can take back), judged after git's global options, and any
@@ -48,7 +50,7 @@ import json
 import re
 import shlex
 
-__version__ = "1.2.0"
+__version__ = "1.3.0"
 
 # Heads that may run with no prompt: read-only inspection + git + python/pytest
 # + reversible filesystem ops. Anything not here defers to a normal prompt.
@@ -89,6 +91,29 @@ RUNNER_SUFFIX = "/core/tools/locked_python.sh"
 
 def _is_runner(head):
     return head.strip("\"'").endswith(RUNNER_SUFFIX)
+
+
+# The walk launcher's dry run, `core/launchers/walk/launcher.sh <project> --dry-run`,
+# prints what a walk would run and starts nothing. A headless session with no
+# gitignored permission file has no other way to be let run it, so exactly that
+# shape is approved. The head is matched by its last four path segments, relative
+# or absolute, and a `..` segment defers because it can name a different file. The
+# arguments are one project name, which cannot start with `-` (so `--stop` is never
+# read as one), then `--dry-run`, in that order.
+WALK_LAUNCHER_SEGMENTS = ("core", "launchers", "walk", "launcher.sh")
+PROJECT_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*\Z")
+
+
+def _is_walk_launcher(head):
+    parts = head.split("/")
+    return tuple(parts[-4:]) == WALK_LAUNCHER_SEGMENTS and ".." not in parts
+
+
+def _walk_launcher_segment_ok(args):
+    """True only for `<project> --dry-run`. Like `_npx_segment_ok`, it judges the
+    segment's arguments, and `main` adds the other half: a call to the walk launcher
+    approves only as the whole command, so nothing runs beside it."""
+    return len(args) == 2 and PROJECT_NAME.match(args[0]) is not None and args[1] == "--dry-run"
 
 # Process wrappers Claude Code itself strips before matching — mirror that.
 WRAPPERS = {"timeout", "time", "nice", "nohup", "stdbuf", "env", "xargs"}
@@ -899,10 +924,11 @@ def _sort_segment_ok(args):
 def _exec_segment_ok(head, args):
     """False when an otherwise-safe head is given arguments that make it run
     code we won't auto-approve, push, or discard work: inline or stdin Python,
-    an `npx` call that is not one of the two pinned design.md invocations, an
-    `awk` or `sed` program that can run a command or write a file, a git
-    subcommand off the allowed list, a pip that installs, a recursive `rm`, and
-    the `find`, `rg` and `sort` options that run a program. Scoped to one
+    an `npx` call that is not one of the two pinned design.md invocations, a
+    walk-launcher call that is not its dry run, an `awk` or `sed` program that can
+    run a command or write a file, a git subcommand off the allowed list, a pip
+    that installs, a recursive `rm`, and the `find`, `rg` and `sort` options that
+    run a program. Scoped to one
     segment's args so unrelated `-c` flags (e.g. `grep -c`) on other commands
     never trip it."""
     base = head.rsplit("/", 1)[-1]
@@ -912,6 +938,8 @@ def _exec_segment_ok(head, args):
         return _pip_segment_ok(args)
     if base == "npx":
         return _npx_segment_ok(args)
+    if _is_walk_launcher(head):
+        return _walk_launcher_segment_ok(args)
     checks = {"awk": _awk_segment_ok, "sed": _sed_segment_ok, "git": _git_segment_ok,
               "rm": _rm_segment_ok, "find": _find_segment_ok, "rg": _rg_segment_ok,
               "sort": _sort_segment_ok}
@@ -1001,7 +1029,7 @@ TRUSTED_BIN_PARTS = ("/.venv/bin/", "/venv/bin/")
 def safe_head(h):
     if SUBST in h or "$" in h or "`" in h:
         return False  # a computed head names whatever its value says
-    if h in SAFE or _is_runner(h):
+    if h in SAFE or _is_runner(h) or _is_walk_launcher(h):
         return True
     # An absolute path to a python, pytest or pip binary in a trusted place.
     base = h.rsplit("/", 1)[-1]
@@ -1031,28 +1059,36 @@ KEY_NAMES_READS = {
 }
 
 
+def decide(cmd):
+    """True when `cmd` is approved with no prompt, False when it defers. A function of the
+    command string alone, so its tests call it in-process; `main` reads the string from the
+    hook's input and prints the decision."""
+    if not cmd.strip():
+        return False
+    cmd = strip_heredocs(cmd)  # drop document bodies before any analysis
+    if cmd is None:
+        return False  # a delimiter or a substitution that does not close → defer
+    if cmd.strip() in KEY_NAMES_READS:
+        return True
+    # Also read with quotes and backslashes taken out, so a name the shell
+    # splices together (`~/.e"n"v`, `~/.\env`) is judged as the name it becomes.
+    if RISKY.search(cmd) or RISKY.search(re.sub(r"[\\'\"]", "", cmd)):
+        return False  # risky construct → defer to a prompt
+    hs = heads_from(cmd)
+    if not hs:
+        return False  # parse trouble or no head found → defer
+    if len(hs) > 1 and any(_is_walk_launcher(h) for h in hs):
+        return False  # the walk launcher's dry run is approved alone, never beside another command
+    return all(safe_head(h) for h in hs)
+
+
 def main():
     try:
         data = json.load(sys.stdin)
     except Exception:
         return  # cannot parse input → defer
     cmd = (data.get("tool_input") or {}).get("command") or ""
-    if not cmd.strip():
-        return
-    cmd = strip_heredocs(cmd)  # drop document bodies before any analysis
-    if cmd is None:
-        return  # a delimiter or a substitution that does not close → defer
-    if cmd.strip() in KEY_NAMES_READS:
-        print(json.dumps(ALLOW))
-        return
-    # Also read with quotes and backslashes taken out, so a name the shell
-    # splices together (`~/.e"n"v`, `~/.\env`) is judged as the name it becomes.
-    if RISKY.search(cmd) or RISKY.search(re.sub(r"[\\'\"]", "", cmd)):
-        return  # risky construct → defer to a prompt
-    hs = heads_from(cmd)
-    if not hs:
-        return  # parse trouble or no head found → defer
-    if all(safe_head(h) for h in hs):
+    if decide(cmd):
         print(json.dumps(ALLOW))
 
 

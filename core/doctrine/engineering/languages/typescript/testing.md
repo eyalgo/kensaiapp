@@ -1,5 +1,5 @@
 ---
-version: "2.2.0"
+version: "2.2.1"
 ---
 
 # TypeScript — testing
@@ -72,8 +72,7 @@ a second one.
 
 ## Layers 6–7 — acceptance-time
 
-Owned by the QA role and written from the design and the specs before code, per
-`testing_doctrine.md`, which also says where a project with no active QA role records that.
+Owned by the QA role and written before code, per `testing_doctrine.md`: layer 7 after the spec, before the design, and layer 6 from the design. That file also says where a project with no active QA role records that.
 
 **Layer 7 runs through the layer-5 tooling in the table above.** A specification-level scenario
 enters the product through its real entry point, which is what Playwright already drives, so the

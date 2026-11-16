@@ -1,5 +1,5 @@
 ---
-version: "1.15.0"
+version: "1.17.0"
 ---
 
 # Handoff via folder state
@@ -29,7 +29,7 @@ states that).
 | What | Status |
 |---|---|
 | Blackboard model — folder = source of truth, roles pure functions | **LIVE** |
-| Stage sequencing — happy-path order (specs→design→planning→content→executing→changelog→integrity→security→done) | **LIVE as a fixed linear sequence, by two routes.** `core/launchers/change/` and `core/launchers/walk/` (one engine, `core/tools/chain_development.py`, holding a step table each) **derive** it: a step is done when its artifact is on disk — the folder artifacts § State is derived, not tracked names, the `Publishes text:` line that passes or runs the content step, the developer's closing marker for the code stage, the changelog report committed on the change's branch, each audit's findings on its own branch, the sealed folder under `trail/` — and a walk enters at the first step whose artifact is missing, applying the bad-verdict and explicit-restart rules in § State is derived, not tracked |
+| Stage sequencing — happy-path order (specs→red-behaviour→design→planning→content→executing→changelog→integrity→security→close→done) | **LIVE as a fixed linear sequence, by two routes.** `core/launchers/change/` and `core/launchers/walk/` (one engine, `core/tools/chain_development.py`, holding a step table each) **derive** it: a step is done when its artifact is on disk — the folder artifacts § State is derived, not tracked names, the card's `Behave:` line and the spec's `Behaviour:` line that pass or run QA's step, QA's record committed on the change's branch, the `Publishes text:` line that passes or runs the content step, the developer's closing marker for the code stage, the changelog report committed on the change's branch, each audit's findings on its own branch, the sealed folder under `trail/`, with the close, which leaves nothing on disk, run again in each walk before the audit or the seal — and a walk enters at the first step whose artifact is missing, applying the bad-verdict and explicit-restart rules in § State is derived, not tracked |
 | Roles orchestration-blind | **LIVE** |
 | Orchestrator owns sequencing/spawning | **LIVE** |
 | Halt-and-surface on hard failure (subagent error / red suite) | **LIVE** |
@@ -79,7 +79,9 @@ verdicts retain their refusal. `chain_development.py`'s start/describe decision 
 | Folder state | Next action | Who |
 |---|---|---|
 | no `change_spec.md` | `development-specs` | Product Owner |
-| `change_spec.md`, no `change_design.md` | `development-design` | Architect |
+| `change_spec.md`, QA's step applying (the card on `main` reads `Behave: behave` and the spec `Behaviour: changing`), a way in recorded in the product's `docs/nfdr.md`, and no `qa_record.md` committed on the branch | `red-behaviour` | QA |
+| `change_spec.md`, QA's step applying, and no way in recorded in the product's `docs/nfdr.md` | halts `no-way-in`, no launch | — |
+| `change_spec.md`, no `change_design.md`, and QA's step not applying (passed with no launch) or `qa_record.md` committed on the branch with the red verdict accepting it | `development-design` | Architect |
 | `change_design.md`, no `tl_instruction.md` | `development-plan` | Tech Lead |
 | `tl_instruction.md`, no `change_text.md`, `change_design.md` declaring `Publishes text: yes` | `development-content` | Content Editor |
 | `tl_instruction.md`, `change_design.md` declaring `Publishes text: no`, or `change_text.md` on the branch, code stage open | `development-implementation` | Developer |
@@ -87,8 +89,8 @@ verdicts retain their refusal. `chain_development.py`'s start/describe decision 
 | the closing marker declaring a passing `Suite:` verdict (`step_outcome_contract.md` § What passes), a `Language resolution:` line and a nonempty set of `Environment:` lines, every kind passing (kind policy and halts: `step_outcome_contract.md`), and no committed `changelog-report.md` | `changelog-line` | Content Editor |
 | `changelog-report.md` committed on the change's branch (what counts as committed: `step_outcome_contract.md` § *The chain's on-disk transport*), whether or not the run changed a product file | `development-code-integrity` | Senior Engineer |
 | `code-integrity-report.md` declaring `Integrity: pass` and a nonempty set of `Environment:` lines, every kind passing (kind policy and halts: `step_outcome_contract.md`) | `development-security` | Senior Engineer |
-| `security-report.md` declaring `Security: clean`, `fixed` or `reported` | `development-audit`, once per audited step (`development-specs`, `development-design`, `development-plan`, `development-content` when it ran, `development-implementation`), each finding on its own branch — not a gate | kensaiapp-auditor |
-| `Integrity: pass` and a passing `Security:` verdict, with every audit run ended, whatever it returned | `tobiishi-seal` (seal: move `<key>/` to `trail/` on branch + `--no-ff` merge) | PM |
+| `security-report.md` declaring `Security: clean`, `fixed` or `reported` | the close, which the chain runs itself with no launch; once it passes in this walk, `development-audit`, once per audited step (`development-specs`, `development-design`, `development-plan`, `development-content` when it ran, `development-implementation`), each finding on its own branch — not a gate. A close that stops halts the walk (`step_outcome_contract.md` § *The halts*) | kensaiapp-auditor |
+| `Integrity: pass`, a passing `Security:` verdict and the close passed in this walk, with every audit run ended, whatever it returned | `tobiishi-seal` (seal: move `<key>/` to `trail/` on branch + `--no-ff` merge) | PM |
 
 Action artifacts are immutable once written and read-only downstream.
 

@@ -184,20 +184,89 @@ def test_the_table_states_todays_reading():
         ("PLANNED_BY", "Planned by:", rd.Place.ANYWHERE, rd.Count.FIRST),
         ("REPAIR", "Repair:", rd.Place.ANYWHERE, rd.Count.FIRST),
     ]
-    assert [(f.name, f.prefix, f.place, f.count) for f in rd.FIELDS] == expected
+    # QA's seven rows follow these eleven; the next tests pin them.
+    assert [(f.name, f.prefix, f.place, f.count) for f in rd.FIELDS][:len(expected)] == expected
     for name, _prefix, _place, _count in expected:
         assert getattr(rd, name) is next(f for f in rd.FIELDS if f.name == name)
 
 
-def test_prefixes_are_unique_and_by_prefix_is_complete_and_read_only():
+def test_by_prefix_holds_eighteen_rows_each_its_own_prefixs():
     prefixes = [field.prefix for field in rd.FIELDS]
-    assert len(set(prefixes)) == len(prefixes) == 11
-    assert len(rd.BY_PREFIX) == 11
+    assert len(set(prefixes)) == len(prefixes) == 18
+    assert len(rd.BY_PREFIX) == 18
     assert all(rd.BY_PREFIX[field.prefix] is field for field in rd.FIELDS)
     with pytest.raises(TypeError):
         rd.BY_PREFIX["Suite:"] = rd.SECURITY
     with pytest.raises(TypeError):
         del rd.BY_PREFIX["Suite:"]
+
+
+QA_BODY = (
+    "Change: 2026-11-13_example\n"
+    "Way in: behave in .behave\n"
+    "Base commit: abc1234\n"
+    "Red commit: def5678\n"
+    "Scenario: features/a.feature:3 \u2014 new or changed \u2014 CP-1 \u2014 failed\n"
+    "Scenario: features/a.feature:9 \u2014 kept \u2014 CP-2 \u2014 passed\n"
+    "Scenario: features/b.feature:4 \u2014 new or changed \u2014 CP-3 \u2014 failed\n"
+    "Review notes: none\n"
+)
+
+
+def test_a_qa_record_with_every_slot_reads_each_field():
+    record = rd.parse(QA_BODY)
+    assert record.one(rd.QA_CHANGE).text == "Change: 2026-11-13_example"
+    assert record.one(rd.QA_WAY_IN).text == "Way in: behave in .behave"
+    assert record.one(rd.QA_BASE).text == "Base commit: abc1234"
+    assert record.one(rd.QA_RED).text == "Red commit: def5678"
+    assert record.one(rd.QA_REVIEW).text == "Review notes: none"
+
+
+def test_scenario_lines_are_all_read_in_order():
+    scenarios = rd.parse(QA_BODY).read(rd.QA_SCENARIO)
+    assert [line.text.split(" \u2014 ")[0] for line in scenarios] == [
+        "Scenario: features/a.feature:3", "Scenario: features/a.feature:9",
+        "Scenario: features/b.feature:4"]
+    with pytest.raises(ValueError):
+        rd.parse(QA_BODY).one(rd.QA_SCENARIO)
+
+
+def test_qa_record_slots_are_the_seven_fields_in_the_records_order():
+    assert [field.prefix for field in rd.QA_RECORD_SLOTS] == [
+        "Change:", "Way in:", "Base commit:", "Red commit:", "Scenario:", "No reach:",
+        "Review notes:"]
+    assert all(field.place is rd.Place.ANYWHERE for field in rd.QA_RECORD_SLOTS)
+    assert [field.count for field in rd.QA_RECORD_SLOTS] == [
+        rd.Count.FIRST, rd.Count.FIRST, rd.Count.FIRST, rd.Count.FIRST, rd.Count.ALL,
+        rd.Count.FIRST, rd.Count.FIRST]
+    assert set(rd.QA_RECORD_SLOTS) <= set(rd.FIELDS)
+
+
+def test_the_two_record_forms_hold_their_slots_in_table_order():
+    assert rd.QA_RED_RECORD == (
+        rd.QA_CHANGE, rd.QA_WAY_IN, rd.QA_BASE, rd.QA_RED, rd.QA_SCENARIO, rd.QA_REVIEW)
+    assert rd.QA_NO_REACH_RECORD == (
+        rd.QA_CHANGE, rd.QA_WAY_IN, rd.QA_BASE, rd.QA_NO_REACH, rd.QA_REVIEW)
+    for form in (rd.QA_RED_RECORD, rd.QA_NO_REACH_RECORD):
+        positions = [rd.QA_RECORD_SLOTS.index(field) for field in form]
+        assert positions == sorted(positions)
+        assert set(form) <= set(rd.QA_RECORD_SLOTS)
+
+
+def test_a_no_reach_line_reads_through_its_emphasis():
+    body = "**No reach: no HTTP request reaches a check's report**\n"
+    line = rd.parse(body).one(rd.QA_NO_REACH)
+    assert line.text == "No reach: no HTTP request reaches a check's report"
+
+
+def test_a_qa_prefix_never_reads_another_fields_line():
+    body = ("Suite: red\nEnvironment: a\nFailing: x::y \u2014 task 1\n"
+            "Deferred: task 1 \u2014 blocked\n")
+    record = rd.parse(body)
+    for field in rd.QA_RECORD_SLOTS:
+        assert record.read(field) == ()
+    assert texts(record.read(rd.SUITE)) == ["Suite: red"]
+    assert texts(record.read(rd.FAILING)) == ["Failing: x::y \u2014 task 1"]
 
 
 def test_every_prefix_the_chain_names_is_a_row():

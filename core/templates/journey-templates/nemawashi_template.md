@@ -1,5 +1,5 @@
 ---
-version: "1.4.1"
+version: "1.5.0"
 ---
 <!-- The version above is template-file metadata; it is not copied into the seed. Nor is this block.
 
@@ -71,7 +71,8 @@ check it.>
      item is written before the station file exists, so there is no dated stem yet to name — the
      triple's `<name>` is `<YYYY-MM-DD>_<slug>`, and the date is only fixed the day the PM opens the
      station. Once a station is open, a *reference to it* from elsewhere is the triple; this
-     checklist's own line is the one place that necessarily still names the slug alone. -->
+     checklist's own line is the one place that necessarily still names the slug alone.
+     The clause names every part a ruling of the seed lists; terse cuts words, never a named part. -->
 
 - [ ] <station slug> — <what it reaches, in a clause>
 - [ ] <station slug> — <what it reaches, in a clause>

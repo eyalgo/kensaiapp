@@ -88,7 +88,7 @@ authors the first log and the first constraint set.
 - **Case 1 `fresh-log-index-and-constraint-set`** — the shape of the output. Records land as separate
   `docs/adr/NNNN-slug.md` files plus a `docs/adr/README.md` index that lists every one of them;
   `## Alternatives ruled out` is present in **every** record; every constraint carries all three of a
-  `QC-n` id, a `verified by:` tail and an inline `(traces to: …)` tag; and § 9's verification map
+  `QC-n` id, a `verified by:` tail and an inline `(traces to: …)` tag; and § 10's verification map
   projects the machine-checkable entries.
 - **Case 2 `silent-decision-and-record-provenance`** — the reconstructed record (the in-process
   renderer), every `## Traces to` naming an openable locator, and the `## Binds` pointer that keeps

@@ -8,13 +8,14 @@ description: >-
   unchanged. Halts outside a pm session or the pm subagent. Use when a project has an active seed and
   no open station — "open the next station", "open the shukuba", "start the next leg",
   "shukuba-open". Do not use for picking or un-picking a seed (seed-pick, nemawashi-unpick),
-  cutting or re-cutting the route (stations-from-seed, shukuba-refine), opening a change unit
+  cutting or re-cutting the route (stations-from-seed, shukuba-refine), reviewing the route blind
+  (stations-blind-review), opening a change unit
   (tobiishi-open), closing or parking a station (shukuba-retire, shukuba-park), or the instance router
   under system/shukuba/.
 license: MIT
 metadata:
   author: Eyal Golan
-  version: "1.8.0"
+  version: "1.8.1"
   created: "2026-09-15"
   category: journey
   tags: shukuba, open, pm, journey

@@ -74,7 +74,7 @@ product-architecture/
 
 There is **no acceptance skill to hand to** and no machine gate: nothing publishes a schema or a lint
 for either document. What stands in their place is the prompt's finish walk and the constraint set's
-own § 9 verification map.
+own § 10 verification map.
 
 ## Launching It
 

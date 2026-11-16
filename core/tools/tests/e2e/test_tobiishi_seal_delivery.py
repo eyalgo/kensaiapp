@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -11,10 +12,12 @@ from pathlib import Path
 
 import pytest
 
+import chain_development as cd
 from test_deliver_change import BUILDER, KEY, TOOL, VERSIONED, Scenario, git
 
 ROOT = Path(__file__).resolve().parents[4]
 SKILL = ROOT / "skills/pm/.claude/skills/tobiishi-seal/SKILL.md"
+SEAL_AUDITS = ROOT / "core/tools/seal_audits.py"
 IDENTITY = "gpt-6.1-sol <noreply@openai.com>"
 ENVIRONMENT = "Environment: container — python:3.12, arm64"
 CONTEXT = "# Context header\n\n## Current change — PM view\n\n**Status:** Open\n\nKeep this.\n"
@@ -26,6 +29,19 @@ def extract(source, name):
     match = re.search(r"<!-- " + name + r" -->\n```python\n(.*?)\n```", source, re.S)
     assert match, f"Missing executable {name} block in {SKILL}"
     return match.group(1) + "\n"
+
+
+# The variable the seal's action reads, named by its literal so the fixture below and the
+# no-verdict guard run on the code before this change too; the tests that hand a line name the
+# engine's constant, so the action and the engine are shown to read the same name.
+VERDICT_VARIABLE = "KENSAIAPP_CLOSE_VERDICT"
+
+
+@pytest.fixture(autouse=True)
+def no_ambient_close_verdict(monkeypatch):
+    """A seal's own suite gate on a `behave`-card walk can hold the variable, and a test that
+    expects no `close_verdict.md` must not pass or fail with whoever runs it."""
+    monkeypatch.delenv(VERDICT_VARIABLE, raising=False)
 
 
 @pytest.fixture
@@ -406,6 +422,75 @@ def test_seal_action_moves_all_carving_bytes_and_records_the_result(tmp_path, re
     )
     assert git(managed.worktree, "status", "--porcelain").stdout == ""
     assert not any("merge" in event["argv"] for event in managed.log())
+
+
+SEALED_TRAIL = f"system/projects/example/journey/tobiishi/trail/{KEY}"
+FIVE_SCENARIO_LINE = "close passed — 5 scenarios passed at 1a2b3c4"
+ONE_SCENARIO_LINE = "close passed — 1 scenario passed at 9f8e7d6"
+
+
+def run_the_action(managed, recipe, environ):
+    prepared = managed.prepare(recipe)
+    argv = json.loads((prepared.directory / "seal.json").read_text())["argv"]
+    result = subprocess.run(argv, cwd=managed.worktree, capture_output=True, text=True, env=environ)
+    return result, prepared
+
+
+@pytest.mark.parametrize("line", [FIVE_SCENARIO_LINE, ONE_SCENARIO_LINE])
+def test_seal_commit_adds_close_verdict_with_exactly_the_line(tmp_path, recipe, line):
+    managed = Managed(tmp_path)
+
+    handed = {**os.environ, cd.CLOSE_VERDICT_VARIABLE: line}
+
+    result, prepared = run_the_action(managed, recipe, handed)
+
+    assert result.returncode == 0, result.stderr
+    trail = managed.active.parent / "trail" / KEY
+    assert (trail / "close_verdict.md").read_bytes() == (line + "\n").encode()
+    seal = json.loads((prepared.directory / "seal-evidence.json").read_text())["seal_sha"]
+    changes = git(managed.worktree, "show", "--name-status", "--format=", seal).stdout
+    assert f"A\t{SEALED_TRAIL}/close_verdict.md" in changes.splitlines()
+    assert git(managed.worktree, "show", "-s", "--format=%s", seal).stdout.strip() == (
+        f"seal: {KEY} — accepted, moved to trail/")
+    assert git(managed.worktree, "status", "--porcelain").stdout == ""
+    for name, content in managed.payload.items():
+        if name != "change_request.md":
+            assert (trail / name).read_bytes() == content
+    assert (trail / "change_request.md").read_text() == (
+        "# Request\n\n**Sealed:** 2026-09-30 — accepted; merged to `main` via `--no-ff`.\n"
+        + ENVIRONMENT + "\n")
+
+
+@pytest.mark.parametrize("handed", [None, ""], ids=["variable-absent", "variable-empty"])
+def test_a_seal_handed_no_verdict_writes_no_file_and_lands_as_today(tmp_path, recipe, handed):
+    managed = Managed(tmp_path)
+    environ = {name: value for name, value in os.environ.items() if name != VERDICT_VARIABLE}
+    if handed is not None:
+        environ[VERDICT_VARIABLE] = handed
+
+    result, prepared = run_the_action(managed, recipe, environ)
+
+    assert result.returncode == 0, result.stderr
+    trail = managed.active.parent / "trail" / KEY
+    assert trail.is_dir() and not (trail / "close_verdict.md").exists()
+    seal = json.loads((prepared.directory / "seal-evidence.json").read_text())["seal_sha"]
+    changes = git(managed.worktree, "show", "--name-status", "--format=", seal).stdout
+    assert "close_verdict" not in changes
+    assert git(managed.worktree, "status", "--porcelain").stdout == ""
+
+
+@pytest.mark.parametrize("fixed", [False, True], ids=["relative", "fixed"])
+def test_the_line_reaches_main_through_the_caller_recipe_and_deliver_change(
+        tmp_path, recipe, monkeypatch, fixed):
+    managed = Managed(tmp_path, fixed=fixed)
+    monkeypatch.setenv(cd.CLOSE_VERDICT_VARIABLE, FIVE_SCENARIO_LINE)
+
+    outcome, prepared = managed.invoke(recipe)
+
+    managed.assert_landed(outcome, prepared)
+    held = git(managed.scenario.repos["instance"], "show",
+               f"main:{SEALED_TRAIL}/close_verdict.md").stdout
+    assert held == FIVE_SCENARIO_LINE + "\n"
 
 
 @pytest.mark.parametrize("missing", ["absent", "", "   ", None])
@@ -902,10 +987,18 @@ def audit_fixture(tmp_path, nested):
 
 
 def run_audit_cleanup(tmp_path, repo, branches):
-    script = tmp_path / "cleanup.py"
-    script.write_text(extract(SKILL.read_text(), "caller-audit-cleanup"))
-    return subprocess.run([sys.executable, str(script), str(repo), KEY, *branches],
-                          cwd=tmp_path, capture_output=True, text=True)
+    """Run the tool's removal on a join report and a proved outcome, as the seal's Step 4 does."""
+    report, outcome = tmp_path / "audit-join.json", tmp_path / "delivery-outcome.json"
+    report.write_text(json.dumps({"key": KEY, "joined": branches}))
+    outcome.write_text(json.dumps({"status": "ok", "audit_cleanup_eligible": True, "key": KEY}))
+    return remove_audits(repo, report, outcome, cwd=tmp_path)
+
+
+def remove_audits(repo, report, outcome, *, cwd):
+    return subprocess.run(
+        [sys.executable, str(SEAL_AUDITS), "remove", "--repo", str(repo), "--key", KEY,
+         "--joined", str(report), "--outcome", str(outcome)],
+        cwd=cwd, capture_output=True, text=True)
 
 
 @pytest.mark.parametrize("nested", [False, True])
@@ -1223,3 +1316,113 @@ def test_changelog_caller_qualifying_entry_needs_no_declaration(tmp_path, recipe
         record.pop("user_invisible")
     refused, control_prepared = control.invoke(recipe)
     assert_refused_before_effects(control, refused, control_prepared)
+
+
+AUDIT_FINDINGS = f"system/projects/example/journey/tobiishi/{KEY}/flow_findings"
+
+
+def finding(step):
+    return f"findings of {step}\n"
+
+
+def joined_audits(managed, steps):
+    """Audit branches, each in its own registered worktree adding its own findings file, joined
+    by the tool with the real builder. Returns the branches, their worktrees and the report file."""
+    repo = managed.scenario.repos["instance"]
+    audits = []
+    for step in steps:
+        branch, path = f"{KEY}__audit-{step}", managed.root / f"{step} audit worktree"
+        git(repo, "worktree", "add", "-qb", branch, str(path), KEY)
+        (path / AUDIT_FINDINGS).mkdir(parents=True, exist_ok=True)
+        (path / AUDIT_FINDINGS / f"{step}.md").write_text(finding(step))
+        git(path, "add", "system")
+        git(path, "commit", "-qm", f"findings of {step}")
+        audits.append((branch, path))
+    joined = subprocess.run(
+        [sys.executable, str(SEAL_AUDITS), "join", "--worktree", str(managed.worktree),
+         "--key", KEY, "--builder", str(BUILDER), "--actor", "pm", "--surface", "Codex"],
+        capture_output=True, text=True)
+    assert joined.returncode == 0, joined.stderr
+    assert json.loads(joined.stdout) == {"key": KEY, "joined": [branch for branch, _ in audits]}
+    report = managed.root / "audit-join.json"
+    report.write_text(joined.stdout)
+    return audits, report
+
+
+def deliver_to_file(managed):
+    """The seal's Step 2: the real caller script, its standard output kept as the outcome file."""
+    script = managed.root / "caller-delivery.py"
+    script.write_text(extract(SKILL.read_text(), "caller-delivery"))
+    outcome = managed.root / "delivery-outcome.json"
+    with outcome.open("w") as stream:
+        result = subprocess.run([sys.executable, str(script), str(managed.config_path)],
+                                cwd=managed.root, stdout=stream, stderr=subprocess.PIPE, text=True)
+    return result, outcome
+
+
+def audit_survivors(repo):
+    refs = git(repo, "for-each-ref", "--format=%(refname) %(objectname)", "refs/heads/").stdout
+    return [line for line in refs.splitlines() if "__audit-" in line], \
+        git(repo, "worktree", "list", "--porcelain").stdout
+
+
+def test_a_proved_seal_lands_every_joined_finding_on_main_byte_for_byte(tmp_path):
+    managed = Managed(tmp_path)
+    steps = ["design", "implementation"]
+    audits, _ = joined_audits(managed, steps)
+    result, outcome = deliver_to_file(managed)
+    assert result.returncode == 0, result.stderr
+    assert json.loads(outcome.read_text())["audit_cleanup_eligible"] is True
+    repo = managed.scenario.repos["instance"]
+    assert len(audits) == len(steps) >= 2
+    for step in steps:
+        shown = git(repo, "show", f"main:{SEALED_TRAIL}/flow_findings/{step}.md")
+        assert shown.stdout == finding(step)
+
+
+def test_a_proved_delivery_then_removal_leaves_no_trace_of_any_joined_branch(tmp_path):
+    managed = Managed(tmp_path)
+    audits, report = joined_audits(managed, ["design", "implementation"])
+    result, outcome = deliver_to_file(managed)
+    assert result.returncode == 0, result.stderr
+    repo = managed.scenario.repos["instance"]
+    removal = remove_audits(repo, report, outcome, cwd=tmp_path)
+    assert removal.returncode == 0, removal.stderr
+    registrations = git(repo, "worktree", "list", "--porcelain").stdout
+    for branch, path in audits:
+        assert not path.exists()
+        assert str(path) not in registrations
+        assert git(repo, "show-ref", "--verify", "--quiet", f"refs/heads/{branch}",
+                   check=False).returncode == 1
+
+
+def test_a_delivery_halt_handed_to_removal_leaves_every_joined_branch_as_it_was(tmp_path):
+    managed = Managed(tmp_path, fixed=True)
+    audits, report = joined_audits(managed, ["design", "implementation"])
+    repo = managed.scenario.repos["instance"]
+    (repo / "shared").write_text("conflict\n")
+    git(repo, "add", "shared")
+    git(repo, "commit", "-qm", "main conflict")
+    result, outcome = deliver_to_file(managed)
+    assert result.returncode == 1
+    assert json.loads(outcome.read_text())["audit_cleanup_eligible"] is False
+    before = audit_survivors(repo)
+    removal = remove_audits(repo, report, outcome, cwd=tmp_path)
+    assert removal.returncode == 1
+    assert removal.stderr.startswith("error: teardown-failed: ")
+    assert audit_survivors(repo) == before
+    assert all(path.is_dir() for _, path in audits)
+
+
+def test_seal_skill_holds_the_tool_calls_and_no_cleanup_recipe():
+    text = SKILL.read_text()
+    assert "caller-audit-cleanup" not in text
+    step_one_b = text[text.index("### Step 1b"):text.index("### Step 2")]
+    step_four = text[text.index("### Step 4"):text.index("### Step 5")]
+    assert "for-each-ref" not in step_one_b
+    # The join takes the builder as an argument; the per-branch merge command is what is gone.
+    assert not re.search(r'commit_builder\.py"\s+--repo', step_one_b)
+    assert "--target-branch" not in step_one_b
+    assert 'seal_audits.py" join' in step_one_b
+    assert "development-audit is not a gate" in step_one_b
+    assert 'seal_audits.py" remove' in step_four

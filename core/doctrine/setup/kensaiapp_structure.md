@@ -1,5 +1,5 @@
 ---
-version: "3.9.1"
+version: "3.21.0"
 ---
 
 # kensaiapp-instance structure manifest
@@ -132,18 +132,17 @@ Consumed by whatever stamps a kensaiapp:
   `<group>` is one folder holding the skills that are read together, and `<name>/` beneath it is an
   ordinary skill directory identical in shape to a flat one under `.claude/skills/<name>/`. The two
   layouts coexist and name the same kind of thing at two depths — the flat root is what the harness
-  indexes first, and a group is where a skill lives once it has moved out of it. This host's flat root
-  holds none: every one of its skills is grouped, so a satellite is linked to neither layout's flat
-  form (`setup/shared_core_instance.md`). A host that has
+  indexes first, and a group is where a skill lives once it has moved out of it. This host's flat root holds no skill of its own. Every one of its skills is grouped, and the flat root holds only links into the `skills/pm/`, `skills/principal-pm/` and `skills/scrum-master/` groups (§ *Native `.claude/` layer*). No satellite is linked to this flat root. A consumer gets its own links to the three journey seats' agents and skills in their groups, and a producer gets none of those (`setup/shared_core_instance.md`). A host that has
   created no group has no `skills/` at all, and that is not drift: `core/tools/link_satellite.py`
   states the same posture for a satellite — *"A host with no root `skills/` — one that has created no
   group — is not drift"*. Resolved by `core/tools/skill_path.py`, which takes a skill's name and answers with
   its directory under either layout; scoped by `core/tools/written_forward.py`'s `SCOPED_ROOTS`
   alongside `.claude/skills/`; and ignored, per group, by `.gitignore`'s
-  `skills/*/.claude/skills/*/evals/workspace/`. Mirrored into a producer satellite as a tree; not linked
-  into a consumer at all, whose launchers look a group up under the host root (`<CORE>/..`) and grant
-  it (`core/launchers/skill/launcher.sh` § A GROUPED SKILL'S GROUP IS GRANTED;
-  `setup/shared_core_instance.md`).
+  `skills/*/.claude/skills/*/evals/workspace/`. Mirrored into a producer satellite as a tree. A consumer gets no
+  root `skills/`. Each skill in the `skills/pm/`, `skills/principal-pm/` and `skills/scrum-master/`
+  groups is linked into its `.claude/skills/`, and its launchers look every other group up under the
+  host root (`<CORE>/..`) and grant it (`core/launchers/skill/launcher.sh` § A GROUPED SKILL'S GROUP
+  IS GRANTED; `setup/shared_core_instance.md`).
 - `docs/proposals/` — `[user]` — one of **two** homes an ad-hoc plan can have; this one is for a plan
   with no project journey to hold it. One folder per proposal, `docs/proposals/<slug>/`, holding
   `ad_hoc_plan.md` and its reasoning (`rationale.md` / `research.md`); the ad-hoc flow filed its
@@ -214,6 +213,8 @@ project's *own* `.claude/`, never the user's global config.
   from the host's and rewrites it whenever it differs.
 - `.claude/settings.local.json` — `[special]` — host-local machine overrides, **gitignored, never
   committed**; setup auto-fills the external-product directory grant (per-file behavior in `setup_scope.md`).
+- `.claude/agents/pm.md` · `.claude/agents/principal-pm.md` · `.claude/agents/scrum-master.md` — `[user]` — tracked relative links, one to each of those three seats' agent files in `skills/pm/`, `skills/principal-pm/` and `skills/scrum-master/`. Through them, a Claude Code session started at the host root with no directory added can start those three agents. A launched run does not read them from the folder it runs in. It takes its agents from its pin, where each link resolves to the same group file. A session asked for a journey move one of those three seats owns runs it through that seat's agent without first asking the user whether to, and then tells the user which seat ran it and what the run did (§ *Agents*, below).
+- `.claude/skills/<name>` — `[user]` — tracked relative links, one for each skill in `skills/pm/`, `skills/principal-pm/` and `skills/scrum-master/` and for no other skill, each pointing at `skills/<group>/.claude/skills/<name>/`. Through them, a Claude Code session started at the host root with no directory added reaches those three seats' skills. Each skill still lives in its group, and a link is not a second copy of it. A pinned run is served a linked skill only when that skill's group is granted to it, so the links widen no launched run's reach. A session asked for a journey move one of those three seats owns runs the seat's skill through that seat's agent without first asking the user whether to, and then tells the user which seat ran it and what the run did (§ *Agents*, below).
 - `.claude/hooks/permission_mode_reminder.py` — `[create]` — UserPromptSubmit hook, vendored stdlib-only:
   advisory when a prompt mentions a bypass-mode flag.
 - `.claude/hooks/resolve_core.py` — `[create]` — SessionStart/SubagentStart hook, vendored stdlib-only:
@@ -330,13 +331,13 @@ Nineteen agents — each in the group of its own name except `delegate`, all for
 - `skills/principal-pm/.claude/agents/principal-pm.md`
 - `skills/principal-architect/.claude/agents/principal-architect.md`
 - `skills/scrum-master/.claude/agents/scrum-master.md`
-- `skills/qa/.claude/agents/qa.md` — global-only (no `system/loaders/qa.md` overlay; its load-chain step 2 self-skips)
+- `skills/qa/.claude/agents/qa.md`
 - `skills/kensaiapp-auditor/.claude/agents/kensaiapp-auditor.md` — pipeline auditor, no loader chain (task-driven; launched by the chain's audit step — `core/launchers/change/launcher.sh` → `core/tools/chain_development.py`)
 - `skills/kaizen-fix-author/.claude/agents/kaizen-fix-author.md` — kaizen fix author, no loader chain (task-driven; spawned by `launch-fix-author.sh`)
 - `skills/kaizen-fixer/.claude/agents/kaizen-fixer.md` — kaizen fixer, no loader chain (task-driven; spawned at step 5 to apply an approved fix packet)
 - `skills/interactive/.claude/agents/delegate.md` — the owner's one-off delegated work, no loader chain and no pinned model (the spawner resolves the tier per run). Its load-chain has a single step, `<CORE>/roles/delegate_contract.md` — the one agent whose body is not a loader stack, because it holds no posture to load (`authoring_layers.md` § The carriers)
 
-Three of those groups hold an agent and nothing else: `skills/kaizen-fix-author/`, `skills/kaizen-fixer/` and `skills/qa/`. `delegate` is held by `skills/interactive/`, beside `agent-invoke`, the skill that spawns it, so the one grant an interactive session already takes reaches both. Grouped, so a session has an agent only after `--add-dir` / `/add-dir` on its group, `skills/<name>/`. A pinned Claude run carries all nineteen in its `--agents`, whatever group it is granted. When an instance holds its own `.claude/agents/<name>.md`, a launched run takes it in place of the group file of the same name. The host's `.claude/agents/` holds no agent, and a tracked `.gitkeep` keeps it in every clone. No satellite links to it, because each satellite's `.claude/agents/` is its own.
+Two of those groups hold an agent and nothing else: `skills/kaizen-fix-author/` and `skills/kaizen-fixer/`. `delegate` is held by `skills/interactive/`, beside `agent-invoke`, the skill that spawns it, so the one grant an interactive session already takes reaches both. Grouped, so a session has an agent after `--add-dir` / `/add-dir` on its group, `skills/<name>/`. A Claude Code session started at the host root with no directory added also has `pm`, `principal-pm` and `scrum-master`, through the links in the host's `.claude/agents/`. A session asked for a journey move starts the agent of the seat that owns it, `pm`, `principal-pm` or `scrum-master`, and runs the move through it without first asking the user whether to. When the move ends, the session tells the user which seat ran it and what the run did. A journey move is one that `<CORE>/docs/michi_agari.md` § *How we work — walking a project's journey* or § *Who owns each step — and where the seeds come from* gives one of those three seats, except authoring the FDR, which writes a definition document rather than moving the journey. Where a move ends in the owner's own answer, that answer stays the owner's. The session puts the question to the owner, and neither the session nor the seat's agent answers it in the owner's place (§ *A skill that acts unattended gates to its seat* in `authoring_layers.md`, the skill that ends in an owner pick). A pinned Claude run carries all nineteen in its `--agents`, whatever group it is granted. When an instance holds its own `.claude/agents/<name>.md`, a launched run takes it in place of the group file of the same name. The host's `.claude/agents/` holds no agent of its own. It holds those three links into the groups, and a tracked `.gitkeep` keeps it in every clone. No satellite links to it, because each satellite's `.claude/agents/` is its own.
 
 #### Skills — vendored skill definitions (`skills/<group>/.claude/skills/`)
 
@@ -351,10 +352,11 @@ no `SKILL.md`. `skills/pm/.claude/skills/tobiishi-open/launcher.md` is the first
 core-referencing skill points into core **only** via `<CORE>`; a literal `core/…` or `~/.claude/…` path
 is a defect.
 
-The flow family — the change pipeline (9):
-- `skills/product-owner/.claude/skills/development-specs/` · `skills/architect/.claude/skills/development-design/` · `skills/tech-lead/.claude/skills/development-plan/` · `skills/content-editor/.claude/skills/development-content/` · `skills/developer/.claude/skills/development-implementation/` · `skills/senior-engineer/.claude/skills/development-code-integrity/` · `skills/pm/.claude/skills/tobiishi-seal/` — the seven producer stages. `development-content` is the Content Editor's step, run between plan and implementation only when the design's `Publishes text:` line reads `yes`, and it writes `change_text.md`. All seven are grouped, each under its seat, so a session reaches one only after `--add-dir` / `/add-dir` on `skills/product-owner/`, `skills/architect/`, `skills/tech-lead/`, `skills/content-editor/`, `skills/developer/`, `skills/senior-engineer/` or `skills/pm/`; a run started by `<CORE>/launchers/skill/launcher.sh` is granted that group by the launcher
-- `skills/pm/.claude/skills/tobiishi-open/` — the FDR-optional front door: places the `change_request.md`. **Gated to PM posture**, and the only member of this family that is — with a station open it derives the change from that station's reached-when and commits with no owner in the room, which is what earns the gate (§ *A skill that acts unattended gates to its seat* in `authoring_layers.md`). With no station it opens nothing and asks nothing — it reads the project's journey state, names the one next move that state determines, and returns. That is **routing, not refusal**: a project with no route yet is handed one named next action inside itself rather than being turned away, which is what the menu of candidate changes standing here until 2026-09-06 was protecting, and what a menu was the wrong shape for. Grouped, so a session reaches it only after `--add-dir` / `/add-dir` on `skills/pm/`; a run started by `<CORE>/launchers/skill/launcher.sh` is granted that group by the launcher
+The flow family — the change pipeline (10):
+- `skills/product-owner/.claude/skills/development-specs/` · `skills/architect/.claude/skills/development-design/` · `skills/tech-lead/.claude/skills/development-plan/` · `skills/content-editor/.claude/skills/development-content/` · `skills/developer/.claude/skills/development-implementation/` · `skills/senior-engineer/.claude/skills/development-code-integrity/` · `skills/pm/.claude/skills/tobiishi-seal/` — the seven producer stages. `development-content` is the Content Editor's step, run between plan and implementation only when the design's `Publishes text:` line reads `yes`, and it writes `change_text.md`. All seven are grouped, each under its seat, so a session reaches one only after `--add-dir` / `/add-dir` on `skills/product-owner/`, `skills/architect/`, `skills/tech-lead/`, `skills/content-editor/`, `skills/developer/`, `skills/senior-engineer/` or `skills/pm/`, except `tobiishi-seal`, which a Claude Code session started at the host root also reaches with no directory added, through its link in the host's `.claude/skills/`; a run started by `<CORE>/launchers/skill/launcher.sh` is granted that group by the launcher. A session asked to seal a change unit runs `tobiishi-seal` through the `pm` agent without first asking the user whether to, and then tells the user that the PM ran it and what the run did.
+- `skills/pm/.claude/skills/tobiishi-open/` — the FDR-optional front door: places the `change_request.md`. **Gated to PM posture**, and the only member of this family that is — with a station open it derives the change from that station's reached-when and commits with no owner in the room, which is what earns the gate (§ *A skill that acts unattended gates to its seat* in `authoring_layers.md`). With no station it opens nothing and asks nothing — it reads the project's journey state, names the one next move that state determines, and returns. That is **routing, not refusal**: a project with no route yet is handed one named next action inside itself rather than being turned away, which is what the menu of candidate changes standing here until 2026-09-06 was protecting, and what a menu was the wrong shape for. Grouped, so a session reaches it after `--add-dir` / `/add-dir` on `skills/pm/`, and a Claude Code session started at the host root reaches it with no directory added, through its link in the host's `.claude/skills/`; a run started by `<CORE>/launchers/skill/launcher.sh` is granted that group by the launcher. A session asked to open a change unit runs `tobiishi-open` through the `pm` agent without first asking the user whether to, and then tells the user that the PM ran it and what the run did.
 - `skills/kensaiapp-auditor/.claude/skills/development-audit/` — per-stage fresh-eyes audit (writes `flow_findings/<step>.md`, one file per audited step). Grouped under the agent the chain runs it as — the owner's call, 2026-10-03 — so a session reaches it only after `--add-dir` / `/add-dir` on `skills/kensaiapp-auditor/`; a run started by `<CORE>/launchers/skill/launcher.sh` is granted that group by the launcher
+- `skills/qa/.claude/skills/red-behaviour/` — QA's step, run between the spec and the design wherever the project card reads `behave` and the spec reads `changing`, and passed with no launch everywhere else. It writes one change's behaviour scenarios from its spec into the product's `.behave`: scenarios for what the change adds or changes, which must fail on the code before the change, and for existing behaviour it touches and keeps, each reaching the product through the way in the product's NFDR records. It commits them as the change's red once the chain's red verdict accepts them, then commits QA's record, `qa_record.md`, in the change folder. Thin over its own `prompts/thin.md`, which sorts each behaviour, and `prompts/rich.md`, which owns the scenario rules, the way-in reading and the verdict's answers. **Gated to QA posture.** Declares an unattended launch in `launcher.md`, taking `<project> <key>`, with its `intelligence/` beside it, which the skill launcher reads (`<CORE>/doctrine/governance/skill_intelligence.md` § *Scope*). Grouped, so a session reaches it only after `--add-dir` / `/add-dir` on `skills/qa/`; a run started by `<CORE>/launchers/skill/launcher.sh` is granted that group by the launcher.
 
 The security review (1) — beside the flow family rather than in its count, because the chain does not
 launch it yet; it joins the family when the chain runs it as a step:
@@ -369,13 +371,13 @@ Shared by every producer skill, in `<CORE>` rather than in a skills root (Read o
   (The `--no-ff` merge format that `merge-format.md` used to carry retired 2026-07-08 into `core/tools/commit_builder.py merge` — the merge/seal callers now build their merge directly through the builder, so there is no shared merge prose file.)
 
 The journey ops — folder-based journey maintenance (6), grouped by destination:
-- `skills/scrum-master/.claude/skills/shukuba-retire/` — close a **reached** 宿場 Shukuba station: move it into its sibling `trail/`, tick the item it was opened from on the active Nemawashi seed, and report whether any item is still unchecked. It asks nothing about what comes next — the next station is `shukuba-open`'s, and the idea's retire is `nemawashi-retire`'s, which this skill names as owed once no checklist item remains. **Gated to Scrum Master posture.** Project-level only — the instance's **router** station (§1) is a different kind and is moved to its `trail/` by hand. Grouped, so a session reaches it only after `--add-dir` / `/add-dir` on `skills/scrum-master/`; a run started by `<CORE>/launchers/skill/launcher.sh` is granted that group by the launcher
-- `skills/scrum-master/.claude/skills/nemawashi-retire/` — retire a **walked** 根回し Nemawashi seed: move it whole into its sibling `trail/`, restoring nothing, and remove its line from the Principal PM's `## Picked seeds`, in one commit. Mechanical — no report and no judgment; it names `nemawashi-refine` as owed to the Principal PM, and the pick after it. Refuses a seed with an open item or no checklist, one not at the seedbed root, and a seed with a station or change unit still open. **Gated to Scrum Master posture** — the owner's call, 2026-09-24. Project-level only — an instance seed is moved to `trail/` by hand. Grouped, so a session reaches it only after `--add-dir` / `/add-dir` on `skills/scrum-master/`; a run started by `<CORE>/launchers/skill/launcher.sh nemawashi-retire <project>` is granted that group by the launcher
-- `skills/pm/.claude/skills/shukuba-park/` — park an **unreached** station: move it into its sibling `parked/` and leave the seed's checklist item unticked. It asks nothing — the idea's un-pick is `nemawashi-unpick`'s. A station it finds already reached it closes through `shukuba-retire` instead of parking — the one way the PM reaches the close. **Gated to PM posture** — the owner's call, 2026-10-03: a station set down unreached frees the slot the PM's traverse fills. Project-level only — a router station has no `parked/` (§1). Grouped, so a session reaches it only after `--add-dir` / `/add-dir` on `skills/pm/`
-- `skills/principal-pm/.claude/skills/nemawashi-drop/` — drop a **killed** 根回し Nemawashi idea: move it into its sibling `drop/`, restoring nothing. **Principal PM only**, because it decides whether the program walks an idea at all. Takes the active idea from the root and — the one origin no other journey skill accepts — a candidate from `unpicked/` ruled out before it was ever picked, which never had a checklist to have walked. Dropping the active idea also removes its line from the Principal PM's `## Picked seeds`. One procedure at both levels. Grouped, so a session reaches it only after `--add-dir` / `/add-dir` on `skills/principal-pm/`; a project seed launches through `<CORE>/launchers/skill/launcher.sh nemawashi-drop <project> <slug> "<reason>"` from its `launcher.md`, and an instance seed is dropped from a `principal-pm:` session, which adds the group itself
-- `skills/pm/.claude/skills/nemawashi-unpick/` — un-pick an **unfinished** idea: the inverse of a pick, so it moves the seed itself, root → `unpicked/`, leaving the root **empty** — no candidate moves — checklist intact, which is what "no longer active" means — and removes the seed's line from the Principal PM's `## Picked seeds`. **Gated to PM posture.** Declares an unattended launch in `launcher.md`, taking `<project> <reason>`; the reason is the commit body. Grouped, so a session reaches it only after `--add-dir` / `/add-dir` on `skills/pm/`. Project-level only — the instance seedbed has a pick too (§1), but it is made and undone there by hand
+- `skills/scrum-master/.claude/skills/shukuba-retire/` — close a **reached** 宿場 Shukuba station: move it into its sibling `trail/`, tick the item it was opened from on the active Nemawashi seed, and report whether any item is still unchecked. It asks nothing about what comes next — the next station is `shukuba-open`'s, and the idea's retire is `nemawashi-retire`'s, which this skill names as owed once no checklist item remains. **Gated to Scrum Master posture.** Project-level only — the instance's **router** station (§1) is a different kind and is moved to its `trail/` by hand. Grouped, so a session reaches it after `--add-dir` / `/add-dir` on `skills/scrum-master/`, and a Claude Code session started at the host root reaches it with no directory added, through its link in the host's `.claude/skills/`; a run started by `<CORE>/launchers/skill/launcher.sh` is granted that group by the launcher. A session asked to close a reached station runs `shukuba-retire` through the `scrum-master` agent without first asking the user whether to, and then tells the user that the Scrum Master ran it and what the run did.
+- `skills/scrum-master/.claude/skills/nemawashi-retire/` — retire a **walked** 根回し Nemawashi seed: move it whole into its sibling `trail/`, restoring nothing, and remove its line from the Principal PM's `## Picked seeds`, in one commit. Mechanical — no report and no judgment; it names `nemawashi-refine` as owed to the Principal PM, and the pick after it. Refuses a seed with an open item or no checklist, one not at the seedbed root, and a seed with a station or change unit still open. **Gated to Scrum Master posture** — the owner's call, 2026-09-24. Project-level only — an instance seed is moved to `trail/` by hand. Grouped, so a session reaches it after `--add-dir` / `/add-dir` on `skills/scrum-master/`, and a Claude Code session started at the host root reaches it with no directory added, through its link in the host's `.claude/skills/`; a run started by `<CORE>/launchers/skill/launcher.sh nemawashi-retire <project>` is granted that group by the launcher. A session asked to retire a walked seed runs `nemawashi-retire` through the `scrum-master` agent without first asking the user whether to, and then tells the user that the Scrum Master ran it and what the run did.
+- `skills/pm/.claude/skills/shukuba-park/` — park an **unreached** station: move it into its sibling `parked/` and leave the seed's checklist item unticked. It asks nothing — the idea's un-pick is `nemawashi-unpick`'s. A station it finds already reached it closes through `shukuba-retire` instead of parking — the one way the PM reaches the close. **Gated to PM posture** — the owner's call, 2026-10-03: a station set down unreached frees the slot the PM's traverse fills. Project-level only — a router station has no `parked/` (§1). Grouped, so a session reaches it after `--add-dir` / `/add-dir` on `skills/pm/`, and a Claude Code session started at the host root reaches it with no directory added, through its link in the host's `.claude/skills/`. A session asked to park a station runs `shukuba-park` through the `pm` agent without first asking the user whether to, and then tells the user that the PM ran it and what the run did.
+- `skills/principal-pm/.claude/skills/nemawashi-drop/` — drop a **killed** 根回し Nemawashi idea: move it into its sibling `drop/`, restoring nothing. **Principal PM only**, because it decides whether the program walks an idea at all. Takes the active idea from the root and — the one origin no other journey skill accepts — a candidate from `unpicked/` ruled out before it was ever picked, which never had a checklist to have walked. Dropping the active idea also removes its line from the Principal PM's `## Picked seeds`. One procedure at both levels. Grouped, so a session reaches it after `--add-dir` / `/add-dir` on `skills/principal-pm/`, and a Claude Code session started at the host root reaches it with no directory added, through its link in the host's `.claude/skills/`; a project seed launches through `<CORE>/launchers/skill/launcher.sh nemawashi-drop <project> <slug> "<reason>"` from its `launcher.md`, and an instance seed is dropped from a `principal-pm:` session, which reaches the skill by adding the group or through that link. A session asked to drop a seed runs `nemawashi-drop` through the `principal-pm` agent without first asking the user whether to, and then tells the user that the Principal PM ran it and what the run did.
+- `skills/pm/.claude/skills/nemawashi-unpick/` — un-pick an **unfinished** idea: the inverse of a pick, so it moves the seed itself, root → `unpicked/`, leaving the root **empty** — no candidate moves — checklist intact, which is what "no longer active" means — and removes the seed's line from the Principal PM's `## Picked seeds`. **Gated to PM posture.** Declares an unattended launch in `launcher.md`, taking `<project> <reason>`; the reason is the commit body. Grouped, so a session reaches it after `--add-dir` / `/add-dir` on `skills/pm/`, and a Claude Code session started at the host root reaches it with no directory added, through its link in the host's `.claude/skills/`. Project-level only — the instance seedbed has a pick too (§1), but it is made and undone there by hand. A session asked to un-pick a seed runs `nemawashi-unpick` through the `pm` agent without first asking the user whether to, and then tells the user that the PM ran it and what the run did.
 
-- `skills/pm/.claude/skills/tobiishi-drop/` — drop an **unsealed** 飛び石 Tobiishi change unit: move its folder whole into `journey/tobiishi/drop/`, mark the project's PM context dropped when it names the unit, commit that on `main` with the caller's reason as the body, then close the change's worktrees. **Every branch is kept, unmerged** — a drop merges nothing, which is where it departs from the seal. Refuses a blank reason, a sealed or already dropped unit, and a worktree holding uncommitted work. Touches no station, no seed and no seal. **Gated to PM posture**, because whether a unit is dropped is the PM's judgment: `shukuba-refine` makes it and runs this skill as one of its moves — the owner's call, 2026-09-19. Declares an unattended launch in `launcher.md`, taking `<project> <key> <reason>`. Grouped, so a session reaches it only after `--add-dir` / `/add-dir` on `skills/pm/`; a run started by `<CORE>/launchers/skill/launcher.sh` is granted that group by the launcher
+- `skills/pm/.claude/skills/tobiishi-drop/` — drop an **unsealed** 飛び石 Tobiishi change unit: move its folder whole into `journey/tobiishi/drop/`, mark the project's PM context dropped when it names the unit, commit that on `main` with the caller's reason as the body, then close the change's worktrees. **Every branch is kept, unmerged** — a drop merges nothing, which is where it departs from the seal. Refuses a blank reason, a sealed or already dropped unit, and a worktree holding uncommitted work. Touches no station, no seed and no seal. **Gated to PM posture**, because whether a unit is dropped is the PM's judgment: `shukuba-refine` makes it and runs this skill as one of its moves — the owner's call, 2026-09-19. Declares an unattended launch in `launcher.md`, taking `<project> <key> <reason>`. Grouped, so a session reaches it after `--add-dir` / `/add-dir` on `skills/pm/`, and a Claude Code session started at the host root reaches it with no directory added, through its link in the host's `.claude/skills/`; a run started by `<CORE>/launchers/skill/launcher.sh` is granted that group by the launcher. A session asked to drop a change unit runs `tobiishi-drop` through the `pm` agent without first asking the user whether to, and then tells the user that the PM ran it and what the run did.
 
   (All six are interactive rather than pipeline steps. Five move a station or a seed. `tobiishi-drop` is a Tobiishi's — a finished Tobiishi is sealed by `tobiishi-seal` and one that will not be finished is dropped by `tobiishi-drop`, never retired or unpicked. `nemawashi-unpick` halts outside the **PM**, because setting an idea down frees the slot the PM's traverse fills — the owner's call, 2026-09-17 — and so does `shukuba-park`, for a station set down unreached — the owner's call, 2026-10-03 — and `tobiishi-drop`, because the PM decides a drop inside `shukuba-refine` — the owner's call, 2026-09-19. `shukuba-retire` and `nemawashi-retire` halt outside the **Scrum Master** — save that the PM's `shukuba-park`, finding the station it was asked to set down already reached, closes it through `shukuba-retire` itself, the owner's call, 2026-10-03 — the second the owner's call, 2026-09-24, because it is a mechanical move — and `nemawashi-drop` halts outside the **Principal PM**, because it decides whether the program walks an idea at all — the owner's call, 2026-09-12. They no longer form pairs, and `nemawashi-drop` is why: it has no station counterpart, because a station set down is parked and taken up again where an idea can simply be dead. The four that do pair split by destination — `trail/` for what ripened into work, `unpicked/`/`parked/` for what is waiting — and `drop/` holds what is dead — a seed `nemawashi-drop` kills, or an unsealed change unit `tobiishi-drop` sets down. Historically: the retire pair replaced the single `journey-retire`, which carried the archive move for both parts and deliberately stopped there; the navigation each part owes after the move was documented in the journey READMEs but performed by no skill. The unpick pair covers the third destination: `trail/` is the record of things that *ripened*, so a station or idea being set down mid-walk needs `unpicked/`, and the operation must not tick or mark anything done.)
 
@@ -384,8 +386,8 @@ Shared by every skill that moves a journey item, in `<CORE>` beside `michi_agari
 
 The seedbed's producers (2) — where the six above *move* a journey item, these *write* new ones.
 Their shared run mechanics are `<CORE>/prompts/principal_pm_cut_seeds_run.md`. They differ in their input:
-- `skills/principal-pm/.claude/skills/seeds-from-idea/` — the **idea** cutter: one idea in — something said in passing, a note, a seed someone else wrote — and 根回し Nemawashi seeds out, each landing in the owning project's `unpicked/` pool (or the instance seedbed) with its own station checklist and its trace back to the idea. Thin over its own `prompts/rich.md`, which extends `<CORE>/prompts/principal_pm_cut_seeds.md`. The one of the two whose input is itself a journey artifact, which earns it two moves the other has no use for: picking or un-picking that idea-seed, and leaving its retire — made by hand at instance level — to wait on the cut being approved. It writes seeds and never a station — opening one is a later move, made from the seed's own checklist item. **Gated to Principal PM posture, and grouped under that seat beside its sibling** — the owner's call, 2026-10-24, reversing the 2026-09-18 move to `skills/interactive/`: `nemawashi-refine` calls it inside its own run, and one group reaches both. So a session reaches it only after `--add-dir` / `/add-dir` on `skills/principal-pm/`. It has **no launcher of any kind** — the owner's call, 2026-10-24, superseding the 2026-09-18 plan to move it onto `<CORE>/launchers/skill/launcher.sh`: it runs in an owner's session, or inside `nemawashi-refine`'s own unattended run, which invokes it as a skill.
-- `skills/principal-pm/.claude/skills/seeds-from-product-docs/` — the same seat's **document** cutter: a product's settled `docs/SDD.md`, `docs/fdr.md`, `docs/adr/` and `docs/nfdr.md` in, seeds out, landing in the owning project's `unpicked/` pool. Thin over `<CORE>/../skills/principal-pm/.claude/skills/seeds-from-product-docs/prompts/rich.md`. What it adds over its sibling is resolving *which* product to cut — the project from the invocation, the product path from that project's `project.md`, which may sit outside the instance — and a settled-input check before the lens is applied. It yields four kinds of seed, and the **upstream** kind owes a second write the sibling has no equivalent of: the item raised on the owing document's own `*_open_issues.md` companion, by hand, which the seed then tracks until it is folded in. Like its sibling it writes seeds and never a station, and it picks nothing it produced. Declares an unattended launch in `launcher.md`, taking `<project>`. Grouped, so a session reaches it only after `--add-dir` / `/add-dir` on `skills/principal-pm/`; a run started by `<CORE>/launchers/skill/launcher.sh` is granted that group by the launcher
+- `skills/principal-pm/.claude/skills/seeds-from-idea/` — the **idea** cutter: one idea in — something said in passing, a note, a seed someone else wrote — and 根回し Nemawashi seeds out, each landing in the owning project's `unpicked/` pool (or the instance seedbed) with its own station checklist and its trace back to the idea. Thin over its own `prompts/rich.md`, which extends `<CORE>/prompts/principal_pm_cut_seeds.md`. The one of the two whose input is itself a journey artifact, which earns it two moves the other has no use for: picking or un-picking that idea-seed, and leaving its retire — made by hand at instance level — to wait on the cut being approved. It writes seeds and never a station — opening one is a later move, made from the seed's own checklist item. **Gated to Principal PM posture, and grouped under that seat beside its sibling** — the owner's call, 2026-10-24, reversing the 2026-09-18 move to `skills/interactive/`: `nemawashi-refine` calls it inside its own run, and one group reaches both. So a session reaches it after `--add-dir` / `/add-dir` on `skills/principal-pm/`, and a Claude Code session started at the host root reaches it with no directory added, through its link in the host's `.claude/skills/`. It has **no launcher of any kind** — the owner's call, 2026-10-24, superseding the 2026-09-18 plan to move it onto `<CORE>/launchers/skill/launcher.sh`: it runs in an owner's session, or inside `nemawashi-refine`'s own unattended run, which invokes it as a skill. A session asked to cut seeds from an idea runs `seeds-from-idea` through the `principal-pm` agent without first asking the user whether to, and then tells the user that the Principal PM ran it and what the run did. The brief the skill drafts still goes to the owner to confirm (§ *Agents*).
+- `skills/principal-pm/.claude/skills/seeds-from-product-docs/` — the same seat's **document** cutter: a product's settled `docs/SDD.md`, `docs/fdr.md`, `docs/adr/` and `docs/nfdr.md` in, seeds out, landing in the owning project's `unpicked/` pool. Thin over `<CORE>/../skills/principal-pm/.claude/skills/seeds-from-product-docs/prompts/rich.md`. What it adds over its sibling is resolving *which* product to cut — the project from the invocation, the product path from that project's `project.md`, which may sit outside the instance — and a settled-input check before the lens is applied. It yields four kinds of seed, and the **upstream** kind owes a second write the sibling has no equivalent of: the item raised on the owing document's own `*_open_issues.md` companion, by hand, which the seed then tracks until it is folded in. Like its sibling it writes seeds and never a station, and it picks nothing it produced. Declares an unattended launch in `launcher.md`, taking `<project>`. Grouped, so a session reaches it after `--add-dir` / `/add-dir` on `skills/principal-pm/`, and a Claude Code session started at the host root reaches it with no directory added, through its link in the host's `.claude/skills/`; a run started by `<CORE>/launchers/skill/launcher.sh` is granted that group by the launcher. A session asked to cut seeds from a product's documents runs `seeds-from-product-docs` through the `principal-pm` agent without first asking the user whether to, and then tells the user that the Principal PM ran it and what the run did.
 
 Shared by every cutter, in `<CORE>` beside the two cut prompts (Read on demand):
 - `<CORE>/prompts/principal_pm_cut_seeds_run.md` — the run shape a cut has whatever its input is: where the run works, where a seed lands and under what name (a project's `unpicked/` pool or the instance seedbed, never a seedbed root), the `Cut from ` trace-back line every seed opens its `## Source` with, what a run may move in a seedbed and what it may not, the builder commit (`--skill`/`--prompt`, one commit per scope, the originator derived from the actor), and the shape of a clean close and of a stop. Single source for the cutters; each points at it and adds only its own posture gate, its method prompt, and any move its particular input earns.
@@ -400,19 +402,27 @@ gated to that seat:
   `system/contexts/CONTEXT_PPM.md` when that file and section exist (append only; the move that takes
   the seed off its root removes the line — `<CORE>/docs/journey_move.md` § *The Principal
   PM's picked seeds*). The model's record is the commit body. Declares an unattended launch in `launcher.md`.
-  Project-level only. Grouped, so a session reaches it only after `--add-dir` / `/add-dir` on
-  `skills/pm/`, and a run started by `<CORE>/launchers/skill/launcher.sh` is granted that group by the
-  launcher
+  Project-level only. Grouped, so a session reaches it after `--add-dir` / `/add-dir` on `skills/pm/`, and a Claude Code session started at the host root reaches it with no directory added, through its link in the host's `.claude/skills/`, and a run started by `<CORE>/launchers/skill/launcher.sh` is granted that group by the
+  launcher.
+  A session asked to pick a seed runs `seed-pick` through the `pm` agent without first asking the user whether to, and then tells the user that the PM ran it and what the run did.
 
-The seed's splitter (1) — where the producers above write seeds and the six before them move one,
+The seed's splitter and its blind reader (2) — where the producers above write seeds and the six before them move one,
 this one settles the **route inside** a seed already picked. The **PM**'s, and gated to that seat as
 `tobiishi-open` is:
 - `skills/pm/.claude/skills/stations-from-seed/` — the picked seed's `## Stations — dynamic checklist` re-cut into
   the 1 to N 宿場 Shukuba stations that will be walked, in place, in the seed itself. Thin over
   `<CORE>/../skills/pm/.claude/skills/stations-from-seed/prompts/rich.md`. It stops on an empty seedbed root and on a seed being walked, never
-  touches an already-ticked item, and writes no station file and no `change_request.md` — opening a
-  station and opening a change unit are the two moves that follow it, and both stay the PM's own.
-  Grouped, so a session reaches it only after `--add-dir` / `/add-dir` on `skills/pm/`; a run started by `<CORE>/launchers/skill/launcher.sh` is granted that group by the launcher
+  touches an already-ticked item, and writes no station file and no `change_request.md` — the blind
+  review, opening a station and opening a change unit are the moves that follow it, and all three stay
+  the PM's own.
+  Grouped, so a session reaches it after `--add-dir` / `/add-dir` on `skills/pm/`, and a Claude Code session started at the host root reaches it with no directory added, through its link in the host's `.claude/skills/`; a run started by `<CORE>/launchers/skill/launcher.sh` is granted that group by the launcher.
+  A session asked to cut the picked seed's route into stations runs `stations-from-seed` through the `pm` agent without first asking the user whether to, and then tells the user that the PM ran it and what the run did.
+- `skills/pm/.claude/skills/stations-blind-review/` — that route read blind, by a fresh run that did not
+  cut it, against every ruling the seed records. Thin over its own `prompts/rich.md`. It writes one
+  review to the project's `docs/` (§ 2 Per-project) and edits no journey file; the PM fixes its
+  findings in the route before the first station opens.
+  Grouped the same way.
+  A session asked to review a seed's route blind runs `stations-blind-review` through the `pm` agent without first asking the user whether to, and then tells the user that the PM ran it and what the run did.
 
 The station's opener (1) — where the splitter settles the route, this one opens its next leg. The
 **PM**'s, gated to that seat:
@@ -423,7 +433,8 @@ The station's opener (1) — where the splitter settles the route, this one open
   open station or change unit, a seed with no route or nothing on it unticked, an item with no slug, a
   dirty tree, and a station whose `*Item` line or three parts are not the template's — then lands it
   under today's date. A parked station of the same seed for that item is taken up again instead, moved
-  whole. Declares an unattended launch in `launcher.md`. Project-level only. Grouped, so a session reaches it only after `--add-dir` / `/add-dir` on `skills/pm/`; a run started by `<CORE>/launchers/skill/launcher.sh` is granted that group by the launcher
+  whole. Declares an unattended launch in `launcher.md`. Project-level only. Grouped, so a session reaches it after `--add-dir` / `/add-dir` on `skills/pm/`, and a Claude Code session started at the host root reaches it with no directory added, through its link in the host's `.claude/skills/`; a run started by `<CORE>/launchers/skill/launcher.sh` is granted that group by the launcher.
+  A session asked to open a station runs `shukuba-open` through the `pm` agent without first asking the user whether to, and then tells the user that the PM ran it and what the run did.
 
 The route's refiners (2) — where the splitter settles a route before it is walked, these re-read it:
 the PM's after a unit lands, the Principal PM's after a seed is retired. Each is gated to its seat:
@@ -431,10 +442,10 @@ the PM's after a unit lands, the Principal PM's after a seed is retired. Each is
   the project's route. Thin over `<CORE>/../skills/pm/.claude/skills/shukuba-refine/prompts/rich.md`. It parks, un-picks and drops a
   halted unit through their own skills, names a reached station's close as owed to the Scrum Master, raises companion items on upstream documents rather than editing them, and
   always leaves `<unit-key>_report.md` and `<unit-key>_recommendations.md` in the unit's seed
-  folder. It never drops, closes or writes a seed. Grouped, so a session reaches it only after
-  `--add-dir` / `/add-dir` on `skills/pm/`; a run started by `<CORE>/launchers/skill/launcher.sh` is
+  folder. It never drops, closes or writes a seed. Grouped, so a session reaches it after `--add-dir` / `/add-dir` on `skills/pm/`, and a Claude Code session started at the host root reaches it with no directory added, through its link in the host's `.claude/skills/`; a run started by `<CORE>/launchers/skill/launcher.sh` is
   granted that group by the launcher, which is also how that run reaches `nemawashi-unpick` and
   `tobiishi-drop`.
+  A session asked to refine a project's route runs `shukuba-refine` through the `pm` agent without first asking the user whether to, and then tells the user that the PM ran it and what the run did.
 - `skills/principal-pm/.claude/skills/nemawashi-refine/` — the Principal PM's answer to a retired seed,
   run after `nemawashi-retire`: every recommendation the seed's `shukuba-refine` runs left in
   `trail/<seed>/` is processed — a companion item, a docs cut, carried by a candidate, a drop, a seed
@@ -447,10 +458,10 @@ the PM's after a unit lands, the Principal PM's after a seed is retired. Each is
   `unpicked/` — `seed-pick` and `stations-from-seed`. Thin over its own `prompts/rich.md`, its report's shape
   `templates/report.md`, both inside the skill folder. Always leaves
   `system/projects/<project>/docs/nemawashi-refine/<seed>_report.md`, opening with `## Next moves`. The
-  owner's call, 2026-09-25. Project-level only. Grouped, so a session reaches it only after
-  `--add-dir` / `/add-dir` on `skills/principal-pm/`; a run started by
+  owner's call, 2026-09-25. Project-level only. Grouped, so a session reaches it after `--add-dir` / `/add-dir` on `skills/principal-pm/`, and a Claude Code session started at the host root reaches it with no directory added, through its link in the host's `.claude/skills/`; a run started by
   `<CORE>/launchers/skill/launcher.sh nemawashi-refine <project> [<seed>]` is granted that group by the
   launcher.
+  A session asked to answer a retired seed runs `nemawashi-refine` through the `principal-pm` agent without first asking the user whether to, and then tells the user that the Principal PM ran it and what the run did.
 
 The skill-* authoring cluster (4) — three grouped under `skills/interactive/`, so a session reaches them only after `--add-dir` / `/add-dir` on `skills/interactive/`, and the eval runner under `skills/experimental/` — the owner's call, 2026-10-17 — so a run `launch-skill-evals` starts is not granted the session-only skills beside the other three:
 - `skills/interactive/.claude/skills/skill-creator/` — skill authoring
@@ -567,14 +578,13 @@ The foundation family — the three decision records, written once per product a
 - `skills/principal-pm/.claude/skills/product-fdr/` — the FDR (`docs/fdr.md`): the **Principal PM**'s thin orchestrator
   over `skills/principal-pm/.claude/skills/product-fdr/prompts/rich.md`, gated to that seat's posture, reading the template
   pair in `product-templates/` and run through `core/launchers/skill/launcher.sh` from its own
-  `launcher.md`, which grants it its group. Grouped, so a session reaches it only after `--add-dir`
-  / `/add-dir` on `skills/principal-pm/`. Carries `stack.json` and
+  `launcher.md`, which grants it its group. Grouped, so a session reaches it after `--add-dir` / `/add-dir` on `skills/principal-pm/`, and a Claude Code session started at the host root reaches it with no directory added, through its link in the host's `.claude/skills/`. Carries `stack.json` and
   `evals/`, so it is cold-readable
 - `skills/principal-architect/.claude/skills/product-architecture/` — the Principal Architect's two records: the append-only decision log (`docs/adr/`) and the constraint set (`docs/nfdr.md`). Grouped, so a session reaches it only after `--add-dir` / `/add-dir` on `skills/principal-architect/`; a run started by `<CORE>/launchers/skill/launcher.sh` is granted that group by the launcher
 
 After the foundation — the step that makes the product buildable (1):
 - `skills/interactive-product/.claude/skills/product-card/` — the project card's architecture-determined fields (`Languages:`,
-  `Language roots:`, `Test command:`) and the product's `README.md`, both derived from the settled
+  `Language roots:`, `Test command:`, `Behave:`) and the product's `README.md`, both derived from the settled
   document set: the **Principal PM**'s thin orchestrator over
   `skills/interactive-product/.claude/skills/product-card/prompts/rich.md`, gated to that seat's posture. Carries `stack.json`,
   so it is cold-readable, and no template — the card's shape is `project_template.md`'s and a
@@ -822,11 +832,11 @@ to move it out of this layer.
   `product-docs` passes the flag through.
 - `core/tools/providers.py` — `[create]` — the one reader of the provider file, and the rule a launch follows. The provider file is `.providers.toml` at the root of the instance a launch is for (§ Root, `.providers.toml.example`), and it names the provider every chain launch, instance skill launcher and kaizen tool script (`launch-apply-packet.sh`, `launch-audit.sh`, `launch-fix-author.sh`) goes to. It names one for each member of the three engines — `[documents]` (`chain.py`'s registry), `[steps]` (the change and walk launchers' steps, one entry per step for both), `[build-idea]` (the queue's skill rows) and `[owed-items]` (`no-document`, the product chain's launch for an owed item that names no document) — and for the launchers: `[launchers]` (one entry per instance skill launcher, keyed by its folder name, and one per kaizen tool script, keyed by its name without `.sh`). The module owns the file's name, its format, the member names and the rule: the provider a walk was forced onto (`--provider`), else the file's entry for the launch's member, else a refusal naming the entry or the file — never a default. A missing file is refused naming its path and `cp .providers.toml.example .providers.toml`, and the example is never read in its place. The instance root is the one an engine was started or described with (`--instance-root`), or the one a launcher resolved and hands to `providers.py launcher --instance-root`. No file under `<CORE>` is read for a provider, so a satellite's launch reads the satellite's own file, and a walk running from a pin reads the live instance file. An unforced start checks every member the engine can launch, and each launch reads the file again as it stands then, so an edit reaches a walk that is already running. An entry no engine asks for is ignored.
 - `core/tools/chain_development.py` — `[create]` — the change chain engine: walks the
-  change pipeline's nine steps (specs, design, plan, content, implementation, code-integrity,
+  change pipeline's eleven steps (specs, red-behaviour, design, plan, content, implementation, changelog, code-integrity,
   security, the
   `development-audit` fan-out — four runs, or five when the change publishes text — seal) as one detached `claude --print` run per step, each started through
   `core/launchers/skill/launcher.sh` from that skill's own `launcher.md`, and advanced by the
-  completion event. **It decides a step is done from disk, never from a message a run returns**,
+  completion event. Before it launches the audit or the seal, in every walk that reaches either, it runs the close itself, which is not one of the eleven steps: on a card whose `Behave:` line reads `behave`, it runs every scenario under the product's `.behave` on the change branch's tip in a throwaway copy, and it stops the walk when a developer commit changed that folder, when a scenario is not reported `passed`, or when none is reported. The close launches no run, needs no provider entry and writes nothing. **It decides a step is done from disk, never from a message a run returns**,
   because a detached run returns none: the artifact on the change branch, the developer's closing marker
   read the way `tobiishi-seal` reads it, each audit's findings file on its own audit branch, and the
   change folder under `trail/` on `main`. A run that ends without its artifact halts the walk, pointing
@@ -840,7 +850,11 @@ to move it out of this layer.
   there — and adds a `Git` port and an exclusive `flock` on its state file, because four or five audit runs can
   end within a second of each other. Its state file is its own,
   `system/logs/chain-change-<project>-state.json`, so a change walk can run beside a document
-  chain on the same project. Each run's completion shim is `completion_shim.py`'s. Its suite,
+  chain on the same project. Beside it the engine keeps one ask record per change,
+  `system/logs/chain-qa-<project>-<key>.json`, which counts the runs of QA's step and holds every ask
+  it has answered, across every walk of the change and both step tables. It moves each answered ask
+  out of the change folder to `system/logs/chain-qa-<project>-<key>.ask-<n>.md`, numbered from 1 in
+  the order the asks were answered. Each run's completion shim is `completion_shim.py`'s. Its suite,
   `core/tools/test_chain_development.py`, drives a whole walk through injected fakes and exercises the
   real `Git` port and lock against a scratch repository. `core/launchers/change/` is its
   entry command. Beside `--start` and `--advance` it has a third entry, `--describe`, which answers
@@ -906,7 +920,7 @@ to move it out of this layer.
   runs no script: where uv is found it prints nothing and exits `0`, and otherwise it prints the
   launch's own message naming that launcher and exits `1`. `pin_enter` in `core/tools/pin_run.sh`
   makes that check before anything else, so a launch without uv stops before it makes a pin or
-  starts any Python. The settings hooks, both git hook shims, every launcher under
+  starts any Python. That check stays outside the start-of-run list that `pin_enter` and `pin_enter_renewing` run once the pin is decided. The list, and its one check today, the Behave check, are accounted for in § *Owner-run launcher folder*, under "Every launcher enters the pin first". The settings hooks, both git hook shims, every launcher under
   `core/launchers/`, every `core/tools/launch-*.sh` and the shell helpers they source name the
   runner. A kensaiapp Python that a launch runs starts another kensaiapp script through the runner in
   the `tools/` directory of its own core. In a satellite's settings the commands name the host's
@@ -914,8 +928,9 @@ to move it out of this layer.
   root.
 - `core/tools/link_satellite.py` — `[create]` — writes a shared-core satellite's `.claude/settings.json`
   from its host's hook wiring, with each command pointed at the host's `.claude/hooks/` by absolute
-  path, and for a producer links the host's root `skills/` by absolute symlink; re-runnable, with
-  `--check` as a drift gate.
+  path. For a consumer it links the `pm`, `principal-pm` and `scrum-master` agents and those three
+  groups' skills into the satellite's `.claude/`, and for a producer it links the host's root
+  `skills/`, each by absolute symlink. Re-runnable, with `--check` as a drift gate.
 - `<CORE>/tools/telemetry_command.py` — `[create]` — the one resolver of the name
   `run_telemetry.sh` runs as the telemetry command: the invoking environment's
   `KENSAIAPP_TELEMETRY_COMMAND` when it holds one, else the source host's `.telemetry.env`
@@ -939,7 +954,8 @@ to move it out of this layer.
   beneath it listing the agents a satellite overrides in its own `.claude/agents/`. Exits 1 if the
   host's or any satellite's instruction files or role overlays are wrong, or if any satellite is
   absent, fails `link_satellite.py`'s own `--check`, carries a skills layer whose shape contradicts
-  its rostered kind (a consumer holding any, a producer whose root `skills/` is a symlink), or holds
+  its rostered kind (a consumer holding a root `skills`, a symlinked `.claude/skills` or an entry in
+  `.claude/skills/` that is no journey seat's skill, a producer whose root `skills/` is a symlink), or holds
   `.claude/agents` as a symlink. An override is not drift and never sets the exit code. Read-only,
   and reuses `link_satellite` rather than holding a second definition of correct.
   Takes the instance by argument (`--instance-root`, defaulting to the caller's cwd), never from its
@@ -1061,7 +1077,8 @@ when that host's `core/`, `.claude/` or `skills/` trees, or the `.python-version
 or `uv.lock` at its root, differ from the pin's copies — "differ" as that file defines it — it takes a
 new pin of the host instead. A run started either way keeps the version it started on: a live edit to
 those trees or those three files made after the launch has already copied them cannot reach it. A launcher the run itself starts through `pin_enter` inherits the run's pin rather than making its
-own; a `build-idea` it starts takes a new pin when the host has changed. The Claude adapter
+own; a `build-idea` it starts takes a new pin when the host has changed.
+Once the pin is decided, both entries run the start-of-run list, `pin_start_checks` in the same file, once per launch: in the pin's own copy after a re-exec, or in the host's copy on a `--dry-run` return that makes no pin. The list runs before the launcher reads its other arguments, so a stop leaves through the `|| exit $?` on the launcher's own entry call before any agent starts or anything is written into a product. Its one check today is the Behave check. For a launch that names a project, the check reads the `**Behave:**` line of that project's card and never writes to the card. A card that has not made the call stops the launch with status `1` and a message naming the Principal Architect's `product-architecture` run. A `behave` card over a product folder that holds nothing named `.behave` installs the Behave starter there and commits it on `main`, and one over a `.behave` holding a path its work tree has not committed, or a commit git refuses, stops the launch with status `1` (§ *Templates layer*). A `product-card`, `product-docs` or `prd-and-finish-line` launch is never checked, because the call is made in those runs (the owner's ruling, 2026-11-10). Nor is a `companion-self-answer` or `product-skeleton` launch for the project that such a launch named, which takes the exemption through `KENSAIAPP_DEFINITION_RUN`. The header of `core/tools/pin_run.sh` owns which launches name a project, the check's other cases and the launches it skips, and `core/tools/test_start_checks.py` holds that list of launches to every launcher's own usage. The Claude adapter
 (`core/tools/agent_run.py`) then carries that pin into the `claude` process it builds — a plugin
 linking the flat skills, the instance's own skills and every workflow, plus only the skill groups
 the run is granted, and merged settings whose hooks point into the pin. A launcher grants the skill
@@ -1524,7 +1541,7 @@ posture as the `.claude/` layer.
 ### Role layer — split by scope (instance loaders flat under `system/`; per-project PM context under `system/projects/`; shared cross-role + globals in `core/`)
 
 **App-level loaders** (`system/loaders/`) — `[create]`, stamped from
-`templates/role-templates/overlay_template.md` for the thirteen roles that read no context, and from
+`templates/role-templates/overlay_template.md` for the fourteen roles that read no context, and from
 `templates/role-templates/pm_overlay_template.md` for **pm** (its own template, because its
 on-invocation context read is a structural difference, not a substitution). The stamped file's
 **domain section is deliberately undeclared** — authored per instance when the instance has a domain to
@@ -1539,8 +1556,7 @@ the instance's, hand-maintained, stamped by nothing, and its overlay says so. Th
 write is the Principal PM's `## Picked seeds`: `seed-pick` appends a line, and `nemawashi-unpick`,
 and `nemawashi-drop` remove it. Every other overlay
 carries no context read — posture from the global, live state from the project's `journey/`.
-**Fourteen roles** — qa excluded (fork-invoked, no prefix, so no app-level loader; qa is global-only —
-see the contexts note below):
+**Fifteen roles**:
 - `system/loaders/cpo.md`
 - `system/loaders/cto.md`
 - `system/loaders/cdo.md`
@@ -1555,11 +1571,12 @@ see the contexts note below):
 - `system/loaders/principal_architect.md`
 - `system/loaders/scrum_master.md`
 - `system/loaders/senior_engineer.md`
+- `system/loaders/qa.md`
 
 **Contexts** — **the stamp produces one.** The only context setup creates is the **PM's**, and it is
 **per-project** — `system/projects/<name>/contexts/CONTEXT_PM.md` (§2), holding one item: that project's
-current change from the PM's view. The other thirteen roles are stamped with **no context** — posture from
-the loader, live state from the project's `journey/`. qa has none (fork-invoked, global-only). An
+current change from the PM's view. The other fourteen roles are stamped with **no context** — posture from
+the loader, live state from the project's `journey/`. qa is one of the fourteen. An
 instance may still give an overlay a hand-maintained context of its own; where it lives, what its
 overlay must say and the one section a skill writes are the app-level loaders paragraph above, and a
 file there is not drift.
@@ -1639,7 +1656,7 @@ and returns nothing today. Stated
   read by `experience-visual`. The one prompt here whose subject is the instance rather than a product.
 - `skills/content-manager/.claude/skills/experience-voice/prompts/rich.md` — Content Manager lens for an **instance's**
   verbal experience layer, read by `experience-voice`. Instance-subject like the one above it. Its seat
-  is delivery-tier rather than executive, as the three PM lenses below it are.
+  is delivery-tier rather than executive, as the four PM lenses below it are.
 - `core/prompts/pm_right_size.md` — the PM's **sizing test**, and only that: read by `tobiishi-open`
   sizing the change that reaches an open station, and by `stations-from-seed`'s prompt sizing a station, which
   quotes the test rather than rewording it. It carried the no-station proposal logic — read-first
@@ -1667,6 +1684,10 @@ and returns nothing today. Stated
   moves each finding owes, companion over recommendation, what the run never does, and the what / why
   / where-from every entry carries. The PM's third lens, and it sits after a unit lands, where
   `stations-from-seed`'s sits before a seed is walked.
+- `skills/pm/.claude/skills/stations-blind-review/prompts/rich.md` — PM blind-read lens, read by
+  `stations-blind-review`: what a fresh run reads and what it must not, the map from every ruling to
+  the bar that proves it, the five findings, and the review's shape. The PM's fourth lens, and it sits
+  between `stations-from-seed`'s and the first station.
 - `skills/principal-architect/.claude/skills/product-architecture/prompts/rich.md` — Principal Architect recording-and-binding
   lens, read by `product-architecture`: the inputs and their authority order, the three surfaces the SDD
   surfaces a decision on, the three significance gates, the ownership test, the constraint bar and its
@@ -1712,9 +1733,8 @@ seed tests of `core/roles/loaders/principal_pm_global.md` nor the seed shape of
 - `core/prompts/principal_pm_cut_seeds_run.md` — the run shape both cut prompts share, read by
   `seeds-from-idea` and `seeds-from-product-docs` beside their method prompt. What it carries is stated
   once, in the skills layer's cutter block above.
-- `core/prompts/qa_create_acceptance.md` — QA acceptance-file authoring lens, covering all three
-  acceptance artifacts with one method. Read by the seat's own session, since each of the three
-  `development-acceptance-*` skills writes a file whose gates pass unconditionally.
+- `skills/qa/.claude/skills/red-behaviour/prompts/thin.md` — QA's sort: each behaviour a change's spec states, as new or changed, kept, or untouched. It chooses only, and restates none of the rules it sorts by. Read by `red-behaviour`.
+- `skills/qa/.claude/skills/red-behaviour/prompts/rich.md` — QA's scenario lens: the three scenario rules, how the way in is read from the product's NFDR and the four cases in which none is recorded, and the closing message. Read by `red-behaviour`.
 - `core/prompts/ratify_skill.md` — skill-ratification lens.
 - `skills/companion/.claude/skills/companion-self-answer/prompts/rich.md` — the answering lens, read by `companion-self-answer`: the
   four checks in order with check 1 gating the rest, the six verdicts each carrying its *why*, and the
@@ -1740,10 +1760,9 @@ seed tests of `core/roles/loaders/principal_pm_global.md` nor the seed shape of
 - `core/prompts/cto_create_doctrine_structure.md` — CTO lens for an **instance's** doctrine
   meta-layer, `system/doctrine/doctrine_structure.md`, which classifies what the other two produce.
 
-  **Five prompts here have no skill above them** — the three CTO lenses immediately above, read by the
-  seat's own session at step 2a of `setting_up_an_instance.md`, `declare_loader_domain.md` at step
-  2b, and `qa_create_acceptance.md`, whose seat verifies directly because the skills that would carry
-  the loop pass every gate by construction. `ratify_skill.md` has none either and is launcher-read
+  **Four prompts here have no skill above them** — the three CTO lenses immediately above, read by the
+  seat's own session at step 2a of `setting_up_an_instance.md`, and `declare_loader_domain.md` at step
+  2b. `ratify_skill.md` has none either and is launcher-read
   rather than seat-read. A prompt read this
   way leaves no `Skill-Version:` on the commits it produces — a known gap, tracked as a seed in the
   `tools` project's own nemawashi.
@@ -1784,7 +1803,7 @@ The instance's **role layer** (`core/templates/role-templates/`) — one of seve
 `writing-bar-templates/` and `authoring-templates/` — **stamped by
 `spawn_satellite.py`**
 (`_stamp_role_layer`):
-- `role-templates/overlay_template.md` — `system/loaders/<role>.md` for the thirteen context-free roles
+- `role-templates/overlay_template.md` — `system/loaders/<role>.md` for the fourteen context-free roles
 - `role-templates/pm_overlay_template.md` — `system/loaders/pm.md`
 - `role-templates/cross_role_template.md` — `system/CROSS_ROLE.md`
 
@@ -1941,6 +1960,47 @@ folder per language a project card's `Languages:` may declare — the six langua
 manifest owes are `javascript/`, `python/`, `rust/`, `swift/` and `typescript/`, each a real tree, and
 `shell/`, which holds **only its own `README.md`** — a declared absence, not an unwritten tree, and
 the launcher skips it (reporting the skip) rather than copying it or refusing the run over it.
+
+Behave starter (`core/templates/behave-starter/`) — **script-facing**, one folder a product
+receives whole, as `.behave` directly under the product folder, every file at the same relative path
+inside it. That includes its own `README.md`, which is written for the reader of the product that
+receives it and so is copied with the folder. A skeleton tree's `README.md` documents the tree for a
+reader of this repo and stays behind. The starter carries no substitution token. It is one folder for
+every product, with no per-language copy under `skeleton-templates/` or anywhere else in
+`core/templates/`. It runs on its own locked setup: one command, `uv run --locked behave`, run inside
+`.behave`, runs it the same way whatever the product's language, and leaves the product's own
+`pyproject.toml` and `uv.lock` as they were. The start-of-run Behave check in `core/tools/pin_run.sh`
+installs it. When a launch names a project whose card reads `**Behave:** behave`, and nothing named
+`.behave` sits directly under the product folder the card's `Product path:` names, the check hands
+the install to `core/tools/install_behave_starter.py`. That tool writes every file of the starter,
+from the core the launch runs on, into `.behave`, and commits those files and nothing else on `main`
+through `core/tools/commit_builder.py`, with `Surface: behave-check`. Every other staged entry stays
+staged and is in no commit. The check stops the launch with status `1` in two cases. When `.behave`
+is already there and a path in it is untracked, staged, modified, deleted or ignored in the git work
+tree holding the product folder, the tool names each such path and writes nothing; what the
+starter's own `.gitignore` ignores does not count, and a `.behave` committed and clean is left as it
+is. When git refuses the stage or the commit, the tool removes what it wrote and quotes the refusal.
+Where no commit can land on `main` for another reason, the tool leaves the product as it found it
+and the launch goes on. The header of `core/tools/pin_run.sh` owns those cases. No other
+tool, launcher, hook or skill installs the starter. `core/tools/test_behave_starter.py` runs
+`uv run --locked behave` in a scratch copy outside the repository, once alone in an empty directory
+and once inside a scratch product holding its own `pyproject.toml` and `uv.lock`, and sees it go
+green on the starter's three scenarios and red, naming the scenario, when a scenario whose step fails
+is added. Its files:
+- `behave-starter/README.md` — the one command that runs the scenarios, the one-time browser
+  install, where new scenarios, their step definitions and a product's own setup go, and the three
+  ways in
+- `behave-starter/pyproject.toml` — the three pins, each `==`: Behave, `httpx` and Playwright for
+  Python
+- `behave-starter/uv.lock` — the lock that `uv run --locked` holds those pins to
+- `behave-starter/.gitignore` — the environment and caches a run creates, so that a run leaves the
+  product's `git status` as it was
+- `behave-starter/features/` — the three ways in, a command (Python's standard library only), a
+  server (`httpx`) and a browser (Playwright for Python), and one `.feature` file per way in, each
+  holding the one scenario that proves it
+- `behave-starter/features/steps/` — the step definitions the three scenarios use
+- `behave-starter/features/environment.py` — Behave's environment hook, where a product's own setup
+  goes
 
 User-global memory (§5) — **no stamper reads these** (verified 2026-08-04: no reference to either name
 outside this manifest and the template files themselves). Recorded, not fixed — "nothing stamps it" is a
@@ -2133,6 +2193,9 @@ the definition chain a project starts with, stamped rather than hand-written.
   project has something to keep; never created empty. `docs/nemawashi-refine/<seed>_report.md` is the
   Principal PM's answer to a retired seed, written by `nemawashi-refine` — here and not in the seed,
   because the seed is in `trail/` by then.
+  `docs/stations-blind-review/<seed>_review.md` is a fresh run's blind read of a picked seed's route,
+  written by `stations-blind-review` — here and not in the seed, because the review may edit no journey
+  file. Its first lines name the commit it read; a later review of the same seed replaces it.
   `docs/seeds-from-idea/<YYYY-MM-DD>_<slug>_brief.md` is an idea cut's input, in the shape of
   `seeds-from-idea`'s `templates/brief.md`, which extends `<CORE>/templates/brief_template.md`. It is
   committed with the seeds it produced — the owner's call, 2026-10-24, so every cut keeps its input
@@ -2144,7 +2207,7 @@ the definition chain a project starts with, stamped rather than hand-written.
   PM's view (scope / FDR-fit / product-fit) — PM memory, **not** a journey mirror. Sits below the two PM
   loader layers as a project-scoped read; kept fresh by the change lifecycle (`tobiishi-open` overwrites,
   `tobiishi-seal` marks it done), never hand-edited. The **only** per-role context setup stamps (§1 *Role layer*) — the
-  other thirteen roles are stamped with none.
+  other fourteen roles are stamped with none.
 - `system/projects/<name>/finish_line.md` — the project's **finish line declaration** (MANDATORY — the
   product's "done", set by CPO) — `[create]`, stamped from `templates/project-templates/finish_line_template.md`. A *declaration*,
   not a queue — it mirrors the instance's `system/michi.md` one level down (§1). **No Michi** at project

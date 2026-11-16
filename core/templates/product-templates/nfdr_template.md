@@ -1,5 +1,5 @@
 ---
-version: "2.3.0"
+version: "2.5.0"
 ---
 <!-- The version above is template-file metadata; it is not copied into the instantiated document. -->
 
@@ -223,6 +223,22 @@ this table and the doctrine disagree on the layers, this table is the copy and i
 - **Layers 3 and 4 are optional** — omitting either requires the rationale stated here, not silence.
 - **Layers 6–7 are QA-role ATDD work.** Where QA is not active on this project, record them here as
   QA-owned and name what verifies these layers instead.
+
+The Behave line below records whether this product needs its behaviour tested with Behave. `behave`
+means it does. `none — <reason>` means it does not, and the reason says why. Behave is one tool for
+every product, whatever languages the product is written in, so the line names no language. Both
+forms written together mean the call is not made yet.
+
+**Behave:** behave | none — <reason>
+
+The way-in line below records how Behave reaches this product. It is filled only where the Behave
+line reads `behave`. Filled, it holds exactly one of `command`, `server` or `browser`: the three ways
+in the Behave starter ships, each described in `<CORE>/templates/behave-starter/README.md` § *The
+three ways in*. Where the Behave line reads `none — <reason>`, the document carries no way-in line.
+While the Behave call is not made yet, or the way in is not picked yet, the line keeps its three
+forms written together. The three forms written together mean the pick is not made yet.
+
+**Behave way in:** command | server | browser
 
 ## 10. Verification map
 

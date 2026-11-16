@@ -1,5 +1,5 @@
 ---
-version: "1.1.4"
+version: "1.1.5"
 ---
 
 # Python — layout
@@ -44,11 +44,11 @@ anywhere in the tree — `.claude/tests/` and `skills/interactive-product/.claud
 ## Naming
 
 - **snake_case for a module filename**, all lowercase: `commit_builder.py`, `written_forward.py`,
-  `verify_commit_msg.py`. One tracked `.py` file departs from it and cannot be imported because of
-  it: `.claude/hooks/development-bash-approve.py`, whose test therefore drives it as a subprocess
-  through `sys.executable` rather than importing it
-  (`.claude/hooks/test_development_bash_approve.py:26` and `:32`). That is the cost of the hyphen,
-  and it is the reason the rule is worth keeping.
+  `verify_commit_msg.py`. One tracked `.py` file departs from it, and no import statement can
+  name it because of it: `.claude/hooks/development-bash-approve.py`, whose test therefore loads
+  it from its path with `importlib.util.spec_from_file_location` rather than importing it
+  (`_load_hook` in `.claude/hooks/test_development_bash_approve.py`). That is the cost of the
+  hyphen, and it is the reason the rule is worth keeping.
 - **A test file is `test_` plus its subject's basename.** All 52 test files in the tree open with
   `test_`; none uses the `<name>_test.py` form pytest also accepts
   (`https://docs.pytest.org/en/stable/explanation/goodpractices.html`, read 2026-08-21).

@@ -651,8 +651,12 @@ FILE_WRITING_CALLS = {"write_text", "write_bytes", "mkdir", "touch", "unlink", "
 def writes_found_in(source: str) -> list[str]:
     """Every site in `source` that names a git verb which writes, or writes a file."""
     found = []
-    for node in ast.walk(ast.parse(source)):
-        if isinstance(node, ast.Constant) and node.value in GIT_WRITING_WORDS:
+    tree = ast.parse(source)
+    key_names = {id(key) for node in ast.walk(tree) if isinstance(node, ast.Dict)
+                 for key in node.keys if key is not None}
+    for node in ast.walk(tree):
+        if (isinstance(node, ast.Constant) and node.value in GIT_WRITING_WORDS
+                and id(node) not in key_names):
             found.append(f"git word {node.value!r} at line {node.lineno}")
         if isinstance(node, ast.Call):
             callee = node.func
@@ -673,6 +677,14 @@ def test_the_guard_sees_a_writing_source():
                  'open("f", "w")\nPath("x").write_text("y")\n')
 
     assert len(writes_found_in(offending)) == 3
+
+
+def test_the_guard_reads_a_dict_key_as_a_name_and_not_as_a_git_word():
+    keyed = 'target = {"branch": key, "worktree": path}\n'
+    argument = 'subprocess.run(["git", "branch", "k"])\n'
+
+    assert writes_found_in(keyed) == []
+    assert len(writes_found_in(argument)) == 1
 
 
 def test_development_path_source_never_writes():

@@ -3,7 +3,7 @@ name: development-implementation
 description: Developer-posture skill for ongoing work. Executes a development-plan `tl_instruction.md` in a fresh execution session — per-task TDD (red/green/refactor), developer standards, verification gates, and a self-owned closing commit, made again over an earlier one when a relaunched run re-closes the change — or, when the chain's context cap is passed, a pause commit after the last task that landed so a fresh run continues from there, with any part-saved task's failing tests already committed as its red. Repairs incomplete implementation and tests against the resolved contract, including inherited work, until verification passes. Writes new logic in the part that owns it in the product's parts table (docs/SDD.md § 3). External impediments are handled by the deferral contract; the run halts in three cases only. Reads execution type + test command from project.md. Does not advance pipeline inboxes — that baton-pass is handled separately.
 license: MIT
 metadata:
-  version: "5.18.1"
+  version: "5.19.0"
   category: execution
   risk: safe
 ---
@@ -153,7 +153,7 @@ The working root is resolved in **Enter the worktree** above: for **headless** r
 
 1. Enter the worktree (headless: derive `$WORKTREE` + `cd`; Docker: confirm the `/workdir` mount), then run the startup gates for the execution type (verify branch + toplevel); load + read `tl_instruction.md`
 2. Per task: red commit → green commit → optional refactor commit — or, for a no-test structural task, a review-verified task, an already-green task, a red-at-baseline task or a `Behaviour: preserving` relocation, one plain commit (developer commits as it goes)
-3. Close — the self-owned closing commit, which carries a `Deferred:` line for every task deferred along the way, and is made again when the branch already carries one (Step 3 § *A re-close makes a new marker*). Or, when the context cap's notice arrives, finish the task in progress, make the pause commit, and end (Step 2 § *Pausing at the context cap*). Or, in the three halt cases only, a `halt_report.md` and no marker (§ *When to Stop*)
+3. Close — the self-owned closing commit, which carries a `Deferred:` line for every task deferred along the way, and is made again when the branch already carries one (Step 3 § *A re-close makes a new marker*). Or, when the context cap's notice arrives, finish the task in progress, make the pause commit, and end (Step 2 § *Pausing at the context cap*). Or, when the change cannot be built as its spec and plan state without a change to one of QA's scenarios, leave an ask of QA's step and end, with no commit after it (Step 2 § *Asking QA to change its scenarios*). Or, in the three halt cases only, a `halt_report.md` and no marker (§ *When to Stop*)
 
 ### Step 1 — Load and review the change
 
@@ -306,6 +306,42 @@ A qualified deferral carries its evidence in the closing marker. Continue indepe
 - **No document is edited.** Not the change's `change_spec.md`, `change_design.md` or `tl_instruction.md`, not any document under the product's docs, and not any `*_open_issues.md`. For each blocked task the marker body carries the evidence — the command run and what it returned — and may propose a fix, marked *not applied* (Step 3).
 - **An instruction's own "stop" adds no halt or deferral.** The one exception is a `No allow rule:` line on a write into another repository, which defers the task (§ *A write into another repository*). Resolve its reason through Step 1b and this section; the word alone establishes no external impediment.
 - **The suite stays honest.** `Suite:` is the test command's real exit. A blocked case that fails makes it `Suite: red`, and it is never made green by excluding a case.
+
+#### Asking QA to change its scenarios
+
+**Ask QA to change its scenarios when the change cannot be built as its spec and plan state unless one of QA's scenarios, or a step definition it runs on, changes.** QA's scenarios are the change's behaviour scenarios, which QA's step committed as the change's red before the design was written.
+
+**The ask is made only on a change QA's step applied to.** A change QA's step passed has no scenarios, and the chain turns that ask down. Before asking, confirm the step applied:
+
+```bash
+"<CORE>/tools/locked_python.sh" "<CORE>/tools/chain_development.py" --qa-applies <key> \
+  --instance-root "<instance-repo>" --project <project>
+```
+
+Exit 0 means QA's step applied, and the run may ask. Exit 1 means it did not, so the change has no scenarios to change, and the run makes no ask. On any other exit the run makes no ask, records the command's message in `Developer Review Notes`, and goes on as a run that left no ask.
+
+**The developer asks at most once on one change.** Once an ask from the developer has been accepted, the chain turns down a second ask from it.
+
+**The ask says why.** Its whole text is its reason, in plain text. The reason names the scenario or step definition that must change, what must change in it, and why the run cannot go on without that change. The chain turns down an ask with no reason. An ask whose text is only spaces and blank lines has no reason.
+
+**Write the ask at the path this command prints, and at no other:**
+
+```bash
+"<CORE>/tools/locked_python.sh" "<CORE>/tools/chain_development.py" --qa-ask-place <key> \
+  --instance-root "<instance-repo>" --project <project>
+```
+
+`<instance-repo>` is the main checkout, as Step 3 § *Ask the chain before the marker is committed* defines it, and never `$WORKTREE`. Given the change worktree, the command exits 2 and prints no path. The run composes no path for the ask of its own. Leave the ask uncommitted. The chain reads it when the run ends.
+
+**When that command exits non-zero, the run leaves no ask.** It writes the reason at no other path. It records the command's message in `Developer Review Notes` and goes on as a run that left no ask.
+
+**The ask is the run's last act.** Before writing it, commit what the run has, in the forms § *Pausing at the context cap* step 1 uses: a task's failing tests under `— red`, and any work after them under `— in-progress`. The commits made before the ask stand. After the ask the run makes no commit: no `implementation complete` closing commit, and no pause commit. An ask is not a halt, so the run writes no `halt_report.md` for it. Then end the run.
+
+**The chain answers the ask when the run ends.** An accepted ask runs QA's step again. Once the chain accepts QA's new red, the walk comes back to the developer in a new run of this skill. A turned-down ask lets the run's end count as it would with no ask left.
+
+**A plan written before the ask stands.** The run the walk comes back to after QA's re-run works from the same `tl_instruction.md`, from its first unfinished task. That run asks for no new plan, and it does not edit `tl_instruction.md`.
+
+**The ask is the developer's only way back to QA's files.** QA's files are the change's scenarios, the step definitions they run on, and QA's record. The developer never writes, edits, commits, moves or deletes any of them.
 
 #### A write into another repository
 
@@ -567,7 +603,7 @@ Task-level repair and deferral are governed by Step 2 § *Work and repair* and �
 2. **The preserving lane's baseline is red beyond what the task names** — a red test the `#### Invariant gate` does not list on a `Red at baseline:` line, or a listed test already green. On a product with no code: an invariant not stated at its before-place.
 3. **A reclassification event** — a previously-green test goes red during a `Behaviour: preserving` relocation, or on a product with no code an invariant is not stated at its after-place, or is stated twice. The move disturbed an internal path, and the "preserving" classification was wrong. Never edit a test to make it pass.
 
-**A halt writes `halt_report.md`** into the change folder on the branch, commits it through the builder, and makes no `implementation complete` commit (§ *Exit*). The context cap's pause is not a halt.
+**A halt writes `halt_report.md`** into the change folder on the branch, commits it through the builder, and makes no `implementation complete` commit (§ *Exit*). The context cap's pause is not a halt. An ask of QA's step is not a halt either (Step 2 § *Asking QA to change its scenarios*).
 
 **A record names no machine.** No line this skill writes into a record names the home folder or the login name of the machine it runs on, or the repository's own `<owner>/<name>` address. Terminal output pasted into a record, and the commands an evidence line quotes, are the cases to look at first. The rule, with the placeholders to write instead, is `<CORE>/doctrine/governance/records_name_no_machine.md`. The pre-commit hook refuses a commit that adds such a line. The absolute `$WORKTREE` this run writes down at entry stays in its own prose and goes into no record.
 
@@ -622,6 +658,7 @@ Task-level repair and deferral are governed by Step 2 § *Work and repair* and �
 - **The packet wins over a mistaken instruction or design.** Where either requires code a resolved packet line forbids, the developer builds what the packet asks, updates the callers, and logs the override with the quoted clause (Step 1b's packet row). A collaborator the code builds itself, or a unit test that touches a real resource, is always fixed in this run (`<CORE>/doctrine/engineering/languages/README.md` § *A fix that hands a collaborator in is not a topology decision*). Any other fix the change cannot carry is handed on in `deferred_decisions.md`, which the closing commit carries. A packet conflict never defers or halts a task.
 - **New logic is written in the part that owns it.** Where the instruction puts it elsewhere, the developer writes it in the owning part and logs the correction (Step 1b). Each task's placement line in the `Step 1b review:` block is written on every run.
 - **No routing.** Handoff is folder-derived — the pipeline inboxes are retired; this skill returns its step-outcome message and the chain sequences the next stage from the folder, not this skill.
+- **An ask of QA's step is the developer's only way back to QA's files.** It is made only as Step 2 § *Asking QA to change its scenarios* says: on a change QA's step applied to, at most once, with its reason, at the path `--qa-ask-place` prints, and left uncommitted. The run ends at the ask, makes no commit after it and writes no `halt_report.md` for it.
 - Do not skip verification commands.
 
 ## Error Handling

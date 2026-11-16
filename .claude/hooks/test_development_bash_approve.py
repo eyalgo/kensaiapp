@@ -2,8 +2,13 @@
 
 The tests exercise the hook's **documented contract** (its own header: approve only
 when every command head is in the safe set and no risky construct is present; defer
-everything else), through the real entry point — JSON on stdin, JSON or silence on
-stdout — because that is exactly what Claude Code does with it.
+everything else). Almost all of them call the hook's decision, `decide`, in this
+process: it is a function of the command string, so a unit test starts no process
+(`testing_doctrine.md` § *A unit test hands its unit fakes and touches nothing real*).
+The file's name holds a hyphen, so no import statement can name it, and it is loaded
+from its path instead. The last section runs the real entry point — JSON on stdin,
+JSON or silence on stdout — because that is exactly what Claude Code does with it; a
+real process makes those layer-2 tests.
 
 What this hook is NOT for: it cannot make a `claude --bg` run prompt-free. It only
 ever ADDs an allow, and it can only speak for command shapes someone thought to
@@ -16,6 +21,7 @@ classifier — so these tests pin the guards, and additions should have to argue
 them.
 """
 
+import importlib.util
 import json
 import subprocess
 import sys
@@ -26,19 +32,20 @@ import pytest
 _HOOK = Path(__file__).resolve().parent / "development-bash-approve.py"
 
 
+def _load_hook():
+    """The hook as a module, loaded from its path, with nothing run but its definitions."""
+    spec = importlib.util.spec_from_file_location("development_bash_approve", _HOOK)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+_hook = _load_hook()
+
+
 def verdict(command):
-    """Run the real hook on `command`; return "allow" or "defer"."""
-    result = subprocess.run(
-        [sys.executable, str(_HOOK)],
-        input=json.dumps({"tool_input": {"command": command}}),
-        capture_output=True,
-        text=True,
-    )
-    assert result.returncode == 0, result.stderr
-    out = result.stdout.strip()
-    if not out:
-        return "defer"
-    return json.loads(out)["hookSpecificOutput"]["permissionDecision"]
+    """The hook's decision on `command`, made in this process: "allow" or "defer"."""
+    return "allow" if _hook.decide(command) else "defer"
 
 
 # --- the safe set is approved, one head or many ---------------------------------------
@@ -795,3 +802,142 @@ def test_rg_runs_only_options_on_its_allowed_list():
         "rg -- -pattern-starting-with-dash",
     ):
         assert verdict(command) == "allow", command
+
+
+# --- the walk launcher's dry run, and nothing else about it ---------------------------
+#
+# `<CORE>/launchers/walk/launcher.sh <project> --dry-run` prints what a walk would run and
+# starts nothing. A session with no gitignored permission file has no other way to be let
+# run it, so exactly that shape is approved. The launcher itself, with any other argument,
+# starts a walk, so every other call to it defers like any head the safe set does not hold.
+
+_WALK = "core/launchers/walk/launcher.sh"
+_WALK_ABSOLUTE = f"/opt/work/instance/{_WALK}"
+
+
+def test_walk_launcher_dry_run_absolute_is_allowed():
+    assert verdict(f"{_WALK_ABSOLUTE} product-development --dry-run") == "allow"
+
+
+def test_walk_launcher_dry_run_relative_is_allowed():
+    assert verdict(f"./{_WALK} product-development --dry-run") == "allow"
+    assert verdict(f"{_WALK} product-development --dry-run") == "allow"
+
+
+@pytest.mark.parametrize(
+    "arguments",
+    [
+        "product-development",
+        "--stop",
+        "--stop --dry-run",
+        "--provider codex --dry-run",
+        "--keep-awake",
+        "product-development --keep-awake",
+        "product-development --dry-run --keep-awake",
+        "",
+    ],
+)
+def test_walk_launcher_without_dry_run_defers(arguments):
+    assert verdict(f"{_WALK_ABSOLUTE} {arguments}") == "defer"
+
+
+def test_walk_launcher_with_two_project_tokens_defers():
+    assert verdict(f"{_WALK_ABSOLUTE} product-development other-project --dry-run") == "defer"
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        f"{_WALK_ABSOLUTE} product-development --dry-run; rm x",
+        f"{_WALK_ABSOLUTE} product-development --dry-run && ls",
+        f"{_WALK_ABSOLUTE} product-development --dry-run | head -3",
+        f"{_WALK_ABSOLUTE} product-development --dry-run > out.txt",
+        f"ls && {_WALK_ABSOLUTE} product-development --dry-run",
+        f"echo $({_WALK_ABSOLUTE} product-development --dry-run)",
+    ],
+)
+def test_walk_launcher_dry_run_with_a_second_command_defers(command):
+    assert verdict(command) == "defer"
+
+
+@pytest.mark.parametrize(
+    "head",
+    [
+        "core/launchers/change/launcher.sh",
+        "x/walk/launcher.sh",
+        "walk/launcher.sh",
+        "core/launchers/walk/launcher.bash",
+        "/opt/work/instance/core/launchers/walk-extra/launcher.sh",
+    ],
+)
+def test_other_launcher_paths_defer(head):
+    assert verdict(f"{head} product-development --dry-run") == "defer"
+
+
+def test_computed_walk_launcher_head_defers():
+    assert verdict(f"$X/{_WALK} product-development --dry-run") == "defer"
+    assert verdict(f"${{ROOT}}/{_WALK} product-development --dry-run") == "defer"
+
+
+def test_walk_launcher_head_with_a_parent_segment_defers():
+    assert verdict(f"/opt/work/../other/{_WALK} product-development --dry-run") == "defer"
+    assert verdict(f"../{_WALK} product-development --dry-run") == "defer"
+
+
+def test_walk_launcher_dry_run_before_the_project_token_defers():
+    assert verdict(f"{_WALK_ABSOLUTE} --dry-run product-development") == "defer"
+
+
+def test_existing_safe_set_and_risky_cases_are_unchanged():
+    assert verdict("ls -la") == "allow"
+    assert verdict("cat a.txt && head -5 b.txt | wc -l") == "allow"
+    assert verdict("npx @google/design.md@0.4.0 lint docs/DESIGN.md") == "allow"
+    assert verdict("git push origin main") == "defer"
+    assert verdict("rm -rf /") == "defer"
+    assert verdict("uuidgen | tr -d '-'") == "defer"
+
+
+# --- the entry point Claude Code runs (layer 2: a real process) -----------------------
+#
+# Every case above judges `decide`. These run the file itself, as the settings wire it,
+# and hold the one part `decide` does not own: reading the hook's JSON from stdin and
+# answering with the allow document or with nothing.
+
+
+def _run_entry(stdin_text):
+    result = subprocess.run(
+        [sys.executable, str(_HOOK)], input=stdin_text, capture_output=True, text=True
+    )
+    assert result.returncode == 0, result.stderr
+    return result.stdout
+
+
+def _hook_input(command):
+    return json.dumps({"tool_input": {"command": command}})
+
+
+def test_entry_answers_an_approved_command_with_the_allow_document():
+    answer = json.loads(_run_entry(_hook_input("ls -la")))
+
+    decision = answer["hookSpecificOutput"]
+    assert decision["hookEventName"] == "PreToolUse"
+    assert decision["permissionDecision"] == "allow"
+
+
+def test_entry_answers_the_walk_launchers_dry_run_with_the_allow_document():
+    stdout = _run_entry(_hook_input(f"./{_WALK} product-development --dry-run"))
+
+    assert json.loads(stdout)["hookSpecificOutput"]["permissionDecision"] == "allow"
+
+
+def test_entry_says_nothing_for_a_command_it_defers():
+    assert _run_entry(_hook_input("uuidgen | tr -d '-'")) == ""
+
+
+@pytest.mark.parametrize(
+    "stdin_text",
+    ["not json", "", json.dumps({}), json.dumps({"tool_input": {}}), _hook_input("   ")],
+    ids=["not-json", "empty", "no-tool-input", "no-command", "blank-command"],
+)
+def test_entry_says_nothing_for_input_that_names_no_command(stdin_text):
+    assert _run_entry(stdin_text) == ""

@@ -20,10 +20,12 @@ uses for its own parts are in the [glossary](glossary.md).
 ## How a change moves, in short
 
 Every role named below is an AI agent that KensaiApp runs, not a person. A change starts when the
-PM writes a change request. The product owner turns it into a spec, the architect into a design and
-the tech lead into a plan. When the design says the change publishes text, the content editor
+PM writes a change request. The product owner turns it into a spec. On a product with code that a
+person uses, QA then writes the behaviour scenarios the spec asks for, failing first. The architect
+turns the spec into a design and the tech lead into a plan. When the design says the change publishes text, the content editor
 writes its words. The developer writes the code, each test before the code it checks. The
-senior engineer proves the code does what the change intends. An auditor reviews the spec, the
+senior engineer proves the code does what the change intends, and runs the security review. On the
+products QA writes for, every scenario then runs on the final code. An auditor reviews the spec, the
 design, the plan, the words and the code, each in a run of its own. The PM seals the change by
 merging it into `main`. Each step is a separate run.
 [The change](under-the-hood.md#the-change) has the diagram and each step's role, and the
@@ -37,7 +39,7 @@ prompt chaining: each call works on the output of the one before, with programma
 gates, between the steps ([Building effective agents](https://www.anthropic.com/research/building-effective-agents)).
 
 KensaiApp's change pipeline is a workflow of that kind. A program, `core/tools/chain_development.py`,
-holds the steps in a fixed table, `DEVELOPMENT_STEPS`, and binds each step to one role. It starts a
+holds the steps in a fixed table, `CHANGE_STEPS`, and binds each step to one role. It starts a
 step only once the run before it has ended and left its result on disk. No model decides what runs
 next. Inside a step, the run is an agent: it reads, writes and runs commands on its own, within its
 skill.
@@ -51,6 +53,8 @@ The program's gates read what the runs left:
   ran in. Otherwise the walk halts.
 - The security report must declare `clean`, `fixed` or `reported`. `stopped`, or no such line, halts
   the walk.
+- On a product with code that a person uses, QA's new scenarios must fail on the code before the
+  change, and the close must pass every scenario on the final code. Otherwise the walk halts.
 - A red closing commit on a product with an NFDR first starts `dependency-repair` once, for a main
   branch an advisory turned red with no commit behind it. The walk halts only when the repair does
   not merge.
@@ -151,8 +155,9 @@ on branches of their own and joined into the change at the seal. The PM reads th
 refines the station, with the code-integrity and security reports. A product issue among them goes
 back into the plan: the stations that follow can be re-cut, parked or dropped, or work left for the
 Principal PM. A finding about a skill is raised to improve that skill
-([Where what the checks find goes](what-is-in-it.md#where-what-the-checks-find-goes)). No step sends a sealed change back to be reworked from its findings. Retry and loop-back
-routing are recorded in `core/doctrine/flow/folder_state_handoff.md` as forward design, not as built.
+([Where what the checks find goes](what-is-in-it.md#where-what-the-checks-find-goes)). No step sends a sealed change back to be reworked from its findings. One loop-back is built: the developer and the architect may each send the walk back to QA's step
+once, saying why. Other retry and loop-back
+routing is recorded in `core/doctrine/flow/folder_state_handoff.md` as forward design, not as built.
 So the audit is not the evaluator-optimizer loop Anthropic describes, where one call generates and
 another gives feedback "in a loop".
 

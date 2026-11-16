@@ -120,7 +120,7 @@ def run(tmp_path, _session_pin):
         project_dir = tmp_path / "system" / "projects" / name
         project_dir.mkdir(parents=True)
         if card is None:
-            card = f"# {name}\n\n**Product path:** {product_path}\n"
+            card = f"# {name}\n\n**Product path:** {product_path}\n**Behave:** none — a test card\n"
             if definition is not None:
                 card += f"**Definition:** {definition}\n"
         (project_dir / "project.md").write_text(card)
@@ -514,7 +514,7 @@ def test_an_unknown_project_dies_naming_the_card_it_looked_for(run):
 
 
 def test_a_card_with_no_product_path_dies_rather_than_guessing(run):
-    run.project("example-product", card="# example-product\n\nno path here\n")
+    run.project("example-product", card="# example-product\n\nno path here\n**Behave:** none — a test card\n")
 
     result = run("example-product")
 
@@ -876,7 +876,7 @@ _DEFINITION_REFUSED = ("walk: the definition walk did not start, so the walk wil
 
 
 def _card(*lines, product_path="products/thing"):
-    return "\n".join(["# example-product", "", f"**Product path:** {product_path}", *lines, ""])
+    return "\n".join(["# example-product", "", f"**Product path:** {product_path}", "**Behave:** none — a test card", *lines, ""])
 
 
 def _after_product_path(stdout):
@@ -1519,6 +1519,11 @@ def test_a_token_a_start_could_not_have_written_is_refused_before_any_file_is_re
 def test_template_card_is_accepted_by_the_reader(run):
     template = (_CORE / "templates" / "project_template.md").read_text()
     card = template.replace("products/<product-dir>", "products/thing")
+    # The template's Behave line is undecided on purpose, and an undecided line halts the run.
+    # A stamped card carries the call made, so the test makes one.
+    undecided = "**Behave:** behave | none — <reason>"
+    assert undecided in card
+    card = card.replace(undecided, "**Behave:** none — a test card")
     run.project("example-product", card=card)
 
     result = run("example-product", "--dry-run")

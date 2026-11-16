@@ -18,7 +18,7 @@ repository of its own. One instance can hold several projects, each with its own
 ### Roles and overlays
 
 The work is split between roles, as in a software team: a PM, a product owner, an architect, a tech
-lead, a developer, a senior engineer and others. Every run works as one of them. A
+lead, QA, a developer, a senior engineer and others. Every run works as one of them. A
 role is defined once, in the shared core. An instance can lay an overlay over it: a short file that
 states only what is different about that role in that instance, such as the files it reads there
 first. The rules the roles follow are layered the same way: the core's, then the instance's, then a

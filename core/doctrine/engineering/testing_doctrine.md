@@ -1,7 +1,7 @@
 ---
-version: "2.9.0"
+version: "2.10.0"
 name: testing-doctrine
-description: 7-layer test pyramid. Layers 1–5 are code-time TDD (Tech Lead and Developer each add tests as they see fit). Layers 6–7 are ATDD — written by the QA role after specs/arch, before code, using ArchUnit-style and BDD + AI reasoning.
+description: 7-layer test pyramid. Layers 1–5 are code-time TDD (Tech Lead and Developer each add tests as they see fit). Layers 6–7 are ATDD, written by the QA role before code — layer 7 after the spec, before the design, and layer 6 from the design — using ArchUnit-style and BDD + AI reasoning.
 ---
 
 # Testing Doctrine
@@ -11,7 +11,7 @@ description: 7-layer test pyramid. Layers 1–5 are code-time TDD (Tech Lead and
 Seven layers in two phases:
 
 - **Layers 1–5 — Code-time (TDD):** Both Tech Lead and Developer add tests as they see fit. Tests are written before the code they cover.
-- **Layers 6–7 — Acceptance-time (ATDD):** Written by the QA role after specs/arch changes are defined, but before any code is written. High-level acceptance criteria drive the implementation. Verified after the code is delivered.
+- **Layers 6–7 — Acceptance-time (ATDD):** Written by the QA role before any code is written. Layer 7 is written after the spec, before the design, and layer 6 from the design. High-level acceptance criteria drive the implementation. Verified after the code is delivered.
 
 ### Three axes, not one ladder
 
@@ -190,7 +190,7 @@ Neither place refuses a commit, or makes a test fail, because the test depends o
 | 6 — Architecture | Structural rules — layer boundaries, dependency direction, coupling | QA role | ArchUnit-style + AI |
 | 7 — Specification | Behavioural contracts — feature scenarios, acceptance criteria | QA role | BDD-style + AI |
 
-The QA role writes the layer-6 acceptance file from the `development-design` output and the layer-7 file from the `development-specs` output, before code; verification runs after the code is delivered. Separate from developer test suites.
+The QA role writes the layer-7 scenarios from the `development-specs` output, after the spec, before the design, and commits them as the change's red: the chain's `red-behaviour` step runs them on a throwaway copy of the code before the change and accepts the red only when each new or changed scenario fails there. The layer-6 acceptance file is written from the `development-design` output, before code. Verification runs after the code is delivered. Separate from developer test suites.
 
 - **These layers prove what the other five structurally cannot.** Layers 1–5 prove behaviour for the paths a test happened to walk. Layer 6 proves a property over *every* path — that no module in a forbidden position can reach a forbidden dependency at all. A guarantee stated as an absolute ("never writes", "never executes") wants a layer-6 rule, not only a layer-5 test.
 - **Where QA is not active on a project**, record layers 6–7 in `docs/nfdr.md` § 9 as QA-role-owned, naming what verifies them instead. That is a statement about the project's staffing, not about the model.

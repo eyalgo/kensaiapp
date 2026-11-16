@@ -1,19 +1,19 @@
 ---
-version: "1.7.1"
+version: "1.8.0"
 ---
 <!-- The version above is template-file metadata; it is not copied into the instantiated document. -->
 <!-- Nor is this block. What this stamps: the instance overlay for one prefix-invoked role — the thin
      layer over that role's posture body at `<CORE>/roles/loaders/<role>_global.md`, naming only what
      is true of the instance it lives in. Lands at `system/loaders/<role>.md`, one file per role.
 
-     For the thirteen roles that read no context: architect · cdo · content_editor ·
+     For the fourteen roles that read no context: architect · cdo · content_editor ·
      content_manager · cpo · cto · developer · principal_architect · principal_pm ·
-     product_owner · scrum_master · senior_engineer · tech_lead.
+     product_owner · qa · scrum_master · senior_engineer · tech_lead.
      **pm has its own template** (`pm_overlay_template.md`) — it is the only role in a kensaiapp
      that reads a context, and that difference is structural, not a substitution.
 
      **§ On invocation has two forms, and the role decides which.** The body below is the
-     **delivery tier's** — architect · content_editor · developer · product_owner · scrum_master ·
+     **delivery tier's** — architect · content_editor · developer · product_owner · qa · scrum_master ·
      senior_engineer · tech_lead, and
      principal_pm, which cuts 根回し Nemawashi seeds from the settled SDD and so writes the
      journey rather than standing outside it. The **definition tier** — cpo · cto · cdo ·

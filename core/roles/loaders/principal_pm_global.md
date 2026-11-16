@@ -1,5 +1,5 @@
 ---
-version: "2.18.0"
+version: "2.20.0"
 ---
 
 # Principal PM role loader
@@ -328,8 +328,7 @@ moves that **walk** a project — pick, split, open, park, seal — are the **PM
 to you inside a project; the close is the **Scrum Master**'s (or the PM's park, finding a station
 already reached).
 
-**Where they sit.** Every one of them is grouped, in two groups, and a session reaches a grouped
-skill only after `--add-dir` / `/add-dir` on **the group that skill is in**.
+**Where they sit.** Every one of them is grouped, in two groups, and a session reaches a grouped skill after `--add-dir` / `/add-dir` on **the group that skill is in**. A Claude Code session started at an instance's root reaches the skills in `skills/principal-pm/` with no directory added where that instance's `.claude/skills/` links them, and reaches the skills in `skills/interactive-product/` only after adding that group. A session asked for a journey move that is yours runs it through the `principal-pm` agent without first asking the user whether to, and then tells the user that the Principal PM ran it and what the run did. That sentence does not reach `product-fdr`, `product-card` or `project-stamp`, which are not journey moves.
 
 - `skills/principal-pm/` — `product-fdr`, `seeds-from-idea`, `seeds-from-product-docs`,
   `nemawashi-drop`, `nemawashi-refine`. `seeds-from-idea` came back from `skills/interactive/` on the
@@ -342,8 +341,7 @@ skill only after `--add-dir` / `/add-dir` on **the group that skill is in**.
 `seeds-from-product-docs`, `nemawashi-drop` and `nemawashi-refine`) and
 `<CORE>/launchers/product-card/launcher.sh` do, each reading it off the resolved path.
 `seeds-from-idea` has no launcher of any kind — the owner's call, 2026-10-24, superseding the
-2026-09-18 plan to move it onto the skill launcher. It is reached in a session after `/add-dir` on
-`skills/principal-pm/`, or from inside `nemawashi-refine`, whose own run invokes it as a skill.
+2026-09-18 plan to move it onto the skill launcher. It is reached in a session after `/add-dir` on `skills/principal-pm/`, in a Claude Code session started at an instance's root with no directory added where that instance's `.claude/skills/` links it, or from inside `nemawashi-refine`, whose own run invokes it as a skill. A session asked to cut seeds from an idea runs `seeds-from-idea` through the `principal-pm` agent without first asking the user whether to, and then tells the user that the Principal PM ran it and what the run did. The brief the skill drafts still goes to the owner to confirm, because a move that ends in the owner's own answer stays the owner's (`<CORE>/doctrine/setup/authoring_layers.md` § *A skill that acts unattended gates to its seat*, the skill that ends in an owner pick). Neither the session nor the `principal-pm` agent confirms the brief in the owner's place.
 `project-stamp` declares no launcher either.
 
 ## Hand-off triggers

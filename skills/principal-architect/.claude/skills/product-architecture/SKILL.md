@@ -4,7 +4,7 @@ description: Principal Architect-posture skill that records a product's architec
 license: MIT
 metadata:
   author: Eyal Golan
-  version: "1.3.0"
+  version: "1.4.0"
   created: "2026-08-30"
   category: product-definition
   tags: adr, nfdr, principal-architect, foundation-step, decision-log, constraint-set
@@ -47,7 +47,7 @@ and the obligation it binds are unsettled together, which is the common case.
 **There is no machine gate and no acceptance hand-off.** Nothing publishes a schema or a lint for
 either document, so no step here shells out to a checker, and no acceptance skill exists to hand
 to — that absence is stated, not an omitted step. What stands in place of a gate is the prompt's finish walk and, for the
-constraint set, its own § 9 verification map: a table of the entries that *are* machine-checkable.
+constraint set, its own § 10 verification map: a table of the entries that *are* machine-checkable.
 **Executing that map is not this skill's** — the pipeline reading it is this stack's, running its
 rows is sequenced after (owner, 2026-08-30).
 

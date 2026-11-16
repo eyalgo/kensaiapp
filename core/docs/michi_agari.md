@@ -1,5 +1,5 @@
 ---
-version: "2.25.1"
+version: "2.27.2"
 ---
 
 # The Michi / finish line system — how kensaiapp expresses direction
@@ -127,7 +127,9 @@ One turn of the loop:
    seedbed root; no other candidate moves. The elected idea becomes the one active seed and carries a
    checklist of the stations it will take. That checklist arrives as the cutter's **proposal**, and
    re-cutting it — where the station boundaries fall, and in what order they are walked — is the PM's
-   first act on the picked seed. A divergence from the proposal is logged in the seed.
+   first act on the picked seed. A divergence from the proposal is logged in the seed. A fresh run then
+   reads the route blind — `stations-blind-review` — and its findings are fixed in the route before the
+   first station opens, because the run that cut a route does not find what it missed.
 
    **Quality comes before features at the pick.** When a seed that makes the product's footing
    hold — its tests, its harness, its CI, its security, a tree left clean — competes with a feature
@@ -144,7 +146,7 @@ One turn of the loop:
 3. **Development — walk the station through the pipeline.** The building inside a station runs as one
    or more 飛び石 Tobiishi (change units). Each is opened (`tobiishi-open`, PM) and carried
    end-to-end by the chain (`core/launchers/change/launcher.sh` → `core/tools/chain_development.py`)
-   (specs → design → plan → content → implementation → changelog → code-integrity → security → audit → seal),
+   (specs → red-behaviour → design → plan → content → implementation → changelog → code-integrity → security → close → audit → seal),
    landing sealed-on-main (each change unit is **sealed** by `tobiishi-seal`). A station may take
    several Tobiishi before its reached-when is met.
 
@@ -241,9 +243,11 @@ and grounds the FDR; it does not dictate what is seeded.
 | Cut an idea, or a product's settled documents, into seeds | **Principal PM** (`seeds-from-idea` / `seeds-from-product-docs`) | 根回し Nemawashi seeds → `journey/nemawashi/unpicked/<seed>.md`, each with its **proposed** station checklist and an owning project — the candidate pool, never a seedbed root, because lifting one to the root is the PM's pick |
 | Pick the active idea | **PM** (`seed-pick`) | the elected seed → `journey/nemawashi/<seed>.md`, lifted from `unpicked/` to the seedbed root; the pick appended to `## Picked seeds` in `system/contexts/CONTEXT_PPM.md` when the instance has one |
 | Re-cut its checklist into the stations that will be walked | **PM** (`stations-from-seed`) | the active seed's `## Stations — dynamic checklist`, re-cut from the proposal it arrived with |
+| Review that route blind, then fix it | **PM** (`stations-blind-review`, as a fresh run) | a review in the project's `docs/` (`<CORE>/doctrine/setup/kensaiapp_structure.md` § 2 Per-project); its findings fixed in the route before the station opens |
 | Open the station | **PM** (`shukuba-open`) | 宿場 Shukuba → `journey/shukuba/<station>.md` |
 | Open a change unit | **PM** (`tobiishi-open`) | 飛び石 Tobiishi `change_request` → `journey/tobiishi/<key>/change_request.md` |
 | Turn the request into a spec | **Product Owner** (`development-specs`) | `change_spec` → `journey/tobiishi/<key>/change_spec.md` |
+| Write the change's behaviour scenarios | **QA** (`red-behaviour`, the chain's step after the spec, where the card says `behave` and the spec says `changing`) | the scenarios for what the change adds or changes and for the existing behaviour it touches and keeps, committed as the change's red → the product's `.behave`; QA's record → `journey/tobiishi/<key>/qa_record.md` |
 | Re-read the route after a unit lands | **PM** (`shukuba-refine`) | the route's moves, a report and recommendations → `journey/nemawashi/<seed>/<unit-key>_report.md` and `…_recommendations.md`; companion items on upstream documents |
 | Close the station once its reached-when is met | **Scrum Master** (`shukuba-retire`, gated to that seat — or the **PM**, only when its `shukuba-park` finds the station already reached) | the station → `journey/shukuba/trail/<station>.md`, its item ticked on the seed |
 | Drop a halted change unit whose intake will not be walked as written | **PM** (`tobiishi-drop`, gated to that seat, run from `shukuba-refine`) | the unit → `journey/tobiishi/drop/<key>/`, its worktrees closed and its branches kept |
@@ -251,8 +255,8 @@ and grounds the FDR; it does not dictate what is seeded.
 | Answer the retired seed and re-read the pool | **Principal PM** (`nemawashi-refine`, gated to that seat) | every recommendation processed, candidates kept, modified or dropped, companion items on product documents → `system/projects/<project>/docs/nemawashi-refine/<seed>_report.md`. Project level only |
 
 This table is the **planning tier's**, and its hand-off is complete at the spec. From `change_spec`
-onward the change runs through the rest of the change pipeline (design → plan → content → implementation → changelog → code-integrity → security → audit → seal) and
-the station is closed by the seat the table's close row names — see the loop above. The last five rows sit after that stretch,
+onward the change runs through the rest of the change pipeline (red-behaviour → design → plan → content → implementation → changelog → code-integrity → security → close → audit → seal) and
+the station is closed by the seat the table's close row names — see the loop above. The QA row sits inside that stretch, between the spec and the design, as the chain's `red-behaviour` step. The last five rows sit after that stretch,
 or leave it: the route is re-read once a unit has landed, the station is closed once its
 reached-when is met, a unit that will not be finished is dropped instead of sealed, and the seed is
 retired once its whole route is walked, then answered by the Principal PM.

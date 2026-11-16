@@ -1,5 +1,5 @@
 ---
-version: "1.1.0"
+version: "1.2.0"
 ---
 
 # development-security — the Senior Engineer's security lens, on a change's branch
@@ -43,6 +43,56 @@ The edge is `<CORE>/prompts/senior_engineer_repair_dependencies.md` § *The edge
 product record edited (the exception record excepted), the suite green, no redesign. It binds a hole
 fix in Half 2 exactly as it binds an advisory fix in Half 1.
 
+## The three scanners
+
+Every run of this skill runs three command-line scanners on the product under review: `osv-scanner`,
+Semgrep CE and `gitleaks`. All three run whether or not the NFDR names a dependency audit, and they
+run the same way on every provider. Each is a program the run starts from the shell. None of them
+needs an account, a login, a token or a paid tier, and Semgrep runs as its community edition.
+`SKILL.md` gives the commands.
+
+**What each one covers.** `osv-scanner` checks the product's dependencies against published
+advisories. It reads every lockfile or manifest that resolves the product's own dependencies, and
+none that belongs to another product in the same repository. Which files those are is yours to find,
+and the rule fixes the domain, not a list of files. A product with none has no dependency set to
+scan, and that is a result, not a failed run. Semgrep CE matches the code against its default rule
+set, and `gitleaks` looks for secrets written into files. Both read the product's files under its
+`project.md` `Product path:`, and every file the change's diff touches, as they stand at the
+change's head in the `code_worktree`.
+
+**`osv-scanner`'s advisories are answered as the audit's are.** Each takes one of the same four
+answers, in the same order: an allowed fix, an exception for one the product does not reach, a
+question for the owner where the only fix is forbidden, or reported for the PM. The bookkeeping goes
+through `security_bookkeeping` exactly as it does for the audit, and none of it is done by hand, so
+an unreached advisory with no fix is excepted through `lapse-date`, `write-record entry` and
+`write-upkeep`. Where the audit and `osv-scanner` both report one advisory id against one package,
+it takes one answer. Two different ids are two advisories, even where one is an alias of the other.
+Where the NFDR names no audit, `osv-scanner`'s advisories are the ones answered, and the report
+still says that the NFDR names no dependency audit. Whether the product reaches an advisory is
+proved by the search the shared file's answer 2 asks for, never by what the scanner printed.
+
+**Semgrep's and `gitleaks`' findings are candidates for Half 2.** Each is read under Half 2's scope,
+its three phases and its sceptical pass, and it counts as a hole only at the floor of 8 or above,
+like any other candidate. A finding outside Half 2's scope is not counted. No finding is counted,
+fixed, excepted or dropped only because a scanner reported it.
+
+**A secret is never shown.** `gitleaks` runs with its redaction on, and the report names each of its
+findings by file, line and rule id. No line of the report quotes the matched text or any part of the
+secret. The report is committed and pushed, so a secret written into it would leak a second time.
+
+**A scanner that cannot run is not a stop.** A missing program, no network, and output the program
+refused or that cannot be read are each a scanner that did not run. The rest of the review still
+runs, and the report says that the scanner did not run, and why, in its bullet, in `## Left for the
+PM` and in `## Not checked`. Running the three does not move the verdict by itself. A run where all
+three found nothing, and nothing else is left, is `clean`.
+
+**This skill's own departure from the shared file.** The shared file's § *The audit command is the
+product's, not yours* runs only the audit the NFDR names, and `dependency-repair` keeps that rule.
+`osv-scanner` runs here on every run all the same, by the owner's ruling of 2026-11-06: "The
+product's own audit still runs. `osv-scanner` also always runs, in the security skill only. Its
+findings are answered the same way (fix, exception or report)." The departure is this skill's alone,
+and the shared file's rule stands as written.
+
 ## Half 1 — the dependencies
 
 **Read `<CORE>/prompts/senior_engineer_repair_dependencies.md` in full and apply it on the change's
@@ -51,6 +101,8 @@ quoted there word for word), the one answer each advisory takes and its order, t
 its window and the upkeep row all live there, shared with `dependency-repair`, which applies the same
 rules to a `main` gone red by itself. None of it is repeated here. Where the NFDR names no audit, or
 it cannot run, the code half below still runs.
+`osv-scanner` runs beside that audit on every run, and its advisories are answered the same way (§
+*The three scanners*).
 
 ## Half 2 — the code itself
 
@@ -59,6 +111,8 @@ change adds, three phases, a high confidence floor, and a second, sceptical pass
 before it counts. Its threat lists are not taken as given: they are a web service's, and a product here
 may be a service, a tool, or a set of skills, prompts and launchers. Where it reports and stops, this
 lens goes one step further — it fixes what is within the edge.
+Semgrep's and `gitleaks`' findings arrive here as candidates (§ *The three scanners*), and the
+sceptical pass decides each one as it decides any other.
 
 **This lens is applied by reading, never by calling a built-in review command.** Every provider runs it
 the same way, from this file, because the providers have the same features by the owner's ruling, and

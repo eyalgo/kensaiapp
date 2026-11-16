@@ -7,7 +7,7 @@ description: |
 license: MIT
 argument-hint: <project>
 metadata:
-  version: "4.21.0"
+  version: "4.22.0"
   category: product
   risk: safe
   created: "2026-07-05"
@@ -157,7 +157,7 @@ its route section, and the candidate pool in `unpicked/` — and name the **firs
 | The journey state | The one next move | Whose |
 |---|---|---|
 | A seed at the root with **no route section at all** | Cut its route — `stations-from-seed` writes the first checklist, which is the same act as re-cutting one. A seed arrives without a route whenever it was seeded as the idea arose, and `<CORE>/templates/journey-templates/nemawashi_template.md:32-35` says so: inventing a checklist before the work is picked is the fixed-plan the checklist exists to avoid | yours |
-| A seed at the root, with an unticked item in its route section | Open that station — `shukuba-open` (`<CORE>/docs/michi_agari.md` § *How we work — walking a project's journey*, step 2). Where the checklist is still the proposal the seed arrived with, `stations-from-seed` re-cuts it first: that is the PM's first act on a picked seed (same §, step 1) | yours |
+| A seed at the root, with an unticked item in its route section | Open that station — `shukuba-open` (`<CORE>/docs/michi_agari.md` § *How we work — walking a project's journey*, step 2). Where the checklist is still the proposal the seed arrived with, `stations-from-seed` re-cuts it first: that is the PM's first act on a picked seed (same §, step 1). Before the route's first station opens, a route no blind review has read since its last change gets one — `stations-blind-review`, as a fresh run — and its findings are fixed first (same §, step 1) | yours |
 | A seed at the root, every item in its route section ticked | Retire the idea — `nemawashi-retire` — then answer it — `nemawashi-refine` — then pick the next seed from `unpicked/` (same §, step 4) | the retire is the **Scrum Master**'s — that skill halts outside the seat, and a `scrum-master:` session or `<CORE>/launchers/skill/launcher.sh nemawashi-retire <project>` is the way in; the answer is the **Principal PM**'s (`<CORE>/launchers/skill/launcher.sh nemawashi-refine <project>`); the pick that follows is yours |
 | No seed at the root, `unpicked/` holds candidates | Pick the one worked now — `seed-pick` — then re-cut its checklist with `stations-from-seed` (same §, step 1) | yours |
 | No seed at the root, `unpicked/` empty, **and Step 1 found the draw-from documents** — any of `docs/SDD.md`, `docs/fdr.md`, `docs/adr/`, `docs/nfdr.md` | Cut seeds from those documents — `seeds-from-product-docs`. The work is already drawn there and this cut draws it out. Whether they are settled *enough* to cut is that skill's own check and not this one's, so a `Draft` document is still this row | the **Principal PM**'s — that skill halts outside the seat, and a `principal-pm:` session is the way in (`<CORE>/docs/michi_agari.md` § *Who owns each step — and where the seeds come from*) |

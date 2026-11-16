@@ -1,5 +1,5 @@
 ---
-version: "1.0.0"
+version: "1.1.0"
 ---
 
 # senior_engineer_repair_dependencies — answering a product's dependency advisories
@@ -15,6 +15,65 @@ forbidden move waits for the end of the run. Two skills read it, on different br
 
 Each skill says which branch it works on, where its report goes and how it commits; none of that is
 here. **Single source — edit here, not in the carriers.**
+
+## The bookkeeping goes through one tool
+
+The bookkeeping of a repair is done by one tool, `security_bookkeeping`, and never by hand. It has one
+subcommand for each job:
+
+| Job | Subcommand |
+|---|---|
+| Turn the audit's output into one list of advisories | `normalise` |
+| Read the exception record | `read-record` |
+| Sort the record's entries into lapsed, holding and unreported | `find-lapsed` |
+| Compute an advisory's lapse date | `lapse-date` |
+| Write an entry or a renewal into the exception record | `write-record entry`, `write-record renewal` |
+| Write the upkeep row, creating the register when it is missing | `write-upkeep` |
+| Check a report's verdict line | `check-verdict` |
+
+The calls are these. `<the exception record>` is the record's path, `<the upkeep register>` is
+`system/upkeep.md` in the instance's worktree, and `<scratch>` is a folder made with `mktemp -d` outside
+every worktree. Give `--window` once for each severity the NFDR's *Advisory exception record* line names,
+and leave it out where the line names no window.
+
+```sh
+"<CORE>/tools/locked_python.sh" "<CORE>/tools/security_bookkeeping.py" normalise \
+  --stdout "<scratch>/audit-stdout.txt" --stderr "<scratch>/audit-stderr.txt" \
+  > "<scratch>/advisories.json"
+"<CORE>/tools/locked_python.sh" "<CORE>/tools/security_bookkeeping.py" read-record \
+  --record "<the exception record>"
+"<CORE>/tools/locked_python.sh" "<CORE>/tools/security_bookkeeping.py" find-lapsed \
+  --record "<the exception record>" --list "<scratch>/advisories.json" \
+  --window "<Severity>=<days>"
+"<CORE>/tools/locked_python.sh" "<CORE>/tools/security_bookkeeping.py" lapse-date \
+  --entry '<one object from advisories.json, as JSON text>' \
+  --record "<the exception record>" --window "<Severity>=<days>"
+"<CORE>/tools/locked_python.sh" "<CORE>/tools/security_bookkeeping.py" write-record entry \
+  --record "<the exception record>" --advisory "<the advisory's id>" \
+  --distribution "<the dependency>" --published "<YYYY-MM-DD>" \
+  --reason "<what the search found>"
+"<CORE>/tools/locked_python.sh" "<CORE>/tools/security_bookkeeping.py" write-record renewal \
+  --record "<the exception record>" --advisory "<the advisory's id>" \
+  --on "<YYYY-MM-DD>" --reason "<why the exception still stands>"
+"<CORE>/tools/locked_python.sh" "<CORE>/tools/security_bookkeeping.py" write-upkeep \
+  --register "<the upkeep register>" --task "<the task>" --rule "<the record and the entry>" \
+  --cadence "<the cadence>" --last-done "<when it was last done>" \
+  --next-due "<the lapse date>" --reminds "<what reminds the owner>"
+"<CORE>/tools/locked_python.sh" "<CORE>/tools/security_bookkeeping.py" check-verdict \
+  --report "<the report>"
+```
+
+**The tool computes and records, and decides nothing.** Whether the product reaches an advisory, which
+answer it takes and what goes to the PM stay yours, and the tool writes only what you give it.
+
+**When the tool refuses, write nothing by hand for that job.** A refusal exits non-zero and prints on
+standard error what was refused and why. Whatever it refused — the list, the lapse date, the entry, the
+renewal or the row — is then not written, and the report raises the refusal for the PM, quoting the
+tool's standard error. An exception whose lapse date is refused is not written either, because an
+exception stands only with its window. A refusal from `normalise` is reported the way a command that
+cannot run is reported (§ *The audit command is the product's, not yours*): the report says near its top
+that the audit's output could not be read, and no advisory is answered from it. A refusal from
+`check-verdict` is the reading skill's to correct, as its report step says.
 
 ## The edge of a repair
 
@@ -36,6 +95,11 @@ names a dependency or advisory audit, usually under § 2 *Security* (supply chai
 of § 10 *Verification map*. Run that command as written, from where the NFDR says it runs, over the
 whole resolved dependency set — a dependency audit is only meaningful over the whole set
 (`<CORE>/templates/product-templates/nfdr_template.md` § 10, "Runs over").
+
+Capture the audit's standard output and its standard error each to its own file in `<scratch>`, and
+give both files to `normalise` (§ *The bookkeeping goes through one tool*). Its list is the advisories
+you answer. Remove `<scratch>` with `rm -rf "<scratch>"`, in a command of its own, once the run is done
+with the list.
 
 **Where the NFDR names none** — no NFDR, or one that names no audit — do not invent a command, and do
 not reach for a tool you happen to know. No advisory is answered, and the report says so in its
@@ -105,11 +169,12 @@ confirmed, with *not reached* decided before *forbidden*:
 stands under, and how one is renewed. With no such line, the record is at the default path,
 `checks/deps/advisory_exceptions.toml` in the product's repository.
 
-**Its shape.** Where the record exists, write the entry in its own shape (each existing entry is the
-model) and write nothing its shape does not carry. **A product with no exception record gets its first
+**Its shape.** The tool writes the record in one shape and refuses a record in any other: `read-record`
+and `write-record` both check it. **A product with no exception record gets its first
 one** — the owner's words: "if none recorded and we find, why not create the first one?" — at the
-path above, in the shape of the one record these rules were measured on: one table per entry with
-exactly four keys, and a renewal as its own table under the entry it extends, with exactly two:
+path above: `write-record entry` creates the file when it is missing. The shape is the one record these
+rules were measured on: one table per entry with exactly four keys, and a renewal as its own table under
+the entry it extends, with exactly two:
 
 ```toml
 [[exception]]
@@ -125,16 +190,18 @@ reason = "<why the exception still stands>"
 
 **The record carries no window and no lapse date.** A reader of this shape derives the window from the
 advisory's severity and its `published` date, and drops a renewal that has no `on` date — so a key
-added to it is ignored at best and loses the renewal at worst. The report says **record created**, and
-where.
+added to it is ignored at best and loses the renewal at worst. Where `write-record` prints `record created: <path>`, the report says **record
+created**, and where.
 
 **The window.** It is the one the NFDR's line names. Where the NFDR names none, use the stated default
 — the owner's ruling, 2026-10-23, measured from the one record these rules were drawn from: the window
 closes at the advisory's publication date plus **7 days for a Critical or unscored advisory**, or **30
 days for a High one**; and, the owner's words of the same day, "30 days for Medium and Low is fine".
-The window is a date you compute, not a key you write: its lapse date goes in the report and the upkeep
-row, never in the record. Where you used the default, the report says **default window used**, for the
-PM to raise into the product's NFDR.
+The tool computes the lapse date: give `lapse-date` the advisory's object from `normalise`'s list and the
+record's path, and pass the NFDR's window as `--window`, once for each severity its line names. With no
+`--window`, the tool uses the stated default. The lapse date goes in the report and the upkeep row, never
+in the record. Where `lapse-date` printed `"window": "default"`, the report says **default window used**,
+for the PM to raise into the product's NFDR.
 
 **The audit must read it.** An exception the product's audit never reads is written but not honored:
 the next audit reports the same advisory as if nothing were written. Check that the audit command, or
@@ -142,21 +209,28 @@ the check it runs, reads the record's path. Where it does not, the exception sti
 report raises **wire the audit to honor the exception record** as an item for the PM, and that is left
 for the PM. Wiring it is an edit to the product's check, which is not a move the rules give you.
 
-**Every exception you write gets one row in the instance's upkeep register**, `system/upkeep.md`, in the
-register's own columns: the task (take the fix, or renew the exception with a reason), the rule it
-serves (the record and the entry), the cadence, when it was last done, when it is next due — the
-exception's lapse date — and what reminds the owner. The register's rule is that a row says what to do
-and when, and the rule it serves stays in its own file; keep the reason in the exception record, not
-in the row. **An instance with no register gets one**, created on this first need, in the register's
-shape; the report says so.
+**Every exception you write gets one row in the instance's upkeep register**, `system/upkeep.md`,
+written with `write-upkeep` once the entry or renewal it tracks is written. You word the cells, and the
+tool writes them in the register's own columns: the task (take the fix, or renew the exception with a
+reason), the rule it serves (the record and the entry), the cadence, when it was last done, when it is
+next due — the exception's lapse date, as `lapse-date` printed it — and what reminds the owner. The
+register's rule is that a row says what to do and when, and the rule it serves stays in its own file;
+keep the reason in the exception record, not in the row. A row whose rule-it-serves cell is the same as
+one already in the register replaces that row where it stands. **An instance with no register gets
+one**: `write-upkeep` creates it, and where the tool prints `register created: <path>`, the report says
+so. An entry or renewal the tool refused gets no row. An exception whose row the tool refused stays
+written, and the report raises the missing row for the PM.
 
-**An advisory already excepted** is answered by the record as it stands: within its window, there is
-nothing to do, and the report says the exception holds. Past its window, it is a fresh advisory and
-takes one of the four answers above — a renewal is ruling 3's exception written again, as a renewal
-table under the entry (`on` and `reason`), and the window runs again for its own span from the
-renewal's `on` date; the upkeep row's next-due date moves to that new lapse. When a fix is taken for
-an advisory that had an exception, the exception has ended: remove the entry and its upkeep row, so
-neither outlives what it tracked.
+**An advisory already excepted** is found with `find-lapsed`, given the record and `normalise`'s list,
+and the NFDR's window as `--window` where it names one. Each entry comes back in one of three lists.
+**holding** — within its window: there is nothing to do, and the report says the exception holds.
+**lapsed** — on its lapse date or past it: it is a fresh advisory and takes one of the four answers
+above. A renewal is ruling 3's exception written again, with `write-record renewal` (`on` and `reason`),
+and the window runs again for its own span from the renewal's `on` date. Its new lapse date comes from
+`lapse-date`, and `write-upkeep` moves the upkeep row's next-due date to it. **unreported** — the audit no
+longer reports the advisory: the tool gives it no lapse date, and whether to remove it is yours. When a
+fix is taken for an advisory that had an exception, the exception has ended: remove the entry and its
+upkeep row, so neither outlives what it tracked.
 
 ## Forbidden moves wait for the end
 

@@ -2,6 +2,7 @@
 #
 # detach_watcher.sh — the one home for the completion-watch detach-and-return block.
 #
+# Version: 1.14.0 — the keep-awake's start is observed, not timed — its hold starter is handed in
 # Version: 1.13.0 — the Definition of Done becomes the finish line
 # Version: 1.12.1 — Agari becomes Definition of Done (DoD)
 # Version: 1.12.0 — launchers run on the locked Python
@@ -122,6 +123,15 @@
 #   re-checks the watcher's identity — an internal knob a test overrides to poll faster than
 #   a real run needs, not a documented flag.
 #
+#   A third is not caller configuration either: `DETACH_WATCHER_KEEPAWAKE_STARTER` names the
+#   command that starts the keep-awake's hold. It is called with the hold's argv (`-i -s`) and
+#   answers on stdout with the hold's pid, or with nothing when it started none; this library
+#   waits for that answer before it starts the poller or returns. No launcher sets it, so every
+#   caller gets the default, `detach_start_caffeinate` (below), which detaches the real
+#   `caffeinate` exactly as this file always has. It is the port a test hands its own starter
+#   through, so the moment the hold exists is part of the call rather than something a test
+#   has to wait to see — the clock that turned this file's keep-awake tests red under load.
+#
 #   --keepawake-poll-seconds is that same interval as a flag, and it exists for exactly one
 #   reason: each launcher that hand-copied this block and documents the knob does so in its
 #   OWN `LAUNCH_<X>_KEEPAWAKE_POLL_SECONDS` header line, and two suites set it by that name
@@ -218,9 +228,10 @@
 # THE TWO BRANCHES
 #   `[ -x notifier ] && [ -f watcher ]` → the happy path: detach the watcher, log both
 #   streams, print the two report lines every sibling block prints today, and (with
-#   --keep-awake) start one detached `caffeinate -i -s` plus the poller that releases it
-#   when the watcher's identity — its pid AND the start time it had when spawned here —
-#   stops matching. `caffeinate -w` is deliberately not used: it waits on a pid number,
+#   --keep-awake) start one detached `caffeinate -i -s`, through the hold starter above, plus
+#   the poller that releases it when the watcher's identity — its pid AND the start time it
+#   had when spawned here — stops matching. A starter that answers with no pid (the default's
+#   answer on a machine with no caffeinate) gets no poller and the "skipped" line. `caffeinate -w` is deliberately not used: it waits on a pid number,
 #   which the kernel reissues, and the hold then rides an unrelated process.
 #
 #   Else → the fix, carried from the start rather than bolted on later: check
@@ -262,20 +273,32 @@ capture_agent_id() {
     | sed -n 's/.*backgrounded \xc2\xb7 \([^ ]*\).*/\1/p' | tail -1
 }
 
+detach_start_caffeinate() {
+  # The real hold starter, and the default of `DETACH_WATCHER_KEEPAWAKE_STARTER`: one detached
+  # `caffeinate` with the argv it was handed, and its pid on stdout — or nothing, which means no
+  # hold was started, when this machine has no caffeinate. The pid is `$!` of the detach itself,
+  # so it names the hold from the instant it exists, whatever its exec has reached by then.
+  command -v caffeinate >/dev/null 2>&1 || return 0
+  nohup caffeinate "$@" >/dev/null 2>&1 &
+  printf '%s\n' "$!"
+}
+
 detach_identity_keep_awake() {
   local watched_pid="$1"
   local watched_start="$2"
   local noun="${3:-run}"
   local poll_seconds="${4:-${DETACH_WATCHER_KEEPAWAKE_POLL_SECONDS:-5}}"
+  # The hold is a program reaching outside the script, so it is handed in rather than named
+  # here; the starter answers with the hold's pid before this function goes on.
+  local starter="${DETACH_WATCHER_KEEPAWAKE_STARTER:-detach_start_caffeinate}"
+  local keepawake_pid
+  keepawake_pid="$("$starter" -i -s)"
 
-  if command -v caffeinate >/dev/null 2>&1; then
+  if [ -n "$keepawake_pid" ]; then
     # A bare pid NUMBER is not a handle on a process. Once the watched process exits and the
     # kernel reissues that number, `caffeinate -w <pid>` holds until whatever unrelated
     # process now answers to it exits too. Pair the pid with the start time it had when the
     # caller spawned it, and keep caffeinate open only while a live process answers to both.
-    local keepawake_pid
-    nohup caffeinate -i -s >/dev/null 2>&1 &
-    keepawake_pid=$!
     nohup bash -c '
       watched_pid="$1"; watched_start="$2"; keepawake_pid="$3"; poll_seconds="$4"
       while :; do

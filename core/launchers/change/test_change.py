@@ -85,7 +85,7 @@ def run(tmp_path, _session_pin):
         project_dir = tmp_path / "system" / "projects" / name
         project_dir.mkdir(parents=True)
         if card is None:
-            card = f"# {name}\n\n**Product path:** {product_path}\n"
+            card = f"# {name}\n\n**Product path:** {product_path}\n**Behave:** none — a test card\n"
         (project_dir / "project.md").write_text(card)
 
     def _engine_argv():
@@ -215,7 +215,7 @@ def test_unknown_project_dies_before_launching(run):
 
 
 def test_project_card_without_product_path_dies(run):
-    run.project("example-product", card="# example-product\n\nno path here\n")
+    run.project("example-product", card="# example-product\n\nno path here\n**Behave:** none — a test card\n")
 
     result = run("example-product")
 
@@ -264,7 +264,7 @@ def test_tilde_product_path_expands_to_home(run):
 
 
 def test_trailing_comment_is_stripped_from_the_product_path(run):
-    run.project("example-product", card="# example-product\n\n**Product path:** products/thing <!-- a note -->\n")
+    run.project("example-product", card="# example-product\n\n**Product path:** products/thing <!-- a note -->\n**Behave:** none — a test card\n")
 
     run("example-product")
 

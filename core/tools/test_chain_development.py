@@ -10,6 +10,7 @@ WHY THIS FILE LOOKS LIKE THIS
 
 from __future__ import annotations
 
+import ast
 import contextlib
 import argparse
 import io
@@ -23,6 +24,7 @@ from pathlib import Path
 
 import pytest
 
+import behave_run
 import chain_development as cd
 import completion_shim
 import gate_suite
@@ -67,6 +69,9 @@ class FakeFiles:
     def make_dirs(self, path: str) -> None:
         pass
 
+    def remove(self, path: str) -> None:
+        self.files.pop(os.path.normpath(path), None)
+
     def make_executable(self, path: str) -> None:
         self.executable.add(os.path.normpath(path))
 
@@ -87,7 +92,10 @@ class FakeGit:
                  bodies: dict | None = None, repos: dict | None = None,
                  times: dict | None = None, shukuba_keys: Iterable[str] = (),
                  tips: dict | None = None, toplevels: dict | None = None,
-                 branches: dict | None = None, statuses: dict | None = None):
+                 branches: dict | None = None, statuses: dict | None = None,
+                 merge_bases: dict | None = None, shown: dict | None = None,
+                 changes: dict | None = None, ancestors: Iterable[tuple[str, str]] = (),
+                 touches: dict | None = None):
         # `tips[repo][branch]` is the commit a branch points at in one repository; a branch with
         # none reads as `None`, `branch_tip`'s own absence answer. A test seeds it, and a removal
         # applied to the fake world pops it.
@@ -107,15 +115,32 @@ class FakeGit:
         self.bodies = dict(bodies or {})
         self.times = dict(times or {})
         self.touched: dict[tuple[str, str], str] = {}
+        # The four reads the red verdict asks: `merge_bases[(branch, base)]` is where a branch
+        # leaves a base, `shown[(ref, path)]` a file's text at a ref, `changes[sha]` the paths one
+        # commit changes, and `ancestors` the `(older, newer)` pairs that are ancestors. Each reads
+        # as its absence value where the test filled nothing.
+        self.merge_bases = dict(merge_bases or {})
+        self.shown = dict(shown or {})
+        self.changes = {sha: list(paths) for sha, paths in (changes or {}).items()}
+        self.ancestors = set(ancestors)
+        # `touches[sha]` is what `touched_paths` answers for one commit; a sha with none seeded
+        # touches nothing, and a seeded `None` stands for git failing.
+        self.touches = dict(touches or {})
         # `shukuba_keys` are the units whose landed commits carry a `Shukuba:` trailer; every
         # question asked is recorded as `(repo, key)`. An unconfigured unit has none.
         self.shukuba_keys = set(shukuba_keys)
         self.shukuba_calls: list[tuple[str, str]] = []
 
     def commits_ahead(self, repo: str, base: str, branch: str) -> list[tuple[str, str]]:
-        if repo in self.repos:
-            return list(self.repos[repo].get(branch, []))
-        return list(self.commits.get(branch, []))
+        """`base..branch`, newest first, as git answers it: `main` gives the whole list, a base
+        that is one of the branch's own commits ends the range there, and any other base names
+        no commit, so the range is empty, as the real adapter's failed `git log` gives."""
+        held = list(self.repos[repo].get(branch, [])) if repo in self.repos \
+            else list(self.commits.get(branch, []))
+        shas = [sha for sha, _subject in held]
+        if base in shas:
+            return held[:shas.index(base)]
+        return held if base == "main" else []
 
     def branch_has_path(self, repo: str, branch: str, path: str) -> bool:
         return path in self.paths.get(branch, set())
@@ -132,6 +157,22 @@ class FakeGit:
     def branch_tip(self, repo: str, branch: str) -> str | None:
         return self.tips.get(repo, {}).get(branch)
 
+    def merge_base(self, repo: str, a: str, b: str) -> str | None:
+        return self.merge_bases.get((b, a))
+
+    def show(self, repo: str, ref: str, path: str) -> str | None:
+        return self.shown.get((ref, path))
+
+    def changed_paths(self, repo: str, sha: str) -> list[str]:
+        return list(self.changes.get(sha, []))
+
+    def touched_paths(self, repo: str, sha: str) -> list[str] | None:
+        paths = self.touches.get(sha, [])
+        return None if paths is None else list(paths)
+
+    def is_ancestor(self, repo: str, older: str, newer: str) -> bool:
+        return (older, newer) in self.ancestors
+
     def toplevel(self, path: str) -> str | None:
         return self.toplevels.get(path)
 
@@ -145,6 +186,25 @@ class FakeGit:
     def unit_has_shukuba(self, repo: str, key: str) -> bool:
         self.shukuba_calls.append((repo, key))
         return key in self.shukuba_keys
+
+
+class FakeBehave:
+    """The throwaway Behave run as data: `table[(base, red)]` is the `(base report, red report)`
+    pair for a base commit and a red key — a commit's sha for an `Overlay.commit`, `"tree"` for an
+    `Overlay.tree` and `None` for no red run. Every call is recorded as `(base, red key)`."""
+
+    def __init__(self, table: dict | None = None):
+        self.table = dict(table or {})
+        self.calls: list[tuple[str, str | None]] = []
+        self.arguments: list[dict] = []
+
+    def base_and_red(self, *, repo, base, folder, red, environ):
+        key = None if red is None else (
+            red.where if red == behave_run.Overlay.commit(red.where) else "tree")
+        self.calls.append((base, key))
+        self.arguments.append({"repo": repo, "folder": folder, "environ": environ})
+        base_report, red_report = self.table[(base, key)]
+        return base_report, (None if red is None or base_report.unavailable else red_report)
 
 
 # --- the world ------------------------------------------------------------------------------
@@ -234,16 +294,17 @@ def audited_git(skills=PRODUCERS, marker=True) -> FakeGit:
 
 def test_the_steps_walk_the_pipeline_in_the_workflows_order():
     assert [entry.id for entry in cd.CHANGE_STEPS] == [
-        "specs", "design", "plan", "content", "implementation", "changelog", "code-integrity",
-        "security", "audit", "seal"]
+        "specs", "red-behaviour", "design", "plan", "content", "implementation", "changelog",
+        "code-integrity", "security", "audit", "seal"]
 
 
 def test_providers_steps_holds_one_content_entry_and_the_rest_unchanged():
     """CP-433: the delivered file carries one `content` entry naming a provider the file
-    accepts, and the ten entries that were there keep the values they had."""
+    accepts, and the twelve others keep the values they had; QA's step is one of the twelve."""
     steps = tomllib.loads(EXAMPLE_FILE.read_text(encoding="utf-8"))["steps"]
 
     assert steps.pop("content") in {"claude", "codex", "gemini"}
+    assert steps.pop("red-behaviour") == "claude"
     assert steps == {"station": "claude", "open": "claude", "specs": "claude",
                      "design": "claude", "plan": "claude", "implementation": "claude",
                      "changelog": "claude", "code-integrity": "claude", "security": "claude",
@@ -278,6 +339,7 @@ def test_every_step_declares_its_responsible_role():
     `run_telemetry.sh` stamps as `kensai.role` on every launch (CP-1)."""
     assert {entry.id: entry.role for entry in cd.CHANGE_STEPS} == {
         "specs": "product-owner",
+        "red-behaviour": "qa",
         "design": "architect",
         "plan": "tech-lead",
         "content": "content-editor",
@@ -299,8 +361,8 @@ def test_the_change_steps_are_the_two_journey_moves_ahead_of_the_pipeline_and_th
     route once the seal lands."""
     assert [entry.id for entry in cd.WALK_STEPS] == [
         "station", "open",
-        "specs", "design", "plan", "content", "implementation", "changelog", "code-integrity",
-        "security", "audit", "seal", "refine"]
+        "specs", "red-behaviour", "design", "plan", "content", "implementation", "changelog",
+        "code-integrity", "security", "audit", "seal", "refine"]
     assert cd.WALK_STEPS[2:-1] == cd.CHANGE_STEPS
 
 
@@ -1028,10 +1090,12 @@ ENGINE = "/pinned/chain_development.py"
 SKILL_LAUNCHER = f"{CORE}/launchers/skill/launcher.sh"
 
 
-def build(files: FakeFiles, *, git=None, processes=None, notifier=None, lock=None, environ=None,
-          log=None, steps=None, provider_port=None, process_table=None, checkout=None,
-          environment_check=None):
-    return cd.DevelopmentChain(
+def engine_arguments(files: FakeFiles, *, git=None, processes=None, notifier=None, lock=None,
+                     environ=None, log=None, steps=None, provider_port=None, process_table=None,
+                     checkout=None, environment_check=None, behave=None, places=None) -> dict:
+    """Every collaborator the engine is handed, each a fake. `places` is the path tool's `qa`
+    target for a change; none is the fixed `qa_places()`."""
+    return dict(
         store=cd.StateStore(files, STATE),
         reader=cd.DiskReader(files=files, git=git or FakeGit()),
         files=files,
@@ -1048,7 +1112,14 @@ def build(files: FakeFiles, *, git=None, processes=None, notifier=None, lock=Non
         process_table=FakeProcessTable() if process_table is None else process_table,
         checkout=checkout or FakeCheckout(),
         environment_check=environment_check or FakeEnvironmentCheck(),
+        behave=behave or FakeBehave(),
+        qa_places=places or (lambda change: qa_places()),
+        qa_asks=cd.QaAskStore(files, LOGS),
     )
+
+
+def build(files: FakeFiles, **arguments):
+    return cd.DevelopmentChain(**engine_arguments(files, **arguments))
 
 
 def start(engine, product_path: str = PRODUCT, **kwargs):
@@ -1140,6 +1211,10 @@ def _entering_at(step_id: str, steps: tuple) -> tuple[dict, "FakeGit"]:
     disk, git = _through(previous)
     if step_id == "content":
         disk[f"{BRANCH_CHANGE}/change_design.md"] = TEXT_DESIGN
+    if step_id == "red-behaviour":
+        disk[CARD_PATH] = BEHAVE_CARD
+        disk[NFDR_PATH] = WAY_IN_NFDR
+        disk[f"{BRANCH_CHANGE}/change_spec.md"] = QA_CHANGING_SPEC
     if steps is cd.WALK_STEPS:
         disk[STATION] = "station"
     return disk, git
@@ -1976,10 +2051,14 @@ class Walk:
     environment_check = None
     # The environment every engine of this walk inherits; `None` is the file's own minimal one.
     environ = None
+    # The throwaway Behave every engine of this walk is handed; `None` is a fresh one per engine.
+    behave = None
+    # What the path tool refuses with when a test sets it; `None` answers the fixed `qa_places()`.
+    places_error: Exception | None = None
 
     def __init__(self, through: str | None = None, codes=None, product_path: str = PRODUCT,
                  steps=None, provider_port=None, table=None, checkout=None,
-                 environment_check=None, environ=None, **start_arguments):
+                 environment_check=None, environ=None, before_start=None, **start_arguments):
         disk, git = _through(through)
         self.files = FakeFiles(disk)
         self.git = git
@@ -1991,15 +2070,30 @@ class Walk:
         self.checkout = checkout or FakeCheckout()
         self.environment_check = environment_check or FakeEnvironmentCheck()
         self.environ = environ
+        self.behave = FakeBehave()
         # The provider file every engine of this walk reads; a test edits its `text` mid-walk.
         self.provider_port = provider_port or ProviderText()
+        if before_start is not None:
+            before_start(self)
         start(self.engine(), product_path=product_path, **start_arguments)
 
     def engine(self):
         return build(self.files, git=self.git, processes=self.processes, notifier=self.notifier,
                      lock=self.lock, steps=self.steps, provider_port=self.provider_port,
                      process_table=self.table, checkout=self.checkout,
-                     environment_check=self.environment_check, environ=self.environ)
+                     environment_check=self.environment_check, environ=self.environ,
+                     behave=self.behave, places=self._places)
+
+    def _places(self, change):
+        """The path tool's answer, counted: a walk whose card does not say `behave` asks none."""
+        self.__dict__.setdefault("places_asked", []).append(change.key)
+        if self.places_error is not None:
+            raise self.places_error
+        return qa_places()
+
+    @property
+    def places_calls(self) -> list[str]:
+        return self.__dict__.get("places_asked", [])
 
     def advance(self, run: str, outcome: str = "completed"):
         return self.engine().advance(run, outcome)
@@ -2784,6 +2878,48 @@ def test_the_real_git_lists_only_the_commits_the_branch_carries_past_main(repo):
     assert all(len(sha) == 40 for sha, _ in ahead)
 
 
+class _CommitsAheadContract:
+    """The git port's `commits_ahead`, stated once and run against the real adapter and against
+    `FakeGit` (`testing_doctrine.md` § A fake is verified against its port's contract). The re-run
+    of QA's step counts its red from a base the branch holds, the tip at the ask, so the fake was
+    taught to end a range there; these are that behaviour's cases. Not collected itself: its name
+    does not start with `Test`."""
+
+    def port(self, repo: Path) -> tuple[object, str]:
+        """The port, and the repository to ask it about."""
+        raise NotImplementedError
+
+    def test_main_gives_every_commit_the_branch_carries_newest_first(self, repo):
+        git, where = self.port(repo)
+
+        ahead = git.commits_ahead(where, "main", KEY)
+
+        assert [subject for _sha, subject in ahead] == [MARKER[1], "task 1 — green"]
+
+    def test_a_base_the_branch_holds_ends_the_range_after_it(self, repo):
+        git, where = self.port(repo)
+        newest, older = git.commits_ahead(where, "main", KEY)
+
+        assert git.commits_ahead(where, older[0], KEY) == [newest]
+        assert git.commits_ahead(where, newest[0], KEY) == []
+
+    def test_a_base_that_names_no_commit_gives_nothing(self, repo):
+        git, where = self.port(repo)
+
+        assert git.commits_ahead(where, "0" * 40, KEY) == []
+
+
+class TestTheRealGitKeepsTheCommitsAheadContract(_CommitsAheadContract):
+    def port(self, repo: Path) -> tuple[object, str]:
+        return cd.Git(), str(repo)
+
+
+class TestFakeGitKeepsTheCommitsAheadContract(_CommitsAheadContract):
+    def port(self, repo: Path) -> tuple[object, str]:
+        branch = [("b" * 40, MARKER[1]), ("a" * 40, "task 1 — green")]
+        return FakeGit(repos={str(repo): {KEY: branch}}), str(repo)
+
+
 def test_the_real_reader_finds_an_external_products_landed_task_in_its_own_repo(tmp_path):
     """Two real repositories: the instance's `<key>` branch carries only pipeline commits, the
     product's carries the per-task commits. The failure resume reads the product's (D1)."""
@@ -3357,7 +3493,9 @@ def test_a_whole_walk_reaches_sealed_against_a_real_repository_laid_down_by_the_
         engine_path=_REAL_ENGINE,
         steps=cd.CHANGE_STEPS, providers=provider_files(),
         process_table=FakeProcessTable(), checkout=product_checkout.Checkout(),
-        environment_check=FakeEnvironmentCheck())
+        environment_check=FakeEnvironmentCheck(), behave=FakeBehave(),
+        qa_places=lambda change: qa_places(),
+        qa_asks=cd.QaAskStore(files, str(tmp_path / "logs")))
     chain.start(instance_root=str(repo), product_path=str(repo / "product"), project=PROJECT,
                 core_dir=CORE, shim_dir=str(tmp_path / "logs"))
 
@@ -3849,7 +3987,8 @@ def test_describe_says_which_provider_each_step_would_run_on(tmp_path, capsys):
     forced = capsys.readouterr().out.splitlines()[2]
 
     steps = [step.id for step in cd.CHANGE_STEPS]
-    assert own == ("providers=specs=claude design=claude plan=claude content=claude "
+    assert own == ("providers=specs=claude red-behaviour=claude design=claude plan=claude "
+                   "content=claude "
                    "implementation=claude changelog=claude code-integrity=claude "
                    "security=claude audit=claude seal=claude")
     assert forced == "providers=" + " ".join(f"{step}=codex" for step in steps)
@@ -3878,7 +4017,8 @@ def test_describe_over_the_change_table_prints_every_steps_provider(tmp_path, ca
 
     assert code == 0
     assert capsys.readouterr().out.splitlines()[2] == (
-        "providers=station=claude open=claude specs=claude design=claude plan=claude "
+        "providers=station=claude open=claude specs=claude red-behaviour=claude design=claude "
+        "plan=claude "
         "content=claude implementation=claude changelog=claude code-integrity=claude "
         "security=claude audit=claude seal=claude refine=claude")
 
@@ -7569,10 +7709,10 @@ def test_the_content_step_is_in_both_tables_with_the_content_editor_role():
             "content", "changelog"]
         assert [entry.id for entry in table if entry.id != "content"] == [
             entry.id for entry in table if entry.id in
-            {"station", "open", "specs", "design", "plan", "implementation", "changelog",
-             "code-integrity", "security", "audit", "seal", "refine"}]
-    eight = ["specs", "design", "plan", "implementation", "changelog", "code-integrity",
-             "security", "audit", "seal"]
+            {"station", "open", "specs", "red-behaviour", "design", "plan", "implementation",
+             "changelog", "code-integrity", "security", "audit", "seal", "refine"}]
+    eight = ["specs", "red-behaviour", "design", "plan", "implementation", "changelog",
+             "code-integrity", "security", "audit", "seal"]
     assert [entry.id for entry in cd.CHANGE_STEPS if entry.id != "content"] == eight
     assert [entry.id for entry in cd.WALK_STEPS if entry.id != "content"] == [
         "station", "open", *eight, "refine"]
@@ -10407,6 +10547,7 @@ def test_every_other_step_keeps_the_fields_it_had_before_the_changelog_step():
 
     assert kept == {
         "specs": ("development-specs", "product-owner", False, True, (), "", False),
+        "red-behaviour": ("red-behaviour", "qa", True, True, (), "", False),
         "design": ("development-design", "architect", True, True, (), "", False),
         "plan": ("development-plan", "tech-lead", True, True, (), "", False),
         "content": ("development-content", "content-editor", True, True, (), "", True),
@@ -11899,27 +12040,6 @@ def test_an_item_neither_companion_holds_is_not_carried():
     assert walk.state["sweep_items"] == [{"value": RECORDS_ITEM, "held": False}]
 
 
-def test_an_item_is_not_carried_when_main_has_no_companion():
-    walk = _carrying_walk(main=None)
-
-    walk.advance("specs")
-    _sweep_ends(walk, companion=None)
-
-    assert _builder_calls(walk) == []
-    assert not walk.files.is_file(COMPANION_FILE) or _main_companion(walk) is None
-    assert walk.state["ended_reason"] == _not_folded(RECORDS_ITEM)
-
-
-def test_an_item_is_not_carried_when_main_has_no_raised_from_downstream_section():
-    other = "## 2. Open questions\n\n### 2.1 Z\n\nSomething else.\n"
-    walk = _carrying_walk(main=other)
-
-    walk.advance("specs")
-
-    assert _builder_calls(walk) == []
-    assert _main_companion(walk) == _companion(other)
-
-
 def test_an_unseeded_top_level_carries_nothing():
     walk = _carrying_walk()
     walk.git.toplevels = {}
@@ -12287,7 +12407,9 @@ class _RealCarryWorld:
             lock=cd.FileLock(), log=cd.WalkLog(), id_source=FakeIdSource(), environ={},
             engine_path=_REAL_ENGINE, steps=cd.CHANGE_STEPS, providers=provider_files(),
             process_table=FakeProcessTable(), checkout=FakeCheckout(),
-            environment_check=FakeEnvironmentCheck())
+            environment_check=FakeEnvironmentCheck(), behave=FakeBehave(),
+            qa_places=lambda change: qa_places(),
+            qa_asks=cd.QaAskStore(Files(), str(tmp_path / "logs")))
         self.chain.start(instance_root=str(self.repo), product_path=str(self.repo / "core/tools"),
                          project=PROJECT, core_dir=str(_REPO / "core"),
                          shim_dir=str(tmp_path / "logs"))
@@ -12464,3 +12586,4775 @@ def test_a_refused_carry_commit_leaves_the_main_companion_clean_and_byte_for_byt
     assert _git(world.repo, "status", "--porcelain", "--", "someone-elses.md") == "A  someone-elses.md"
     assert not any(call["argv"][0].endswith("launchers/product-docs/launcher.sh")
                    for call in world.processes.calls)
+
+
+# --- the guards: a walk QA's step does not apply to is the walk it always was (CP-1323) -----------
+
+CARD_PATH = f"{INSTANCE}/system/projects/{PROJECT}/project.md"
+NONE_CARD = "# Project Context\n\n**Behave:** none — a CLI with no user scenarios\n"
+BEHAVE_CARD = f"# Project Context\n\n**Product path:** {PRODUCT}\n**Behave:** behave\n"
+# The product's NFDR once its architecture run has recorded a way in (CP-1321).
+NFDR_PATH = f"{PRODUCT}/docs/nfdr.md"
+WAY_IN_NFDR = "## 9\n\n**Behave:** behave\n**Behave way in:** command\n"
+PRESERVING_SPEC = "# Change Spec\n\n**Behaviour:** preserving\n"
+TODAYS_SKILLS = ["development-specs", "development-design", "development-plan",
+                 "development-implementation", "changelog-line", "development-code-integrity",
+                 "development-security", *["development-audit"] * 4, "tobiishi-seal"]
+# The two readings of CP-1323: a card that made the call `none`, and a card that said `behave`
+# beside a change that preserves behaviour. Neither may start a QA run, write a QA file or halt.
+NOT_APPLYING = [
+    pytest.param(NONE_CARD, "# Change Spec\n\n**Behaviour:** changing\n", id="none-card"),
+    pytest.param(BEHAVE_CARD, PRESERVING_SPEC, id="preserving-spec"),
+]
+
+
+def _walk_to_the_seal(card: str | None, spec: str, environ=None) -> tuple[Walk, set[str]]:
+    """A walk run from `specs` through every step to the seal's landing. Returns the walk and the
+    paths this helper landed itself, so a test can name any file the walk wrote beyond them.
+    `card` of `None` leaves no card on `main`; `environ` is the engine's inherited environment."""
+    walk = Walk(environ=environ)
+    if card is not None:
+        walk.files.write_text(CARD_PATH, card)
+    _give_the_close_its_report(walk)
+    land(walk.files, walk.git, "specs")
+    walk.files.write_text(f"{BRANCH_CHANGE}/change_spec.md", spec)
+    walk.advance("specs")
+    for step_id in ("design", "plan", "implementation", "changelog", "code-integrity",
+                    "security"):
+        land(walk.files, walk.git, step_id)
+        walk.advance(step_id)
+    for skill in PRODUCERS:
+        land(walk.files, walk.git, "audit", skill)
+        walk.advance(f"audit-{skill}")
+    land(walk.files, walk.git, "seal")
+    walk.advance("seal")
+    landed = {os.path.normpath(f"{BRANCH_CHANGE}/{name}") for name in (
+        "change_spec.md", "change_design.md", "tl_instruction.md", "code-integrity-report.md",
+        "security-report.md")}
+    return walk, landed
+
+
+def _written_beyond(walk: Walk, landed: set[str]) -> set[str]:
+    return {path for path in walk.files.files
+            if path.startswith(BRANCH_CHANGE) or path.startswith(PRODUCT)} - landed
+
+
+def test_a_none_card_walk_launches_only_todays_skills_and_writes_nothing_new():
+    walk, landed = _walk_to_the_seal(NONE_CARD, "# Change Spec\n\n**Behaviour:** changing\n")
+
+    assert walk.skills_launched == TODAYS_SKILLS
+    assert _written_beyond(walk, landed) == set()
+    assert walk.state["ended"] == "sealed"
+
+
+def test_a_preserving_walk_launches_only_todays_skills_and_writes_nothing_new():
+    walk, landed = _walk_to_the_seal(BEHAVE_CARD, PRESERVING_SPEC)
+
+    assert walk.skills_launched == TODAYS_SKILLS
+    assert _written_beyond(walk, landed) == set()
+    assert walk.state["ended"] == "sealed"
+
+
+@pytest.mark.parametrize("card, spec", NOT_APPLYING)
+def test_a_walk_asks_for_no_red_commit_scenario_or_record_when_the_step_does_not_apply(card, spec):
+    walk, _ = _walk_to_the_seal(card, spec)
+
+    assert walk.state["ended"] == "sealed"
+    asked = " ".join([*walk.notifier.messages, walk.state["ended_reason"] or ""]).lower()
+    for halt in ("missing-qa-red", "qa-record-refused", "qa-red-refused", "no-way-in",
+                 "behave-unavailable", "qa-main-red"):
+        assert halt not in asked
+    assert not [path for path in walk.files.files if "qa_record" in path or ".behave" in path]
+
+
+# --- whether QA's step applies: the one decision ---------------------------------------------
+
+QA_CHANGING_SPEC = "# Change Spec\n\n**Behaviour:** changing\n"
+QA_APPLIES_READ = "**Behave:** behave and **Behaviour:** changing"
+
+
+def _card(*lines: str) -> str:
+    return "# Project Context\n\n" + "".join(f"{line}\n" for line in lines)
+
+
+def test_qa_step_applies_on_a_behave_card_and_a_changing_spec():
+    decision = cd.qa_step_applies(_card("**Behave:** behave"), QA_CHANGING_SPEC)
+
+    assert decision == cd.QaDecision(applies=True, read=QA_APPLIES_READ)
+
+
+@pytest.mark.parametrize("spec", [QA_CHANGING_SPEC, "# Spec\n\n**Behaviour:** preserving\n", None])
+def test_qa_step_passes_on_a_none_card_whatever_the_spec_says_and_names_the_cards_line(spec):
+    card = _card("**Behave:** none — a CLI with no user scenarios")
+
+    decision = cd.qa_step_applies(card, spec)
+
+    assert decision == cd.QaDecision(
+        applies=False, read="**Behave:** none — a CLI with no user scenarios")
+
+
+def test_qa_step_passes_on_a_behave_card_with_a_preserving_spec_and_names_the_specs_line():
+    decision = cd.qa_step_applies(_card("**Behave:** behave"), "x\n**Behaviour:** preserving\n")
+
+    assert decision == cd.QaDecision(applies=False, read="**Behaviour:** preserving")
+
+
+@pytest.mark.parametrize("card, spec, read", [
+    (None, QA_CHANGING_SPEC, "no project.md on main"),
+    (_card("**Type:** software"), QA_CHANGING_SPEC, "project.md has no **Behave:** line"),
+    (_card("**Behave:** behave", "**Behave:** none — x"), QA_CHANGING_SPEC,
+     "project.md has 2 **Behave:** lines"),
+    (_card("**Behave:** behave | none — <reason>"), QA_CHANGING_SPEC,
+     "project.md's **Behave:** line reads \"behave | none — <reason>\""),
+    (_card("**Behave:**"), QA_CHANGING_SPEC, "project.md's **Behave:** line reads \"\""),
+    (_card("**Behave:** behave"), None, "no change_spec.md on the branch"),
+    (_card("**Behave:** behave"), "# Spec\n\nno such line\n",
+     "change_spec.md has no **Behaviour:** line"),
+])
+def test_qa_step_passes_naming_what_was_read_on_every_other_reading(card, spec, read):
+    assert cd.qa_step_applies(card, spec) == cd.QaDecision(applies=False, read=read)
+
+
+def test_an_inline_comment_is_cut_from_the_cards_value():
+    assert cd.qa_step_applies(
+        _card("**Behave:** behave <!-- the call -->"), QA_CHANGING_SPEC).applies is True
+
+    only_in_the_comment = cd.qa_step_applies(_card("**Behave:** <!-- behave -->"), QA_CHANGING_SPEC)
+
+    assert only_in_the_comment == cd.QaDecision(
+        applies=False, read="project.md's **Behave:** line reads \"\"")
+
+
+def test_the_cards_value_is_read_exactly():
+    decision = cd.qa_step_applies(_card("**Behave:** Behave"), QA_CHANGING_SPEC)
+
+    assert decision == cd.QaDecision(
+        applies=False, read="project.md's **Behave:** line reads \"Behave\"")
+
+
+@pytest.mark.parametrize("value", ["changing — adds a step", "*changing*", "`changing`",
+                                   "_changing_"])
+def test_a_specs_changing_followed_by_more_words_applies(value):
+    spec = f"# Spec\n\n**Behaviour:** {value}\n"
+
+    assert cd.qa_step_applies(_card("**Behave:** behave"), spec).applies is True
+
+
+_TOOLS = Path(__file__).resolve().parent
+_QA_SKILL_DIR = _TOOLS.parents[1] / "skills" / "qa"
+_NAMED_OTHER_PURPOSE_FILES = {
+    "pin_run.sh", "install_behave_starter.py", "SKILL.md", "rich.md", "CHANGELOG.md",
+}
+# The decision is two functions since the close: the card half holds the card's label and the
+# decision proper holds the spec's.
+_THE_DECISION = {"qa_step_applies", "behave_card_reading"}
+_CHAIN_FUNCTIONS_THAT_MAY_HOLD_THEM = {*_THE_DECISION, "_missing_verdict_report", "qa_way_in"}
+
+
+def _hits(literal: str) -> list[tuple[Path, int]]:
+    """Every non-test file under the tools folder and the QA skill that holds the literal."""
+    found = []
+    for root in (_TOOLS, _QA_SKILL_DIR):
+        for path in sorted(root.rglob("*")):
+            if (not path.is_file() or path.name.startswith("test_") or ".venv" in path.parts
+                    or "__pycache__" in path.parts or path.suffix in {".pyc", ".json"}):
+                continue
+            try:
+                text = path.read_text(encoding="utf-8")
+            except UnicodeDecodeError:
+                continue
+            found += [(path, number) for number, line in enumerate(text.splitlines(), start=1)
+                      if literal in line]
+    return found
+
+
+def _enclosing_function(path: Path, line: int) -> str | None:
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    for node in tree.body:
+        if isinstance(node, ast.FunctionDef) and node.lineno <= line <= node.end_lineno:
+            return node.name
+    return None
+
+
+@pytest.mark.parametrize("literal", ["**Behave:**", "**Behaviour:**"])
+def test_only_the_decision_and_the_named_other_purpose_readers_hold_the_two_literals(literal):
+    chain = _TOOLS / "chain_development.py"
+    hits = _hits(literal)
+
+    in_the_chain = [(path, line) for path, line in hits if path == chain]
+    assert {_enclosing_function(path, line) for path, line in in_the_chain} \
+        <= _CHAIN_FUNCTIONS_THAT_MAY_HOLD_THEM
+    assert _THE_DECISION & {_enclosing_function(path, line) for path, line in in_the_chain}
+    elsewhere = {path.name for path, _ in hits if path != chain}
+    assert elsewhere <= _NAMED_OTHER_PURPOSE_FILES, elsewhere
+
+
+# --- the step in the chain's table: placed, passed and launched (Task 7) ------------------------
+
+QA_CARD_READ = "**Behave:** none — a CLI with no user scenarios"
+
+
+def _walk_past_specs(card: str | None, spec: str = QA_CHANGING_SPEC,
+                     nfdr: str | None = WAY_IN_NFDR, asks: "cd.QaAsks | None" = None,
+                     launcher_codes: list[int] | None = None) -> Walk:
+    """A walk whose `specs` run has just landed, the card on main, the product's NFDR and the spec
+    on the branch as given — the moment the walk reaches QA's step. `asks` is the per-change
+    record already on disk, and `launcher_codes` the exit statuses the launches that follow get."""
+    walk = Walk()
+    if card is not None:
+        walk.files.write_text(CARD_PATH, card)
+    if nfdr is not None:
+        walk.files.write_text(NFDR_PATH, nfdr)
+    if asks is not None:
+        cd.QaAskStore(walk.files, LOGS).save(PROJECT, KEY, asks)
+    if launcher_codes is not None:
+        walk.processes.codes = list(launcher_codes)
+    land(walk.files, walk.git, "specs")
+    walk.files.write_text(f"{BRANCH_CHANGE}/change_spec.md", spec)
+    walk.advance("specs")
+    return walk
+
+
+def test_describe_on_a_fresh_change_lists_red_behaviour_between_specs_and_design(tmp_path, capsys):
+    instance = _instance_with_one_change(tmp_path)
+
+    code = cd.main(["--describe", str(tmp_path / "state.json"), "--instance-root", str(instance),
+                    "--project", PROJECT])
+
+    assert code == 0
+    providers_line = capsys.readouterr().out.splitlines()[2].removeprefix("providers=").split()
+    assert providers_line[:3] == ["specs=claude", "red-behaviour=claude", "design=claude"]
+
+
+def test_describe_refuses_with_exit_3_naming_a_missing_red_behaviour_entry(tmp_path, capsys):
+    _copy_of_the_file(tmp_path, {"steps.red-behaviour": None})
+    instance = _instance_with_one_change(tmp_path)
+
+    code = cd.main(["--describe", str(tmp_path / "state.json"), "--instance-root", str(instance),
+                    "--project", PROJECT])
+
+    assert code == 3
+    assert "steps.red-behaviour is missing" in capsys.readouterr().err
+
+
+def test_main_refuses_a_start_naming_a_missing_red_behaviour_entry(tmp_path, capsys, notifier_log):
+    script, log = notifier_log
+    _copy_of_the_file(tmp_path, {"steps.red-behaviour": None})
+
+    code, state = _start_through_main(tmp_path, "--notifier", str(script))
+
+    assert code == 3
+    assert "steps.red-behaviour is missing" in capsys.readouterr().err
+    assert not state.exists()
+
+
+def test_a_none_card_passes_red_behaviour_without_a_launch():
+    walk = _walk_past_specs(NONE_CARD)
+
+    assert walk.skills_launched == ["development-specs", "development-design"]
+    assert f"red-behaviour passed — {QA_CARD_READ}" in walk.state["history"]
+    assert not [path for path in walk.files.files if "qa_record" in path or ".behave" in path]
+    assert walk.behave.calls == []
+
+
+def test_a_preserving_change_passes_red_behaviour_naming_the_specs_line():
+    walk = _walk_past_specs(BEHAVE_CARD, PRESERVING_SPEC)
+
+    assert walk.skills_launched == ["development-specs", "development-design"]
+    assert "red-behaviour passed — **Behaviour:** preserving" in walk.state["history"]
+    assert walk.behave.calls == []
+
+
+def test_a_walk_with_no_card_passes_red_behaviour_and_launches_design():
+    walk = _walk_past_specs(None)
+
+    assert walk.skills_launched == ["development-specs", "development-design"]
+    assert "red-behaviour passed — no project.md on main" in walk.state["history"]
+    assert walk.behave.calls == []
+
+
+def test_the_stamped_card_value_passes_with_no_halt_and_no_question():
+    walk = _walk_past_specs(_card("**Behave:** behave | none — <reason>"))
+
+    assert walk.state["ended"] is None
+    assert not [message for message in walk.notifier.messages if "stopped" in message]
+    assert ("red-behaviour passed — project.md's **Behave:** line reads "
+            "\"behave | none — <reason>\"") in walk.state["history"]
+
+
+def test_a_restart_after_the_pass_enters_past_red_behaviour():
+    files, git = _through("specs")
+    files[CARD_PATH] = NONE_CARD
+    processes = FakeProcesses()
+
+    start(build(FakeFiles(files), git=git, processes=processes))
+
+    assert processes.launched == [[SKILL_LAUNCHER, "development-design", PROJECT, KEY]]
+
+
+def test_a_change_with_its_design_on_the_branch_is_never_entered_at_red_behaviour():
+    files, git = _through("design")
+    files[CARD_PATH] = BEHAVE_CARD
+    files[f"{BRANCH_CHANGE}/change_spec.md"] = QA_CHANGING_SPEC
+
+    entry = reader(files, git).entry_step(layout(), cd.CHANGE_STEPS)
+
+    assert entry.id == "plan"
+
+
+def test_a_behave_changing_change_launches_red_behaviour_after_specs_with_the_key():
+    walk = _walk_past_specs(BEHAVE_CARD)
+
+    assert walk.processes.launched[-1] == [SKILL_LAUNCHER, "red-behaviour", PROJECT, KEY]
+    assert list(walk.state["pending"]) == ["red-behaviour"]
+
+
+# --- git's four read-only questions the red verdict asks (Task 8) -------------------------------
+
+
+def _commit_file(repo: Path, name: str, text: str, message: str) -> str:
+    (repo / name).parent.mkdir(parents=True, exist_ok=True)
+    (repo / name).write_text(text)
+    _git(repo, "add", name)
+    _git(repo, "commit", "-q", "-m", message)
+    return _git(repo, "rev-parse", "HEAD")
+
+
+def test_merge_base_names_where_the_branch_leaves_main(repo):
+    fork = _git(repo, "rev-parse", "main")
+
+    assert cd.Git().merge_base(str(repo), "main", KEY) == fork
+    assert cd.Git().merge_base(str(repo), "main", "2026-01-01_never") is None
+
+
+def test_show_returns_the_text_at_the_ref_and_none_when_absent(repo):
+    _git(repo, "checkout", "-q", KEY)
+    first = _commit_file(repo, "docs/note.md", "one\n", "note one")
+    second = _commit_file(repo, "docs/note.md", "two\n", "note two")
+    git = cd.Git()
+
+    assert git.show(str(repo), first, "docs/note.md") == "one\n"
+    assert git.show(str(repo), second, "docs/note.md") == "two\n"
+    assert git.show(str(repo), "main", "docs/note.md") is None
+    assert git.show(str(repo), "no-such-ref", "docs/note.md") is None
+
+
+def test_changed_paths_lists_the_paths_one_commit_changes(repo):
+    root = _git(repo, "rev-list", "--max-parents=0", "main")
+    _git(repo, "checkout", "-q", KEY)
+    (repo / "a.txt").write_text("a\n")
+    (repo / "b/c.txt").parent.mkdir()
+    (repo / "b/c.txt").write_text("c\n")
+    _git(repo, "add", "a.txt", "b/c.txt")
+    _git(repo, "commit", "-q", "-m", "two paths")
+    two = _git(repo, "rev-parse", "HEAD")
+    git = cd.Git()
+
+    assert sorted(git.changed_paths(str(repo), two)) == ["a.txt", "b/c.txt"]
+    assert git.changed_paths(str(repo), root) == []
+    assert git.changed_paths(str(repo), "0" * 40) == []
+
+
+def test_changed_paths_of_a_root_commit_lists_what_it_holds(tmp_path):
+    root = tmp_path / "fresh"
+    root.mkdir()
+    _git(root, "init", "-q", "-b", "main")
+    first = _commit_file(root, "start.txt", "s\n", "first")
+
+    assert cd.Git().changed_paths(str(root), first) == ["start.txt"]
+
+
+def test_is_ancestor_is_true_for_an_earlier_commit_and_false_for_a_later(repo):
+    earlier = _git(repo, "rev-parse", "main")
+    later = _git(repo, "rev-parse", KEY)
+    git = cd.Git()
+
+    assert git.is_ancestor(str(repo), earlier, later) is True
+    assert git.is_ancestor(str(repo), later, earlier) is False
+    assert git.is_ancestor(str(repo), "0" * 40, later) is False
+
+
+def test_a_fake_git_answers_the_four_reads_from_its_tables():
+    git = FakeGit(merge_bases={(KEY, "main"): "base1"},
+                  shown={("sha1", "docs/a.md"): "text"},
+                  changes={"sha1": ["x", "y"]},
+                  ancestors={("old", "new")})
+
+    assert git.merge_base("/r", "main", KEY) == "base1"
+    assert git.merge_base("/r", "main", "other") is None
+    assert git.show("/r", "sha1", "docs/a.md") == "text"
+    assert git.show("/r", "sha1", "docs/b.md") is None
+    assert git.changed_paths("/r", "sha1") == ["x", "y"]
+    assert git.changed_paths("/r", "sha2") == []
+    assert git.is_ancestor("/r", "old", "new") is True
+    assert git.is_ancestor("/r", "new", "old") is False
+
+
+# --- QA's red verdict: what Behave reported and what the red commit holds ----------------------
+
+
+QA_REPO = "/product"
+QA_WORKTREE = f"{QA_REPO}/.worktrees/{KEY}"
+QA_FOLDER_REL = ".behave"
+QA_RECORD_REL = f"{CHANGE_REL}/qa_record.md"
+QA_RECORD_PATH = f"{BRANCH_CHANGE}/qa_record.md"
+QA_BASE_SHA = "b" * 40
+QA_RED_SHA = "c" * 40
+QA_RECORD_SHA = "d" * 40
+QA_LATER_SHA = "e" * 40
+NEW_ONE = "features/due.feature:3"
+NEW_TWO = "features/due.feature:9"
+KEPT_ONE = "features/old.feature:5"
+QA_ENVIRON = {"PATH": "/usr/bin"}
+QA_ROLE_BODY = "qa: scenarios\n\nRole: QA\nSurface: Claude Code\n"
+
+
+def reported(*outcomes: tuple[str, str]) -> "behave_run.BehaveReport":
+    return behave_run.BehaveReport(outcomes=tuple(outcomes))
+
+
+def not_reported(text: str) -> "behave_run.BehaveReport":
+    return behave_run.BehaveReport(unavailable=text)
+
+
+def qa_places() -> dict:
+    return {"repo": QA_REPO, "worktree": QA_WORKTREE, "branch": KEY,
+            "scenario_folder": f"{QA_WORKTREE}/{QA_FOLDER_REL}", "record": QA_RECORD_PATH}
+
+
+def qa_record(*, change: str = KEY, base: str = QA_BASE_SHA, red: str = QA_RED_SHA,
+              scenarios: tuple[str, ...] = (
+                  f"{NEW_ONE} — new or changed — CP-1 — failed",
+                  f"{KEPT_ONE} — kept — CP-2 — passed"),
+              omit: tuple[str, ...] = (), empty: tuple[str, ...] = ()) -> str:
+    """A record with the six slots. `omit` drops a slot's lines and `empty` blanks its value."""
+    values = {"Change:": [change], "Way in:": ["the command line"], "Base commit:": [base],
+              "Red commit:": [red], "Scenario:": list(scenarios), "Review notes:": ["none"]}
+    lines = []
+    for label, held in values.items():
+        if label in omit:
+            continue
+        lines.extend(label if label in empty else f"{label} {value}" for value in held)
+    return "\n".join(lines) + "\n"
+
+
+NO_REACH_WHY = "no HTTP request reaches a check's report"
+NO_REACH_LINE = f"No reach: {NO_REACH_WHY}"
+
+
+def qa_no_reach_record(*, change: str = KEY, base: str = QA_BASE_SHA, why: str = NO_REACH_WHY,
+                       omit: tuple[str, ...] = (), empty: tuple[str, ...] = (),
+                       beside: tuple[str, ...] = ()) -> str:
+    """A no-reach record: the five slots of its form. `omit` drops a slot's line, `empty` blanks
+    its value and `beside` adds the given lines after them (a `Red commit:` or `Scenario:` line)."""
+    values = {"Change:": change, "Way in:": "the command line", "Base commit:": base,
+              "No reach:": why, "Review notes:": "none"}
+    lines = [label if label in empty else f"{label} {value}"
+             for label, value in values.items() if label not in omit]
+    return "\n".join([*lines, *beside]) + "\n"
+
+
+class QaWorld:
+    """A product repository, the instance's change branch and Behave, as data."""
+
+    def __init__(self, *, record: str | None = None, draft_record: str | None = None,
+                 base=None, red=None, commits=None, changes=None, bodies=None, table=None,
+                 ancestors=(), statuses=None):
+        record = qa_record() if record is None else record
+        self.files = FakeFiles({} if draft_record is None else {QA_RECORD_PATH: draft_record})
+        commits = [(QA_RECORD_SHA, "qa: record"), (QA_RED_SHA, "qa: scenarios")] \
+            if commits is None else commits
+        shown = {} if record is False else {(KEY, QA_RECORD_REL): record}
+        self.git = FakeGit(
+            repos={QA_REPO: {KEY: commits}},
+            merge_bases={(KEY, "main"): QA_BASE_SHA}, shown=shown, ancestors=ancestors,
+            bodies={QA_RED_SHA: QA_ROLE_BODY, QA_RECORD_SHA: QA_ROLE_BODY, **(bodies or {})},
+            changes={QA_RED_SHA: [f"{QA_FOLDER_REL}/features/due.feature"],
+                     QA_RECORD_SHA: [QA_RECORD_REL], **(changes or {})},
+            statuses=statuses)
+        base = reported((KEPT_ONE, "passed")) if base is None else base
+        red = reported((NEW_ONE, "failed"), (NEW_TWO, "failed"), (KEPT_ONE, "passed")) \
+            if red is None else red
+        self.behave = FakeBehave(table or {(QA_BASE_SHA, QA_RED_SHA): (base, red),
+                                           (QA_BASE_SHA, "tree"): (base, red),
+                                           (QA_BASE_SHA, None): (base, None)})
+        self.reader = cd.DiskReader(files=self.files, git=self.git)
+
+    def verdict(self, *, draft: bool = False) -> "cd.QaRedVerdict":
+        return cd.qa_red_verdict(self.reader, self.behave, layout(), qa_places(),
+                                 environ=QA_ENVIRON, draft=draft)
+
+
+def test_two_new_failing_scenarios_and_a_kept_passing_one_are_accepted():
+    world = QaWorld(record=qa_record(scenarios=(
+        f"{NEW_ONE} — new or changed — CP-1 — failed",
+        f"{NEW_TWO} — new or changed — CP-1 — failed",
+        f"{KEPT_ONE} — kept — CP-2 — passed")))
+
+    verdict = world.verdict()
+
+    assert verdict.refusal is None
+    assert verdict.base == QA_BASE_SHA
+    assert verdict.outcomes == ((NEW_ONE, "failed"), (NEW_TWO, "failed"), (KEPT_ONE, "passed"))
+
+
+def test_a_red_commit_whose_subject_says_nothing_of_red_is_accepted_when_its_scenarios_fail():
+    world = QaWorld(commits=[(QA_RECORD_SHA, "qa: record"), (QA_RED_SHA, "qa: scenarios")])
+
+    assert world.verdict().refusal is None
+
+
+def test_a_red_commit_whose_subject_says_red_is_refused_when_every_new_scenario_passes():
+    world = QaWorld(commits=[(QA_RECORD_SHA, "qa: record"), (QA_RED_SHA, "qa: scenarios — red")],
+                    red=reported((NEW_ONE, "passed"), (KEPT_ONE, "passed")))
+
+    assert world.verdict().refusal == f"qa-red-refused — {NEW_ONE} passes before the change"
+
+
+def test_a_lane_note_or_a_record_outcome_column_saying_failed_over_a_passing_run_is_still_refused():
+    world = QaWorld(red=reported((NEW_ONE, "passed"), (KEPT_ONE, "passed")),
+                    bodies={QA_RED_SHA: QA_ROLE_BODY + "Lane note: red, failing\n"})
+
+    verdict = world.verdict()
+
+    assert verdict.refusal == f"qa-red-refused — {NEW_ONE} passes before the change"
+
+
+def test_an_undefined_new_scenario_is_refused_naming_its_outcome():
+    world = QaWorld(red=reported((NEW_ONE, "undefined"), (KEPT_ONE, "passed")),
+                    record=qa_record(scenarios=(f"{NEW_ONE} — new or changed — CP-1 — failed",
+                                                f"{KEPT_ONE} — kept — CP-2 — passed")))
+
+    assert world.verdict().refusal == f"qa-red-refused — {NEW_ONE}: undefined"
+
+
+@pytest.mark.parametrize("word", ["skipped", "untested", "a word nobody listed"])
+def test_a_skipped_or_untested_kept_scenario_is_refused_naming_its_outcome(word):
+    world = QaWorld(red=reported((NEW_ONE, "failed"), (KEPT_ONE, word)))
+
+    assert world.verdict().refusal == f"qa-red-refused — {KEPT_ONE}: {word}"
+
+
+def test_a_record_naming_no_new_or_changed_scenario_is_refused():
+    world = QaWorld(record=qa_record(scenarios=(f"{KEPT_ONE} — kept — CP-2 — passed",)),
+                    red=reported((KEPT_ONE, "passed")))
+
+    assert world.verdict().refusal == (
+        "qa-red-refused — the record names no new or changed scenario")
+
+
+@pytest.mark.parametrize("with_red_commit", [True, False])
+def test_a_scenario_main_holds_that_fails_on_the_base_answers_main_is_red_with_or_without_a_red_commit(
+        with_red_commit):
+    base = reported((KEPT_ONE, "failed"))
+    commits = [(QA_RECORD_SHA, "qa: record"), (QA_RED_SHA, "qa: scenarios")] if with_red_commit \
+        else []
+    world = QaWorld(base=base, commits=commits, record=False)
+
+    assert world.verdict().refusal == f"main is red — {KEPT_ONE}: failed"
+
+
+@pytest.mark.parametrize("word", ["skipped", "undefined"])
+def test_a_scenario_main_holds_that_is_skipped_or_undefined_on_the_base_answers_main_is_red(word):
+    world = QaWorld(base=reported((KEPT_ONE, "passed"), (NEW_TWO, word)))
+
+    assert world.verdict().refusal == f"main is red — {NEW_TWO}: {word}"
+
+
+def test_main_is_red_lists_every_scenario_that_is_not_passed_in_the_reports_order():
+    world = QaWorld(base=reported((NEW_TWO, "failed"), (KEPT_ONE, "passed"), (NEW_ONE, "skipped")))
+
+    assert world.verdict().refusal == f"main is red — {NEW_TWO}: failed, {NEW_ONE}: skipped"
+
+
+def test_a_kept_scenario_failing_before_the_change_answers_main_is_red_not_a_refusal():
+    world = QaWorld(red=reported((NEW_ONE, "failed"), (KEPT_ONE, "failed")))
+
+    verdict = world.verdict()
+
+    assert verdict.refusal == f"main is red — {KEPT_ONE}: failed"
+    assert not verdict.refusal.startswith("qa-red-refused")
+
+
+def test_main_gone_red_after_the_red_commit_answers_main_is_red():
+    world = QaWorld(base=reported((KEPT_ONE, "failed")))
+
+    assert world.verdict().refusal.startswith("main is red — ")
+
+
+def test_no_qa_commit_changing_the_scenario_folder_answers_missing_qa_red():
+    world = QaWorld(commits=[(QA_RECORD_SHA, "qa: record")],
+                    changes={QA_RECORD_SHA: [QA_RECORD_REL]})
+
+    assert world.verdict().refusal == "missing-qa-red"
+
+
+def test_a_qa_commit_with_no_qa_role_line_is_not_a_red_commit():
+    world = QaWorld(bodies={QA_RED_SHA: "qa: scenarios\n\nRole: Developer\n"})
+
+    assert world.verdict().refusal == "missing-qa-red"
+
+
+# --- QA's no-reach record: the verdict passes it without a red ------------------------------------
+
+NO_REACH_COMMITS = [(QA_RECORD_SHA, "qa: record")]
+NO_REACH_CHANGES = {QA_RECORD_SHA: [QA_RECORD_REL]}
+
+
+def _no_reach_world(record: str | None = None, **world) -> QaWorld:
+    """A world whose branch holds only QA's record commit — no red commit, as a no-reach run
+    leaves it."""
+    return QaWorld(record=qa_no_reach_record() if record is None else record,
+                   commits=NO_REACH_COMMITS, changes=NO_REACH_CHANGES, **world)
+
+
+def test_an_accepted_no_reach_record_is_a_no_reach_pass():
+    verdict = _no_reach_world().verdict()
+
+    assert verdict.refusal is None
+    assert verdict.no_reach == NO_REACH_LINE
+
+
+def test_a_no_reach_draft_without_a_base_commit_is_accepted():
+    world = QaWorld(record=False, draft_record=qa_no_reach_record(omit=("Base commit:",)))
+
+    verdict = world.verdict(draft=True)
+
+    assert verdict.refusal is None
+    assert verdict.no_reach == NO_REACH_LINE
+
+
+def test_an_empty_no_reach_line_is_refused():
+    verdict = _no_reach_world(qa_no_reach_record(empty=("No reach:",))).verdict()
+
+    assert verdict.refusal == "qa-record-refused — the record's No reach: line is empty"
+    assert verdict.no_reach is None
+
+
+def test_no_reach_beside_a_scenario_line_is_refused():
+    scenario = f"Scenario: {NEW_ONE} — new or changed — CP-1 — failed"
+
+    verdict = _no_reach_world(qa_no_reach_record(beside=(scenario,))).verdict()
+
+    assert verdict.refusal == (
+        "qa-record-refused — the record carries a No reach: line beside a red")
+    assert verdict.no_reach is None
+
+
+def test_no_reach_beside_a_red_commit_line_is_refused():
+    verdict = _no_reach_world(
+        qa_no_reach_record(beside=(f"Red commit: {QA_RED_SHA}",))).verdict()
+
+    assert verdict.refusal == (
+        "qa-record-refused — the record carries a No reach: line beside a red")
+
+
+def test_a_no_reach_record_with_no_way_in_is_refused_in_todays_words():
+    verdict = _no_reach_world(qa_no_reach_record(omit=("Way in:",))).verdict()
+
+    assert verdict.refusal == "qa-record-refused — the record has no Way in: line"
+
+
+def test_a_no_reach_record_with_a_blank_review_notes_line_is_refused():
+    verdict = _no_reach_world(qa_no_reach_record(empty=("Review notes:",))).verdict()
+
+    assert verdict.refusal == "qa-record-refused — the record's Review notes: line is empty"
+
+
+def test_a_no_reach_record_holding_another_changes_key_is_refused():
+    verdict = _no_reach_world(qa_no_reach_record(change="2026-01-01_other")).verdict()
+
+    assert verdict.refusal == (
+        f"qa-record-refused — the record's Change: line reads 2026-01-01_other, not {KEY}")
+
+
+def test_a_no_reach_record_with_two_defects_gives_the_first_in_the_checks_order():
+    record = qa_no_reach_record(omit=("Way in:",), empty=("No reach:",),
+                                beside=(f"Red commit: {QA_RED_SHA}",))
+
+    assert _no_reach_world(record).verdict().refusal == (
+        "qa-record-refused — the record's No reach: line is empty")
+
+
+def test_a_committed_record_with_neither_claim_nor_red_is_refused_as_today():
+    committed = QaWorld(record=qa_record(omit=("Red commit:", "Scenario:"))).verdict()
+    draft = QaWorld(record=False, draft_record=qa_record(omit=("Scenario:",))).verdict(draft=True)
+
+    assert committed.refusal == "qa-record-refused — the record has no Red commit: line"
+    assert draft.refusal == "qa-record-refused — the record has no Scenario: line"
+
+
+def test_a_no_reach_record_passes_beside_a_qa_commit_of_the_scenario_folder():
+    world = QaWorld(record=qa_no_reach_record())  # the default commits hold a red commit
+
+    verdict = world.verdict()
+
+    assert verdict.refusal is None
+    assert verdict.no_reach == NO_REACH_LINE
+
+
+def test_an_accepted_no_reach_record_with_main_red_answers_main_is_red():
+    verdict = _no_reach_world(base=reported((KEPT_ONE, "failed"))).verdict()
+
+    assert verdict.refusal == f"main is red — {KEPT_ONE}: failed"
+
+
+def test_an_accepted_no_reach_record_with_behave_unavailable_answers_behave_unavailable():
+    text = "uv run --locked behave, exit 127, uv: command not found"
+
+    verdict = _no_reach_world(base=not_reported(text)).verdict()
+
+    assert verdict.refusal == f"behave-unavailable — {text}"
+
+
+def test_a_record_with_no_no_reach_line_never_carries_one_in_its_verdict():
+    assert QaWorld().verdict().no_reach is None
+
+
+def test_an_unavailable_base_run_answers_behave_unavailable_naming_command_exit_and_first_line():
+    text = "uv run --locked behave, exit 127, uv: command not found"
+    world = QaWorld(base=not_reported(text))
+
+    assert world.verdict().refusal == f"behave-unavailable — {text}"
+
+
+def test_an_unavailable_red_run_answers_behave_unavailable():
+    text = "uv run --locked behave, exit 1, lock out of date"
+    world = QaWorld(red=not_reported(text))
+
+    assert world.verdict().refusal == f"behave-unavailable — {text}"
+
+
+def test_a_base_that_holds_no_scenario_still_judges_the_red():
+    only_new = (f"{NEW_ONE} — new or changed — CP-1 — failed",)
+    world = QaWorld(base=reported(), red=reported((NEW_ONE, "failed")),
+                    record=qa_record(scenarios=only_new))
+
+    assert world.verdict().refusal is None
+
+
+def test_the_verdict_asks_behave_with_the_merge_base_and_the_red_commit_never_a_tip():
+    world = QaWorld()
+    world.git.tips = {QA_REPO: {KEY: QA_LATER_SHA, "main": "f" * 40}}
+
+    world.verdict()
+
+    assert world.behave.calls == [(QA_BASE_SHA, QA_RED_SHA)]
+    assert world.behave.arguments[0] == {"repo": QA_REPO, "folder": QA_FOLDER_REL,
+                                         "environ": QA_ENVIRON}
+
+
+@pytest.mark.parametrize("red", [
+    reported((NEW_ONE, "failed"), (NEW_TWO, "failed"), (KEPT_ONE, "passed")),
+    reported((NEW_ONE, "passed"), (NEW_TWO, "failed"), (KEPT_ONE, "passed")),
+    reported((NEW_ONE, "failed"), (NEW_TWO, "failed"), (KEPT_ONE, "failed")),
+])
+def test_the_draft_over_a_working_tree_and_the_committed_verdict_over_the_same_content_agree(red):
+    record = qa_record(scenarios=(f"{NEW_ONE} — new or changed — CP-1 — failed",
+                                  f"{NEW_TWO} — new or changed — CP-1 — failed",
+                                  f"{KEPT_ONE} — kept — CP-2 — passed"))
+    committed = QaWorld(record=record, red=red).verdict()
+    draft = QaWorld(record=False, draft_record=record, red=red).verdict(draft=True)
+
+    assert draft.refusal == committed.refusal
+    assert draft.outcomes == committed.outcomes
+
+
+def test_the_draft_asks_behave_for_the_working_tree_not_a_commit():
+    world = QaWorld(record=False, draft_record=qa_record(red="", base=""))
+
+    assert world.verdict(draft=True).refusal is None
+    assert world.behave.calls == [(QA_BASE_SHA, "tree")]
+
+
+def test_the_record_the_newest_commit_holds_is_the_one_judged():
+    kept_only = qa_record(scenarios=(f"{KEPT_ONE} — kept — CP-2 — passed",))
+    world = QaWorld(record=kept_only)
+    world.git.shown[(QA_LATER_SHA, QA_RECORD_REL)] = qa_record()
+
+    assert world.verdict().refusal == (
+        "qa-red-refused — the record names no new or changed scenario")
+
+
+# --- QA's red verdict: the record's slots and a library outside the red commit -----------------
+
+
+NO_RECORD = f"qa-record-refused — no record at {QA_RECORD_REL}"
+QA_LIBRARY_COMMIT = "9" * 40
+QA_OLDER_COMMIT = "8" * 40
+
+
+def test_a_record_of_0_bytes_is_refused():
+    world = QaWorld(record="")
+
+    assert world.verdict().refusal == (
+        f"qa-record-refused — the record at {QA_RECORD_REL} is empty")
+
+
+def test_a_record_with_an_empty_red_commit_slot_is_refused_committed_and_exempt_in_draft():
+    record = qa_record(empty=("Red commit:", "Base commit:"))
+
+    committed = QaWorld(record=record).verdict()
+    draft = QaWorld(record=False, draft_record=record).verdict(draft=True)
+
+    assert committed.refusal == "qa-record-refused — the record's Base commit: line is empty"
+    assert draft.refusal is None
+    assert QaWorld(record=qa_record(empty=("Red commit:",))).verdict().refusal == (
+        "qa-record-refused — the record's Red commit: line is empty")
+
+
+@pytest.mark.parametrize("slot", ["Change:", "Way in:", "Base commit:", "Red commit:",
+                                  "Scenario:", "Review notes:"])
+def test_a_record_missing_a_slot_is_refused(slot):
+    world = QaWorld(record=qa_record(omit=(slot,)))
+
+    assert world.verdict().refusal == f"qa-record-refused — the record has no {slot} line"
+
+
+@pytest.mark.parametrize("slot", ["Change:", "Way in:", "Scenario:", "Review notes:"])
+def test_a_record_with_an_empty_slot_is_refused_by_name(slot):
+    world = QaWorld(record=qa_record(empty=(slot,)))
+
+    assert world.verdict().refusal == f"qa-record-refused — the record's {slot} line is empty"
+
+
+def test_a_record_left_only_in_the_working_tree_is_refused_committed_and_read_in_draft():
+    record = qa_record()
+
+    committed = QaWorld(record=False, draft_record=record).verdict()
+    draft = QaWorld(record=False, draft_record=record).verdict(draft=True)
+
+    assert committed.refusal == NO_RECORD
+    assert draft.refusal is None
+
+
+def test_a_record_at_another_path_is_read_for_nothing():
+    world = QaWorld(record=False)
+    world.files.files["/tmp/qa_record.md"] = qa_record()
+
+    assert world.verdict().refusal == NO_RECORD
+    assert world.verdict(draft=True).refusal == NO_RECORD
+
+
+def test_a_record_committed_in_the_product_repository_only_is_refused():
+    world = QaWorld(record=False, changes={QA_RECORD_SHA: [QA_RECORD_REL]})
+
+    assert world.verdict().refusal == NO_RECORD
+
+
+def test_a_record_whose_text_is_only_in_a_commit_body_is_refused():
+    world = QaWorld(record=False, bodies={QA_RECORD_SHA: QA_ROLE_BODY + qa_record()})
+
+    assert world.verdict().refusal == NO_RECORD
+
+
+def test_a_record_for_another_change_key_is_refused():
+    world = QaWorld(record=qa_record(change="2026-01-01_other"))
+
+    assert world.verdict().refusal == (
+        f"qa-record-refused — the record's Change: line reads 2026-01-01_other, not {KEY}")
+
+
+@pytest.mark.parametrize("value", ["9" * 40, "not-a-sha", "abc"])
+def test_a_record_whose_red_commit_is_not_on_the_branch_is_refused(value):
+    world = QaWorld(record=qa_record(red=value))
+
+    assert world.verdict().refusal == (
+        f"qa-record-refused — the record's Red commit: {value} is not a commit of the branch "
+        f"{KEY} in the product's repository")
+
+
+@pytest.mark.parametrize("line", [
+    f"{NEW_ONE} — added — CP-1 — failed",
+    f"{NEW_ONE} — new or changed — CP-1 — red",
+    f"{NEW_ONE} — new or changed — failed",
+    f"{NEW_ONE}",
+])
+def test_a_scenario_line_that_does_not_parse_is_refused(line):
+    world = QaWorld(record=qa_record(scenarios=(line,)))
+
+    assert world.verdict().refusal == (
+        "qa-record-refused — the record's Scenario: line does not read as "
+        f"location — kind — rule — outcome: {line}")
+
+
+def test_a_record_naming_a_location_the_red_run_did_not_report_is_refused():
+    elsewhere = "features/gone.feature:1"
+    named = (f"{elsewhere} — new or changed — CP-1 — failed",)
+    world = QaWorld(record=qa_record(scenarios=named))
+
+    assert world.verdict().refusal == (
+        f"qa-record-refused — the record names {elsewhere}, which Behave did not report for "
+        "the red commit's scenarios")
+
+
+def test_a_record_refusal_comes_after_main_is_red_and_before_the_outcome_refusals():
+    main_red_and_bad = QaWorld(base=reported((KEPT_ONE, "failed")),
+                               record=qa_record(change="2026-01-01_other"))
+    bad_and_passing = QaWorld(record=qa_record(change="2026-01-01_other"),
+                              red=reported((NEW_ONE, "passed"), (KEPT_ONE, "passed")))
+
+    assert main_red_and_bad.verdict().refusal == f"main is red — {KEPT_ONE}: failed"
+    assert bad_and_passing.verdict().refusal.startswith("qa-record-refused — ")
+
+
+def _library_world(*, changed: str, statuses=None, ancestors=(), inside_the_red=False,
+                   older=False) -> QaWorld:
+    commits = [(QA_RECORD_SHA, "qa: record"), (QA_RED_SHA, "qa: scenarios")]
+    library = (QA_LIBRARY_COMMIT, "qa: library")
+    if inside_the_red:
+        changes = {QA_RED_SHA: [f"{QA_FOLDER_REL}/features/due.feature",
+                                f"{QA_FOLDER_REL}/{changed}"]}
+    else:
+        commits = commits + [library] if older else [library] + commits
+        changes = {QA_LIBRARY_COMMIT: [f"{QA_FOLDER_REL}/{changed}"]}
+    return QaWorld(commits=commits, changes=changes, ancestors=ancestors,
+                   bodies={QA_LIBRARY_COMMIT: QA_ROLE_BODY}, statuses=statuses)
+
+
+def test_uv_lock_changed_in_a_qa_commit_after_the_red_is_a_library_refusal():
+    world = _library_world(changed="uv.lock")
+
+    assert world.verdict().refusal == (
+        "qa-red-refused — a library outside the red commit: .behave/uv.lock")
+
+
+def test_pyproject_changed_in_a_qa_commit_after_the_red_is_a_library_refusal():
+    world = _library_world(changed="pyproject.toml")
+
+    assert world.verdict().refusal == (
+        "qa-red-refused — a library outside the red commit: .behave/pyproject.toml")
+
+
+def test_an_uncommitted_pyproject_in_the_worktree_is_a_library_refusal():
+    world = QaWorld(statuses={(QA_WORKTREE, f"{QA_FOLDER_REL}/pyproject.toml"):
+                              [f" M {QA_FOLDER_REL}/pyproject.toml"]})
+
+    assert world.verdict().refusal == (
+        "qa-red-refused — a library outside the red commit: .behave/pyproject.toml")
+
+
+def test_a_library_change_in_a_qa_commit_older_than_the_red_is_accepted():
+    world = _library_world(changed="uv.lock", older=True,
+                           ancestors={(QA_LIBRARY_COMMIT, QA_RED_SHA)})
+
+    assert world.verdict().refusal is None
+
+
+def test_a_library_change_inside_the_red_commit_itself_is_accepted():
+    world = _library_world(changed="uv.lock", inside_the_red=True)
+
+    assert world.verdict().refusal is None
+
+
+def test_a_library_change_in_a_commit_that_is_not_a_qa_commit_is_not_this_checks():
+    world = _library_world(changed="uv.lock")
+    world.git.bodies[QA_LIBRARY_COMMIT] = "developer: task 1\n\nRole: Developer\n"
+
+    assert world.verdict().refusal is None
+
+
+def test_the_draft_skips_the_library_check():
+    world = QaWorld(record=False, draft_record=qa_record(red="", base=""),
+                    statuses={(QA_WORKTREE, f"{QA_FOLDER_REL}/uv.lock"):
+                              [f" M {QA_FOLDER_REL}/uv.lock"]})
+    library = _library_world(changed="uv.lock")
+
+    assert world.verdict(draft=True).refusal is None
+    library.files.write_text(QA_RECORD_PATH, qa_record(red="", base=""))
+    assert library.verdict(draft=True).refusal is None
+
+
+# --- the engine is handed Behave and QA's places ------------------------------------------------
+
+
+_QA_FIELDS = ("qa_retries", "repair_step", "qa_main_red", "qa_rerun_retries")
+
+
+def test_an_engine_built_without_qa_asks_is_refused_by_python():
+    for name in ("behave", "qa_places", "qa_asks"):
+        arguments = engine_arguments(FakeFiles())
+        del arguments[name]
+
+        with pytest.raises(TypeError, match=name):
+            cd.DevelopmentChain(**arguments)
+
+
+def test_a_state_written_before_the_qa_fields_loads_with_their_defaults():
+    saved_state = Walk().state
+    for name in _QA_FIELDS:
+        assert name in saved_state
+        del saved_state[name]
+
+    loaded = cd.WalkState.from_json(saved_state)
+
+    assert (loaded.qa_retries, loaded.repair_step, loaded.qa_main_red,
+            loaded.qa_rerun_retries) == (0, "", "", 0)
+
+
+def test_a_marker_repair_over_an_old_state_settles_as_it_does_today():
+    walk = _repairing(product_path=_IN_INSTANCE_PRODUCT)
+    old = walk.state
+    for name in _QA_FIELDS:
+        assert name in old
+        del old[name]
+    walk.files.write_text(STATE, json.dumps(old))
+    walk.files.write_text(_NEW_REPORT, "Repair: merged\n")
+
+    walk.advance("repair")
+
+    *_, advance, relaunch = walk.processes.calls
+    assert advance["argv"] == _ADVANCE
+    assert relaunch["argv"] == _implementation_launch()
+    assert walk.state["ended"] is None
+
+
+def test_a_passed_qa_step_never_asks_behave():
+    walk = _walk_past_specs(NONE_CARD)
+
+    assert walk.behave.calls == []
+
+
+def test_build_chain_wires_a_real_throwaway_behave_and_the_production_places(tmp_path):
+    chain = cd.build_chain(str(tmp_path / "state.json"), notifier_command="", engine_path=ENGINE)
+
+    assert isinstance(chain.behave, behave_run.ThrowawayBehave)
+    assert callable(chain.qa_places)
+
+
+# --- a product that records no way in halts QA's step (Task 12) ---------------------------------
+
+NO_WAY_IN_ADVICE = "the product's architecture run (product-architecture) records the way in"
+THREE_FORMS_NFDR = "## 9\n\n**Behave:** behave\n**Behave way in:** command | server | browser\n"
+NO_WAY_IN_STATES = [
+    pytest.param(None, "docs/nfdr.md is absent", id="no-nfdr"),
+    pytest.param("## 9\n\nNothing about Behave.\n", "docs/nfdr.md has no **Behave:** line",
+                 id="no-behave-line"),
+    pytest.param("## 9\n\n**Behave:** none — a CLI <!-- the call -->\n",
+                 "docs/nfdr.md has a **Behave:** line that reads none — a CLI",
+                 id="behave-line-not-behave"),
+    pytest.param(THREE_FORMS_NFDR,
+                 "docs/nfdr.md has a Behave way in line that still holds its three forms",
+                 id="three-forms"),
+    pytest.param("## 9\n\n**Behave:** behave\n",
+                 "docs/nfdr.md has a **Behave:** line that reads behave and no Behave way in "
+                 "line", id="no-way-in-line"),
+]
+
+
+@pytest.mark.parametrize("nfdr, held", NO_WAY_IN_STATES)
+def test_a_product_with_no_way_in_halts_before_any_launch(nfdr, held):
+    walk = _walk_past_specs(BEHAVE_CARD, nfdr=nfdr)
+
+    assert walk.state["ended"] == "halted"
+    assert walk.state["ended_reason"] == f"stopped at red-behaviour: no-way-in — {held} — " \
+        f"{NO_WAY_IN_ADVICE}"
+    assert walk.skills_launched == ["development-specs"]
+    assert list(walk.state["pending"]) == []
+    assert walk.behave.calls == []
+
+
+def test_the_example_halt_reads_the_nfdr_behave_line_that_has_no_way_in_line():
+    walk = _walk_past_specs(BEHAVE_CARD, nfdr="## 9\n\n**Behave:** behave\n")
+
+    assert ("docs/nfdr.md has a **Behave:** line that reads behave and no Behave way in line"
+            in walk.state["ended_reason"])
+
+
+def test_a_way_in_line_with_an_empty_value_is_no_way_in():
+    walk = _walk_past_specs(BEHAVE_CARD,
+                            nfdr="## 9\n\n**Behave:** behave\n**Behave way in:** <!-- pick -->\n")
+
+    assert "docs/nfdr.md has a Behave way in line with no value" in walk.state["ended_reason"]
+    assert walk.skills_launched == ["development-specs"]
+
+
+@pytest.mark.parametrize("form", ["command", "server", "browser"])
+def test_a_recorded_way_in_lets_the_step_launch(form):
+    nfdr = f"## 9\n\n**Behave:** behave\n**Behave way in:** {form}   <!-- the pick -->\n"
+
+    walk = _walk_past_specs(BEHAVE_CARD, nfdr=nfdr)
+
+    assert walk.state["ended"] is None
+    assert walk.processes.launched[-1] == [SKILL_LAUNCHER, "red-behaviour", PROJECT, KEY]
+
+
+def test_a_no_way_in_halt_is_not_retried():
+    walk = _walk_past_specs(BEHAVE_CARD, nfdr=THREE_FORMS_NFDR)
+    launched = list(walk.processes.launched)
+
+    start(walk.engine())
+
+    assert walk.state["ended"] == "halted"
+    assert "no-way-in" in walk.state["ended_reason"]
+    assert walk.processes.launched == launched
+    assert walk.behave.calls == []
+
+
+# --- when QA's run ends: the verdict settles the step (Task 13) ---------------------------------
+
+
+def _qa_run_ended(outcome: str = "completed", **world) -> Walk:
+    """A walk whose QA run has just ended `outcome`, over the product repository, the instance's
+    change branch and Behave that `QaWorld` describes."""
+    walk = _walk_past_specs(BEHAVE_CARD)
+    walk.files.write_text(_OLD_REPORT, "Repair: merged\n")
+    _install_qa_world(walk, QaWorld(**world))
+    walk.advance("red-behaviour", outcome)
+    return walk
+
+
+def _install_qa_world(walk: Walk, qa: "QaWorld") -> None:
+    """Hand a walk the product repository, change branch and Behave that `qa` describes; what it
+    holds already is overwritten where `qa` says something about it."""
+    for name in ("repos", "merge_bases", "shown", "bodies", "changes", "statuses"):
+        getattr(walk.git, name).update(getattr(qa.git, name))
+    walk.git.ancestors |= qa.git.ancestors
+    walk.behave.table.update(qa.behave.table)
+
+
+def _qa_launches(walk: Walk) -> int:
+    return walk.skills_launched.count("red-behaviour")
+
+
+def test_an_accepted_red_lands_the_step_and_launches_design():
+    walk = _qa_run_ended()
+
+    assert "red-behaviour landed" in walk.state["history"]
+    assert walk.skills_launched == ["development-specs", "red-behaviour", "development-design"]
+    assert walk.state["ended"] is None
+
+
+def test_a_refused_red_halts_with_the_refusal_and_runs_qa_no_more():
+    walk = _qa_run_ended(red=reported((NEW_ONE, "passed"), (KEPT_ONE, "passed")))
+
+    assert walk.state["ended"] == "halted"
+    assert walk.state["ended_reason"] == (
+        f"stopped at red-behaviour: qa-red-refused — {NEW_ONE} passes before the change")
+    assert _qa_launches(walk) == 1
+    assert "development-design" not in walk.skills_launched
+
+
+def test_a_refused_record_halts_at_the_end_of_the_step_never_later():
+    walk = _qa_run_ended(record=False)
+
+    assert walk.state["ended_reason"] == (
+        f"stopped at red-behaviour: qa-record-refused — no record at {CHANGE_REL}/qa_record.md")
+    assert _qa_launches(walk) == 1
+    assert "development-design" not in walk.skills_launched
+
+
+def test_behave_unavailable_halts_and_the_step_is_not_run_again():
+    text = "uv run --locked behave, exit 127, uv: command not found"
+    walk = _qa_run_ended(base=not_reported(text))
+
+    assert walk.state["ended_reason"] == f"stopped at red-behaviour: behave-unavailable — {text}"
+    assert _qa_launches(walk) == 1
+
+
+def test_an_unfinished_qa_run_halts_as_every_other_step_does():
+    walk = _qa_run_ended("failed")
+
+    assert walk.state["ended_reason"] == "stopped at red-behaviour: the run ended failed"
+    assert walk.behave.calls == []
+    assert _qa_launches(walk) == 1
+
+
+def test_no_later_step_asks_for_qa_files_whether_the_step_applied_or_not():
+    walk = _qa_run_ended()
+    _give_the_close_its_report(walk)
+    for step_id in ("design", "plan", "implementation", "changelog", "code-integrity",
+                    "security"):
+        land(walk.files, walk.git, step_id)
+        walk.advance(step_id)
+    for skill in PRODUCERS:
+        land(walk.files, walk.git, "audit", skill)
+        walk.advance(f"audit-{skill}")
+    land(walk.files, walk.git, "seal")
+    walk.advance("seal")
+
+    assert walk.state["ended"] == "sealed"
+    assert "qa" not in walk.state["ended_reason"].lower().replace("sealed", "")
+
+
+def test_the_developers_missing_red_commit_halt_is_unchanged():
+    walk = _shape_walk(_plan(_tdd_task(2)), [_task(2)])
+
+    assert walk.state["ended_reason"].startswith(f"{_MISSING_RED} — task 2")
+
+
+# --- one retry for a missing red commit, kept across a stop (Task 14) ---------------------------
+
+RETRY_LINE = "red-behaviour ended with no red commit — running it once more"
+# A run that committed its record and nothing under the scenario folder.
+RECORD_ONLY = dict(commits=[(QA_RECORD_SHA, "qa: record")], changes={QA_RECORD_SHA: [QA_RECORD_REL]})
+
+
+def test_a_first_run_with_no_red_commit_runs_the_step_once_more():
+    walk = _qa_run_ended(**RECORD_ONLY)
+
+    assert _qa_launches(walk) == 2
+    assert RETRY_LINE in walk.state["history"]
+    assert walk.state["qa_retries"] == 1
+    assert walk.state["ended"] is None
+
+
+# A run that committed its record alone, the record being a no-reach record.
+NO_REACH_WORLD = dict(record=qa_no_reach_record(), commits=NO_REACH_COMMITS,
+                      changes=NO_REACH_CHANGES)
+NO_REACH_PASS_LINE = f'red-behaviour passed — "{NO_REACH_LINE}"'
+
+
+def test_a_first_run_that_commits_only_an_accepted_no_reach_record_passes_at_its_end():
+    walk = _qa_run_ended(**NO_REACH_WORLD)
+
+    assert _qa_launches(walk) == 1
+    assert RETRY_LINE not in walk.state["history"]
+    assert NO_REACH_PASS_LINE in walk.state["history"]
+    assert walk.skills_launched == ["development-specs", "red-behaviour", "development-design"]
+    assert walk.state["qa_retries"] == 0
+    assert walk.state["ended"] is None
+
+
+def test_a_retry_that_commits_an_accepted_no_reach_record_passes():
+    walk = _qa_run_ended(**RECORD_ONLY)
+    walk.git.shown[(KEY, QA_RECORD_REL)] = qa_no_reach_record()
+
+    walk.advance("red-behaviour")
+
+    assert _qa_launches(walk) == 2
+    history = walk.state["history"]
+    assert history.index(RETRY_LINE) < history.index(NO_REACH_PASS_LINE)
+    assert walk.skills_launched[-1] == "development-design"
+    assert walk.state["ended"] is None
+
+
+def test_a_first_run_whose_no_reach_record_is_refused_halts_with_the_refusal():
+    walk = _qa_run_ended(**{**NO_REACH_WORLD, "record": qa_no_reach_record(empty=("No reach:",))})
+
+    assert walk.state["ended"] == "halted"
+    assert walk.state["ended_reason"] == (
+        "stopped at red-behaviour: qa-record-refused — the record's No reach: line is empty")
+    assert _qa_launches(walk) == 1
+    assert "development-design" not in walk.skills_launched
+
+
+def test_a_first_run_with_a_no_reach_record_and_main_red_launches_dependency_repair():
+    walk = _qa_repairing(**NO_REACH_WORLD)
+
+    assert walk.processes.launched[-1] == _REPAIR_LAUNCH
+    assert MAIN_RED_LINE in walk.state["history"]
+    assert NO_REACH_PASS_LINE not in walk.state["history"]
+
+
+def test_the_pass_line_quotes_a_dressed_no_reach_line_as_it_is_read():
+    # CP-1401, CP-1408: the line is quoted as the slots are read, its emphasis removed.
+    dressed = qa_no_reach_record().replace(NO_REACH_LINE, f"**{NO_REACH_LINE}**")
+    walk = _qa_run_ended(**{**NO_REACH_WORLD, "record": dressed})
+
+    assert NO_REACH_PASS_LINE in walk.state["history"]
+    assert walk.skills_launched[-1] == "development-design"
+
+
+def test_a_second_run_with_no_red_commit_halts_missing_qa_red():
+    walk = _qa_run_ended(**RECORD_ONLY)
+
+    walk.advance("red-behaviour")
+
+    assert walk.state["ended_reason"] == "stopped at red-behaviour: missing-qa-red"
+    assert _qa_launches(walk) == 2
+
+
+def test_in_a_product_inside_the_instance_a_run_that_commits_only_its_record_counts_as_no_red():
+    walk = _qa_run_ended(**RECORD_ONLY)
+
+    assert _qa_launches(walk) == 2
+    assert "development-design" not in walk.skills_launched
+
+
+def test_a_run_with_a_red_commit_and_no_record_does_not_retry():
+    walk = _qa_run_ended(record=False)
+
+    assert _qa_launches(walk) == 1
+    assert walk.state["ended_reason"].startswith("stopped at red-behaviour: qa-record-refused")
+    assert RETRY_LINE not in walk.state["history"]
+    assert walk.state["qa_retries"] == 0
+
+
+def test_a_spent_retry_survives_a_stop_and_a_start():
+    walk = _qa_run_ended(**RECORD_ONLY)
+    walk.engine().stop(STOP_AT)
+    start(walk.engine())
+
+    assert walk.state["qa_retries"] == 1
+    launches = _qa_launches(walk)
+    walk.advance("red-behaviour")
+
+    assert walk.state["ended_reason"] == "stopped at red-behaviour: missing-qa-red"
+    assert _qa_launches(walk) == launches
+
+
+def test_a_walk_halted_missing_qa_red_and_started_again_gets_its_retry():
+    walk = _qa_run_ended(**RECORD_ONLY)
+    walk.advance("red-behaviour")
+    assert walk.state["ended"] == "halted"
+
+    start(walk.engine())
+
+    assert walk.state["qa_retries"] == 0
+    assert walk.state["ended"] is None
+    walk.advance("red-behaviour")
+    assert RETRY_LINE in walk.state["history"]
+
+
+@pytest.mark.parametrize("ended, key", [("sealed", KEY), ("halted", KEY),
+                                        ("stopped", "2026-09-16_another-change")])
+def test_a_walk_sealed_or_halted_hands_no_count_on_and_a_stopped_walk_on_another_key_hands_none(
+        ended, key):
+    walk = _walk_past_specs(BEHAVE_CARD)
+    previous = walk.state
+    previous.update(ended=ended, key=key, qa_retries=1, pending={})
+    walk.files.write_text(STATE, json.dumps(previous))
+
+    start(walk.engine())
+
+    assert walk.state["qa_retries"] == 0
+
+
+def test_the_previous_state_is_read_before_the_new_one_is_saved():
+    walk = _walk_past_specs(BEHAVE_CARD)
+    previous = walk.state
+    previous.update(ended="stopped", qa_retries=1, pending={})
+    walk.files.write_text(STATE, json.dumps(previous))
+
+    start(walk.engine())
+
+    assert walk.state["qa_retries"] == 1
+
+
+# --- main gone red: the repair answers for QA (Task 15) -----------------------------------------
+
+MAIN_RED_LINE = "red-behaviour found main red — launching dependency-repair"
+MAIN_FAILS = reported((KEPT_ONE, "failed"))
+MAIN_RED = f"{KEPT_ONE}: failed"
+
+
+def _qa_repairing(**world) -> Walk:
+    """QA's run has ended over a world whose scenarios fail on `main`, so the repair is out."""
+    return _qa_run_ended(**{"base": MAIN_FAILS, **world})
+
+
+def _main_mends(walk: Walk) -> None:
+    """The repair has fixed `main`: the base run now passes, and the repair's report says so."""
+    walk.behave.table[(QA_BASE_SHA, QA_RED_SHA)] = (
+        reported((KEPT_ONE, "passed")),
+        reported((NEW_ONE, "failed"), (NEW_TWO, "failed"), (KEPT_ONE, "passed")))
+    walk.files.write_text(_NEW_REPORT, "Repair: merged\n")
+
+
+@pytest.mark.parametrize("with_red_commit", [True, False])
+def test_a_scenario_main_holds_failing_launches_dependency_repair(with_red_commit):
+    world = {} if with_red_commit else {"commits": [], "record": False}
+
+    walk = _qa_repairing(**world)
+
+    assert walk.processes.launched[-1] == _REPAIR_LAUNCH
+    assert MAIN_RED_LINE in walk.state["history"]
+    assert walk.state["pending"]["repair"]["step"] == "repair"
+    assert (walk.state["repair_step"], walk.state["qa_main_red"]) == ("red-behaviour", MAIN_RED)
+    assert walk.state["repairs"] == 1
+    assert walk.state["ended"] is None
+
+
+def test_a_failing_kept_scenario_goes_to_the_repair_never_to_a_refusal():
+    walk = _qa_run_ended(red=reported((NEW_ONE, "failed"), (KEPT_ONE, "failed")))
+
+    assert walk.processes.launched[-1] == _REPAIR_LAUNCH
+    assert walk.state["qa_main_red"] == MAIN_RED
+    assert "qa-red-refused" not in " ".join(walk.state["history"])
+
+
+def test_main_gone_red_after_qas_red_goes_to_the_repair():
+    walk = _qa_run_ended(**RECORD_ONLY)
+    assert _qa_launches(walk) == 2
+    qa = QaWorld(base=MAIN_FAILS)
+    walk.git.repos.update(qa.git.repos)
+    walk.git.bodies.update(qa.git.bodies)
+    walk.git.changes.update(qa.git.changes)
+    walk.behave.table.update(qa.behave.table)
+
+    walk.advance("red-behaviour")
+
+    assert walk.processes.launched[-1] == _REPAIR_LAUNCH
+    assert walk.state["qa_main_red"] == MAIN_RED
+
+
+def test_a_merged_repair_takes_mains_advance_and_asks_the_verdict_again_with_no_second_qa_launch():
+    walk = _qa_repairing()
+    _main_mends(walk)
+
+    walk.advance("repair")
+
+    advances = [call for call in walk.processes.calls if call["argv"][:2] == _ADVANCE[:2]]
+    assert len(advances) == 2
+    assert _qa_launches(walk) == 1
+    assert "repair merged — asking red-behaviour's verdict again" in walk.state["history"]
+    assert "red-behaviour landed" in walk.state["history"]
+    assert walk.skills_launched[-1] == "development-design"
+    assert walk.state["ended"] is None
+
+
+def test_a_merged_repair_over_no_red_commit_settles_the_verdict_and_spends_qas_one_retry():
+    # The merged repair launches no QA run of its own; the verdict it asks again is settled as at
+    # the end of QA's step, where a missing red commit gets the step's one retry.
+    walk = _qa_repairing(commits=[], record=False)
+    walk.behave.table[(QA_BASE_SHA, None)] = (reported((KEPT_ONE, "passed")), None)
+    walk.files.write_text(_NEW_REPORT, "Repair: merged\n")
+
+    walk.advance("repair")
+
+    assert "repair merged — asking red-behaviour's verdict again" in walk.state["history"]
+    assert RETRY_LINE in walk.state["history"]
+    assert (_qa_launches(walk), walk.state["qa_retries"]) == (2, 1)
+    assert walk.state["ended"] is None
+
+
+def test_a_second_main_red_after_the_repair_halts_qa_main_red():
+    walk = _qa_repairing()
+    walk.files.write_text(_NEW_REPORT, "Repair: merged\n")
+
+    walk.advance("repair")
+
+    assert walk.state["ended_reason"] == f"stopped at red-behaviour: qa-main-red — {MAIN_RED}"
+    assert walk.skills_launched.count("dependency-repair") == 1
+
+
+def test_no_new_report_halts_qa_main_red_with_the_scenarios():
+    walk = _qa_repairing()
+
+    walk.advance("repair")
+
+    assert walk.state["ended_reason"] == f"stopped at red-behaviour: qa-main-red — {MAIN_RED}"
+
+
+def test_an_unfinished_repair_halts_qa_main_red_with_the_scenarios():
+    walk = _qa_repairing()
+
+    walk.advance("repair", "failed")
+
+    assert walk.state["ended_reason"] == f"stopped at red-behaviour: qa-main-red — {MAIN_RED}"
+
+
+def test_a_repair_that_declares_failed_halts_qa_main_red_naming_word_and_report():
+    walk = _qa_repairing()
+    walk.files.write_text(_NEW_REPORT, "Repair: failed\n")
+
+    walk.advance("repair")
+
+    assert walk.state["ended_reason"] == (
+        f"stopped at red-behaviour: qa-main-red — dependency-repair failed: {_NEW_REPORT}")
+
+
+def test_a_refused_advance_halts_qa_main_red():
+    walk = _qa_repairing()
+    _main_mends(walk)
+    walk.processes.codes = [1]
+
+    walk.advance("repair")
+
+    assert walk.state["ended_reason"] == (
+        "stopped at red-behaviour: qa-main-red — main's advance refused after "
+        "dependency-repair merged (exit 1)")
+    assert "development-design" not in walk.skills_launched
+
+
+def test_a_product_whose_nfdr_is_not_on_main_halts_without_a_repair():
+    walk = _walk_past_specs(BEHAVE_CARD)
+    walk.files.files.pop(os.path.normpath(NFDR_PATH))
+    qa = QaWorld(base=MAIN_FAILS)
+    for name in ("repos", "merge_bases", "shown", "bodies", "changes"):
+        getattr(walk.git, name).update(getattr(qa.git, name))
+    walk.behave.table.update(qa.behave.table)
+
+    walk.advance("red-behaviour")
+
+    assert walk.state["ended_reason"] == f"stopped at red-behaviour: qa-main-red — {MAIN_RED}"
+    assert "dependency-repair" not in walk.skills_launched
+
+
+def test_the_markers_existing_repair_tests_stay_green():
+    walk = _repairing()
+
+    assert walk.state["repair_step"] == ""
+    assert walk.state["qa_main_red"] == ""
+
+
+def test_the_markers_repair_notice_still_names_the_marker_step():
+    # The owner's notice for the marker's repair is the one it was before QA's step existed.
+    walk = _repairing()
+
+    assert any(message.endswith(" — implementation red — launching dependency-repair")
+               for message in walk.notifier.messages)
+
+
+def test_qas_repair_notice_names_its_step_as_its_history_line_does():
+    walk = _qa_repairing()
+
+    assert any(message.endswith(f" — {MAIN_RED_LINE}") for message in walk.notifier.messages)
+
+
+# --- a start judges a landed QA step again (Task 16) --------------------------------------------
+
+
+def _landed_qa(*, card: str = BEHAVE_CARD, committed: bool = True, design: bool = False,
+               **world) -> tuple[dict, FakeGit, FakeBehave]:
+    """The disk and git of a change whose specs have landed, whose card, spec and NFDR make QA's
+    step apply, and whose QA record is (or is not) committed on the branch."""
+    files, git = _through("specs")
+    files.update({CARD_PATH: card, NFDR_PATH: WAY_IN_NFDR,
+                  f"{BRANCH_CHANGE}/change_spec.md": QA_CHANGING_SPEC})
+    if design:
+        files[f"{BRANCH_CHANGE}/change_design.md"] = NO_TEXT_DESIGN
+    if committed:
+        git.paths.setdefault(KEY, set()).add(QA_RECORD_REL)
+    qa = QaWorld(**world)
+    for name in ("repos", "merge_bases", "shown", "bodies", "changes", "statuses"):
+        getattr(git, name).update(getattr(qa.git, name))
+    return files, git, qa.behave
+
+
+def _start_over(files: dict, git: FakeGit, behave: FakeBehave):
+    processes = FakeProcesses()
+    start(build(FakeFiles(files), git=git, processes=processes, behave=behave))
+    return processes
+
+
+def test_a_start_over_a_landed_accepted_record_enters_at_design():
+    files, git, behave = _landed_qa()
+
+    processes = _start_over(files, git, behave)
+
+    assert processes.launched == [[SKILL_LAUNCHER, "development-design", PROJECT, KEY]]
+    assert len(behave.calls) == 1
+
+
+def test_a_start_over_a_landed_refused_record_enters_at_red_behaviour():
+    files, git, behave = _landed_qa(red=reported((NEW_ONE, "passed"), (KEPT_ONE, "passed")))
+
+    processes = _start_over(files, git, behave)
+
+    assert processes.launched == [[SKILL_LAUNCHER, "red-behaviour", PROJECT, KEY]]
+    assert len(behave.calls) == 1
+
+
+def test_a_start_over_a_landed_no_reach_record_enters_at_design_and_describe_names_it():
+    files, git, behave = _landed_qa(record=qa_no_reach_record(), commits=NO_REACH_COMMITS,
+                                    changes=NO_REACH_CHANGES)
+
+    planned = describe(build(FakeFiles(dict(files)), git=git, behave=behave))
+    processes = _start_over(files, git, behave)
+
+    assert planned.entry == "design"
+    assert processes.launched == [[SKILL_LAUNCHER, "development-design", PROJECT, KEY]]
+
+
+def test_a_start_over_an_unavailable_behave_refuses_naming_it():
+    text = "uv run --locked behave, exit 127, uv: command not found"
+    files, git, behave = _landed_qa(base=not_reported(text))
+
+    with pytest.raises(cd.ChainRefused) as refused:
+        _start_over(files, git, behave)
+
+    assert str(refused.value) == f"stopped at red-behaviour: behave-unavailable — {text}"
+
+
+def test_a_start_asks_no_verdict_when_the_step_does_not_apply():
+    files, git, behave = _landed_qa(card=NONE_CARD)
+
+    processes = _start_over(files, git, behave)
+
+    assert processes.launched == [[SKILL_LAUNCHER, "development-design", PROJECT, KEY]]
+    assert behave.calls == []
+
+
+def test_a_start_asks_no_verdict_when_the_record_is_not_committed():
+    files, git, behave = _landed_qa(committed=False)
+
+    processes = _start_over(files, git, behave)
+
+    assert processes.launched == [[SKILL_LAUNCHER, "red-behaviour", PROJECT, KEY]]
+    assert behave.calls == []
+
+
+def test_a_change_with_its_design_on_the_branch_and_no_record_asks_no_verdict():
+    files, git, behave = _landed_qa(committed=False, design=True)
+
+    processes = _start_over(files, git, behave)
+
+    assert processes.launched == [[SKILL_LAUNCHER, "development-plan", PROJECT, KEY]]
+    assert behave.calls == []
+
+
+def test_describe_over_a_landed_record_writes_and_sends_nothing():
+    files, git, behave = _landed_qa()
+    disk = FakeFiles(files)
+    before = dict(disk.files)
+    processes, notifier = FakeProcesses(), FakeNotifier()
+
+    plan = describe(build(disk, git=git, processes=processes, notifier=notifier, behave=behave))
+
+    assert plan.entry == "design"
+    assert disk.files == before
+    assert processes.calls == [] and notifier.messages == []
+    assert len(behave.calls) == 1
+
+
+# --- the two commands QA's run asks: `--qa-applies` and `--check-qa-red` -----------------------
+
+
+def _qa_command_world(*, card_line: str = "**Behave:** behave", spec: str = QA_CHANGING_SPEC,
+                      **world) -> "QaWorld":
+    """A `QaWorld` whose instance holds the card on `main`, the change's worktree and its spec, as
+    the commands read them."""
+    qa = QaWorld(**world)
+    qa.files.write_text(CARD, _card(f"**Product path:** {QA_REPO}", card_line))
+    qa.files.write_text(f"{BRANCH_CHANGE}/change_spec.md", spec)
+    return qa
+
+
+def _qa_args(**given) -> argparse.Namespace:
+    values = {"qa_applies": None, "check_qa_red": None, "qa_ask_place": None, "draft": False,
+              "instance_root": INSTANCE, "project": PROJECT}
+    values.update(given)
+    return argparse.Namespace(**values)
+
+
+def _ask_qa_applies(qa: "QaWorld", **given) -> tuple[int, str, str]:
+    out, err = io.StringIO(), io.StringIO()
+    status = cd.qa_applies(_qa_args(qa_applies=KEY, **given), files=qa.files, git=qa.git,
+                           places=lambda change: qa_places(), out=out, err=err)
+    return status, out.getvalue(), err.getvalue()
+
+
+def _ask_check_qa_red(qa: "QaWorld", places=None, **given) -> tuple[int, str, str]:
+    out, err = io.StringIO(), io.StringIO()
+    status = cd.check_qa_red(_qa_args(check_qa_red=KEY, **given), files=qa.files, git=qa.git,
+                             behave=qa.behave, places=places or (lambda change: qa_places()),
+                             environ=QA_ENVIRON, out=out, err=err)
+    return status, out.getvalue(), err.getvalue()
+
+
+def test_qa_applies_on_a_none_card_exits_1_naming_the_cards_line_and_writes_nothing():
+    line = "**Behave:** none — a CLI with no user scenarios"
+    qa = _qa_command_world(card_line=line)
+    before = dict(qa.files.files)
+
+    status, out, _ = _ask_qa_applies(qa)
+
+    assert (status, out) == (1, f"red-behaviour does not apply — {line}\n")
+    assert qa.files.files == before
+    assert qa.behave.calls == []
+
+
+def test_qa_applies_on_a_preserving_spec_exits_1_naming_the_specs_line():
+    qa = _qa_command_world(spec="# Change Spec\n\n**Behaviour:** preserving\n")
+
+    status, out, _ = _ask_qa_applies(qa)
+
+    assert (status, out) == (1, "red-behaviour does not apply — **Behaviour:** preserving\n")
+
+
+def test_qa_applies_on_behave_and_changing_exits_0():
+    status, out, _ = _ask_qa_applies(_qa_command_world())
+
+    assert (status, out) == (0, f"red-behaviour applies — {QA_APPLIES_READ}\n")
+
+
+def test_check_qa_red_prints_accepted_the_base_and_one_scenario_line_each():
+    qa = _qa_command_world()
+
+    status, out, _ = _ask_check_qa_red(qa)
+
+    assert status == 0
+    assert out.splitlines() == [
+        "qa red: accepted", f"Base commit: {QA_BASE_SHA}",
+        f"Scenario: {NEW_ONE} — failed", f"Scenario: {NEW_TWO} — failed",
+        f"Scenario: {KEPT_ONE} — passed"]
+
+
+def test_check_qa_red_prints_the_refusal_on_line_one_and_exits_1():
+    qa = _qa_command_world(red=reported((NEW_ONE, "passed"), (KEPT_ONE, "passed")))
+
+    status, out, _ = _ask_check_qa_red(qa)
+
+    assert status == 1
+    lines = out.splitlines()
+    assert lines[0] == f"qa-red-refused — {NEW_ONE} passes before the change"
+    assert lines[1] == f"Base commit: {QA_BASE_SHA}"
+    assert lines[2:] == [f"Scenario: {NEW_ONE} — passed", f"Scenario: {KEPT_ONE} — passed"]
+
+
+def test_check_qa_red_draft_reads_the_working_tree():
+    qa = _qa_command_world(record=False, draft_record=qa_record(red="", base=""))
+
+    status, out, _ = _ask_check_qa_red(qa, draft=True)
+
+    assert (status, out.splitlines()[0]) == (0, "qa red: accepted")
+    assert qa.behave.calls == [(QA_BASE_SHA, "tree")]
+
+
+def test_check_qa_red_prints_no_reach_on_line_one_and_exits_0_for_a_draft():
+    qa = _qa_command_world(record=False,
+                           draft_record=qa_no_reach_record(omit=("Base commit:",)))
+
+    status, out, _ = _ask_check_qa_red(qa, draft=True)
+
+    assert status == 0
+    lines = out.splitlines()
+    assert lines[:2] == [f'qa red: no reach — "{NO_REACH_LINE}"', f"Base commit: {QA_BASE_SHA}"]
+    assert lines[2:] == [f"Scenario: {location} — {status}"
+                         for location, status in qa.behave.table[(QA_BASE_SHA, "tree")][1].outcomes]
+
+
+def test_check_qa_red_prints_no_reach_for_a_committed_record():
+    qa = _qa_command_world(record=qa_no_reach_record(), commits=NO_REACH_COMMITS,
+                           changes=NO_REACH_CHANGES)
+
+    status, out, _ = _ask_check_qa_red(qa)
+
+    assert status == 0
+    assert out.splitlines() == [f'qa red: no reach — "{NO_REACH_LINE}"',
+                                f"Base commit: {QA_BASE_SHA}"]
+
+
+def test_check_qa_red_prints_a_no_reach_refusal_on_line_one_and_exits_1():
+    qa = _qa_command_world(record=qa_no_reach_record(empty=("No reach:",)),
+                           commits=NO_REACH_COMMITS, changes=NO_REACH_CHANGES)
+
+    status, out, _ = _ask_check_qa_red(qa)
+
+    assert status == 1
+    assert out.splitlines()[0] == "qa-record-refused — the record's No reach: line is empty"
+
+
+def test_check_qa_red_writes_nothing():
+    qa = _qa_command_world()
+    before = dict(qa.files.files)
+
+    _ask_check_qa_red(qa)
+
+    assert qa.files.files == before
+
+
+def _raising_places(change):
+    raise cd.development_path.ToolError("missing-product-path", "project.md has no Product path")
+
+
+@pytest.mark.parametrize("ask", [_ask_qa_applies, _ask_check_qa_red])
+@pytest.mark.parametrize("given, said", [
+    ({"instance_root": None}, "--instance-root"),
+    ({"project": None}, "--project"),
+    ({"instance_root": "/not-the-main-checkout"}, "no change worktree"),
+])
+def test_a_command_missing_a_flag_or_a_worktree_exits_2_with_a_chain_development_message(
+        ask, given, said):
+    status, out, err = ask(_qa_command_world(), **given)
+
+    assert (status, out) == (2, "")
+    assert err.startswith("chain_development: ") and said in err
+
+
+@pytest.mark.parametrize("ask", [_ask_qa_applies, _ask_check_qa_red])
+def test_a_path_tool_error_exits_2_naming_it(ask):
+    qa = _qa_command_world()
+    out, err = io.StringIO(), io.StringIO()
+    if ask is _ask_qa_applies:
+        status = cd.qa_applies(_qa_args(qa_applies=KEY), files=qa.files, git=qa.git,
+                               places=_raising_places, out=out, err=err)
+    else:
+        status = cd.check_qa_red(_qa_args(check_qa_red=KEY), files=qa.files, git=qa.git,
+                                 behave=qa.behave, places=_raising_places, environ=QA_ENVIRON,
+                                 out=out, err=err)
+
+    assert (status, out.getvalue()) == (2, "")
+    assert err.getvalue() == ("chain_development: missing-product-path — "
+                              "project.md has no Product path\n")
+
+
+@pytest.mark.parametrize("flags", [
+    ["--start", "/s"], ["--advance", "/s", "run", "ok"], ["--describe", "/s"], ["--stop", "/s"],
+    ["--list-open-changes"], ["--check-commit-shape", KEY], ["--check-qa-red", KEY],
+    ["--qa-ask-place", KEY]])
+def test_main_refuses_combining_qa_applies_with_another_mode(flags):
+    assert cd.main(["--qa-applies", KEY, *flags]) == 2
+
+
+@pytest.mark.parametrize("flags", [
+    ["--start", "/s"], ["--advance", "/s", "run", "ok"], ["--describe", "/s"], ["--stop", "/s"],
+    ["--list-open-changes"], ["--check-commit-shape", KEY], ["--qa-applies", KEY],
+    ["--qa-ask-place", KEY]])
+def test_main_refuses_combining_check_qa_red_with_another_mode(flags):
+    assert cd.main(["--check-qa-red", KEY, *flags]) == 2
+
+
+def test_main_names_the_commands_among_the_modes_it_wants(capsys):
+    assert cd.main([]) == 2
+    err = capsys.readouterr().err
+    assert err == ("chain_development: one of --start, --advance, --describe, --stop, "
+                   "--list-open-changes, --check-commit-shape, --qa-applies, --check-qa-red or "
+                   "--qa-ask-place is required\n")
+    assert cd.main(["--start", "/s", "--qa-ask-place", KEY]) == 2
+    assert capsys.readouterr().err == (
+        "chain_development: --start, --advance, --describe, --stop, --list-open-changes, "
+        "--check-commit-shape, --qa-applies, --check-qa-red and --qa-ask-place are mutually "
+        "exclusive\n")
+
+
+# --- the command that prints where an ask goes: `--qa-ask-place` --------------------------------
+
+
+def _ask_qa_ask_place(qa: "QaWorld", **given) -> tuple[int, str, str]:
+    out, err = io.StringIO(), io.StringIO()
+    status = cd.qa_ask_place(_qa_args(qa_ask_place=KEY, **given), files=qa.files, out=out, err=err)
+    return status, out.getvalue(), err.getvalue()
+
+
+def test_qa_ask_place_prints_the_change_folders_ask_file_and_exits_zero():
+    qa = _qa_command_world()
+    before = dict(qa.files.files)
+
+    status, out, err = _ask_qa_ask_place(qa)
+
+    assert (status, err) == (0, "")
+    assert out == f"{layout().qa_ask}\n"
+    assert out.startswith(BRANCH_CHANGE)
+    assert qa.files.files == before
+
+
+@pytest.mark.parametrize("given, said", [
+    ({"instance_root": None}, "--qa-ask-place requires --instance-root"),
+    ({"project": None}, "--qa-ask-place requires --project"),
+    ({"instance_root": None, "project": None},
+     "--qa-ask-place requires --instance-root, --project"),
+    ({"instance_root": "/not-the-main-checkout"}, "no change worktree /not-the-main-checkout/"),
+])
+def test_qa_ask_place_refuses_a_missing_flag_or_worktree(given, said):
+    status, out, err = _ask_qa_ask_place(_qa_command_world(), **given)
+
+    assert (status, out) == (2, "")
+    assert err.startswith(f"chain_development: {said}") and err.endswith("\n")
+
+
+_EVERY_OTHER_MODE = [["--start", "/s"], ["--advance", "/s", "run", "ok"], ["--describe", "/s"],
+                     ["--stop", "/s"], ["--list-open-changes"], ["--check-commit-shape", KEY],
+                     ["--qa-applies", KEY], ["--check-qa-red", KEY]]
+
+
+@pytest.mark.parametrize("flags", _EVERY_OTHER_MODE)
+def test_main_refuses_combining_qa_ask_place_with_another_mode(flags):
+    assert cd.main(["--qa-ask-place", KEY, *flags]) == 2
+
+
+def test_the_qa_ask_place_help_says_what_it_prints_and_that_the_ask_is_left_uncommitted(capsys):
+    with pytest.raises(SystemExit):
+        cd.main(["--help"])
+
+    assert ("the place in change KEY's folder, in its change worktree, where a run of "
+            "implementation or design leaves an ask of QA's step: the reason, in plain text, "
+            "left uncommitted; prints that path and exits 0; needs --instance-root (the main "
+            "checkout) and --project, and writes, launches and sends nothing"
+            ) in " ".join(capsys.readouterr().out.split())
+
+
+# --- the walk holds across a pause, a resume and a re-run (Task 18) -----------------------------
+
+UNINTERRUPTED = "uninterrupted"
+PAUSED_WHILE_QA_RUNS = "stopped while QA's run is pending, then started"
+PAUSED_AFTER_QA = "stopped after QA's step ended, then started"
+QA_RE_RUN = "QA's step run again over its own earlier output"
+THE_FOUR_WAYS = [UNINTERRUPTED, PAUSED_WHILE_QA_RUNS, PAUSED_AFTER_QA, QA_RE_RUN]
+REFUSED_EARLIER = reported((NEW_ONE, "passed"), (KEPT_ONE, "passed"))
+
+
+def _outcome(walk: Walk) -> tuple:
+    """How the walk stands: whether and why it ended, and the skill it launched last."""
+    return walk.state["ended"], walk.state["ended_reason"], walk.skills_launched[-1]
+
+
+def _stop_and_start(walk: Walk, *, record_committed: bool = False) -> None:
+    """The only resume the engine has: end the walk, then start it again from what is on disk."""
+    walk.engine().stop(STOP_AT)
+    if record_committed:
+        walk.git.paths.setdefault(KEY, set()).add(QA_RECORD_REL)
+    start(walk.engine())
+
+
+def _re_run_over(walk: Walk, earlier: "QaWorld", later: "QaWorld") -> None:
+    """QA's step ran once and left `earlier` behind, committed; a start enters at QA again and the
+    new run leaves `later`, which is what the verdict then judges."""
+    _install_qa_world(walk, earlier)
+    _stop_and_start(walk, record_committed=True)
+    _install_qa_world(walk, later)
+
+
+def _accepted_walk(way: str) -> Walk:
+    if way == UNINTERRUPTED:
+        return _qa_run_ended()
+    walk = _walk_past_specs(BEHAVE_CARD)
+    _install_qa_world(walk, QaWorld())
+    if way == PAUSED_WHILE_QA_RUNS:
+        _stop_and_start(walk)
+        walk.advance("red-behaviour")
+    elif way == PAUSED_AFTER_QA:
+        walk.advance("red-behaviour")
+        _stop_and_start(walk, record_committed=True)
+    else:
+        _re_run_over(walk, QaWorld(red=REFUSED_EARLIER), QaWorld())
+        walk.advance("red-behaviour")
+    return walk
+
+
+def _retry_walk(way: str) -> Walk:
+    walk = _walk_past_specs(BEHAVE_CARD)
+    _install_qa_world(walk, QaWorld(**RECORD_ONLY))
+    if way == PAUSED_WHILE_QA_RUNS:
+        _stop_and_start(walk)
+    walk.advance("red-behaviour")
+    if way == PAUSED_AFTER_QA:
+        _stop_and_start(walk)
+    if way == QA_RE_RUN:
+        walk.advance("red-behaviour")
+        start(walk.engine())
+        walk.advance("red-behaviour")
+    walk.advance("red-behaviour")
+    return walk
+
+
+def _main_red_walk(way: str) -> Walk:
+    walk = _walk_past_specs(BEHAVE_CARD)
+    _install_qa_world(walk, QaWorld(base=MAIN_FAILS))
+    if way == PAUSED_WHILE_QA_RUNS:
+        _stop_and_start(walk)
+    walk.advance("red-behaviour")
+    if way == QA_RE_RUN:
+        walk.advance("repair")
+        _main_mends(walk)
+        start(walk.engine())
+        walk.advance("red-behaviour")
+        return walk
+    _main_mends(walk)
+    walk.advance("repair")
+    if way == PAUSED_AFTER_QA:
+        _stop_and_start(walk, record_committed=True)
+    return walk
+
+
+NO_WAY_IN_WAYS = [UNINTERRUPTED, "stopped before QA's step, then started",
+                  "stopped after the halt, then started", "started again after the halt"]
+
+
+def _no_way_in_walk(way: str) -> Walk:
+    nfdr = "## 9\n\nNo Behave line here.\n"
+    if way == NO_WAY_IN_WAYS[1]:
+        walk = Walk()
+        walk.files.write_text(CARD_PATH, BEHAVE_CARD)
+        walk.files.write_text(NFDR_PATH, nfdr)
+        walk.engine().stop(STOP_AT)
+        land(walk.files, walk.git, "specs")
+        walk.files.write_text(f"{BRANCH_CHANGE}/change_spec.md", QA_CHANGING_SPEC)
+        start(walk.engine())
+        return walk
+    walk = _walk_past_specs(BEHAVE_CARD, nfdr=nfdr)
+    if way == NO_WAY_IN_WAYS[2]:
+        walk.engine().stop(STOP_AT)
+    if way != UNINTERRUPTED:
+        start(walk.engine())
+    return walk
+
+
+def test_the_accepted_walk_gives_one_outcome_uninterrupted_paused_resumed_and_re_run():
+    outcomes = {way: _outcome(_accepted_walk(way)) for way in THE_FOUR_WAYS}
+
+    assert outcomes[UNINTERRUPTED] == (None, "", "development-design")
+    assert set(outcomes.values()) == {outcomes[UNINTERRUPTED]}
+
+
+def test_the_retry_walk_gives_one_outcome_across_the_same_four():
+    walks = {way: _retry_walk(way) for way in THE_FOUR_WAYS}
+
+    assert _outcome(walks[UNINTERRUPTED]) == (
+        "halted", "stopped at red-behaviour: missing-qa-red", "red-behaviour")
+    assert {_outcome(walk) for walk in walks.values()} == {_outcome(walks[UNINTERRUPTED])}
+    # A spent retry is not granted again, in any of the four: each walk ended holding the one.
+    assert {walk.state["qa_retries"] for walk in walks.values()} == {1}
+
+
+def test_the_main_red_then_merged_walk_gives_one_outcome_across_the_same_four():
+    outcomes = {way: _outcome(_main_red_walk(way)) for way in THE_FOUR_WAYS}
+
+    assert outcomes[UNINTERRUPTED] == (None, "", "development-design")
+    assert set(outcomes.values()) == {outcomes[UNINTERRUPTED]}
+
+
+def test_the_no_way_in_halt_gives_one_outcome_across_the_same_four():
+    walks = {way: _no_way_in_walk(way) for way in NO_WAY_IN_WAYS}
+
+    assert _outcome(walks[UNINTERRUPTED])[:2] == (
+        "halted", "stopped at red-behaviour: no-way-in — docs/nfdr.md has no **Behave:** line "
+                  f"— {NO_WAY_IN_ADVICE}")
+    assert {_outcome(walk) for walk in walks.values()} == {_outcome(walks[UNINTERRUPTED])}
+    assert all(walk.behave.calls == [] and _qa_launches(walk) == 0 for walk in walks.values())
+
+
+def test_a_re_run_over_earlier_qa_commits_and_record_is_never_refused_for_them():
+    walk = _walk_past_specs(BEHAVE_CARD)
+    _install_qa_world(walk, QaWorld(red=REFUSED_EARLIER))
+    _stop_and_start(walk, record_committed=True)
+
+    assert walk.state["ended"] is None
+    assert walk.skills_launched[-1] == "red-behaviour"
+
+    _install_qa_world(walk, QaWorld())
+    walk.advance("red-behaviour")
+
+    assert walk.state["ended"] is None
+    assert "red-behaviour landed" in walk.state["history"]
+    assert walk.skills_launched[-1] == "development-design"
+    assert not [line for line in walk.state["history"] if "refused" in line]
+
+
+# --- an ask of QA's step: its place, its reason and the per-change record -----------------------
+
+
+def _asks_store(files: FakeFiles | None = None) -> "cd.QaAskStore":
+    return cd.QaAskStore(files or FakeFiles(), LOGS)
+
+
+def _the_record_path(key: str = KEY) -> str:
+    return f"{LOGS}/chain-qa-{PROJECT}-{key}.json"
+
+
+def test_the_ask_lives_in_the_change_folder_of_the_change_worktree():
+    assert layout().qa_ask == os.path.join(layout().branch_change_folder, "qa_ask.md")
+    assert layout("2026-01-01_other").qa_ask != layout().qa_ask
+
+
+def test_an_asks_reason_is_its_text_with_whitespace_collapsed():
+    reason = cd.ask_reason("  scenario 2 needs\n    a login   step \n")
+
+    assert reason == "scenario 2 needs a login step"
+    assert cd.ask_reason("") == ""
+    assert cd.ask_reason("   ") == ""
+    assert cd.ask_reason("\n\n\n") == ""
+
+
+def test_an_absent_record_loads_empty():
+    asks = _asks_store().load(PROJECT, KEY)
+
+    assert (asks.runs, asks.answered, asks.open) == (0, [], None)
+
+
+def test_an_unreadable_record_loads_empty():
+    files = FakeFiles({_the_record_path(): "{not json"})
+
+    asks = _asks_store(files).load(PROJECT, KEY)
+
+    assert (asks.runs, asks.answered, asks.open) == (0, [], None)
+
+
+@pytest.mark.parametrize("phase", [cd.QaAskPhase.RE_RUN, cd.QaAskPhase.RETURN])
+def test_a_saved_record_round_trips_runs_answers_and_the_open_ask(phase):
+    store = _asks_store()
+    asks = cd.QaAsks(
+        runs=3,
+        answered=[{"step": "implementation", "reason": "a", "answer": "accepted"},
+                  {"step": "design", "reason": "", "answer": "turned down: no reason given"}],
+        open={"asker": "implementation", "since": "abc123", "phase": phase})
+
+    store.save(PROJECT, KEY, asks)
+
+    loaded = store.load(PROJECT, KEY)
+    assert loaded == asks
+    assert loaded.open["phase"] == phase.value
+
+
+def test_a_key_the_record_does_not_know_is_ignored_on_load():
+    files = FakeFiles({_the_record_path(): json.dumps({"runs": 2, "later": "field"})})
+
+    assert _asks_store(files).load(PROJECT, KEY).runs == 2
+
+
+def test_a_record_is_written_whole_over_the_real_path():
+    files = FakeFiles()
+    replaced = []
+    original = files.replace
+    files.replace = lambda source, destination: (replaced.append((source, destination)),
+                                                 original(source, destination))
+
+    _asks_store(files).save(PROJECT, KEY, cd.QaAsks(runs=1))
+
+    assert replaced == [(f"{_the_record_path()}.tmp", _the_record_path())]
+    assert not [path for path in files.files if path.endswith(".tmp")]
+
+
+def test_accepted_reads_only_accepted_answers():
+    asks = cd.QaAsks(answered=[
+        {"step": "design", "reason": "", "answer": "turned down: no reason given"},
+        {"step": "implementation", "reason": "r", "answer": "accepted"}])
+
+    assert asks.accepted("implementation")
+    assert not asks.accepted("design")
+    assert not asks.accepted("plan")
+
+
+def test_keep_moves_the_ask_to_a_numbered_file_beside_the_record():
+    files = FakeFiles({layout().qa_ask: "why\n"})
+    kept = _asks_store(files).keep(PROJECT, KEY, 2, layout().qa_ask)
+
+    assert kept == f"{LOGS}/chain-qa-{PROJECT}-{KEY}.ask-2.md"
+    assert files.read_text(layout().qa_ask) is None
+    assert files.read_text(kept) == "why\n"
+
+
+def test_the_record_is_named_so_the_walk_board_does_not_read_it_as_a_walk():
+    import fnmatch
+
+    import chain_board
+
+    store = _asks_store()
+    names = [os.path.basename(store.path(PROJECT, KEY)),
+             f"chain-qa-{PROJECT}-{KEY}.ask-1.md"]
+
+    assert not [name for name in names if fnmatch.fnmatch(name, chain_board.STATE_FILE_PATTERN)]
+
+
+def test_the_record_round_trips_and_moves_through_the_real_files_port(tmp_path):
+    logs = tmp_path / "logs"
+    logs.mkdir()
+    ask = tmp_path / "qa_ask.md"
+    ask.write_text("because\n", encoding="utf-8")
+    store = cd.QaAskStore(cd.Files(), str(logs))
+    asks = cd.QaAsks(runs=1, answered=[{"step": "design", "reason": "because",
+                                        "answer": "accepted"}],
+                     open={"asker": "design", "since": "", "phase": "re-run"})
+
+    store.save(PROJECT, KEY, asks)
+    kept = store.keep(PROJECT, KEY, 1, str(ask))
+
+    assert store.load(PROJECT, KEY) == asks
+    assert not ask.exists()
+    assert Path(kept).read_text(encoding="utf-8") == "because\n"
+    assert not list(logs.glob("*.tmp"))
+
+
+# --- the engine is handed the per-change ask record ---------------------------------------------
+
+
+def test_the_engine_a_walk_is_built_with_reads_one_record_for_both_tables():
+    files = FakeFiles()
+    change_engine = build(files)
+    walk_engine = build(files, steps=cd.WALK_STEPS)
+
+    change_engine.qa_asks.save(PROJECT, KEY, cd.QaAsks(runs=2))
+
+    assert walk_engine.qa_asks.load(PROJECT, KEY).runs == 2
+    assert change_engine.qa_asks.path(PROJECT, KEY) == walk_engine.qa_asks.path(PROJECT, KEY)
+
+
+@pytest.mark.parametrize("steps", [None, "walk"])
+def test_build_chain_places_the_record_beside_the_state_file(tmp_path, steps):
+    state = tmp_path / "logs" / "chain-x-state.json"
+
+    chain = cd.build_chain(str(state), notifier_command="", engine_path=ENGINE,
+                           steps=cd.WALK_STEPS if steps else None)
+
+    assert chain.qa_asks.path(PROJECT, KEY) == str(
+        tmp_path / "logs" / f"chain-qa-{PROJECT}-{KEY}.json")
+
+
+# --- QA's runs are counted, and a seventh is refused --------------------------------------------
+
+SPENT_LINE = f"stopped at red-behaviour: qa-runs-spent — QA's step has run 6 times on {KEY}"
+
+
+def _asks(walk: Walk) -> "cd.QaAsks":
+    return cd.QaAskStore(walk.files, LOGS).load(PROJECT, KEY)
+
+
+def test_a_qa_run_that_ends_is_counted_once():
+    walk = _qa_run_ended()
+
+    assert _asks(walk).runs == 1
+
+
+def test_a_qa_run_ended_by_the_stop_command_and_relaunched_is_counted_once():
+    walk = _walk_past_specs(BEHAVE_CARD)
+    _install_qa_world(walk, QaWorld())
+
+    _stop_and_start(walk)
+    assert _asks(walk).runs == 0
+    walk.advance("red-behaviour")
+
+    assert _asks(walk).runs == 1
+
+
+def test_a_qa_launch_the_launcher_refused_is_not_counted():
+    walk = _walk_past_specs(BEHAVE_CARD, launcher_codes=[3])
+
+    assert walk.state["ended_reason"] == "stopped at red-behaviour: launcher exited 3"
+    assert _asks(walk).runs == 0
+
+
+def test_a_pass_of_qas_step_adds_no_run():
+    walk = _walk_past_specs(NONE_CARD)
+
+    assert f"red-behaviour passed — {QA_CARD_READ}" in walk.state["history"]
+    assert _asks(walk).runs == 0
+
+
+def test_the_verdict_asked_again_after_a_merged_repair_adds_no_run():
+    walk = _qa_repairing()
+    assert _asks(walk).runs == 1
+    _main_mends(walk)
+
+    walk.advance("repair")
+
+    assert "red-behaviour landed" in walk.state["history"]
+    assert _asks(walk).runs == 1
+
+
+def test_a_walk_entering_qas_step_with_six_runs_counted_halts_without_launching():
+    walk = _walk_past_specs(BEHAVE_CARD, asks=cd.QaAsks(runs=6))
+
+    assert walk.state["ended"] == "halted"
+    assert walk.state["ended_reason"] == SPENT_LINE
+    assert _qa_launches(walk) == 0
+    assert list(walk.state["pending"]) == []
+
+
+def test_qas_retry_is_refused_at_the_seventh_run():
+    walk = _walk_past_specs(BEHAVE_CARD, asks=cd.QaAsks(runs=5))
+    _install_qa_world(walk, QaWorld(**RECORD_ONLY))
+
+    walk.advance("red-behaviour")
+
+    assert _asks(walk).runs == 6
+    assert walk.state["ended_reason"] == SPENT_LINE
+    assert _qa_launches(walk) == 1
+    assert "missing-qa-red" not in walk.state["ended_reason"]
+
+
+def test_five_runs_leave_room_for_a_sixth():
+    walk = _walk_past_specs(BEHAVE_CARD, asks=cd.QaAsks(runs=5))
+
+    assert walk.state["ended"] is None
+    assert _qa_launches(walk) == 1
+
+
+def test_a_change_where_no_run_leaves_an_ask_writes_no_record_but_its_run_count():
+    walk = _qa_run_ended()
+
+    assert _asks(walk) == cd.QaAsks(runs=1)
+    assert not [line for line in walk.state["history"] if "asked" in line]
+    assert "red-behaviour landed" in walk.state["history"]
+
+
+# --- an ask is read, answered once, and either turned down or accepted --------------------------
+
+ASK_TEXT = "scenario 2 needs a login step"
+ASK_TIP = "feedface00"
+_ASKING_STEPS = ("design", "plan", "implementation", "changelog", "code-integrity", "security")
+
+
+def _walk_at(step_id: str, card: str = BEHAVE_CARD, *, qa_world: dict | None = None) -> Walk:
+    """A walk through QA's first run (accepted, over the `qa_world` it is given) and every step
+    before `step_id`, with `step_id`'s run pending. `audit` is pending for the first producer; the
+    product branch has a tip."""
+    walk = _walk_past_specs(card)
+    if walk.skills_launched[-1] == "red-behaviour":
+        _install_qa_world(walk, QaWorld(**(qa_world or {})))
+        walk.advance("red-behaviour")
+        walk.git.paths.setdefault(KEY, set()).add(QA_RECORD_REL)
+    walk.git.tips.setdefault(QA_REPO, {})[KEY] = ASK_TIP
+    walk.behave.table[(ASK_TIP, None)] = (FIVE_PASSED, None)
+    for earlier in _ASKING_STEPS:
+        if earlier == step_id:
+            return walk
+        land(walk.files, walk.git, earlier)
+        walk.advance(earlier)
+    assert step_id == "audit"
+    return walk
+
+
+def _ask_then_end(walk: Walk, run: str, text: str = ASK_TEXT) -> Walk:
+    walk.files.write_text(layout().qa_ask, text)
+    walk.advance(run)
+    return walk
+
+
+def _kept(number: int) -> str:
+    return f"{LOGS}/chain-qa-{PROJECT}-{KEY}.ask-{number}.md"
+
+
+def _the_turn_down(make_walk, run: str, text: str, asker: str, why: str) -> Walk:
+    """The ask is turned down with `why`, and the run's end settles exactly as the same walk's does
+    with no ask: same history but for the one line, same launches, same end."""
+    asked = _ask_then_end(make_walk(), run, text)
+    control = make_walk()
+    control.advance(run)
+    line = f"{asker} asked QA — turned down: {why}"
+    assert asked.state["history"].count(line) == 1
+    assert [entry for entry in asked.state["history"] if entry != line] == control.state["history"]
+    assert asked.skills_launched == control.skills_launched
+    assert (asked.state["ended"], asked.state["ended_reason"]) == (
+        control.state["ended"], control.state["ended_reason"])
+    return asked
+
+
+def test_an_ask_a_developer_run_leaves_is_answered_before_its_closing_marker_is_judged():
+    walk = _walk_at("implementation")
+    before = list(walk.skills_launched)
+
+    _ask_then_end(walk, "implementation")
+
+    assert walk.skills_launched == [*before, "red-behaviour"]
+    assert not [line for line in walk.state["history"] if "missing marker" in line]
+    assert walk.state["ended"] is None
+
+
+def test_a_commit_subject_naming_qa_is_not_an_ask():
+    walk = _walk_at("implementation")
+    control = _walk_at("implementation")
+    walk.git.commits.setdefault(KEY, []).append(("c0ffee", "qa: please change scenario 2"))
+
+    walk.advance("implementation")
+    control.advance("implementation")
+
+    assert not [line for line in walk.state["history"] if "asked" in line]
+    assert walk.skills_launched == control.skills_launched
+    assert walk.state["history"] == control.state["history"]
+
+
+def test_a_turned_down_ask_is_not_read_again():
+    walk = _the_turn_down(lambda: _walk_at("implementation"), "implementation", "  \n",
+                          "implementation", "no reason given")
+    walk.advance("implementation-recovery")
+
+    assert len([line for line in walk.state["history"] if "asked QA" in line]) == 1
+    assert len(_asks(walk).answered) == 1
+    assert walk.files.read_text(_kept(1)) == "  \n"
+
+
+@pytest.mark.parametrize("make_walk, run, asker", [
+    pytest.param(lambda: _walk_at("plan"), "plan", "plan", id="plan"),
+    pytest.param(lambda: _walk_at("audit"), f"audit-{PRODUCERS[0]}", "audit", id="audit"),
+    pytest.param(lambda: _qa_repairing(), "repair", "repair", id="repair"),
+])
+def test_an_ask_from_a_step_other_than_the_two_is_turned_down(make_walk, run, asker):
+    asked = _the_turn_down(make_walk, run, ASK_TEXT, asker,
+                           "only implementation and design may ask")
+
+    assert not _asks(asked).accepted(asker)
+    assert asked.files.read_text(layout().qa_ask) is None
+
+
+def test_an_ask_on_a_change_qas_step_passed_is_turned_down_with_what_was_read():
+    _the_turn_down(lambda: _walk_at("implementation", NONE_CARD), "implementation", ASK_TEXT,
+                   "implementation", f"QA's step passed this change — {QA_CARD_READ}")
+
+
+def test_design_asks_with_a_reason_after_a_no_reach_pass_and_is_accepted():
+    walk = _walk_at("design", qa_world=NO_REACH_WORLD)
+    assert NO_REACH_PASS_LINE in walk.state["history"]
+    launches = _qa_launches(walk)
+
+    _ask_then_end(walk, "design")
+
+    assert _asks(walk).accepted("design")
+    assert not [line for line in walk.state["history"] if "turned down" in line]
+    assert _qa_launches(walk) == launches + 1
+
+
+def test_a_run_that_commits_a_no_reach_record_raises_the_ask_records_runs_by_one():
+    walk = _qa_run_ended(**NO_REACH_WORLD)
+
+    assert _asks(walk).runs == 1
+
+
+@pytest.mark.parametrize("text", ["", "   ", "\n\n"])
+def test_an_ask_with_no_reason_is_turned_down(text):
+    def design_ended() -> Walk:
+        walk = _walk_at("design")
+        land(walk.files, walk.git, "design")
+        return walk
+
+    asked = _the_turn_down(design_ended, "design", text, "design", "no reason given")
+
+    assert asked.skills_launched[-1] == "development-plan"
+
+
+def _after_an_accepted_ask(walk: Walk, step_id: str = "implementation") -> Walk:
+    """The record holds an accepted ask by `step_id`, as one it spent in an earlier walk."""
+    asks = _asks(walk)
+    asks.answered.append({"step": step_id, "reason": "earlier", "answer": "accepted"})
+    cd.QaAskStore(walk.files, LOGS).save(PROJECT, KEY, asks)
+    return walk
+
+
+def test_a_second_ask_after_an_accepted_one_is_turned_down():
+    walk = _the_turn_down(lambda: _after_an_accepted_ask(_walk_at("implementation")),
+                          "implementation", ASK_TEXT, "implementation",
+                          "implementation has spent its one ask")
+
+    assert _qa_launches(walk) == 1
+
+
+def test_only_the_first_reason_that_holds_is_named():
+    _the_turn_down(lambda: _walk_at("plan", NONE_CARD), "plan", "", "plan",
+                   "only implementation and design may ask")
+    _the_turn_down(lambda: _walk_at("implementation", NONE_CARD), "implementation", "",
+                   "implementation", f"QA's step passed this change — {QA_CARD_READ}")
+    _the_turn_down(lambda: _after_an_accepted_ask(_walk_at("design"), "design"), "design", "",
+                   "design", "no reason given")
+
+
+def test_an_ask_turned_down_for_no_reason_leaves_the_seat_its_ask():
+    walk = _walk_at("design")
+    _ask_then_end(walk, "design", "")
+    assert walk.state["ended"] == "halted"
+    assert not _asks(walk).accepted("design")
+
+    start(walk.engine())
+    _ask_then_end(walk, "design", "the seam is not testable")
+
+    assert _asks(walk).accepted("design")
+    assert walk.skills_launched[-1] == "red-behaviour"
+
+
+def test_a_turned_down_ask_leaves_a_missing_marker_to_its_own_recovery():
+    walk = _the_turn_down(lambda: _walk_at("implementation"), "implementation", "",
+                          "implementation", "no reason given")
+
+    assert "implementation missing marker — recovering once" in walk.state["history"]
+    assert list(walk.state["pending"]) == ["implementation-recovery"]
+
+
+def test_a_developer_run_relaunched_after_a_pause_asks_as_implementation():
+    walk = _walk_at("implementation")
+    walk.advance("implementation")
+    assert list(walk.state["pending"]) == ["implementation-recovery"]
+
+    _ask_then_end(walk, "implementation-recovery")
+
+    accepted = f"implementation asked QA — {ASK_TEXT} — running red-behaviour again"
+    assert accepted in walk.state["history"]
+    assert _asks(walk).accepted("implementation")
+
+
+def test_an_accepted_ask_runs_only_qas_step_again():
+    walk = _walk_at("implementation")
+    before = list(walk.skills_launched)
+    known = set(walk.files.files)
+
+    _ask_then_end(walk, "implementation")
+
+    accepted = f"implementation asked QA — {ASK_TEXT} — running red-behaviour again"
+    assert accepted in walk.state["history"]
+    assert walk.skills_launched == [*before, "red-behaviour"]
+    asks = _asks(walk)
+    assert asks.answered == [{"step": "implementation", "reason": ASK_TEXT, "answer": "accepted"}]
+    assert asks.open == {"asker": "implementation", "since": ASK_TIP, "phase": "re-run"}
+    assert walk.state["qa_rerun_retries"] == 0
+    assert walk.files.read_text(layout().qa_ask) is None
+    assert walk.files.read_text(_kept(1)) == ASK_TEXT
+    assert not [path for path in set(walk.files.files) - known if ".behave" in path]
+
+
+def test_an_accepted_ask_with_six_runs_spent_still_spends_the_ask():
+    walk = _walk_at("implementation")
+    asks = _asks(walk)
+    asks.runs = 6
+    cd.QaAskStore(walk.files, LOGS).save(PROJECT, KEY, asks)
+    launches = _qa_launches(walk)
+
+    _ask_then_end(walk, "implementation")
+
+    assert _asks(walk).accepted("implementation")
+    assert walk.state["ended_reason"] == SPENT_LINE
+    assert _qa_launches(walk) == launches
+
+    # The ask was spent by being accepted: once the open ask is out of the way, a later developer
+    # ask is turned down as spent, not read again as a first.
+    asks = _asks(walk)
+    asks.open = None
+    cd.QaAskStore(walk.files, LOGS).save(PROJECT, KEY, asks)
+    start(walk.engine())
+    assert walk.skills_launched[-1] == "development-implementation"
+    _ask_then_end(walk, "implementation")
+
+    assert "implementation asked QA — turned down: implementation has spent its one ask" in (
+        walk.state["history"])
+    assert _qa_launches(walk) == launches
+
+
+def test_an_accepted_ask_changes_nothing_in_the_scenario_folder_and_reads_only_the_reason():
+    walk = _walk_at("implementation")
+    scenario_files = {path: text for path, text in walk.files.files.items() if ".behave" in path}
+    commits = list(walk.git.repos[QA_REPO][KEY])
+
+    _ask_then_end(walk, "implementation", "  scenario 2\n\n   needs   Role: QA — a login step \n")
+
+    behave_files = {path: text for path, text in walk.files.files.items() if ".behave" in path}
+    assert behave_files == scenario_files
+    assert walk.git.repos[QA_REPO][KEY] == commits
+    assert _asks(walk).answered[0]["reason"] == "scenario 2 needs Role: QA — a login step"
+
+
+def _ask_ways(way: str, step_id: str) -> Walk:
+    """`step_id`'s run is pending after QA's first run went the given way."""
+    walk = _accepted_walk(way)
+    walk.git.tips.setdefault(QA_REPO, {})[KEY] = ASK_TIP
+    walk.git.paths.setdefault(KEY, set()).add(QA_RECORD_REL)
+    for earlier in _ASKING_STEPS:
+        if earlier == step_id:
+            return walk
+        land(walk.files, walk.git, earlier)
+        walk.advance(earlier)
+    return walk
+
+
+@pytest.mark.parametrize("step_id, text, why, spent", [
+    pytest.param("plan", ASK_TEXT, "only implementation and design may ask", False, id="seat"),
+    pytest.param("design", "", "no reason given", False, id="no-reason"),
+    pytest.param("implementation", ASK_TEXT, "implementation has spent its one ask", True,
+                 id="spent-ask"),
+])
+def test_each_turn_down_gives_one_outcome_across_the_four_ways(step_id, text, why, spent):
+    outcomes = {}
+    for way in THE_FOUR_WAYS:
+        walk = _ask_ways(way, step_id)
+        if spent:
+            _after_an_accepted_ask(walk, step_id)
+        land(walk.files, walk.git, step_id)
+        _ask_then_end(walk, step_id, text)
+        line = f"{step_id} asked QA — turned down: {why}"
+        assert walk.state["history"].count(line) == 1, way
+        outcomes[way] = (walk.state["ended"], walk.skills_launched[-1])
+
+    assert set(outcomes.values()) == {outcomes[UNINTERRUPTED]}
+    assert outcomes[UNINTERRUPTED][0] is None
+
+
+# --- a walk with an ask open is entered at the step that is owed --------------------------------
+
+def _open_ask(walk: Walk, asker: str, phase: str) -> Walk:
+    """The record holds an accepted ask by `asker`, not yet returned, in `phase`."""
+    asks = _asks(walk)
+    asks.runs = max(asks.runs, 1)
+    if not asks.accepted(asker):
+        asks.answered.append({"step": asker, "reason": ASK_TEXT, "answer": "accepted"})
+    asks.open = {"asker": asker, "since": ASK_TIP, "phase": phase}
+    cd.QaAskStore(walk.files, LOGS).save(PROJECT, KEY, asks)
+    return walk
+
+
+def _stopped_with_an_ask_open(asker: str, phase: str) -> Walk:
+    """The asker's step has landed on disk, so the disk alone would send a start past it."""
+    walk = _walk_at(asker)
+    land(walk.files, walk.git, asker)
+    _open_ask(walk, asker, phase)
+    walk.engine().stop(STOP_AT)
+    return walk
+
+
+def test_a_walk_stopped_while_the_rerun_runs_is_entered_at_qas_step():
+    walk = _walk_at("implementation")
+    _ask_then_end(walk, "implementation")
+    assert list(walk.state["pending"]) == ["red-behaviour"]
+    walk.engine().stop(STOP_AT)
+
+    assert describe(walk.engine()).entry == "red-behaviour"
+    start(walk.engine())
+
+    assert walk.skills_launched[-1] == "red-behaviour"
+    assert walk.state["qa_rerun_retries"] == 0
+
+
+def test_a_walk_stopped_after_the_rerun_landed_is_entered_at_the_asker():
+    walk = _stopped_with_an_ask_open("implementation", "return")
+
+    assert describe(walk.engine()).entry == "implementation"
+    start(walk.engine())
+
+    assert walk.skills_launched[-1] == "development-implementation"
+
+
+def test_the_architects_open_ask_enters_at_design():
+    walk = _stopped_with_an_ask_open("design", "return")
+
+    assert describe(walk.engine()).entry == "design"
+    start(walk.engine())
+
+    assert walk.skills_launched[-1] == "development-design"
+
+
+def test_a_new_walk_after_the_rerun_halted_is_entered_at_qas_step_with_one_retry():
+    walk = _walk_at("implementation")
+    _ask_then_end(walk, "implementation")
+    state = walk.state
+    state.update(ended="halted", ended_reason="stopped at red-behaviour: missing-qa-red",
+                 qa_rerun_retries=1, pending={})
+    walk.files.write_text(STATE, json.dumps(state))
+    runs = _asks(walk).runs
+
+    start(walk.engine())
+
+    assert walk.skills_launched[-1] == "red-behaviour"
+    assert walk.state["qa_rerun_retries"] == 0
+    assert _asks(walk).runs == runs
+
+
+def test_the_reruns_spent_retry_survives_a_stop_and_start():
+    walk = _walk_at("implementation")
+    _ask_then_end(walk, "implementation")
+    state = walk.state
+    state.update(qa_rerun_retries=1)
+    walk.files.write_text(STATE, json.dumps(state))
+    walk.engine().stop(STOP_AT)
+
+    start(walk.engine())
+
+    assert walk.state["qa_rerun_retries"] == 1
+
+
+def test_a_change_with_no_open_ask_is_entered_where_the_disk_says():
+    def entry(seed) -> str:
+        walk = _walk_at("implementation")
+        land(walk.files, walk.git, "implementation")
+        seed(walk)
+        walk.engine().stop(STOP_AT)
+        return describe(walk.engine()).entry
+
+    def answered_not_open(walk: Walk) -> None:
+        asks = _asks(walk)
+        asks.answered.append({"step": "implementation", "reason": ASK_TEXT, "answer": "accepted"})
+        cd.QaAskStore(walk.files, LOGS).save(PROJECT, KEY, asks)
+
+    disk = entry(lambda walk: None)
+
+    assert disk == "changelog"
+    assert entry(answered_not_open) == disk
+
+
+def test_the_earlier_of_the_two_steps_is_the_entry():
+    walk = _walk_at("design")
+    _open_ask(walk, "implementation", "return")
+    walk.engine().stop(STOP_AT)
+
+    assert describe(walk.engine()).entry == "design"
+
+
+# --- the re-run is judged and the walk returns to the asker -------------------------------------
+
+RERUN_RED_SHA = "1" * 40
+RERUN_RECORD_SHA = "2" * 40
+DEV_SHA = "3" * 40
+LATE_QA_SHA = "4" * 40
+_RERUN_PASSING_BASE = reported((KEPT_ONE, "passed"))
+_RERUN_RED_RUN = reported((NEW_ONE, "failed"), (NEW_TWO, "failed"), (KEPT_ONE, "passed"))
+_FIRST_RUN = [(QA_RECORD_SHA, "qa: record"), (QA_RED_SHA, "qa: scenarios")]
+_RERUN_RECORD_ONLY = [(RERUN_RECORD_SHA, "qa: record")]
+_RERUN_RED_COMMITS = [(RERUN_RECORD_SHA, "qa: record"), (RERUN_RED_SHA, "qa: scenarios")]
+
+
+def _rerun_world(*, commits=None, record=None, base=None, red=None, changes=None, bodies=None,
+                 ancestors=(), statuses=None) -> "QaWorld":
+    """What the product repository, the change branch and Behave hold once the re-run's run has
+    ended: the first run's two commits below, `commits` above them, and a record naming the
+    re-run's own red unless it is given."""
+    base = _RERUN_PASSING_BASE if base is None else base
+    red = _RERUN_RED_RUN if red is None else red
+    table = {(QA_BASE_SHA, sha): (base, red) for sha in (QA_RED_SHA, RERUN_RED_SHA)}
+    table[(QA_BASE_SHA, None)] = (base, None)
+    table[(QA_BASE_SHA, "tree")] = (base, red)
+    return QaWorld(
+        commits=[*(_RERUN_RED_COMMITS if commits is None else commits), *_FIRST_RUN],
+        record=qa_record(red=RERUN_RED_SHA) if record is None else record,
+        table=table, ancestors=ancestors, statuses=statuses,
+        bodies={RERUN_RED_SHA: QA_ROLE_BODY, RERUN_RECORD_SHA: QA_ROLE_BODY,
+                LATE_QA_SHA: QA_ROLE_BODY, **(bodies or {})},
+        changes={RERUN_RED_SHA: [f"{QA_FOLDER_REL}/features/due.feature"],
+                 RERUN_RECORD_SHA: [QA_RECORD_REL], **(changes or {})})
+
+
+def _asked_walk(asker: str = "implementation", *, tip: str = QA_RECORD_SHA,
+                instance_tip: str | None = None) -> Walk:
+    """The asker's ask was accepted on a change whose QA step ran once; QA's re-run is pending, and
+    the product branch stood at `tip` when the ask was answered. With `instance_tip` the instance
+    change branch stood there too, above whatever commits it already held."""
+    walk = _walk_at(asker)
+    walk.git.tips[QA_REPO][KEY] = tip
+    if instance_tip is not None:
+        walk.git.commits[KEY] = [(instance_tip, "design: change design"),
+                                 *walk.git.commits.get(KEY, [])]
+        walk.git.tips.setdefault(INSTANCE, {})[KEY] = instance_tip
+    _ask_then_end(walk, asker)
+    assert list(walk.state["pending"]) == ["red-behaviour"]
+    return walk
+
+
+def _rerun_ended(asker: str = "implementation", *, tip: str = QA_RECORD_SHA, **world) -> Walk:
+    walk = _asked_walk(asker, tip=tip)
+    _install_qa_world(walk, _rerun_world(**world))
+    walk.advance("red-behaviour")
+    return walk
+
+
+def _tl_instruction(walk: Walk) -> str | None:
+    return walk.files.read_text(f"{BRANCH_CHANGE}/tl_instruction.md")
+
+
+def test_the_developers_ask_runs_qas_step_again_then_returns_to_the_developer():
+    walk = _asked_walk()
+    plan = _tl_instruction(walk)
+    before = list(walk.skills_launched)
+    _install_qa_world(walk, _rerun_world())
+
+    walk.advance("red-behaviour")
+
+    assert "red-behaviour landed — back to implementation" in walk.state["history"]
+    assert walk.skills_launched == [*before, "development-implementation"]
+    assert _tl_instruction(walk) == plan
+    assert _asks(walk).open == {"asker": "implementation", "since": QA_RECORD_SHA,
+                                "phase": "return"}
+    assert walk.state["ended"] is None
+
+
+def test_the_architects_ask_runs_qas_step_again_then_returns_to_design():
+    walk = _asked_walk("design")
+    before = list(walk.skills_launched)
+    _install_qa_world(walk, _rerun_world())
+
+    walk.advance("red-behaviour")
+
+    assert "red-behaviour landed — back to design" in walk.state["history"]
+    assert walk.skills_launched == [*before, "development-design"]
+    land(walk.files, walk.git, "design")
+    walk.advance("design")
+    assert walk.skills_launched[-1] == "development-plan"
+
+
+def test_a_rerun_that_commits_only_its_record_is_retried_once():
+    walk = _rerun_ended(commits=_RERUN_RECORD_ONLY, changes={RERUN_RECORD_SHA: [QA_RECORD_REL]})
+    launches = _qa_launches(walk)
+
+    assert RETRY_LINE in walk.state["history"]
+    assert walk.state["qa_rerun_retries"] == 1
+    walk.advance("red-behaviour")
+
+    assert walk.state["ended_reason"] == "stopped at red-behaviour: missing-qa-red"
+    assert _qa_launches(walk) == launches
+
+
+def test_a_rerun_gets_its_own_retry_when_the_first_run_spent_its_own():
+    walk = _asked_walk()
+    state = walk.state
+    state.update(qa_retries=1)
+    walk.files.write_text(STATE, json.dumps(state))
+    _install_qa_world(walk, _rerun_world(commits=_RERUN_RECORD_ONLY))
+
+    walk.advance("red-behaviour")
+
+    assert RETRY_LINE in walk.state["history"]
+    assert walk.state["ended"] is None
+
+
+def test_qa_commits_from_before_the_ask_do_not_count_as_the_reruns_red():
+    walk = _rerun_ended(commits=[])
+
+    assert RETRY_LINE in walk.state["history"]
+    assert "red-behaviour landed — back to implementation" not in walk.state["history"]
+
+
+def test_a_rerun_whose_record_names_the_old_red_halts_record_refused():
+    walk = _rerun_ended(record=qa_record(red=QA_RED_SHA))
+
+    assert walk.state["ended_reason"] == (
+        f"stopped at red-behaviour: qa-record-refused — the record's Red commit: {QA_RED_SHA} "
+        "was made before the ask")
+    assert _qa_launches(walk) == 2
+
+
+def test_a_record_naming_no_commit_is_left_to_the_verdict():
+    record = qa_record(red="0" * 40)
+    walk = _rerun_ended(record=record)
+
+    assert walk.state["ended_reason"] == (
+        f"stopped at red-behaviour: {_rerun_world(record=record).verdict().refusal}")
+    assert "was made before the ask" not in walk.state["ended_reason"]
+
+
+def test_the_rerun_is_judged_on_the_merge_base_not_the_developers_code():
+    walk = _rerun_ended(tip=DEV_SHA, commits=[*_RERUN_RED_COMMITS, (DEV_SHA, "developer: task 1")])
+
+    assert walk.behave.calls[-1] == (QA_BASE_SHA, RERUN_RED_SHA)
+    assert "red-behaviour landed — back to implementation" in walk.state["history"]
+
+
+@pytest.mark.parametrize("library", ["uv.lock", "pyproject.toml"])
+def test_a_rerun_over_a_first_red_that_changed_a_library_is_not_refused_for_it(library):
+    walk = _rerun_ended(
+        changes={QA_RED_SHA: [f"{QA_FOLDER_REL}/features/due.feature",
+                              f"{QA_FOLDER_REL}/{library}"]},
+        ancestors={(QA_RED_SHA, RERUN_RED_SHA), (QA_RECORD_SHA, RERUN_RED_SHA)})
+
+    assert "red-behaviour landed — back to implementation" in walk.state["history"]
+
+
+def test_a_library_edit_in_a_qa_commit_after_the_rerun_red_is_still_refused():
+    walk = _rerun_ended(commits=[(LATE_QA_SHA, "qa: library"), *_RERUN_RED_COMMITS],
+                        changes={LATE_QA_SHA: [f"{QA_FOLDER_REL}/pyproject.toml"]})
+    expected = ("stopped at red-behaviour: qa-red-refused — a library outside the red commit: "
+                f"{QA_FOLDER_REL}/pyproject.toml")
+
+    assert walk.state["ended_reason"] == expected
+    uncommitted = _rerun_ended(
+        statuses={(QA_WORKTREE, f"{QA_FOLDER_REL}/pyproject.toml"): [" M x"]})
+    assert uncommitted.state["ended_reason"] == expected
+
+
+def test_a_rerun_that_finds_main_red_repairs_then_returns_to_the_asker():
+    walk = _rerun_ended(base=MAIN_FAILS)
+    assert walk.processes.launched[-1] == _REPAIR_LAUNCH
+    launches = _qa_launches(walk)
+    walk.behave.table[(QA_BASE_SHA, RERUN_RED_SHA)] = (_RERUN_PASSING_BASE, _RERUN_RED_RUN)
+    walk.files.write_text(_NEW_REPORT, "Repair: merged\n")
+
+    walk.advance("repair")
+
+    assert "red-behaviour landed — back to implementation" in walk.state["history"]
+    assert _qa_launches(walk) == launches
+    assert walk.skills_launched[-1] == "development-implementation"
+
+
+def test_a_rerun_whose_repair_does_not_report_merged_halts_as_the_first_runs_does():
+    walk = _rerun_ended(base=MAIN_FAILS)
+    walk.files.write_text(_NEW_REPORT, "Repair: not merged\n")
+
+    walk.advance("repair")
+
+    assert walk.state["ended"] == "halted"
+    assert "red-behaviour landed — back to implementation" not in walk.state["history"]
+    assert walk.skills_launched[-1] == "dependency-repair"
+
+
+def test_every_other_refusal_of_the_verdict_halts_a_rerun_with_its_words():
+    walk = _rerun_ended(
+        red=reported((NEW_ONE, "passed"), (NEW_TWO, "failed"), (KEPT_ONE, "passed")))
+    launches = _qa_launches(walk)
+
+    assert walk.state["ended_reason"] == (
+        f"stopped at red-behaviour: qa-red-refused — {NEW_ONE} passes before the change")
+    assert _qa_launches(walk) == launches == 2
+
+
+INSTANCE_TIP = "5" * 40
+NO_REACH_SHA = "6" * 40
+NO_REACH_RETRY_SHA = "7" * 40
+NO_REACH_RERUN_PASS = f'red-behaviour passed — "{NO_REACH_LINE}"'
+
+
+def _commit_the_record_on_the_instance_branch(walk: Walk, sha: str = NO_REACH_SHA) -> None:
+    """QA's record committed on the instance change branch, above whatever the branch holds. The
+    record's text is what `_rerun_world` shows at the branch's tip."""
+    walk.git.commits[KEY] = [(sha, "qa: QA record"), *walk.git.commits.get(KEY, [])]
+    walk.git.changes[sha] = [QA_RECORD_REL]
+
+
+def _no_reach_rerun(asker: str = "implementation", *, commit: bool = True) -> Walk:
+    """The ask is accepted with the instance branch at `INSTANCE_TIP`; the re-run ends having
+    committed an accepted no-reach record on that branch (when `commit`) and no scenario."""
+    walk = _asked_walk(asker, instance_tip=INSTANCE_TIP)
+    _install_qa_world(walk, _rerun_world(commits=[], record=qa_no_reach_record()))
+    if commit:
+        _commit_the_record_on_the_instance_branch(walk)
+    walk.advance("red-behaviour")
+    return walk
+
+
+def test_a_rerun_after_designs_ask_that_commits_a_no_reach_record_returns_to_design():
+    walk = _no_reach_rerun("design")
+
+    assert f"{NO_REACH_RERUN_PASS} — back to design" in walk.state["history"]
+    assert RETRY_LINE not in walk.state["history"]
+    assert walk.skills_launched[-1] == "development-design"
+    land(walk.files, walk.git, "design")
+    walk.advance("design")
+    assert _asks(walk).open is None
+
+
+def test_a_rerun_after_implementations_ask_that_commits_a_no_reach_record_returns_to_implementation():
+    walk = _asked_walk(instance_tip=INSTANCE_TIP)
+    plan = _tl_instruction(walk)
+    _install_qa_world(walk, _rerun_world(commits=[], record=qa_no_reach_record()))
+    _commit_the_record_on_the_instance_branch(walk)
+
+    walk.advance("red-behaviour")
+
+    assert f"{NO_REACH_RERUN_PASS} — back to implementation" in walk.state["history"]
+    assert walk.skills_launched[-1] == "development-implementation"
+    assert _tl_instruction(walk) == plan
+
+
+def test_a_reruns_own_retry_that_commits_a_no_reach_record_passes_and_returns():
+    walk = _no_reach_rerun(commit=False)
+    assert RETRY_LINE in walk.state["history"]
+    launches = _qa_launches(walk)
+    _commit_the_record_on_the_instance_branch(walk, NO_REACH_RETRY_SHA)
+
+    walk.advance("red-behaviour")
+
+    assert f"{NO_REACH_RERUN_PASS} — back to implementation" in walk.state["history"]
+    assert _qa_launches(walk) == launches
+    assert walk.skills_launched[-1] == "development-implementation"
+
+
+def test_a_rerun_whose_no_reach_record_predates_the_ask_retries_once_then_halts_missing_qa_red():
+    walk = _no_reach_rerun(commit=False)
+
+    assert walk.state["history"].count(RETRY_LINE) == 1
+    launches = _qa_launches(walk)
+    walk.advance("red-behaviour")
+
+    assert walk.state["ended_reason"] == "stopped at red-behaviour: missing-qa-red"
+    assert _qa_launches(walk) == launches
+
+
+def test_a_commit_since_the_ask_that_leaves_the_record_alone_is_no_claim():
+    walk = _asked_walk(instance_tip=INSTANCE_TIP)
+    _install_qa_world(walk, _rerun_world(commits=[], record=qa_no_reach_record()))
+    _commit_the_record_on_the_instance_branch(walk)
+    walk.git.changes[NO_REACH_SHA] = [f"{CHANGE_REL}/change_text.md"]
+
+    walk.advance("red-behaviour")
+
+    assert walk.state["history"].count(RETRY_LINE) == 1
+    assert NO_REACH_RERUN_PASS not in " ".join(walk.state["history"])
+
+
+def test_a_record_committed_since_the_ask_without_a_no_reach_line_is_no_claim():
+    walk = _asked_walk(instance_tip=INSTANCE_TIP)
+    _install_qa_world(walk, _rerun_world(commits=[], record=qa_record(red=RERUN_RED_SHA)))
+    _commit_the_record_on_the_instance_branch(walk)
+
+    walk.advance("red-behaviour")
+
+    assert walk.state["history"].count(RETRY_LINE) == 1
+    assert "back to implementation" not in " ".join(walk.state["history"])
+
+
+def test_an_open_ask_with_no_record_since_reads_a_no_reach_record_as_no_claim():
+    walk = _asked_walk(instance_tip=INSTANCE_TIP)
+    asks = _asks(walk)
+    del asks.open["record_since"]
+    cd.QaAskStore(walk.files, LOGS).save(PROJECT, KEY, asks)
+    _install_qa_world(walk, _rerun_world(commits=[], record=qa_no_reach_record()))
+    _commit_the_record_on_the_instance_branch(walk)
+
+    walk.advance("red-behaviour")
+
+    assert walk.state["history"].count(RETRY_LINE) == 1
+    walk.advance("red-behaviour")
+    assert walk.state["ended_reason"] == "stopped at red-behaviour: missing-qa-red"
+
+
+def test_an_accepted_ask_saves_record_since_as_the_instance_branch_tip():
+    walk = _asked_walk(instance_tip=INSTANCE_TIP)
+
+    assert _asks(walk).open["record_since"] == INSTANCE_TIP
+    assert _asks(walk).open["since"] == QA_RECORD_SHA
+
+
+def test_a_rerun_that_commits_a_red_over_a_no_reach_record_from_before_the_ask_is_refused():
+    # CP-1411, CP-1412: a no-reach record no commit since the ask changed is no claim, so the
+    # re-run never passes on it, whatever else it committed. It made a red, so its record is held
+    # to a red record's slots, and the first it lacks is the red commit.
+    walk = _asked_walk(instance_tip=INSTANCE_TIP)
+    _install_qa_world(walk, _rerun_world(commits=[(RERUN_RED_SHA, "qa: scenarios")],
+                                         record=qa_no_reach_record()))
+    launches = _qa_launches(walk)
+
+    walk.advance("red-behaviour")
+
+    assert not [line for line in walk.state["history"] if "back to" in line]
+    assert walk.state["ended_reason"] == (
+        "stopped at red-behaviour: qa-record-refused — the record has no Red commit: line")
+    assert _qa_launches(walk) == launches
+
+
+def test_a_rerun_that_misses_its_red_at_five_runs_counted_halts_runs_spent():
+    walk = _asked_walk()
+    asks = _asks(walk)
+    asks.runs = 5
+    cd.QaAskStore(walk.files, LOGS).save(PROJECT, KEY, asks)
+    _install_qa_world(walk, _rerun_world(commits=_RERUN_RECORD_ONLY))
+
+    walk.advance("red-behaviour")
+
+    assert walk.state["ended_reason"] == SPENT_LINE
+    assert _asks(walk).accepted("implementation")
+
+
+# Each of the re-run's outcomes gives the same answer however the walk was paused in the middle.
+
+def _rerun_way(way: str, asker: str, world: "QaWorld", *, bare: "QaWorld",
+               tip: str = QA_RECORD_SHA) -> Walk:
+    walk = _asked_walk(asker, tip=tip)
+    if way == PAUSED_WHILE_QA_RUNS:
+        walk.engine().stop(STOP_AT)
+        start(walk.engine())
+    if way == QA_RE_RUN:
+        _install_qa_world(walk, bare)
+        walk.advance("red-behaviour")
+    _install_qa_world(walk, world)
+    walk.advance("red-behaviour")
+    if way == PAUSED_AFTER_QA:
+        _stop_and_start(walk)
+    return walk
+
+
+@pytest.mark.parametrize("asker, launched", [("implementation", "development-implementation"),
+                                             ("design", "development-design")])
+def test_an_accepted_rerun_gives_one_outcome_across_the_four_ways(asker, launched):
+    outcomes = {}
+    for way in THE_FOUR_WAYS:
+        walk = _rerun_way(way, asker, _rerun_world(), bare=_rerun_world(commits=_RERUN_RECORD_ONLY))
+        outcomes[way] = (walk.state["ended"], walk.skills_launched[-1], _asks(walk).open["phase"],
+                         len(_asks(walk).answered))
+
+    assert outcomes[UNINTERRUPTED] == (None, launched, "return", 1)
+    assert set(outcomes.values()) == {outcomes[UNINTERRUPTED]}
+
+
+def test_a_rerun_that_missed_its_red_twice_is_entered_again_at_qas_step_with_one_retry():
+    walk = _asked_walk()
+    _install_qa_world(walk, _rerun_world(commits=_RERUN_RECORD_ONLY))
+    walk.advance("red-behaviour")
+    walk.advance("red-behaviour")
+    assert walk.state["ended_reason"] == "stopped at red-behaviour: missing-qa-red"
+    runs = _asks(walk).runs
+
+    start(walk.engine())
+    assert (walk.skills_launched[-1], walk.state["qa_rerun_retries"]) == ("red-behaviour", 0)
+    _install_qa_world(walk, _rerun_world())
+    walk.advance("red-behaviour")
+
+    assert "red-behaviour landed — back to implementation" in walk.state["history"]
+    assert _asks(walk).runs == runs + 1
+
+
+@pytest.mark.parametrize("way", [UNINTERRUPTED, PAUSED_WHILE_QA_RUNS, QA_RE_RUN])
+def test_a_stale_record_and_a_missing_red_give_one_outcome_across_the_ways(way):
+    stale = _rerun_world(record=qa_record(red=QA_RED_SHA))
+    bare = _rerun_world(commits=_RERUN_RECORD_ONLY)
+    walk = _rerun_way(way, "implementation", stale, bare=bare)
+
+    assert walk.state["ended_reason"] == (
+        f"stopped at red-behaviour: qa-record-refused — the record's Red commit: {QA_RED_SHA} "
+        "was made before the ask")
+
+
+# CP-1349 wants every case it lists to give one outcome across the pause, the resume and the re-run
+# of CP-1345. The tests below take the cases the tests above prove on one path only: the red judged
+# on the merge base (item 2), the red over QA's first red that changed a library (item 3), a late
+# library edit, the re-run's own retry, the `main`-red repair, and the seventh run refused (item 5).
+# A re-run refused at its end has no acceptance after it to pause before the asker's relaunch, so
+# those take the three ways that apply, as the stale-record test above does.
+
+_DEV_BEFORE_THE_ASK = (DEV_SHA, "developer: task 1")
+_THE_WAYS_TO_A_REFUSAL = [UNINTERRUPTED, PAUSED_WHILE_QA_RUNS, QA_RE_RUN]
+
+
+def _first_red_changed(library: str) -> dict:
+    return {QA_RED_SHA: [f"{QA_FOLDER_REL}/features/due.feature", f"{QA_FOLDER_REL}/{library}"]}
+
+
+def _rerun_outcome(walk: Walk) -> tuple:
+    """How the walk stands once the re-run is settled: its end, the skill it launched last, and
+    the phase of the open ask and the number of asks answered."""
+    asks = _asks(walk)
+    return (*_outcome(walk), None if asks.open is None else asks.open["phase"],
+            len(asks.answered))
+
+
+def _paused_while_the_rerun_runs(walk: Walk, way: str) -> None:
+    if way == PAUSED_WHILE_QA_RUNS:
+        walk.engine().stop(STOP_AT)
+        start(walk.engine())
+
+
+@pytest.mark.parametrize("world, bare, tip", [
+    pytest.param({"commits": [*_RERUN_RED_COMMITS, _DEV_BEFORE_THE_ASK]},
+                 {"commits": [*_RERUN_RECORD_ONLY, _DEV_BEFORE_THE_ASK]}, DEV_SHA,
+                 id="judged-on-the-merge-base"),
+    *(pytest.param({"changes": _first_red_changed(library),
+                    "ancestors": {(QA_RED_SHA, RERUN_RED_SHA), (QA_RECORD_SHA, RERUN_RED_SHA)}},
+                   {"commits": _RERUN_RECORD_ONLY, "changes": _first_red_changed(library)},
+                   QA_RECORD_SHA, id=f"over-a-first-red-that-changed-{library}")
+      for library in ("uv.lock", "pyproject.toml")),
+])
+def test_the_reruns_accepted_cases_give_one_outcome_across_the_four_ways(world, bare, tip):
+    outcomes = {}
+    for way in THE_FOUR_WAYS:
+        walk = _rerun_way(way, "implementation", _rerun_world(**world),
+                          bare=_rerun_world(**bare), tip=tip)
+        # Every red is run on the merge base, the re-run's own over it, never the developer's code.
+        assert {base for base, _red in walk.behave.calls} == {QA_BASE_SHA}, way
+        assert (QA_BASE_SHA, RERUN_RED_SHA) in walk.behave.calls, way
+        outcomes[way] = _rerun_outcome(walk)
+
+    assert outcomes[UNINTERRUPTED] == (None, "", "development-implementation", "return", 1)
+    assert set(outcomes.values()) == {outcomes[UNINTERRUPTED]}
+
+
+@pytest.mark.parametrize("way", _THE_WAYS_TO_A_REFUSAL)
+@pytest.mark.parametrize("world", [
+    pytest.param({"commits": [(LATE_QA_SHA, "qa: library"), *_RERUN_RED_COMMITS],
+                  "changes": {LATE_QA_SHA: [f"{QA_FOLDER_REL}/pyproject.toml"]}},
+                 id="committed-after-the-red"),
+    pytest.param({"statuses": {(QA_WORKTREE, f"{QA_FOLDER_REL}/pyproject.toml"): [" M x"]}},
+                 id="left-uncommitted"),
+])
+def test_a_library_edit_outside_the_reruns_red_halts_alike_across_the_ways(world, way):
+    walk = _rerun_way(way, "implementation", _rerun_world(**world),
+                      bare=_rerun_world(commits=_RERUN_RECORD_ONLY))
+
+    assert _rerun_outcome(walk) == (
+        "halted", "stopped at red-behaviour: qa-red-refused — a library outside the red commit: "
+        f"{QA_FOLDER_REL}/pyproject.toml", "red-behaviour", "re-run", 1)
+
+
+def _rerun_missed_twice(way: str) -> Walk:
+    """The re-run, and then its retry, end with no red made since the ask."""
+    walk = _asked_walk()
+    _paused_while_the_rerun_runs(walk, way)
+    _install_qa_world(walk, _rerun_world(commits=_RERUN_RECORD_ONLY))
+    walk.advance("red-behaviour")
+    if way == PAUSED_AFTER_QA:
+        _stop_and_start(walk)
+    if way == QA_RE_RUN:
+        walk.advance("red-behaviour")
+        start(walk.engine())
+        walk.advance("red-behaviour")
+    walk.advance("red-behaviour")
+    return walk
+
+
+def test_the_reruns_own_retry_gives_one_outcome_across_the_four_ways():
+    walks = {way: _rerun_missed_twice(way) for way in THE_FOUR_WAYS}
+
+    assert _rerun_outcome(walks[UNINTERRUPTED]) == (
+        "halted", "stopped at red-behaviour: missing-qa-red", "red-behaviour", "re-run", 1)
+    assert {_rerun_outcome(walk) for walk in walks.values()} == {
+        _rerun_outcome(walks[UNINTERRUPTED])}
+    # Each walk ended holding the re-run's one retry, spent, and the first run's left untouched.
+    assert {walk.state["qa_rerun_retries"] for walk in walks.values()} == {1}
+    assert {walk.state["qa_retries"] for walk in walks.values()} == {0}
+
+
+def _rerun_meets_main_red(way: str) -> Walk:
+    """The re-run's verdict finds `main` red; the repair mends it and reports `merged`."""
+    def mended() -> None:
+        walk.behave.table[(QA_BASE_SHA, RERUN_RED_SHA)] = (_RERUN_PASSING_BASE, _RERUN_RED_RUN)
+        walk.files.write_text(_NEW_REPORT, "Repair: merged\n")
+
+    walk = _asked_walk()
+    _paused_while_the_rerun_runs(walk, way)
+    _install_qa_world(walk, _rerun_world(base=MAIN_FAILS))
+    walk.advance("red-behaviour")
+    assert walk.processes.launched[-1] == _REPAIR_LAUNCH, way
+    if way == QA_RE_RUN:
+        walk.advance("repair")
+        mended()
+        start(walk.engine())
+        walk.advance("red-behaviour")
+        return walk
+    mended()
+    walk.advance("repair")
+    if way == PAUSED_AFTER_QA:
+        _stop_and_start(walk)
+    return walk
+
+
+def test_the_reruns_main_red_repair_gives_one_outcome_across_the_four_ways():
+    outcomes = {way: _rerun_outcome(_rerun_meets_main_red(way)) for way in THE_FOUR_WAYS}
+
+    assert outcomes[UNINTERRUPTED] == (None, "", "development-implementation", "return", 1)
+    assert set(outcomes.values()) == {outcomes[UNINTERRUPTED]}
+
+
+def _rerun_meets_the_ceiling(way: str) -> Walk:
+    """Five runs are counted when the ask is accepted, so the re-run is the sixth and its retry
+    would be the seventh."""
+    walk = _asked_walk()
+    asks = _asks(walk)
+    asks.runs = 5
+    cd.QaAskStore(walk.files, LOGS).save(PROJECT, KEY, asks)
+    _paused_while_the_rerun_runs(walk, way)
+    _install_qa_world(walk, _rerun_world(commits=_RERUN_RECORD_ONLY))
+    walk.advance("red-behaviour")
+    if way == QA_RE_RUN:
+        start(walk.engine())
+    return walk
+
+
+def test_a_seventh_run_refused_on_the_rerun_gives_one_outcome_across_the_ways():
+    walks = {way: _rerun_meets_the_ceiling(way) for way in _THE_WAYS_TO_A_REFUSAL}
+
+    assert _rerun_outcome(walks[UNINTERRUPTED]) == (
+        "halted", SPENT_LINE, "red-behaviour", "re-run", 1)
+    assert {_rerun_outcome(walk) for walk in walks.values()} == {
+        _rerun_outcome(walks[UNINTERRUPTED])}
+    # The run the stop command ended is not counted, and a walk entering there launches nothing.
+    assert {_asks(walk).runs for walk in walks.values()} == {6}
+    assert _qa_launches(walks[QA_RE_RUN]) == _qa_launches(walks[UNINTERRUPTED])
+
+
+# --- the asker's landing closes the return -------------------------------------------------------
+
+def test_the_developers_landing_after_a_return_closes_the_open_ask():
+    walk = _rerun_ended()
+    assert _asks(walk).open["phase"] == "return"
+    land(walk.files, walk.git, "implementation")
+
+    walk.advance("implementation")
+
+    assert _asks(walk).open is None
+    assert walk.skills_launched[-1] == "changelog-line"
+
+
+def test_the_architects_landing_after_a_return_closes_the_open_ask():
+    walk = _rerun_ended("design")
+    land(walk.files, walk.git, "design")
+
+    walk.advance("design")
+
+    assert _asks(walk).open is None
+    assert walk.skills_launched[-1] == "development-plan"
+
+
+def test_a_start_after_the_asker_landed_is_entered_past_it():
+    walk = _rerun_ended()
+    land(walk.files, walk.git, "implementation")
+    walk.advance("implementation")
+    walk.engine().stop(STOP_AT)
+
+    assert describe(walk.engine()).entry == "changelog"
+
+
+def test_another_step_landing_leaves_an_open_ask_alone():
+    returning = _walk_at("implementation")
+    _open_ask(returning, "design", "return")
+    land(returning.files, returning.git, "implementation")
+    returning.advance("implementation")
+    assert _asks(returning).open == {"asker": "design", "since": ASK_TIP, "phase": "return"}
+
+    rerunning = _walk_at("implementation")
+    _open_ask(rerunning, "implementation", "re-run")
+    land(rerunning.files, rerunning.git, "implementation")
+    rerunning.advance("implementation")
+    assert _asks(rerunning).open["phase"] == "re-run"
+
+
+def test_the_asker_may_not_ask_again_after_its_return():
+    walk = _rerun_ended()
+    land(walk.files, walk.git, "implementation")
+
+    _ask_then_end(walk, "implementation", "one more thing")
+
+    assert "implementation asked QA — turned down: implementation has spent its one ask" in (
+        walk.state["history"])
+    assert _qa_launches(walk) == 2
+    assert walk.skills_launched[-1] == "changelog-line"
+
+
+def test_a_walk_stopped_between_the_reruns_acceptance_and_the_askers_landing_gives_the_uninterrupted_outcome():
+    def outcome(walk: Walk) -> tuple:
+        land(walk.files, walk.git, "implementation")
+        walk.advance("implementation")
+        return walk.state["ended"], walk.skills_launched[-1], _asks(walk).open
+
+    uninterrupted = outcome(_rerun_ended())
+    paused = _rerun_ended()
+    _stop_and_start(paused)
+
+    assert uninterrupted == (None, "changelog-line", None)
+    assert outcome(paused) == uninterrupted
+
+
+# --- the close: the paths one commit touches (Task 1) -------------------------------------------
+
+FEATURE = ".behave/features/summary.feature"
+
+
+def _scratch_repo(tmp_path: Path) -> Path:
+    root = tmp_path / "touched"
+    root.mkdir()
+    _git(root, "init", "-q", "-b", "main")
+    return root
+
+
+def _write_and_add(repo: Path, name: str, text: str) -> None:
+    (repo / name).parent.mkdir(parents=True, exist_ok=True)
+    (repo / name).write_text(text)
+    _git(repo, "add", name)
+
+
+def _head(repo: Path) -> str:
+    return _git(repo, "rev-parse", "HEAD")
+
+
+def test_touched_paths_of_a_plain_commit_are_its_paths(tmp_path):
+    repo = _scratch_repo(tmp_path)
+    _commit_file(repo, "kept.txt", "one\n", "first")
+    _write_and_add(repo, "kept.txt", "two\n")
+    _write_and_add(repo, "src/added.py", "x = 1\n")
+    _git(repo, "commit", "-q", "-m", "edit one, add one")
+
+    assert cd.Git().touched_paths(str(repo), _head(repo)) == ["kept.txt", "src/added.py"]
+
+
+def test_touched_paths_of_a_clean_merge_of_mains_scenario_change_is_empty(tmp_path):
+    repo = _scratch_repo(tmp_path)
+    _commit_file(repo, "start.txt", "s\n", "root")
+    _write_and_add(repo, FEATURE, "Feature: one\n")
+    _git(repo, "commit", "-q", "-m", "scenario")
+    _git(repo, "checkout", "-q", "-b", KEY)
+    _commit_file(repo, "code.py", "x = 1\n", "branch work")
+    _git(repo, "checkout", "-q", "main")
+    _write_and_add(repo, FEATURE, "Feature: one, edited on main\n")
+    _git(repo, "commit", "-q", "-m", "main edits the scenario")
+    _git(repo, "checkout", "-q", KEY)
+    _git(repo, "merge", "--no-ff", "-q", "-m", "merge main", "main")
+
+    assert cd.Git().touched_paths(str(repo), _head(repo)) == []
+
+
+def test_touched_paths_of_a_merge_resolved_differently_from_both_parents_lists_the_path(tmp_path):
+    repo = _scratch_repo(tmp_path)
+    _commit_file(repo, "start.txt", "s\n", "root")
+    _write_and_add(repo, FEATURE, "Feature: base\n")
+    _git(repo, "commit", "-q", "-m", "scenario")
+    _git(repo, "checkout", "-q", "-b", KEY)
+    _write_and_add(repo, FEATURE, "Feature: branch\n")
+    _git(repo, "commit", "-q", "-m", "branch edits the scenario")
+    _git(repo, "checkout", "-q", "main")
+    _write_and_add(repo, FEATURE, "Feature: main\n")
+    _git(repo, "commit", "-q", "-m", "main edits the scenario")
+    _git(repo, "checkout", "-q", KEY)
+    with pytest.raises(subprocess.CalledProcessError):
+        _git(repo, "merge", "--no-ff", "-q", "-m", "merge main", "main")
+    _write_and_add(repo, FEATURE, "Feature: neither parent\n")
+    _git(repo, "commit", "-q", "--no-edit")
+
+    assert cd.Git().touched_paths(str(repo), _head(repo)) == [FEATURE]
+
+
+def test_touched_paths_of_a_rename_lists_the_old_and_the_new_path(tmp_path):
+    repo = _scratch_repo(tmp_path)
+    _commit_file(repo, "old/place.txt", "same text\nsame text\nsame text\n", "root")
+    (repo / "new").mkdir()
+    _git(repo, "mv", "old/place.txt", "new/place.txt")
+    _git(repo, "commit", "-q", "-m", "move")
+    moved = _head(repo)
+    _git(repo, "rm", "-q", "new/place.txt")
+    _git(repo, "commit", "-q", "-m", "delete")
+    deleted = _head(repo)
+
+    git = cd.Git()
+    assert git.touched_paths(str(repo), moved) == ["new/place.txt", "old/place.txt"]
+    assert git.touched_paths(str(repo), deleted) == ["new/place.txt"]
+
+
+def test_touched_paths_of_a_root_commit_lists_its_files(tmp_path):
+    repo = _scratch_repo(tmp_path)
+    first = _commit_file(repo, "start.txt", "s\n", "first")
+
+    assert cd.Git().touched_paths(str(repo), first) == ["start.txt"]
+
+
+def test_touched_paths_of_an_unknown_sha_is_none_not_empty(tmp_path):
+    repo = _scratch_repo(tmp_path)
+    _commit_file(repo, "start.txt", "s\n", "first")
+
+    assert cd.Git().touched_paths(str(repo), "0" * 40) is None
+
+
+def test_fake_git_touched_paths_answers_empty_when_unseeded_and_none_when_seeded_none():
+    git = FakeGit(touches={"seeded": ["a", "b"], "failing": None})
+
+    assert git.touched_paths("/r", "seeded") == ["a", "b"]
+    assert git.touched_paths("/r", "unseeded") == []
+    assert git.touched_paths("/r", "failing") is None
+
+
+# --- the close: the card half of QA's decision (Task 2) -----------------------------------------
+
+NOT_BEHAVE_CARDS = [
+    pytest.param(None, id="no-card"),
+    pytest.param(_card("**Type:** software"), id="no-behave-line"),
+    pytest.param(_card("**Behave:** behave", "**Behave:** none — x"), id="two-lines"),
+    pytest.param(_card("**Behave:** none — a CLI with no user scenarios"), id="none"),
+    pytest.param(_card("**Behave:** behave | none — <reason>"), id="stamped-value"),
+    pytest.param(_card("**Behave:**"), id="empty-value"),
+    pytest.param(_card("**Behave:** Behave"), id="other-case"),
+]
+
+
+@pytest.mark.parametrize("card", NOT_BEHAVE_CARDS)
+def test_the_card_half_reads_what_qas_step_reads_for_every_card_that_does_not_say_behave(card):
+    reading = cd.behave_card_reading(card)
+
+    assert reading.says_behave is False
+    assert reading.read == cd.qa_step_applies(card, QA_CHANGING_SPEC).read
+
+
+@pytest.mark.parametrize("spec", [QA_CHANGING_SPEC, PRESERVING_SPEC, None])
+def test_the_card_half_says_behave_only_on_a_behave_card_whatever_the_spec_says(spec):
+    assert cd.behave_card_reading(_card("**Behave:** behave")).says_behave is True
+    assert cd.behave_card_reading(_card("**Behave:** behave <!-- the call -->")).says_behave is True
+    assert cd.qa_step_applies(_card("**Behave:** behave"), spec).applies is (spec == QA_CHANGING_SPEC)
+
+
+def test_the_module_holds_exactly_two_lines_with_the_behave_label():
+    source = (_TOOLS / "chain_development.py").read_text(encoding="utf-8")
+
+    held = [line for line in source.splitlines() if "**Behave:**" in line]
+
+    assert len(held) == 2, held
+
+
+def test_disk_reader_behave_card_reads_mains_card_through_the_card_half():
+    on_main = cd.DiskReader(files=FakeFiles({CARD_PATH: BEHAVE_CARD}), git=FakeGit())
+    no_card = cd.DiskReader(files=FakeFiles(), git=FakeGit())
+
+    assert on_main.behave_card(layout()).says_behave is True
+    assert no_card.behave_card(layout()) == cd.BehaveCard(
+        says_behave=False, read="no project.md on main")
+
+
+# --- the close: its verdict (Task 3) ------------------------------------------------------------
+
+CLOSE_TIP = "1a2b3c4" + "d" * 33
+CLOSE_SHORT = "1a2b3c4"
+DEVELOPER_ROLE_BODY = "developer: task 1\n\nRole: Developer\nSurface: Claude Code\n"
+DEV_OLDER = "a1" * 20
+DEV_NEWER = "b2" * 20
+QA_ONLY = "c3" * 20
+SCENARIO_FILE = f"{QA_FOLDER_REL}/features/summary.feature"
+THE_FOLDER_IS_QAS = "close-refused — the scenario folder is QA's to change, and the developer changed it in "
+FIVE_PASSED = reported(*((f"features/f{number}.feature:{number}", "passed") for number in range(5)))
+
+
+def _close(*, commits=(), bodies=None, touches=None, report=FIVE_PASSED, tip: str | None = CLOSE_TIP,
+           behave=None):
+    """`close_verdict` over a scripted repository. `commits` are the `(sha, subject)` pairs of
+    `main..<key>`, newest first. A world with no report hands a Behave that has none for the tip."""
+    git = FakeGit(repos={QA_REPO: {KEY: list(commits)}}, bodies=bodies or {},
+                  touches=touches or {}, tips={QA_REPO: {KEY: tip}} if tip else None)
+    behave = behave or FakeBehave({(tip, None): (report, None)} if report is not None else {})
+    verdict = cd.close_verdict(git=git, behave=behave, places=qa_places(), environ=QA_ENVIRON)
+    return verdict, behave
+
+
+def test_a_developer_commit_touching_the_scenario_folder_is_refused_naming_its_sha_and_paths_and_runs_no_behave():
+    verdict, behave = _close(
+        commits=[(DEV_NEWER, "developer: task 2"), (DEV_OLDER, "developer: task 1")],
+        bodies={DEV_NEWER: DEVELOPER_ROLE_BODY, DEV_OLDER: DEVELOPER_ROLE_BODY},
+        touches={DEV_NEWER: [f"{QA_FOLDER_REL}/steps/summary_steps.py"],
+                 DEV_OLDER: [SCENARIO_FILE, "src/summary.py"]},
+        report=None)
+
+    assert verdict.refusal == (
+        f"{THE_FOLDER_IS_QAS}{DEV_NEWER[:7]} ({QA_FOLDER_REL}/steps/summary_steps.py); "
+        f"{DEV_OLDER[:7]} ({SCENARIO_FILE}, src/summary.py)")
+    assert verdict.commit == "" and verdict.scenarios == 0
+    assert behave.calls == []
+
+
+def test_a_qa_commit_touching_the_scenario_folder_is_no_refusal():
+    verdict, behave = _close(commits=[(QA_ONLY, "qa: scenarios")], bodies={QA_ONLY: QA_ROLE_BODY},
+                             touches={QA_ONLY: [SCENARIO_FILE]})
+
+    assert verdict.refusal is None
+    assert behave.calls == [(CLOSE_TIP, None)]
+
+
+@pytest.mark.parametrize("paths, outcome", [
+    pytest.param([], "passes", id="clean-merge-lists-nothing"),
+    pytest.param(["src/summary.py"], "passes", id="folder-not-listed"),
+    pytest.param([SCENARIO_FILE], "refused", id="resolution-differs-from-both-parents"),
+    pytest.param([f"{QA_FOLDER_REL}/features/old.feature", "elsewhere/old.feature"], "refused",
+                 id="old-path-of-a-rename"),
+    pytest.param([f"{QA_FOLDER_REL}/features/gone.feature"], "refused", id="deleted-path"),
+    pytest.param(None, "unreadable", id="git-could-not-answer"),
+])
+def test_a_developer_merge_commit_is_a_touch_only_where_git_lists_a_folder_path(paths, outcome):
+    verdict, behave = _close(commits=[(DEV_NEWER, "Merge main")],
+                             bodies={DEV_NEWER: DEVELOPER_ROLE_BODY}, touches={DEV_NEWER: paths})
+
+    if outcome == "passes":
+        assert verdict.refusal is None
+    elif outcome == "refused":
+        assert verdict.refusal.startswith(THE_FOLDER_IS_QAS + DEV_NEWER[:7])
+        assert behave.calls == []
+    else:
+        assert verdict.refusal == (
+            f"behave-unavailable — git could not list the paths commit {DEV_NEWER[:7]} changed "
+            f"in {QA_REPO}")
+        assert behave.calls == []
+
+
+@pytest.mark.parametrize("path, touches", [
+    (QA_FOLDER_REL, True), (f"{QA_FOLDER_REL}/x", True), (f"{QA_FOLDER_REL}-old/x", False),
+    (f"{QA_FOLDER_REL}.txt", False), ("src/.behave/x", False)])
+def test_a_path_equal_to_the_folder_or_below_it_touches_it_and_a_sibling_prefix_does_not(
+        path, touches):
+    verdict, _ = _close(commits=[(DEV_NEWER, "developer: task 1")],
+                        bodies={DEV_NEWER: DEVELOPER_ROLE_BODY}, touches={DEV_NEWER: [path]})
+
+    assert (verdict.refusal is not None) is touches
+
+
+def test_the_developer_commit_check_runs_before_behave_so_a_run_over_altered_scenarios_never_decides():
+    failing = reported((SCENARIO_FILE, "failed"))
+    verdict, behave = _close(commits=[(DEV_NEWER, "developer: task 1")],
+                             bodies={DEV_NEWER: DEVELOPER_ROLE_BODY},
+                             touches={DEV_NEWER: [SCENARIO_FILE]}, report=failing)
+
+    assert verdict.refusal.startswith(THE_FOLDER_IS_QAS)
+    assert behave.calls == []
+
+
+def test_a_refusal_the_check_can_make_beats_a_commit_it_could_not_read():
+    verdict, _ = _close(
+        commits=[(DEV_NEWER, "developer: task 2"), (DEV_OLDER, "developer: task 1")],
+        bodies={DEV_NEWER: DEVELOPER_ROLE_BODY, DEV_OLDER: DEVELOPER_ROLE_BODY},
+        touches={DEV_NEWER: None, DEV_OLDER: [SCENARIO_FILE]}, report=None)
+
+    assert verdict.refusal == f"{THE_FOLDER_IS_QAS}{DEV_OLDER[:7]} ({SCENARIO_FILE})"
+
+
+def test_all_passed_scenarios_pass_with_their_count_and_the_cloned_short_tip():
+    verdict, behave = _close()
+
+    assert verdict == cd.CloseVerdict(refusal=None, commit=CLOSE_TIP, scenarios=5)
+    assert verdict.commit[:behave_run.SHORT_HASH_LENGTH] == CLOSE_SHORT
+    assert behave.calls == [(CLOSE_TIP, None)]
+    assert behave.arguments == [{"repo": QA_REPO, "folder": QA_FOLDER_REL, "environ": QA_ENVIRON}]
+
+
+@pytest.mark.parametrize("word", ["failed", "skipped", "undefined", "a word nobody listed"])
+def test_every_status_but_passed_is_close_red_naming_each_location_and_status_in_report_order(word):
+    report = reported(("features/a.feature:1", "passed"), ("features/b.feature:12", word),
+                      ("features/c.feature:3", "passed"), ("features/d.feature:4", "failed"))
+
+    verdict, _ = _close(report=report)
+
+    assert verdict.refusal == f"close-red — features/b.feature:12: {word}, features/d.feature:4: failed"
+    assert verdict.commit == CLOSE_TIP and verdict.scenarios == 4
+
+
+def test_behave_unavailable_no_branch_tip_and_no_scenario_each_stop_with_their_own_word():
+    reason = "uv run --locked behave, exit 127, uv: command not found"
+
+    unavailable, _ = _close(report=not_reported(reason))
+    no_tip, behave = _close(tip=None, report=None)
+    no_scenario, _ = _close(report=reported())
+
+    assert unavailable.refusal == f"behave-unavailable — {reason}"
+    assert no_tip.refusal == f"behave-unavailable — no branch {KEY} in {QA_REPO}"
+    assert behave.calls == []
+    assert no_scenario.refusal == (
+        f"close-red — Behave reported no scenario in the scenario folder at {CLOSE_SHORT}")
+
+
+def test_the_close_and_qas_base_run_read_one_failing_report_the_same_way():
+    failing = reported(("features/a.feature:1", "passed"), ("features/b.feature:2", "failed"),
+                       ("features/c.feature:3", "skipped"))
+    qa = QaWorld(base=failing, commits=[], record=False).verdict().refusal
+
+    close, _ = _close(report=failing)
+
+    assert qa.startswith("main is red — ")
+    assert close.refusal.startswith("close-red — ")
+    assert close.refusal.removeprefix("close-red — ") == qa.removeprefix("main is red — ")
+
+
+@pytest.mark.parametrize("report", [FIVE_PASSED, reported((SCENARIO_FILE, "failed"))],
+                         ids=["green", "failing"])
+def test_a_developer_subject_a_saved_red_note_and_a_tdd_lane_change_no_verdict(report):
+    body = DEVELOPER_ROLE_BODY + "\nTask 1 red saved as abc1234 — the tests it holds\nLane: TDD\n"
+    plain, _ = _close(report=report)
+
+    noted, _ = _close(commits=[(DEV_NEWER, "developer: task 1 slug — red")],
+                      bodies={DEV_NEWER: body}, report=report)
+
+    assert noted == plain
+
+
+def test_a_close_never_stops_for_a_missing_qa_red_commit_or_record():
+    verdict, _ = _close(commits=[(DEV_NEWER, "developer: task 1")],
+                        bodies={DEV_NEWER: DEVELOPER_ROLE_BODY})
+
+    assert verdict.refusal is None and verdict.scenarios == 5
+
+
+# --- the close: on a real repository (Task 4) ---------------------------------------------------
+
+import test_behave_run as behave_fixtures  # noqa: E402 — the starter's real lock and scenarios
+
+REAL_DEVELOPER_BODY = "developer: task 1\n\nRole: Developer\n"
+THE_REAL_FEATURES = {"passing.feature": behave_fixtures.PASSING_FEATURE}
+
+
+class RealClose:
+    """A real product repository holding a scenario folder on the starter's `pyproject.toml` and
+    `uv.lock`, a change branch checked out in its own worktree, and the real `Git` and
+    `ThrowawayBehave` that read them. Nothing here is a fake."""
+
+    def __init__(self, tmp_path: Path, features: dict[str, str],
+                 steps: str = behave_fixtures.STEP):
+        self.home = tmp_path / "home"
+        self.home.mkdir()
+        self.parent = tmp_path / "scratch-parent"
+        self.parent.mkdir()
+        self.repo = behave_fixtures._make_repo(
+            tmp_path / "product", behave_fixtures._scenario_folder(features, steps))
+        self.worktree = tmp_path / "worktrees" / KEY
+        _git(self.repo, "worktree", "add", "-q", "-b", KEY, str(self.worktree), "main")
+
+    def commit_on_branch(self, files: dict[str, str], body: str) -> None:
+        behave_fixtures._write(self.worktree, files)
+        _git(self.worktree, "add", "-A")
+        _git(self.worktree, "commit", "-q", "-m", "work", "-m", body)
+
+    def readings(self) -> tuple:
+        """What CP-1388 reads: status and HEAD, in the main checkout and in the worktree."""
+        return tuple((_git(root, "status", "--porcelain", "--untracked-files=all"),
+                      _git(root, "rev-parse", "HEAD")) for root in (self.repo, self.worktree))
+
+    def verdict(self) -> "cd.CloseVerdict":
+        return cd.close_verdict(
+            git=cd.Git(), behave=behave_run.ThrowawayBehave(temp_parent=str(self.parent)),
+            places={"repo": str(self.repo), "worktree": str(self.worktree), "branch": KEY,
+                    "scenario_folder": str(self.worktree / QA_FOLDER_REL),
+                    "record": str(self.worktree / "qa_record.md")},
+            environ=behave_fixtures._environ(self.home))
+
+    def run_leaving_it_as_it_was(self) -> "cd.CloseVerdict":
+        before = self.readings()
+        verdict = self.verdict()
+        assert self.readings() == before
+        assert list(self.parent.iterdir()) == []
+        return verdict
+
+
+def test_the_close_passes_on_all_green_scenarios_in_a_real_repository_and_leaves_it_as_it_found_it(
+        tmp_path):
+    world = RealClose(tmp_path, THE_REAL_FEATURES)
+    world.commit_on_branch({"src/code.py": "x = 1\n"}, REAL_DEVELOPER_BODY)
+
+    verdict = world.run_leaving_it_as_it_was()
+
+    assert verdict.refusal is None
+    assert verdict.scenarios == 1
+    assert verdict.commit == _git(world.worktree, "rev-parse", "HEAD")
+
+
+def test_the_close_stops_close_red_on_a_planted_failing_scenario_and_leaves_the_repository_as_it_was(
+        tmp_path):
+    steps = behave_fixtures.STEP + "\n\n" + behave_fixtures.FAILING_STEP
+    world = RealClose(tmp_path, {**THE_REAL_FEATURES,
+                                 "failing.feature": behave_fixtures.FAILING_FEATURE}, steps)
+    world.commit_on_branch({"src/code.py": "x = 1\n"}, REAL_DEVELOPER_BODY)
+
+    verdict = world.run_leaving_it_as_it_was()
+
+    assert verdict.refusal == "close-red — features/failing.feature:3: failed"
+    assert verdict.scenarios == 2
+
+
+def test_the_close_refuses_a_developer_commit_that_touches_the_scenario_folder_on_a_real_branch(
+        tmp_path):
+    world = RealClose(tmp_path, THE_REAL_FEATURES)
+    world.commit_on_branch(
+        {f"{QA_FOLDER_REL}/features/passing.feature": "Feature: Edited\n"}, REAL_DEVELOPER_BODY)
+
+    verdict = world.run_leaving_it_as_it_was()
+
+    edited = _git(world.worktree, "rev-parse", "HEAD")
+    assert verdict.refusal == (
+        f"{THE_FOLDER_IS_QAS}{edited[:7]} ({QA_FOLDER_REL}/features/passing.feature)")
+
+
+def test_no_close_test_is_skipped_or_marked_to_skip_or_expected_to_fail():
+    source = Path(__file__).read_text(encoding="utf-8")
+    close_tests = ast.parse(source[source.index("# --- the close:"):])
+
+    skips = {node.attr for node in ast.walk(close_tests)
+             if isinstance(node, ast.Attribute) and node.attr in {"skip", "skipif", "xfail"}}
+
+    assert skips == set()
+
+
+# --- the close in the engine's launch door (Task 5) ---------------------------------------------
+
+CLOSE_PASS_LINE = f"close passed — 5 scenarios passed at {CLOSE_SHORT}"
+CLOSE_NONE_READ = "**Behave:** none — a CLI with no user scenarios"
+CLOSE_DEVELOPER = "d3" * 20
+THE_AUDIT_RUNS = [f"audit-{skill}" for skill in PRODUCERS]
+CLOSE_STOPPED = "stopped at close: "
+_NEVER_LAUNCHED = ("red-behaviour", "dependency-repair", "development-audit", "tobiishi-seal")
+
+
+def _give_the_close_its_report(walk: Walk, report=FIVE_PASSED, tip: str = CLOSE_TIP) -> None:
+    """The branch tip the close clones, and the report Behave gives for it."""
+    walk.git.tips.setdefault(QA_REPO, {})[KEY] = tip
+    walk.behave.table[(tip, None)] = (report, None)
+
+
+def _a_developer_commit_touching(walk: Walk, paths: list[str]) -> None:
+    """A `Role: Developer` commit on the change branch in the product's repository, newest first,
+    which git lists `paths` for."""
+    held = [*walk.git.commits.get(KEY, [])]
+    walk.git.repos[QA_REPO] = {KEY: [(CLOSE_DEVELOPER, "developer: task 1 parse"), *held]}
+    walk.git.bodies[CLOSE_DEVELOPER] = DEVELOPER_ROLE_BODY
+    walk.git.touches[CLOSE_DEVELOPER] = paths
+
+
+def _walk_to_security(card: str | None = BEHAVE_CARD, spec: str = PRESERVING_SPEC, *,
+                      report=FIVE_PASSED, tip: str = CLOSE_TIP, setup=None) -> Walk:
+    """A walk through every step before `security`, whose run is pending: the card on `main` as
+    given, the close's tip and report for it, and `setup` applied last."""
+    walk = Walk(before_start=lambda started: _prepare(started, card, report, tip))
+    land(walk.files, walk.git, "specs")
+    walk.files.write_text(f"{BRANCH_CHANGE}/change_spec.md", spec)
+    walk.advance("specs")
+    for step_id in ("design", "plan", "implementation", "changelog", "code-integrity"):
+        land(walk.files, walk.git, step_id)
+        walk.advance(step_id)
+    if setup is not None:
+        setup(walk)
+    return walk
+
+
+def _prepare(walk: Walk, card: str | None, report, tip: str) -> None:
+    if card is not None:
+        walk.files.write_text(CARD_PATH, card)
+    _give_the_close_its_report(walk, report, tip)
+
+
+def _security_lands(walk: Walk) -> Walk:
+    land(walk.files, walk.git, "security")
+    walk.advance("security")
+    return walk
+
+
+def _close_line_before_the_first_audit(walk: Walk, line: str) -> bool:
+    history = walk.state["history"]
+    return line in history and history.index(line) < history.index(f"launched {THE_AUDIT_RUNS[0]}")
+
+
+def test_the_close_runs_after_security_and_before_the_first_audit_launch():
+    walk = _security_lands(_walk_to_security())
+
+    assert walk.behave.calls == [(CLOSE_TIP, None)]
+    assert _close_line_before_the_first_audit(walk, CLOSE_PASS_LINE)
+    assert walk.skills_launched[-4:] == ["development-audit"] * 4
+    assert [line for line in walk.state["history"] if line.startswith("launched audit-")] == [
+        f"launched {run}" for run in THE_AUDIT_RUNS]
+    assert walk.state["close_passed"] is True
+
+
+def test_a_behave_card_beside_a_preserving_spec_runs_the_close_at_the_branch_tip_over_the_scenario_folder():
+    walk = _security_lands(_walk_to_security(BEHAVE_CARD, PRESERVING_SPEC))
+
+    assert "red-behaviour" not in walk.skills_launched
+    assert walk.behave.calls == [(CLOSE_TIP, None)]
+    assert [argument["folder"] for argument in walk.behave.arguments] == [QA_FOLDER_REL]
+
+
+def test_a_none_card_close_passes_launching_running_and_writing_nothing():
+    walk, landed = _walk_to_the_seal(NONE_CARD, "# Change Spec\n\n**Behaviour:** changing\n")
+
+    assert f"close passed — {CLOSE_NONE_READ}" in walk.state["history"]
+    assert walk.behave.calls == []
+    assert walk.places_calls == []
+    assert _written_beyond(walk, landed) == set()
+    assert walk.skills_launched == TODAYS_SKILLS
+
+
+@pytest.mark.parametrize("card", [
+    pytest.param(_card("**Behave:** none — a CLI with no user scenarios"), id="none"),
+    pytest.param(_card("**Behave:** behave", "**Behave:** behave"), id="two-lines"),
+    pytest.param(_card("**Type:** software"), id="no-line"),
+    pytest.param(_card("**Behave:** maybe"), id="another-value"),
+    pytest.param(None, id="no-card"),
+])
+def test_every_card_that_does_not_say_behave_passes_the_close_with_qas_step_words_for_that_card(card):
+    walk = _security_lands(_walk_to_security(card))
+
+    assert f"close passed — {cd.qa_step_applies(card, None).read}" in walk.state["history"]
+    assert walk.behave.calls == []
+    assert walk.skills_launched[-4:] == ["development-audit"] * 4
+
+
+def test_a_walk_started_at_audit_runs_the_close_before_any_audit_launch_and_a_stop_ends_it_without_the_audit():
+    walk = _security_lands(_walk_to_security())
+    audits_before = walk.skills_launched.count("development-audit")
+    walk.engine().stop(STOP_AT)
+    _give_the_close_its_report(walk, reported((f"{SCENARIO_FILE}:3", "failed")))
+
+    start(walk.engine())
+
+    assert walk.behave.calls == [(CLOSE_TIP, None), (CLOSE_TIP, None)]
+    assert walk.state["ended"] == "halted"
+    assert walk.state["ended_reason"].startswith(f"{CLOSE_STOPPED}close-red — ")
+    assert walk.skills_launched.count("development-audit") == audits_before
+
+
+def test_a_walk_entered_at_seal_runs_the_close_before_the_seal_is_launched():
+    def audited(walk: Walk) -> None:
+        walk.files.write_text(CARD_PATH, BEHAVE_CARD)
+        _give_the_close_its_report(walk)
+
+    walk = Walk(through="audit", before_start=audited)
+
+    assert walk.behave.calls == [(CLOSE_TIP, None)]
+    assert walk.skills_launched == ["tobiishi-seal"]
+    assert walk.state["history"].index(CLOSE_PASS_LINE) < walk.state["history"].index(
+        "launched seal")
+
+
+def test_no_verdict_survives_a_walk_and_a_state_without_close_passed_loads_false():
+    walk = _security_lands(_walk_to_security())
+    assert walk.state["close_passed"] is True
+    walk.engine().stop(STOP_AT)
+
+    start(walk.engine())
+
+    assert walk.behave.calls == [(CLOSE_TIP, None), (CLOSE_TIP, None)]
+    older = {name: value for name, value in walk.state.items() if name != "close_passed"}
+    assert cd.WalkState.from_json(older).close_passed is False
+
+
+def test_an_unforced_walk_whose_provider_file_has_no_close_entry_is_not_refused_and_describe_runs_no_behave():
+    assert not [step for step in cd.WALK_STEPS + cd.CHANGE_STEPS if step.id == "close"]
+    files, git = _through("security")
+    disk = FakeFiles({**files, CARD_PATH: BEHAVE_CARD})
+    git.tips.setdefault(QA_REPO, {})[KEY] = CLOSE_TIP
+    behave, processes = FakeBehave({(CLOSE_TIP, None): (FIVE_PASSED, None)}), FakeProcesses()
+
+    plan = describe(build(disk, git=git, behave=behave, processes=processes))
+
+    assert plan.entry == "audit"
+    assert behave.calls == []
+    start(build(disk, git=git, behave=behave, processes=processes))
+    assert processes.launched[-1][1] == "development-audit"
+
+
+def test_a_developer_commit_touching_the_scenario_folder_halts_the_walk_at_the_close_naming_it():
+    walk = _security_lands(_walk_to_security(
+        setup=lambda held: _a_developer_commit_touching(held, [SCENARIO_FILE])))
+
+    assert walk.state["ended"] == "halted"
+    assert walk.state["ended_reason"] == (
+        f"{CLOSE_STOPPED}{THE_FOLDER_IS_QAS}{CLOSE_DEVELOPER[:7]} ({SCENARIO_FILE})")
+    assert walk.behave.calls == []
+    assert "development-audit" not in walk.skills_launched
+
+
+def test_a_plan_ordering_a_scenario_edit_changes_nothing_about_the_refusal():
+    def ordering(held: Walk) -> None:
+        _a_developer_commit_touching(held, [SCENARIO_FILE])
+        held.files.write_text(f"{BRANCH_CHANGE}/tl_instruction.md",
+                              f"### Task 3: Edit {SCENARIO_FILE} to match the new rule\n")
+
+    walk = _security_lands(_walk_to_security(setup=ordering))
+
+    assert walk.state["ended_reason"] == (
+        f"{CLOSE_STOPPED}{THE_FOLDER_IS_QAS}{CLOSE_DEVELOPER[:7]} ({SCENARIO_FILE})")
+    assert walk.behave.calls == []
+
+
+def test_a_green_close_with_no_qa_commit_or_record_seals_and_names_no_qa_artifact():
+    walk, _ = _walk_to_the_seal(BEHAVE_CARD, PRESERVING_SPEC)
+
+    said = " ".join([*walk.notifier.messages, *walk.state["history"]]).lower()
+    assert walk.state["ended"] == "sealed"
+    assert "qa_record" not in said and "qa-record" not in said and "red commit" not in said
+
+
+_BROKEN_PRODUCT = cd.development_path.ToolError("no-worktree", "no worktree for the change")
+
+
+@pytest.mark.parametrize("word, setup, report, error", [
+    pytest.param("close-refused", lambda held: _a_developer_commit_touching(held, [SCENARIO_FILE]),
+                 FIVE_PASSED, None, id="close-refused"),
+    pytest.param("close-red", None, reported((f"{SCENARIO_FILE}:3", "failed")), None, id="close-red"),
+    pytest.param("behave-unavailable", None, not_reported("uv exited 1: no uv"), None,
+                 id="behave-unavailable-no-report"),
+    pytest.param("behave-unavailable", None, FIVE_PASSED, _BROKEN_PRODUCT,
+                 id="behave-unavailable-path-tool"),
+])
+def test_each_close_stop_ends_the_walk_halted_at_the_close_and_launches_nothing_else(
+        word, setup, report, error):
+    walk = _walk_to_security(report=report, setup=setup)
+    walk.places_error = error
+
+    _security_lands(walk)
+
+    assert walk.state["ended"] == "halted"
+    assert walk.state["ended_reason"].startswith(f"{CLOSE_STOPPED}{word}")
+    assert not set(_NEVER_LAUNCHED) & set(walk.skills_launched)
+    assert _launches_holding_the_verdict(walk) == []
+    assert not [path for path in walk.files.files if path.endswith("halt_report.md")]
+    assert walk.notifier.messages[-1].endswith(walk.state["ended_reason"])
+    assert walk.state["pending"] == {}
+    if error is not None:
+        assert walk.state["ended_reason"] == (
+            f"{CLOSE_STOPPED}behave-unavailable — {error.message}")
+
+
+def test_a_walk_that_paused_twice_then_closed_passes_the_close_on_green_scenarios():
+    def paused(walk: Walk) -> None:
+        pauses = [(f"p{after}", f"developer: {KEY} — implementation paused after task {after}")
+                  for after in (4, 2)]
+        walk.git.repos[QA_REPO] = {KEY: [*pauses, *walk.git.commits.get(KEY, [])]}
+        for sha, _subject in pauses:
+            walk.git.bodies[sha] = DEVELOPER_ROLE_BODY
+
+    walk = _security_lands(_walk_to_security(setup=paused))
+
+    assert CLOSE_PASS_LINE in walk.state["history"]
+    assert walk.state["ended"] is None
+
+
+def test_the_developers_missing_red_commit_halt_is_where_it_was():
+    walk = _shape_walk(_TDD_ONE, [_task(1, slug="parse")])
+
+    assert walk.state["ended_reason"] == f"{_MISSING_RED} — task 1"
+    assert walk.behave.calls == []
+
+
+# --- the close's line, handed to the seal launch alone (CP-1393 to CP-1398) -----------------------
+
+NOT_BEHAVE_CARDS = [
+    pytest.param(NONE_CARD, id="none"),
+    pytest.param(_card("**Behave:** behave", "**Behave:** behave"), id="two-lines"),
+    pytest.param(_card("**Type:** software"), id="no-line"),
+    pytest.param(_card("**Behave:** maybe"), id="another-value"),
+    pytest.param(None, id="no-card"),
+]
+STALE_LINE = "close passed — 9 scenarios passed at 0ld0000"
+
+
+# Named by its literal, so the guards below run on the code before this change too; the next test
+# pins the engine's constant to it.
+VERDICT_VARIABLE = "KENSAIAPP_CLOSE_VERDICT"
+
+
+def test_the_engine_names_the_variable_the_seal_reads():
+    assert cd.CLOSE_VERDICT_VARIABLE == VERDICT_VARIABLE
+
+
+def _seal_launches(walk: Walk) -> list[dict]:
+    return [call for call in walk.processes.calls if call["argv"][1:2] == ["tobiishi-seal"]]
+
+
+def _launches_holding_the_verdict(walk: Walk) -> list[str]:
+    """The skill each launch that carried the variable was for."""
+    return [call["argv"][1] for call in walk.processes.calls
+            if VERDICT_VARIABLE in call["env"]]
+
+
+def test_a_behave_card_walk_hands_the_seal_the_closes_line_and_no_other_launch():
+    walk, landed = _walk_to_the_seal(BEHAVE_CARD, PRESERVING_SPEC)
+
+    (seal,) = _seal_launches(walk)
+    assert seal["env"][VERDICT_VARIABLE] == CLOSE_PASS_LINE
+    assert CLOSE_PASS_LINE in walk.state["history"]
+    assert _launches_holding_the_verdict(walk) == ["tobiishi-seal"]
+    assert not [path for path in _written_beyond(walk, landed) if "close_verdict" in path]
+
+
+def test_a_one_scenario_close_hands_the_singular_line():
+    one = reported(("features/f0.feature:1", "passed"))
+
+    def audited(walk: Walk) -> None:
+        walk.files.write_text(CARD_PATH, BEHAVE_CARD)
+        _give_the_close_its_report(walk, one)
+
+    walk = Walk(through="audit", before_start=audited)
+
+    (seal,) = _seal_launches(walk)
+    assert seal["env"][VERDICT_VARIABLE] == f"close passed — 1 scenario passed at {CLOSE_SHORT}"
+
+
+def test_a_reentered_walk_hands_its_own_close_never_an_earlier_one():
+    tip_a, tip_b = "aaaaaaa" + "1" * 33, "bbbbbbb" + "2" * 33
+
+    def audited(walk: Walk) -> None:
+        walk.files.write_text(CARD_PATH, BEHAVE_CARD)
+        _give_the_close_its_report(walk, tip=tip_a)
+
+    walk = Walk(through="audit", before_start=audited)
+    first = len(walk.processes.calls)
+    walk.engine().stop(STOP_AT)
+    _give_the_close_its_report(walk, tip=tip_b)
+
+    start(walk.engine())
+
+    second = [call for call in walk.processes.calls[first:]
+              if call["argv"][1:2] == ["tobiishi-seal"]]
+    assert [call["env"][VERDICT_VARIABLE] for call in second] == [
+        "close passed — 5 scenarios passed at bbbbbbb"]
+    assert not [call for call in walk.processes.calls[first:]
+                if "aaaaaaa" in " ".join(call["env"].values())]
+
+
+@pytest.mark.parametrize("card", NOT_BEHAVE_CARDS)
+def test_a_walk_on_a_card_that_does_not_say_behave_hands_the_seal_nothing(card):
+    walk, _ = _walk_to_the_seal(card, "# Change Spec\n\n**Behaviour:** changing\n")
+
+    assert walk.state["ended"] == "sealed"
+    assert _launches_holding_the_verdict(walk) == []
+
+
+def test_a_stale_inherited_variable_is_dropped_from_every_launch_but_the_seals_own_line():
+    inherited = {"PATH": "/usr/bin", VERDICT_VARIABLE: STALE_LINE}
+
+    none_walk, _ = _walk_to_the_seal(NONE_CARD, "# Change Spec\n\n**Behaviour:** changing\n",
+                                     inherited)
+    behave_walk, _ = _walk_to_the_seal(BEHAVE_CARD, PRESERVING_SPEC, inherited)
+
+    assert _launches_holding_the_verdict(none_walk) == []
+    assert _launches_holding_the_verdict(behave_walk) == ["tobiishi-seal"]
+    (seal,) = _seal_launches(behave_walk)
+    assert seal["env"][VERDICT_VARIABLE] == CLOSE_PASS_LINE
+
+
+def test_the_end_hook_and_the_sweep_launch_drop_the_variable():
+    walk = HookedWalk(environ={"PATH": "/usr/bin", VERDICT_VARIABLE: STALE_LINE})
+    land(walk.files, walk.git, "seal")
+    walk.engine().advance("seal", "completed")
+    swept = _owed_walk(environ={"PATH": "/usr/bin", VERDICT_VARIABLE: STALE_LINE})
+    swept.advance("specs")
+
+    (sweep,) = _sweep_launches(swept)
+    assert VERDICT_VARIABLE not in walk.hook_calls[0]["env"]
+    assert VERDICT_VARIABLE not in sweep["env"]
+    assert sweep["env"]["PATH"] == "/usr/bin"
+
+
+def test_close_line_round_trips_the_walk_state_and_survives_an_advance():
+    walk, _ = _walk_to_the_seal(BEHAVE_CARD, PRESERVING_SPEC)
+
+    state = cd.WalkState.from_json(walk.state)
+    older = {name: value for name, value in walk.state.items() if name != "close_line"}
+
+    assert state.close_line == CLOSE_PASS_LINE
+    assert state.to_json()["close_line"] == CLOSE_PASS_LINE
+    assert cd.WalkState.from_json(older).close_line == ""
+    assert _seal_launches(walk)[0]["env"][VERDICT_VARIABLE] == CLOSE_PASS_LINE
+
+
+# --- the close: cases the integrity review added ------------------------------------------------
+
+# Two scenario paths git writes in quotes unless told not to: one outside ASCII, one holding a
+# double quote. CP-1381 stops on any path under the scenario folder, so the port names each as the
+# repository does.
+QUOTED_BY_GIT = [f"{QA_FOLDER_REL}/features/naïve.feature", f'{QA_FOLDER_REL}/features/say "hi".feature']
+
+
+class _TouchedPathsContract:
+    """The git port's `touched_paths`, stated once and run against the real adapter and against
+    `FakeGit` (`testing_doctrine.md` § A fake is verified against its port's contract). Not
+    collected itself: its name does not start with `Test`."""
+
+    def port(self, tmp_path: Path) -> tuple[object, str, dict[str, str]]:
+        """The port, the repository to ask it about, and three commits: `edit` touches
+        `QUOTED_BY_GIT` and `src/code.py`, `empty` touches nothing, `unreadable` is one git
+        cannot read."""
+        raise NotImplementedError
+
+    def test_a_commit_lists_every_path_it_touches_as_the_repository_names_it(self, tmp_path):
+        git, where, commits = self.port(tmp_path)
+
+        assert git.touched_paths(where, commits["edit"]) == [*QUOTED_BY_GIT, "src/code.py"]
+
+    def test_a_commit_that_touches_nothing_lists_nothing(self, tmp_path):
+        git, where, commits = self.port(tmp_path)
+
+        assert git.touched_paths(where, commits["empty"]) == []
+
+    def test_a_commit_git_cannot_read_is_none_not_empty(self, tmp_path):
+        git, where, commits = self.port(tmp_path)
+
+        assert git.touched_paths(where, commits["unreadable"]) is None
+
+
+class TestTheRealGitKeepsTheTouchedPathsContract(_TouchedPathsContract):
+    def port(self, tmp_path: Path) -> tuple[object, str, dict[str, str]]:
+        repo = _scratch_repo(tmp_path)
+        _commit_file(repo, "start.txt", "s\n", "root")
+        for name in (*QUOTED_BY_GIT, "src/code.py"):
+            _write_and_add(repo, name, "x\n")
+        _git(repo, "commit", "-q", "-m", "edit")
+        edit = _head(repo)
+        _git(repo, "commit", "-q", "--allow-empty", "-m", "empty")
+        return cd.Git(), str(repo), {"edit": edit, "empty": _head(repo), "unreadable": "0" * 40}
+
+
+class TestFakeGitKeepsTheTouchedPathsContract(_TouchedPathsContract):
+    def port(self, tmp_path: Path) -> tuple[object, str, dict[str, str]]:
+        edit, empty, unreadable = "e" * 40, "f" * 40, "9" * 40
+        fake = FakeGit(touches={edit: [*QUOTED_BY_GIT, "src/code.py"], unreadable: None})
+        return fake, str(tmp_path), {"edit": edit, "empty": empty, "unreadable": unreadable}
+
+
+def test_the_close_refuses_a_developer_commit_touching_a_scenario_path_git_would_quote(tmp_path):
+    world = RealClose(tmp_path, THE_REAL_FEATURES)
+    world.commit_on_branch({QUOTED_BY_GIT[0]: behave_fixtures.PASSING_FEATURE},
+                           REAL_DEVELOPER_BODY)
+
+    verdict = world.run_leaving_it_as_it_was()
+
+    edited = _git(world.worktree, "rev-parse", "HEAD")
+    assert verdict.refusal == f"{THE_FOLDER_IS_QAS}{edited[:7]} ({QUOTED_BY_GIT[0]})"
+
+
+@pytest.mark.parametrize("card, line, calls", [
+    pytest.param(BEHAVE_CARD, CLOSE_PASS_LINE, [(CLOSE_TIP, None)], id="behave-card"),
+    pytest.param(NONE_CARD, f"close passed — {CLOSE_NONE_READ}", [], id="none-card"),
+])
+def test_a_walk_reaching_the_audit_and_the_seal_runs_the_close_once_in_front_of_the_audit(
+        card, line, calls):
+    walk, _ = _walk_to_the_seal(card, PRESERVING_SPEC)
+
+    history = walk.state["history"]
+    assert walk.behave.calls == calls
+    assert [said for said in history if said.startswith("close passed — ")] == [line]
+    assert history.index(line) < history.index(f"launched {THE_AUDIT_RUNS[0]}")
+    assert walk.state["ended"] == "sealed"
+
+
+def _walk_table_entered_at(entry: str, report) -> tuple[object, FakeBehave, FakeProcesses]:
+    """A start over `WALK_STEPS` that enters at `entry` on a `behave` card, its close's tip and
+    report seeded."""
+    disk, git = _entering_at(entry, cd.WALK_STEPS)
+    disk[CARD_PATH] = BEHAVE_CARD
+    git.tips.setdefault(QA_REPO, {})[KEY] = CLOSE_TIP
+    behave, processes = FakeBehave({(CLOSE_TIP, None): (report, None)}), FakeProcesses()
+    engine = build(FakeFiles(disk), git=git, behave=behave, processes=processes,
+                   steps=cd.WALK_STEPS)
+    start(engine)
+    return engine, behave, processes
+
+
+@pytest.mark.parametrize("entry, launched", [("audit", "development-audit"),
+                                             ("seal", "tobiishi-seal")])
+def test_the_walk_table_runs_the_close_in_front_of_its_audit_and_its_seal(entry, launched):
+    engine, behave, processes = _walk_table_entered_at(entry, FIVE_PASSED)
+
+    assert behave.calls == [(CLOSE_TIP, None)]
+    assert CLOSE_PASS_LINE in engine.store.raw()["history"]
+    assert processes.launched[-1][1] == launched
+
+
+def test_a_close_stop_on_the_walk_table_ends_the_walk_with_no_audit_launched():
+    engine, behave, processes = _walk_table_entered_at(
+        "audit", reported((f"{SCENARIO_FILE}:3", "failed")))
+
+    state = engine.store.raw()
+    assert behave.calls == [(CLOSE_TIP, None)]
+    assert state["ended"] == "halted"
+    assert state["ended_reason"] == f"{CLOSE_STOPPED}close-red — {SCENARIO_FILE}:3: failed"
+    assert not [call for call in processes.launched if call[1] == "development-audit"]
+
+
+# --- the carry creates what is missing: the three renderers (CP-1425, CP-1427, CP-1429) ----------
+
+_TEMPLATES_DIR = _REPO / "core" / "templates" / "product-templates"
+_WIDGET_TEMPLATE = """---
+version: "1.0.0"
+---
+<!-- header comment
+## 9. A heading inside a comment -->
+
+# Widget open issues — <product name>
+
+<!-- a note between the title and the preamble -->
+
+> Companion to `widget.md`.
+> Second line.
+
+---
+
+## 1. Open issues
+
+### 1.1 <the question, in one line>
+- **Answer:** <the owner fills this in>
+
+<!-- add 1.2 as needed -->
+
+## 2. Raised from downstream — an item raised later
+
+<Not a question. Guidance for the run that authors a companion.>
+
+### 2.1 <an example item>
+- **Raised by:** <seat>
+
+**How it closes.** Folded.
+"""
+_X_ITEM = "### 3.2 X\n\nThe x record.\n"
+_Y_ITEM = "### 3.3 Y\n\nThe y record.\n"
+_WIDGET_RAISED = "## 2. Raised from downstream — an item raised later"
+_ARCHITECTURE_TEXT = ("# Architecture open issues\n\n## 2. Open questions\n\n### 2.1 Z\n\n"
+                      "Something else.\n")
+_ARCHITECTURE_RAISED = ("## 3. Raised from downstream — an item from a seat that did not write "
+                        "these records")
+
+
+def _created(blocks=(_X_ITEM,), template: str = _WIDGET_TEMPLATE, project: str = "tools") -> str:
+    return cd._companion_from_template(template, project, list(blocks))
+
+
+def test_created_companion_title_token_is_replaced_by_the_project():
+    assert _created().splitlines()[0] == "# Widget open issues — tools"
+
+
+def test_created_companion_keeps_the_preamble_between_the_title_and_the_first_section():
+    assert _created().startswith(
+        "# Widget open issues — tools\n\n> Companion to `widget.md`.\n> Second line.\n\n---\n\n"
+        "## 1. Open issues\n")
+
+
+def test_created_companion_lists_every_section_heading_in_the_templates_order():
+    headings = [line for line in _created().splitlines() if line.startswith("## ")]
+
+    assert headings == ["## 1. Open issues", _WIDGET_RAISED]
+
+
+def test_created_companion_writes_none_under_each_non_raised_section():
+    assert "## 1. Open issues\n\nNone.\n\n" + _WIDGET_RAISED in _created()
+    assert _created().count("None.") == 1
+
+
+def test_created_companion_holds_the_carried_items_under_the_raised_section_in_the_given_order():
+    created = _created([_X_ITEM.replace("\n", "\r\n"), _Y_ITEM])
+
+    assert created.endswith(f"{_WIDGET_RAISED}\n\n{_X_ITEM}\n{_Y_ITEM}")
+    assert "\r" not in created
+
+
+def test_created_companion_drops_the_frontmatter_the_comments_the_example_items_and_the_guidance():
+    created = _created()
+
+    for dropped in ("version:", "<!--", "header comment", "a note between", "### 1.1", "### 2.1",
+                    "<the question", "<Not a question", "Guidance", "How it closes",
+                    "**Answer:**", "<product name>"):
+        assert dropped not in created
+
+
+def test_created_companion_separates_blocks_by_one_blank_line_and_ends_with_one_newline():
+    created = _created([_X_ITEM, _Y_ITEM])
+
+    assert "\n\n\n" not in created
+    assert created.endswith("The y record.\n")
+    assert not created.endswith("\n\n")
+    assert _created([]) == _created([]).rstrip("\n") + "\n"
+
+
+def test_raised_heading_is_the_first_visible_heading_containing_raised_from_downstream():
+    template = ("<!-- ## 1. Raised from downstream — in a comment -->\n## 2. Other\n"
+                f"{_WIDGET_RAISED}\n## 4. Raised from downstream — a second\n")
+
+    assert cd._raised_heading(template) == _WIDGET_RAISED
+
+
+def test_raised_heading_is_none_when_the_template_has_none():
+    commented = "# T\n\n## 1. Open\n\n<!-- ## 2. Raised from downstream -->\n"
+    assert cd._raised_heading(commented) is None
+
+
+def test_added_raised_section_follows_one_blank_line_after_the_last_non_blank_line():
+    result = cd._append_items(
+        cd._with_raised_section(_ARCHITECTURE_TEXT, _ARCHITECTURE_RAISED), [_X_ITEM])
+
+    assert result == _ARCHITECTURE_TEXT + f"\n{_ARCHITECTURE_RAISED}\n\n{_X_ITEM}"
+
+
+def test_added_raised_section_closes_a_last_line_that_has_no_line_ending():
+    result = cd._append_items(
+        cd._with_raised_section(_ARCHITECTURE_TEXT.rstrip("\n"), _ARCHITECTURE_RAISED), [_X_ITEM])
+
+    assert result == _ARCHITECTURE_TEXT + f"\n{_ARCHITECTURE_RAISED}\n\n{_X_ITEM}"
+
+
+def test_added_raised_section_takes_the_line_ending_of_the_files_last_line_that_has_one():
+    crlf = _ARCHITECTURE_TEXT.replace("\n", "\r\n")
+
+    result = cd._append_items(cd._with_raised_section(crlf, _ARCHITECTURE_RAISED), [_X_ITEM])
+
+    assert result == crlf + (f"\n{_ARCHITECTURE_RAISED}\n\n{_X_ITEM}").replace("\n", "\r\n")
+
+
+def test_added_raised_section_keeps_trailing_blank_lines_after_the_addition():
+    text = _ARCHITECTURE_TEXT + "\n\n"
+
+    section = cd._with_raised_section(text, _ARCHITECTURE_RAISED)
+    result = cd._append_items(section, [_X_ITEM])
+
+    assert section == _ARCHITECTURE_TEXT + f"\n{_ARCHITECTURE_RAISED}\n\n\n"
+    assert result == _ARCHITECTURE_TEXT + f"\n{_ARCHITECTURE_RAISED}\n\n{_X_ITEM}\n\n"
+
+
+def test_added_raised_section_to_a_text_with_no_line_is_the_heading_alone():
+    assert cd._with_raised_section("\n\n", _ARCHITECTURE_RAISED) == f"{_ARCHITECTURE_RAISED}\n"
+
+
+def test_the_real_fdr_template_renders_the_cp_1427_example():
+    template = (_TEMPLATES_DIR / "fdr_open_issues_template.md").read_text()
+    quote = "".join(f"{line}\n" for line in template.splitlines() if line.startswith(">"))
+
+    created = cd._companion_from_template(template, "tools", [_X_ITEM])
+
+    assert quote.startswith("> Companion to `fdr.md`.")
+    assert quote.endswith("> it be quietly folded back into § 1 as though the authoring run had "
+                          "asked it.\n")
+    assert created == (
+        f"# FDR open issues — tools\n\n{quote}\n---\n\n"
+        "## 1. Open issues — behavioural questions with no answer yet\n\nNone.\n\n"
+        "## 2. Choices to confirm — the Principal PM drafted a best-effort answer; confirm or "
+        "override\n\nNone.\n\n"
+        "## 3. Raised from downstream — an item raised against the FDR after it settled\n\n"
+        f"{_X_ITEM}")
+    for dropped in ("version:", "<!--", "### 1.1", "### 2.1", "### 2.2", "### 3.1",
+                    "<the question, in one line>"):
+        assert dropped not in created
+
+
+def _companion_template_files() -> list[Path]:
+    return sorted(_TEMPLATES_DIR.glob("*_open_issues_template.md"))
+
+
+@pytest.mark.parametrize("path", _companion_template_files(), ids=lambda path: path.name)
+def test_every_product_companion_template_renders_a_companion_with_one_raised_section(path):
+    template = path.read_text()
+    item = "### 9.9 Z\n\nThe z record.\n"
+    visible = re.sub(r"<!--.*?-->", "", template, flags=re.DOTALL)
+    template_headings = [line for line in visible.splitlines() if line.startswith("## ")]
+
+    created = cd._companion_from_template(template, "tools", [item])
+
+    headings = [line for line in created.splitlines() if line.startswith("## ")]
+    assert headings == template_headings
+    assert sum("Raised from downstream" in heading for heading in headings) == 1
+    assert "<!--" not in created
+    assert not created.startswith("---")
+    assert "version:" not in created
+    assert [line for line in created.splitlines() if line.startswith("### ")] == ["### 9.9 Z"]
+    assert created.endswith(item)
+
+
+def test_the_product_companion_templates_are_found():
+    assert _companion_template_files()
+
+
+# --- the template lookup (CP-1425) --------------------------------------------------------------
+
+_TEMPLATES = "/core/templates/product-templates"
+
+
+def _template_reader(**templates: str) -> cd.DiskReader:
+    return reader({f"{_TEMPLATES}/{name}": text for name, text in templates.items()})
+
+
+def test_companion_template_for_a_lower_case_name_is_that_templates_text():
+    found = _template_reader(**{"fdr_open_issues_template.md": "the fdr template\n",
+                                "srs_open_issues_template.md": "another\n"})
+
+    assert found.companion_template("/core", "fdr_open_issues.md") == "the fdr template\n"
+
+
+def test_companion_template_matches_without_regard_to_case():
+    found = _template_reader(**{"srs_open_issues_template.md": "the srs template\n"})
+
+    assert found.companion_template("/core", "SRS_open_issues.md") == "the srs template\n"
+    assert reader({f"{_TEMPLATES}/SDD_Open_Issues_Template.md": "sdd\n"}).companion_template(
+        "/core", "sdd_open_issues.md") == "sdd\n"
+
+
+def test_companion_template_is_none_for_a_name_with_a_directory_part():
+    found = _template_reader(**{"x_open_issues_template.md": "t\n"})
+
+    assert found.companion_template("/core", "adr/x_open_issues.md") is None
+
+
+def test_companion_template_is_none_when_no_template_matches():
+    found = _template_reader(**{"fdr_open_issues_template.md": "t\n"})
+
+    assert found.companion_template("/core", "notes_open_issues.md") is None
+
+
+def test_companion_template_is_none_when_the_templates_folder_is_absent():
+    assert reader({}).companion_template("/core", "fdr_open_issues.md") is None
+
+
+def test_companion_template_is_none_when_the_listed_template_cannot_be_read():
+    class Unreadable(FakeFiles):
+        def read_text(self, path):
+            return None if path.endswith("fdr_open_issues_template.md") else super().read_text(path)
+
+    files = Unreadable({f"{_TEMPLATES}/fdr_open_issues_template.md": "t\n"})
+
+    assert cd.DiskReader(files=files, git=FakeGit()).companion_template(
+        "/core", "fdr_open_issues.md") is None
+
+
+# --- the carry creates what is missing: the carry itself (CP-1426–CP-1435) ---------------------
+
+_COMPANION_TEMPLATE_FILE = (
+    f"{CORE}/templates/product-templates/architecture_open_issues_template.md"
+)
+_NO_RAISED_TEMPLATE = "# Architecture open issues — <product name>\n\n## 1. Open issues\n"
+_CREATED_COMPANION = (
+    f"# Widget open issues — {PROJECT}\n\n> Companion to `widget.md`.\n> Second line.\n\n---\n\n"
+    f"## 1. Open issues\n\nNone.\n\n{_WIDGET_RAISED}\n\n{_X_BLOCK}")
+_SECTIONLESS_MAIN = "## 2. Open questions\n\n### 2.1 Z\n\nSomething else.\n"
+_MISSING_ITEM = "notes_open_issues.md § 3.2 — X"
+
+
+def _with_template(walk: Walk, template: str = _WIDGET_TEMPLATE) -> Walk:
+    walk.files.write_text(_COMPANION_TEMPLATE_FILE, template)
+    return walk
+
+
+def _clears_the_old_change_and_restarts_specs(walk: Walk, since: int) -> None:
+    assert [call["argv"] for call in walk.processes.calls[since:]] == [
+        ["git", "-C", INSTANCE, "worktree", "remove", WORKTREE],
+        ["git", "-C", INSTANCE, "update-ref", "-d", f"refs/heads/{KEY}", OLD_TIP],
+        [SKILL_LAUNCHER, "development-specs", PROJECT]]
+    assert walk.state["key"] == KEY
+    assert walk.state["ended_reason"] != _not_folded(RECORDS_ITEM)
+
+
+def test_a_missing_main_companion_is_created_from_its_template_and_the_item_folds():
+    walk = _with_template(_carrying_walk(main=None))
+    _apply_git(walk)
+
+    walk.advance("specs")
+
+    calls = _builder_calls(walk)
+    assert len(calls) == 1
+    assert _flag_values(calls[0]["argv"], "--add") == [MAIN_COMPANION_REL]
+    assert _flag(calls[0]["argv"], "--subject") == CARRY_SUBJECT_ONE
+    assert _main_companion(walk) == _CREATED_COMPANION
+    assert walk.state["sweep_items"] == [{"value": RECORDS_ITEM, "held": True}]
+    _clears_the_old_change_and_restarts_specs(walk, _sweep_ends(walk, companion=None))
+
+
+def test_a_main_companion_with_no_raised_section_is_given_the_section_and_the_item_folds():
+    walk = _with_template(_carrying_walk(main=_SECTIONLESS_MAIN))
+    _apply_git(walk)
+
+    walk.advance("specs")
+
+    assert len(_builder_calls(walk)) == 1
+    assert _main_companion(walk) == (
+        _companion(_SECTIONLESS_MAIN) + f"\n{_WIDGET_RAISED}\n\n{_X_BLOCK}")
+    assert walk.state["sweep_items"] == [{"value": RECORDS_ITEM, "held": True}]
+    _clears_the_old_change_and_restarts_specs(walk, _sweep_ends(walk))
+
+
+def test_an_item_with_no_template_stays_off_main_and_ends_not_folded():
+    missing = _carrying_walk(main=None)
+    sectionless = _carrying_walk(main=_SECTIONLESS_MAIN)
+
+    missing.advance("specs")
+    sectionless.advance("specs")
+    _sweep_ends(missing, companion=None)
+
+    assert _builder_calls(missing) == [] and _builder_calls(sectionless) == []
+    assert not missing.files.is_file(COMPANION_FILE)
+    assert missing.state["ended_reason"] == _not_folded(RECORDS_ITEM)
+    assert len(_sweep_launches(sectionless)) == 1
+    assert _main_companion(sectionless) == _companion(_SECTIONLESS_MAIN)
+
+
+def test_a_template_with_no_raised_heading_carries_nothing_for_both_cases():
+    missing = _with_template(_carrying_walk(main=None), _NO_RAISED_TEMPLATE)
+    sectionless = _with_template(_carrying_walk(main=_SECTIONLESS_MAIN), _NO_RAISED_TEMPLATE)
+
+    missing.advance("specs")
+    sectionless.advance("specs")
+
+    assert _builder_calls(missing) == [] and _builder_calls(sectionless) == []
+    assert not missing.files.is_file(COMPANION_FILE)
+    assert _main_companion(sectionless) == _companion(_SECTIONLESS_MAIN)
+
+
+def test_two_items_one_with_a_template_and_one_without_make_one_commit_and_name_the_second_not_folded():
+    walk = _with_template(_carrying_walk(items=(RECORDS_ITEM, _MISSING_ITEM), main=None))
+    walk.files.write_text(f"{WORKTREE}/core/tools/docs/notes_open_issues.md",
+                          _companion(_WORKTREE_SECTION))
+
+    walk.advance("specs")
+    _sweep_ends(walk, companion=None)
+
+    assert len(_builder_calls(walk)) == 1
+    assert _flag_values(_builder_calls(walk)[0]["argv"], "--add") == [MAIN_COMPANION_REL]
+    assert walk.state["ended_reason"] == _not_folded(_MISSING_ITEM)
+
+
+def test_an_item_the_worktree_companion_lacks_creates_nothing_when_main_has_no_companion():
+    walk = _with_template(_carrying_walk(main=None, worktree=_MAIN_SECTION))
+
+    walk.advance("specs")
+
+    assert _builder_calls(walk) == []
+    assert not walk.files.is_file(COMPANION_FILE)
+
+
+def test_two_items_for_one_missing_companion_create_it_once_in_report_order():
+    second = f"{COMPANION} § 3.3 — W"
+    worktree = f"## 3. Raised from downstream\n\n{_X_BLOCK}\n### 3.3 W\n\nThe w record.\n"
+    walk = _with_template(_carrying_walk(items=(RECORDS_ITEM, second), main=None,
+                                         worktree=worktree))
+
+    walk.advance("specs")
+
+    calls = _builder_calls(walk)
+    assert len(calls) == 1
+    assert _flag_values(calls[0]["argv"], "--add") == [MAIN_COMPANION_REL]
+    assert _flag(calls[0]["argv"], "--subject") == (
+        f"product-owner: {KEY} — raised items carried onto main for the document sweep")
+    assert _main_companion(walk) == _CREATED_COMPANION + "\n### 3.3 W\n\nThe w record.\n"
+
+
+def test_a_checkout_on_another_branch_halts_before_creating_a_companion():
+    walk = _with_template(_carrying_walk(main=None, branch="feature"))
+
+    walk.advance("specs")
+
+    assert walk.state["ended_reason"] == (
+        f"stopped at specs: records-owed — cannot carry onto main: {INSTANCE} is on feature")
+    assert not walk.files.is_file(COMPANION_FILE)
+    assert _builder_calls(walk) == [] and _sweep_launches(walk) == []
+
+
+def test_a_companion_deleted_but_not_committed_halts_before_anything_is_written():
+    walk = _with_template(_carrying_walk(main=None, status=(f" D {MAIN_COMPANION_REL}",)))
+
+    walk.advance("specs")
+
+    assert walk.state["ended_reason"] == (
+        f"stopped at specs: records-owed — cannot carry onto main: {COMPANION} has uncommitted "
+        "changes")
+    assert not walk.files.is_file(COMPANION_FILE)
+    assert _builder_calls(walk) == [] and _sweep_launches(walk) == []
+
+
+def test_a_main_path_that_exists_but_does_not_read_is_not_carried():
+    walk = _with_template(_carrying_walk(main=None))
+    walk.files.write_text(f"{COMPANION_FILE}/inside", "x")
+
+    walk.advance("specs")
+
+    assert _builder_calls(walk) == []
+    assert not walk.files.is_file(COMPANION_FILE)
+    assert len(_sweep_launches(walk)) == 1
+
+
+class _DirectoryCheckingFiles(FakeFiles):
+    """A tree whose companion cannot be written until its folder has been made."""
+
+    def __init__(self, files):
+        super().__init__(files)
+        self.made: list[str] = []
+
+    def make_dirs(self, path: str) -> None:
+        self.made.append(os.path.normpath(path))
+
+    def write_text(self, path: str, text: str) -> None:
+        if (os.path.normpath(path) == COMPANION_FILE
+                and os.path.dirname(COMPANION_FILE) not in self.made):
+            raise FileNotFoundError(path)
+        super().write_text(path, text)
+
+
+def test_the_docs_directory_is_made_before_a_created_companion_is_written():
+    walk = _with_template(_carrying_walk(main=None))
+    walk.files = _DirectoryCheckingFiles(dict(walk.files.files))
+
+    walk.advance("specs")
+
+    assert os.path.dirname(COMPANION_FILE) in walk.files.made
+    assert _main_companion(walk) == _CREATED_COMPANION
+
+
+_UNSTAGE_CREATED = ["git", "-C", INSTANCE, "rm", "--cached", "--ignore-unmatch", "--quiet", "--",
+                    MAIN_COMPANION_REL]
+
+
+def test_a_refused_commit_after_a_create_removes_the_companion_and_unstages_it():
+    refused = _exiting(_with_template(_carrying_walk(main=None)), 1)
+    failed_restore = _exiting(_with_template(_carrying_walk(main=None)), 1, 5)
+
+    refused.advance("specs")
+    failed_restore.advance("specs")
+
+    assert refused.state["ended_reason"] == (
+        "stopped at specs: records-owed — carrying onto main failed: commit_builder exited 1")
+    assert not refused.files.is_file(COMPANION_FILE)
+    assert refused.processes.calls[-1]["argv"] == _UNSTAGE_CREATED
+    assert refused.processes.calls[-1]["cwd"] == INSTANCE
+    assert _sweep_launches(refused) == []
+    assert failed_restore.state["ended_reason"] == (
+        "stopped at specs: records-owed — carrying onto main failed: commit_builder exited 1 "
+        f"(restoring {COMPANION} exited 5)")
+    assert not failed_restore.files.is_file(COMPANION_FILE)
+
+
+def _created_unstage_command(repository: Path) -> list[str]:
+    """The command the restore hands the processes fake for a created file, aimed at a real
+    repository in place of the fake's path."""
+    walk = _exiting(_with_template(_carrying_walk(main=None)), 1)
+    walk.advance("specs")
+    argv = walk.processes.calls[-1]["argv"]
+    return argv[:2] + [str(repository)] + argv[3:]
+
+
+def test_the_unstage_command_for_a_created_file_exits_zero_on_a_path_never_staged(repo):
+    command = _created_unstage_command(repo)
+
+    assert command[3:5] == ["rm", "--cached"]
+    assert subprocess.run(command, capture_output=True, text=True).returncode == 0
+
+
+def test_the_unstage_command_leaves_nothing_staged_after_the_builder_had_staged_a_created_file(
+        repo):
+    command = _created_unstage_command(repo)
+    created = repo / MAIN_COMPANION_REL
+    created.parent.mkdir(parents=True)
+    created.write_text(_CREATED_COMPANION)
+    _git(repo, "add", MAIN_COMPANION_REL)
+    created.unlink()
+
+    result = subprocess.run(command, capture_output=True, text=True)
+
+    assert result.returncode == 0
+    assert _git(repo, "status", "--porcelain") == ""
+
+
+def test_fake_files_remove_deletes_a_file_and_accepts_one_already_gone():
+    files = FakeFiles({"/a/one.md": "1", "/a/two.md": "2"})
+
+    files.remove("/a/one.md")
+    files.remove("/a/one.md")
+
+    assert files.files == {"/a/two.md": "2"}
+
+
+# --- development-code-integrity, 2026-11-14: tests derived from change_spec.md -----------------
+
+
+def test_a_main_companion_whose_raised_heading_sits_in_a_comment_is_given_the_section():
+    commented = ("## 2. Open questions\n\n<!-- ## 3. Raised from downstream — retired -->\n\n"
+                 "Something else.\n")
+    walk = _with_template(_carrying_walk(main=commented))
+
+    walk.advance("specs")
+
+    assert len(_builder_calls(walk)) == 1
+    assert _main_companion(walk) == _companion(commented) + f"\n{_WIDGET_RAISED}\n\n{_X_BLOCK}"
+    assert walk.state["sweep_items"] == [{"value": RECORDS_ITEM, "held": True}]
+
+
+def test_a_created_companion_and_an_appended_one_land_in_one_commit():
+    walk = _with_template(_carrying_two_companions(main=None))
+
+    walk.advance("specs")
+
+    calls = _builder_calls(walk)
+    assert len(calls) == 1
+    assert _flag_values(calls[0]["argv"], "--add") == [MAIN_COMPANION_REL, _SECOND_REL]
+    assert _main_companion(walk) == _CREATED_COMPANION
+    assert walk.files.read_text(_SECOND_MAIN) == _companion(_CARRIED_MAIN)
+
+
+def test_a_refused_commit_removes_a_created_companion_and_restores_one_that_existed():
+    walk = _exiting(_with_template(_carrying_two_companions(main=None)), 1)
+
+    walk.advance("specs")
+
+    assert walk.state["ended_reason"] == (
+        "stopped at specs: records-owed — carrying onto main failed: commit_builder exited 1")
+    assert not walk.files.is_file(COMPANION_FILE)
+    assert walk.files.read_text(_SECOND_MAIN) == _companion(_MAIN_SECTION)
+    assert walk.processes.launched[-2:] == [
+        _UNSTAGE_CREATED, ["git", "-C", INSTANCE, "restore", "--staged", "--", _SECOND_REL]]
+    assert _sweep_launches(walk) == []
+
+
+def test_a_template_that_does_not_decode_is_no_template(tmp_path):
+    folder = tmp_path / "templates" / "product-templates"
+    folder.mkdir(parents=True)
+    (folder / "fdr_open_issues_template.md").write_bytes(b"\xff\xfe# FDR open issues\n")
+    real = cd.DiskReader(files=cd.Files(), git=FakeGit())
+
+    assert real.companion_template(str(tmp_path), "fdr_open_issues.md") is None
+
+
+class FilesContract:
+    """The cases of the `Files` port the carry's create and restore rely on, real or fake. Not
+    collected: each subclass names its factory, which returns the port and a folder it may
+    write under."""
+
+    def make(self, tmp_path):
+        raise NotImplementedError
+
+    def test_a_removed_file_is_gone(self, tmp_path):
+        files, folder = self.make(tmp_path)
+        path = os.path.join(folder, "companion.md")
+        files.write_text(path, "text\n")
+
+        files.remove(path)
+
+        assert not files.is_file(path)
+
+    def test_removing_a_file_already_gone_is_the_state_asked_for(self, tmp_path):
+        files, folder = self.make(tmp_path)
+        kept = os.path.join(folder, "kept.md")
+        files.write_text(kept, "kept\n")
+
+        files.remove(os.path.join(folder, "never.md"))
+
+        assert files.list_dir(folder) == ["kept.md"]
+
+    def test_an_absent_folder_lists_nothing(self, tmp_path):
+        files, folder = self.make(tmp_path)
+
+        assert files.list_dir(os.path.join(folder, "absent")) == []
+
+
+class TestTheRealFiles(FilesContract):
+    def make(self, tmp_path):
+        return cd.Files(), str(tmp_path)
+
+
+class TestTheFakeFiles(FilesContract):
+    def make(self, tmp_path):
+        return FakeFiles(), "/fake"

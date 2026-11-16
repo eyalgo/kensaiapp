@@ -15,9 +15,8 @@ restatement of the shared contract.
 ## Roles on this instance
 
 The standard set: cpo · cto · cdo · architect · tech-lead · developer · content-manager · content-editor · product-owner · pm · principal-pm · principal-architect · qa · scrum-master · senior-engineer.
-Each has a global loader (`<CORE>/roles/loaders/<role>_global.md`) and, for the fourteen prefix-invoked roles,
-an app-level overlay (`system/loaders/<role>.md`). QA is fork-invoked, not prefix-invoked — global-only,
-no overlay, no context.
+Each of the fifteen is prefix-invoked, and each has a global loader (`<CORE>/roles/loaders/<role>_global.md`)
+and an app-level overlay (`system/loaders/<role>.md`).
 
 **The overlays are present and clean.** Each carries the thin shape and an explicitly undeclared domain
 section. That is a stated state, not an oversight — the domain is authored per instance, and until it is,
@@ -31,7 +30,8 @@ run, in what order and on which seat is `<CORE>/doctrine/flow/development_flow.m
 this file does not restate it. How the handoff works is `<CORE>/roles/CROSS_ROLE.md` § *8. Handoff
 is folder-derived*.
 
-QA is not a step; it is forked on a committed artifact, outside the chain.
+QA is a chain seat. Its place is after the spec and before the design (`<CORE>/docs/michi_agari.md` § *Who owns each step*),
+and the chain runs it as its `red-behaviour` step.
 
 ---
 

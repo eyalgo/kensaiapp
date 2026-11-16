@@ -1,5 +1,5 @@
 ---
-version: "1.1.0"
+version: "1.1.1"
 ---
 
 # Rust — testing
@@ -113,8 +113,7 @@ the wrong place, and it moves into `#[cfg(test)] mod tests`.
 
 ## Layers 6–7 — acceptance-time
 
-Owned by the QA role and written from the design and the specs before code, per
-`testing_doctrine.md`, which also says where a project with no active QA role records that.
+Owned by the QA role and written before code, per `testing_doctrine.md`: layer 7 after the spec, before the design, and layer 6 from the design. That file also says where a project with no active QA role records that.
 
 **Layer 6 runs on `cargo test`, in `tests/architecture.rs`:**
 

@@ -200,7 +200,8 @@ class TestPinEnter:
         pins_home_dir.mkdir()
         made = pin.make(host, pins_home_dir)
         (host / "core" / "tools" / "edited_after_the_pin.py").write_text("print('new')\n")
-        assert pin_host_changed.compare(made) is pin_host_changed.Verdict.CHANGED
+        verdict = pin_host_changed.compare(made, pin_host_changed.HostTree())
+        assert verdict is pin_host_changed.Verdict.CHANGED
         pinned_stub = made.root / "core" / "launchers" / "stub" / "launcher.sh"
         record = tmp_path / "record.txt"
 

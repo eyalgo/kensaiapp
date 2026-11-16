@@ -1,5 +1,5 @@
 ---
-version: "1.20.0"
+version: "1.22.0"
 ---
 
 # Stamping scope — dispositions and drift criteria
@@ -73,11 +73,9 @@ Required sections: key files for this role, project-specific rules/overrides, ac
 Cross-layer consistency (checked against the global loader + `kensaiapp_structure.md`):
 - Key files must not include the pipeline-intake or journey paths `kensaiapp_structure.md` defines (the per-project pipeline intake §2; the per-project `journey/` §2; the instance `system/nemawashi/` §1) — those are picked up deliberately, not role key-file reads.
 - If the overlay defines an on-invocation section, it must not duplicate what the global loader already reads or contradict the global loader's prescribed reads.
-- No `qa.md` overlay: qa is **global-only** (fork-invoked, no prefix) — its entire definition lives in `core/roles/loaders/qa_global.md`; qa has **no app-level loader and no context** (the only per-role context setup stamps is the per-project PM context; qa has none).
 
 ### `system/projects/<name>/contexts/CONTEXT_PM.md` — per-project PM context (`[create]`, drift report-only)
-The **only** per-role context setup stamps (the thirteen non-PM prefix-invoked roles are stamped with none;
-qa has none). A hand-maintained `system/contexts/CONTEXT_<ROLE>.md` an overlay reads is the instance's,
+The **only** per-role context setup stamps (the fourteen non-PM prefix-invoked roles, qa among them, are stamped with none). A hand-maintained `system/contexts/CONTEXT_<ROLE>.md` an overlay reads is the instance's,
 stamped by nothing and not drift, its one skill-written section included —
 `kensaiapp_structure.md` § *Role layer*. Stamped from `templates/context_template.md`; created on Init
 if missing, **never auto-overwritten** (lifecycle-written by `tobiishi-open` / `tobiishi-seal`).
@@ -87,8 +85,9 @@ files).
 
 ### `system/projects/<name>/project.md`
 Required field: `Product path:` (the project→product binding). Drift: `Product path:` absent. The other
-fields (`Source material`, `Type`, `Manages`, `Execution type`, `Package slug`, `Test command`,
-`Setup command`, `Languages`, `Parallelism`) are **not** drift-checked.
+fields (`Source material`, `Type`, `Definition`, `Manages`, `Execution type`, `Package slug`,
+`Test command`, `Behave`, `Setup command`, `Dependencies command`, `Languages`, `Parallelism`) are
+**not** drift-checked.
 
 ### Instance + per-project doctrine files (`[create]`, stamped verbatim from templates)
 Covers `system/doctrine/{kensaiapp_doctrine,ai_responsibility,doctrine_structure}.md` (instance)
@@ -134,7 +133,7 @@ Some sections **project** a list that is canonically owned by a global doctrine 
 
 | Projection (file § section) | Canonical source | Currency rule |
 |---|---|---|
-| `AGENTS.md` § loader map | the **prefix-invoked** role set — standard roles minus fork-invoked roles (exclude `qa`: it is forked by a producing role, never opened by a `qa:` prefix) | one `<role>:` entry per prefix-invoked role |
+| `AGENTS.md` § loader map | the **prefix-invoked** role set — every role in the standard set, `qa` included | one `<role>:` entry per prefix-invoked role |
 | `AGENTS.md` § direction and journey | `<CORE>/doctrine/setup/kensaiapp_structure.md` §1 (instance app-level — `system/michi.md` declaration + `system/nemawashi/` seedbed + `system/shukuba/` router station) | one entry per app-level journey path — the three named; the upkeep register is not a journey item and takes no entry |
 | `<CORE>/templates/project-templates/setup_seed_template.md` § Stations | `<CORE>/doctrine/setup/setting_up_a_project.md` § The flow at a glance | one station per row of the station table, in the same order, naming the same skill |
 | `<CORE>/templates/project-templates/setup_seed_prd_and_finish_line_template.md` § Stations | `<CORE>/doctrine/setup/setting_up_a_project.md` § The flow at a glance, the `prd-and-finish-line` row of the table under it | one station per row that row names — rows 1 and 2 — in the same order, naming the same skill, and none after them |

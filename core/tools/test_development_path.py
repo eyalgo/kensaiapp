@@ -195,6 +195,78 @@ def test_target_command() -> None:
         target(contract, "unknown")
 
 
+def _qa_contract(*, kind: str, product_path: str, product_repo: str,
+                 product_worktree: str) -> development_path.Contract:
+    return development_path.build_contract(
+        kind=kind, project="proj", key="key1", product_path=product_path,
+        instance_repo="/abs/instance", instance_worktree="/abs/instance/.worktrees/key1",
+        product_repo=product_repo, product_worktree=product_worktree)
+
+
+def test_qa_target_for_a_relative_product_names_repo_branch_scenario_folder_and_record() -> None:
+    contract = _qa_contract(kind="relative", product_path=".claude",
+                            product_repo="/abs/instance",
+                            product_worktree="/abs/instance/.worktrees/key1")
+    assert target(contract, "qa") == {
+        "repo": "/abs/instance",
+        "worktree": "/abs/instance/.worktrees/key1",
+        "branch": "key1",
+        "scenario_folder": "/abs/instance/.worktrees/key1/.claude/.behave",
+        "record": "/abs/instance/.worktrees/key1/system/projects/proj/journey/tobiishi/key1/"
+                  "qa_record.md",
+    }
+
+
+def test_qa_target_for_an_absolute_product_in_its_own_repo_puts_the_folder_in_the_product_worktree(
+) -> None:
+    contract = _qa_contract(kind="fixed", product_path="/abs/product/app",
+                            product_repo="/abs/product",
+                            product_worktree="/abs/product/.worktrees/key1")
+    result = target(contract, "qa")
+    assert result["repo"] == "/abs/product"
+    assert result["worktree"] == "/abs/product/.worktrees/key1"
+    assert result["scenario_folder"] == "/abs/product/.worktrees/key1/app/.behave"
+    assert result["record"] == ("/abs/instance/.worktrees/key1/system/projects/proj/journey/"
+                                "tobiishi/key1/qa_record.md")
+
+
+def test_qa_target_for_a_product_at_its_repo_root_has_no_extra_segment() -> None:
+    contract = _qa_contract(kind="fixed", product_path="/abs/product",
+                            product_repo="/abs/product",
+                            product_worktree="/abs/product/.worktrees/key1")
+    assert target(contract, "qa")["scenario_folder"] == "/abs/product/.worktrees/key1/.behave"
+
+
+def test_qa_target_through_the_cli_prints_the_three_places(
+        relative_setup: RelativeSetup) -> None:
+    instance, worktree = relative_setup
+    args = ["--worktree", str(worktree), "--project", PROJECT, "--key", KEY, "--kind", "qa"]
+    code, out = run_main("target", *args)
+    assert code == 0
+    printed = json.loads(out)
+    assert list(printed) == ["repo", "worktree", "branch", "scenario_folder", "record"]
+    assert printed["repo"] == str(instance)
+    assert printed["branch"] == KEY
+    assert printed["scenario_folder"] == str(worktree / "products" / "app" / ".behave")
+    assert printed["record"] == str(worktree / "system" / "projects" / PROJECT / "journey"
+                                    / "tobiishi" / KEY / "qa_record.md")
+    code, text = run_main("target", *args, "--format", "text")
+    assert code == 0
+    assert text.splitlines()[0] == f"repo={instance}"
+    assert text.splitlines()[2] == f"branch={KEY}"
+    assert len(text.splitlines()) == 5
+
+
+def test_an_unknown_target_kind_names_all_four_kinds() -> None:
+    contract = _qa_contract(kind="relative", product_path=".claude",
+                            product_repo="/abs/instance",
+                            product_worktree="/abs/instance/.worktrees/key1")
+    with pytest.raises(ToolError) as refused:
+        target(contract, "unknown")
+    assert refused.value.code == "invalid-target-kind"
+    assert "code, pipeline, delivery, qa" in refused.value.message
+
+
 def test_no_module_level_subprocess_call_outside_git() -> None:
     """Every git question goes through the injected `Git`; nothing else in the module spawns a
     process, so a fake `Git` really does isolate a test from the machine."""
@@ -616,7 +688,7 @@ class TestErrorSurface:
         error = json.loads(out)
         assert (code, error["error"]) == (1, "invalid-target-kind")
         assert "'bogus'" in error["message"]
-        assert "code, pipeline, delivery" in error["message"]
+        assert "code, pipeline, delivery, qa" in error["message"]
 
     def test_invalid_target_kind_through_the_real_entry_point(self, root: Path) -> None:
         res = run_cli("target", *self.args(root, "--kind", "bogus", "--format", "json"), cwd=root)

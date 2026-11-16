@@ -49,14 +49,19 @@ Every change passes through the same roles.
 - **Ask.** The PM opens the change from the station it serves.
 - **Spec, Design, Plan.** The product owner says what must hold, the architect where it goes, the tech
   lead how it is built, task by task.
+- **QA.** On a product with code that a person uses, QA writes the behaviour scenarios the spec asks
+  for, and they fail first. The developer and the architect may each send the walk back to QA once,
+  saying why. The diagram above does not show it yet.
 - **Build.** The developer writes a failing test, then the code that passes it, then the refactor.
   A task that skips its failing test halts the walk.
 - **Changelog.** The content editor writes the change's CHANGELOG entry, and takes off the product's
   list of what is left whatever the change wholly builds. It runs for every change. The diagram
   above does not show it yet.
 - **Prove.** The senior engineer checks the code against the intent, not against itself.
-- **Security.** It runs the product's dependency audit, reads the change for holes, fixes what its
-  rules allow and reports the rest. A first iteration.
+- **Security.** It runs the product's dependency audit and three scanners, `osv-scanner`, Semgrep and
+  `gitleaks`, reads the change for holes, fixes what its rules allow and reports the rest.
+- **Close.** On the same products, a program runs every behaviour scenario on the change's final code.
+  One that fails stops the walk before the audit. The diagram does not show it yet.
 - **Audit.** The auditor reviews how well each step did its job. It does not stop the change. What
   it finds goes to the PM's review, which can re-cut the route, park a station or drop the change, and
   to the improvement of the skills themselves.

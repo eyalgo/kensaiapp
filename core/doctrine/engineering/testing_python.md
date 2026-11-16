@@ -1,7 +1,7 @@
 ---
-version: "2.4.0"
+version: "2.5.0"
 name: testing-python
-description: Python implementation of testing_doctrine.md. Tooling and file conventions for layers 1–6. Layer 7 is answered elsewhere.
+description: Python implementation of testing_doctrine.md. Tooling and file conventions for layers 1–6. Layer 7 says where the Behave scenarios live and how the chain runs them.
 ---
 
 # Testing Doctrine — Python
@@ -67,6 +67,4 @@ toolchain decision, and its § 1.2 entries are unaffected.
 
 ## Layer 7 — Specification
 
-**Not answered here.** Layer 7 is BDD scenarios derived from a product's FDR, and **nothing in this
-system produces them yet** — what will is the foundation tier's, not this packet's. A Python product
-writing them today records its runner in `docs/nfdr.md` § 9.
+Layer 7 is Behave scenarios written from a change's spec, after the spec and before the design, by QA's `red-behaviour` step. They live in the product's `.behave` folder, which has its own `pyproject.toml` and `uv.lock`. The chain judges them by running `uv run --locked behave` there, on a throwaway copy of the code before the change. A product records the way its scenarios reach it in `docs/nfdr.md` § 9.

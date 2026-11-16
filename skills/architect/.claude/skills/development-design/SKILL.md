@@ -3,7 +3,7 @@ name: development-design
 description: Architect-posture skill for ongoing work on an existing project. Takes change_spec.md (output of development-specs) as primary input, with docs/adr/, docs/fdr.md, docs/nfdr.md and the parts table of docs/SDD.md § 3 as architectural references, and the language packet the product resolves to, whose practice binds every interface, placement and hint the design fixes. Names the part that owns each new piece of logic, determines blast radius, decomposes into isolated sub-jobs when multiple modules are affected, and produces change_design.md — a targeted change blueprint with sub-job boundaries, interface contracts, build sequence, and code strategy, whose header carries a Publishes text line (yes with the places, or no) that the chain reads to decide whether the content-editor step runs. No interview. The records are optional context — used when present, never required. Run when a change_spec.md is ready.
 license: MIT
 metadata:
-  version: "2.21.0"
+  version: "2.22.0"
   category: architecture
   risk: safe
 ---
@@ -238,13 +238,47 @@ Fix any self-resolvable gaps directly. **A spec that conflicts with itself or wi
 - **A spec silent on a decision** — it states nothing on it — is no conflict: lock the conservative reading and log it under `## Architect Review Notes`, as check 6 asks. A spec whose lines admit two readings is ambiguous, and the reading rule above decides it.
 - **Halt only when no reading works** — every reading breaks an existing contract the spec does not release in a Rule, or drops something the request asks for. Halt `spec-conflict` per § *How this skill halts*, the report numbering each conflict and the decision that settles it. `spec-conflict` is the halt for a spec that no reading settles. A reading that sets a record aside is never one that works. A records defect is never settled by a reading and never halted `spec-conflict`. It is raised, as *A records defect is raised* says. Where a records defect and a spec no reading settles both remain, the halt is `records-owed`, by the *Records owed* rule that bullet points at.
 
-Signal: **"change_design: clean."** On a halt, signal **"change_design: halted — halt_report.md"** instead.
+Signal: **"change_design: clean."** On a halt, signal **"change_design: halted — halt_report.md"** instead. On an ask of QA's step, signal **"change_design: asked QA to change its scenarios."** instead.
 
 ### Step 8 — Commit outputs
 
 Commit `change_design.md` on the change branch through the shared builder — read `<CORE>/doctrine/governance/commit_via_builder.md` and supply its variables: `<repo>` = `$WORKTREE`, `<staged file(s)>` = `change_design.md` (+ `deferred_decisions.md` when this run wrote to it), plus subject / body / **`--actor architect`** (the agent `launcher.md` launches this skill as — name it, never derive it) / `--skill development-design` (this skill's own name, so `Skill-Version:` records what ran) / directional. Never hand-write `git commit` or a trailer. This skill does not advance the pipeline inboxes — that baton-pass is handled separately.
 
 The skill is done.
+
+### Asking QA to change its scenarios
+
+**Ask QA to change its scenarios when the behaviour the spec states cannot be made testable through the way in the product's NFDR records unless one of QA's scenarios, or a step definition it runs on, changes.** QA's scenarios are the change's behaviour scenarios, which QA's step committed as the change's red before this design.
+
+**The ask is made only on a change QA's step applied to.** A change QA's step passed has no scenarios, and the chain turns that ask down. Before asking, confirm the step applied:
+
+```bash
+"<CORE>/tools/locked_python.sh" "<CORE>/tools/chain_development.py" --qa-applies <key> \
+  --instance-root "<instance-repo>" --project <project>
+```
+
+`<instance-repo>` is the main checkout: the `instance_repo` that `development_path.py resolve` printed in § *Enter the worktree*, the folder whose `.worktrees/<key>` is `$WORKTREE`. It is never `$WORKTREE` itself. Given the change worktree, the command exits 2.
+
+Exit 0 means QA's step applied, and the run may ask. Exit 1 means it did not, so the change has no scenarios to change, and the run makes no ask. On any other exit the run makes no ask, records the command's message in `## Architect Review Notes`, and goes on as a run that left no ask.
+
+**The architect asks at most once on one change.** Once an ask from the architect has been accepted, the chain turns down a second ask from it.
+
+**The ask says why.** Its whole text is its reason, in plain text. The reason names the scenario or step definition that must change, what must change in it, and why the run cannot go on without that change. The chain turns down an ask with no reason. An ask whose text is only spaces and blank lines has no reason.
+
+**Write the ask at the path this command prints, and at no other:**
+
+```bash
+"<CORE>/tools/locked_python.sh" "<CORE>/tools/chain_development.py" --qa-ask-place <key> \
+  --instance-root "<instance-repo>" --project <project>
+```
+
+`<instance-repo>` is the same main checkout as above. The run composes no path for the ask of its own. Leave the ask uncommitted. The chain reads it when the run ends.
+
+**When that command exits non-zero, the run leaves no ask.** It writes the reason at no other path. It records the command's message in `## Architect Review Notes` and goes on as a run that left no ask.
+
+**The ask is the run's last act.** Before writing it, delete a draft `change_design.md` and revert any `deferred_decisions.md` entry this run wrote, as § *How this skill halts* does. Both describe a design built against scenarios that are about to change. Commits made before the ask stand. After the ask the run commits nothing, so no `change_design.md` is committed in that run. An ask is not a halt, so the run writes no `halt_report.md` for it. Then end the run with the ask's signal (Step 7).
+
+**The chain answers the ask when the run ends.** An accepted ask runs QA's step again. Once the chain accepts QA's new red, the walk comes back to the architect in a new run of this skill. A turned-down ask lets the run's end count as it would with no ask left.
 
 ### How this skill halts
 
@@ -261,6 +295,7 @@ Every halt and STOP in this skill that happens once `$WORKTREE` exists ends the 
 | `change_design.md` | This skill, with its `Publishes text:` header line |
 | `deferred_decisions.md` | Written to (created when absent) when Step 7 takes one reading of a conflicting spec, or when a packet conflict this change cannot fix is handed on (Pre-flight, Step 7 check 10) |
 | `halt_report.md` | On any halt (§ *How this skill halts*), with no `change_design.md` beside it — including when Step 7 finds no reading that keeps every existing contract and delivers the request, and when a records defect is raised (`records-owed`) |
+| An ask of QA's step | This skill, only under § *Asking QA to change its scenarios*: left uncommitted at the path `--qa-ask-place` prints, with no `change_design.md` committed and no `halt_report.md` written in that run |
 
 `docs/adr/`, `docs/fdr.md`, `docs/nfdr.md` and `docs/SDD.md` are **not updated** by this skill. They document the project's foundation. `change_design.md` documents the delta, and names in § *Records this change makes false* every sentence in them the delta makes false. The one write this skill makes outside the change folder is on a `records-owed` halt: one item per records defect, on its owning document's companion under *Raised from downstream* (Step 7, *A records defect is raised*). No product document is edited. When development-plan is invoked for this change, the tech lead reads both the records and `change_design.md`.
 
@@ -284,6 +319,7 @@ Every halt and STOP in this skill that happens once `$WORKTREE` exists ends the 
 - **Realize stated spec contracts explicitly.** When `change_spec.md` states an explicit contract — an ordering, a structure, a bound — the design realizes it *by construction*, never by relying on an invariant that only coincides with it today. Satisfying a stated contract by accident (e.g. spec "ascending by `id`" met only by the design's incidental stored order) is a latent break; make the design satisfy it on purpose.
 - **Record every divergence in `## Architect Review Notes`.** Every design decision that departed from or went beyond `change_spec.md` — resolving a spec contradiction (never one with the `Behaviour` label — the preserving STOP sends that back), locking *how* a stated contract is realized by construction, overriding an upstream recommendation, departing from this skill's own stated shape, or placing logic the parts table alone could not place — is logged with its reason (the architect-stage analog of development-plan's `## TL Review Notes`). A silent resolution turns a reviewable decision into an unexamined assumption. Omit the section only when the design adds no such decision.
 - **Name every record this change makes false.** `## Records this change makes false` is written on every run, in both modes — each entry the record's path and section, what goes false, and the correction; the zero form names what was read. The record is never edited here; `development-plan` carries each entry into its *Owed outside this change's reach* line.
+- **An ask of QA's step is made only as § *Asking QA to change its scenarios* says.** It is made on a change QA's step applied to, at most once, with its reason, at the path `--qa-ask-place` prints, and left uncommitted. The run then ends, commits nothing after the ask and writes no `halt_report.md` for it.
 - **Two-axis classification.** Every change carries `Category` + `Behaviour` (see `<CORE>/doctrine/flow/change_classification.md`). `Behaviour: preserving` switches Steps 2–7 to structural-relocation mode: blast radius is relocation-only (no transitive impact; on a product with no code, the documents citing a moved statement's old place), §3 is a **Layout Plan** (not interface-contract sub-jobs), §5 is test-continuity, the cold-read asserts the negative. Do not fork the skill per axis — the axis selects the step bodies.
 - **development-design owns the layout; nothing more.** On a preserving change, development-design decides the named modules and symbol partitioning the spec deferred — but it does **not** re-open the spec's locked Invariants (up-fence) and does **not** shape TDD move-tasks or red/green sequencing (down-fence — development-plan's job). Layout is *what-goes-where*, not *how-to-sequence-the-moves* and not *how-modules-import* — the symbol→module table carries no import wiring, stdlib annotations, or per-symbol dependency lines; that implementation travels with the moved code and is the developer's to write.
 - **Read the code as structure, not behaviour.** A preserving change *requires* reading the implementation to inventory symbols for the layout — that is correct here, and differs from `development-specs`, which reads bodies only to *verify* a claim and never *sources* an invariant from one (at PO altitude, sourcing from code leaks mechanism into invariants). development-design reads the code to map current symbol locations onto target modules — never to re-derive behaviour or second-guess the locked Invariants.

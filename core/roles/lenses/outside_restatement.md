@@ -1,5 +1,5 @@
 ---
-version: "1.0.5"
+version: "1.0.6"
 ---
 
 # outside_restatement — a role fact restated outside the role layer, drifting there
@@ -51,13 +51,13 @@ two before it, and was found only when a cold read of an unrelated station walke
 the shape**: a restatement outside the role layer outlives every fence drawn around the role layer,
 because no fence names it. Repaired at the `sdd-stale-facts-outside-every-fence` station.
 
-**Instance two — live, and found by this lens.** `core/tools/commit_builder.py`'s `AGENT_ROLE` map,
-which its own comment calls "this module's sole home for the actor -> Role mapping", holds fifteen
-entries and no `qa` key. The role layer requires that seat to commit:
-`core/roles/loaders/qa_global.md:19` reads "Read the produced artifact + its source of truth; write and
-commit the verification file", and its three listed skills each say the seat "produces and commits" an
-acceptance file. The agent exists at `skills/qa/.claude/agents/qa.md`. A seat obliged to commit has no Role to
-commit as.
+**Instance two — repaired, and kept here because the repair is the evidence.**
+`core/tools/commit_builder.py`'s `AGENT_ROLE` map, which its own comment calls "this module's sole home
+for the actor -> Role mapping", held fifteen entries and no `qa` key. The role layer required that seat
+to commit: `core/roles/loaders/qa_global.md` read "Read the produced artifact + its source of truth;
+write and commit the verification file", and its three listed skills each said the seat "produces and
+commits" an acceptance file. The agent existed at `skills/qa/.claude/agents/qa.md`. A seat obliged to
+commit had no Role to commit as. The map gained `"qa": "QA"` when QA was seated as a chain seat.
 
 **The scale, measured 2026-08-25.** Twenty-six files outside the role layer assert what a seat owns:
 

@@ -1,5 +1,5 @@
 ---
-version: "1.2.0"
+version: "1.2.1"
 ---
 
 # Swift — testing
@@ -153,8 +153,7 @@ compile `import Testing` (`toolchain.md` § *Toolchain version*).
 
 ## Layers 6–7 — acceptance-time
 
-Owned by the QA role and written from the design and the specs before code, per
-`testing_doctrine.md`, which also says where a project with no active QA role records that.
+Owned by the QA role and written before code, per `testing_doctrine.md`: layer 7 after the spec, before the design, and layer 6 from the design. That file also says where a project with no active QA role records that.
 
 **Layer 6 runs as commands over the package and its build, from a check script, not as a test
 target. That is the packet author's call, 2026-09-23, and it departs from the Rust and TypeScript

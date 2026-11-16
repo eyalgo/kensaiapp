@@ -1,5 +1,5 @@
 ---
-version: "3.9.0"
+version: "3.11.0"
 ---
 
 # Shared-core instance — a satellite that reads another instance's core
@@ -32,17 +32,29 @@ again, and `check_satellites.py` reports the satellite as drifted until then. Th
 `CLAUDE_PROJECT_DIR`, which is still the satellite, so one hook file resolves each satellite's own
 binding.
 
-**Linked to the host — nothing under `.claude/`.** `link_satellite.py` makes no `hooks`, `workflows`
-or `settings.json` link, and removes one an earlier version made into the host — the owner's call,
-2026-10-08. A launched run takes the host's workflows from its pin, so a satellite needs no
-`workflows` link. `agents` is not linked either. A satellite's `.claude/agents/` is its own, so a
-satellite can differ from the host one agent at a time — the owner's call, 2026-10-06.
-Skills follow `--skills-mode`, and every host skill lives in a group (`skills/<group>/.claude/skills/<name>/`), so
-the flat `.claude/skills` is linked in neither mode — the owner's call, 2026-10-03. A consumer is
-given no skills layer at all: the launchers it runs look a group up under the host root (`<CORE>/..`)
-and grant it — through the pin's plugin on the Claude path, `--add-dir` on the Codex path
-(`<CORE>/launchers/skill/launcher.sh` § A GROUPED SKILL'S GROUP IS GRANTED). A producer gets the host's root `skills/` as a per-skill tree, so its
-own eval output and each skill's `evidence/` (`<CORE>/doctrine/engineering/skill_evidence.md`; the host holds none) land in real directories. That is the form `link_satellite.py` gives every satellite it stands up.
+**Linked to the host — a consumer's three journey seats, and a producer's root `skills/`.**
+`link_satellite.py` makes no `hooks`, `workflows` or `settings.json` link, and removes one an
+earlier version made into the host — the owner's call, 2026-10-08. A launched run takes the host's
+workflows from its pin, so a satellite needs no `workflows` link. The `.claude/agents` folder itself
+is not linked either. A satellite's `.claude/agents/` is its own, so a satellite can differ from the
+host one agent at a time — the owner's call, 2026-10-06. Every host skill lives in a group
+(`skills/<group>/.claude/skills/<name>/`), so the host's flat `.claude/skills` is linked in neither
+mode — the owner's call, 2026-10-03. What else a satellite is linked to follows `--skills-mode`. **A
+consumer is linked to the three journey seats and to no other skill** — the owner's call,
+2026-11-15. The three journey seats are `pm`, `principal-pm` and `scrum-master`, the seats that own
+the journey's moves (`<CORE>/docs/michi_agari.md` § *Who owns each step*). `link_satellite.py` links
+each seat's agent file into the consumer's `.claude/agents/`, and every skill in the `skills/pm/`,
+`skills/principal-pm/` and `skills/scrum-master/` groups into its `.claude/skills/`. That is the set
+the host links for itself (`<CORE>/doctrine/setup/kensaiapp_structure.md` § *Native `.claude/`
+layer*), and it is read from the host's groups on disk on every run, so no list of skills is written
+down to fall out of date. A consumer gets no other agent link, no other skill link and no root
+`skills/`. Every other group, the launchers it runs look up under the host root (`<CORE>/..`) and
+grant — through the pin's plugin on the Claude path, `--add-dir` on the Codex path
+(`<CORE>/launchers/skill/launcher.sh` § A GROUPED SKILL'S GROUP IS GRANTED). **A producer gets none
+of the seat links, and its root `skills/` is unchanged.** It gets the host's root `skills/` as a
+per-skill tree, so its own eval output and each skill's `evidence/`
+(`<CORE>/doctrine/engineering/skill_evidence.md`; the host holds none) land in real directories.
+That is the form `link_satellite.py` gives every satellite it stands up.
 
 **Every such link is absolute — that is the only form.** A link carries the host's full path, so it
 reads the same from anywhere and a satellite can be moved without touching it. Relative was the
@@ -81,14 +93,18 @@ holds its own instance's truths or its own binding:
 - the instance's stamped files — `AGENTS.md`, `kensaiapp.md`, `CLAUDE.md`, doctrine stubs, `system/michi.md`, the journey
   folders — from `<CORE>/templates/`.
 - `settings.local.json` — per-machine and gitignored; written fresh, never inherited from the host. Whatever the satellite sets for itself, such as its permissions and its `worktree` setting, goes here, because `link_satellite.py` rewrites its `settings.json`.
-- `.claude/agents/<name>.md` — an agent the satellite overrides, and nothing else. A launched run
-  takes it in place of the agent file of the same name in the host's groups. `check_satellites.py`
-  lists these as overrides, and reports a `.claude/agents` that is a symlink as drift, because a
-  file written through that link lands wherever the link points.
+  - `.claude/agents/<name>.md` — an agent the satellite overrides, as a real file. A launched run
+  takes it in place of the agent file of the same name in the host's groups. A consumer's folder
+  also holds the three journey seats' links, `pm.md`, `principal-pm.md` and `scrum-master.md`, which
+  `link_satellite.py` makes. Where a consumer holds its own real file at one of those names, the
+  linker keeps it and makes no link there. `check_satellites.py` lists every agent file in the
+  folder as an override, a real file at a seat's name included, and leaves a consumer's seat links
+  off that list. It reports a `.claude/agents` that is a symlink as drift, because a file written
+  through that link lands wherever the link points.
 
 ## The consequence to remember
 
-A **core** change reaches every sibling for free. What a change to the **host's native `.claude/` layer** reaches depends on what changed. An edit to a hook script is live in every satellite the moment it lands, because each satellite's written `settings.json` runs the host's scripts by absolute path: no release step, nothing to mirror, so editing a hook here is a galaxy-wide act. Wiring a hook into the host's `settings.json`, or removing one, is live in no satellite until `link_satellite.py` is run against it, and `check_satellites.py` reports each satellite as drifted until then. A workflow reaches a satellite's launched runs through their pin. Where a satellite carries a layer as real files, nothing propagates into it and the change obliges a matching edit there — today that is the producer satellite's root `skills/` alone, which is the producer signature rather than a divergence (`satellites.md` § The two kinds). `link_satellite.py` writes `settings.json` the same way for consumers and producers, so the satellite's *kind* changes none of this.
+A **core** change reaches every sibling for free. What a change to the **host's native `.claude/` layer** reaches depends on what changed. An edit to a hook script is live in every satellite the moment it lands, because each satellite's written `settings.json` runs the host's scripts by absolute path: no release step, nothing to mirror, so editing a hook here is a galaxy-wide act. Wiring a hook into the host's `settings.json`, or removing one, is live in no satellite until `link_satellite.py` is run against it, and `check_satellites.py` reports each satellite as drifted until then. A workflow reaches a satellite's launched runs through their pin. A link in the host's `.claude/agents/` or `.claude/skills/` into a seat's group is what lets a Claude Code session started at the host root reach that seat's agent and skills with no directory added. A change to those links themselves reaches no satellite. What reaches a consumer is the three journey seats' groups they stand for, because `link_satellite.py` reads those groups from the host each time it runs. A skill added to one of those groups is linked into a consumer when `link_satellite.py` is run against it again, and `check_satellites.py` reports the consumer as drifted until then. A skill removed from one of those groups leaves the consumer's link dangling. The linker reports that link and does not remove it, because removing it is a commit in the satellite, and `check_satellites.py` reports the consumer as drifted until that commit is made. A producer is given none of those links, so a change to the three groups reaches it only through its root `skills/` tree. Where a satellite carries a layer as real files, nothing propagates into it and the change obliges a matching edit there — today that is the producer satellite's root `skills/` alone, which is the producer signature rather than a divergence (`satellites.md` § The two kinds). `link_satellite.py` writes `settings.json` the same way for consumers and producers, so the satellite's *kind* changes none of this.
 
 ### And nothing flows back on its own
 

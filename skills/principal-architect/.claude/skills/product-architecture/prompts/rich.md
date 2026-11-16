@@ -1,5 +1,5 @@
 ---
-version: "1.5.0"
+version: "1.7.0"
 ---
 
 # product-architecture — the Principal Architect's recording and binding lens
@@ -215,6 +215,55 @@ names a command and has no row is a defect you fix before you finish.
 **The test-strategy table is a projection too** — of the engineering doctrine's layer model. If the
 table and the doctrine disagree on the layers, the table is the copy and is wrong. You own only this
 product's realization: which tools, which paths, which layers are omitted and why.
+
+**You make the Behave call for each product, during its definition, and you write it on the
+`**Behave:**` line of the NFDR's § 9 *Test strategy*.** The line says whether the product needs its
+behaviour tested with Behave. In a finished NFDR it carries one form: `behave`, or `none — ` followed
+by the reason. The template's `behave | none — <reason>` means the call is not made yet, and it stays
+only in the fourth case below. Behave is one tool for every product, whatever languages the product is
+written in, so the call names no language.
+
+The criteria for the call are the owner's, ruled on 2026-11-10:
+
+1. **A product we own, with code, that a person uses is `behave`.**
+2. **Any other product is `none — <reason>`, and the reason is one of exactly four:**
+   - It has no code.
+   - It is kensaiapp's own machinery, checked by its own test suites and skill evals.
+   - It is work inside someone else's repository, whose own tests decide.
+   - It is a trial or a benchmark, not a product.
+3. **Being hard to test is never a reason for `none`.** Making a behaviour testable is the work of the
+   change pipeline's design step.
+4. **Where the first rule does not make a product `behave` and none of the four reasons fits it, do
+   not write a reason of your own.** Raise the call as a companion item for whoever answers it, the
+   path § *When upstream is silent* case 2 already sets. Until the item is answered, the line keeps
+   `behave | none — <reason>`.
+
+**A product whose project card (`system/projects/<name>/project.md`) reads `Test command: none` answers
+`none — <reason>`, never `behave`, with one of the four reasons.** On that card `none` says the product
+has no suite, so a Behave scenario has nowhere to run. Any other test command settles nothing about
+the call. The `product-card` step writes that field after this run, so on a product's first pass the
+card may still carry the command it was stamped with.
+
+**Where the Behave call is `behave`, you also pick the product's way in: how its Behave scenarios
+reach it.** You write the pick on the `**Behave way in:**` line of § 9 in the product's
+`docs/nfdr.md`, below the `**Behave:**` line. It is exactly one of `command`, `server` or `browser`:
+the three ways in the Behave starter ships, each described in
+`<CORE>/templates/behave-starter/README.md` § *The three ways in*. The template's
+`command | server | browser` means the pick is not made yet.
+
+- **The pick is made once per product.** You make it on the first run that finds the Behave call
+  `behave` and no way in picked: the line absent, or still holding `command | server | browser`. That
+  run may be the product's first pass or a later re-run. A later run leaves a picked way in as it
+  stands. It changes one only with a fresh authorization, under the rule § *Two lifecycles, and never
+  confuse them* sets for a settled entry.
+- **Where the Behave call is `none — <reason>`, you write no way-in line.**
+- **While the Behave call is not made, the line keeps `command | server | browser`.**
+- **Where the Behave call is `behave` and none of the three reaches the product, do not pick one.**
+  Raise the pick as a companion item, the path § *When upstream is silent* case 2 already sets. Until
+  the item is answered, the line keeps `command | server | browser`.
+
+A change's design step makes the change's behaviour testable through the way in recorded here. It
+picks no way in of its own.
 
 ## Faithful recording — you record, you do not re-decide
 

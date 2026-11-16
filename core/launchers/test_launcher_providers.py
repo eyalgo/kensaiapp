@@ -134,7 +134,7 @@ class Copy:
             project_dir = self.cwd / "system" / "projects" / launcher.card
             project_dir.mkdir(parents=True)
             (project_dir / "project.md").write_text(
-                f"# {launcher.card}\n\n**Product path:** products/thing\n"
+                f"# {launcher.card}\n\n**Product path:** products/thing\n**Behave:** none — a test card\n"
             )
         self.env = dict(os.environ)
         self.env.pop("KENSAIAPP_AGENT_PROVIDER", None)
@@ -437,7 +437,8 @@ _A_PATH_TO_THE_FILE = re.compile(r"[\w./-]*providers\.toml")
 
 
 def _names_the_provider_file_in_code(path: Path) -> bool:
-    """Whether `path` holds code that opens or parses `providers.toml`: a parser import, or a
+    """Whether `path` holds code that opens or parses `providers.toml`: a parser import in a file
+    that also says `providers` (a parser alone is any tool that reads some other TOML file), or a
     path to the file in a string that is not a docstring (Python), or the file's name on a line
     that is not a comment (shell)."""
     text = path.read_text(encoding="utf-8")
@@ -457,17 +458,49 @@ def _names_the_provider_file_in_code(path: Path) -> bool:
         and isinstance(node.body[0].value, ast.Constant)
     }
     for node in ast.walk(tree):
-        if isinstance(node, ast.Import) and any(a.name.split(".")[0] in {"tomllib", "tomli", "toml"}
-                                                for a in node.names):
-            return True
-        if isinstance(node, ast.ImportFrom) and (node.module or "").split(".")[0] in {
-            "tomllib", "tomli", "toml"
-        }:
+        imports_a_parser = (
+            isinstance(node, ast.Import)
+            and any(a.name.split(".")[0] in {"tomllib", "tomli", "toml"} for a in node.names)
+        ) or (
+            isinstance(node, ast.ImportFrom)
+            and (node.module or "").split(".")[0] in {"tomllib", "tomli", "toml"}
+        )
+        if imports_a_parser and "providers" in text:
             return True
         if (isinstance(node, ast.Constant) and isinstance(node.value, str)
                 and id(node) not in docstrings and _A_PATH_TO_THE_FILE.fullmatch(node.value)):
             return True
     return False
+
+
+def test_a_parser_import_alone_does_not_make_a_file_the_provider_files_reader(tmp_path):
+    source = tmp_path / "records.py"
+    source.write_text("import tomllib\n\nDOCUMENT = tomllib.loads('a = 1')\n", encoding="utf-8")
+
+    assert not _names_the_provider_file_in_code(source)
+
+
+def test_a_parser_import_in_a_file_that_builds_the_providers_name_is_a_reader(tmp_path):
+    source = tmp_path / "reader.py"
+    source.write_text(
+        'import tomllib\n\nNAME = "." + "providers" + ".toml"\n', encoding="utf-8"
+    )
+
+    assert _names_the_provider_file_in_code(source)
+
+
+def test_a_file_that_imports_a_parser_and_names_the_file_by_a_path_is_still_a_reader(tmp_path):
+    source = tmp_path / "other.py"
+    source.write_text('import tomllib\n\nPATH = "x/.providers.toml"\n', encoding="utf-8")
+
+    assert _names_the_provider_file_in_code(source)
+
+
+def test_a_path_to_the_file_after_an_unrelated_parser_import_is_still_found(tmp_path):
+    source = tmp_path / "other.py"
+    source.write_text('import tomllib\n\nPATH = ".providers.toml"\n', encoding="utf-8")
+
+    assert _names_the_provider_file_in_code(source)
 
 
 def test_only_the_reader_opens_the_provider_file():

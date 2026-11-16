@@ -268,7 +268,7 @@ def run(tmp_path, warm_executables, _session_pin):
         if card:
             text = f"# {name}\n"
             if product_path is not None:
-                text += f"\n**Product path:** {product_path}   <!-- where the product lives -->\n"
+                text += f"\n**Product path:** {product_path}   <!-- where the product lives -->\n**Behave:** none — a test card\n"
             (project_dir / "project.md").write_text(text)
         return project_dir
 
@@ -675,9 +675,13 @@ def test_the_shipped_tobiishi_drop_declaration_quotes_the_reason_under_pm_grante
 
 
 def _shipped_launcher_mds():
-    return sorted(_REPO.glob(".claude/skills/*/launcher.md")) + sorted(
-        _REPO.glob("skills/*/.claude/skills/*/launcher.md")
-    )
+    # A seat's skill is linked into `.claude/skills/` from its group, so both globs find it.
+    # Each declaration is counted once, at the file the link resolves to.
+    found = [
+        *_REPO.glob(".claude/skills/*/launcher.md"),
+        *_REPO.glob("skills/*/.claude/skills/*/launcher.md"),
+    ]
+    return sorted({md.resolve() for md in found})
 
 
 def _field(text, label):
@@ -1093,14 +1097,31 @@ def test_codex_keep_awake_is_bound_to_the_process_observer(demo):
     assert argv == ["-i", "-s"]
 
 
-def test_codex_completion_observer_runs_the_chain_hook_without_a_notifier(demo):
-    hook_log = demo.root / "hook-outcome"
-    hook = demo.root / "hook.sh"
+def _chain_hook_that_signals(root):
+    """A chain hook that hands its outcome through a named pipe, and the reader that waits for it.
+
+    The watcher is detached and polls the run every few seconds, so when its hook fires is the
+    machine's to decide; under a loaded `-n 32` run a fixed wait ran out first. Opening the pipe
+    blocks until the hook writes, so the case waits for the hook itself — no clock. Every exit
+    `watch_process.py` takes (completed, stopped, failed, timeout) runs the hook."""
+    pipe = root / "hook-outcome"
+    os.mkfifo(pipe)
+    hook = root / "hook.sh"
     hook.write_text(
         "#!/usr/bin/env bash\n"
-        f"printf '%s' \"$1\" > {shlex.quote(str(hook_log))}\n"
+        f"printf '%s' \"$1\" > {shlex.quote(str(pipe))}\n"
     )
     hook.chmod(0o755)
+
+    def _outcome():
+        with open(pipe) as reader:
+            return reader.read()
+
+    return hook, _outcome
+
+
+def test_codex_completion_observer_runs_the_chain_hook_without_a_notifier(demo):
+    hook, hook_outcome = _chain_hook_that_signals(demo.root)
     demo.env["DETACH_WATCHER_ON_COMPLETE"] = str(hook)
     demo.env["LAUNCH_SKILL_NOTIFIER"] = str(demo.root / "missing-notifier")
     demo.env.pop("LAUNCH_SKILL_WATCHER")
@@ -1108,11 +1129,7 @@ def test_codex_completion_observer_runs_the_chain_hook_without_a_notifier(demo):
     result = demo("demo", "some-project", "--provider", "codex")
 
     assert result.returncode == 0, result.stderr
-    for _ in range(int(_KEEPAWAKE_WAIT / 0.05)):
-        if hook_log.exists():
-            break
-        time.sleep(0.05)
-    assert hook_log.read_text() == "completed"
+    assert hook_outcome() == "completed"
 
 
 def test_provider_can_be_selected_by_environment(demo):
@@ -2173,13 +2190,7 @@ def test_no_notifier_still_watches_so_a_chain_hook_still_fires(demo):
 
 
 def test_a_claude_run_hands_the_chain_hook_its_outcome_without_a_notifier(demo):
-    hook_log = demo.root / "hook-outcome"
-    hook = demo.root / "hook.sh"
-    hook.write_text(
-        "#!/usr/bin/env bash\n"
-        f"printf '%s' \"$1\" > {shlex.quote(str(hook_log))}\n"
-    )
-    hook.chmod(0o755)
+    hook, hook_outcome = _chain_hook_that_signals(demo.root)
     demo.env["DETACH_WATCHER_ON_COMPLETE"] = str(hook)
     demo.env["LAUNCH_SKILL_NOTIFIER"] = str(demo.root / "missing-notifier")
     demo.env.pop("LAUNCH_SKILL_WATCHER")
@@ -2187,11 +2198,7 @@ def test_a_claude_run_hands_the_chain_hook_its_outcome_without_a_notifier(demo):
     result = demo("demo", "some-project")
 
     assert result.returncode == 0, result.stderr
-    for _ in range(int(_KEEPAWAKE_WAIT / 0.05)):
-        if hook_log.exists():
-            break
-        time.sleep(0.05)
-    assert hook_log.read_text() == "completed"
+    assert hook_outcome() == "completed"
 
 
 def test_the_watcher_default_resolves_through_core_dir_with_the_override_unset(demo):

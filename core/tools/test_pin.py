@@ -245,6 +245,95 @@ class TestRootLockFiles:
         assert not any(relpath.startswith(".venv/") for relpath in listed)
 
 
+_SEAT_SKILL_TARGET = "../../skills/grp/.claude/skills/g"
+_SEAT_AGENT_TARGET = "../../skills/grp/.claude/agents/seat.md"
+
+
+def _add_seat_links(host: Path) -> None:
+    """A group that holds a skill `g` and an agent `seat.md`, and the two relative links into it
+    from the host's flat `.claude/` layer — the shape a default session reaches a seat through."""
+    skill = host / "skills" / "grp" / ".claude" / "skills" / "g"
+    skill.mkdir(parents=True, exist_ok=True)
+    (skill / "SKILL.md").write_text("grouped\n")
+    agent = host / "skills" / "grp" / ".claude" / "agents" / "seat.md"
+    agent.parent.mkdir(parents=True, exist_ok=True)
+    agent.write_text("seat agent\n")
+    (host / ".claude" / "skills").mkdir(parents=True, exist_ok=True)
+    (host / ".claude" / "agents").mkdir(parents=True, exist_ok=True)
+    os.symlink(_SEAT_SKILL_TARGET, host / ".claude" / "skills" / "g")
+    os.symlink(_SEAT_AGENT_TARGET, host / ".claude" / "agents" / "seat.md")
+
+
+class TestHostLinks:
+    def test_make_copies_a_directory_link_as_a_link_with_the_same_target_text(
+        self, tmp_path, pins_home
+    ):
+        host = _init_git_host(tmp_path / "host")
+        _add_seat_links(host)
+
+        made = pin.make(host, pins_home)
+
+        copied = made.root / ".claude" / "skills" / "g"
+        assert copied.is_symlink()
+        assert os.readlink(copied) == _SEAT_SKILL_TARGET
+        assert (copied / "SKILL.md").read_text() == "grouped\n"
+        assert made.root in copied.resolve().parents
+
+    def test_make_copies_a_file_link_as_a_link_with_the_same_target_text(
+        self, tmp_path, pins_home
+    ):
+        host = _init_git_host(tmp_path / "host")
+        _add_seat_links(host)
+
+        made = pin.make(host, pins_home)
+
+        copied = made.root / ".claude" / "agents" / "seat.md"
+        assert copied.is_symlink()
+        assert os.readlink(copied) == _SEAT_AGENT_TARGET
+        assert copied.read_text() == "seat agent\n"
+        assert made.root in copied.resolve().parents
+
+    def test_make_on_a_non_git_host_copies_links_as_links(self, tmp_path, pins_home):
+        host = _non_git_host(tmp_path / "host")
+        _add_seat_links(host)
+
+        made = pin.make(host, pins_home)
+
+        assert os.readlink(made.root / ".claude" / "skills" / "g") == _SEAT_SKILL_TARGET
+        assert os.readlink(made.root / ".claude" / "agents" / "seat.md") == _SEAT_AGENT_TARGET
+        assert (made.root / ".claude" / "skills" / "g" / "SKILL.md").read_text() == "grouped\n"
+
+    @pytest.mark.parametrize("make_host", [_init_git_host, _non_git_host], ids=["git", "non-git"])
+    def test_make_copies_a_dangling_link_as_a_link(self, tmp_path, pins_home, make_host):
+        host = make_host(tmp_path / "host")
+        os.symlink("../../skills/gone/.claude/skills/x", host / ".claude" / "skills" / "x")
+
+        made = pin.make(host, pins_home)
+
+        copied = made.root / ".claude" / "skills" / "x"
+        assert copied.is_symlink()
+        assert os.readlink(copied) == "../../skills/gone/.claude/skills/x"
+
+    def test_tree_files_lists_a_link_once_and_nothing_beneath_a_directory_link(self, tmp_path):
+        host = _non_git_host(tmp_path / "host")
+        _add_seat_links(host)
+
+        listed = pin.tree_files(host)
+
+        assert listed.count(".claude/skills/g") == 1
+        assert ".claude/agents/seat.md" in listed
+        assert not any(relpath.startswith(".claude/skills/g/") for relpath in listed)
+
+    def test_tree_files_still_lists_regular_files_and_root_files(self, tmp_path):
+        host = _non_git_host_with_lock_files(tmp_path / "host")
+        _add_seat_links(host)
+
+        listed = set(pin.tree_files(host))
+
+        assert {"core/tools/tool.py", ".claude/skills/example/SKILL.md"} <= listed
+        assert {"skills/grp/.claude/skills/g/SKILL.md", *_ROOT_LOCK_FILES} <= listed
+
+
 class TestHostFiles:
     @pytest.mark.parametrize(
         "make_host",
@@ -427,6 +516,89 @@ class TestOwnedEntries:
         )
 
         assert made.root in skills["grouped-skill"].parents
+
+
+def _hand_built_pin(root: Path) -> pin.Pin:
+    """A pin tree built by hand, no `make`: group `grp` holds skill `g` and agent `seat.md`, and
+    the flat `.claude/` layer holds a link to each, a real skill `real`, and a link `ext` to a
+    directory under the pin's `core/`. The tmp folder is resolved first, so a link in the test
+    and the real path the code compares are spelled alike."""
+    root = root.resolve()
+    (root / "core" / "ext").mkdir(parents=True)
+    (root / "skills" / "grp" / ".claude" / "skills" / "g").mkdir(parents=True)
+    (root / "skills" / "grp" / ".claude" / "skills" / "g" / "SKILL.md").write_text("g\n")
+    (root / "skills" / "grp2" / ".claude" / "skills" / "h").mkdir(parents=True)
+    (root / "skills" / "grp" / ".claude" / "agents").mkdir(parents=True)
+    (root / "skills" / "grp" / ".claude" / "agents" / "seat.md").write_text("seat\n")
+    (root / ".claude" / "skills" / "real").mkdir(parents=True)
+    (root / ".claude" / "agents").mkdir(parents=True)
+    os.symlink(_SEAT_SKILL_TARGET, root / ".claude" / "skills" / "g")
+    os.symlink("../../core/ext", root / ".claude" / "skills" / "ext")
+    os.symlink(_SEAT_AGENT_TARGET, root / ".claude" / "agents" / "seat.md")
+    return pin.Pin(root=root, core=root / "core", source_host_root=root / "host", id="hand")
+
+
+class TestOwnedEntriesWithFlatLinks:
+    def test_owned_entries_lists_a_flat_link_into_a_granted_group_at_the_grouped_path(
+        self, tmp_path
+    ):
+        built = _hand_built_pin(tmp_path / "pin")
+        instance = tmp_path / "instance"
+        instance.mkdir()
+
+        skills = pin.owned_entries(built, instance, pin.Kind.SKILLS, frozenset({"grp"}))
+
+        assert skills["g"] == built.root / "skills" / "grp" / ".claude" / "skills" / "g"
+
+    def test_owned_entries_omits_a_flat_link_into_a_group_with_an_empty_grant(self, tmp_path):
+        built = _hand_built_pin(tmp_path / "pin")
+        instance = tmp_path / "instance"
+        instance.mkdir()
+
+        skills = pin.owned_entries(built, instance, pin.Kind.SKILLS)
+
+        assert "g" not in skills
+
+    def test_owned_entries_omits_a_flat_link_into_a_group_that_is_not_granted(self, tmp_path):
+        built = _hand_built_pin(tmp_path / "pin")
+        instance = tmp_path / "instance"
+        instance.mkdir()
+
+        skills = pin.owned_entries(built, instance, pin.Kind.SKILLS, frozenset({"grp2"}))
+
+        assert "g" not in skills
+        assert "h" in skills
+
+    def test_owned_entries_lists_a_flat_entry_that_is_not_a_group_link(self, tmp_path):
+        built = _hand_built_pin(tmp_path / "pin")
+        instance = tmp_path / "instance"
+        instance.mkdir()
+
+        skills = pin.owned_entries(built, instance, pin.Kind.SKILLS)
+
+        assert skills["real"] == built.root / ".claude" / "skills" / "real"
+        assert skills["ext"] == built.root / ".claude" / "skills" / "ext"
+
+    def test_owned_entries_agents_maps_the_seat_name_to_the_groups_file(self, tmp_path):
+        built = _hand_built_pin(tmp_path / "pin")
+        instance = tmp_path / "instance"
+        instance.mkdir()
+
+        agents = pin.owned_entries(built, instance, pin.Kind.AGENTS)
+
+        assert agents["seat"] == built.root / "skills" / "grp" / ".claude" / "agents" / "seat.md"
+
+    def test_owned_entries_instance_loop_still_skips_a_host_entry_reached_through_a_link(
+        self, tmp_path, pins_home
+    ):
+        host = _init_ownership_host(tmp_path / "host")
+        _add_seat_links(host)
+        made = pin.make(host, pins_home)
+
+        skills = pin.owned_entries(made, host, pin.Kind.SKILLS)
+
+        assert made.root in skills["host-skill"].parents
+        assert "g" not in skills
 
 
 def _write_skill(skill_dir: Path, depends_on: str | None = None) -> None:

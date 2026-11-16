@@ -99,7 +99,7 @@ def run(tmp_path, _session_pin):
         project_dir = tmp_path / "system" / "projects" / name
         project_dir.mkdir(parents=True)
         if card is None:
-            card = f"# {name}\n\n**Product path:** {product_path}\n"
+            card = f"# {name}\n\n**Product path:** {product_path}\n**Behave:** none — a test card\n"
         (project_dir / "project.md").write_text(card)
 
     def _engine_argv():
@@ -596,7 +596,7 @@ def test_describe_and_start_argv_carry_the_same_provider(run, forcing):
 # a symlink would lead Python's `sys.path[0]` straight back to the whole real tree.
 
 REAL_ENGINE_TOOLS = (
-    "build_idea.py", "chain.py", "chain_development.py", "gate_suite.py", "empty_home.py",
+    "behave_run.py", "build_idea.py", "chain.py", "chain_development.py", "gate_suite.py", "empty_home.py",
     "journey_names.py",
     "journey_status.py",
     "reporters.py",
@@ -628,7 +628,7 @@ class DryRunHost:
         provider_file.write_text(text)
         project = self.root / "system" / "projects" / PROJECT
         (project / "contexts").mkdir(parents=True)
-        (project / "project.md").write_text(f"# {PROJECT}\n\n**Product path:** products/thing\n")
+        (project / "project.md").write_text(f"# {PROJECT}\n\n**Product path:** products/thing\n**Behave:** none — a test card\n")
         (project / "contexts" / "CONTEXT_PM.md").write_text(
             f"# CONTEXT_PM\n\n**Status:** Sealed\n\n`{KEY}` — the unit.\n")
         trail = project / "journey" / "tobiishi" / "trail" / KEY
@@ -1021,7 +1021,7 @@ class World:
         project = tmp_path / "system" / "projects" / PROJECT
         (project / "contexts").mkdir(parents=True)
         (project / "project.md").write_text(
-            f"# {PROJECT}\n\n**Product path:** products/thing\n**Definition:** full\n")
+            f"# {PROJECT}\n\n**Product path:** products/thing\n**Behave:** none — a test card\n**Definition:** full\n")
         (project / "contexts" / "CONTEXT_PM.md").write_text(
             f"# CONTEXT_PM\n\n**Status:** Sealed\n\n`{KEY}` — the unit.\n")
         (project / "journey" / "tobiishi" / "trail" / KEY).mkdir(parents=True)
@@ -1062,7 +1062,7 @@ class World:
     def set_definition(self, definition: str) -> None:
         """The project card's `**Definition:**` line, rewritten to `definition`."""
         card = self.root / "system" / "projects" / PROJECT / "project.md"
-        card.write_text(f"# {PROJECT}\n\n**Product path:** products/thing\n"
+        card.write_text(f"# {PROJECT}\n\n**Product path:** products/thing\n**Behave:** none — a test card\n"
                         f"**Definition:** {definition}\n")
 
     def owners_act(self, after: str = "—") -> tuple[str, str, str]:
@@ -1515,7 +1515,7 @@ class GitHost:
         (self.root / "skills" / "grp" / "SKILL.md").write_text("a grouped skill\n")
         card = self.root / "system" / "projects" / _GIT_HOST_PROJECT / "project.md"
         card.parent.mkdir(parents=True)
-        card.write_text(f"# {_GIT_HOST_PROJECT}\n\n**Product path:** products/thing\n")
+        card.write_text(f"# {_GIT_HOST_PROJECT}\n\n**Product path:** products/thing\n**Behave:** none — a test card\n")
         (self.root / "system" / "note.md").write_text("a note\n")
         (self.root / ".gitignore").write_text("core/ignored.log\n__pycache__/\n.venv/\n")
         _git("add", "-A", cwd=self.root)
@@ -1832,7 +1832,7 @@ def test_the_cards_product_path_is_passed_to_the_engine(run, written, resolved):
 
 
 def test_a_card_with_no_product_path_passes_none(run):
-    run.project("example-product", card="# example-product\n")
+    run.project("example-product", card="# example-product\n\n**Behave:** none — a test card\n")
 
     result = run("example-product")
 

@@ -1,5 +1,5 @@
 ---
-version: "2.2.0"
+version: "2.3.0"
 ---
 
 # PM prompt — right-size a unit of work
@@ -43,7 +43,13 @@ implementation. If the capability is too large, identify the concrete delivery o
 smaller complete increment with its own acceptance boundary. Keep that increment's implementation
 and required proof together. A station may take several such changes to reach its reached-when.
 
+**A complete increment ends green.** Never cut a change that leaves a known red: a case its request
+or spec says stays red, for a later change, station or seed item to turn green. Fold the work that
+turns that case green into the same change, and keep the case inside its acceptance boundary. This
+governs the cut only. A task the developer defers while implementing, with its `Deferred:` line,
+is not a cut.
+
 The sizing decision names the acceptance boundary, its source, and how the requested work maps to
-it. A multiple-change finding must establish separate capabilities or a concrete delivery-size
+it. It names every case the change turns green that is red when it opens, or says there is none. A multiple-change finding must establish separate capabilities or a concrete delivery-size
 problem under this test; the fact that a subset could be tested or merged alone does not establish
 one. Do not split an acceptance checklist into one change per unchecked item.

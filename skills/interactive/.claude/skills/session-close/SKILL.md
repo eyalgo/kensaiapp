@@ -15,7 +15,7 @@ description: |
   session", "hand this over", "session-close".
 license: MIT
 metadata:
-  version: "1.7.4"
+  version: "1.8.0"
   category: journey
   risk: safe
   created: "2026-08-25"
@@ -107,9 +107,14 @@ Then compare where the journey stands against where the session left the work, a
 | Worked inside an open station and it is still open | Nothing — the station carries the position | — |
 
 **Six of those moves are seat-gated.** `shukuba-retire` and `nemawashi-retire` halt outside the Scrum Master,
-`shukuba-park`, `nemawashi-unpick` and `tobiishi-seal` outside the PM, and `nemawashi-drop` outside the Principal PM,
-so for those rows the move that is owed is named and handed to that seat rather than run
-from this session — which changes nothing about the gate below, since this sweep never runs any of them.
+`shukuba-park`, `nemawashi-unpick` and `tobiishi-seal` outside the PM, and `nemawashi-drop` outside the Principal PM.
+The sweep names the move that is owed and starts none of the six before the user tells it to. Once the user
+tells the session to run one, the session runs it through that seat's agent, `scrum-master`, `pm` or
+`principal-pm`, without asking again, and then tells the user which seat ran it and what the run did. Where a
+move ends in the owner's own answer, that answer stays the owner's. The session puts the question to the owner,
+and neither the session nor the seat's agent answers it in the owner's place
+(`<CORE>/doctrine/setup/authoring_layers.md` § *A skill that acts unattended gates to its seat*, the skill that
+ends in an owner pick).
 
 The last row is the common one, and it is a real answer rather than a gap. An open station whose file
 describes where the work stands *is* the continuation record. If the file no longer describes that,
@@ -119,7 +124,7 @@ update the station file — that is a station edit, not a close-out invention.
 (`<CORE>/docs/michi_agari.md` § *How we work*, steps 1–2). A close-out that picks the next thing has
 started the next session on the previous session's judgment.
 
-> **Gate.** Name the move and the skill that owns it. Wait to be told to run it.
+> **Gate.** Name the move and the skill that owns it. Once the user tells the session to run it, run it through the agent of the seat that owns it without asking again, and then tell the user which seat ran it and what the run did. Carrying a change on is the PM's, so that row runs through the `pm` agent too.
 
 ---
 

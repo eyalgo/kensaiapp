@@ -1,4 +1,5 @@
-"""open.py's checks, through its injected git runner and date — no real repo is touched."""
+"""open.py's checks, through the git runner, date, file port and home it is handed. Two cases
+run real git on a repository each makes in its own temporary folder; no other touches one."""
 
 import datetime
 import subprocess
@@ -13,6 +14,7 @@ import open as opener  # noqa: E402
 PROJECT = "demo"
 SEED = "2026-09-01_idea"
 TODAY = lambda: datetime.date(2026, 9, 15)  # noqa: E731
+NO_HOME = "/nonexistent-home"
 
 ROUTE = (
     "# idea\n\n## Stations — dynamic checklist\n\n"
@@ -76,7 +78,7 @@ def test_check_reads_only_the_projects_journey(tmp_path):
     j = _journey(tmp_path)
     _seed(j)
     git = FakeGit()
-    opener.check(tmp_path, PROJECT, git)
+    opener.check(tmp_path, PROJECT, git=git, files=opener.Files())
     assert [c for c in git.calls if c[0] == "status"] == [
         ["status", "--porcelain", "--", str(Path("system") / "projects" / PROJECT / "journey")]]
 
@@ -87,40 +89,66 @@ def test_check_ignores_another_projects_edit_in_a_real_checkout(tmp_path):
     other = tmp_path / "products" / "other"
     other.mkdir(parents=True)
     (other / "notes.md").write_text("x")
+    # An empty folder git does not track: the commit names it so a launched run's
+    # core.hooksPath setting does not put the instance's commit-msg hook on this fixture.
+    no_hooks = tmp_path / "no-hooks"
+    no_hooks.mkdir()
     for args in (["init", "-q"], ["add", "-A"],
-                 ["-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "base"]):
+                 ["-c", "user.name=t", "-c", "user.email=t@t", "-c", f"core.hooksPath={no_hooks}",
+                  "commit", "-qm", "base"]):
         subprocess.run(["git", "-C", str(tmp_path), *args], check=True)
     (other / "notes.md").write_text("edited by another project's walk")
-    assert opener.check(tmp_path, PROJECT, opener.run_git).slug
+    assert opener.check(tmp_path, PROJECT, git=opener.run_git, files=opener.Files()).slug
     (j / "nemawashi" / f"{SEED}.md").write_text(ROUTE + "\nedited\n")
     with pytest.raises(opener.Refused, match="not clean"):
-        opener.check(tmp_path, PROJECT, opener.run_git)
+        opener.check(tmp_path, PROJECT, git=opener.run_git, files=opener.Files())
+
+
+def test_main_check_wires_its_own_collaborators_against_a_real_checkout(tmp_path, capsys):
+    _seed(_journey(tmp_path))
+    no_hooks = tmp_path / "no-hooks"
+    no_hooks.mkdir()
+    for args in (["init", "-q"], ["add", "-A"],
+                 ["-c", "user.name=t", "-c", "user.email=t@t", "-c", f"core.hooksPath={no_hooks}",
+                  "commit", "-qm", "base"]):
+        subprocess.run(["git", "-C", str(tmp_path), *args], check=True)
+    assert opener.main(["--root", str(tmp_path), "--project", PROJECT, "check"]) == 0
+    assert capsys.readouterr().out.splitlines()[:3] == [
+        f"Seed: {SEED}", "Item: 2", "Slug: second-leg"]
+
+
+def test_files_read_lets_a_missing_file_raise_where_read_text_answers_none(tmp_path):
+    files = opener.Files()
+    absent = tmp_path / "absent.md"
+    assert files.read_text(absent) is None
+    with pytest.raises(OSError):
+        files.read(absent)
 
 
 def test_check_names_the_next_unticked_item_on_the_route(tmp_path):
     _seed(_journey(tmp_path))
-    nxt = opener.check(tmp_path, PROJECT, FakeGit())
+    nxt = opener.check(tmp_path, PROJECT, git=FakeGit(), files=opener.Files())
     assert (nxt.seed, nxt.number, nxt.slug, nxt.parked) == (SEED, 2, "second-leg", None)
 
 
 def test_check_counts_an_indented_item(tmp_path):
     _seed(_journey(tmp_path), "## Stations\n\n  - [x] a — done\n  - [ ] b — next\n")
-    assert opener.check(tmp_path, PROJECT, FakeGit()).slug == "b"
+    assert opener.check(tmp_path, PROJECT, git=FakeGit(), files=opener.Files()).slug == "b"
 
 
 def test_check_reads_a_folder_seed(tmp_path):
     j = _journey(tmp_path)
     (j / "nemawashi" / SEED).mkdir()
     (j / "nemawashi" / SEED / "seed.md").write_text(ROUTE)
-    assert opener.check(tmp_path, PROJECT, FakeGit()).number == 2
+    assert opener.check(tmp_path, PROJECT, git=FakeGit(), files=opener.Files()).number == 2
 
 
 def test_check_names_a_parked_station_of_this_seed_for_the_item(tmp_path):
     j = _journey(tmp_path)
     _seed(j)
-    assert opener.check(tmp_path, PROJECT, FakeGit()).parked is None
+    assert opener.check(tmp_path, PROJECT, git=FakeGit(), files=opener.Files()).parked is None
     parked = _park(j)
-    assert opener.check(tmp_path, PROJECT, FakeGit()).parked == parked
+    assert opener.check(tmp_path, PROJECT, git=FakeGit(), files=opener.Files()).parked == parked
 
 
 @pytest.mark.parametrize("seed", ["2026-07-23_another-idea", f"{PROJECT} · nemawashi · {SEED}-two"])
@@ -128,21 +156,21 @@ def test_check_ignores_a_parked_station_of_another_seed(tmp_path, seed):
     j = _journey(tmp_path)
     _seed(j)
     _park(j, seed=seed)
-    assert opener.check(tmp_path, PROJECT, FakeGit()).parked is None
+    assert opener.check(tmp_path, PROJECT, git=FakeGit(), files=opener.Files()).parked is None
 
 
 def test_check_allows_a_slug_already_used_in_trail(tmp_path):
     j = _journey(tmp_path)
     _seed(j)
     (j / "shukuba" / "trail" / "2026-07-11_second-leg.md").write_text("an earlier station, same slug")
-    assert opener.check(tmp_path, PROJECT, FakeGit()).slug == "second-leg"
+    assert opener.check(tmp_path, PROJECT, git=FakeGit(), files=opener.Files()).slug == "second-leg"
 
 
 def test_check_opens_the_next_item_with_tobiishi_trail_and_drop_only(tmp_path):
     j = _journey(tmp_path)
     _seed(j)
     (j / "tobiishi" / "drop" / "2026-09-19_x").mkdir(parents=True)
-    assert opener.check(tmp_path, PROJECT, FakeGit()).slug == "second-leg"
+    assert opener.check(tmp_path, PROJECT, git=FakeGit(), files=opener.Files()).slug == "second-leg"
 
 
 def test_check_refuses_an_open_unit_beside_tobiishi_drop(tmp_path):
@@ -151,7 +179,7 @@ def test_check_refuses_an_open_unit_beside_tobiishi_drop(tmp_path):
     (j / "tobiishi" / "drop" / "2026-09-19_x").mkdir(parents=True)
     (j / "tobiishi" / "2026-09-19_x").mkdir()
     with pytest.raises(opener.Refused, match="a change unit is open: 2026-09-19_x"):
-        opener.check(tmp_path, PROJECT, FakeGit())
+        opener.check(tmp_path, PROJECT, git=FakeGit(), files=opener.Files())
 
 
 @pytest.mark.parametrize(
@@ -174,19 +202,19 @@ def test_check_refuses_an_open_unit_beside_tobiishi_drop(tmp_path):
 def test_check_refuses_a_journey_not_ready(tmp_path, arrange, status, reason):
     arrange(_journey(tmp_path))
     with pytest.raises(opener.Refused, match=reason):
-        opener.check(tmp_path, PROJECT, FakeGit(status))
+        opener.check(tmp_path, PROJECT, git=FakeGit(status), files=opener.Files())
 
 
 def test_check_refuses_an_unknown_project(tmp_path):
     with pytest.raises(opener.Refused, match="no shukuba"):
-        opener.check(tmp_path, PROJECT, FakeGit())
+        opener.check(tmp_path, PROJECT, git=FakeGit(), files=opener.Files())
 
 
 def test_apply_lands_the_station_under_todays_date(tmp_path):
     j = _journey(tmp_path)
     _seed(j)
     git = FakeGit()
-    path = opener.apply(tmp_path, PROJECT, _station(), git, TODAY)
+    path = opener.apply(tmp_path, PROJECT, _station(), git=git, today=TODAY, files=opener.Files())
     assert path == Path("system/projects/demo/journey/shukuba/2026-09-15_second-leg.md")
     assert (tmp_path / path).read_text() == _station()
     assert not any(c[0] == "mv" for c in git.calls)
@@ -214,7 +242,7 @@ def test_apply_refuses_a_station_not_in_shape(tmp_path, station, reason):
     j = _journey(tmp_path)
     _seed(j)
     with pytest.raises(opener.Refused, match=reason):
-        opener.apply(tmp_path, PROJECT, station, FakeGit(), TODAY)
+        opener.apply(tmp_path, PROJECT, station, git=FakeGit(), today=TODAY, files=opener.Files())
     assert _station_files(j) == []
 
 
@@ -223,7 +251,8 @@ def test_apply_refuses_when_a_parked_station_carries_the_item(tmp_path):
     _seed(j)
     _park(j)
     with pytest.raises(opener.Refused, match="take it up"):
-        opener.apply(tmp_path, PROJECT, _station(), FakeGit(), TODAY)
+        opener.apply(tmp_path, PROJECT, _station(), git=FakeGit(), today=TODAY,
+                     files=opener.Files())
     assert _station_files(j) == []
 
 
@@ -233,7 +262,7 @@ def test_take_up_moves_the_parked_station_whole(tmp_path):
     parked = _park(j)
     content = parked.read_text()
     git = FakeGit()
-    old, new = opener.take_up(tmp_path, PROJECT, git)
+    old, new = opener.take_up(tmp_path, PROJECT, git=git, files=opener.Files())
     assert new == Path("system/projects/demo/journey/shukuba/2026-09-02_second-leg.md")
     assert (tmp_path / new).read_text() == content and not (tmp_path / old).exists()
     assert [c[0] for c in git.calls].count("mv") == 1
@@ -243,19 +272,23 @@ def test_take_up_refuses_with_nothing_parked(tmp_path):
     _seed(_journey(tmp_path))
     git = FakeGit()
     with pytest.raises(opener.Refused, match="write one"):
-        opener.take_up(tmp_path, PROJECT, git)
+        opener.take_up(tmp_path, PROJECT, git=git, files=opener.Files())
     assert not any(c[0] == "mv" for c in git.calls)
 
 
 def test_main_prints_a_refusal_and_exits_1(tmp_path, capsys):
     _journey(tmp_path)
-    assert opener.main(["--root", str(tmp_path), "--project", PROJECT, "check"], git=FakeGit()) == 1
+    argv = ["--root", str(tmp_path), "--project", PROJECT, "check"]
+    assert opener.run_command(argv, git=FakeGit(), today=TODAY, files=opener.Files(),
+                              home=NO_HOME) == 1
     assert "REFUSED" in capsys.readouterr().err
 
 
 def test_main_check_prints_the_item(tmp_path, capsys):
     _seed(_journey(tmp_path))
-    assert opener.main(["--root", str(tmp_path), "--project", PROJECT, "check"], git=FakeGit()) == 0
+    argv = ["--root", str(tmp_path), "--project", PROJECT, "check"]
+    assert opener.run_command(argv, git=FakeGit(), today=TODAY, files=opener.Files(),
+                              home=NO_HOME) == 0
     assert capsys.readouterr().out.splitlines()[:3] == [f"Seed: {SEED}", "Item: 2", "Slug: second-leg"]
 
 
@@ -474,14 +507,15 @@ def test_hold_writes_nothing(tmp_path, companion):
     assert sorted(p.name for p in docs.iterdir()) == ["SDD.md", "SDD_open_issues.md"]
 
 
-# --- the hold, driven through main() ----------------------------------------------------------
+# --- the hold, driven through the command line (run_command) ----------------------------------
 
 HELD_LINE = f"REFUSED: {ONE_ITEM}{SPLIT}\n"
 
 
 def _run(root: Path, *command: str, git: FakeGit | None = None) -> int:
     argv = ["--root", str(root), "--project", PROJECT, *command]
-    return opener.main(argv, git=git or FakeGit(), today=TODAY)
+    return opener.run_command(argv, git=git or FakeGit(), today=TODAY, files=opener.Files(),
+                              home=NO_HOME)
 
 
 def _held(root: Path) -> Path:
@@ -693,3 +727,20 @@ def test_the_seed_whose_route_is_all_ticked_is_refused_as_at_the_base(tmp_path, 
     err = capsys.readouterr().err
     assert err.startswith("REFUSED: every item on the route is ticked")
     assert "records-owed" not in err
+
+
+def test_run_command_holds_a_product_under_the_home_it_is_given(tmp_path, capsys):
+    # open-py-takes-its-ports: run_command hands the home it is given to the hold, so a
+    # `~/…` Product path resolves there and nowhere else
+    instance, home = tmp_path / "instance", tmp_path / "home"
+    _seed(_journey(instance))
+    _product(instance, None, card="**Product path:** ~/products/demo\n")
+    docs = home / "products" / "demo" / "docs"
+    docs.mkdir(parents=True)
+    (docs / "SDD.md").write_text("# SDD\n")
+    (docs / "SDD_open_issues.md").write_text(_companion(_item()))
+    argv = ["--root", str(instance), "--project", PROJECT, "check"]
+    assert opener.run_command(argv, git=FakeGit(), today=TODAY, files=opener.Files(),
+                              home=str(home)) == 1
+    captured = capsys.readouterr()
+    assert (captured.out, captured.err) == ("", HELD_LINE)

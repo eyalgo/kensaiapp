@@ -18,12 +18,12 @@ when_to_use: >-
   un-picking a seed (seed-pick, nemawashi-unpick), opening a station
   (shukuba-open), opening or sealing a change unit (tobiishi-open, tobiishi-seal), closing
   or parking a station (shukuba-retire, shukuba-park), re-reading the route after a change unit lands
-  (shukuba-refine), or cutting an idea into seeds (seeds-from-idea and seeds-from-product-docs, which
+  (shukuba-refine), reviewing the route blind (stations-blind-review), or cutting an idea into seeds (seeds-from-idea and seeds-from-product-docs, which
   are the Principal PM's).
 license: MIT
 metadata:
   author: Eyal Golan
-  version: "1.9.0"
+  version: "1.11.0"
   created: "2026-09-05"
   category: journey
   tags: nemawashi, shukuba, stations, split, pm, journey
@@ -73,6 +73,9 @@ from* fixes what is read and which input wins where two disagree.
 **The product's SDD, when it has one.** Where the product holds a `docs/SDD.md`, the run reads its § 6 slices and each slice's
 *Reached when* checks alongside the product's other records. A product with no SDD is cut on its other records alone, with no
 whole-slice rule and no split item.
+
+**The seed's blind review, when one still describes the route.** `stations-blind-review` writes it, and
+the prompt's § *Inputs you work from*, item 6, says when it is read and what is owed to each finding.
 
 The run works in the instance it was started in. It opens no worktree and cuts no branch, so the
 re-cut checklist is in the seed the moment the run ends.
@@ -150,8 +153,11 @@ says>` — since settling a route advances the seed toward its terminus.
 ### Step 5 — Close, or stop
 
 On a clean close, report: how many stations the seed now carries, how many it arrived with, every
-divergence and its reason, and the next move — **open the first unticked station** — `shukuba-open` — and then `tobiishi-open` for the change
-units that reach it.
+divergence and its reason, and the next move — **a blind review of the route** —
+`stations-blind-review`, started as a fresh run — then, once its findings are fixed, **open the first
+unticked station** — `shukuba-open` — and then `tobiishi-open` for the change units that reach it.
+This run does not review its own route: a cutting run keeps the stations it was handed, and only a
+reader that did not cut them finds what they miss.
 
 On a stop, report the case from the prompt's § *When you stop*, commit nothing, and halt. A partial
 checklist is worse than none: it reads as a settled route.

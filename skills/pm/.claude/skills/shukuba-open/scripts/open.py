@@ -15,8 +15,8 @@ be opened, and whether the one written may land. Three commands:
                the two paths the commit must declare.
 
 Every refusal is printed and exits 1; nothing is written or moved on a refusal. The instance
-root, the git runner and today's date are given, never derived, so the checks are testable at
-their seams.
+root, the git runner, today's date, the file port and the home folder are given to `run_command`,
+never derived; `main` alone builds them, so the checks are testable at their seams.
 
 Stdlib only, plus `<CORE>/tools/journey_names.py`, which owns a station slug's characters, and
 `<CORE>/tools/development_path.py`, which owns how a project card's `Product path:` line is read.
@@ -39,7 +39,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[6] / "core" / "tools"))
 import development_path  # noqa: E402
 import journey_names  # noqa: E402
 
-__version__ = "1.4.0"
+__version__ = "1.5.0"
 
 Git = Callable[[Path, list[str]], str]
 Today = Callable[[], datetime.date]
@@ -78,7 +78,7 @@ def run_git(root: Path, args: list[str]) -> str:
 
 
 class Files:
-    """The product's records as `hold` reads them — the one place the hold touches a file."""
+    """Every file this module reads, lists, writes or resolves — the one place it touches one."""
 
     def read_text(self, path: Path) -> str | None:
         """The file's text, or `None` when no readable file is there."""
@@ -87,15 +87,32 @@ class Files:
         except OSError:
             return None
 
+    def read(self, path: Path) -> str:
+        """The file's text; an `OSError` propagates as `Path.read_text` raises it."""
+        return path.read_text(encoding="utf-8")
+
     def is_file(self, path: Path) -> bool:
         return path.is_file()
 
+    def is_dir(self, path: Path) -> bool:
+        return path.is_dir()
 
-def _visible(folder: Path, fixtures: set[str]) -> list[Path]:
-    if not folder.is_dir():
+    def entries(self, folder: Path) -> list[Path]:
+        """The folder's children as `Path.iterdir` yields them; the caller sorts."""
+        return list(folder.iterdir())
+
+    def write_text(self, path: Path, text: str) -> None:
+        path.write_text(text, encoding="utf-8")
+
+    def resolve(self, path: Path) -> Path:
+        return path.resolve()
+
+
+def _visible(folder: Path, fixtures: set[str], *, files: Files) -> list[Path]:
+    if not files.is_dir(folder):
         return []
     return sorted(
-        p for p in folder.iterdir() if not p.name.startswith(".") and p.name not in fixtures
+        p for p in files.entries(folder) if not p.name.startswith(".") and p.name not in fixtures
     )
 
 
@@ -103,8 +120,8 @@ def _seed_name(item: Path) -> str:
     return item.name[:-3] if item.name.endswith(".md") else item.name
 
 
-def _seed_text(item: Path) -> str:
-    return (item / "seed.md" if item.is_dir() else item).read_text(encoding="utf-8")
+def _seed_text(item: Path, *, files: Files) -> str:
+    return files.read(item / "seed.md" if files.is_dir(item) else item)
 
 
 def _names(text: str, name: str) -> bool:
@@ -112,9 +129,9 @@ def _names(text: str, name: str) -> bool:
     return re.search(rf"(?<![\w-]){re.escape(name)}(?![\w-])", text) is not None
 
 
-def journey(root: Path, project: str) -> Path:
+def journey(root: Path, project: str, *, files: Files) -> Path:
     path = root / "system" / "projects" / project / "journey"
-    if not (path / "shukuba").is_dir():
+    if not files.is_dir(path / "shukuba"):
         raise Refused(f"no shukuba at {path / 'shukuba'}")
     return path
 
@@ -147,36 +164,36 @@ def _item_paragraph(lines: list[str]) -> str:
     return " ".join(paragraph)
 
 
-def _parked_for(folder: Path, slug: str, seed: str) -> list[Path]:
+def _parked_for(folder: Path, slug: str, seed: str, *, files: Files) -> list[Path]:
     """Parked stations under this slug that were opened from this seed. A slug names a station
     only within its seed, so a parked station of another seed is not this item's."""
     stem = re.compile(rf"^\d{{4}}-\d{{2}}-\d{{2}}_{re.escape(slug)}\.md$")
     return sorted(
-        p for p in _visible(folder, set())
+        p for p in _visible(folder, set(), files=files)
         if stem.match(p.name)
-        and _names(_item_paragraph(p.read_text(encoding="utf-8").splitlines()), seed)
+        and _names(_item_paragraph(files.read(p).splitlines()), seed)
     )
 
 
-def check(root: Path, project: str, git: Git) -> Next:
+def check(root: Path, project: str, *, git: Git, files: Files) -> Next:
     """Refuse unless the journey lets a station open now; return the item it opens from.
 
     It answers the journey alone. Whether the SDD's companion holds the seed back is `hold()`'s."""
-    j = journey(root, project)
-    seeds = _visible(j / "nemawashi", _SEEDBED_FIXTURES)
+    j = journey(root, project, files=files)
+    seeds = _visible(j / "nemawashi", _SEEDBED_FIXTURES, files=files)
     if not seeds:
         raise Refused("no seed is active — seed-pick first")
     if len(seeds) > 1:
         raise Refused(f"more than one seed at the seedbed root: {', '.join(p.name for p in seeds)}")
-    station = _visible(j / "shukuba", _SHUKUBA_FIXTURES)
+    station = _visible(j / "shukuba", _SHUKUBA_FIXTURES, files=files)
     if station:
         raise Refused(f"a station is already open: {station[0].name}")
-    unit = _visible(j / "tobiishi", {"trail", "drop"})
+    unit = _visible(j / "tobiishi", {"trail", "drop"}, files=files)
     if unit:
         raise Refused(f"a change unit is open: {unit[0].name}")
 
     seed = _seed_name(seeds[0])
-    items = _route(_seed_text(seeds[0]))
+    items = _route(_seed_text(seeds[0], files=files))
     if not items:
         raise Refused("the route section lists no station — stations-from-seed first")
     unticked = [(n, line) for n, (ticked, line) in enumerate(items, 1) if not ticked]
@@ -188,7 +205,7 @@ def check(root: Path, project: str, git: Git) -> Next:
         raise Refused(f"item {number} names no station slug — stations-from-seed first: {line}")
     slug = match.group(1)
 
-    parked = _parked_for(j / "shukuba" / "parked", slug, seed)
+    parked = _parked_for(j / "shukuba" / "parked", slug, seed, files=files)
     if len(parked) > 1:
         raise Refused(f"more than one parked station carries '{slug}': {', '.join(p.name for p in parked)}")
     # Only the journey an open writes. The instance's one checkout is shared by every project's
@@ -288,20 +305,21 @@ def _validate(station: str, nxt: Next) -> None:
             raise Refused(f"`## {part}` is empty or still the template's placeholder")
 
 
-def apply(root: Path, project: str, station: str, git: Git, today: Today) -> Path:
+def apply(root: Path, project: str, station: str, *, git: Git, today: Today, files: Files) -> Path:
     """Validate the written station, land it at the shukuba root, return its path."""
-    nxt = check(root, project, git)
+    nxt = check(root, project, git=git, files=files)
     if nxt.parked is not None:
         raise Refused(f"a parked station carries item {nxt.number}: {nxt.parked.name} — take it up")
     _validate(station, nxt)
-    target = journey(root, project) / "shukuba" / f"{today().isoformat()}_{nxt.slug}.md"
-    target.write_text(station if station.endswith("\n") else station + "\n", encoding="utf-8")
+    landed = f"{today().isoformat()}_{nxt.slug}.md"
+    target = journey(root, project, files=files) / "shukuba" / landed
+    files.write_text(target, station if station.endswith("\n") else station + "\n")
     return target.relative_to(root)
 
 
-def take_up(root: Path, project: str, git: Git) -> tuple[Path, Path]:
+def take_up(root: Path, project: str, *, git: Git, files: Files) -> tuple[Path, Path]:
     """Move the parked station for the next item back to the root, return (old, new)."""
-    nxt = check(root, project, git)
+    nxt = check(root, project, git=git, files=files)
     if nxt.parked is None:
         raise Refused(f"no parked station carries item {nxt.number} — write one")
     old = nxt.parked.relative_to(root)
@@ -310,7 +328,10 @@ def take_up(root: Path, project: str, git: Git) -> tuple[Path, Path]:
     return old, new
 
 
-def main(argv: list[str] | None = None, git: Git = run_git, today: Today = datetime.date.today) -> int:
+def run_command(
+    argv: list[str] | None, *, git: Git, today: Today, files: Files, home: str
+) -> int:
+    """Parse the command line and run it, with every collaborator handed in."""
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--root", required=True, type=Path)
     parser.add_argument("--project", required=True)
@@ -320,25 +341,31 @@ def main(argv: list[str] | None = None, git: Git = run_git, today: Today = datet
     apply_p.add_argument("--station", required=True, type=Path)
     sub.add_parser("take-up")
     args = parser.parse_args(argv)
-    root = args.root.resolve()
-    files, home = Files(), str(Path.home())  # the composition root: the one place they are built
+    root = files.resolve(args.root)
     try:
-        nxt = check(root, args.project, git)
+        nxt = check(root, args.project, git=git, files=files)
         hold(root, nxt, files=files, home=home)
         if args.command == "check":
             print(f"Seed: {nxt.seed}\nItem: {nxt.number}\nSlug: {nxt.slug}\nLine: {nxt.line}")
             if nxt.parked is not None:
                 print(f"Parked: {nxt.parked.relative_to(root)}")
         elif args.command == "apply":
-            station = args.station.read_text(encoding="utf-8")
-            print(apply(root, args.project, station, git, today))
+            station = files.read(args.station)
+            print(apply(root, args.project, station, git=git, today=today, files=files))
         else:
-            old, new = take_up(root, args.project, git)
+            old, new = take_up(root, args.project, git=git, files=files)
             print(f"{old}\n{new}")
     except Refused as refusal:
         print(f"REFUSED: {refusal}", file=sys.stderr)
         return 1
     return 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    """The composition root: the one place the real collaborators are built."""
+    return run_command(
+        argv, git=run_git, today=datetime.date.today, files=Files(), home=str(Path.home())
+    )
 
 
 if __name__ == "__main__":

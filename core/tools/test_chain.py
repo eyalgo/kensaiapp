@@ -1022,7 +1022,7 @@ def _engines_own_members() -> list[providers.Member]:
 def test_the_delivered_file_holds_the_engines_members_and_the_launchers():
     members = _engines_own_members() + [providers.launcher(name) for name in LAUNCHER_NAMES]
 
-    assert len(members) == len(set(members)) == 30 + 9
+    assert len(members) == len(set(members)) == 31 + 9
     assert sorted(_delivered_entries()) == sorted(str(member) for member in members)
 
 

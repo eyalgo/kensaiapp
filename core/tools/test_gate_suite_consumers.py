@@ -606,15 +606,20 @@ def seal_action_module():
     return module
 
 
-def run_seal_action(bookkeeping: dict, deferred: list[str] = ()):
-    """Run the real action over fake ports; return (the sealed request text, the process calls)."""
+def seal_world(bookkeeping: dict, deferred: list[str] = (), environ: dict[str, str] | None = None,
+               stray: str | None = None):
+    """Run the real action over fake ports. Returns (the files port, the process calls, the sealed
+    folder). `environ` is the environment handed in, none by default; `stray` seeds a
+    `close_verdict.md` in the destination, as if the move had brought one across."""
     module = seal_action_module()
     worktree = Path("/work/instance-worktree")
     root = Path("system/projects/demo/journey/tobiishi")
-    destination = worktree / root / "trail" / "key1" / "change_request.md"
+    folder = worktree / root / "trail" / "key1"
     configuration = Path("/stable/action-config.json")
+    seeded = {} if stray is None else {folder / "close_verdict.md": stray}
     files = ActionFiles({
-        destination: "# Request\n",
+        folder / "change_request.md": "# Request\n",
+        **seeded,
         configuration: json.dumps({
             "contract": {"instance_worktree": str(worktree), "project": "demo", "key": "key1"},
             "bookkeeping": {"date": SEAL_DATE, "deferred": list(deferred),
@@ -624,9 +629,71 @@ def run_seal_action(bookkeeping: dict, deferred: list[str] = ()):
             "builder": "/stable/commit_builder.py", "evidence": "/stable/seal-evidence.json"}),
     })
     processes = ActionProcesses()
-    action = module.SealAction(files=files, processes=processes)
+    action = module.SealAction(files=files, processes=processes, environ=dict(environ or {}))
     action.seal(configuration)
-    return files.files[destination], processes.calls
+    return files, processes.calls, folder
+
+
+def run_seal_action(bookkeeping: dict, deferred: list[str] = ()):
+    """Run the real action over fake ports; return (the sealed request text, the process calls)."""
+    files, calls, folder = seal_world(bookkeeping, deferred)
+    return files.files[folder / "change_request.md"], calls
+
+
+CLOSE_LINE = "close passed — 5 scenarios passed at 1a2b3c4"
+SEALED_FOLDER = "system/projects/demo/journey/tobiishi/trail/key1"
+THE_ENVIRONMENT = {"environment_line": "Environment: owners-mac — no CI"}
+
+
+def staged_by(calls: list[list[str]]) -> list[str]:
+    """What the seal commit's `--add` named."""
+    (commit,) = [argv for argv in calls if "commit" in argv and "--add" in argv]
+    names = commit[commit.index("--add") + 1:]
+    return names[:next((i for i, name in enumerate(names) if name.startswith("--")), len(names))]
+
+
+def seal_environment(line: str) -> dict[str, str]:
+    return {cd.CLOSE_VERDICT_VARIABLE: line}
+
+
+def test_the_action_writes_the_handed_line_into_the_sealed_folder_and_stages_it():
+    files, calls, folder = seal_world(THE_ENVIRONMENT, environ=seal_environment(CLOSE_LINE))
+
+    assert files.files[folder / "close_verdict.md"] == CLOSE_LINE + "\n"
+    assert f"{SEALED_FOLDER}/close_verdict.md" in staged_by(calls)
+
+
+def test_a_value_with_trailing_newlines_is_written_with_exactly_one():
+    files, _calls, folder = seal_world(THE_ENVIRONMENT,
+                                       environ=seal_environment(CLOSE_LINE + "\n\n\n"))
+
+    assert files.files[folder / "close_verdict.md"] == CLOSE_LINE + "\n"
+
+
+@pytest.mark.parametrize("environ", [
+    pytest.param({}, id="absent"),
+    pytest.param(seal_environment(""), id="empty"),
+    pytest.param(seal_environment("  \n\t\n"), id="whitespace-only"),
+])
+def test_an_empty_blank_or_absent_value_writes_no_file_and_seals_as_today(environ):
+    files, calls, folder = seal_world(THE_ENVIRONMENT, environ=environ)
+
+    assert folder / "close_verdict.md" not in files.files
+    assert staged_by(calls) == [f"{SEALED_FOLDER}/change_request.md"]
+
+
+def test_a_handed_line_overwrites_a_stray_file_that_came_across_in_the_move():
+    files, _calls, folder = seal_world(THE_ENVIRONMENT, environ=seal_environment(CLOSE_LINE),
+                                       stray="an earlier line\n")
+
+    assert files.files[folder / "close_verdict.md"] == CLOSE_LINE + "\n"
+
+
+def test_a_stray_file_is_moved_like_any_other_when_no_line_is_handed():
+    files, calls, folder = seal_world(THE_ENVIRONMENT, stray="an earlier line\n")
+
+    assert files.files[folder / "close_verdict.md"] == "an earlier line\n"
+    assert f"{SEALED_FOLDER}/close_verdict.md" not in staged_by(calls)
 
 
 def test_seal_adopted_invocation_runs_each_environment():
@@ -698,7 +765,7 @@ def test_missing_environment_bookkeeping_fails_before_move(bookkeeping):
     processes = ActionProcesses()
 
     with pytest.raises(ValueError, match="environment_line"):
-        module.SealAction(files=files, processes=processes).seal(configuration)
+        module.SealAction(files=files, processes=processes, environ={}).seal(configuration)
 
     # Nothing moved, nothing created, nothing written, no commit made.
     assert processes.calls == [] and files.directories == []

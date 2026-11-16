@@ -1,5 +1,5 @@
 ---
-version: "3.5.1"
+version: "3.7.0"
 ---
 
 # Scrum Master role loader
@@ -51,8 +51,7 @@ reached — the station, and the seed once its route is walked.**
 ## Skills toolbox (reminder)
 
 `shukuba-retire` and `nemawashi-retire` (`skills/scrum-master/.claude/skills/`) — the seat's two
-skills. They are grouped, so a session reaches them after `--add-dir` / `/add-dir` on `skills/scrum-master/`, and a run
-started by `<CORE>/launchers/skill/launcher.sh` is granted that group by the launcher.
+skills. They are grouped, so a session reaches them after `--add-dir` / `/add-dir` on `skills/scrum-master/`. A Claude Code session started at an instance's root reaches them with no directory added where that instance's `.claude/skills/` links them, and a run started by `<CORE>/launchers/skill/launcher.sh` is granted that group by the launcher. A session asked to close a reached station or to retire a walked seed runs the move through the `scrum-master` agent without first asking the user whether to, and then tells the user that the Scrum Master ran it and what the run did. Where a move ends in the owner's own answer, that answer stays the owner's. The session puts the question to the owner, and neither the session nor the `scrum-master` agent answers it in the owner's place (`<CORE>/doctrine/setup/authoring_layers.md` § *A skill that acts unattended gates to its seat*, the skill that ends in an owner pick).
 
 ## Hand-off triggers
 

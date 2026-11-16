@@ -39,8 +39,9 @@ what is true of this instance, which then points at the posture body in
 - `principal-architect:` → system/loaders/principal_architect.md
 - `scrum-master:`   → system/loaders/scrum_master.md
 - `senior-engineer:` → system/loaders/senior_engineer.md
+- `qa:`             → system/loaders/qa.md
 
-(qa is fork-invoked, not prefix-invoked — no entry. `teacher:` is global-only — `<CORE>/roles/loaders/teacher_global.md`, no instance overlay. `ppm:` is an accepted alias for `principal-pm:`, resolving to the same overlay — the one abbreviation, so every other prefix spells its own loader file.)
+(`teacher:` is global-only — `<CORE>/roles/loaders/teacher_global.md`, no instance overlay. `ppm:` is an accepted alias for `principal-pm:`, resolving to the same overlay — the one abbreviation, so every other prefix spells its own loader file.)
 
 ## Direction and journey
 
@@ -53,12 +54,19 @@ No instance inbox/backlog, and no `system/queues/` — both retired. The model: 
 
 **Travelling it is written down** — the same file's § *How we work — walking a project's journey* is the
 loop, and § *Who owns each step* is who does what. Read it before picking a seed, opening a station or
-closing one. The moves it names are the PM's, except the close and the retire, which are the **Scrum Master**'s
-(the PM closes a station only when its park finds it already reached),
-and the answer to a retired seed, `nemawashi-refine`, which is the **Principal PM**'s —
-`<CORE>/roles/loaders/pm_global.md` § *Responsibilities*, `<CORE>/roles/loaders/scrum_master_global.md`
-and `<CORE>/roles/loaders/principal_pm_global.md` § *Retiring a finished seed* are those seats' own
-statements of them.
+closing one. The PM owns the loop's moves except three. The close and the retire are the **Scrum Master**'s,
+and the PM closes a station only when its park finds it already reached. The answer to a retired seed,
+`nemawashi-refine`, is the **Principal PM**'s. `<CORE>/roles/loaders/pm_global.md` § *Responsibilities*,
+`<CORE>/roles/loaders/scrum_master_global.md` and `<CORE>/roles/loaders/principal_pm_global.md` § *Retiring
+a finished seed* are those seats' own statements of them. Every move § *How we work* or § *Who owns each
+step* gives the PM, the Principal PM or the Scrum Master is a journey move, except authoring the FDR, which
+writes a definition document rather than moving the journey. A session asked for a journey move runs it
+through the agent of the seat that owns it, `pm`, `principal-pm` or `scrum-master`, without first asking the
+user whether to. When the move ends, the session tells the user which seat ran it and what the run did.
+Where a move ends in the owner's own answer, that answer stays the owner's. The session puts the question
+to the owner, and neither the session nor the seat's agent answers it in the owner's place
+(`<CORE>/doctrine/setup/authoring_layers.md` § *A skill that acts unattended gates to its seat*, the skill
+that ends in an owner pick).
 
 ## Commit format and git operations
 
@@ -106,5 +114,5 @@ too — except for a **skill**, whose marker and bump belong to the kaizen layer
 For task-specific workflows, inspect and follow the relevant instructions under:
 
 - `.claude/skills/`
-- `<CORE>/../skills/<group>/.claude/agents/` — which group holds each agent is `<CORE>/doctrine/setup/kensaiapp_structure.md` § Agents. A session has an agent once it adds that group with `--add-dir` / `/add-dir`.
+- `<CORE>/../skills/<group>/.claude/agents/` — which group holds each agent is `<CORE>/doctrine/setup/kensaiapp_structure.md` § Agents. A session has an agent once it adds that group with `--add-dir` / `/add-dir`, and a Claude Code session started at this instance's root has it with no directory added where `.claude/agents/` holds a link to that agent's file. A session asked for a journey move starts the agent of the seat that owns it, `pm`, `principal-pm` or `scrum-master`, and runs the move through it without first asking the user whether to. When the move ends, the session tells the user which seat ran it and what the run did (§ *Direction and journey*).
 - `.claude/agents/` — where this instance holds an agent of its own. A launched run takes it in place of the group's agent of the same name.

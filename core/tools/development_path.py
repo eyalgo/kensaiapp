@@ -14,7 +14,7 @@ Three commands share one resolver:
 
 - `resolve`  — the full contract as JSON (or `key=value` text).
 - `validate` — prove the contract is usable for a live flow run; exit 0 or a specific error code.
-- `target`   — one projection of the contract: `code`, `pipeline` or `delivery`.
+- `target`   — one projection of the contract: `code`, `pipeline`, `delivery` or `qa`.
 
 The tool resolves and validates only. It never commits, merges, runs tests, or authorizes delivery.
 
@@ -34,7 +34,7 @@ import sys
 from collections.abc import Mapping
 from typing import Protocol, Sequence, TextIO, TypedDict
 
-__version__ = "1.1.2"
+__version__ = "1.2.0"
 
 PRODUCT_PATH_FIELD = "**Product path:**"
 WORKTREES_DIR = ".worktrees"
@@ -42,7 +42,10 @@ WORKTREES_DIR = ".worktrees"
 RELATIVE = "relative"
 FIXED = "fixed"
 
-TARGET_KINDS = ("code", "pipeline", "delivery")
+TARGET_KINDS = ("code", "pipeline", "delivery", "qa")
+
+SCENARIO_FOLDER = ".behave"
+QA_RECORD = "qa_record.md"
 
 
 class ToolError(Exception):
@@ -438,20 +441,42 @@ def validate_contract(contract: Contract, git: Git) -> None:
 
 
 def check_target_kind(kind: str) -> None:
-    """Refuse a `--kind` outside the three target families."""
+    """Refuse a `--kind` outside the four target families."""
     if kind not in TARGET_KINDS:
         raise ToolError("invalid-target-kind",
                         f"--kind '{kind}' is not one of {', '.join(TARGET_KINDS)}")
 
 
+def _product_folder(contract: Contract) -> str:
+    """The product's folder relative to its repository: `product_path` when relative, else its
+    place under `product_repo`, and `.` when they are the same."""
+    product_path = contract["product_path"]
+    if not os.path.isabs(product_path):
+        return product_path
+    return os.path.relpath(product_path, contract["product_repo"])
+
+
+def _qa_target(contract: Contract) -> dict[str, object]:
+    """Where QA's run writes: the product repository and its change worktree, the branch, the
+    scenario folder in that worktree, and QA's record in the instance's change folder."""
+    scenario_folder = os.path.normpath(os.path.join(
+        contract["code_worktree"], _product_folder(contract), SCENARIO_FOLDER))
+    record = os.path.join(contract["pipeline_worktree"], "system", "projects", contract["project"],
+                          "journey", "tobiishi", contract["key"], QA_RECORD)
+    return {"repo": contract["code_repo"], "worktree": contract["code_worktree"],
+            "branch": contract["key"], "scenario_folder": scenario_folder, "record": record}
+
+
 def target(contract: Contract, kind: str) -> dict[str, object]:
-    """One projection of the contract: where code commits go, where pipeline commits go, or which
-    repos delivery handles, in order."""
+    """One projection of the contract: where code commits go, where pipeline commits go, which
+    repos delivery handles, in order, or where QA's run writes."""
     check_target_kind(kind)
     if kind == "code":
         return {"repo": contract["code_repo"], "worktree": contract["code_worktree"]}
     if kind == "pipeline":
         return {"repo": contract["pipeline_repo"], "worktree": contract["pipeline_worktree"]}
+    if kind == "qa":
+        return _qa_target(contract)
     return {"repos": contract["delivery_repos"]}
 
 
@@ -528,8 +553,8 @@ def build_parser() -> argparse.ArgumentParser:
                                           help="print one target family of the contract")
     # Checked by `check_target_kind`, not argparse `choices`, so a wrong value is the
     # `invalid-target-kind` error in the caller's --format rather than a usage message.
-    target_parser.add_argument("--kind", required=True, metavar="{code,pipeline,delivery}",
-                               help="code, pipeline or delivery")
+    target_parser.add_argument("--kind", required=True, metavar="{code,pipeline,delivery,qa}",
+                               help="code, pipeline, delivery or qa")
     return parser
 
 

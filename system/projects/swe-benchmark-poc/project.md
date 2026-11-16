@@ -8,6 +8,7 @@
 **Execution type:** headless          <!-- headless (claude -p) | docker -->
 **Package slug:** swe-benchmark-poc              <!-- auto-derived from project name -->
 **Test command:** none       <!-- The folder of patches has no suite. -->
+**Behave:** none — a folder of patches, with nothing that runs
 **Setup command:** none               <!-- `none`, or a shell command that makes a new change worktree ready to run its suite, e.g. `uv sync --locked`; development-specs runs it once through /bin/sh when it creates the change's worktree, in the directory Test command: runs in. A non-zero exit halts the change there and leaves the worktree in place. The change halts there too when the interpreter Test command: names is a relative path, such as `.venv/bin/python3`, with nothing at it. -->
 **Languages:** <blank>                <!-- optional; comma-separated, order carries no meaning; omit for a project with no code; resolves to packets per languages/README.md. Spell each language in prose — `Rust, TypeScript, Shell`. The skeleton tree and the packet folder are both lowercase on disk and the skeleton launcher lowercases this value before it looks one up, so the prose spelling is the one to write. The SDD § 3 units table places each language's buildable units; the card does not repeat that design fact. -->
 **Parallelism:** N/A — headless       <!-- docker-only; N/A for headless -->

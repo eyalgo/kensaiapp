@@ -1,5 +1,5 @@
 ---
-version: "1.3.0"
+version: "1.3.1"
 ---
 
 # product-fdr — the Principal PM's FDR authoring lens
@@ -18,7 +18,7 @@ memory of the run that wrote it: the Principal Architect deriving the ADR and th
 *"derives the next change from it, it never edits it"* (`<CORE>/doctrine/governance/ai_responsibility.md` § *2. AI doctrine per
 role*), the Product Owner who checks a request against it (`skills/product-owner/.claude/skills/development-specs/SKILL.md`
 § *Step 2 — Read context*, which reads `docs/fdr.md` fully when it exists), and the QA seat that holds
-it as a standing constraint (`<CORE>/prompts/qa_create_acceptance.md` § *Inputs you work from*).
+it as the statement of the behaviour a change keeps (`<CORE>/../skills/qa/.claude/skills/red-behaviour/prompts/rich.md` § *What you read*).
 
 This prompt is the **thinking** — the inputs and their authority order, the altitude test that keeps
 architecture out, the completeness lens, what makes a rule verifiable, how the terminus bounds the

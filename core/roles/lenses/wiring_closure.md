@@ -1,5 +1,5 @@
 ---
-version: "1.0.10"
+version: "1.0.11"
 ---
 
 # wiring_closure — a role and its machinery name things that are not there
@@ -48,10 +48,12 @@ directory. The absence was found on 2026-07-30 and recorded then as "No `retrosp
 no handoff folder exists." It was not acted on until the posture was restamped at `946c80af`. That finding cites the loader at line 23; the sentence is now at
 line 18, which is why a citation here carries its quoted phrase and not only a number.
 
-**Instance two — inward, found by this lens.** `core/tools/commit_builder.py`'s `AGENT_ROLE` map held
-fifteen actors and no `qa` (measured before `946c80af` added `scrum-master`), while `skills/qa/.claude/agents/qa.md` exists and
-`core/roles/loaders/qa_global.md:19` obliges the seat to "write and commit the verification file". The
-seat is wired everywhere except the one table that lets it originate a commit.
+**Instance two — inward, found by this lens, and since repaired.** `core/tools/commit_builder.py`'s
+`AGENT_ROLE` map held fifteen actors and no `qa` (measured before `946c80af` added `scrum-master`), while
+`skills/qa/.claude/agents/qa.md` existed and `core/roles/loaders/qa_global.md` obliged the seat to "write
+and commit the verification file". The seat was wired everywhere except the one table that lets it
+originate a commit. The map gained `"qa": "QA"` when QA was seated as a chain seat, and the loader no
+longer carries that sentence.
 
 **Instance three — a disclosed stub the loader presents as working.** At `fd939ab6e` — before the stubs
 were deleted on 2026-09-29 — `core/roles/loaders/qa_global.md:30` listed "`development-acceptance-specs` — verification for
@@ -74,9 +76,9 @@ Four instances, in four different file kinds, is the shape.
   owed. The finding is that one file presents as existing what another records as absent, or that
   nothing records it at all.
 - **That an omission from a registration is an oversight.** Some registrations deliberately exclude
-  seats — `core/doctrine/setup/kensaiapp_structure.md` § *Role layer* states "**Thirteen roles** — qa
-  excluded (fork-invoked, no prefix, so no app-level loader)". An exclusion the manifest explains is
-  not a gap.
+  seats — `core/tools/commit_builder.py`'s `MERGE_AUTHORIZER`, whose comment opens "THIS TABLE IS AN
+  ALLOWLIST, NOT A DICTIONARY", leaves out `developer` on purpose and says why. An exclusion the
+  registration explains is not a gap.
 - **That a stub is a defect.** A skill declaring itself a stub has disclosed its state. The finding is
   against whatever presents its output as real.
 - **That the wiring closure is complete because the loader directory looks right.** Several

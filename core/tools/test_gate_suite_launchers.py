@@ -77,7 +77,7 @@ class Launcher:
                 definition: str | None = None) -> None:
         folder = self.root / "system" / "projects" / name
         folder.mkdir(parents=True)
-        text = card if card is not None else f"# {name}\n\n**Product path:** {product_path}\n"
+        text = card if card is not None else f"# {name}\n\n**Product path:** {product_path}\n**Behave:** none — a test card\n"
         if definition is not None:
             text += f"**Definition:** {definition}\n"
         (folder / "project.md").write_text(text)
@@ -147,7 +147,7 @@ def test_change_launcher_forwards_only_explicit_ask(change):
 
     # Not the inherited variable, and not anything the project's card says.
     change.reset()
-    change.project("carded", card=("# carded\n\n**Product path:** products/thing\n"
+    change.project("carded", card=("# carded\n\n**Product path:** products/thing\n**Behave:** none — a test card\n"
                                         "**Gate owners mac:** yes\n**Owners mac:** 1\n"))
     result = change.run("carded", env={"KENSAIAPP_GATE_OWNERS_MAC": "1"})
     assert result.returncode == 0
@@ -244,7 +244,7 @@ def test_walk_launcher_immediate_start_forwards_explicit_ask(walk):
 
     # Neither an inherited variable nor a card line asks.
     walk.reset()
-    walk.project("carded", card=("# carded\n\n**Product path:** products/thing\n"
+    walk.project("carded", card=("# carded\n\n**Product path:** products/thing\n**Behave:** none — a test card\n"
                                    "**Gate owners mac:** yes\n"), definition="none")
     assert walk.run("carded", env={"KENSAIAPP_GATE_OWNERS_MAC": "1"}).returncode == 0
     [start] = walk.starts()
@@ -287,7 +287,7 @@ def test_definition_continuation_retains_pending_owner_ask(walk, definition):
 
     # The continuation obeys its saved launch, whatever the environment and card say now.
     (walk.root / "system/projects/demo/project.md").write_text(
-        f"# demo\n\n**Product path:** elsewhere\n**Definition:** {definition}\n")
+        f"# demo\n\n**Product path:** elsewhere\n**Behave:** none — a test card\n**Definition:** {definition}\n")
     fired = walk.fire(call, "settled", env={"KENSAIAPP_GATE_OWNERS_MAC": ""})
     assert fired.returncode == 0, fired.stderr
     [start] = walk.starts()

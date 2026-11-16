@@ -24,6 +24,7 @@ Some parts need more:
 
 | To use | You need |
 |---|---|
+| The security step's scanners | `brew install osv-scanner semgrep gitleaks`. Without one, its report says that scanner did not run |
 | The panel, or the telemetry install | A `python3` of 3.13 or later first on your `PATH` |
 | Tests in a container, for a product whose CI runs on Linux | Podman, with its machine running on a Mac: `podman machine start` |
 | Tests in a macOS guest, for a product whose CI runs on macOS or that holds Swift | Tart, and the guest `core/doctrine/engineering/languages/swift/environment.md` sets up |
@@ -36,8 +37,19 @@ A product's own tests run its card's `Test command:`, not KensaiApp's.
 
 ## How to run KensaiApp's own tests
 
-Run the core's suite from the instance root. It needs uv, git and `ps` (on Debian, the `procps`
-package).
+Run the core's suite from the instance root. It needs uv, git, `ps` (on Debian, the `procps`
+package) and Chromium, which the Behave starter's browser scenario opens. `/bin/bash
+core/tools/doctor.sh` says whether Chromium is there. Install it once on each machine, from inside a
+`.behave` folder, such as tracker17's:
+
+```bash
+cd products/tracker17/.behave
+uv run --locked playwright install chromium
+```
+
+On a bare Linux machine, Chromium also needs system libraries. Install them once, as root, from the
+same folder, with `uv run --locked playwright install-deps chromium`. On Debian, install the
+`libatomic1` package first: Playwright itself needs it to start.
 
 ```text
 Run KensaiApp's own tests.
@@ -47,8 +59,9 @@ Run KensaiApp's own tests.
 uv run --locked pytest core/tools/ core/launchers/
 ```
 
-Only the first run needs the network, to fetch the Python and the locked test tools. The tests
-themselves run with none. Expect about ten thousand tests, all passing, in five to eight minutes.
+Only the first run needs the network, to fetch the Python, the locked test tools and the Behave
+starter's packages. The tests themselves run with none. Expect about twelve thousand tests, all
+passing, in five to ten minutes.
 
 In a container, start it with an init process: `podman run --init` or `docker run --init`. Without
 one, a process that has ended is never cleared, and the tests that wait for one to end fail.
@@ -58,7 +71,7 @@ one, a process that has ended is never cleared, and the tests that wait for one 
 Start your message with the role's prefix.
 
 ```text
-> pm: what is the next station for my-app?
+> pm: what should be done next on my-app?
 ```
 
 Every prefix is in the [Loader map](../AGENTS.md#loader-map) of your `AGENTS.md`.
@@ -75,7 +88,9 @@ A session sees only the skills you give it, one group per folder under `skills/`
 claude --permission-mode acceptEdits --add-dir <host-path>/skills/interactive
 ```
 
-A role's own skills sit in a group of its name, such as `skills/pm`. Two groups are not a role's:
+A role's own skills sit in a group of its name, such as `skills/tech-lead`. The PM's, the Principal
+PM's and the Scrum Master's need no group: a session started at the root reaches them, and runs their
+moves when you ask. Two groups are not a role's:
 
 | Group | Skill | What it does |
 |---|---|---|
@@ -149,9 +164,11 @@ and a change it already started walks on to its end.
 Any skill with a `launcher.md` beside its `SKILL.md` runs on its own.
 
 ```text
-/add-dir skills/pm
-> pm: /shukuba-refine my-app
+> refine the route for my-app
 ```
+
+A journey move needs no group: the session starts the role that owns it, and then tells you which
+role did what.
 
 ```bash
 core/launchers/skill/launcher.sh shukuba-refine <project>
@@ -236,7 +253,7 @@ Then settle the cause and run the same launcher again. The usual stops:
 | A change wrote a `halt_report.md` | Make the numbered decision in the document it belongs to, then run `walk` again. To drop the change instead: `core/launchers/skill/launcher.sh shukuba-refine <project>` |
 | The security step stopped (`security-stopped`) | Its `security-report.md` says which fix it needs and which record forbids it. Make the call there, then run `walk` again |
 | `build-idea` stopped at an act owed by you | Do what the row asks, then run `build-idea` again |
-| A station's bar changed twice | Not done: run `build-idea` again. Done: `/add-dir skills/scrum-master`, `> scrum-master: /shukuba-retire my-app`, then `build-idea` |
+| A station's bar changed twice | Not done: run `build-idea` again. Done: ask the session to close the station on my-app, then run `build-idea` |
 | A document's questions could not be settled | Read its trail, and write the fault down as a finding |
 | A developer run hit its context limit twice on one task | Run `walk` again with a larger `--context-cap <tokens>` (default 250000) |
 | The provider did: a limit, an overload | Wait, or choose another provider, then run the launcher again |

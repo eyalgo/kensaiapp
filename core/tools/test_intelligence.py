@@ -292,9 +292,10 @@ _CLAUDE_INTELLIGENCE = {
     "shukuba-retire": (_SONNET, LOW),
     "changelog-line": (_OPUS, MEDIUM),
     "product-sdd": (_FABLE, HIGH),
+    "red-behaviour": (_OPUS, HIGH),
 }
 
-# The 29 skills the chains launch: the 28 above, plus the one that carries no folder.
+# The 30 skills the chains launch: the 29 above, plus the one that carries no folder.
 _CHAIN_LAUNCHED = frozenset(_CLAUDE_INTELLIGENCE) | {"companion-self-answer"}
 
 # The skills outside the chains that carry a folder, which `skill_intelligence.md` § *Scope*
@@ -306,6 +307,7 @@ _OUT_OF_CHAIN_INTELLIGENCE = {
     "first-what-left": (_OPUS, HIGH),
     "ad-hoc-plan": (_OPUS, MEDIUM),
     "dependency-repair": (_HAIKU, MEDIUM),
+    "stations-blind-review": (_OPUS, HIGH),
 }
 
 
@@ -326,10 +328,12 @@ def _engine_launched_skills() -> set[str]:
     return documents | steps | kinds | {"companion-self-answer"}
 
 
-def test_the_chain_launched_set_is_the_twenty_nine_skills():
+def test_the_chain_launched_set_is_the_thirty_skills():
     derived = _engine_launched_skills()
 
-    assert len(_CHAIN_LAUNCHED) == 29
+    assert len(_CHAIN_LAUNCHED) == 30
+    assert "red-behaviour" in derived
+    assert "red-behaviour" not in _OUT_OF_CHAIN_INTELLIGENCE
     assert "changelog-line" in derived
     assert derived == _CHAIN_LAUNCHED
 

@@ -1,5 +1,5 @@
 ---
-version: "1.9.2"
+version: "1.14.0"
 ---
 
 # The Flow — the change pipeline
@@ -35,6 +35,7 @@ each is written from; this file does not restate it.
 | Stage | Role | Skill | Reads | Writes |
 |---|---|---|---|---|
 | 1 | Product Owner | `development-specs` | `fdr.md` + the Tobiishi | `change_spec.md` |
+| 1a | QA | `red-behaviour` | `change_spec.md` + `change_request.md` + the product's `docs/nfdr.md` (its way in) and `docs/fdr.md` + the scenarios under the product's `.behave` | the change's scenarios under `.behave`, committed as its red, and `qa_record.md` |
 | 2 | Architect | `development-design` | `change_spec.md` + `adr/`/`fdr.md`/`nfdr.md` + `SDD.md` § 3 | `change_design.md` with its `Publishes text:` line |
 | 3 | Tech Lead | `development-plan` | `change_spec.md` + `change_design.md` + `adr/`/`fdr.md`/`nfdr.md` + `SDD.md` § 3 | `tl_instruction.md` |
 | 4 | Content Editor | `development-content` | `change_spec.md` + `change_design.md` (its `Publishes text:` line) + `CONTENT.md` + the writing bar | `change_text.md` |
@@ -43,6 +44,8 @@ each is written from; this file does not restate it.
 | 7 | Senior Engineer | `development-code-integrity` | Stage-5 code + `change_spec.md` + `SDD.md` § 3 | `code-integrity-report.md` + green suite |
 | 8 | Senior Engineer | `development-security` | the Stage-7 code | `security-report.md` (its `Security:` line) |
 | 9 | PM | `tobiishi-seal` | the change key + Stage-7 green suite | take `main`'s advance + suite green on it, then seal (result + move `<key>/` to `trail/` on branch) + `--no-ff` merge to `main` |
+
+**Stage 1a runs only where QA's step applies.** It applies to a change when the project card on `main` reads `**Behave:** behave` and the change's spec reads `**Behaviour:** changing`. On every other reading the walk passes the step with no launch, records `red-behaviour passed — <the line that decided it>`, and launches Stage 2. Where the step applies and the product's NFDR records no way in, the walk halts `no-way-in` before any launch. Otherwise QA writes the change's scenarios, commits them as its red and commits `qa_record.md`. Where the recorded way in reaches none of the behaviours the change adds, changes, or touches and keeps, QA writes no scenario and makes no red commit, and commits `qa_record.md` alone as a no-reach record, whose `No reach:` line says why. The chain then asks one verdict, which runs `uv run --locked behave` on a throwaway copy of the code before the change, and the stage passes when it accepts the red. The same verdict passes the stage on a no-reach record it accepts, and the walk records `red-behaviour passed — "<the No reach: line>"` and launches Stage 2. When the verdict answers that `main` is red, the chain launches `dependency-repair` in place of halting, as it does for the developer's red suite. A run that ends with neither a red commit nor a no-reach record the verdict accepts is run once more, and every other refusal halts (`step_outcome_contract.md` § *The halts*). A change already past Stage 1a on disk is entered there only while an ask it accepted has not yet returned to the step that asked. Two later seats may each send the walk back to this stage once, and must say why: the developer, from `implementation`, and the Architect, from `design`. An ask is a reason the run leaves, uncommitted, at the place the chain's `--qa-ask-place <key>` command prints, and the chain answers it when that run ends, before it judges the step's own evidence. An ask is turned down when it comes from any other step, when the walk passed this stage with no QA launch, when it gives no reason, or when its seat already had an ask accepted, and the walk then goes on as if no ask had been left. An accepted ask runs this stage again and nothing else, judged by the same verdict, and only QA's commits made after the ask count as its red. A no-reach record passes the re-run only when a commit made after the ask changed it. Once the verdict accepts that red or that no-reach record, the walk returns to the step that asked, and after the developer's ask the plan written before it stands. A re-run that passes on a no-reach record records `red-behaviour passed — "<the No reach: line>" — back to <asker>`. QA's step runs at most six times on one change, counted across all its walks, and the walk halts `qa-runs-spent` rather than start a seventh run. Each seat's skill makes that seat's ask. No later stage reads QA's files, and the audit does not cover this stage.
 
 **Stage 4 runs only for a change that publishes text.** The architect writes a `Publishes text:` line in
 `change_design.md`, and the chain reads its first word when the walk reaches the step. `yes` runs the
@@ -58,13 +61,15 @@ change's branch once Stage 5 has landed, and the walk counts it done when its `c
 committed on that branch, whatever the run changed in the product (`step_outcome_contract.md`). The
 audit still covers the five producers it covered before this stage existed, and not this one.
 
+**The close runs after Stage 8, before the audit and Stage 9, and launches no run.** In every walk that reaches the audit or Stage 9, the chain runs the close before it launches the first of them, and no walk takes the close's verdict from an earlier one. On a project card on `main` that does not read `**Behave:** behave`, the close passes at once and records `close passed — <the line that decided it>`, in the words Stage 1a's pass gives for the same card. On a card that does read it, the close first reads the commits of the change branch in the product's repository. A commit carrying `Role: Developer` that changed anything under the product's `.behave` stops the walk `close-refused`, and Behave does not run. Otherwise the chain runs `uv run --locked behave` over every scenario under `.behave`, in a throwaway copy of the change branch's tip, whatever the spec's `Behaviour:` line says. The close passes only when Behave reports at least one scenario and every reported scenario `passed`, and it then records `close passed — <n> scenarios passed at <short sha>`. Any other status stops the walk `close-red`, and so does a report naming no scenario. No report at all stops it `behave-unavailable` (`step_outcome_contract.md` § *The halts* names what each stop carries). The close reads a report the way Stage 1a's verdict reads its run on the code before the change, and it reads no QA record, no QA commit and no note. A stop ends the walk at once: the close is not retried, QA's step is not run, `dependency-repair` is not launched, and neither `development-audit` nor Stage 9 runs. The close writes nothing, commits nothing and needs no provider entry. When the close passes on a card that reads `**Behave:** behave`, the chain hands that walk's `close passed — …` line to Stage 9. Stage 9 writes the line, unchanged and followed by one newline, to `close_verdict.md` in the sealed folder under `trail/<key>/`, in its own seal commit. On any other card the chain hands Stage 9 no line. A Stage 9 handed none, including one launched outside a walk, writes no `close_verdict.md`.
+
 A product with no code has no suite. Its card reads `Test command: none`, and wherever the table says
 "green suite" it means `Suite: none` and no suite run (`step_outcome_contract.md` § What passes).
 
-The flow carries **one Tobiishi at a time**: each stage adds its artifact to the Tobiishi, the
-developer writes code into the codebase (Stage 5), the Content Editor records it in the changelog
+The flow carries **one Tobiishi at a time**: each stage adds its artifact to the Tobiishi, QA
+commits the change's scenarios into the product (Stage 1a), the developer writes code into the codebase (Stage 5), the Content Editor records it in the changelog
 (Stage 6), the Senior Engineer proves it against its intent (Stage 7), the Senior Engineer reviews its
-security (Stage 8), and `tobiishi-seal` merges it (Stage 9). How the
+security (Stage 8), the close runs every scenario the product holds on the finished code, and `tobiishi-seal` merges it (Stage 9). How the
 Tobiishi's artifacts pass between stages: `folder_state_handoff.md`.
 
 ## Code goes where the parts table puts it

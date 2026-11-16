@@ -28,8 +28,11 @@ Isolation: a tiny bash wrapper (`call_detach.sh`, written fresh per test into `t
 sources the real library and calls `detach_completion_watcher "$@"` with whatever argv the
 wrapper itself received — the same "source, then call" shape `companion-self-answer/launcher.sh`
 uses, minus everything a launcher does around it. `watch_agent.py` and the notifier are
-stubs; `caffeinate` is stubbed only in the tests that install it on `PATH`, and `ps` only
-in the identity tests, which script its answers rather than waiting on a clock.
+stubs. The keep-awake tests hand the library a fake hold starter (a shell function in the
+wrapper, through `DETACH_WATCHER_KEEPAWAKE_STARTER`), so the hold exists and is known before the
+call returns; they script `ps` and record `sleep` rather than waiting on a clock, and observe the
+release as their own stand-in hold exiting. `caffeinate` is stubbed on `PATH` for the few tests
+that run the library's real starter.
 """
 
 from __future__ import annotations
@@ -37,7 +40,9 @@ from __future__ import annotations
 import itertools
 import os
 import re
+import signal
 import subprocess
+import sys
 import time
 from pathlib import Path
 
@@ -101,6 +106,18 @@ CALL_STUB = """#!/usr/bin/env bash
 # own argv — a shim, not a launcher, so the library's contract is what is under test.
 set -euo pipefail
 source "{lib}"
+# The layer-1 fake of the keep-awake's hold starter (`DETACH_WATCHER_KEEPAWAKE_STARTER`). A shell function, so it runs inside this bash and starts nothing: it
+# records the argv it was handed and answers with the pid of the stand-in hold the test made and
+# owns. The hold has therefore started, and is known, before the call returns. Switched on by
+# `FAKE_STARTER_CALLS_LOG`; an empty `FAKE_HOLD_PID` is a starter that started nothing.
+fake_keepawake_starter() {{
+  echo "invoked" >> "$FAKE_STARTER_CALLS_LOG"
+  printf '%s\\n' "$@" >> "$FAKE_STARTER_ARGV_LOG"
+  printf '%s\\n' "$FAKE_HOLD_PID"
+}}
+if [ -n "${{FAKE_STARTER_CALLS_LOG:-}}" ]; then
+  DETACH_WATCHER_KEEPAWAKE_STARTER=fake_keepawake_starter
+fi
 detach_completion_watcher "$@"
 echo "DETACH_WATCHER_PID=$DETACH_WATCHER_PID"
 echo "DETACH_WATCHER_START=$DETACH_WATCHER_START"
@@ -150,20 +167,9 @@ printf '%s\\n' "$@" >> "$CAFFEINATE_ARGV_LOG"
 sleep 0.2
 """
 
-# Records its own pid and then holds until killed — standing in for the real
-# `caffeinate -i -s`, which holds the machine awake until something releases it. The plain
-# stub above exits on its own after 0.2s, which cannot tell "the hold was released" from
-# "the hold ended by itself"; this one can.
-CAFFEINATE_HOLDING_STUB = """#!/usr/bin/env bash
-echo "invoked" >> "$CAFFEINATE_CALLS_LOG"
-printf '%s\\n' "$@" >> "$CAFFEINATE_ARGV_LOG"
-echo "$$" > "$CAFFEINATE_PID_LOG"
-exec sleep 999999
-"""
-
-# A watcher that stays alive for a short, bounded window before exiting — the keep-awake
-# release tests need a watcher that is genuinely still running when the library returns, so
-# holding and then releasing are two observable states rather than one.
+# A watcher that stays alive for a short, bounded window before exiting — the start-time test
+# needs a watcher that is genuinely still running when the library returns, so `ps` can be asked
+# about it independently.
 WATCHER_STUB_SLEEPY = """import os, sys, time
 with open(os.environ["WATCHER_PID_LOG"], "w") as fh:
     fh.write(str(os.getppid()))  # the runner's uv, which is the pid the library records
@@ -173,53 +179,48 @@ time.sleep(0.5)
 """
 
 # Answers ONLY the `ps -o lstart= -p <pid>` shape the library's identity check uses, scripted
-# via $PS_ANSWERS_FILE (one answer per line, consumed in call order; the last line repeats
-# once exhausted). The literal answer "GONE" means no such process: exit 1 with no output,
-# what real `ps -p` does for a pid nothing occupies. A line answering something other than
-# what the first call answered is what a *reissued* pid looks like from outside — the same
-# number, a different process.
+# via $PS_ANSWERS_FILE (one answer per line, consumed in call order). The literal answer "GONE"
+# means no such process: exit 1 with no output, what real `ps -p` does for a pid nothing
+# occupies. A line answering something other than what the first call answered is what a
+# *reissued* pid looks like from outside — the same number, a different process.
 #
-# The scripted sequence does not begin until $PS_READY_FILE has content. Every call before
-# that answers "START" (the watched process is itself) and does not advance the counter, so
-# the capture the library takes before caffeinate exists consumes no line of the sequence.
-# This is a readiness gate, not a widened window, and the difference is the whole point:
-# scheduling the identity break by call ordinal races caffeinate's own fork+exec, and under
-# load the kill lands before the stub has written its pid — the test then fails as
-# "caffeinate never started" having proved nothing about identity. Widening the ordinal was
-# tried on the sibling suite (2d352d00) and still lost ten runs out of ten at ten-way
-# concurrency; a fork+exec under load has no upper bound to widen past. Gating on the event
-# removes the clock from the question instead
-# (`system/projects/launchers/docs/keep-awake-seam/code-integrity-report.md` § 5.2).
+# The first call is the library's own capture of the watcher's start time, taken before the
+# keep-awake exists; every later call is the poller's. **Once the script is exhausted the stub
+# answers GONE**, so every poller a test starts ends, and ends at a call the test can count: a
+# release that came at the right answer and one that came only at exhaustion are two different
+# call counts, never a test that hangs. Each call also records whether the stand-in hold was
+# still alive at that moment ($PS_HOLD_PID), which is how "the hold stayed up while the watched
+# process was itself" is read after the fact rather than sampled under a clock.
+#
+# There is no readiness gate any more. It existed because the hold was a `caffeinate` stub the
+# library detached, whose pid file landed some unbounded time after the call returned; the hold
+# is now handed in (`DETACH_WATCHER_KEEPAWAKE_STARTER`) and known before the poller starts.
 PS_STUB = """#!/usr/bin/env bash
-if [ -n "${PS_READY_FILE:-}" ] && [ ! -s "$PS_READY_FILE" ]; then
-  echo "$*" >> "$PS_ARGV_LOG"
-  printf '%s\\n' "${PS_PRE_READY_ANSWER:-START}"
-  exit 0
-fi
 n=$(( $(cat "$PS_CALL_COUNT_FILE" 2>/dev/null || echo 0) + 1 ))
 echo "$n" > "$PS_CALL_COUNT_FILE"
 echo "$*" >> "$PS_ARGV_LOG"
+if [ -n "${PS_HOLD_PID:-}" ]; then
+  if kill -0 "$PS_HOLD_PID" 2>/dev/null; then echo alive; else echo dead; fi >> "$PS_HOLD_LOG"
+fi
 total=$(wc -l < "$PS_ANSWERS_FILE" | tr -d ' ')
-idx="$n"
-[ "$idx" -gt "$total" ] && idx="$total"
-ans="$(sed -n "${idx}p" "$PS_ANSWERS_FILE")"
+ans=GONE
+[ "$n" -le "$total" ] && ans="$(sed -n "${n}p" "$PS_ANSWERS_FILE")"
 if [ "$ans" = "GONE" ]; then
   exit 1
 fi
 printf '%s\\n' "$ans"
 """
 
+# Stands in for `sleep` on the poller's PATH: records the interval it was asked for and returns at
+# once. The poll interval is then a value the test reads, not a length of time it waits out.
+SLEEP_STUB = """#!/usr/bin/env bash
+printf '%s\\n' "$*" >> "$SLEEP_ARGV_LOG"
+"""
 
-def _pid_alive(pid_text):
-    """True while a real process answers to `pid_text` — how a test tells whether the stub
-    `caffeinate` it installed is still holding (alive) or was released (killed)."""
-    try:
-        os.kill(int(pid_text), 0)
-    except (ProcessLookupError, ValueError):
-        return False
-    except PermissionError:
-        return True
-    return True
+# The stand-in hold: a process the test starts and owns, which holds until a signal ends it — the
+# role `caffeinate -i -s` plays for real. Being the test's own child is the point: `wait()` on it
+# is the release, observed as an event, with no deadline of the test's own.
+HOLD_STAND_IN = "import signal; signal.pause()"
 
 
 def _wait_until(predicate, timeout=5.0, interval=0.05):
@@ -231,24 +232,6 @@ def _wait_until(predicate, timeout=5.0, interval=0.05):
             return True
         time.sleep(interval)
     return predicate()
-
-
-def _release_holding_caffeinate(pid_log, wait=1.0):
-    """Kill the holding `caffeinate` stub a test installed, if one is still up. Waits for the
-    pid file, because the stub is detached and may write it after the test body returns."""
-    deadline = time.monotonic() + wait
-    while time.monotonic() < deadline:
-        if pid_log.exists() and pid_log.read_text().strip():
-            break
-        time.sleep(0.05)
-    if not pid_log.exists():
-        return
-    text = pid_log.read_text().strip()
-    if text and _pid_alive(text):
-        try:
-            os.kill(int(text), 9)
-        except (ProcessLookupError, PermissionError, ValueError):
-            pass
 
 
 @pytest.fixture
@@ -275,10 +258,12 @@ def call(tmp_path):
     wrapper and invoking `detach_completion_watcher` with `flags`.
 
     `call.watcher` / `call.notifier` are stub paths honouring the happy-path branch;
-    `call.watcher_argv()` / `call.logs()` / `call.caffeinate_calls()` /
-    `call.caffeinate_argv()` read back what the stubs recorded; `call.install_caffeinate()`
-    puts a `caffeinate` stub on `PATH` (absent by default, so the "not macOS?" path is the
-    default state).
+    `call.watcher_argv()` / `call.logs()` read back what the stubs recorded;
+    `call.install_caffeinate()` puts a `caffeinate` stub on `PATH` for the tests that run the
+    library's real hold starter. `call.install_fake_starter()` hands the library a fake hold
+    starter instead and returns the stand-in hold it answers with; `call.starter_calls()` /
+    `call.starter_argv()` read what that fake was handed — synchronously, because the fake runs
+    inside the call. `call.install_ps()` scripts the identity check the poller makes.
     """
     wrapper = tmp_path / "call_detach.sh"
     wrapper.write_text(CALL_STUB.format(lib=_LIB))
@@ -300,7 +285,12 @@ def call(tmp_path):
     notifier_log = tmp_path / "notifier_argv.log"
     caffeinate_calls_log = tmp_path / "caffeinate_calls.log"
     caffeinate_argv_log = tmp_path / "caffeinate_argv.log"
-    caffeinate_pid_log = tmp_path / "caffeinate_pid.log"
+    starter_calls_log = tmp_path / "starter_calls.log"
+    starter_argv_log = tmp_path / "starter_argv.log"
+    ps_argv_log = tmp_path / "ps_argv.log"
+    ps_hold_log = tmp_path / "ps_hold.log"
+    sleep_argv_log = tmp_path / "sleep_argv.log"
+    holds = []
 
     env = dict(os.environ)
     env["PATH"] = f"{bin_dir}{os.pathsep}{env['PATH']}"
@@ -309,7 +299,6 @@ def call(tmp_path):
     env["NOTIFIER_ARGV_LOG"] = str(notifier_log)
     env["CAFFEINATE_CALLS_LOG"] = str(caffeinate_calls_log)
     env["CAFFEINATE_ARGV_LOG"] = str(caffeinate_argv_log)
-    env["CAFFEINATE_PID_LOG"] = str(caffeinate_pid_log)
 
     def _call(*flags):
         return subprocess.run(
@@ -321,9 +310,8 @@ def call(tmp_path):
         )
 
     # The library backgrounds the watcher (`&`), so it may still be starting when the wrapper
-    # returns — past 2.5s inside a loaded `-n 32` run (2026-09-19). A presence read waits the
-    # same 10s the caffeinate read-back below does. The stub renames each record into place, so
-    # a file that exists is whole.
+    # returns — past 2.5s inside a loaded `-n 32` run (2026-09-19). A presence read waits 10s.
+    # The stub renames each record into place, so a file that exists is whole.
     def _watcher_argv(wait=10.0):
         for _ in range(int(wait / 0.05)):
             if argv_log.exists():
@@ -353,25 +341,6 @@ def call(tmp_path):
             time.sleep(0.05)
         return sorted(logs_dir.glob("watch-*.log")) if logs_dir.exists() else []
 
-    # The keep-awake bind is detached, so its caffeinate lands after the call returns — measured
-    # past 1s inside a loaded parallel run (`-n 32`, `core/pytest.ini`). A presence check waits
-    # this long; an absence check passes `wait=1.0`, since it always waits its whole budget out.
-    def _caffeinate_calls(wait=10.0):
-        for _ in range(int(wait / 0.05)):
-            if caffeinate_calls_log.exists() and caffeinate_calls_log.read_text():
-                break
-            time.sleep(0.05)
-        if not caffeinate_calls_log.exists():
-            return 0
-        return len(caffeinate_calls_log.read_text().splitlines())
-
-    def _caffeinate_argv(wait=10.0):
-        for _ in range(int(wait / 0.05)):
-            if caffeinate_argv_log.exists() and caffeinate_argv_log.read_text():
-                return caffeinate_argv_log.read_text().splitlines()
-            time.sleep(0.05)
-        return []
-
     def _slow_start(seconds):
         env["WATCHER_STUB_START_DELAY"] = str(seconds)
 
@@ -389,31 +358,57 @@ def call(tmp_path):
         stub.write_text(CAFFEINATE_STUB)
         stub.chmod(0o755)
 
-    def _install_holding_caffeinate():
-        """A `caffeinate` that holds until killed, and records the pid holding it."""
-        stub = bin_dir / "caffeinate"
-        stub.write_text(CAFFEINATE_HOLDING_STUB)
-        stub.chmod(0o755)
+    def _install_fake_starter():
+        """Hand the library a fake hold starter (see CALL_STUB) and return the stand-in hold it
+        answers with: a process this test started and owns, so its end is an event the test
+        waits on rather than a state it samples. The plain `caffeinate` stub goes on `PATH` as
+        well, so a library that ignored the port would still never start the machine's own."""
+        _install_caffeinate()
+        hold = subprocess.Popen([sys.executable, "-c", HOLD_STAND_IN])
+        holds.append(hold)
+        env["FAKE_HOLD_PID"] = str(hold.pid)
+        env["FAKE_STARTER_CALLS_LOG"] = str(starter_calls_log)
+        env["FAKE_STARTER_ARGV_LOG"] = str(starter_argv_log)
+        return hold
 
-    def _install_ps(answers, ready_file=None, poll_seconds="0.3"):
-        """A fake `ps` answering the library's identity check from `answers`, gated on
-        `ready_file` gaining content (default: the caffeinate pid log — see PS_STUB)."""
-        stub = bin_dir / "ps"
-        stub.write_text(PS_STUB)
-        stub.chmod(0o755)
+    def _starter_calls():
+        """How many holds the call started. Read once, with no wait: the fake runs inside the
+        call, so its record is whole by the time the call has returned."""
+        if not starter_calls_log.exists():
+            return 0
+        return len(starter_calls_log.read_text().splitlines())
+
+    def _starter_argv():
+        return starter_argv_log.read_text().splitlines() if starter_argv_log.exists() else []
+
+    def _install_ps(answers, poll_seconds="0.1"):
+        """A fake `ps` answering the identity check from `answers` (GONE once exhausted — see
+        PS_STUB), and a fake `sleep` recording the poller's interval instead of waiting it out.
+        `poll_seconds` is the env default the poller reads when no flag is passed."""
+        for name, text in (("ps", PS_STUB), ("sleep", SLEEP_STUB)):
+            stub = bin_dir / name
+            stub.write_text(text)
+            stub.chmod(0o755)
         answers_file = tmp_path / "ps_answers.txt"
         answers_file.write_text("".join(f"{a}\n" for a in answers))
         env["PS_ANSWERS_FILE"] = str(answers_file)
-        env["PS_READY_FILE"] = str(ready_file or caffeinate_pid_log)
         env["PS_CALL_COUNT_FILE"] = str(tmp_path / "ps_call_count.txt")
-        env["PS_ARGV_LOG"] = str(tmp_path / "ps_argv.log")
+        env["PS_ARGV_LOG"] = str(ps_argv_log)
+        env["PS_HOLD_LOG"] = str(ps_hold_log)
+        env["SLEEP_ARGV_LOG"] = str(sleep_argv_log)
         env["DETACH_WATCHER_KEEPAWAKE_POLL_SECONDS"] = poll_seconds
+        if "FAKE_HOLD_PID" in env:
+            env["PS_HOLD_PID"] = env["FAKE_HOLD_PID"]
 
-    def _set_ps_answers(answers):
-        """Rewrite the scripted answers mid-test. The stub re-reads the file on every call,
-        so flipping it is how a test says "the watched process just changed" at a moment it
-        chooses, rather than at a call ordinal it has to guess."""
-        (tmp_path / "ps_answers.txt").write_text("".join(f"{a}\n" for a in answers))
+    def _released(hold):
+        """Wait for the poller to end the stand-in hold, and return how it ended. The wait is
+        an event — the test's own child exiting — bounded by nothing of this test's own: a
+        poller always ends, because the scripted `ps` answers GONE once exhausted, so a wrong
+        release shows up as the wrong call count below rather than as a hang."""
+        return hold.wait()
+
+    def _read_lines(path):
+        return path.read_text().splitlines() if path.exists() else []
 
     def _use_sleepy_watcher():
         """Swap the instantly-terminal watcher stub for one that lives ~0.5s, so "holding"
@@ -421,22 +416,14 @@ def call(tmp_path):
         watcher_stub.write_text(WATCHER_STUB_SLEEPY)
         env["DETACH_WATCHER_KEEPAWAKE_POLL_SECONDS"] = "0.1"
 
-    def _caffeinate_pid():
-        for _ in range(100):
-            if caffeinate_pid_log.exists():
-                text = caffeinate_pid_log.read_text().strip()
-                if text:
-                    return text
-            time.sleep(0.05)
-        return None
-
     def _ps_argv():
-        log = tmp_path / "ps_argv.log"
-        for _ in range(100):
-            if log.exists() and log.read_text().strip():
-                return log.read_text().splitlines()
-            time.sleep(0.05)
-        return []
+        return _read_lines(ps_argv_log)
+
+    def _ps_hold_states():
+        return _read_lines(ps_hold_log)
+
+    def _sleeps():
+        return _read_lines(sleep_argv_log)
 
     _call.root = tmp_path
     _call.env = env
@@ -446,24 +433,25 @@ def call(tmp_path):
     _call.watcher_pid = _watcher_pid
     _call.slow_start = _slow_start
     _call.logs = _logs
-    _call.caffeinate_calls = _caffeinate_calls
-    _call.caffeinate_argv = _caffeinate_argv
     _call.install_caffeinate = _install_caffeinate
-    _call.install_holding_caffeinate = _install_holding_caffeinate
+    _call.install_fake_starter = _install_fake_starter
+    _call.starter_calls = _starter_calls
+    _call.starter_argv = _starter_argv
     _call.install_ps = _install_ps
-    _call.set_ps_answers = _set_ps_answers
+    _call.released = _released
     _call.use_sleepy_watcher = _use_sleepy_watcher
-    _call.caffeinate_pid = _caffeinate_pid
     _call.ps_argv = _ps_argv
+    _call.ps_hold_states = _ps_hold_states
+    _call.sleeps = _sleeps
     yield _call
 
-    # A holding `caffeinate` stub outlives a failing test by design (that is what makes a
-    # never-released hold visible), so the fixture releases it rather than leaving a
-    # `sleep 999999` behind on the dev machine.
-    # Polled, not read once: the stub is spawned detached, so it can write its pid AFTER a
-    # short test has finished — nine `sleep 999999` processes outlived a red run measured this
-    # way before the wait was added.
-    _release_holding_caffeinate(caffeinate_pid_log)
+    # A stand-in hold outlives a test that failed before its release, so the fixture ends it
+    # rather than leaving it behind. It is this test's own child, so ending and reaping it needs
+    # no pid file and no wait for one.
+    for hold in holds:
+        if hold.poll() is None:
+            hold.kill()
+            hold.wait()
 
 
 def _reported_pid(result):
@@ -1263,30 +1251,20 @@ def test_both_missing_names_both(call):
 
 def test_keep_awake_starts_one_caffeinate_and_binds_it_to_no_pid_number(call):
     """One hold per call, and `caffeinate` itself waits on nothing: `-w` takes a pid NUMBER,
-    which the kernel reissues, so the release is the poller's job (below) and not a flag's."""
-    call.install_holding_caffeinate()
-    call.install_ps(["GONE"])
+    which the kernel reissues, so the release is the poller's job (below) and not a flag's.
+    The starter is handed in, so what it was asked to start is read the moment the call
+    returns — there is no detached process whose record has to be waited for."""
+    hold = call.install_fake_starter()
+    call.install_ps(["START"])
 
     result = call(*_flags(call), "--keep-awake")
 
     assert result.returncode == 0
-    assert call.caffeinate_calls() == 1
-    # The stub's `printf` writes its argv one line per write, so a non-empty file can hold only
-    # `-i`. Its pid record is written after the whole argv, so the argv is read under one
-    # deadline until that record is there — the record first, then the argv it vouches for.
-    argv_log = Path(call.env["CAFFEINATE_ARGV_LOG"])
-    pid_log = Path(call.env["CAFFEINATE_PID_LOG"])
-    deadline = time.monotonic() + 30.0
-    while True:
-        whole = pid_log.exists() and bool(pid_log.read_text())
-        argv = argv_log.read_text().splitlines() if argv_log.exists() else []
-        if whole:
-            break
-        if time.monotonic() >= deadline:
-            pytest.fail(f"caffeinate's argv was never written whole: {argv}")
-        time.sleep(0.05)
+    assert call.starter_calls() == 1
+    argv = call.starter_argv()
     assert "-i" in argv and "-s" in argv
     assert "-w" not in argv, f"a bare-pid wait survives in caffeinate's argv: {argv}"
+    assert call.released(hold) == -signal.SIGTERM
 
 
 def test_keep_awake_keys_its_release_on_the_watchers_own_pid_not_some_other_process(call):
@@ -1297,16 +1275,18 @@ def test_keep_awake_keys_its_release_on_the_watchers_own_pid_not_some_other_proc
     count assertion above cannot catch it: the keep-awake would simply end when the *wrong*
     process ends. Pinned against the pid the stub watcher records for itself.
     """
-    call.install_holding_caffeinate()
+    hold = call.install_fake_starter()
     call.install_ps(["START", "GONE"])
 
     result = call(*_flags(call), "--keep-awake")
 
     assert result.returncode == 0
+    assert call.starter_calls() == 1, "the keep-awake never started its hold"
+    assert call.released(hold) == -signal.SIGTERM
     watcher_pid = call.watcher_pid()
     assert watcher_pid is not None, "the stub watcher never ran, so there is no pid to key on"
     checks = call.ps_argv()
-    assert checks, "the keep-awake never consulted `ps` — nothing keys it to a process at all"
+    assert len(checks) == 2, f"expected the capture and one poller check, got: {checks}"
     assert all("-o lstart=" in line and "-p" in line for line in checks), (
         f"expected `ps -o lstart= -p <pid>` identity checks, got: {checks}"
     )
@@ -1316,28 +1296,37 @@ def test_keep_awake_keys_its_release_on_the_watchers_own_pid_not_some_other_proc
 
 
 def test_no_keep_awake_flag_means_zero_caffeinate_invocations(call):
-    call.install_caffeinate()
+    call.install_fake_starter()
 
     call(*_flags(call))
 
-    assert call.caffeinate_calls(wait=1.0) == 0
+    assert call.starter_calls() == 0
 
 
 def test_keep_awake_on_the_else_branch_binds_no_caffeinate_and_says_so(call):
-    call.install_caffeinate()
+    call.install_fake_starter()
 
     result = call(*_flags(call, **{"--watcher": str(call.root / "nope.py")}), "--keep-awake")
 
     assert result.returncode == 0
-    assert call.caffeinate_calls(wait=1.0) == 0
+    assert call.starter_calls() == 0
     assert "keep-awake needs a completion watcher" in result.stdout
 
 
-# The "caffeinate not found" fallback line is not pinned here: on the real macOS dev
-# machine `/usr/bin/caffeinate` always exists, and faking its absence would mean masking
-# `/usr/bin` from PATH — which also hides `nohup`, load-bearing for the happy path itself.
-# None of the sibling launcher suites (`experience-voice`, `companion-self-answer`) pin
-# this branch either, for the same reason.
+def test_a_starter_that_starts_no_hold_says_so_and_polls_nothing(call):
+    """The "caffeinate not found" fallback, reached through the port rather than by masking the
+    machine's own tool off `PATH`: a starter that answers with no pid has started nothing, so
+    there is nothing to bind a poller to and the call says it skipped."""
+    call.install_fake_starter()
+    call.env["FAKE_HOLD_PID"] = ""
+    call.install_ps(["START"])
+
+    result = call(*_flags(call), "--keep-awake")
+
+    assert result.returncode == 0
+    assert call.starter_calls() == 1
+    assert "(keep-awake: caffeinate not found — not macOS? — skipped)" in result.stdout
+    assert "Keep-awake:" not in result.stdout
 
 
 # --- --noun (the caller-supplied report noun, defaulting to "run") ----------------------
@@ -1547,14 +1536,16 @@ def test_keep_awake_keys_its_release_on_the_pid_detach_watcher_pid_reports(call)
     """Nothing else about the function changes: `--keep-awake`'s release still keys on the
     same pid the function publishes as `DETACH_WATCHER_PID` — a fan-out caller reading that
     variable per call is reading the process this hold is tied to."""
-    call.install_holding_caffeinate()
+    hold = call.install_fake_starter()
     call.install_ps(["START", "GONE"])
 
     result = call(*_flags(call), "--keep-awake")
 
+    assert call.starter_calls() == 1, "the keep-awake never started its hold"
+    assert call.released(hold) == -signal.SIGTERM
     reported = _reported_pid(result)
     checks = call.ps_argv()
-    assert checks, "the keep-awake never consulted `ps`"
+    assert len(checks) == 2, f"expected the capture and one poller check, got: {checks}"
     assert all(line.split()[-1] == reported for line in checks), (
         f"the identity check named a pid other than the reported one ({reported}): {checks}"
     )
@@ -1569,7 +1560,8 @@ def test_all_four_caller_values_land_together(call):
     others: the alias spelling survives into the argv, `--head-repo` rides alongside it, the
     caller's noun replaces "run" in both lines that name it, and the spawned pid is published
     and is the one `--keep-awake` binds."""
-    call.install_caffeinate()
+    hold = call.install_fake_starter()
+    call.install_ps(["START"])
 
     result = call(
         *_flags(call),
@@ -1592,9 +1584,11 @@ def test_all_four_caller_values_land_together(call):
 
     reported = _reported_pid(result)
     assert reported == call.watcher_pid()
-    assert "-w" not in call.caffeinate_argv(), (
-        f"a bare-pid wait survives in caffeinate's argv: {call.caffeinate_argv()}"
+    assert call.starter_calls() == 1
+    assert "-w" not in call.starter_argv(), (
+        f"a bare-pid wait survives in caffeinate's argv: {call.starter_argv()}"
     )
+    assert call.released(hold) == -signal.SIGTERM
 
 
 # --- sourcing alone --------------------------------------------------------------------
@@ -1632,47 +1626,50 @@ def test_the_library_file_exists():
 
 def test_keep_awake_holds_while_the_watched_process_is_still_itself(call):
     """The under-live half, which a release test alone cannot see: while the watched pid is
-    still answering as the same process, the hold must stay up. The scripted `ps` keeps
-    answering `START` — the identity captured at spawn — so this is deterministic: nothing
-    can release it until the test itself says the process changed."""
-    call.install_holding_caffeinate()
-    call.install_ps(["START"], poll_seconds="0.1")
+    still answering as the same process, the hold must stay up. The scripted `ps` answers
+    `START` — the identity captured at spawn — four times and then nothing, and records at
+    each answer whether the hold was alive. So the test reads, after the release, that the hold
+    was up at every check the watcher was still itself, and that it ended only after the last
+    one: no moment is sampled, and no deadline decides anything."""
+    hold = call.install_fake_starter()
+    call.install_ps(["START", "START", "START", "START"])
 
     result = call(*_flags(call), "--keep-awake")
 
     assert result.returncode == 0
-    caff_pid = call.caffeinate_pid()
-    assert caff_pid, "caffeinate never started"
-    assert _wait_until(lambda: len(call.ps_argv()) >= 3), (
-        "the keep-awake never re-checked the watched process — nothing is polling"
-    )
-    assert _pid_alive(caff_pid), "the hold was released while the watcher was still itself"
-
-    call.set_ps_answers(["GONE"])
-    assert _wait_until(lambda: not _pid_alive(caff_pid)), (
+    assert call.starter_calls() == 1, "caffeinate never started"
+    assert call.released(hold) == -signal.SIGTERM, (
         "the hold never released after the watched process was gone"
+    )
+    states = call.ps_hold_states()
+    assert len(states) == 5, (
+        "expected the capture, three re-checks that found the watcher still itself, and the "
+        f"check that found it gone; the poller made {len(states) - 1} checks"
+    )
+    assert states[:4] == ["alive"] * 4, (
+        f"the hold was released while the watcher was still itself: {states}"
     )
 
 
 def test_a_recycled_pid_does_not_hold_the_machine_awake(call):
     """The defect this station exists to fix. The same pid number keeps answering — a live
     process is there — but it reports a different start time, which is exactly what a
-    reissued pid looks like from outside. The hold must release on that, not ride it."""
-    call.install_holding_caffeinate()
-    call.install_ps(["START", "OTHER"], poll_seconds="0.1")
+    reissued pid looks like from outside. The hold must release on that, not ride it: the
+    scripted `ps` keeps answering `OTHER` for three more checks, so a poller that rode it would
+    release only at exhaustion, three calls later."""
+    hold = call.install_fake_starter()
+    call.install_ps(["START", "OTHER", "OTHER", "OTHER", "OTHER"])
 
     result = call(*_flags(call), "--keep-awake")
 
     assert result.returncode == 0
-    caff_pid = call.caffeinate_pid()
-    assert caff_pid, "caffeinate never started"
-    assert _wait_until(lambda: not _pid_alive(caff_pid)), (
-        "the keep-awake is still holding after the watched pid was answered by an "
-        "unrelated process"
-    )
-
+    assert call.starter_calls() == 1, "caffeinate never started"
+    assert call.released(hold) == -signal.SIGTERM
     checks = call.ps_argv()
-    assert checks, "the identity check never consulted ps"
+    assert len(checks) == 2, (
+        "the keep-awake held on after the watched pid was answered by an unrelated process: "
+        f"it released only after {len(checks)} identity checks"
+    )
     assert "-o lstart=" in checks[0] and "-p" in checks[0], (
         f"expected a `ps -o lstart= -p <pid>` identity check, got: {checks[0]!r}"
     )
@@ -1688,47 +1685,37 @@ def test_a_recycled_pid_does_not_hold_the_machine_awake(call):
 
 
 def test_keepawake_poll_seconds_flag_sets_the_pollers_interval(call):
-    """The flag wins over the env var, proved by effect rather than by reading argv: the env
-    is set to an interval so long that a poller obeying it cannot re-check inside the wait
-    window, and the flag to one that must. Counting `ps` calls is the only observation that
-    can tell the two apart — the interval is a `sleep` inside a detached subshell, invisible
-    to any argv the caller can inspect."""
-    call.install_holding_caffeinate()
-    call.install_ps(["START"], poll_seconds="30")
+    """The flag wins over the env var, proved by the interval the poller actually asked
+    `sleep` for: the env says 30 and the flag 0.1. The `sleep` on the poller's `PATH` records
+    its argument and returns at once, so the interval is read as a value rather than waited
+    out as a length of time."""
+    hold = call.install_fake_starter()
+    call.install_ps(["START", "START", "START"], poll_seconds="30")
 
     result = call(*_flags(call), "--keep-awake", "--keepawake-poll-seconds", "0.1")
 
     assert result.returncode == 0
-    caff_pid = call.caffeinate_pid()
-    assert caff_pid, "caffeinate never started"
-    assert _wait_until(lambda: len(call.ps_argv()) >= 3), (
-        "the poller re-checked fewer than three times — it is sleeping on the env var's 30s "
-        f"rather than the flag's 0.1s. ps calls seen: {len(call.ps_argv())}"
-    )
-
-    call.set_ps_answers(["GONE"])
-    assert _wait_until(lambda: not _pid_alive(caff_pid)), (
-        "the hold never released after the watched process was gone"
+    assert call.starter_calls() == 1, "caffeinate never started"
+    assert call.released(hold) == -signal.SIGTERM
+    assert call.sleeps() == ["0.1", "0.1"], (
+        f"the poller slept on something other than the flag's 0.1s: {call.sleeps()}"
     )
 
 
 def test_omitting_keepawake_poll_seconds_leaves_the_env_default_in_force(call):
     """The other half, and the one that keeps the six callers already on this home unchanged:
     a call that passes no flag still polls on `DETACH_WATCHER_KEEPAWAKE_POLL_SECONDS`."""
-    call.install_holding_caffeinate()
-    call.install_ps(["START"], poll_seconds="0.1")
+    hold = call.install_fake_starter()
+    call.install_ps(["START", "START", "START"], poll_seconds="0.7")
 
     result = call(*_flags(call), "--keep-awake")
 
     assert result.returncode == 0
-    caff_pid = call.caffeinate_pid()
-    assert caff_pid, "caffeinate never started"
-    assert _wait_until(lambda: len(call.ps_argv()) >= 3), (
-        "the env var no longer sets the poll interval for a caller that passes no flag"
+    assert call.starter_calls() == 1, "caffeinate never started"
+    assert call.released(hold) == -signal.SIGTERM
+    assert call.sleeps() == ["0.7", "0.7"], (
+        f"the env var no longer sets the poll interval for a caller that passes no flag: {call.sleeps()}"
     )
-
-    call.set_ps_answers(["GONE"])
-    assert _wait_until(lambda: not _pid_alive(caff_pid))
 
 
 def test_keepawake_poll_seconds_never_trips_the_missing_required_flag_guard(call):
@@ -1749,9 +1736,13 @@ def test_the_library_neither_uses_nor_documents_a_bare_pid_wait(call):
     source = _LIB.read_text()
     body = "\n".join(l for l in source.splitlines() if not l.lstrip().startswith("#"))
 
-    caffeinate_calls = [l for l in body.splitlines() if "caffeinate -i -s" in l]
+    # Two lines make the invocation: the real starter detaches `caffeinate` with the argv it is
+    # handed, and the keep-awake hands it that argv through the starter port.
+    caffeinate_calls = [l for l in body.splitlines() if "nohup caffeinate" in l]
     assert caffeinate_calls, "the library no longer invokes caffeinate at all"
-    for line in caffeinate_calls:
+    starter_calls = [l for l in body.splitlines() if '"$starter"' in l]
+    assert starter_calls, "the keep-awake no longer starts its hold through the starter port"
+    for line in caffeinate_calls + starter_calls:
         assert " -w " not in line, f"a bare-pid caffeinate wait survives: {line.strip()!r}"
 
     header = "\n".join(
